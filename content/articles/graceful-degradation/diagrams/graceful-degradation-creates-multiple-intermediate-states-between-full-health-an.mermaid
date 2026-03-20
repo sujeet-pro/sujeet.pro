@@ -1,0 +1,26 @@
+flowchart TB
+    subgraph "Healthy State"
+        H1[Full Functionality]
+    end
+
+    subgraph "Degraded States"
+        D1[Stale Data]
+        D2[Reduced Features]
+        D3[Read-Only Mode]
+        D4[Static Fallback]
+    end
+
+    subgraph "Failure"
+        F1[Complete Outage]
+    end
+
+    H1 -->|"Component Failure"| D1
+    H1 -->|"Overload"| D2
+    H1 -->|"Write Path Down"| D3
+    D1 -->|"Cache Miss"| D4
+    D2 -->|"Cascade"| D3
+    D3 -->|"All Fallbacks Exhausted"| F1
+
+    D1 -.->|"Recovery"| H1
+    D2 -.->|"Recovery"| H1
+    D3 -.->|"Recovery"| H1

@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant C as Client
+    participant M as Memtable
+    participant W as WAL
+    participant S as SSTable
+
+    C->>W: 1. Append to WAL (durability)
+    W-->>C: ACK
+    C->>M: 2. Update memtable
+    M-->>C: Success
+
+    Note over M: Memtable fills up
+    M->>S: 3. Flush to SSTable
+    Note over S: Immutable, sorted file

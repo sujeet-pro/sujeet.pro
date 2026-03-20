@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph "The Search Decision"
+        Q["What are you searching?"]
+        Q --> A["Array"]
+        Q --> G["Graph"]
+
+        A --> AS["Sorted?"]
+        AS -->|No| LS["Linear O(n)"]
+        AS -->|Yes| BS["Binary O(log n)"]
+
+        G --> GW["Weighted?"]
+        GW -->|No| BFS["BFS (shortest)"]
+        GW -->|No| DFS["DFS (any path)"]
+        GW -->|Yes| D["Dijkstra"]
+        GW -->|Yes + heuristic| ASTAR["A*"]
+    end

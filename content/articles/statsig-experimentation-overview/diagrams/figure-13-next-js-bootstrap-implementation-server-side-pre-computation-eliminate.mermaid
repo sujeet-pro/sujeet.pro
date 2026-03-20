@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant User as User
+    participant Next as Next.js
+    participant Statsig as Statsig Server
+    participant Client as Client SDK
+    participant React as React App
+
+    User->>Next: GET /page
+    Next->>Next: getServerSideProps()
+    Next->>Statsig: getBootstrapValues(user)
+    Statsig->>Statsig: Local evaluation
+    Statsig-->>Next: Bootstrap values
+    Next->>User: HTML + bootstrap values
+
+    User->>Client: initializeSync(bootstrap)
+    Client->>React: Feature flags ready
+    React->>React: Conditional rendering
+
+    Note over React: No UI flicker
+    Note over Client: Instant initialization

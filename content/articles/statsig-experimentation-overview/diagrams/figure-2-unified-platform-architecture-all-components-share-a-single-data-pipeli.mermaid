@@ -1,0 +1,27 @@
+graph LR
+    A[Feature Flags] --> E[Unified Data Pipeline]
+    B[Experimentation] --> E
+    C[Product Analytics] --> E
+    D[Session Replay] --> E
+
+    E --> F[Assignment Service]
+    E --> G[Configuration Service]
+    E --> H[Metrics Pipeline]
+    E --> I[Analysis Service]
+
+    F --> J[User Assignments]
+    G --> K[Rule Definitions]
+    H --> L[Event Processing]
+    I --> M[Statistical Analysis]
+
+    J --> N[Consistent Results]
+    K --> N
+    L --> N
+    M --> N
+
+    style E fill:#e3f2fd
+    style N fill:#c8e6c9
+    style A fill:#fff3e0
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fce4ec

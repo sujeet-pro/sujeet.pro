@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph "Application Layer"
+        App[Application]
+    end
+
+    subgraph "Vitess Proxy Layer"
+        VG[VTGate<br/>Query Router]
+    end
+
+    subgraph "Per-MySQL Sidecar"
+        VT1[VTTablet<br/>Connection Pool<br/>Query Safety]
+        VT2[VTTablet]
+        VT3[VTTablet]
+    end
+
+    subgraph "Storage"
+        DB1[(MySQL<br/>Primary)]
+        DB2[(MySQL<br/>Primary)]
+        DB3[(MySQL<br/>Primary)]
+        R1[(Replicas)]
+        R2[(Replicas)]
+        R3[(Replicas)]
+    end
+
+    subgraph "Metadata"
+        TS[(Topology Service<br/>etcd / ZooKeeper)]
+    end
+
+    App -->|"MySQL protocol<br/>or gRPC"| VG
+    VG --> VT1
+    VG --> VT2
+    VG --> VT3
+    VT1 --> DB1
+    VT2 --> DB2
+    VT3 --> DB3
+    DB1 --> R1
+    DB2 --> R2
+    DB3 --> R3
+    TS -.-> VG
+    TS -.-> VT1
+    TS -.-> VT2
+    TS -.-> VT3

@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Foundation["Foundation (Months 1-3)"]
+        A[Pain Point Audit] --> B[ROI Model]
+        B --> C[Executive Sponsor]
+    end
+
+    subgraph Structure["Structure (Months 2-4)"]
+        C --> D{Org Size?}
+        D -->|< 50 eng| E[Centralized]
+        D -->|50-200 eng| F[Hybrid]
+        D -->|> 200 eng| G[Federated]
+    end
+
+    subgraph Scaling["Scaling (Ongoing)"]
+        E & F & G --> H[Champion Network]
+        H --> I[Adoption Metrics]
+        I --> J[Governance Adjustment]
+        J --> H
+    end

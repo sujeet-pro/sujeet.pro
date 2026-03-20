@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant C as Client
+    participant API as API Server
+    participant KGS as Key Gen Service
+    participant S3 as Object Storage
+    participant DB as PostgreSQL
+    participant Q as Message Queue
+
+    C->>API: POST /api/v1/pastes {content, expiration, visibility}
+    API->>API: Validate (size, rate limit)
+    API->>KGS: Request key
+    KGS-->>API: paste_id = "aB3kF9x"
+    API->>API: zstd compress content
+    API->>API: SHA-256 hash (for dedup check)
+    API->>S3: PUT /pastes/aB3kF9x.zst
+    S3-->>API: 200 OK
+    API->>DB: INSERT metadata (paste_id, content_hash, expires_at, visibility)
+    DB-->>API: Inserted
+    API->>Q: Enqueue syntax highlighting job
+    API-->>C: 201 {paste_id, url, expires_at}

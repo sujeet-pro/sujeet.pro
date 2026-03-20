@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant RLS as Rate Limit Service
+    participant R as Redis Cluster
+
+    C->>GW: POST /api/v1/orders (API-Key: abc123)
+    GW->>RLS: ShouldRateLimit(domain, descriptors)
+    RLS->>R: Lua: sliding_window_check(key, limit, window)
+    R-->>RLS: {allowed: false, remaining: 0, reset_at: 1706000060}
+    RLS-->>GW: DENY {remaining: 0, limit: 50, reset: 42s}
+    GW-->>C: 429 Too Many Requests + Retry-After: 42

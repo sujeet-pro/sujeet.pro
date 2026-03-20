@@ -1,0 +1,9 @@
+flowchart LR
+    A["Restart<br/>servers"] --> B["Shard-map<br/>construction<br/>consumes CPU"]
+    B --> C["Few resources<br/>for requests"]
+    C --> D["Health checks<br/>fail"]
+    D --> E["Servers removed<br/>from fleet"]
+    E --> A
+
+    style D fill:#f87171,stroke:#991b1b,color:#000
+    style E fill:#f87171,stroke:#991b1b,color:#000

@@ -1,0 +1,7 @@
+flowchart LR
+    DB[(PostgreSQL)] --> CDC[Debezium]
+    CDC --> K[Kafka]
+    K --> CI[Cache Invalidator]
+    CI --> R[(Redis)]
+    APP[Application] --> R
+    APP --> DB

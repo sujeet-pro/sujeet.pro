@@ -1,0 +1,53 @@
+flowchart TB
+    subgraph Network["Network & Parser"]
+        direction LR
+        HTML[HTML Bytes]
+        CSS[CSS Bytes]
+        JS[JS Bytes]
+    end
+
+    subgraph MainThread["Main Thread (Renderer Process)"]
+        direction LR
+        DOM[DOM Tree]
+        CSSOM[CSSOM Tree]
+        Style[Style Recalc]
+        Layout[Layout]
+        Prepaint[Prepaint<br/>Property Trees]
+        Paint[Paint<br/>Display Lists]
+    end
+
+    subgraph CompositorThread["Compositor Thread"]
+        direction LR
+        Commit[Commit]
+        Tiling[Tiling]
+        Raster[Rasterize]
+        Composite[Composite]
+    end
+
+    subgraph GPU["GPU / Viz Process"]
+        Draw[Draw to Screen]
+    end
+
+    HTML --> DOM
+    CSS --> CSSOM
+    JS -.->|Blocks| DOM
+    DOM --> Style
+    CSSOM --> Style
+    Style --> Layout
+    Layout --> Prepaint
+    Prepaint --> Paint
+    Paint --> Commit
+    Commit --> Tiling
+    Tiling --> Raster
+    Raster --> Composite
+    Composite --> Draw
+
+    style DOM fill:#e1f5fe
+    style CSSOM fill:#fff3e0
+    style Style fill:#f3e5f5
+    style Layout fill:#ffebee
+    style Prepaint fill:#fff9c4
+    style Paint fill:#e8f5e9
+    style Commit fill:#fce4ec
+    style Raster fill:#eeeeee
+    style Composite fill:#c8e6c9

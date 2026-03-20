@@ -1,0 +1,22 @@
+graph LR
+    subgraph "Client-Side Composition"
+        A[Browser] --> B[Application Shell]
+        B --> C[Module Federation]
+        B --> D[Web Components]
+        B --> E[Iframes]
+    end
+
+    subgraph "Server-Side Composition"
+        F[Origin Server] --> G[SSR Framework]
+        G --> H[Server-Side Includes]
+    end
+
+    subgraph "Edge-Side Composition"
+        I[CDN Edge] --> J[Cloudflare Workers]
+        I --> K[ESI]
+        I --> L["Lambda@Edge"]
+    end
+
+    M[User Request] --> A
+    M --> F
+    M --> I

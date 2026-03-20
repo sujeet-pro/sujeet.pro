@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph Before["2008: Monolith"]
+        Client1["Clients"] --> NCCP["NCCP\n(Monolithic API)"]
+        NCCP --> Oracle["Oracle DB\n(Single SPOF)"]
+    end
+
+    subgraph Migration["2009–2016: 7-Year Migration"]
+        direction TB
+        P1["Phase 1\nNon-critical workloads\n(2009)"]
+        P2["Phase 2\nStateless services\n(2010–2012)"]
+        P3["Phase 3\nData tier migration\n(2012–2014)"]
+        P4["Phase 4\nMulti-region active-active\n(2015–2016)"]
+        P1 --> P2 --> P3 --> P4
+    end
+
+    subgraph After["2016: Microservices"]
+        Client2["Clients"] --> Zuul["Zuul\n(API Gateway)"]
+        Zuul --> MS1["700+ Microservices"]
+        MS1 --> Cass["Cassandra\n(Distributed)"]
+        MS1 --> EVC["EVCache\n(Memcached)"]
+    end
+
+    Before -->|"2008 DB corruption\ntriggers migration"| Migration
+    Migration -->|"Jan 2016\nmigration complete"| After

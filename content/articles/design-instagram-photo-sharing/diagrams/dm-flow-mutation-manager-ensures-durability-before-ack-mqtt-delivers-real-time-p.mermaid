@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant A as Alice (Sender)
+    participant GW as API Gateway
+    participant DM as DM Service
+    participant DMM as Mutation Manager
+    participant CASS as Cassandra
+    participant MQTT as MQTT Broker
+    participant B as Bob (Recipient)
+
+    A->>GW: Send message
+    GW->>DM: Forward with auth
+    DM->>DMM: Queue mutation
+    DMM->>CASS: Persist message
+    DMM->>MQTT: Publish to recipient channel
+    MQTT-->>B: Push notification
+    DMM-->>DM: Confirm persistence
+    DM-->>A: ACK (optimistic UI already shown)

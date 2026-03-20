@@ -1,0 +1,6 @@
+flowchart LR
+    APP["Application"] --> ESP["Email Service Provider<br/>(SendGrid, Mailgun)"]
+    ESP --> RECIP["Recipient MTAs"]
+
+    MX["Inbound MX"] --> WEBHOOK["Webhook Handler"]
+    WEBHOOK --> APP

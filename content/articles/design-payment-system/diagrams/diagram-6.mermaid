@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph Input["Transaction Data"]
+        TX[Transaction]
+        CARD[Card Fingerprint]
+        DEVICE[Device Fingerprint]
+        BEHAV[Behavioral Signals]
+    end
+
+    subgraph Features["Feature Engineering"]
+        VEL[Velocity Features]
+        HIST[Historical Features]
+        GEO[Geolocation Features]
+        CARD_F[Card Features]
+    end
+
+    subgraph Scoring["ML Scoring"]
+        MODEL[Fraud Model<br/>DNN]
+        RULES[Rule Engine]
+    end
+
+    subgraph Decision["Decision"]
+        SCORE[Risk Score<br/>0-99]
+        ACTION{Score >= 75?}
+        BLOCK[Block]
+        REVIEW[Review Queue]
+        ALLOW[Allow]
+    end
+
+    TX & CARD & DEVICE & BEHAV --> VEL & HIST & GEO & CARD_F
+    VEL & HIST & GEO & CARD_F --> MODEL
+    MODEL --> SCORE
+    SCORE --> ACTION
+    ACTION -->|Yes| BLOCK
+    ACTION -->|65-74| REVIEW
+    ACTION -->|No| ALLOW

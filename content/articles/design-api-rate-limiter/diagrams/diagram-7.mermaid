@@ -1,0 +1,10 @@
+flowchart TD
+    REQ["Request arrives"] --> GLOBAL{"Global<br/>aggregate<br/>limit?"}
+    GLOBAL -->|Over| DENY["429 Deny"]
+    GLOBAL -->|Under| TIER{"Tier limit<br/>(free/pro/ent)?"}
+    TIER -->|Over| DENY
+    TIER -->|Under| ENDPOINT{"Per-endpoint<br/>limit?"}
+    ENDPOINT -->|Over| DENY
+    ENDPOINT -->|Under| CONCURRENT{"Concurrent<br/>request<br/>limit?"}
+    CONCURRENT -->|Over| DENY
+    CONCURRENT -->|Under| ALLOW["Allow"]

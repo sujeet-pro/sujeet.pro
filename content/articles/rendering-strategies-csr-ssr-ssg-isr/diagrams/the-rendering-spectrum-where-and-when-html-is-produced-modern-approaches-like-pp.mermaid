@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Build["Build Time"]
+        SSG["SSG\nHTML at build"]
+    end
+    subgraph Edge["CDN / Edge"]
+        ISR["ISR\nStale-while-revalidate"]
+        PPR["PPR\nStatic shell +\nstreaming holes"]
+    end
+    subgraph Server["Origin Server"]
+        SSR["SSR\nHTML per request"]
+    end
+    subgraph Browser["Browser"]
+        CSR["CSR\nJS renders DOM"]
+    end
+
+    SSG -->|"Deploy"| Edge
+    ISR -->|"Revalidate"| Server
+    SSR -->|"Stream"| Browser
+    PPR -->|"Static + Dynamic"| Browser
+    CSR -->|"API calls"| Server
+
+    style Build fill:#e0f2fe,stroke:#0284c7
+    style Edge fill:#fef3c7,stroke:#d97706
+    style Server fill:#fce7f3,stroke:#db2777
+    style Browser fill:#d1fae5,stroke:#059669

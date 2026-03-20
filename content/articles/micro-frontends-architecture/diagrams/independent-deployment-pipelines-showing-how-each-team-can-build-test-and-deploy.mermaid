@@ -1,0 +1,25 @@
+graph TB
+    subgraph "Team A - Product Catalog"
+        A1[Code Push] --> A2[Build & Test]
+        A2 --> A3[Deploy to Staging]
+        A3 --> A4[Integration Tests]
+        A4 --> A5[Deploy to Production]
+    end
+
+    subgraph "Team B - Shopping Cart"
+        B1[Code Push] --> B2[Build & Test]
+        B2 --> B3[Deploy to Staging]
+        B3 --> B4[Integration Tests]
+        B4 --> B5[Deploy to Production]
+    end
+
+    subgraph "Team C - User Profile"
+        C1[Code Push] --> C2[Build & Test]
+        C2 --> C3[Deploy to Staging]
+        C3 --> C4[Integration Tests]
+        C4 --> C5[Deploy to Production]
+    end
+
+    A5 -.-> D[Independent Deployments]
+    B5 -.-> D
+    C5 -.-> D

@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph Clients["Browser Clients (WebAssembly + WebGL)"]
+        C1["Client A<br/>Local document copy"]
+        C2["Client B<br/>Local document copy"]
+        C3["Client N<br/>Local document copy"]
+    end
+
+    subgraph MP["Multiplayer Server (Rust)"]
+        direction TB
+        WS["WebSocket Layer<br/>(Node.js)"]
+        RP["Rust Process<br/>(per document)"]
+        Auth["Authoritative Document State<br/>Map&lt;ObjectID, Map&lt;Property, Value&gt;&gt;"]
+        WS --> RP
+        RP --> Auth
+    end
+
+    subgraph Persist["Persistence Layer"]
+        Journal["DynamoDB Journal<br/>(WAL, ~0.5s writes)"]
+        S3["S3 Checkpoints<br/>(30-60s snapshots)"]
+        Journal --> S3
+    end
+
+    subgraph LiveGraphSys["LiveGraph (Go)"]
+        Edge["Edge Service"]
+        Cache["Read-through Cache"]
+        Inv["Invalidator"]
+        PG["PostgreSQL<br/>(metadata, teams, comments)"]
+        Edge --> Cache --> PG
+        Inv --> Cache
+    end
+
+    C1 <-->|"WebSocket<br/>deltas @ 30 FPS"| WS
+    C2 <-->|"WebSocket<br/>deltas @ 30 FPS"| WS
+    C3 <-->|"WebSocket<br/>deltas @ 30 FPS"| WS
+    RP --> Journal
+    RP --> S3
+    C1 <-.->|"Subscriptions<br/>(files, teams, comments)"| Edge

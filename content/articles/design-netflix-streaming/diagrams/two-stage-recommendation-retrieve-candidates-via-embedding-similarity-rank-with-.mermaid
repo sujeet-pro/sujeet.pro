@@ -1,0 +1,15 @@
+flowchart TB
+    subgraph "Offline Training"
+        HISTORY[View History] --> EMBED[Embedding Models<br/>User + Content Vectors]
+        CATALOG[Content Metadata] --> EMBED
+        EMBED --> INDEX[ANN Index<br/>Candidate Retrieval]
+    end
+
+    subgraph "Online Serving"
+        REQ[Recommendation Request] --> RETRIEVE[Candidate Retrieval<br/>Top 1000]
+        RETRIEVE --> RANK[PVR Ranking Model<br/>Deep Learning]
+        RANK --> DIVERSIFY[Diversification<br/>Row Composition]
+        DIVERSIFY --> RESP[Personalized Rows]
+    end
+
+    INDEX --> RETRIEVE

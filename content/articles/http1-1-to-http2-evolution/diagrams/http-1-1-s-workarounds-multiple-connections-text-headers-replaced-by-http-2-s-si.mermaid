@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph HTTP1["HTTP/1.1"]
+        H1C["6 TCP Connections"]
+        H1HOL["App-Layer HOL"]
+        H1H["Text Headers"]
+    end
+
+    subgraph HTTP2["HTTP/2"]
+        H2C["1 TCP Connection"]
+        H2MUX["Multiplexed Streams"]
+        H2H["HPACK Compression"]
+    end
+
+    HTTP1 -->|"RFC 9113 (2022)"| HTTP2
+    H1HOL -.->|"Solved"| H2MUX
+    H1H -.->|"Compressed"| H2H
+    H2C -.->|"TCP HOL Remains"| H3["HTTP/3 (QUIC)"]

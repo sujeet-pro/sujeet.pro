@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph App["Your Application"]
+        API[Payment API]
+        WEBHOOK[Webhook Handler]
+    end
+
+    subgraph Stripe["Payment Platform"]
+        PSP[Stripe API]
+        RADAR[Fraud Detection]
+        VAULT[Token Vault]
+    end
+
+    Client --> |Stripe.js| PSP
+    API --> PSP
+    PSP --> RADAR
+    PSP --> VAULT
+    PSP --> |Events| WEBHOOK

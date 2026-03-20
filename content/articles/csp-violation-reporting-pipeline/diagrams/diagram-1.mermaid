@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Clients
+        B[Browsers<br/>CSP Reports]
+    end
+
+    subgraph AWS_EKS["Kubernetes Cluster (EKS)"]
+        LB[Load Balancer]
+        API[Ingestion Service<br/>Spring WebFlux]
+        CONS[Consumer Service<br/>Spring Boot]
+    end
+
+    subgraph AWS_Infrastructure
+        K[(Kafka / MSK<br/>Topic: csp-violations)]
+        R[(Redis / ElastiCache)]
+    end
+
+    subgraph Storage
+        SF[(Snowflake DW)]
+        PG[(Postgres Dev)]
+    end
+
+    B -->|POST /csp/report| LB --> API
+    API -->|Async Produce| K
+    K -->|Consume Batch| CONS
+    CONS -->|Check Dedup| R
+    CONS -->|Write Batch| SF
+    CONS -->|"Write (Dev)"| PG

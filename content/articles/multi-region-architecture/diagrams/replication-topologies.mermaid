@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph "Star Topology"
+        PS[("Primary")] --> RS1[("Replica 1")]
+        PS --> RS2[("Replica 2")]
+        PS --> RS3[("Replica 3")]
+    end
+
+    subgraph "Chain Topology"
+        PC[("Primary")] --> RC1[("Replica 1")] --> RC2[("Replica 2")]
+    end
+
+    subgraph "Mesh Topology"
+        PM1[("Node 1")] <--> PM2[("Node 2")]
+        PM2 <--> PM3[("Node 3")]
+        PM3 <--> PM1
+    end

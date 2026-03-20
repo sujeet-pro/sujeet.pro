@@ -1,0 +1,23 @@
+flowchart LR
+    subgraph "Delivery Layer"
+        direction TB
+        CRIT["Critical CSS<br/>≤14KB inline"]
+        DEFER["Non-critical<br/>Deferred load"]
+    end
+
+    subgraph "Runtime Layer"
+        direction TB
+        CONTAIN["Containment<br/>Isolate subtrees"]
+        COMPOSITE["Compositor<br/>transform/opacity"]
+    end
+
+    subgraph "Font Layer"
+        direction TB
+        FORMAT["WOFF2 + Subset"]
+        METRIC["Metric Overrides<br/>Zero-CLS swap"]
+    end
+
+    CRIT --> CONTAIN
+    DEFER --> CONTAIN
+    CONTAIN --> COMPOSITE
+    FORMAT --> METRIC

@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant C as Client
+    participant API as API Server
+    participant DB as Database
+
+    C->>API: POST /shorten {url}
+    API->>DB: INSERT url RETURNING id
+    DB-->>API: id = 12345
+    API->>API: encode(12345) → "dnh"
+    API-->>C: short.url/dnh

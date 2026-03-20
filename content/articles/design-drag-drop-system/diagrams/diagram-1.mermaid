@@ -1,0 +1,11 @@
+graph TD
+    A[Need drag and drop] --> B{Cross-window drag?}
+    B -->|Yes| C[Native DnD required]
+    C --> D[Sortable.js or react-dnd HTML5 backend]
+    B -->|No| E{Accessibility critical?}
+    E -->|Yes| F[dnd-kit or react-aria/dnd]
+    E -->|Nice to have| G{Framework?}
+    G -->|React| H{Complexity?}
+    H -->|Simple lists| I[dnd-kit]
+    H -->|Complex nested| J[react-dnd with backends]
+    G -->|Vanilla/Other| K[Pragmatic or Sortable.js]

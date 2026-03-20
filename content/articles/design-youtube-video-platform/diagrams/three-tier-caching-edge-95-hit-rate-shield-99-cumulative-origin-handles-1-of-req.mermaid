@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph "User"
+        PLAYER[Video Player]
+    end
+
+    subgraph "Edge Layer (3000+ PoPs)"
+        EDGE1[Edge Cache<br/>ISP Co-location]
+        EDGE2[Edge Cache<br/>Metro Area]
+    end
+
+    subgraph "Shield Layer (50 regions)"
+        SHIELD[Origin Shield<br/>Regional Cache]
+    end
+
+    subgraph "Origin"
+        ORIGIN[Origin Server<br/>Multi-region]
+        STORE[(Encoded Storage)]
+    end
+
+    PLAYER --> EDGE1
+    EDGE1 -->|Miss| EDGE2
+    EDGE2 -->|Miss| SHIELD
+    SHIELD -->|Miss| ORIGIN
+    ORIGIN --> STORE
+
+    style EDGE1 fill:#90EE90
+    style SHIELD fill:#FFD700
+    style ORIGIN fill:#FF6347

@@ -1,0 +1,33 @@
+graph TB
+    subgraph "VPC"
+        subgraph "Public Subnet"
+            ALB["Application Load Balancer"]
+        end
+
+        subgraph "Private Subnet — Compute"
+            GW_ECS["API Gateway Cluster<br/>(ECS Fargate)"]
+            RLS_ECS["Rate Limit Service<br/>(ECS Fargate)"]
+            QUOTA_ECS["Quota API<br/>(ECS Fargate)"]
+        end
+
+        subgraph "Private Subnet — Data"
+            REDIS[("ElastiCache Redis<br/>Cluster (3 shards, Multi-AZ)")]
+            RDS[("RDS PostgreSQL<br/>(Multi-AZ)")]
+        end
+    end
+
+    subgraph "Observability"
+        PROM["Managed Prometheus"]
+        GRAFANA["Managed Grafana"]
+    end
+
+    subgraph "Config"
+        S3["S3<br/>(Rule Config)"]
+    end
+
+    ALB --> GW_ECS
+    GW_ECS -->|"gRPC"| RLS_ECS
+    RLS_ECS --> REDIS
+    RLS_ECS --> S3
+    QUOTA_ECS --> RDS
+    RLS_ECS --> PROM --> GRAFANA

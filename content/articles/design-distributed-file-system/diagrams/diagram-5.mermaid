@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant Client
+    participant Master
+    participant Primary as Primary CS
+    participant Secondary1 as Secondary CS1
+    participant Secondary2 as Secondary CS2
+
+    Client->>Master: 1. AddChunk(file)
+    Master->>Master: Select replicas (rack-aware)
+    Master->>Master: Grant lease to primary
+    Master-->>Client: ChunkInfo{primary, secondaries, version}
+
+    Client->>Primary: 2. Push data (no write yet)
+    Client->>Secondary1: 2. Push data
+    Client->>Secondary2: 2. Push data
+
+    Note over Primary,Secondary2: Data cached in memory
+
+    Client->>Primary: 3. WriteChunk(offset, length)
+    Primary->>Primary: Write to disk
+    Primary->>Secondary1: 4. Forward write command
+    Primary->>Secondary2: 4. Forward write command
+    Secondary1-->>Primary: 5. ACK
+    Secondary2-->>Primary: 5. ACK
+    Primary-->>Client: 6. Success

@@ -1,0 +1,21 @@
+flowchart TB
+    subgraph Go["Go Implementation (~2017-2019)"]
+        GoLRU["LRU Cache<br/>(HashMap, tens of millions of entries)"]
+        GoGC["Go GC<br/>(tri-color mark-and-sweep)"]
+        GoCass["Cassandra"]
+        GoLRU --> GoCass
+        GoGC -.->|"scans entire cache<br/>every ~2 min"| GoLRU
+    end
+
+    subgraph Rust["Rust Implementation (2019+)"]
+        RustLRU["LRU Cache<br/>(BTreeMap, 8M entries)"]
+        RustDrop["Ownership + Drop<br/>(deterministic deallocation)"]
+        RustCass["Cassandra"]
+        RustLRU --> RustCass
+        RustDrop -.->|"freed immediately<br/>on eviction"| RustLRU
+    end
+
+    Go -->|"Rewrite<br/>~May 2019"| Rust
+
+    style GoGC fill:#f87171,stroke:#991b1b,color:#000
+    style RustDrop fill:#4ade80,stroke:#166534,color:#000

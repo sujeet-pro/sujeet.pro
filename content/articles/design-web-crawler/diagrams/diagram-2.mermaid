@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph Seeds
+        S[Seed URLs]
+    end
+
+    subgraph Kafka["Kafka Topics"]
+        T1[url-partition-0]
+        T2[url-partition-1]
+        T3[url-partition-2]
+        TN[url-partition-N]
+    end
+
+    subgraph Crawlers["Crawler Nodes"]
+        C1[Crawler 1<br/>hosts 0-999]
+        C2[Crawler 2<br/>hosts 1000-1999]
+        C3[Crawler 3<br/>hosts 2000-2999]
+        CN[Crawler N<br/>hosts ...]
+    end
+
+    S -->|hash by host| T1 & T2 & T3 & TN
+    T1 -->|consumer group| C1
+    T2 -->|consumer group| C2
+    T3 -->|consumer group| C3
+    TN -->|consumer group| CN
+
+    C1 -->|discovered URLs| T1 & T2 & T3 & TN
+    C2 -->|discovered URLs| T1 & T2 & T3 & TN
+    C3 -->|discovered URLs| T1 & T2 & T3 & TN

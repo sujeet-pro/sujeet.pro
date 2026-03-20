@@ -1,0 +1,10 @@
+flowchart LR
+    subgraph Datacenter["Single Datacenter"]
+        LB[Load Balancer]
+        APP[Query Servers]
+        INDEX[(Monolithic Index)]
+        CRAWLER[Crawler]
+    end
+
+    Users --> LB --> APP --> INDEX
+    CRAWLER --> INDEX

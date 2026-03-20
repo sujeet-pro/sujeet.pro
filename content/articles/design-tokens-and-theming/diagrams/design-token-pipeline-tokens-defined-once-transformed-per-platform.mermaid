@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Source["Source of Truth"]
+        F[Figma/Design Tool]
+        J[Token JSON Files]
+    end
+
+    subgraph Transform["Build Pipeline"]
+        SD[Style Dictionary]
+    end
+
+    subgraph Output["Platform Outputs"]
+        CSS[CSS Variables]
+        SASS[Sass Variables]
+        IOS[Swift/UIColor]
+        AND[Android XML]
+        COMP[Compose/SwiftUI]
+    end
+
+    F --> |Tokens Studio| J
+    J --> SD
+    SD --> CSS
+    SD --> SASS
+    SD --> IOS
+    SD --> AND
+    SD --> COMP

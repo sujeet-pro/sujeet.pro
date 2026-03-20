@@ -1,0 +1,12 @@
+flowchart TD
+    A[Client connects via TCP] --> B[HTTP/2 established]
+    B --> C{Server sends Alt-Svc?}
+    C -->|Yes| D[Client attempts QUIC]
+    C -->|No| E[Continue HTTP/2]
+
+    D --> F{QUIC succeeds?}
+    F -->|Yes| G[Switch to HTTP/3]
+    F -->|No| E
+
+    G --> H[Close TCP connection]
+    H --> I[Future requests use QUIC]

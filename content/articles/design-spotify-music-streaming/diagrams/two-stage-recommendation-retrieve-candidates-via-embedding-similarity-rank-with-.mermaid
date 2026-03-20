@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph "Offline Training"
+        HISTORY[Listening History<br/>Billions of events] --> COLLAB[Collaborative Filtering<br/>Matrix Factorization]
+        AUDIO[Audio Features<br/>Echo Nest] --> CONTENT[Content-Based<br/>Track Similarity]
+        NLP[Playlist Titles<br/>Blog Text] --> TEXT[NLP Analysis<br/>Word2Vec]
+
+        COLLAB --> VECTORS[(User/Track Vectors<br/>128-dimensional)]
+        CONTENT --> VECTORS
+        TEXT --> VECTORS
+    end
+
+    subgraph "Index Building"
+        VECTORS --> ANNOY[Approximate NN Index<br/>Annoy/ScaNN]
+    end
+
+    subgraph "Online Serving"
+        REQ[User Request] --> RETRIEVE[Candidate Retrieval<br/>Top 1000]
+        RETRIEVE --> RANK[Ranking Model<br/>GBDT/Neural]
+        RANK --> FILTER[Business Rules<br/>Diversity, Freshness]
+        FILTER --> RESP[Personalized Results]
+    end
+
+    ANNOY --> RETRIEVE

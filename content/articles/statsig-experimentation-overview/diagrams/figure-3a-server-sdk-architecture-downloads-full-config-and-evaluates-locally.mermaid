@@ -1,0 +1,10 @@
+graph TB
+    A1[Initialize] --> A2[Download Full Config Spec]
+    A2 --> A3[Store in Memory]
+    A3 --> A4[Local Evaluation]
+    A4 --> A5[Sub-1ms Response]
+
+    A1 -.->|Secret Key| A2
+
+    style A1 fill:#fff3e0
+    style A5 fill:#c8e6c9

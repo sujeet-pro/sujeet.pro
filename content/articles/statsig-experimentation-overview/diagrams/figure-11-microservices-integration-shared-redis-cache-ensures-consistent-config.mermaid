@@ -1,0 +1,28 @@
+graph TB
+    subgraph "Microservice A"
+        A1[Service A] --> A2[Statsig SDK A]
+        A2 --> A3[Redis Cache]
+    end
+
+    subgraph "Microservice B"
+        B1[Service B] --> B2[Statsig SDK B]
+        B2 --> A3
+    end
+
+    subgraph "Microservice C"
+        C1[Service C] --> C2[Statsig SDK C]
+        C2 --> A3
+    end
+
+    A3 --> D[Shared Configuration State]
+
+    subgraph "Load Balancer"
+        E[User Request] --> F[Route to Service]
+        F --> A1
+        F --> B1
+        F --> C1
+    end
+
+    style A3 fill:#e1f5fe
+    style D fill:#c8e6c9
+    style E fill:#fff3e0

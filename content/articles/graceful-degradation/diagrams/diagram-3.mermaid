@@ -1,0 +1,18 @@
+flowchart TD
+    A[Dependency Failure Handling?] --> B{Failure mode?}
+
+    B -->|"Slow/unresponsive"| C[Circuit Breaker + Timeout]
+    B -->|"Overloaded"| D{Control admission?}
+    B -->|"Transient errors"| E[Retry with Backoff]
+    B -->|"Complete failure"| F[Fallback Chain]
+
+    D -->|"Server-side"| G[Load Shedding]
+    D -->|"Client-side"| H[Rate Limiting]
+
+    C --> I{Need isolation?}
+    I -->|"Yes"| J[Add Bulkhead]
+    I -->|"No"| K[Circuit Breaker alone]
+
+    E --> L{Idempotent?}
+    L -->|"Yes"| M[Retry safe]
+    L -->|"No"| N[Retry only reads]

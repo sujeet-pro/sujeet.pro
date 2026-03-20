@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph "Host (Shell)"
+        HC["Host Container"]
+        SR["Shared React"]
+    end
+
+    subgraph "Remote A"
+        RA["Widget A Bundle"]
+        RA_E["Exposed: WidgetA"]
+    end
+
+    subgraph "Remote B"
+        RB["Widget B Bundle"]
+        RB_E["Exposed: WidgetB"]
+    end
+
+    HC -->|"import('remoteA/WidgetA')"| RA_E
+    HC -->|"import('remoteB/WidgetB')"| RB_E
+    SR <-.->|"Singleton shared"| RA & RB

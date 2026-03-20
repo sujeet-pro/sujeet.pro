@@ -1,0 +1,20 @@
+stateDiagram-v2
+    [*] --> Closed: Normal operation
+    Closed --> Open: Redis errors exceed threshold<br/>(e.g., 5 failures in 10s)
+    Open --> HalfOpen: After cooldown period<br/>(e.g., 30 seconds)
+    HalfOpen --> Closed: Probe request succeeds
+    HalfOpen --> Open: Probe request fails
+
+    state Closed {
+        [*] --> CheckRedis
+        CheckRedis --> Allow: Under limit
+        CheckRedis --> Deny: Over limit
+    }
+
+    state Open {
+        [*] --> AllowAll: Skip rate check entirely
+    }
+
+    state HalfOpen {
+        [*] --> ProbeRedis: Test single request
+    }

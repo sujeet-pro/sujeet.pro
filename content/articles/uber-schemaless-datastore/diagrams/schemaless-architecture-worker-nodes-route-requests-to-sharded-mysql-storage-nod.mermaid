@@ -1,0 +1,21 @@
+flowchart TD
+    subgraph "Schemaless Architecture"
+        Client[Client Application] --> Worker[Worker Nodes]
+        Worker --> |"Shard Routing"| Storage1[Storage Node<br/>Master]
+        Worker --> |"Shard Routing"| Storage2[Storage Node<br/>Master]
+        Storage1 --> Minion1A[Minion A]
+        Storage1 --> Minion1B[Minion B]
+        Storage2 --> Minion2A[Minion A]
+        Storage2 --> Minion2B[Minion B]
+    end
+
+    subgraph "Cell Model"
+        Cell["Cell = (row_key, column_name, ref_key) → JSON body"]
+    end
+
+    subgraph "Design Principles"
+        P1[Immutable Writes]
+        P2[Eventual Consistency]
+        P3[Fixed 4096 Shards]
+        P4[MySQL Storage Engine]
+    end

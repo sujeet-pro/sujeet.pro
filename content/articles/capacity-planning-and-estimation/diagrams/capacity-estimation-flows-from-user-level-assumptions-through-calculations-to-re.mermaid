@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph Inputs["Estimation Inputs"]
+        direction LR
+        DAU[Daily Active Users]
+        Actions[Actions per User]
+        Size[Data Size per Action]
+        Retention[Retention Period]
+    end
+
+    subgraph Calculations["Core Calculations"]
+        direction TB
+        QPS["QPS = DAU × Actions / 86,400"]
+        Storage["Storage = DAU × Actions × Size × Days"]
+        Bandwidth["Bandwidth = QPS × Response Size"]
+        Servers["Servers = QPS / QPS-per-Server"]
+    end
+
+    subgraph Adjustments["Reality Adjustments"]
+        direction LR
+        Peak["Peak Multiplier (2-3×)"]
+        Replication["Replication Factor (3×)"]
+        Headroom["Capacity Headroom (2×)"]
+    end
+
+    Inputs --> Calculations
+    Calculations --> Adjustments
+    Adjustments --> Final[Final Estimates]

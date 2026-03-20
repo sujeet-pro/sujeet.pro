@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph CDN["CloudFront CDN"]
+        HTML[Static Waiting Room HTML]
+        JS[Queue Polling JS]
+    end
+
+    subgraph Backend["Backend Services"]
+        LB[Load Balancer]
+        Q[Queue Service<br/>Lambda]
+        DB[(DynamoDB<br/>Queue State)]
+    end
+
+    User --> HTML
+    HTML --> JS
+    JS --> |"GET /queue/status<br/>every 5s"| LB
+    LB --> Q
+    Q --> DB

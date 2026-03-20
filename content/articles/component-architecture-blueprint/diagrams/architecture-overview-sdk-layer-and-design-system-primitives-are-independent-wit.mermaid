@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph Shell["Application Shell (Framework-Specific)"]
+        F[Next.js / Remix / Vite]
+    end
+
+    subgraph Independent["Independent Layers (No Dependencies)"]
+        direction LR
+        subgraph SDK["SDK Layer"]
+            direction TB
+            A[Analytics]
+            R[Router]
+            H[HTTP]
+            E[Experiments]
+        end
+        subgraph DS["Design System"]
+            Primitives[Primitives<br/>Button, Card, Modal]
+        end
+    end
+
+    subgraph Components["Component Layers"]
+        Blocks["Blocks<br/>(Business Components)"]
+        Widgets["Widgets<br/>(BFF Integration)"]
+    end
+
+    subgraph Registries["Page-Specific Registries"]
+        direction LR
+        HomeReg[Home Registry]
+        PDPReg[PDP Registry]
+        PLPReg[PLP Registry]
+        CartReg[Cart Registry]
+    end
+
+    F -->|initializes & configures| SDK
+    Primitives -->|composes| Blocks
+    SDK -.->|injected via Context| Blocks
+    SDK -.->|injected via Context| Widgets
+    Blocks -->|composes| Widgets
+    Widgets -->|lazy-loaded by| Registries

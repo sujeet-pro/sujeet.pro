@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant A as User A
+    participant GW as Gateway
+    participant MSG as Message Service
+    participant GW2 as Gateway (User B)
+    participant B as User B
+
+    A->>GW: Send message
+    GW->>MSG: Route message
+    MSG->>MSG: Persist to DB
+    MSG->>GW2: Deliver to User B's gateway
+    GW2->>B: Push via WebSocket
+    B->>GW2: Delivery ACK
+    GW2->>MSG: Update status
+    MSG->>GW: Delivery confirmation
+    GW->>A: Double-check delivered

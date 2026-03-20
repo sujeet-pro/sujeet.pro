@@ -1,0 +1,17 @@
+flowchart TB
+    POST["New Post"]
+
+    POST --> CHECK{"Author<br/>Followers > 10K?"}
+
+    CHECK -->|No| PUSH["Fan-out on Write<br/>(Push to follower feeds)"]
+    CHECK -->|Yes| MARK["Mark as Celebrity Post<br/>(Store only in author's index)"]
+
+    subgraph FeedRead["Feed Read"]
+        CACHE["Read Cached Feed"]
+        MERGE["Merge Celebrity Posts<br/>(Pull on Read)"]
+        CACHE --> MERGE
+        MERGE --> RANK["Final Ranking"]
+    end
+
+    PUSH --> CACHE
+    MARK --> MERGE

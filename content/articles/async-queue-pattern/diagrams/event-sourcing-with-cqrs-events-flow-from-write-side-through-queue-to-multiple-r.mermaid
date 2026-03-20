@@ -1,0 +1,29 @@
+graph TD
+    subgraph "Write Side"
+        C[Command Handler]
+        ES[(Event Store)]
+    end
+
+    subgraph "Event Distribution"
+        Q[Message Queue]
+    end
+
+    subgraph "Read Side"
+        R1[Read Model 1]
+        R2[Read Model 2]
+        R3[Analytics]
+    end
+
+    C -->|Append Event| ES
+    ES -->|Publish| Q
+    Q --> R1
+    Q --> R2
+    Q --> R3
+
+    classDef writeClass fill:#ffcc99,stroke:#000,stroke-width:2px
+    classDef queueClass fill:#cc99ff,stroke:#000,stroke-width:2px
+    classDef readClass fill:#99ffcc,stroke:#000,stroke-width:2px
+
+    class C,ES writeClass
+    class Q queueClass
+    class R1,R2,R3 readClass

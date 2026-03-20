@@ -1,0 +1,21 @@
+flowchart TD
+    subgraph PQ["Priority Queue (Interface)"]
+        I[insert: add element with priority]
+        E[extractMin/Max: remove highest priority]
+        P[peek: view without removing]
+        D[decreaseKey: update priority]
+    end
+
+    subgraph Impl["Implementations"]
+        BH["Binary Heap<br/>Array-based, O(log n) all ops<br/>⭐ Default choice"]
+        DH["D-ary Heap<br/>d=4 often faster in practice<br/>Better cache behavior"]
+        PH["Pairing Heap<br/>O(1) insert, O(log n) amortized extract<br/>Good for decrease-key"]
+        FH["Fibonacci Heap<br/>O(1) amortized decrease-key<br/>Rarely used in practice"]
+    end
+
+    PQ --> Impl
+    BH -.->|"No decrease-key needed"| note1["Use this"]
+    PH -.->|"Graph algorithms"| note2["Consider this"]
+
+    style BH fill:#e8f5e9
+    style note1 fill:#c8e6c9

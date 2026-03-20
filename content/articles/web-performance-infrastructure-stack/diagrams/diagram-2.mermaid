@@ -1,0 +1,12 @@
+graph TD
+    A[Browser Request] --> B{DNS Lookup}
+    B --> C[HTTPS Record Check]
+    C --> D{HTTP/3 Supported?}
+    D -->|Yes| E[Direct QUIC Connection]
+    D -->|No| F[TCP + TLS Handshake]
+    E --> G[HTTP/3 Streams]
+    F --> H[HTTP/2 Multiplexing]
+    G --> I[Independent Stream Processing]
+    H --> J[TCP-Level HOL Blocking Risk]
+    I --> K[Faster Page Load]
+    J --> L[Potential Delays]

@@ -1,0 +1,33 @@
+flowchart TB
+    subgraph Input["Input Sources"]
+        Mouse[Mouse Events]
+        Touch[Touch Events]
+        Pointer[Pointer Events]
+        Keyboard[Keyboard Events]
+    end
+
+    subgraph DragSystem["Drag System"]
+        direction TB
+        Sensor[Sensor Layer]
+        DragState[Drag State Manager]
+        DropTargets[Drop Target Registry]
+        Preview[Drag Preview]
+    end
+
+    subgraph Visual["Visual Feedback"]
+        Ghost[Ghost Element]
+        DropIndicator[Drop Indicators]
+        Placeholder[Placeholder]
+    end
+
+    Mouse --> Sensor
+    Touch --> Sensor
+    Pointer --> Sensor
+    Keyboard --> Sensor
+
+    Sensor --> DragState
+    DragState --> DropTargets
+    DragState --> Preview
+    DropTargets --> DropIndicator
+    Preview --> Ghost
+    DragState --> Placeholder

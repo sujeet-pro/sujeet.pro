@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant B as Browser
+    participant SDK as Consent SDK (Edge)
+    participant Cache as Edge Cache
+    participant API as Consent API
+    participant Redis as Redis Cluster
+    participant DB as PostgreSQL
+
+    B->>SDK: Page load
+    SDK->>SDK: Get device fingerprint
+    SDK->>Cache: Check consent (tenant:device:geo)
+
+    alt Cache hit
+        Cache->>SDK: Return consent status
+    else Cache miss
+        SDK->>API: GET /consent
+        API->>Redis: Check Redis cache
+        alt Redis hit
+            Redis->>API: Return consent
+        else Redis miss
+            API->>DB: Query consent record
+            DB->>API: Return consent
+            API->>Redis: Cache consent
+        end
+        API->>SDK: Return consent
+        SDK->>Cache: Store at edge
+    end
+
+    SDK->>B: Apply consent (block/allow scripts)

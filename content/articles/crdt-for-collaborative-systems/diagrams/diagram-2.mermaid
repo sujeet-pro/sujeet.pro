@@ -1,0 +1,8 @@
+flowchart LR
+    C1[Client 1] -->|Operations| S[Multiplayer Server]
+    C2[Client 2] -->|Operations| S
+    C3[Client 3] -->|Operations| S
+    S -->|Ordered Ops| C1
+    S -->|Ordered Ops| C2
+    S -->|Ordered Ops| C3
+    S -->|Checkpoint| DB[(DynamoDB + S3)]

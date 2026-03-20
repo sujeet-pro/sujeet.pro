@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Grid["Data Grid"]
+        subgraph Left["Left Pinned"]
+            LP1[ID]
+            LP2[Name]
+        end
+        subgraph Center["Scrollable"]
+            C1[Col 3]
+            C2[Col 4]
+            C3[...]
+            C4[Col N]
+        end
+        subgraph Right["Right Pinned"]
+            RP1[Actions]
+        end
+    end
+
+    Left -.->|"synced scroll Y"| Center
+    Right -.->|"synced scroll Y"| Center

@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Strategies["Deployment Strategies"]
+        direction TB
+        BG["Blue-Green<br/>Instant switch<br/>2x infrastructure"]
+        C["Canary<br/>Gradual traffic shift<br/>Metrics-gated"]
+        R["Rolling<br/>Pod-by-pod replacement<br/>Native K8s"]
+    end
+
+    subgraph Controls["Release Controls"]
+        FF["Feature Flags"]
+        TM["Traffic Management"]
+        AR["Automated Rollback"]
+    end
+
+    subgraph Data["Data Layer"]
+        EC["Expand-Contract<br/>Schema Migration"]
+        DW["Dual-Write<br/>Synchronization"]
+    end
+
+    BG --> TM
+    C --> TM
+    R --> TM
+    TM --> FF
+    TM --> AR
+    BG --> EC
+    C --> EC
+    EC --> DW

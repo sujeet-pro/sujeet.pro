@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph "Sync, Main Thread"
+        LS["localStorage<br/>DOMString KV"]
+        SS["sessionStorage<br/>Tab-scoped KV"]
+    end
+
+    subgraph "Async, Off Main Thread"
+        IDB["IndexedDB<br/>Structured clone"]
+        CACHE["Cache API<br/>Request → Response"]
+        OPFS["OPFS<br/>Raw bytes"]
+    end
+
+    subgraph "Quota Model"
+        BE["best-effort<br/>Evictable under pressure"]
+        P["persistent<br/>User must approve deletion"]
+    end
+
+    IDB --> BE
+    CACHE --> BE
+    OPFS --> BE
+    BE -.->|"navigator.storage.persist()"| P

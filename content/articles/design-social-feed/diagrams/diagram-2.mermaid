@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph Request
+        USER["User Request"]
+    end
+
+    subgraph FeedGen["Feed Generation (per request)"]
+        FOLLOW["Get Followees"]
+        FETCH["Fetch Recent Posts<br/>(per followee)"]
+        MERGE["Merge + Sort"]
+        RANK["Rank"]
+    end
+
+    subgraph Storage
+        GRAPH["Social Graph"]
+        POSTS["Post Index"]
+    end
+
+    USER --> FOLLOW
+    FOLLOW --> GRAPH
+    FOLLOW --> FETCH
+    FETCH --> POSTS
+    FETCH --> MERGE
+    MERGE --> RANK
+    RANK --> USER

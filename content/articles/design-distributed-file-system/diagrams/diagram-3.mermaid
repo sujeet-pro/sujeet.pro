@@ -1,0 +1,15 @@
+flowchart TB
+    subgraph MetadataService["Metadata Service"]
+        CURATOR["Curators<br/>(Stateless)"]
+        BTABLE[(BigTable/Spanner<br/>Metadata Store)]
+    end
+
+    subgraph StorageService["Storage Service"]
+        CUSTODIAN["Custodians<br/>(Background ops)"]
+        DSERVER["D Servers<br/>(Storage)"]
+    end
+
+    Client --> CURATOR
+    CURATOR --> BTABLE
+    Client --> DSERVER
+    CUSTODIAN --> DSERVER

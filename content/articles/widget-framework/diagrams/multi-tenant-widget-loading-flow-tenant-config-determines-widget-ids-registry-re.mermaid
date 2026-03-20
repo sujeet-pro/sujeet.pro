@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant User
+    participant Host
+    participant TenantConfig
+    participant Registry
+    participant CDN
+
+    User->>Host: Load application
+    Host->>TenantConfig: GET /config?tenant=acme
+    TenantConfig-->>Host: { widgets: ["video-player-premium", "analytics-basic"] }
+
+    loop For each widget ID
+        Host->>Registry: Resolve widget URL
+        Registry-->>Host: { url, manifest, checksum }
+    end
+
+    Host->>CDN: Load widget bundles
+    CDN-->>Host: Widget code
+    Host->>Host: Mount widgets in slots
+    Host-->>User: Render complete

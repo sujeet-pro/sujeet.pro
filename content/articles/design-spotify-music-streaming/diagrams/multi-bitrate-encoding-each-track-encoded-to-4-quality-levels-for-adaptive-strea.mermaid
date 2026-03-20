@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph "Ingestion"
+        MASTER[Master Audio<br/>WAV/FLAC] --> INGEST[Ingestion Service]
+    end
+
+    subgraph "Encoding"
+        INGEST --> Q96[Ogg Vorbis<br/>96 kbps]
+        INGEST --> Q160[Ogg Vorbis<br/>160 kbps]
+        INGEST --> Q320[Ogg Vorbis<br/>320 kbps]
+        INGEST --> AAC[AAC<br/>256 kbps]
+    end
+
+    subgraph "Storage"
+        Q96 & Q160 & Q320 & AAC --> GCS[(Cloud Storage)]
+        GCS --> META[(Metadata DB)]
+    end

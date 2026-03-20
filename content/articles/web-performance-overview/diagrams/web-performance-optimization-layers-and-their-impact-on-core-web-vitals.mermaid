@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph "Performance Optimization Layers"
+        direction TB
+        INFRA["Infrastructure<br/>DNS, HTTP/3, CDN, Edge"]
+        JS["JavaScript<br/>Splitting, Workers, Scheduling"]
+        CSS["CSS & Typography<br/>Critical CSS, Fonts"]
+        IMG["Images<br/>Formats, Responsive, Lazy"]
+    end
+
+    INFRA --> JS
+    JS --> CSS
+    CSS --> IMG
+
+    subgraph "Core Web Vitals (75th percentile)"
+        LCP["LCP ≤2.5s<br/>Perceived Load"]
+        INP["INP ≤200ms<br/>Responsiveness"]
+        CLS["CLS ≤0.1<br/>Visual Stability"]
+    end
+
+    INFRA --> LCP
+    JS --> INP
+    CSS --> CLS
+    IMG --> LCP

@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Query["Query Flow"]
+        Coord["lat, lon"] --> GH["Geohash Encode"]
+        GH --> Prefix["Prefix Match"]
+        Prefix --> Neighbors["+ 8 Neighbors"]
+        Neighbors --> Results["Candidate Set"]
+    end
+
+    subgraph Index["Index Structure"]
+        GH6["geohash:dr5ru7 → [biz_ids]"]
+        GH5["geohash:dr5ru → [biz_ids]"]
+        GH4["geohash:dr5r → [biz_ids]"]
+    end
+
+    Results --> Filter["Distance Filter"]
+    Filter --> Rank["Rank & Return"]
+
+    style GH fill:#d5e8d4
+    style Neighbors fill:#fff2cc

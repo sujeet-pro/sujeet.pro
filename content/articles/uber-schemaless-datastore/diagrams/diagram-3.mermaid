@@ -1,0 +1,15 @@
+flowchart LR
+    subgraph "Shard N"
+        Cells[(Cells with added_id)]
+    end
+
+    subgraph "Trigger Infrastructure"
+        TW1[Trigger Worker 1]
+        TW2[Trigger Worker 2]
+        ZK[(Offset Storage<br/>ZooKeeper/Schemaless)]
+    end
+
+    Cells --> TW1
+    Cells --> TW2
+    TW1 --> ZK
+    TW2 --> ZK

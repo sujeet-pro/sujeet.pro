@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph "Design Principles"
+        P1["Event-driven lifecycle<br/>(not document-bound)"]
+        P2["Single version per scope<br/>(prevents client inconsistency)"]
+        P3["Origin-isolated storage<br/>(Cache + IndexedDB)"]
+    end
+
+    subgraph "Key Trade-offs"
+        T1["Workers terminate between events<br/>No persistent state in memory"]
+        T2["Update requires all clients to unload<br/>(unless skipWaiting)"]
+        T3["HTTPS required<br/>(prevents MitM cache poisoning)"]
+    end
+
+    P1 --> T1
+    P2 --> T2
+    P3 --> T3

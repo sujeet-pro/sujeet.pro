@@ -1,0 +1,178 @@
+/* ═══════════════════════════════════════════════════════════════
+   Code block styling — figure wrappers, pre blocks, shiki themes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Code figure wrapper ─── */
+.code-figure {
+  margin: 1.5rem 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-code-bg);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+/* ─── Code header (lang + title + copy) — slim, editor-like ─── */
+.code-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.75rem;
+  min-height: 1.75rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-alt);
+  font-size: var(--font-size-xs);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+/* Language label (left-aligned, with badge icon via ::before) */
+.code-lang {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Title/filename — pushed to the right */
+.code-title {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Copy button — hidden without JS, always rightmost */
+.code-copy-btn {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+html:not(.no-js) .code-copy-btn {
+  display: flex;
+}
+.code-copy-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
+  background: var(--color-accent-subtle);
+}
+.code-copy-btn[data-copied] {
+  color: var(--color-text);
+}
+
+/* When title is present, copy button doesn't need auto margin */
+.code-title ~ .code-copy-btn {
+  margin-left: 0;
+}
+
+/* ─── Pre block inside figure ─── */
+.code-figure pre,
+.code-figure .shiki {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+/* Reduce left padding when line numbers are present */
+.code-figure pre.has-line-numbers {
+  padding-left: 0.25rem;
+}
+
+/* Plain pre (not inside figure) */
+.prose pre:not(.code-frame) {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+
+/* ─── Terminal frame ─── */
+.code-figure:has(.is-terminal) .code-header {
+  background: var(--color-bg-alt);
+}
+.code-figure:has(.is-terminal) .code-title::before {
+  content: "$ ";
+  opacity: 0.5;
+}
+
+/* ─── Shiki dual-theme (light default) ─── */
+.shiki, .shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+/* Auto dark (OS preference) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .shiki,
+  :root:not([data-theme="light"]) .shiki span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
+    font-style: var(--shiki-dark-font-style);
+    font-weight: var(--shiki-dark-font-weight);
+    text-decoration: var(--shiki-dark-text-decoration);
+  }
+}
+/* JS-enhanced dark */
+[data-theme="dark"] .shiki,
+[data-theme="dark"] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+/* CSS-only dark via radio */
+body:has(#theme-dark:checked) .shiki,
+body:has(#theme-dark:checked) .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+/* CSS-only light via radio (overrides OS dark) */
+body:has(#theme-light:checked) .shiki,
+body:has(#theme-light:checked) .shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}

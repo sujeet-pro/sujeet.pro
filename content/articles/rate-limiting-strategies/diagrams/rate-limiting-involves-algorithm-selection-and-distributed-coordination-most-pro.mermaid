@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph Algorithms["Rate Limiting Algorithms"]
+        direction LR
+        TB[Token Bucket<br/>Burst-friendly]
+        LB[Leaky Bucket<br/>Smooth output]
+        FW[Fixed Window<br/>Simple, edge cases]
+        SWL[Sliding Window Log<br/>Precise, memory-heavy]
+        SWC[Sliding Window Counter<br/>Best balance]
+    end
+
+    subgraph Distributed["Distributed Coordination"]
+        direction LR
+        Redis[(Redis/Memcached<br/>Shared state)]
+        Local[Local + Sync<br/>Approximation]
+        Lua[Lua Scripts<br/>Atomic operations]
+    end
+
+    Client([Request]) --> Algorithms
+    Algorithms --> |Centralized| Redis
+    Algorithms --> |Hybrid| Local
+    Redis --> Lua
+
+    Algorithms --> Decision{Allow?}
+    Decision --> |Yes| Backend[Backend Service]
+    Decision --> |No| Response[429 + Headers]

@@ -1,0 +1,58 @@
+flowchart TB
+    subgraph "Client Layer"
+        TV[Smart TVs]
+        MOBILE[Mobile Apps]
+        WEB[Web Browsers]
+        CONSOLE[Game Consoles]
+    end
+
+    subgraph "Edge Services (AWS)"
+        GATEWAY[API Gateway<br/>Zuul + Eureka]
+        AUTH[Auth Service]
+        PROFILE[Profile Service]
+    end
+
+    subgraph "Playback Services"
+        PLAYBACK[Playback API<br/>Manifest Generation]
+        LICENSE[License Service<br/>DRM Keys]
+        STEERING[Steering Service<br/>OCA Selection]
+    end
+
+    subgraph "Personalization"
+        REC[Recommendation<br/>PVR + Ranker]
+        ARTWORK[Artwork<br/>Personalization]
+        ABTESTING[A/B Testing<br/>Platform]
+    end
+
+    subgraph "Content Pipeline"
+        INGEST[Ingest Service]
+        ENCODE[Encoding Pipeline<br/>Cosmos Platform]
+        QC[Quality Control<br/>VMAF Validation]
+    end
+
+    subgraph "Storage"
+        ORIGIN[(S3 Origin<br/>All Variants)]
+        META[(Metadata DB<br/>Cassandra)]
+        CACHE[(EVCache<br/>Hot Metadata)]
+    end
+
+    subgraph "Open Connect CDN"
+        FILL[Fill Pipeline<br/>Proactive Distribution]
+        OCA1[OCA Cluster<br/>ISP A]
+        OCA2[OCA Cluster<br/>ISP B]
+        OCA3[OCA Cluster<br/>IXP]
+    end
+
+    TV & MOBILE & WEB & CONSOLE --> GATEWAY
+    GATEWAY --> AUTH --> PROFILE
+    GATEWAY --> PLAYBACK --> LICENSE
+    PLAYBACK --> STEERING
+    GATEWAY --> REC --> ARTWORK
+    PROFILE --> ABTESTING
+
+    INGEST --> ENCODE --> QC --> ORIGIN
+    ORIGIN --> FILL --> OCA1 & OCA2 & OCA3
+    STEERING --> OCA1 & OCA2 & OCA3
+
+    META --> CACHE
+    PLAYBACK --> CACHE

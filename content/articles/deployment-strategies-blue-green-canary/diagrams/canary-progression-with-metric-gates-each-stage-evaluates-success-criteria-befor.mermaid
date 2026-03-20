@@ -1,0 +1,16 @@
+flowchart TD
+    D[Deploy Canary] --> W1[1% Traffic]
+    W1 --> E1{Metrics OK?}
+    E1 -->|Yes| W2[5% Traffic]
+    E1 -->|No| RB[Rollback]
+    W2 --> E2{Metrics OK?}
+    E2 -->|Yes| W3[25% Traffic]
+    E2 -->|No| RB
+    W3 --> E3{Metrics OK?}
+    E3 -->|Yes| W4[50% Traffic]
+    E3 -->|No| RB
+    W4 --> E4{Metrics OK?}
+    E4 -->|Yes| FULL[100% Traffic]
+    E4 -->|No| RB
+    FULL --> DONE[Complete]
+    RB --> STABLE[Stable Version]

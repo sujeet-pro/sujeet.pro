@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph "Client Layer"
+        SDK[Client SDK<br/>Consistent hashing<br/>Retry logic]
+    end
+
+    subgraph "Coordinator Layer"
+        ANY[Any Node<br/>Routes to replicas<br/>Handles quorum]
+    end
+
+    subgraph "Cluster Membership"
+        GOSSIP[Gossip Protocol<br/>Failure detection<br/>Membership changes]
+    end
+
+    subgraph "Replication"
+        REP[Replica Set<br/>N replicas per key<br/>Quorum R/W]
+    end
+
+    subgraph "Storage Engine"
+        MEM[Memtable]
+        WAL[WAL]
+        SST[SSTables]
+        COMPACT[Compaction]
+    end
+
+    subgraph "Anti-Entropy"
+        MERKLE[Merkle Trees]
+        REPAIR[Read Repair]
+        HINT[Hinted Handoff]
+    end
+
+    SDK --> ANY
+    ANY --> REP
+    ANY <--> GOSSIP
+    REP --> MEM --> WAL --> SST
+    SST --> COMPACT
+    REP <--> MERKLE
+    REP <--> REPAIR
+    REP <--> HINT

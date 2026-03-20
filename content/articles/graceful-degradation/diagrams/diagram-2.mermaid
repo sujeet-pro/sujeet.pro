@@ -1,0 +1,22 @@
+flowchart TB
+    subgraph "Cell 1"
+        LB1[Load Balancer]
+        S1[Services]
+        DB1[(Database)]
+    end
+
+    subgraph "Cell 2"
+        LB2[Load Balancer]
+        S2[Services]
+        DB2[(Database)]
+    end
+
+    subgraph "Cell 3"
+        LB3[Load Balancer]
+        S3[Services]
+        DB3[(Database)]
+    end
+
+    Router[Global Router] --> LB1
+    Router --> LB2
+    Router --> LB3

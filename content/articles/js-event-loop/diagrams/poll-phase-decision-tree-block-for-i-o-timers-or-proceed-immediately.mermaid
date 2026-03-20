@@ -1,0 +1,13 @@
+graph TD
+    A[Enter Poll Phase] --> B{setImmediate callbacks?}
+    B -->|Yes| C[Don't Block]
+    B -->|No| D{Timers Expiring Soon?}
+    D -->|Yes| E[Wait for Timer]
+    D -->|No| F{Active I/O Operations?}
+    F -->|Yes| G[Wait for I/O]
+    F -->|No| H[Exit Poll]
+
+    C --> I[Proceed to Check]
+    E --> I
+    G --> I
+    H --> I

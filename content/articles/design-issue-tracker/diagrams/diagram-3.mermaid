@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph ClientLayer["Client Layer"]
+        BOARD["Board View"]
+        ISSUE["Issue Detail"]
+        SEARCH["Search/Filter"]
+        SYNC_CLIENT["Sync Client"]
+    end
+
+    subgraph GatewayLayer["Gateway Layer"]
+        GRAPHQL["GraphQL Gateway"]
+        REST["REST API"]
+        WS_GW["WebSocket Gateway"]
+    end
+
+    subgraph ServiceLayer["Service Layer"]
+        ISSUE_SVC["Issue Service"]
+        PROJECT_SVC["Project Service"]
+        WORKFLOW_SVC["Workflow Service"]
+        BOARD_SVC["Board Service"]
+        SEARCH_SVC["Search Service"]
+        ACTIVITY_SVC["Activity Service"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+        POSTGRES[(PostgreSQL<br/>Source of Truth)]
+        REDIS["Redis<br/>(Cache + Pub/Sub)"]
+        ES[(Elasticsearch)]
+        KAFKA["Kafka<br/>(Event Stream)"]
+    end
+
+    BOARD & ISSUE --> GRAPHQL
+    SEARCH --> GRAPHQL
+    SYNC_CLIENT <--> WS_GW
+
+    GRAPHQL --> ISSUE_SVC & PROJECT_SVC & WORKFLOW_SVC & BOARD_SVC
+    GRAPHQL --> SEARCH_SVC
+    REST --> ISSUE_SVC & PROJECT_SVC
+    WS_GW --> REDIS
+
+    ISSUE_SVC --> POSTGRES & REDIS
+    PROJECT_SVC --> POSTGRES
+    WORKFLOW_SVC --> POSTGRES
+    BOARD_SVC --> REDIS
+    SEARCH_SVC --> ES
+    ACTIVITY_SVC --> KAFKA
+
+    ISSUE_SVC --> KAFKA
+    KAFKA --> ACTIVITY_SVC
+    KAFKA --> SEARCH_SVC

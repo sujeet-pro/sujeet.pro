@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph "Scanner Pipeline"
+        A[Repo Discovery] --> B[Clone/Fetch]
+        B --> C[Parse package.json]
+        C --> D[Analyze Imports]
+        D --> E[Store Results]
+    end
+
+    subgraph "Data Outputs"
+        E --> F[Adoption Dashboard]
+        E --> G[Team Reports]
+        E --> H[Codemod Prioritization]
+    end

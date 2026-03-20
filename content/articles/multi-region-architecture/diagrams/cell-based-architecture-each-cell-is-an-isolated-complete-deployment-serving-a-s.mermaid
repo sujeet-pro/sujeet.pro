@@ -1,0 +1,21 @@
+flowchart TB
+    subgraph "Region A"
+        subgraph "Cell A1"
+            SA1["Services"]
+            DA1[("Data")]
+        end
+        subgraph "Cell A2"
+            SA2["Services"]
+            DA2[("Data")]
+        end
+        subgraph "Cell A3"
+            SA3["Services"]
+            DA3[("Data")]
+        end
+        Router_A["Cell Router"]
+    end
+
+    Router_A --> SA1 & SA2 & SA3
+
+    style SA1 fill:#f9f,stroke:#333
+    style DA1 fill:#f9f,stroke:#333

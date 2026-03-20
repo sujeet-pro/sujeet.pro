@@ -1,0 +1,18 @@
+flowchart TB
+    subgraph Preprocessing
+        A["Original Graph"] --> B["Compute Node Order"]
+        B --> C["For each node (low to high):"]
+        C --> D["Remove node"]
+        D --> E["Add shortcuts if needed"]
+        E --> F["Record CH level"]
+        F --> C
+    end
+
+    subgraph NodeOrdering
+        G["Edge Difference:<br/>shortcuts_added - edges_removed"]
+        H["Contraction Depth:<br/>max level of neighbors"]
+        I["Original Edges:<br/>prefer shortcuts"]
+        G --> J["Priority Score"]
+        H --> J
+        I --> J
+    end

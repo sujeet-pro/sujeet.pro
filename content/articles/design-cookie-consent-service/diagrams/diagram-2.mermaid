@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph Server["Application Server"]
+        SSR[Server-Side Render]
+        API[Consent API]
+    end
+
+    subgraph Data["Data Layer"]
+        Cache[(Redis)]
+        DB[(PostgreSQL)]
+    end
+
+    Browser --> SSR
+    SSR --> API
+    API --> Cache
+    Cache --> |Miss| DB
+    SSR --> |Include consent in HTML| Browser

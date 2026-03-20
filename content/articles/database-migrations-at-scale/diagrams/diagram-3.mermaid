@@ -1,0 +1,10 @@
+flowchart TB
+    subgraph "Slack Vitess Architecture"
+        A[Application] --> B[VTGate<br/>Query Router]
+        B --> C1[Shard 1<br/>VTTablet]
+        B --> C2[Shard 2<br/>VTTablet]
+        B --> C3[Shard N<br/>VTTablet]
+
+        D[VReplication] -.->|Migrate data| C1
+        D -.->|Migrate data| C2
+    end

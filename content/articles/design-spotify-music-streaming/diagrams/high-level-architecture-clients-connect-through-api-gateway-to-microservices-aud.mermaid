@@ -1,0 +1,45 @@
+flowchart TB
+    subgraph "Client Layer"
+        MOBILE[Mobile Apps<br/>iOS/Android]
+        DESKTOP[Desktop Apps<br/>Windows/macOS]
+        WEB[Web Player]
+        DEVICES[Smart Speakers<br/>Cars, Consoles]
+    end
+
+    subgraph "API Gateway"
+        GW[API Gateway<br/>Authentication, Routing]
+    end
+
+    subgraph "Core Services"
+        PLAYBACK[Playback Service<br/>Stream URLs, Licensing]
+        CATALOG[Catalog Service<br/>Tracks, Albums, Artists]
+        PLAYLIST[Playlist Service<br/>User Collections]
+        SEARCH[Search Service<br/>Elasticsearch]
+        REC[Recommendation Service<br/>ML Models]
+    end
+
+    subgraph "Data Layer"
+        CASSANDRA[(Cassandra<br/>User Data, Playlists)]
+        POSTGRES[(PostgreSQL<br/>Catalog Metadata)]
+        BIGTABLE[(Cloud Bigtable<br/>ML Features)]
+        CACHE[(Memcached/Redis<br/>Hot Data)]
+    end
+
+    subgraph "Content Delivery"
+        ORIGIN[(GCS Origin<br/>Audio Files)]
+        CDN[Multi-CDN<br/>Akamai, Fastly, AWS]
+    end
+
+    subgraph "Event Pipeline"
+        PUBSUB[Cloud Pub/Sub<br/>Event Ingestion]
+        DATAFLOW[Dataflow<br/>Stream Processing]
+        BIGQUERY[(BigQuery<br/>Analytics)]
+    end
+
+    MOBILE & DESKTOP & WEB & DEVICES --> GW
+    GW --> PLAYBACK & CATALOG & PLAYLIST & SEARCH & REC
+    PLAYBACK & CATALOG & PLAYLIST --> CASSANDRA & POSTGRES
+    REC --> BIGTABLE
+    PLAYBACK & CATALOG --> CACHE
+    PLAYBACK --> CDN --> ORIGIN
+    GW --> PUBSUB --> DATAFLOW --> BIGQUERY

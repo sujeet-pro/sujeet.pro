@@ -1,0 +1,11 @@
+flowchart TD
+    A[Design file uploader] --> B{Max file size?}
+    B -->|Under 10 MB| C[Single XHR upload]
+    B -->|Over 10 MB| D{Need cross-session resume?}
+    D -->|No| E[Chunked upload]
+    D -->|Yes| F{Server supports tus?}
+    F -->|Yes| G[tus protocol]
+    F -->|No| H[Custom resumable protocol]
+    E --> I{Need native progress?}
+    I -->|Yes| J[XHR per chunk]
+    I -->|No| K[Fetch per chunk]

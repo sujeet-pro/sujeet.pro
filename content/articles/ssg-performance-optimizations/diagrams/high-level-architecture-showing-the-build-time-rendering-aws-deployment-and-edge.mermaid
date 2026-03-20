@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph Build["Build Phase"]
+        A[Content Sources] --> B[SSG Engine]
+        C[Templates] --> B
+        B --> D[Static Assets]
+        D --> E[Pre-Compression]
+    end
+
+    subgraph Deploy["AWS Infrastructure"]
+        E --> F[S3 Versioned Buckets]
+        F --> G[CloudFront CDN]
+        H["Lambda@Edge"] --> G
+    end
+
+    subgraph Serve["Edge Delivery"]
+        G --> I[Global Edge Locations]
+        I --> J[Users Worldwide]
+    end

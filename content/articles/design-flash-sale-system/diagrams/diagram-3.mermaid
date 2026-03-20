@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant U as User
+    participant CDN as CDN/Waiting Room
+    participant Q as Queue Service
+    participant I as Inventory Service
+    participant O as Order Service
+    participant P as Payment Service
+
+    U->>CDN: Access flash sale page
+    CDN->>U: Serve waiting room HTML
+
+    loop Poll queue status
+        U->>Q: GET /queue/status
+        Q->>U: {position: 1234, estimated_wait: "2min"}
+    end
+
+    Q->>U: Token assigned (your turn)
+    U->>I: POST /checkout/start {token}
+    I->>I: Validate token, reserve inventory
+    I->>U: {checkout_session_id, expires_in: 300s}
+
+    U->>O: POST /orders {session_id, items, payment}
+    O->>P: Process payment
+    P->>O: Payment confirmed
+    O->>U: {order_id, status: "processing"}
+
+    Note over O: Async order processing
+    O-->>U: Email: Order confirmed

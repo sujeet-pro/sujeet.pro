@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph "Session-Based"
+        S1[Server stores state]
+        S2[Opaque session ID]
+        S3[Immediate revocation]
+        S4[DB lookup per request]
+    end
+
+    subgraph "Token-Based"
+        T1[Self-contained]
+        T2[No server state]
+        T3[Revocation requires infrastructure]
+        T4[Scales horizontally]
+    end
+
+    S1 -.->|"Trade-off"| T1
+    S3 -.->|"Trade-off"| T3

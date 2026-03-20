@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph Clients["API Clients"]
+        WEB["Web Apps"]
+        MOBILE["Mobile Apps"]
+        THIRD["Third-Party<br/>Integrations"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        LB["Load Balancer"]
+        GW["API Gateway"]
+    end
+
+    subgraph RateLimitService["Rate Limit Service"]
+        RL_SVC["Rate Limit<br/>Decision Engine"]
+        CONFIG["Rule Config<br/>Store"]
+        QUOTA["Quota<br/>Manager"]
+    end
+
+    subgraph CountingLayer["Counting Layer"]
+        REDIS["Redis Cluster<br/>(Counters + State)"]
+        LOCAL["Local Cache<br/>(Hot Rules)"]
+    end
+
+    subgraph Backend["Backend Services"]
+        SVC_A["Service A"]
+        SVC_B["Service B"]
+        SVC_C["Service C"]
+    end
+
+    subgraph Observability["Observability"]
+        METRICS["Metrics<br/>(Prometheus)"]
+        ALERTS["Alerting"]
+        DASHBOARD["Rate Limit<br/>Dashboard"]
+    end
+
+    WEB & MOBILE & THIRD --> LB --> GW
+    GW -->|"Check rate limit"| RL_SVC
+    RL_SVC --> REDIS & LOCAL
+    RL_SVC --> CONFIG
+    RL_SVC --> QUOTA
+    GW -->|"Allowed"| SVC_A & SVC_B & SVC_C
+    RL_SVC --> METRICS --> ALERTS & DASHBOARD

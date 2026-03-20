@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant O as Organizer
+    participant CS as Calendar Service
+    participant MQ as Message Queue
+    participant ES as Email Service
+    participant A as Attendee
+
+    O->>CS: Create event with attendees
+    CS->>CS: Store event (status: confirmed)
+    CS->>CS: Store attendees (responseStatus: needsAction)
+    CS->>MQ: Queue iTIP REQUEST for each attendee
+
+    loop For each attendee
+        MQ->>ES: Process invitation
+        ES->>ES: Generate iMIP email (text/calendar attachment)
+        ES->>A: Send invitation email
+    end
+
+    A->>CS: RSVP (accept/decline/tentative)
+    CS->>CS: Update attendee responseStatus
+    CS->>MQ: Queue iTIP REPLY to organizer
+    MQ->>ES: Send RSVP notification
+    ES->>O: Email with response

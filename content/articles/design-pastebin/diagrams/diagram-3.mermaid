@@ -1,0 +1,7 @@
+flowchart LR
+    CLIENT["Client"] --> API["API Server"]
+    API --> HASH["SHA-256<br/>Content Hash"]
+    HASH --> CHECK{"Exists in S3?"}
+    CHECK -->|Yes| REUSE["Reuse existing blob"]
+    CHECK -->|No| STORE["Store new blob"]
+    REUSE & STORE --> META_DB[(PostgreSQL<br/>paste_id → content_hash)]

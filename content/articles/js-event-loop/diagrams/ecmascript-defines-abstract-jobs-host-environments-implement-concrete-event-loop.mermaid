@@ -1,0 +1,15 @@
+graph TD
+    A["ECMA-262 (ES2025)"] --> B[Agent Model]
+    B --> C[Jobs & Job Queues]
+    C --> D[HostEnqueuePromiseJob]
+
+    E[WHATWG HTML Standard] --> F[Browser Event Loop]
+    F --> G[Tasks & Microtasks]
+    F --> H[Rendering Pipeline]
+
+    I["Node.js / libuv"] --> J[Phased Event Loop]
+    J --> K["I/O Optimization"]
+    J --> L[Thread Pool]
+
+    D --> F
+    D --> J

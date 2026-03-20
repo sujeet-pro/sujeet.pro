@@ -1,0 +1,21 @@
+flowchart TD
+    subgraph Arrays["Arrays"]
+        A1["PACKED_SMI_ELEMENTS<br/>fastest: all small ints"]
+        A2["PACKED_DOUBLE_ELEMENTS<br/>all floats"]
+        A3["PACKED_ELEMENTS<br/>mixed types"]
+        A4["HOLEY_*_ELEMENTS<br/>contains gaps"]
+        A5["DICTIONARY_ELEMENTS<br/>sparse: hash lookup"]
+        A1 --> A2 --> A3 --> A4 --> A5
+    end
+
+    subgraph HashMaps["Hash Maps (Map/Object)"]
+        H1["Monomorphic<br/>single shape, inline cache"]
+        H2["Polymorphic<br/>2-4 shapes, slower"]
+        H3["Megamorphic<br/>many shapes, no optimization"]
+        H4["Dictionary Mode<br/>hash table fallback"]
+        H1 --> H2 --> H3 --> H4
+    end
+
+    note1["⚠️ Transitions are ONE-WAY<br/>Cannot revert to faster mode"]
+    A4 -.-> note1
+    H3 -.-> note1

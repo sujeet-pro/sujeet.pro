@@ -1,0 +1,10 @@
+flowchart LR
+    Source[Source Code] --> PreParser[Pre-Parser]
+    PreParser -->|"Function boundaries<br/>Syntax validation"| Stubs[Function Stubs]
+    Stubs -->|"First call"| FullParser[Full Parser]
+    FullParser --> AST
+    AST --> Bytecode[BytecodeGenerator]
+    Bytecode --> Ignition
+
+    style PreParser fill:#e3f2fd
+    style FullParser fill:#fff3e0

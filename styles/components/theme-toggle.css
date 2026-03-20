@@ -1,0 +1,30 @@
+/* ─── Theme toggle labels (CSS-only cycling via radio siblings) ─── */
+.theme-toggle-label {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.theme-toggle-label:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+.theme-toggle-label svg {
+  width: 20px;
+  height: 20px;
+}
+
+#theme-auto:checked ~ .site-header .theme-toggle-to-light {
+  display: flex;
+}
+#theme-light:checked ~ .site-header .theme-toggle-to-dark {
+  display: flex;
+}
+#theme-dark:checked ~ .site-header .theme-toggle-to-auto {
+  display: flex;
+}

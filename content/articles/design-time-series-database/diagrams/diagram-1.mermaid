@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant A as Agent
+    participant D as Distributor
+    participant I as Ingester
+    participant WAL as Write-Ahead Log
+    participant M as MemTable
+    participant B as Block Storage
+
+    A->>D: POST /write (batch of samples)
+    D->>D: Parse, validate, hash series
+    D->>I: Route to ingester(s)
+    I->>WAL: Append (sync write)
+    WAL-->>I: ACK
+    I->>M: Buffer in memory
+    I->>A: 204 No Content
+
+    Note over M,B: Every 2 hours
+    M->>B: Flush to block
+    B->>B: Compress, index

@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{ts,tsx}"
+      run: npx oxlint {staged_files}
+    format-check:
+      glob: "*.{ts,tsx,css,json}"
+      run: npx dprint check {staged_files}
+    diagrams:
+      glob: "*.{mermaid,excalidraw}"
+      run: bun scripts/diagrams.ts

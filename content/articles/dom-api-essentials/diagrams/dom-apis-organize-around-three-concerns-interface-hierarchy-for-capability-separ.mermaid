@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph "Capability Layers"
+        ET["EventTarget<br/>Events only"] --> N["Node<br/>Tree structure"]
+        N --> E["Element<br/>Cross-markup ops"]
+        E --> HTML["HTMLElement<br/>HTML semantics"]
+    end
+
+    subgraph "Collection Liveness"
+        QSA["querySelectorAll()"] -->|static| NL["NodeList snapshot"]
+        GBC["getElementsByClassName()"] -->|live| HC["HTMLCollection auto-updates"]
+        CN["childNodes"] -->|live| LNL["NodeList auto-updates"]
+    end
+
+    subgraph "Observer Pattern"
+        IO["IntersectionObserver"] -->|async| CB["Batched callbacks"]
+        MO["MutationObserver"] -->|async| CB
+        RO["ResizeObserver"] -->|async| CB
+    end

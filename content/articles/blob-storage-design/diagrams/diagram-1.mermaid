@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant C as Client
+    participant S as Storage Service
+
+    C->>S: InitiateMultipartUpload
+    S-->>C: UploadId
+
+    par Upload Parts
+        C->>S: UploadPart(UploadId, Part 1)
+        C->>S: UploadPart(UploadId, Part 2)
+        C->>S: UploadPart(UploadId, Part N)
+    end
+
+    S-->>C: ETag for each part
+
+    C->>S: CompleteMultipartUpload(UploadId, [ETags])
+    S-->>C: Success + Final ETag

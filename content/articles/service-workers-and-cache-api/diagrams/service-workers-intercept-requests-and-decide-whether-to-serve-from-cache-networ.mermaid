@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph Client["Browser Tab"]
+        PAGE[Page] -->|fetch| SW
+    end
+
+    subgraph SW["Service Worker"]
+        FETCH[Fetch Event] --> DECIDE{Strategy}
+        DECIDE -->|cache-first| CACHE[(Cache API)]
+        DECIDE -->|network-first| NET[Network]
+        DECIDE -->|stale-while-revalidate| BOTH[Both]
+    end
+
+    subgraph Storage["Origin Storage"]
+        CACHE
+        IDB[(IndexedDB)]
+    end
+
+    NET --> RESP[Response]
+    CACHE --> RESP
+    BOTH --> RESP
+    RESP --> PAGE
+
+    style SW fill:#3b82f6,stroke:#1e40af,color:#fff
+    style Storage fill:#10b981,stroke:#059669,color:#fff

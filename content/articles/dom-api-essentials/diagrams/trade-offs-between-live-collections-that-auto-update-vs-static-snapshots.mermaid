@@ -1,0 +1,13 @@
+flowchart TD
+    A[DOM Query] --> B{Collection Type}
+    B -->|Live HTMLCollection| C[Maintains References]
+    B -->|Static NodeList| D[Snapshot Copy]
+
+    C --> E[Overhead: Monitor DOM]
+    C --> F[Benefit: Auto-updates]
+
+    D --> G[Overhead: Re-query for updates]
+    D --> H[Benefit: No maintenance cost]
+
+    style C fill:#ef4444,stroke:#dc2626,color:#fff
+    style D fill:#10b981,stroke:#059669,color:#fff

@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant C as Client
+    participant M as Metadata Service
+    participant B as Block Service
+
+    Note over C: File changed locally
+    C->>C: Chunk file (CDC)
+    C->>C: Hash each block
+
+    C->>M: Commit blocklist [h1, h2, h3]
+    M->>M: Check which blocks exist
+    M-->>C: Need blocks: [h2]
+
+    C->>B: Upload block h2
+    B-->>C: Block stored
+
+    C->>M: Retry commit [h1, h2, h3]
+    M->>M: All blocks present
+    M-->>C: Commit success, rev=15
+
+    Note over M: Notify other clients
+    M->>M: Publish to notification queue

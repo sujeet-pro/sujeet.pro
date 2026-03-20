@@ -1,0 +1,29 @@
+flowchart TD
+    subgraph "V8 Execution Pipeline"
+        Source[JavaScript Source] --> Parser
+        Parser --> AST[Abstract Syntax Tree]
+        AST --> Bytecode[Ignition Bytecode]
+
+        Bytecode --> Ignition[Ignition Interpreter]
+        Ignition -->|"~8 invocations"| Sparkplug[Sparkplug Baseline]
+        Sparkplug -->|"~500 invocations"| Maglev[Maglev Mid-Tier]
+        Maglev -->|"~6000 invocations"| TurboFan[TurboFan + Turboshaft]
+
+        Ignition -.->|"Type Feedback"| FeedbackVector
+        FeedbackVector -.-> Maglev
+        FeedbackVector -.-> TurboFan
+
+        TurboFan -.->|"Deopt"| Ignition
+        Maglev -.->|"Deopt"| Ignition
+    end
+
+    subgraph "Runtime System"
+        FeedbackVector[FeedbackVector]
+        Maps[Hidden Classes / Maps]
+        IC[Inline Caches]
+    end
+
+    style Ignition fill:#e1f5fe
+    style Sparkplug fill:#f3e5f5
+    style Maglev fill:#fff3e0
+    style TurboFan fill:#e8f5e8

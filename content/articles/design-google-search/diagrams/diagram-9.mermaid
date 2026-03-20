@@ -1,0 +1,37 @@
+graph TB
+    subgraph Edge["Edge Layer"]
+        CF[CloudFront]
+        R53[Route 53<br/>GeoDNS]
+    end
+
+    subgraph Compute["Compute Layer"]
+        ALB[Application Load Balancer]
+        ECS[ECS Fargate<br/>Query Servers]
+        BATCH[AWS Batch<br/>Index Building]
+    end
+
+    subgraph Storage["Storage Layer"]
+        DYNAMO[(DynamoDB<br/>URL Frontier)]
+        S3[(S3<br/>Raw Pages)]
+        OPENSEARCH[(OpenSearch<br/>Inverted Index)]
+    end
+
+    subgraph Cache["Cache Layer"]
+        ELASTICACHE[(ElastiCache<br/>Query Cache)]
+        DAX[(DAX<br/>DynamoDB Cache)]
+    end
+
+    subgraph Queue["Queue Layer"]
+        SQS[SQS<br/>Crawl Jobs]
+        KINESIS[Kinesis<br/>Index Updates]
+    end
+
+    R53 --> CF --> ALB
+    ALB --> ECS
+    ECS --> ELASTICACHE
+    ECS --> OPENSEARCH
+    ECS --> DYNAMO
+    SQS --> BATCH
+    BATCH --> S3
+    BATCH --> OPENSEARCH
+    KINESIS --> OPENSEARCH

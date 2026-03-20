@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph Federation
+        NN1["NameNode 1<br/>(Namespace A)"]
+        NN2["NameNode 2<br/>(Namespace B)"]
+        NN3["NameNode 3<br/>(Namespace C)"]
+    end
+
+    subgraph SharedStorage["Shared DataNodes"]
+        DN1["DataNode 1<br/>Block Pool A,B"]
+        DN2["DataNode 2<br/>Block Pool A,C"]
+        DN3["DataNode 3<br/>Block Pool B,C"]
+    end
+
+    NN1 --> DN1 & DN2
+    NN2 --> DN1 & DN3
+    NN3 --> DN2 & DN3

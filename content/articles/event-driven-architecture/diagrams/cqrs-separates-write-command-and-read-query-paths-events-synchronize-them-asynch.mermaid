@@ -1,0 +1,15 @@
+flowchart LR
+    subgraph Commands
+        C[Command] --> WM[Write Model]
+        WM --> DB[(Primary DB)]
+        WM --> E[Events]
+    end
+
+    subgraph Queries
+        E --> RM[Read Model Builder]
+        RM --> RDB[(Read DB)]
+        Q[Query] --> RDB
+    end
+
+    style DB fill:#d5e8d4,stroke:#82b366
+    style RDB fill:#dae8fc,stroke:#6c8ebf

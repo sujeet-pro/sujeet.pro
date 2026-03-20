@@ -1,0 +1,12 @@
+flowchart LR
+    subgraph PreSale["Pre-Sale Setup"]
+        INV[Inventory Count: N] --> GEN[Generate N Tokens]
+    end
+
+    subgraph SaleTime["During Sale"]
+        WR[Waiting Room] --> Q[Queue<br/>FIFO]
+        Q --> |Token assigned| GATE[Token Gate]
+        GATE --> CHECKOUT[Checkout<br/>Token = Inventory]
+    end
+
+    GEN --> GATE

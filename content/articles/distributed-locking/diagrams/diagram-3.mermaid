@@ -1,0 +1,10 @@
+flowchart TD
+    A[Need distributed lock] --> B{Correctness critical?}
+    B -->|No: efficiency only| C{Fault tolerance needed?}
+    B -->|Yes: data corruption risk| D{Already have ZooKeeper?}
+    C -->|No| E[Redis single-node]
+    C -->|Yes| F[Redlock]
+    D -->|Yes| G[ZooKeeper + fencing]
+    D -->|No| H{Single database scope?}
+    H -->|Yes| I[PostgreSQL advisory]
+    H -->|No| J[ZooKeeper or etcd + fencing]

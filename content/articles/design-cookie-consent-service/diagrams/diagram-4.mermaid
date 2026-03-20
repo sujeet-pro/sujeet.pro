@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant B as Browser
+    participant SDK as Consent SDK
+    participant API as Consent API
+    participant Redis as Redis
+    participant DB as PostgreSQL
+    participant Audit as Audit Log
+
+    B->>SDK: User clicks "Accept Analytics"
+    SDK->>API: POST /consent {categories: [...]}
+    API->>API: Validate request
+    API->>DB: Write consent record
+    API->>Audit: Append audit entry
+    API->>Redis: Invalidate cache
+    API->>SDK: Return success
+    SDK->>SDK: Update local state
+    SDK->>B: Enable analytics scripts

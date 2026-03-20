@@ -1,0 +1,5 @@
+flowchart LR
+    CLIENT["Client"] --> GW["API Gateway"]
+    GW -->|"gRPC check"| RLS["Rate Limit<br/>Service"]
+    RLS --> REDIS["Redis Cluster"]
+    GW --> SVC["Backend<br/>Services"]

@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph Producer
+        P[App] --> IP[Idempotent Producer]
+        IP -->|"PID + SeqNum"| B
+    end
+
+    subgraph Broker["Kafka Broker"]
+        B[Leader] -->|"Check SeqNum"| D{Duplicate?}
+        D -->|Yes| R[Reject]
+        D -->|No| W[Write to Log]
+    end
+
+    subgraph Consumer
+        W --> C[Consumer]
+        C -->|"read_committed"| CP[Consumer Processing]
+    end

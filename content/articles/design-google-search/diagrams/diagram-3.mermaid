@@ -1,0 +1,10 @@
+flowchart LR
+    subgraph Tiers["Index Tiers"]
+        HOT[(Hot Tier<br/>Memory/SSD<br/>Top 10% pages)]
+        WARM[(Warm Tier<br/>SSD<br/>Next 30% pages)]
+        COLD[(Cold Tier<br/>HDD<br/>Remaining 60%)]
+    end
+
+    Query --> HOT
+    HOT -->|Miss| WARM
+    WARM -->|Miss| COLD

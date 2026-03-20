@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph Generator["Offline Generator (Cron)"]
+        GEN["Generate random<br/>7-char Base62 strings"]
+        DEDUP["Check uniqueness<br/>against used-keys set"]
+    end
+
+    subgraph Pool["Key Pool (PostgreSQL / DynamoDB)"]
+        AVAILABLE["Available Keys<br/>(~10M buffered)"]
+        ALLOCATED["Allocated Keys<br/>(assigned to app servers)"]
+    end
+
+    subgraph AppServers["App Servers"]
+        APP1["Server 1<br/>Local cache: 1000 keys"]
+        APP2["Server 2<br/>Local cache: 1000 keys"]
+        APP3["Server 3<br/>Local cache: 1000 keys"]
+    end
+
+    GEN --> DEDUP --> AVAILABLE
+    AVAILABLE -->|Batch of 1000| APP1 & APP2 & APP3
+    APP1 & APP2 & APP3 -.->|Unused keys on shutdown| AVAILABLE

@@ -1,0 +1,27 @@
+graph TB
+    subgraph "Environment Management"
+        A[Development] --> B[Dev Key]
+        C[Staging] --> D[Staging Key]
+        E[Production] --> F[Production Key]
+    end
+
+    subgraph "Key Rotation"
+        G[Current Key] --> H[Backup Key]
+        H --> I[New Key]
+        I --> G
+    end
+
+    subgraph "Security Layers"
+        J[HTTPS/TLS] --> K[API Key Auth]
+        K --> L[Environment Isolation]
+        L --> M[Data Encryption]
+    end
+
+    B --> J
+    D --> J
+    F --> J
+
+    style A fill:#e1f5fe
+    style F fill:#c8e6c9
+    style J fill:#fff3e0
+    style M fill:#f3e5f5

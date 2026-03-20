@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Source["Underlying Source"]
+        PUSH["Push Source<br/>(events, WebSocket)"]
+        PULL["Pull Source<br/>(file, database)"]
+    end
+
+    subgraph Stream["ReadableStream"]
+        QUEUE["Internal Queue"]
+        CTRL["controller.desiredSize"]
+    end
+
+    subgraph Consumer["Consumer"]
+        READER["getReader()"]
+        ITER["for await...of"]
+        PIPE["pipeTo()"]
+    end
+
+    PUSH -->|enqueue| QUEUE
+    PULL -->|"pull()"| QUEUE
+    QUEUE --> READER
+    QUEUE --> ITER
+    QUEUE --> PIPE
+
+    CTRL -.->|backpressure| PUSH
+    CTRL -.->|throttle| PULL
+
+    style QUEUE fill:#3b82f6,stroke:#1e40af,color:#fff

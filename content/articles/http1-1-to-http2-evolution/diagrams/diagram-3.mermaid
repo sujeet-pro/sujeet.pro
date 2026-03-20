@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Client->>Server: ClientHello + ALPN extension<br/>protocols: ["h2", "http/1.1"]
+    Server->>Client: ServerHello + ALPN extension<br/>selected: "h2"
+
+    Note over Client,Server: Continue TLS handshake with HTTP/2 selected

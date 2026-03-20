@@ -1,0 +1,5 @@
+flowchart LR
+    MY[(MySQL)] -->|Binlog| MX[Maxwell]
+    MX -->|JSON| K[Kafka]
+    MX -->|JSON| KS[Kinesis]
+    MX -->|JSON| RB[RabbitMQ]

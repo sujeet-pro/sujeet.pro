@@ -1,0 +1,26 @@
+graph LR
+    subgraph "Task Queue"
+        T1[Task 1]
+        T2[Task 2]
+        T3[Task 3]
+        T4[Task 4]
+        T5[Task 5]
+    end
+
+    subgraph "Executors"
+        E1[Executor 1]
+        E2[Executor 2]
+        E3[Executor 3]
+    end
+
+    T1 --> E1
+    T2 --> E2
+    T3 --> E3
+    T4 --> E1
+    T5 --> E2
+
+    classDef taskClass fill:#ffcc00,stroke:#000,stroke-width:2px
+    classDef executorClass fill:#00ccff,stroke:#000,stroke-width:2px
+
+    class T1,T2,T3,T4,T5 taskClass
+    class E1,E2,E3 executorClass

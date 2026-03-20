@@ -1,0 +1,47 @@
+flowchart TB
+    subgraph Client["Client Layer"]
+        Browser[Browser Cache<br/>1hr TTL]
+        Debounce[Debounce 300ms]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CDN[CDN / Edge Cache<br/>P99 < 5ms]
+    end
+
+    subgraph API["API Layer"]
+        LB[Load Balancer]
+        Gateway[API Gateway]
+    end
+
+    subgraph Suggestion["Suggestion Service"]
+        Router[Shard Router]
+        subgraph Shards["Trie Shards"]
+            S1[Shard A-F]
+            S2[Shard G-M]
+            S3[Shard N-S]
+            S4[Shard T-Z]
+        end
+        Ranker[Ranking Service]
+    end
+
+    subgraph Data["Data Layer"]
+        Redis[(Redis Cache<br/>Hot Prefixes)]
+        TrieStore[(Trie Snapshots<br/>S3/HDFS)]
+    end
+
+    subgraph Pipeline["Indexing Pipeline"]
+        Logs[Query Logs]
+        Kafka[Kafka Stream]
+        Builder[Trie Builder<br/>Weekly + Hot Updates]
+    end
+
+    Browser --> Debounce --> CDN --> LB --> Gateway
+    Gateway --> Router
+    Router --> S1 & S2 & S3 & S4
+    S1 & S2 & S3 & S4 --> Ranker
+    S1 & S2 & S3 & S4 -.-> Redis
+    Ranker --> Gateway
+
+    Logs --> Kafka --> Builder
+    Builder --> TrieStore
+    TrieStore -.-> S1 & S2 & S3 & S4

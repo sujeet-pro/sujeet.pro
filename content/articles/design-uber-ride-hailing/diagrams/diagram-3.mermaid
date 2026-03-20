@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph Edge["Edge Layer"]
+        CF[CloudFront]
+        R53[Route 53<br/>Latency-based routing]
+    end
+
+    subgraph Region1["Region: US-West"]
+        subgraph Compute1["Compute"]
+            ALB1[ALB]
+            EKS1[EKS Cluster<br/>Core Services]
+            WS1[WebSocket Fleet<br/>ECS]
+        end
+
+        subgraph Data1["Data"]
+            RDS1[(Aurora PostgreSQL<br/>Payments)]
+            Redis1[(ElastiCache Redis<br/>Location Cache)]
+            MSK1[MSK Kafka<br/>Event Streaming]
+            Cassandra1[(Keyspaces<br/>Driver State)]
+        end
+
+        subgraph ML1["ML"]
+            Sage1[SageMaker<br/>ETA Inference]
+        end
+    end
+
+    subgraph Region2["Region: US-East"]
+        ALB2[ALB]
+        EKS2[EKS Cluster]
+        MSK2[MSK Kafka]
+    end
+
+    R53 --> ALB1
+    R53 --> ALB2
+    ALB1 --> EKS1
+    EKS1 --> Data1
+    EKS1 --> ML1
+    WS1 --> MSK1
+    MSK1 -.->|Cross-region replication| MSK2

@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph Before["Before Kafka: O(N²) Integration"]
+        direction TB
+        S1[App Servers] --> DB1[Oracle]
+        S1 --> H1[Hadoop]
+        S1 --> M1[Monitoring]
+        DB1 --> H1
+        DB1 --> DW[Data Warehouse]
+        H1 --> DW
+        M1 --> H1
+    end
+
+    subgraph After["After Kafka: O(N) Integration"]
+        direction TB
+        A1[App Servers] --> K[Kafka]
+        A2[Databases] --> K
+        A3[Logs] --> K
+        K --> C1[Hadoop]
+        K --> C2[Real-time]
+        K --> C3[Search]
+        K --> C4[Data Warehouse]
+    end
+
+    Before -.->|"Kafka as unified bus"| After

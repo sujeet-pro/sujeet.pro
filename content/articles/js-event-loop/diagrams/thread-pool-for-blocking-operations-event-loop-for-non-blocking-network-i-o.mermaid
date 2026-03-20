@@ -1,0 +1,16 @@
+graph LR
+    subgraph "Thread Pool Operations"
+        A[fs.readFile] --> B[Blocking I/O]
+        C[dns.lookup] --> B
+        D[crypto.pbkdf2] --> B
+        E[zlib.gzip] --> B
+    end
+
+    subgraph "Direct I/O Operations"
+        F[net.Socket] --> G[Non-blocking I/O]
+        H[http.get] --> G
+        I[WebSocket] --> G
+    end
+
+    B --> J[libuv Thread Pool]
+    G --> K[Event Loop Direct]

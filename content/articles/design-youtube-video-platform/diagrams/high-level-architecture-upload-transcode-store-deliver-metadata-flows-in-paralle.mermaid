@@ -1,0 +1,31 @@
+flowchart TB
+    subgraph "Upload Pipeline"
+        U[User Upload] --> US[Upload Service<br/>Resumable/Chunked]
+        US --> RAW[(Raw Storage<br/>Original Files)]
+        US --> Q[Transcoding Queue]
+    end
+
+    subgraph "Transcoding"
+        Q --> TS[Transcoder Workers<br/>Parallel Chunk Processing]
+        TS --> ENC[Multi-Codec Encoding<br/>H.264/VP9/AV1]
+        ENC --> SEG[Segmenter<br/>HLS/DASH Segments]
+    end
+
+    subgraph "Storage Layer"
+        SEG --> HOT[(Hot Storage<br/>Recent/Popular)]
+        HOT --> WARM[(Warm Storage)]
+        WARM --> COLD[(Cold Storage<br/>Long-tail)]
+        RAW --> COLD
+    end
+
+    subgraph "Delivery"
+        HOT --> ORIGIN[Origin Shield]
+        ORIGIN --> CDN[CDN Edge<br/>Global PoPs]
+        CDN --> PLAYER[Video Player<br/>ABR Algorithm]
+    end
+
+    subgraph "Metadata & Discovery"
+        US --> META[(Metadata DB)]
+        META --> SEARCH[Search Index<br/>Elasticsearch]
+        META --> REC[Recommendation<br/>ML Pipeline]
+    end

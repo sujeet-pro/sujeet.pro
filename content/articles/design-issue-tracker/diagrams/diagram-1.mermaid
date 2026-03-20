@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant C as Client
+    participant API as REST API
+    participant DB as PostgreSQL
+    participant WS as WebSocket
+
+    C->>API: PATCH /issues/123 (move to column)
+    API->>DB: UPDATE issues SET status_id=5, rank='0|i000a'
+    DB-->>API: Success
+    API-->>C: 200 OK
+    API->>WS: Broadcast change
+    WS-->>C: Issue updated event

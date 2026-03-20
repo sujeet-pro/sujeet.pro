@@ -1,0 +1,21 @@
+graph TB
+    title[Microfrontend Architecture]
+
+    E[Team A - React] --> F[Independent Deployments]
+    G[Team B - Vue] --> F
+    H[Team C - Angular] --> F
+    I[Team D - Svelte] --> F
+
+    F --> J[Domain Boundaries]
+    J --> K[Technology Freedom]
+    K --> L[Team Autonomy]
+
+    style title fill:#66cc66,stroke:#006600,stroke-width:3px,color:#ffffff
+    style E fill:#99ff99
+    style G fill:#99ff99
+    style H fill:#99ff99
+    style I fill:#99ff99
+    style F fill:#ccffcc
+    style J fill:#ccffcc
+    style K fill:#ccffcc
+    style L fill:#ccffcc

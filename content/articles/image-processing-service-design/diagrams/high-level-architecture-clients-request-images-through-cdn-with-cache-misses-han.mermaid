@@ -1,0 +1,18 @@
+graph TB
+    Client[Client Application]
+    CDN[Edge Cache / CDN]
+
+    subgraph "Image Service Platform"
+        Gateway[Image Gateway]
+        Transform[Transform Engine]
+        Storage[(Object Storage)]
+        Cache[(Redis Cache)]
+        DB[(PostgreSQL)]
+    end
+
+    Client -->|HTTPS| CDN
+    CDN -->|Cache Miss| Gateway
+    Gateway --> Transform
+    Transform --> Cache
+    Transform --> DB
+    Transform --> Storage

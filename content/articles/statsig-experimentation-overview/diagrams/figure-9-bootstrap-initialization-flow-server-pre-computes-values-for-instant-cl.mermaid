@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant User as User
+    participant Next as Next.js Server
+    participant Statsig as Statsig Server SDK
+    participant Client as Client SDK
+    participant Browser as Browser
+
+    User->>Next: GET /page
+    Next->>Statsig: getClientInitializeResponse(user)
+    Statsig->>Statsig: Local evaluation
+    Statsig-->>Next: Bootstrap values
+    Next->>Browser: HTML + bootstrap values
+    Browser->>Client: initializeSync(bootstrap)
+    Client->>Client: Instant cache population
+    Client->>Browser: Feature flags ready
+
+    Note over Browser: No network request needed
+    Note over Client: UI renders immediately

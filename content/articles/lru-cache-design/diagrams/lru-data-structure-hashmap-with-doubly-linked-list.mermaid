@@ -1,0 +1,44 @@
+graph LR
+    %% Hashmap section
+    subgraph HashMap ["Hashmap for O(1) access"]
+        K1["K1"]
+        K2["K2"]
+        K3["K3"]
+        K4["K4"]
+        K5["K5"]
+    end
+
+    %% Doubly linked list section
+    subgraph DLL ["Doubly Linked List for Order"]
+        N1["N1<br/>Key: K1<br/>Value: V1"]
+        N2["N2<br/>Key: K2<br/>Value: V2"]
+        N3["N3<br/>Key: K3<br/>Value: V3"]
+        N4["N4<br/>Key: K4<br/>Value: V4"]
+        N5["N5<br/>Key: K5<br/>Value: V5"]
+    end
+
+    %% Connections from hashmap to nodes
+    K1 --> N1
+    K2 --> N2
+    K3 --> N3
+    K4 --> N4
+    K5 --> N5
+
+    %% Doubly linked list connections
+    N1 <--> N2
+    N2 <--> N3
+    N3 <--> N4
+    N4 <--> N5
+
+    %% Head and Tail pointers
+    Head["Head"] --> N1
+    Tail["Tail"] --> N5
+
+    %% Styling
+    classDef hashmapStyle fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px
+    classDef nodeStyle fill:#fff2cc,stroke:#d6b656,stroke-width:2px
+    classDef pointerStyle fill:#f8cecc,stroke:#b85450,stroke-width:2px
+
+    class K1,K2,K3,K4,K5 hashmapStyle
+    class N1,N2,N3,N4,N5 nodeStyle
+    class Head,Tail pointerStyle

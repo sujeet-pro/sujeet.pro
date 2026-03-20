@@ -1,0 +1,18 @@
+graph TD
+    subgraph Build Process
+        A[Original Assets] --> B{"Compressor (Brotli & Gzip)"}
+        B -- Brotli Q11 --> C[main.js.br]
+        B -- Gzip -9 --> D[main.js.gz]
+    end
+    subgraph Deployment to S3
+        C --> E[S3: /br/main.js.br]
+        D --> F[S3: /gz/main.js.gz]
+    end
+    subgraph Request & Delivery Flow
+        G[Browser] --> H[Amazon CloudFront]
+        H -- Viewer Request Event --> I{"Lambda@Edge Function"}
+        I -- Rewrites request URI to /br/main.js.br --> H
+        H -- Origin Request (for rewritten URI) --> E
+        E -- Serves pre-compressed file with correct headers --> H
+        H -- Serves to Browser --> G
+    end

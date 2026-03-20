@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph "Primary Region (US-East)"
+        PP[("Primary DB")]
+        SP["Services"]
+    end
+
+    subgraph "Standby Region (US-West)"
+        PS[("Standby DB")]
+        SS["Services (idle)"]
+    end
+
+    Users -->|All traffic| SP
+    SP --> PP
+    PP -->|"Async replication"| PS
+
+    style PS stroke-dasharray: 5 5
+    style SS stroke-dasharray: 5 5

@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant C as Client
+    participant API as API Gateway
+    participant ES as Event Service
+    participant RS as Recurrence Service
+    participant DB as PostgreSQL
+    participant Cache as Redis
+    participant Q as Message Queue
+
+    C->>API: POST /events (with RRULE)
+    API->>ES: createEvent(eventData)
+    ES->>DB: INSERT event master
+    ES->>RS: expandInstances(RRULE, 90 days)
+    RS->>DB: INSERT materialized instances
+    RS->>Cache: SET free/busy cache (invalidate)
+    ES->>Q: EventCreated (for notifications)
+    ES->>C: 201 Created (event ID)

@@ -1,0 +1,20 @@
+flowchart LR
+    subgraph "Query Processing"
+        QUERY[User Query] --> PARSE[Query Parser<br/>Tokenization]
+        PARSE --> CORRECT[Spell Correction<br/>Did you mean?]
+        CORRECT --> EXPAND[Query Expansion<br/>Synonyms]
+    end
+
+    subgraph "Search"
+        EXPAND --> ES[Elasticsearch<br/>Multi-index]
+        ES --> TRACKS[Track Results]
+        ES --> ARTISTS[Artist Results]
+        ES --> ALBUMS[Album Results]
+        ES --> PLAYLISTS[Playlist Results]
+    end
+
+    subgraph "Ranking"
+        TRACKS & ARTISTS & ALBUMS & PLAYLISTS --> RANK[Re-ranking<br/>Personalization]
+        RANK --> DEDUP[Deduplication]
+        DEDUP --> RESP[Response]
+    end

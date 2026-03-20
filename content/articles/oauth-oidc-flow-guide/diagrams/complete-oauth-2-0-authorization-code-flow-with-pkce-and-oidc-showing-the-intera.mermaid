@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant User as User (Browser)
+    participant Client as Client App
+    participant AuthZ as Authorization Server
+    participant API as Resource Server
+
+    User->>Client: 1. Initiate login
+    Client->>Client: Generate state, nonce, PKCE
+    Client->>User: 2. Redirect to AuthZ
+    User->>AuthZ: 3. Authorization request + PKCE challenge
+    AuthZ->>User: 4. Authenticate & consent
+    User->>Client: 5. Redirect with code + state
+    Client->>AuthZ: 6. Exchange code + PKCE verifier
+    AuthZ->>Client: 7. Access token + ID token + Refresh token
+    Client->>API: 8. API request with access token
+    API->>Client: 9. Protected resource

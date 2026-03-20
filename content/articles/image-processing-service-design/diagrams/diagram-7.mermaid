@@ -1,0 +1,16 @@
+graph LR
+    Request[Client Request]
+    CDN[CDN Edge Cache<br/>Hit Rate: 95%<br/>Cost: $0.02/GB]
+    Redis[Redis Cache<br/>Hit Rate: 80%<br/>TTL: 1 hour]
+    DB[Database Index<br/>Hit Rate: 90%]
+    Storage[Object Storage<br/>S3/GCS/Azure]
+    Process[Process New<br/>< 5% of requests]
+
+    Request --> CDN
+    CDN -->|Miss 5%| Redis
+    Redis -->|Miss 20%| DB
+    DB -->|Miss 10%| Storage
+    Storage --> Process
+    Process --> Storage
+    Process --> DB
+    Process --> Redis

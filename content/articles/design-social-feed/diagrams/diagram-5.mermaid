@@ -1,0 +1,19 @@
+erDiagram
+    OBJECT {
+        bigint id PK
+        string type
+        blob data
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ASSOCIATION {
+        bigint id1 PK
+        string assoc_type PK
+        bigint id2 PK
+        timestamp time
+        blob data
+    }
+
+    OBJECT ||--o{ ASSOCIATION : "source (id1)"
+    OBJECT ||--o{ ASSOCIATION : "target (id2)"

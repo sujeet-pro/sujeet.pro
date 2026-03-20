@@ -1,0 +1,20 @@
+flowchart LR
+    A[EventTarget] -->|adds| B[Event System]
+    C[Node] -->|adds| D[Tree Operations]
+    E[Element] -->|adds| F[Attributes & Selectors]
+    G[HTMLElement] -->|adds| H[HTML Semantics]
+
+    B --> addEventListener
+    B --> dispatchEvent
+
+    D --> parentNode
+    D --> childNodes
+    D --> appendChild
+
+    F --> querySelector
+    F --> getAttribute
+    F --> classList
+
+    H --> contentEditable
+    H --> dataset
+    H --> innerText

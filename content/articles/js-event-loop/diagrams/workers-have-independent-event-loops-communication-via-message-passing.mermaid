@@ -1,0 +1,22 @@
+graph TB
+    subgraph "Main Thread"
+        A[Main Event Loop] --> B[UI Thread]
+        C[postMessage] --> D[Message Channel]
+    end
+
+    subgraph "Worker Thread"
+        E[Worker Event Loop] --> F[Background Thread]
+        G[onmessage] --> H[Message Handler]
+    end
+
+    subgraph "Communication"
+        I[Structured Clone] --> J[Copy by Default]
+        K[Transferable Objects] --> L[Zero-Copy Transfer]
+        M[SharedArrayBuffer] --> N[Shared Memory]
+    end
+
+    D --> E
+    H --> C
+    I --> D
+    K --> D
+    M --> D

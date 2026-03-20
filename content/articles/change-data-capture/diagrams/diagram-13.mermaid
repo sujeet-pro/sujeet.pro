@@ -1,0 +1,5 @@
+flowchart LR
+    DB[(PostgreSQL)] --> CDC[Debezium]
+    CDC --> K[Kafka]
+    K --> ES[Elasticsearch Sink]
+    ES --> IDX[(Elasticsearch)]

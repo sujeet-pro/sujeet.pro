@@ -1,0 +1,69 @@
+flowchart TB
+    subgraph ClientLayer["Client Layer"]
+        APP["Mobile/Web App"]
+        OFFLINE["Offline Cache<br/>(SQLite/IndexedDB)"]
+    end
+
+    subgraph EdgeLayer["Edge Layer"]
+        DNS["GeoDNS"]
+        CDN["CDN<br/>(Images, Videos)"]
+        LB["L4 Load Balancer"]
+    end
+
+    subgraph APILayer["API Layer"]
+        GW["API Gateway"]
+        AUTH["Auth Service"]
+        RATE["Rate Limiter"]
+    end
+
+    subgraph FeedLayer["Feed Generation Layer"]
+        direction TB
+        AGG["Aggregator Tier<br/>(CPU-intensive)"]
+        LEAF["Leaf Tier<br/>(Memory-intensive)"]
+        TAILER["Tailer<br/>(Real-time ingestion)"]
+    end
+
+    subgraph RankingLayer["Ranking Layer"]
+        RETRIEVE["Candidate Retrieval"]
+        RANK1["First-Pass Ranking<br/>(Lightweight)"]
+        RANK2["Second-Pass Ranking<br/>(Neural Network)"]
+        RERANK["Final Reranking<br/>(Diversity, Integrity)"]
+    end
+
+    subgraph CoreServices["Core Services"]
+        POST["Post Service"]
+        SOCIAL["Social Graph Service"]
+        ENGAGE["Engagement Service"]
+        FANOUT["Fan-out Service"]
+        PUSH["Push Notification Service"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+        direction TB
+        TAO["TAO<br/>(Graph Store)"]
+        REDIS["Redis Cluster<br/>(Feed Cache)"]
+        MYSQL[(MySQL<br/>Persistent)]
+        KAFKA["Kafka<br/>(Events)"]
+        S3["S3<br/>(Media)"]
+    end
+
+    subgraph MLLayer["ML Platform"]
+        FEATURE["Feature Store"]
+        MODEL["Model Serving<br/>(TensorFlow Serving)"]
+        TRAIN["Training Pipeline"]
+    end
+
+    APP --> DNS --> LB --> GW
+    APP --> CDN
+    GW --> AUTH
+    GW --> RATE
+    GW --> AGG
+    AGG --> LEAF
+    AGG --> RETRIEVE
+    RETRIEVE --> RANK1 --> RANK2 --> RERANK
+    RANK1 & RANK2 --> MODEL --> FEATURE
+    LEAF --> TAO --> MYSQL
+    POST --> KAFKA --> FANOUT --> REDIS
+    POST --> S3
+    ENGAGE --> TAO
+    SOCIAL --> TAO

@@ -1,0 +1,47 @@
+flowchart TB
+    subgraph Clients["Clients"]
+        API_CLIENTS["API Consumers"]
+    end
+
+    subgraph Gateway["API Gateway Layer"]
+        LB["Load Balancer"]
+        GW1["Gateway Node 1"]
+        GW2["Gateway Node 2"]
+        GW3["Gateway Node N"]
+    end
+
+    subgraph RateLimitSvc["Rate Limit Service"]
+        direction TB
+        RLS1["RLS Instance 1"]
+        RLS2["RLS Instance 2"]
+        RLS3["RLS Instance N"]
+        RULE_STORE["Rule Store<br/>(YAML Config)"]
+    end
+
+    subgraph Storage["Counting Storage"]
+        REDIS_PRIMARY["Redis Cluster<br/>(Primary)"]
+        REDIS_REPLICA["Redis Cluster<br/>(Replicas)"]
+    end
+
+    subgraph QuotaMgmt["Quota Management"]
+        QUOTA_API["Quota API"]
+        QUOTA_DB[(PostgreSQL<br/>Tenant Quotas)]
+        QUOTA_CACHE["Quota Cache"]
+    end
+
+    subgraph Observability["Observability"]
+        PROM["Prometheus"]
+        GRAFANA["Grafana<br/>Dashboard"]
+        ALERT["AlertManager"]
+    end
+
+    API_CLIENTS --> LB
+    LB --> GW1 & GW2 & GW3
+    GW1 & GW2 & GW3 -->|"gRPC: ShouldRateLimit"| RLS1 & RLS2 & RLS3
+    RLS1 & RLS2 & RLS3 --> REDIS_PRIMARY
+    REDIS_PRIMARY --> REDIS_REPLICA
+    RLS1 & RLS2 & RLS3 --> RULE_STORE
+    QUOTA_API --> QUOTA_DB
+    QUOTA_DB --> QUOTA_CACHE --> RLS1 & RLS2 & RLS3
+    RLS1 & RLS2 & RLS3 --> PROM --> GRAFANA & ALERT
+    GW1 & GW2 & GW3 -->|"Allowed"| BACKEND["Backend Services"]

@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant C as Client
+    participant CDN as CDN Cache
+    participant GW as API Gateway
+    participant R as Shard Router
+    participant T as Trie Service
+    participant Cache as Redis
+    participant Rank as Ranker
+
+    C->>CDN: GET /suggest?q=prog
+    alt Cache Hit
+        CDN-->>C: [programming, progress, program]
+    else Cache Miss
+        CDN->>GW: Forward request
+        GW->>R: Route by prefix
+        R->>Cache: Check hot cache
+        alt Hot Cache Hit
+            Cache-->>R: Cached suggestions
+        else Cache Miss
+            R->>T: Query trie shard
+            T-->>R: Top-K from trie node
+        end
+        R->>Rank: Apply personalization (optional)
+        Rank-->>GW: Ranked suggestions
+        GW-->>CDN: Response + cache headers
+        CDN-->>C: [programming, progress, program]
+    end

@@ -1,0 +1,293 @@
+/* ═══════════════════════════════════════════════════════════════
+   Language badges — colored labels for code block languages.
+
+   Uses CSS custom properties + content:attr() for text badges.
+   Languages with recognizable brand icons (HTML, CSS) use SVG
+   data-URI overrides via background-image.
+
+   To add a new language: add a [data-lang="xxx"] rule with --lang-color.
+   To use an SVG icon: override ::before with background-image and content:''.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Badge base (text mode) ─── */
+.code-lang::before {
+  content: attr(data-abbr);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--lang-color, #6e7681);
+  color: var(--lang-text, #fff);
+  font-size: 7.5px;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-right: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Subtle light border on dark backgrounds for badge visibility */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .code-lang::before {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+}
+[data-theme="dark"] .code-lang::before {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+body:has(#theme-dark:checked) .code-lang::before {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+body:has(#theme-light:checked) .code-lang::before {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SVG icon overrides — recognizable brand logos for common langs
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Shared SVG icon base */
+[data-lang="html"] .code-lang::before,
+[data-lang="css"] .code-lang::before {
+  content: "";
+  background-size: 14px 14px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* HTML5 shield */
+[data-lang="html"] .code-lang::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h12l-1.1 13L8 15.5 3.1 14z' fill='%23e44d26'/%3E%3Cpath d='M8 2.5v11.5l3.6-1.2.9-10.3z' fill='%23f16529'/%3E%3Cpath d='M6 5h5l-.15 1.5H7.1l.15 1.5h3.4l-.35 3.5L8 12.2l-2.3-.7-.15-1.5h1.5l.05.7.9.3.9-.3.15-1.2H5.85z' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+/* CSS3 shield */
+[data-lang="css"] .code-lang::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h12l-1.1 13L8 15.5 3.1 14z' fill='%23264de4'/%3E%3Cpath d='M8 2.5v11.5l3.6-1.2.9-10.3z' fill='%232965f1'/%3E%3Cpath d='M11 5H5.1l.15 1.5h5.2l-.35 3.5L8 11l-2.1-.7-.1-1.3h1.5l.05.7.65.2.65-.2.15-1.2H5.4l-.3-3h5.9z' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Language colors (GitHub linguist palette)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* TypeScript / TSX */
+[data-lang="typescript"] {
+  --lang-color: #3178c6;
+}
+[data-lang="tsx"] {
+  --lang-color: #3178c6;
+}
+
+/* JavaScript / JSX */
+[data-lang="javascript"] {
+  --lang-color: #f7df1e;
+  --lang-text: #323330;
+}
+[data-lang="jsx"] {
+  --lang-color: #f7df1e;
+  --lang-text: #323330;
+}
+
+/* Python */
+[data-lang="python"] {
+  --lang-color: #3572a5;
+}
+
+/* Go */
+[data-lang="go"] {
+  --lang-color: #00add8;
+}
+
+/* Rust */
+[data-lang="rust"] {
+  --lang-color: #dea584;
+  --lang-text: #1a1a1a;
+}
+
+/* Java */
+[data-lang="java"] {
+  --lang-color: #b07219;
+}
+
+/* Ruby */
+[data-lang="ruby"] {
+  --lang-color: #cc342d;
+}
+
+/* PHP */
+[data-lang="php"] {
+  --lang-color: #4f5d95;
+}
+
+/* Swift */
+[data-lang="swift"] {
+  --lang-color: #f05138;
+}
+
+/* Kotlin */
+[data-lang="kotlin"] {
+  --lang-color: #7f52ff;
+}
+
+/* C / C++ */
+[data-lang="c"] {
+  --lang-color: #555555;
+}
+[data-lang="cpp"] {
+  --lang-color: #f34b7d;
+}
+
+/* JSON / JSON5 */
+[data-lang="json"] {
+  --lang-color: #5d5d5d;
+}
+[data-lang="json5"] {
+  --lang-color: #5d5d5d;
+}
+
+/* YAML */
+[data-lang="yaml"] {
+  --lang-color: #cb171e;
+}
+
+/* SQL */
+[data-lang="sql"] {
+  --lang-color: #e38d13;
+}
+
+/* Bash / Shell */
+[data-lang="bash"] {
+  --lang-color: #4a5568;
+  --lang-text: #68d391;
+}
+
+/* HTML — color only used by text fallback; SVG icon above takes precedence */
+[data-lang="html"] {
+  --lang-color: #e34f26;
+}
+
+/* CSS / SCSS */
+[data-lang="css"] {
+  --lang-color: #264de4;
+}
+[data-lang="scss"] {
+  --lang-color: #c6538c;
+}
+
+/* XML */
+[data-lang="xml"] {
+  --lang-color: #0060ac;
+}
+
+/* Markdown */
+[data-lang="markdown"] {
+  --lang-color: #083fa1;
+}
+
+/* GraphQL */
+[data-lang="graphql"] {
+  --lang-color: #e10098;
+}
+
+/* Dockerfile */
+[data-lang="dockerfile"] {
+  --lang-color: #2496ed;
+}
+
+/* Nginx */
+[data-lang="nginx"] {
+  --lang-color: #009639;
+}
+
+/* TOML */
+[data-lang="toml"] {
+  --lang-color: #9c4121;
+}
+
+/* HTTP */
+[data-lang="http"] {
+  --lang-color: #005a9c;
+}
+
+/* Diff */
+[data-lang="diff"] {
+  --lang-color: #41a135;
+}
+
+/* PromQL / LogQL */
+[data-lang="promql"] {
+  --lang-color: #e6522c;
+}
+[data-lang="logql"] {
+  --lang-color: #6e7681;
+}
+
+/* Text / Plaintext */
+[data-lang="text"] {
+  --lang-color: #6e7681;
+}
+
+/* PowerShell */
+[data-lang="powershell"] {
+  --lang-color: #012456;
+}
+
+/* R */
+[data-lang="r"] {
+  --lang-color: #276dc3;
+}
+
+/* INI / Properties */
+[data-lang="ini"] {
+  --lang-color: #6d8086;
+}
+[data-lang="properties"] {
+  --lang-color: #6d8086;
+}
+
+/* M3U8 */
+[data-lang="m3u8"] {
+  --lang-color: #59666d;
+}
+
+/* DNS */
+[data-lang="dns"] {
+  --lang-color: #379ad6;
+}
+
+/* Redis */
+[data-lang="redis"] {
+  --lang-color: #dc382d;
+}
+
+/* Lua */
+[data-lang="lua"] {
+  --lang-color: #000080;
+}
+
+/* CQL */
+[data-lang="cql"] {
+  --lang-color: #1a88c7;
+}
+
+/* Protobuf */
+[data-lang="protobuf"] {
+  --lang-color: #5c8c4a;
+}
+
+/* Astro */
+[data-lang="astro"] {
+  --lang-color: #ff5d01;
+}
+
+/* Groovy */
+[data-lang="groovy"] {
+  --lang-color: #4298b8;
+}

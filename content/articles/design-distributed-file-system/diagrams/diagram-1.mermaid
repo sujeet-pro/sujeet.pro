@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph Master
+        NS["Namespace<br/>(in-memory tree)"]
+        FCM["File→Chunk<br/>Mapping"]
+        CL["Chunk→Server<br/>Locations"]
+    end
+
+    subgraph ChunkServers["Chunk Servers (1000s)"]
+        CS1["Server 1"]
+        CS2["Server 2"]
+        CSN["Server N"]
+    end
+
+    Client -->|"Metadata ops"| Master
+    Client -->|"Data ops"| CS1 & CS2 & CSN
+    CS1 & CS2 & CSN -->|"Heartbeat + chunk list"| Master

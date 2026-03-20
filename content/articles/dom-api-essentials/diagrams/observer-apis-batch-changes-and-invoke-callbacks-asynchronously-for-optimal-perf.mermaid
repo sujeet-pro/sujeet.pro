@@ -1,0 +1,18 @@
+flowchart LR
+    A[DOM Changes] --> B[Observer APIs]
+    B --> C[IntersectionObserver]
+    B --> D[MutationObserver]
+    B --> E[ResizeObserver]
+
+    C --> F[Viewport intersection]
+    D --> G[Tree mutations]
+    E --> H[Dimension changes]
+
+    F --> I[Async batch callback]
+    G --> I
+    H --> I
+
+    I --> J[Your code runs once<br/>for multiple changes]
+
+    style B fill:#3b82f6,stroke:#1e40af,color:#fff
+    style I fill:#10b981,stroke:#059669,color:#fff

@@ -1,0 +1,5 @@
+flowchart LR
+    TS["TypeScript Schema<br/>(Zod/TypeBox)"] --> Types["Inferred Types"]
+    TS --> Validator["Runtime Validator"]
+    Types --> Form["Type-safe Form"]
+    Form --> Validator

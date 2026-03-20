@@ -1,0 +1,54 @@
+graph TB
+    subgraph L0["Level 0 — Foundation"]
+        Tokens["@paramanu/tokens\nprimitive · semantic · theme · reset\nCSS custom properties + JS exports"]
+    end
+
+    subgraph L1["Level 1 — Building Blocks"]
+        Primitives["@paramanu/primitives-js\nbox · flex · grid · stack · center"]
+        Typography["@paramanu/typography-js\ntext · heading · code · label"]
+        Utilities["@paramanu/utilities-js\nportal · focus-trap · skip-nav · visually-hidden"]
+    end
+
+    subgraph L2["Level 2 — Components"]
+        Buttons["@paramanu/buttons-js\nbutton · icon-button · fab · button-group"]
+        Forms["@paramanu/forms-js\ninput · checkbox · radio · select · switch · slider"]
+        Navigation["@paramanu/navigation-js\nnav-bar · sidebar · breadcrumb · tabs · pagination"]
+        DataDisplay["@paramanu/data-display-js\ntable · list · card · badge · avatar · tag"]
+        Feedback["@paramanu/feedback-js\nalert · toast · spinner · progress · skeleton"]
+        Disclosure["@paramanu/disclosure-js\naccordion · collapsible · carousel"]
+    end
+
+    subgraph L3["Level 3 — Complex Components"]
+        Overlays["@paramanu/overlays-js\nmodal · dropdown · popover · tooltip · drawer"]
+    end
+
+    subgraph React["React Adapters"]
+        ReactAdapters["@paramanu/*-react\nthin wrappers using forwardRef"]
+    end
+
+    subgraph CDN["CDN Bundle"]
+        CdnBundle["@paramanu/cdn\nIIFE bundle · all CSS + JS"]
+    end
+
+    Tokens --> Primitives
+    Tokens --> Typography
+    Tokens --> Utilities
+
+    Primitives --> Buttons
+    Primitives --> Forms
+    Primitives --> Navigation
+    Primitives --> DataDisplay
+    Primitives --> Feedback
+    Primitives --> Disclosure
+
+    Buttons --> Overlays
+    Forms --> Overlays
+    Disclosure --> Overlays
+
+    L2 --> ReactAdapters
+    L3 --> ReactAdapters
+    L1 --> ReactAdapters
+
+    Tokens --> CdnBundle
+    L2 --> CdnBundle
+    L3 --> CdnBundle

@@ -1,0 +1,11 @@
+flowchart TD
+    A[Need CDC] --> B{Log access available?}
+    B -->|Yes| C[Log-based CDC]
+    B -->|No| D{Can add triggers?}
+    D -->|Yes| E[Trigger-based CDC]
+    D -->|No| F{Hard deletes used?}
+    F -->|No| G[Polling-based CDC]
+    F -->|Yes| H[Requires application changes]
+    C --> I{Self-managed?}
+    I -->|Yes| J[Debezium]
+    I -->|No| K[AWS DMS / Fivetran]

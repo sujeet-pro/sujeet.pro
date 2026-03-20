@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph Phase1["Phase 1: Monolith (~2008-2014)"]
+        Single["Single MySQL<br/>(mysql1)"]
+        ROR["Ruby on Rails App"]
+        ROR --> Single
+    end
+
+    subgraph Phase2["Phase 2: Tooling & HA (2014-2019)"]
+        HA["orchestrator/raft<br/>+ Consul + GLB"]
+        GhOst["gh-ost<br/>(triggerless migrations)"]
+        Freno["freno<br/>(throttling)"]
+    end
+
+    subgraph Phase3["Phase 3: Partitioning (2019-2021)"]
+        SD["Schema Domains<br/>(logical grouping)"]
+        VP["Vertical Partitioning<br/>(mysql1 → N clusters)"]
+        Vitess["Vitess<br/>(horizontal sharding)"]
+    end
+
+    subgraph Phase4["Phase 4: Fleet Scale (2022-2024)"]
+        Fleet["1,200+ hosts<br/>50+ clusters<br/>300+ TB"]
+        M8["MySQL 5.7 → 8.0<br/>(year-long upgrade)"]
+    end
+
+    Phase1 -->|"Scale pain:<br/>single writer,<br/>schema migration risk"| Phase2
+    Phase2 -->|"950K QPS on<br/>one cluster"| Phase3
+    Phase3 -->|"50% load<br/>reduction per host"| Phase4

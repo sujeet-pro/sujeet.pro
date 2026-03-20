@@ -1,0 +1,23 @@
+flowchart LR
+    subgraph "Client"
+        A[File Selection] --> B[Validation]
+        B --> C{Size Check}
+        C -->|Small < 5MB| D[Single Upload]
+        C -->|Large ≥ 5MB| E[Chunked Upload]
+        E --> F[Per-Chunk Progress]
+        F --> G{Failure?}
+        G -->|Yes| H[Resume from Offset]
+        H --> F
+        G -->|No| I[Complete]
+        D --> I
+    end
+
+    subgraph "Server"
+        J[Receive Chunk] --> K[Store Chunk]
+        K --> L{All Chunks?}
+        L -->|No| M[Return Offset]
+        L -->|Yes| N[Assemble File]
+    end
+
+    F --> J
+    M --> F

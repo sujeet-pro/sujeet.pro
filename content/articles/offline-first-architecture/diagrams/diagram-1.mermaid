@@ -1,0 +1,9 @@
+graph TD
+    A[Need offline?] -->|No| B[Traditional SPA]
+    A -->|Yes| C{How long offline?}
+    C -->|Minutes| D[Cache-only PWA]
+    C -->|Hours/Days| E{Multi-user edits?}
+    E -->|No| F[Sync queue]
+    E -->|Yes| G{Always online eventually?}
+    G -->|Yes| H[OT-based - Google Docs style]
+    G -->|P2P/Long offline| I[CRDT-based - Figma/Notion style]

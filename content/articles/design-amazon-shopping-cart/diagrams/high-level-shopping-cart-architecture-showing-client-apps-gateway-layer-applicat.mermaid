@@ -1,0 +1,50 @@
+flowchart TB
+    subgraph "Client Layer"
+        Web[Web App]
+        Mobile[Mobile App]
+    end
+
+    subgraph "Edge & Gateway"
+        CDN[CDN / CloudFront]
+        LB[Load Balancer]
+        GW[API Gateway]
+    end
+
+    subgraph "Application Services"
+        CS[Cart Service]
+        PS[Pricing Service]
+        IS[Inventory Service]
+        COS[Checkout Orchestrator]
+        PayS[Payment Service]
+        NS[Notification Service]
+    end
+
+    subgraph "Data Layer"
+        Redis[(Redis Cluster)]
+        CartDB[(Cart DB)]
+        InvDB[(Inventory DB)]
+        OrderDB[(Order DB)]
+    end
+
+    subgraph "Async Processing"
+        MQ[Message Queue]
+        Workers[Background Workers]
+    end
+
+    Web --> CDN
+    Mobile --> CDN
+    CDN --> LB --> GW
+    GW --> CS
+    GW --> COS
+    CS --> Redis
+    CS --> CartDB
+    CS --> PS
+    CS --> IS
+    IS --> InvDB
+    COS --> PayS
+    COS --> IS
+    COS --> NS
+    COS --> OrderDB
+    CS --> MQ
+    MQ --> Workers
+    Workers --> CartDB

@@ -1,0 +1,10 @@
+flowchart TB
+    ET[EventTarget] --> Node
+    Node --> Element
+    Element --> HTMLElement[HTMLElement<br/>HTML-specific]
+    Element --> SVGElement[SVGElement<br/>SVG-specific]
+    Element --> MathMLElement[MathMLElement<br/>MathML-specific]
+
+    style Element fill:#3b82f6,stroke:#1e40af,color:#fff
+    style ET fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    style Node fill:#8b5cf6,stroke:#6d28d9,color:#fff

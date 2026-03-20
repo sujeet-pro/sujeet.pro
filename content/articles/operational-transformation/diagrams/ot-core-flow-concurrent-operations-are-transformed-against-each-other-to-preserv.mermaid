@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph Client_A["Client A"]
+        A1["Local Op: Ins(0,'x')"]
+    end
+    subgraph Client_B["Client B"]
+        B1["Local Op: Del(2)"]
+    end
+    subgraph Server["Server"]
+        S1["Canonical Order"]
+        S2["Transform & Broadcast"]
+    end
+
+    A1 --> S1
+    B1 --> S1
+    S1 --> S2
+    S2 -->|"Transformed Del(3)"| Client_A
+    S2 -->|"Transformed Ins(0,'x')"| Client_B

@@ -1,0 +1,22 @@
+flowchart TB
+    subgraph Tree["Quadtree Structure"]
+        Root["Root (World)"]
+        Root --> Q1["NW"]
+        Root --> Q2["NE"]
+        Root --> Q3["SW"]
+        Root --> Q4["SE"]
+        Q2 --> Q2a["NW"]
+        Q2 --> Q2b["NE"]
+        Q2 --> Q2c["SW"]
+        Q2 --> Q2d["SE"]
+        Q2b --> Leaf["Leaf: 50 businesses"]
+    end
+
+    subgraph Query["Query"]
+        Circle["Search Circle"]
+        Circle --> Intersect["Find Intersecting Cells"]
+        Intersect --> Collect["Collect All Businesses"]
+    end
+
+    style Root fill:#dae8fc
+    style Leaf fill:#d5e8d4

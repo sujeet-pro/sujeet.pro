@@ -1,0 +1,21 @@
+flowchart TD
+    A[SDK Request] --> B{Network Available?}
+    B -->|Yes| C[Fresh Data]
+    B -->|No| D{Has Cache?}
+    D -->|Yes| E[Use Cached Values]
+    D -->|No| F[Use Defaults]
+
+    C --> G[Success Response]
+    E --> G
+    F --> G
+
+    subgraph "Fallback Hierarchy"
+        H[Fresh Data] --> I[Cached Values]
+        I --> J[Default Values]
+        J --> K[Graceful Degradation]
+    end
+
+    style A fill:#e1f5fe
+    style G fill:#c8e6c9
+    style E fill:#fff3e0
+    style F fill:#f3e5f5

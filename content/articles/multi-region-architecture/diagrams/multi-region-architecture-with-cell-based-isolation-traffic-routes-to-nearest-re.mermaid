@@ -1,0 +1,36 @@
+flowchart TB
+    subgraph "Global Layer"
+        GLB["Global Load Balancer<br/>(GeoDNS / Anycast)"]
+    end
+
+    subgraph "Region A (US-East)"
+        LBA["Regional LB"]
+        subgraph "Cell A1"
+            SA1["Services"]
+            DA1[("Database<br/>Primary")]
+        end
+        subgraph "Cell A2"
+            SA2["Services"]
+            DA2[("Database<br/>Replica")]
+        end
+    end
+
+    subgraph "Region B (EU-West)"
+        LBB["Regional LB"]
+        subgraph "Cell B1"
+            SB1["Services"]
+            DB1[("Database<br/>Primary")]
+        end
+        subgraph "Cell B2"
+            SB2["Services"]
+            DB2[("Database<br/>Replica")]
+        end
+    end
+
+    GLB --> LBA
+    GLB --> LBB
+    LBA --> SA1 & SA2
+    LBB --> SB1 & SB2
+
+    DA1 <-.->|"Async Replication"| DB1
+    DA2 <-.->|"Async Replication"| DB2

@@ -1,0 +1,12 @@
+flowchart TD
+    A[Start ROI Analysis] --> B[Audit Current State]
+    B --> C[Calculate Time Savings]
+    C --> D[Estimate Quality Value]
+    D --> E[Project Maintenance Costs]
+    E --> F[Apply ROI Formula]
+    F --> G{ROI > 100%?}
+    G -->|Yes| H[Proceed with Initiative]
+    G -->|No| I[Refine Assumptions]
+    I --> B
+    H --> J[Present to Stakeholders]
+    J --> K[Secure Funding]

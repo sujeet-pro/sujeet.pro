@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph SSG["SSG Architecture (Before)"]
+        direction TB
+        B1[Build Time] --> S1[Static HTML]
+        S1 --> CDN1[CDN Cache]
+        CDN1 --> U1[Users]
+        CMS1[CMS Changes] -.->|Triggers Rebuild| B1
+    end
+
+    subgraph SSR["SSR Architecture (After)"]
+        direction TB
+        R1[Request] --> CDN2[CDN/Edge]
+        CDN2 -->|Cache Miss| Server[SSR Server]
+        Server -->|Cache Headers| CDN2
+        CDN2 --> U2[Users]
+        CMS2[CMS Changes] -.->|Invalidate Cache| CDN2
+    end
+
+    subgraph Migration["Strangler Fig Migration"]
+        direction TB
+        Edge[Edge Proxy] --> |X% Traffic| SSR
+        Edge --> |Y% Traffic| SSG
+        Edge --> U3[Users]
+    end

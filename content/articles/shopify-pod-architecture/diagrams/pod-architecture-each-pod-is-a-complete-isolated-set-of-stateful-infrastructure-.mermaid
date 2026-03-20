@@ -1,0 +1,17 @@
+flowchart TD
+    LB["nginx + OpenResty"] --> SH["Sorting Hat"]
+    SH --> APP["Shared Application Workers"]
+
+    subgraph "Pod 1"
+        MY1["MySQL"] --- RD1["Redis"] --- MC1["Memcached"] --- CR1["Cron"]
+    end
+    subgraph "Pod 2"
+        MY2["MySQL"] --- RD2["Redis"] --- MC2["Memcached"] --- CR2["Cron"]
+    end
+    subgraph "Pod N (Dedicated)"
+        MYN["MySQL"] --- RDN["Redis"] --- MCN["Memcached"] --- CRN["Cron"]
+    end
+
+    APP --> MY1
+    APP --> MY2
+    APP --> MYN

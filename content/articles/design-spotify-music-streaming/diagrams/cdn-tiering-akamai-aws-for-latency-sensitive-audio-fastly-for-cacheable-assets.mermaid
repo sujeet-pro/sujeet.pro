@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph "Client"
+        PLAYER[Audio Player]
+    end
+
+    subgraph "CDN Selection Service"
+        SELECTOR[CDN Router<br/>Health + Performance]
+    end
+
+    subgraph "CDN Tier 1 (Audio)"
+        AKAMAI[Akamai<br/>Global Edge]
+        AWS_CF[CloudFront<br/>AWS Regions]
+    end
+
+    subgraph "CDN Tier 2 (Assets)"
+        FASTLY[Fastly<br/>Images, UI]
+    end
+
+    subgraph "Origin"
+        GCS[(Google Cloud Storage)]
+    end
+
+    PLAYER --> SELECTOR
+    SELECTOR -->|Audio| AKAMAI & AWS_CF
+    SELECTOR -->|Images| FASTLY
+    AKAMAI & AWS_CF -->|Cache Miss| GCS
+    FASTLY -->|Cache Miss| GCS

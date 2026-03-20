@@ -1,0 +1,48 @@
+flowchart TB
+    subgraph ClientLayer["Client Layer"]
+        EDITOR["Rich Text Editor<br/>(ProseMirror/Slate)"]
+        OT_CLIENT["OT Client<br/>(Transform Engine)"]
+        WS_CLIENT["WebSocket Client"]
+        LOCAL_STORE["IndexedDB<br/>(Offline Buffer)"]
+    end
+
+    subgraph EdgeLayer["Edge Layer"]
+        CDN["CloudFront/Fastly<br/>(Static Assets)"]
+        ALB["Application Load Balancer"]
+    end
+
+    subgraph CollabLayer["Collaboration Layer"]
+        WS_GW["WebSocket Gateway<br/>(Sticky Sessions)"]
+        DOC_PROC["Document Processor<br/>(OT Engine)"]
+        PRESENCE["Presence Service<br/>(Ephemeral)"]
+    end
+
+    subgraph PersistenceLayer["Persistence Layer"]
+        DOC_API["Document API"]
+        REDIS["Redis Cluster<br/>(Active Doc State)"]
+        POSTGRES[(PostgreSQL<br/>Doc Metadata, ACL)]
+        OPLOG[(DynamoDB<br/>Operation Log)]
+        S3["S3<br/>(Snapshots, Media)"]
+    end
+
+    subgraph AsyncLayer["Async Processing"]
+        KAFKA["Kafka<br/>(Operation Stream)"]
+        SNAPSHOT["Snapshot Worker"]
+        INDEX["Search Indexer"]
+    end
+
+    EDITOR --> OT_CLIENT
+    OT_CLIENT <--> WS_CLIENT
+    OT_CLIENT --> LOCAL_STORE
+    WS_CLIENT --> ALB
+    ALB --> WS_GW
+    WS_GW <--> DOC_PROC
+    WS_GW <--> PRESENCE
+    DOC_PROC --> DOC_API
+    DOC_API --> REDIS
+    DOC_API --> POSTGRES
+    DOC_API --> OPLOG
+    DOC_API --> KAFKA
+    KAFKA --> SNAPSHOT
+    KAFKA --> INDEX
+    SNAPSHOT --> S3

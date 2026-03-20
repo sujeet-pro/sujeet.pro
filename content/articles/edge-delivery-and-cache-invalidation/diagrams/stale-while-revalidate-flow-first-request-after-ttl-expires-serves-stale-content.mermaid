@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Client
+    participant CDN
+    participant Origin
+
+    Note over CDN: Content cached, TTL expired, within SWR window
+    Client->>CDN: GET /api/data
+    CDN->>Client: 200 OK (stale content, instant)
+    CDN->>Origin: Background revalidation
+    Origin->>CDN: 200 OK (fresh content)
+    Note over CDN: Cache updated
+
+    Client->>CDN: GET /api/data
+    CDN->>Client: 200 OK (fresh content)

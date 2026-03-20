@@ -1,0 +1,10 @@
+flowchart TD
+  subgraph EL["Event loop iteration"]
+    Q[Pick runnable task] --> T[Run task to completion]
+    T --> M[Microtask checkpoint]
+    M --> Q
+  end
+  subgraph RW["Rendering opportunity watcher (parallel)"]
+    W[Detect rendering opportunity] --> U[Queue update rendering task]
+  end
+  U -.-> Q

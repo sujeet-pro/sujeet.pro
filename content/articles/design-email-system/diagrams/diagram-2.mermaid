@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph Ingest
+        MX1["MX Pool"]
+        SPAM["Spam Service"]
+    end
+
+    subgraph Services
+        API["API Gateway"]
+        MAIL["Mailbox Service"]
+        SRCH["Search Service"]
+        SEND["Send Service"]
+    end
+
+    subgraph Storage
+        DB[(Distributed DB)]
+        IDX["Search Index"]
+        BLOB["Object Store"]
+    end
+
+    MX1 --> SPAM --> MAIL
+    API --> MAIL & SRCH & SEND
+    MAIL --> DB & BLOB
+    SRCH --> IDX
+    SEND --> MX1

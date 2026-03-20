@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph "Cache Layers"
+        CDN["CDN Edge\n95% hit rate"]
+        Redis["Redis\n80% of misses"]
+        DB["DB Index\n90% of remainder"]
+        Process["Transform\n< 5% of requests"]
+    end
+
+    Request --> CDN
+    CDN -->|5% miss| Redis
+    Redis -->|20% miss| DB
+    DB -->|10% miss| Process
+    Process -->|store| DB

@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Browser
+        SPA[SPA Client]
+    end
+
+    subgraph Backend
+        BFF[BFF Server]
+        Session[(Session Store)]
+    end
+
+    subgraph External
+        AuthZ[Auth Server]
+        API[Resource Server]
+    end
+
+    SPA -->|Session cookie| BFF
+    BFF -->|OAuth flow| AuthZ
+    BFF -->|Store tokens| Session
+    BFF -->|Access token| API

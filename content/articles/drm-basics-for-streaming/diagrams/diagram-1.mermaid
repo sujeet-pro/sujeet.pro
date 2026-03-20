@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant App as Application
+    participant Video as HTMLMediaElement
+    participant CDM as CDM
+    participant Server as License Server
+
+    App->>Video: Set encrypted source
+    Video->>App: encrypted event (initData)
+    App->>CDM: requestMediaKeySystemAccess()
+    CDM-->>App: MediaKeySystemAccess
+    App->>CDM: createMediaKeys()
+    CDM-->>App: MediaKeys
+    App->>Video: setMediaKeys(mediaKeys)
+    App->>CDM: createSession()
+    CDM-->>App: MediaKeySession
+    App->>CDM: generateRequest(initData)
+    CDM->>App: message event (license request)
+    App->>Server: POST license request
+    Server-->>App: License response
+    App->>CDM: session.update(license)
+    CDM->>Video: Decryption enabled
+    Video->>App: Playback proceeds

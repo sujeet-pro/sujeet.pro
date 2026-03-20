@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph Seed["Seed URLs"]
+        Seeds[Seed URL List]
+    end
+
+    subgraph Frontier["URL Frontier"]
+        PriorityQ[Priority Queues<br/>by importance]
+        PolitenessQ[Politeness Queues<br/>by host]
+        Scheduler[URL Scheduler]
+    end
+
+    subgraph Fetcher["Fetcher Cluster"]
+        DNS[DNS Resolver<br/>+ Cache]
+        Robots[robots.txt Cache]
+        HTTP[HTTP Fetchers<br/>Connection Pool]
+        Renderer[JS Renderer<br/>Headless Chrome]
+    end
+
+    subgraph Parser["Parser Pipeline"]
+        Extract[Content Extractor]
+        Links[Link Extractor]
+        Dedup[Duplicate Detector<br/>SimHash + Bloom]
+    end
+
+    subgraph Storage["Storage Layer"]
+        URLStore[(URL Database<br/>Seen URLs)]
+        Content[(Content Store<br/>Page Archive)]
+        Index[(Search Index)]
+        Graph[(Web Graph<br/>Link Structure)]
+    end
+
+    subgraph Coordinator["Coordination"]
+        Kafka[Message Queue<br/>Kafka]
+        Zk[Coordination<br/>ZooKeeper]
+    end
+
+    Seeds --> PriorityQ
+    PriorityQ --> Scheduler
+    PolitenessQ --> Scheduler
+    Scheduler --> DNS
+    DNS --> Robots
+    Robots --> HTTP
+    HTTP --> Renderer
+    Renderer --> Extract
+    HTTP --> Extract
+    Extract --> Content
+    Extract --> Links
+    Links --> Dedup
+    Dedup --> PriorityQ
+    Dedup --> URLStore
+    Content --> Index
+    Links --> Graph
+    Kafka --> Frontier
+    Zk --> Fetcher

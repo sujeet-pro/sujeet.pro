@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph Core["Native JavaScript Core"]
+        GridCore[Grid Core]
+        RowModel[Row Model Manager]
+        ColModel[Column Model]
+        Virtual[Virtualization Engine]
+    end
+
+    subgraph Wrappers["Framework Wrappers"]
+        ReactW[React Wrapper]
+        AngularW[Angular Wrapper]
+        VueW[Vue Wrapper]
+    end
+
+    subgraph Features["Feature Modules"]
+        Sort[Sorting]
+        Filter[Filtering]
+        Group[Row Grouping]
+        Pivot[Pivoting]
+        Export[Excel Export]
+    end
+
+    Core --> Wrappers
+    Features --> Core

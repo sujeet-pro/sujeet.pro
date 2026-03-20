@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph "Post Creation"
+        POST[New Post Created]
+        CHECK{Followers > 10K?}
+        POST --> CHECK
+    end
+
+    subgraph "Push Path (Regular Users)"
+        CHECK -->|No| GETFOLL[Get Follower List]
+        GETFOLL --> FANOUT[Fan-out Workers]
+        FANOUT --> WRITE[Write to Timeline Caches]
+        WRITE --> REDIS1[(Redis: user:123:timeline)]
+        WRITE --> REDIS2[(Redis: user:456:timeline)]
+        WRITE --> REDISN[(Redis: user:N:timeline)]
+    end
+
+    subgraph "Pull Path (Celebrities)"
+        CHECK -->|Yes| CELEB[(Celebrity Posts Store)]
+    end
+
+    subgraph "Feed Read"
+        READ[User Opens Feed]
+        READ --> CACHE[Read Timeline Cache]
+        READ --> MERGE[Merge Celebrity Posts]
+        CACHE --> RANK[Ranking Service]
+        MERGE --> RANK
+        RANK --> RESPONSE[Ranked Feed Response]
+    end

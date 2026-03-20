@@ -1,0 +1,24 @@
+flowchart TD
+    subgraph "Client Layer"
+        C[Dropbox Client]
+    end
+
+    subgraph "Metadata Layer"
+        ES[Edgestore<br/>Metadata Store]
+    end
+
+    subgraph "Magic Pocket"
+        FE[Frontends] --> BI[Block Index<br/>Sharded MySQL]
+        FE --> |"PUT/GET"| OSD1[OSD Nodes<br/>Zone West]
+        FE --> |"PUT/GET"| OSD2[OSD Nodes<br/>Zone Central]
+        FE --> |"PUT/GET"| OSD3[OSD Nodes<br/>Zone East]
+        M[Master<br/>Coordinator] --> |"repair, GC"| OSD1
+        M --> OSD2
+        M --> OSD3
+        OSD1 <--> |"cross-zone<br/>replication"| OSD2
+        OSD2 <--> OSD3
+        OSD1 <--> OSD3
+    end
+
+    C --> ES
+    ES --> FE

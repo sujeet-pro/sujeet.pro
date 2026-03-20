@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant C as Client
+    participant L as Lock Service
+    participant R as Resource
+
+    C->>L: Acquire lock (TTL=30s)
+    L-->>C: Granted (expires at T+30s)
+    Note over C: Work begins
+    C->>R: Access resource
+    Note over C: Work continues...
+    C->>L: Release lock (or let expire)
+    L-->>C: Released

@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph "Design Principles"
+        P1["Promise-based single values<br/>(Request → Response)"]
+        P2["Stream-based incremental data<br/>(chunks with backpressure)"]
+        P3["Signal-based cancellation<br/>(composable abort)"]
+    end
+
+    subgraph "Key Trade-offs"
+        T1["Half-duplex streaming<br/>Response waits for request completion"]
+        T2["Single reader/writer locks<br/>Enables pipe optimizations"]
+        T3["Automatic backpressure<br/>Prevents memory exhaustion"]
+    end
+
+    P1 --> T1
+    P2 --> T2
+    P3 --> T3

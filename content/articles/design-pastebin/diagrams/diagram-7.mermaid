@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant C as Client
+    participant API as Read Service
+    participant DB as PostgreSQL
+    participant S3 as Object Storage
+
+    C->>API: GET /aB3kF9x
+    API->>DB: SELECT * FROM pastes WHERE id = 'aB3kF9x' FOR UPDATE
+    DB-->>API: {burn_after_read: true, read_count: 0}
+    API->>DB: UPDATE pastes SET read_count = 1, deleted_at = NOW()
+    API->>S3: GET /pastes/aB3kF9x.zst (then DELETE)
+    API-->>C: 200 {content} (Cache-Control: no-store)
+    Note over API,S3: Subsequent reads return 410 Gone

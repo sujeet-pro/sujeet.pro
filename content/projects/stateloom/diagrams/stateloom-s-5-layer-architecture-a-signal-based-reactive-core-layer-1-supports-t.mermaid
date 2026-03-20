@@ -1,0 +1,54 @@
+graph TB
+    subgraph L1["Layer 1 — Reactive Core"]
+        Core["@stateloom/core\nsignal · computed · effect · batch · scope\n~1.5 KB gzipped"]
+    end
+
+    subgraph L2["Layer 2 — Paradigm Adapters"]
+        Store["@stateloom/store\nZustand-style"]
+        Atom["@stateloom/atom\nJotai-style"]
+        Proxy["@stateloom/proxy\nValtio-style"]
+    end
+
+    subgraph L3["Layer 3 — Framework Adapters"]
+        React["@stateloom/react"]
+        Vue["@stateloom/vue"]
+        Solid["@stateloom/solid"]
+        Svelte["@stateloom/svelte"]
+        Angular["@stateloom/angular"]
+    end
+
+    subgraph L4["Layer 4 — Middleware"]
+        Devtools["devtools"]
+        Persist["persist"]
+        TabSync["tab-sync"]
+        History["history"]
+        Immer["immer"]
+        Telemetry["telemetry"]
+    end
+
+    subgraph L5["Layer 5 — Platform"]
+        Server["server"]
+        PersistRedis["persist-redis"]
+        Testing["testing"]
+    end
+
+    Core --> Store
+    Core --> Atom
+    Core --> Proxy
+
+    Store --> React
+    Store --> Vue
+    Store --> Solid
+    Store --> Svelte
+    Store --> Angular
+
+    Core --> Devtools
+    Core --> Persist
+    Core --> TabSync
+    Core --> History
+    Core --> Immer
+    Core --> Telemetry
+
+    Persist --> PersistRedis
+    Core --> Server
+    Core --> Testing

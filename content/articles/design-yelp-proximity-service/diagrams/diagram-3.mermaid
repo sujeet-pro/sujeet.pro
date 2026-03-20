@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph ES["Elasticsearch"]
+        Query["geo_distance query"]
+        Query --> BKD["BKD Tree Index"]
+        BKD --> Filter["Attribute Filters"]
+        Filter --> Score["Relevance Scoring"]
+    end
+
+    subgraph Index["Index Structure"]
+        Doc["Document"]
+        Doc --> Loc["location: geo_point"]
+        Doc --> Attrs["attributes: nested"]
+        Doc --> Text["name: text"]
+    end
+
+    style BKD fill:#d5e8d4
+    style Score fill:#fff2cc

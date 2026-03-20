@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph Input
+        SRC[Source Tokens<br/>JSON/JSON5/YAML]
+        FIG[Figma<br/>via Tokens Studio]
+    end
+
+    subgraph Pipeline["Style Dictionary Pipeline"]
+        PARSE[Parse & Resolve<br/>References]
+        TRANS[Apply Transforms<br/>name, value, attribute]
+        FORMAT[Format Output]
+    end
+
+    subgraph Output
+        WEB[CSS Custom Props<br/>Sass Variables]
+        IOS[Swift Extensions<br/>UIColor]
+        AND[XML Resources<br/>Compose]
+        DOCS[Documentation<br/>JSON/TypeScript]
+    end
+
+    SRC --> PARSE
+    FIG --> |Sync to Git| SRC
+    PARSE --> TRANS
+    TRANS --> FORMAT
+    FORMAT --> WEB
+    FORMAT --> IOS
+    FORMAT --> AND
+    FORMAT --> DOCS

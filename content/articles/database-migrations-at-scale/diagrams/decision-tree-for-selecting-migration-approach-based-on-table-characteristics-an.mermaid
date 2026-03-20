@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph "Migration Approaches"
+        direction LR
+        A[Schema Change<br/>Needed] --> B{Table Size &<br/>Write Load?}
+        B -->|Small table<br/>Low writes| C[Native DDL<br/>Direct ALTER]
+        B -->|Large table<br/>Any writes| D{Trigger<br/>Tolerance?}
+        D -->|Yes| E[pt-osc<br/>Trigger-based]
+        D -->|No| F[gh-ost<br/>Binlog-based]
+
+        A --> G{Data<br/>Transformation?}
+        G -->|Schema only| H[Online DDL Tool]
+        G -->|Data + Schema| I[Expand-Contract<br/>+ Backfill]
+    end

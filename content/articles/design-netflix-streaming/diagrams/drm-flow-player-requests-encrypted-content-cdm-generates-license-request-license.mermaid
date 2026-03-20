@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant P as Player
+    participant C as CDM (Browser)
+    participant L as License Server
+    participant O as OCA
+
+    P->>O: Request encrypted segment
+    O-->>P: Encrypted segment + PSSH box
+    P->>C: Pass PSSH (key ID info)
+    C->>C: Generate license request
+    P->>L: License request (device credentials)
+    L->>L: Validate entitlement
+    L-->>P: License (decryption keys)
+    P->>C: Provide license
+    C->>C: Decrypt content
+    C-->>P: Decrypted frames for rendering

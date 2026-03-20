@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph "Without Splitting"
+        direction TB
+        A1[User requests /home] --> A2[Download 2MB bundle]
+        A2 --> A3[Parse all code]
+        A3 --> A4[Execute all code]
+        A4 --> A5[Page interactive: 4-6s]
+    end
+
+    subgraph "With Splitting"
+        direction TB
+        B1[User requests /home] --> B2[Download 150KB home chunk]
+        B2 --> B3[Parse home code]
+        B3 --> B4[Execute home code]
+        B4 --> B5[Page interactive: 1-2s]
+        B5 --> B6[Prefetch other routes in background]
+    end

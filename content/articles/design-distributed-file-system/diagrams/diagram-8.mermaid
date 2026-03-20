@@ -1,0 +1,26 @@
+flowchart TB
+    subgraph MasterTier["Master Tier (3 AZs)"]
+        M1["Primary Master<br/>i3en.12xlarge"]
+        M2["Shadow Master 1<br/>i3en.12xlarge"]
+        M3["Shadow Master 2<br/>i3en.12xlarge"]
+    end
+
+    subgraph StorageTier["Storage Tier"]
+        subgraph AZ1["AZ 1"]
+            CS1["d3en.12xlarge × 100"]
+        end
+        subgraph AZ2["AZ 2"]
+            CS2["d3en.12xlarge × 100"]
+        end
+        subgraph AZ3["AZ 3"]
+            CS3["d3en.12xlarge × 100"]
+        end
+    end
+
+    subgraph Network["Network"]
+        TGW["Transit Gateway"]
+        VPC["VPC with placement groups"]
+    end
+
+    M1 & M2 & M3 --> TGW
+    CS1 & CS2 & CS3 --> TGW

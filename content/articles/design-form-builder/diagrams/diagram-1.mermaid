@@ -1,0 +1,7 @@
+flowchart LR
+    JS["JSON Schema"] --> Validator["AJV Validator"]
+    JS --> Renderer["RJSF Renderer"]
+    UI["UI Schema"] --> Renderer
+    Renderer --> Form["Rendered Form"]
+    Form --> Data["Form Data"]
+    Data --> Validator

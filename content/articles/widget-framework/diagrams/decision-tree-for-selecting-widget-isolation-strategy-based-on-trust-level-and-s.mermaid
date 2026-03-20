@@ -1,0 +1,14 @@
+flowchart TD
+    A["Need widget framework"] --> B{"Trust third-party code?"}
+    B -->|"Yes (internal teams)"| C{"Need CSS isolation?"}
+    B -->|"No (external developers)"| D{"Security requirements?"}
+
+    C -->|"No"| E["Module Federation"]
+    C -->|"Yes"| F["Module Federation + Shadow DOM"]
+
+    D -->|"High (financial, PII)"| G["WASM Sandbox"]
+    D -->|"Medium"| H["iframe Sandbox"]
+
+    G --> I{"Need plugin UI?"}
+    I -->|"Yes"| J["WASM + iframe (Figma model)"]
+    I -->|"No"| K["WASM only"]

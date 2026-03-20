@@ -1,0 +1,57 @@
+flowchart TB
+    subgraph Producers["Event Producers"]
+        SVC1["Service A"]
+        SVC2["Service B"]
+        SVC3["Service N"]
+    end
+
+    subgraph Ingestion["Ingestion Layer"]
+        API["Notification API"]
+        VALID["Validator"]
+        ENRICH["Enrichment"]
+    end
+
+    subgraph Queue["Message Queue"]
+        KAFKA["Kafka Cluster<br/>(Partitioned by User)"]
+        PRIORITY["Priority Queues<br/>(Critical/High/Normal/Low)"]
+    end
+
+    subgraph Routing["Routing Layer"]
+        ROUTER["Router Service"]
+        PREFS["Preference Service"]
+        THROTTLE["Rate Limiter"]
+        DEDUP["Deduplication"]
+    end
+
+    subgraph Channels["Channel Processors"]
+        PUSH["Push Processor<br/>(APNs/FCM)"]
+        EMAIL["Email Processor<br/>(SMTP/SES)"]
+        SMS["SMS Processor<br/>(Twilio)"]
+        INAPP["In-App Processor<br/>(WebSocket)"]
+    end
+
+    subgraph Storage["Storage Layer"]
+        REDIS["Redis Cluster<br/>(Tokens, Prefs, Dedup)"]
+        PG[(PostgreSQL<br/>Templates, History)]
+        CASS[(Cassandra<br/>Notification Log)]
+    end
+
+    subgraph External["External Providers"]
+        APNS["Apple APNs"]
+        FCM["Google FCM"]
+        SMTP["Email Provider"]
+        TWILIO["Twilio SMS"]
+    end
+
+    SVC1 & SVC2 & SVC3 --> API
+    API --> VALID --> ENRICH --> KAFKA
+    KAFKA --> PRIORITY --> ROUTER
+    ROUTER --> PREFS & THROTTLE & DEDUP
+    ROUTER --> PUSH & EMAIL & SMS & INAPP
+    PUSH --> APNS & FCM
+    EMAIL --> SMTP
+    SMS --> TWILIO
+    INAPP --> REDIS
+    PREFS --> REDIS
+    THROTTLE --> REDIS
+    ROUTER --> PG & CASS

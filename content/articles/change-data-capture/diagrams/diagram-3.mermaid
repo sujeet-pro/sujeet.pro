@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph "Source Databases"
+        PG[(PostgreSQL)]
+        MY[(MySQL)]
+        MO[(MongoDB)]
+    end
+
+    subgraph "Kafka Connect Cluster"
+        C1[Debezium<br/>Connector 1]
+        C2[Debezium<br/>Connector 2]
+        C3[Debezium<br/>Connector 3]
+    end
+
+    subgraph "Kafka"
+        T1[users topic]
+        T2[orders topic]
+        T3[products topic]
+    end
+
+    PG --> C1
+    MY --> C2
+    MO --> C3
+    C1 --> T1
+    C2 --> T2
+    C3 --> T3

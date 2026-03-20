@@ -1,0 +1,8 @@
+flowchart TD
+    LB["Load Balancer"] --> APP["Application Workers"]
+    APP --> S1["MySQL Shard 1"]
+    APP --> S2["MySQL Shard 2"]
+    APP --> SN["MySQL Shard N"]
+    APP --> R["Shared Redis"]
+    APP --> MC["Shared Memcached"]
+    APP --> CRON["Shared Cron"]

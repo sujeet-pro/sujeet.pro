@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph DC1["Datacenter 1"]
+        APP1["App Server"]
+        SNOW1["Snowflake Generator<br/>Node ID: 1"]
+    end
+
+    subgraph DC2["Datacenter 2"]
+        APP2["App Server"]
+        SNOW2["Snowflake Generator<br/>Node ID: 2"]
+    end
+
+    APP1 --> SNOW1
+    APP2 --> SNOW2
+    SNOW1 --> ENCODE1["Base62 Encode"]
+    SNOW2 --> ENCODE2["Base62 Encode"]
+    ENCODE1 --> STORE["Distributed Store"]
+    ENCODE2 --> STORE

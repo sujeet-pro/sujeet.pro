@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Attacker
+    participant LegitClient as Legitimate Client
+    participant AuthZ as Authorization Server
+
+    Note over LegitClient,AuthZ: Attacker steals refresh_token_1
+    LegitClient->>AuthZ: refresh_token_1
+    AuthZ->>LegitClient: refresh_token_2
+
+    Note over Attacker,AuthZ: Attacker tries stolen token
+    Attacker->>AuthZ: refresh_token_1 (already used!)
+    AuthZ->>AuthZ: Detect reuse → Revoke entire token family
+    AuthZ-->>Attacker: Error: token_revoked
+    Note over LegitClient: refresh_token_2 also revoked

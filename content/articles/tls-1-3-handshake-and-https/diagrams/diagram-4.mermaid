@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant CA as Certificate Authority
+    participant Log as CT Log
+    participant Browser as Browser
+    participant Monitor as Domain Monitor
+
+    CA->>Log: Submit precertificate
+    Log->>CA: Signed Certificate Timestamp (SCT)
+    CA->>Browser: Certificate + embedded SCTs
+    Browser->>Browser: Validate SCTs (2+ required)
+
+    par Continuous Monitoring
+        Monitor->>Log: Query for domain certificates
+        Log->>Monitor: All logged certificates
+        Monitor->>Monitor: Alert on unexpected issuance
+    end

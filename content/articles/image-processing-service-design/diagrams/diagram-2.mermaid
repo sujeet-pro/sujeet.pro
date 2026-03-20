@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant Client
+    participant CDN as Edge Cache
+    participant Gateway as Image Gateway
+    participant Cache as Redis
+    participant Registry as Registry DB
+    participant Transform as Transform Engine
+    participant Storage as Object Store
+
+    Client->>CDN: GET /pub/org/space/img/id/w_800-h_600.webp
+
+    alt CDN Cache Hit
+        CDN-->>Client: 200 OK (< 50ms)
+    else CDN Cache Miss
+        CDN->>Gateway: Forward request
+        Gateway->>Gateway: Parse & validate URL
+
+        alt Redis Cache Hit
+            Gateway->>Cache: Check transform cache
+            Cache-->>Gateway: Cached metadata
+            Gateway->>Storage: Fetch derived asset
+            Storage-->>Gateway: Image bytes
+            Gateway-->>CDN: 200 OK + Cache headers
+            CDN-->>Client: 200 OK (< 200ms)
+        else Transform Exists in DB
+            Gateway->>Registry: Query derived asset
+            Registry-->>Gateway: Storage key
+            Gateway->>Storage: Fetch derived asset
+            Storage-->>Gateway: Image bytes
+            Gateway->>Cache: Update cache
+            Gateway-->>CDN: 200 OK + Cache headers
+            CDN-->>Client: 200 OK (< 300ms)
+        else First Transform
+            Gateway->>Registry: Get asset metadata
+            Registry-->>Gateway: Asset info
+            Gateway->>Storage: Fetch original
+            Storage-->>Gateway: Original bytes
+            Gateway->>Transform: Process inline
+            Transform->>Transform: Apply transformations
+            Transform-->>Gateway: Processed bytes
+            Gateway->>Storage: Store derived asset
+            Gateway->>Registry: Save metadata
+            Gateway->>Cache: Cache result
+            Gateway-->>CDN: 200 OK + Cache headers
+            CDN-->>Client: 200 OK (< 800ms)
+        end
+    end

@@ -1,0 +1,10 @@
+flowchart LR
+    subgraph "Railway Oriented Programming"
+        A["Operation 1"] -->|Success| B["Operation 2"]
+        A -->|Failure| F1["Error Track"]
+        B -->|Success| C["Operation 3"]
+        B -->|Failure| F2["Error Track"]
+        C -->|Success| D["Final Result"]
+        C -->|Failure| F3["Error Track"]
+        F1 --> F2 --> F3
+    end

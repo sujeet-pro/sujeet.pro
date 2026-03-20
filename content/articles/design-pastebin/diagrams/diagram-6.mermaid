@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant C as Client
+    participant CDN as CDN Edge
+    participant API as Read Service
+    participant R as Redis
+    participant DB as PostgreSQL
+    participant S3 as Object Storage
+
+    C->>CDN: GET /aB3kF9x
+    CDN->>CDN: Check edge cache
+    alt CDN Cache Hit
+        CDN-->>C: 200 (cached HTML)
+    else CDN Cache Miss
+        CDN->>API: GET /aB3kF9x
+        API->>R: GET paste:aB3kF9x
+        alt Redis Hit
+            R-->>API: {metadata + content}
+        else Redis Miss
+            API->>DB: SELECT * FROM pastes WHERE id = 'aB3kF9x'
+            DB-->>API: metadata (expires_at, visibility, content_hash)
+            API->>API: Check expiration
+            alt Expired
+                API-->>CDN: 410 Gone
+            else Valid
+                API->>S3: GET /pastes/aB3kF9x.zst
+                S3-->>API: compressed content
+                API->>API: zstd decompress
+                API->>R: SET paste:aB3kF9x (TTL 1h)
+            end
+        end
+        API-->>CDN: 200 {content + metadata}
+        CDN->>CDN: Cache (TTL 300s)
+        CDN-->>C: 200 (rendered HTML)
+    end

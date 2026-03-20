@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant U as User A (Author)
+    participant PS as Post Service
+    participant FO as Fan-out Service
+    participant Q as Message Queue
+    participant FC as Feed Cache
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+
+    U->>PS: Create post
+    PS->>PS: Persist to DB
+    PS->>Q: Publish post event
+    Q->>FO: Fan-out job
+    FO->>FO: Get all followers
+    par Fan-out to followers
+        FO->>FC: Write to Follower 1's feed
+    and
+        FO->>FC: Write to Follower 2's feed
+    end
+    F1->>FC: Load feed
+    FC->>F1: Pre-computed feed

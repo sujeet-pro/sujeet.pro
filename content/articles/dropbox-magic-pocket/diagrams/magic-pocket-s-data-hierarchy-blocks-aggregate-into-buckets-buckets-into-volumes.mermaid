@@ -1,0 +1,8 @@
+flowchart TD
+    subgraph "Data Hierarchy"
+        B["Block (up to 4 MB)<br/>SHA-256 identified"] --> BK["Bucket (~1 GB)<br/>Aggregates blocks by time"]
+        BK --> V["Volume<br/>Replicated across OSDs"]
+        V --> E["Extent (1-2 GB)<br/>Physical on-disk unit, append-only"]
+        E --> CL["Cell (~50 PB raw)<br/>Self-contained cluster"]
+        CL --> Z["Zone<br/>Geographic region"]
+    end

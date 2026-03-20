@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph "Ingest"
+        SRC[Source Upload] --> VAL[Validation<br/>Format/Duration]
+        VAL --> STORE[Source Storage<br/>S3/GCS]
+    end
+
+    subgraph "Orchestration"
+        STORE --> QUEUE[Job Queue<br/>SQS/Redis]
+        QUEUE --> SCHED[Scheduler<br/>Priority/Capacity]
+    end
+
+    subgraph "Encoding"
+        SCHED --> CHUNK[Chunker<br/>GOP Split]
+        CHUNK --> ENC1[Encoder 1]
+        CHUNK --> ENC2[Encoder 2]
+        CHUNK --> ENCN[Encoder N]
+        ENC1 --> MERGE[Merge<br/>Concatenate]
+        ENC2 --> MERGE
+        ENCN --> MERGE
+    end
+
+    subgraph "Output"
+        MERGE --> QC[Quality Check<br/>VMAF/SSIM]
+        QC --> PKG[Packaging<br/>HLS/DASH]
+        PKG --> CDN[CDN Origin]
+    end
+
+    style SRC fill:#e1d5e7,stroke:#9673a6
+    style QUEUE fill:#fff2cc,stroke:#d6b656
+    style SCHED fill:#fff2cc,stroke:#d6b656
+    style CHUNK fill:#dae8fc,stroke:#6c8ebf
+    style ENC1 fill:#dae8fc,stroke:#6c8ebf
+    style ENC2 fill:#dae8fc,stroke:#6c8ebf
+    style ENCN fill:#dae8fc,stroke:#6c8ebf
+    style MERGE fill:#dae8fc,stroke:#6c8ebf
+    style QC fill:#d5e8d4,stroke:#82b366
+    style PKG fill:#d5e8d4,stroke:#82b366
+    style CDN fill:#d5e8d4,stroke:#82b366

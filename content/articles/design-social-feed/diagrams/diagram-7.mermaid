@@ -1,0 +1,44 @@
+flowchart TB
+    subgraph Edge["Edge Layer"]
+        R53["Route 53<br/>(GeoDNS)"]
+        CF["CloudFront<br/>(CDN)"]
+    end
+
+    subgraph Compute["EKS Cluster"]
+        subgraph API["API Tier"]
+            APIGW["API Gateway Pods<br/>(Fargate)"]
+        end
+
+        subgraph Feed["Feed Generation Tier"]
+            AGG["Aggregator Pods<br/>(c5.4xlarge, CPU-optimized)"]
+            LEAF["Leaf Pods<br/>(r5.8xlarge, Memory-optimized)"]
+        end
+
+        subgraph Core["Core Services Tier"]
+            POST["Post Service<br/>(Fargate)"]
+            FANOUT["Fan-out Workers<br/>(Fargate Spot)"]
+        end
+
+        subgraph ML["ML Tier"]
+            RANK["SageMaker Endpoints<br/>(p3.2xlarge, GPU)"]
+        end
+    end
+
+    subgraph Data["Data Layer"]
+        AURORA["Aurora MySQL<br/>(Multi-AZ, Read Replicas)"]
+        REDIS["ElastiCache Redis<br/>(Cluster Mode)"]
+        DYNAMO["DynamoDB<br/>(TAO-like, On-demand)"]
+        S3["S3<br/>(Media, Intelligent-Tiering)"]
+    end
+
+    subgraph Streaming["Streaming"]
+        MSK["Amazon MSK<br/>(Kafka)"]
+    end
+
+    R53 --> CF --> APIGW
+    APIGW --> AGG --> LEAF
+    AGG --> RANK
+    LEAF --> DYNAMO --> AURORA
+    LEAF --> REDIS
+    POST --> MSK --> FANOUT --> REDIS
+    POST --> S3

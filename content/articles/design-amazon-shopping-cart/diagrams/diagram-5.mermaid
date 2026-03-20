@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant Client
+    participant Orchestrator
+    participant CartService
+    participant InventoryService
+    participant PaymentService
+    participant OrderService
+
+    Client->>Orchestrator: POST /checkout/complete
+    activate Orchestrator
+
+    Orchestrator->>CartService: Validate cart (prices, availability)
+    CartService-->>Orchestrator: Cart valid
+
+    Orchestrator->>PaymentService: Authorize payment
+    PaymentService-->>Orchestrator: Authorization ID
+
+    Orchestrator->>InventoryService: Convert soft→hard reservations
+    alt Conversion fails
+        InventoryService-->>Orchestrator: Insufficient stock
+        Orchestrator->>PaymentService: Void authorization
+        Orchestrator-->>Client: 409 Conflict (stock unavailable)
+    end
+    InventoryService-->>Orchestrator: Hard reservations confirmed
+
+    Orchestrator->>OrderService: Create order
+    alt Order creation fails
+        OrderService-->>Orchestrator: Error
+        Orchestrator->>InventoryService: Release hard reservations
+        Orchestrator->>PaymentService: Void authorization
+        Orchestrator-->>Client: 500 Error (retry)
+    end
+    OrderService-->>Orchestrator: Order ID
+
+    Orchestrator->>PaymentService: Capture payment
+    alt Capture fails
+        PaymentService-->>Orchestrator: Capture failed
+        Orchestrator->>OrderService: Mark order as payment_failed
+        Orchestrator->>InventoryService: Release hard reservations
+        Orchestrator-->>Client: 402 Payment Required
+    end
+    PaymentService-->>Orchestrator: Capture confirmed
+
+    Orchestrator->>OrderService: Update order status to confirmed
+    Orchestrator->>CartService: Clear cart
+    deactivate Orchestrator
+    Orchestrator-->>Client: 201 Created (order confirmed)

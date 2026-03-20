@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph "The Illusion of Exactly-Once"
+        direction LR
+        P[Producer] -->|"msg + ID"| B[Broker]
+        B -->|"msg + ID<br/>(may redeliver)"| C[Consumer]
+        C -->|"Check ID"| D[(Dedup Store)]
+        D -->|"Already seen?"| E{Duplicate?}
+        E -->|"Yes"| F[Skip]
+        E -->|"No"| G[Process + Store ID]
+    end
+
+    style F fill:#ffcccb
+    style G fill:#90EE90

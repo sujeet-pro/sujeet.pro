@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant E as Encoder
+    participant ES as Encoder Stream
+    participant RS as Request Stream
+    participant D as Decoder
+    participant DS as Decoder Stream
+
+    E->>ES: Insert "x-custom: value" (index 62)
+    E->>RS: Header block (Required Insert Count: 63)
+
+    Note over D: Decoder receives request stream first
+    Note over D: Required Insert Count (63) > Current (62)
+    Note over D: Stream BLOCKED
+
+    ES->>D: Dynamic table update arrives
+    Note over D: Insert Count now 63, unblock
+
+    D->>DS: Section Acknowledgment

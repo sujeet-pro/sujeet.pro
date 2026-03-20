@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph "Content Preparation"
+        SRC[Source Video] --> ENC[Encoding<br/>H.264/H.265/AV1]
+        ENC --> PKG[Packaging<br/>fMP4/CMAF]
+        PKG --> DRM[DRM Encryption<br/>CENC]
+    end
+
+    subgraph "Delivery"
+        DRM --> CDN[CDN Edge<br/>Global PoPs]
+        CDN --> MAN[Manifest<br/>HLS/DASH]
+    end
+
+    subgraph "Playback"
+        MAN --> ABR[ABR Selection]
+        ABR --> DEC[Decryption<br/>+ Decoding]
+        DEC --> PLAY[Playback]
+    end
+
+    style SRC fill:#e1d5e7,stroke:#9673a6
+    style ENC fill:#dae8fc,stroke:#6c8ebf
+    style PKG fill:#dae8fc,stroke:#6c8ebf
+    style DRM fill:#f8cecc,stroke:#b85450
+    style CDN fill:#fff2cc,stroke:#d6b656
+    style MAN fill:#fff2cc,stroke:#d6b656
+    style ABR fill:#d5e8d4,stroke:#82b366
+    style DEC fill:#d5e8d4,stroke:#82b366
+    style PLAY fill:#d5e8d4,stroke:#82b366

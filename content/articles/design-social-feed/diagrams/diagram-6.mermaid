@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph Stage1["Stage 1: Candidate Retrieval"]
+        ALL["All Potential Posts<br/>(~10,000)"]
+        FILTER["Eligibility Filter<br/>(blocked, hidden, seen)"]
+        ALL --> FILTER
+    end
+
+    subgraph Stage2["Stage 2: First-Pass Ranking"]
+        LIGHT["Lightweight Model<br/>(~500 candidates)"]
+        FILTER --> LIGHT
+    end
+
+    subgraph Stage3["Stage 3: Second-Pass Ranking"]
+        HEAVY["Neural Network<br/>(~100 candidates)"]
+        LIGHT --> HEAVY
+    end
+
+    subgraph Stage4["Stage 4: Final Reranking"]
+        DIVERSE["Diversity Rules"]
+        INTEGRITY["Integrity Filters"]
+        FINAL["Final Feed<br/>(~50 posts)"]
+        HEAVY --> DIVERSE --> INTEGRITY --> FINAL
+    end

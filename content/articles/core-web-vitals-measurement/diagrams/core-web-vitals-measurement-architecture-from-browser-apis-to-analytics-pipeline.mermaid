@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph "Data Sources"
+        LAB["Lab Data<br/>Lighthouse, WebPageTest"]
+        FIELD["Field Data<br/>CrUX, RUM"]
+    end
+
+    subgraph "Collection APIs"
+        PO["PerformanceObserver<br/>largest-contentful-paint<br/>layout-shift, event"]
+        WV["web-vitals Library<br/>onLCP, onINP, onCLS"]
+    end
+
+    subgraph "Aggregation"
+        P75["75th Percentile<br/>CrUX Methodology"]
+        ANALYTICS["Analytics Pipeline<br/>Custom RUM"]
+    end
+
+    subgraph "Diagnostics"
+        ATTR["Attribution Build<br/>Root Cause Data"]
+        SUBPARTS["LCP Subparts<br/>TTFB, Load Delay, Render"]
+    end
+
+    LAB --> PO
+    FIELD --> PO
+    PO --> WV
+    WV --> P75
+    WV --> ANALYTICS
+    WV --> ATTR
+    ATTR --> SUBPARTS

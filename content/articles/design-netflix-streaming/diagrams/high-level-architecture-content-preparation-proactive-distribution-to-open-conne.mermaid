@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph "Content Preparation"
+        INGEST[Studio Masters] --> ANALYSIS[Complexity Analysis<br/>Shot Detection]
+        ANALYSIS --> ENCODE[Per-Title Encoding<br/>Multi-codec Ladder]
+        ENCODE --> PACKAGE[Packaging<br/>CMAF/HLS/DASH]
+    end
+
+    subgraph "Content Distribution"
+        PACKAGE --> ORIGIN[(Origin Storage<br/>AWS S3)]
+        ORIGIN --> FILL[Fill Pipeline<br/>Proactive Cache]
+        FILL --> OCA[Open Connect CDN<br/>1000+ Locations]
+    end
+
+    subgraph "Playback Services"
+        API[API Gateway<br/>Zuul] --> PLAYBACK[Playback Service<br/>Manifest + License]
+        PLAYBACK --> STEERING[Traffic Steering<br/>OCA Selection]
+    end
+
+    subgraph "Client"
+        PLAYER[Client Player<br/>ABR Algorithm] --> OCA
+        PLAYER <--> PLAYBACK
+    end
+
+    subgraph "Personalization"
+        REC[Recommendation Engine<br/>PVR Model] --> API
+        ARTWORK[Artwork Selection<br/>Contextual Bandits] --> API
+    end

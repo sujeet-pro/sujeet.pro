@@ -1,0 +1,127 @@
+/* ═══════════════════════════════════════════════════════════════
+   Code tabs — CSS-only tab switching via radio inputs
+   Consecutive titled code blocks are auto-grouped by rehype-code-tabs.
+   ═══════════════════════════════════════════════════════════════ */
+
+.code-tabs {
+  margin: 1.5rem 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-code-bg);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+/* Tab bar (header wrapping scrollable list + fixed actions) */
+.code-tabs-bar {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-alt);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+/* Scrollable tab list */
+.code-tabs-list {
+  display: flex;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: thin;
+}
+.code-tabs-list::-webkit-scrollbar {
+  height: 4px;
+}
+.code-tabs-list::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 2px;
+}
+.code-tab {
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+  user-select: none;
+}
+.code-tab:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-accent-subtle);
+}
+
+/* Fixed right section — lang label + copy button for active tab */
+.code-tabs-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 0.75rem;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+/* Individual tab meta (lang + copy) — hidden by default */
+.code-tab-meta {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Override copy button auto margin when inside tab meta */
+.code-tab-meta .code-copy-btn {
+  margin-left: 0;
+}
+
+/* Panels — hidden by default */
+.code-tab-panel {
+  display: none;
+}
+
+/* Remove figure margin/border when inside tab panel */
+.code-tab-panel .code-figure {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+/* ─── CSS-only tab switching (up to 8 tabs) ─── */
+
+/* Active tab label styling */
+.code-tabs > input:nth-of-type(1):checked ~ header nav > label:nth-child(1),
+.code-tabs > input:nth-of-type(2):checked ~ header nav > label:nth-child(2),
+.code-tabs > input:nth-of-type(3):checked ~ header nav > label:nth-child(3),
+.code-tabs > input:nth-of-type(4):checked ~ header nav > label:nth-child(4),
+.code-tabs > input:nth-of-type(5):checked ~ header nav > label:nth-child(5),
+.code-tabs > input:nth-of-type(6):checked ~ header nav > label:nth-child(6),
+.code-tabs > input:nth-of-type(7):checked ~ header nav > label:nth-child(7),
+.code-tabs > input:nth-of-type(8):checked ~ header nav > label:nth-child(8) {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+/* Show active panel */
+.code-tabs > input:nth-of-type(1):checked ~ div:nth-of-type(1),
+.code-tabs > input:nth-of-type(2):checked ~ div:nth-of-type(2),
+.code-tabs > input:nth-of-type(3):checked ~ div:nth-of-type(3),
+.code-tabs > input:nth-of-type(4):checked ~ div:nth-of-type(4),
+.code-tabs > input:nth-of-type(5):checked ~ div:nth-of-type(5),
+.code-tabs > input:nth-of-type(6):checked ~ div:nth-of-type(6),
+.code-tabs > input:nth-of-type(7):checked ~ div:nth-of-type(7),
+.code-tabs > input:nth-of-type(8):checked ~ div:nth-of-type(8) {
+  display: block;
+}
+
+/* Show active tab meta (lang + copy) via :has() */
+.code-tabs:has(> input:nth-of-type(1):checked) .code-tab-meta[data-idx="0"],
+.code-tabs:has(> input:nth-of-type(2):checked) .code-tab-meta[data-idx="1"],
+.code-tabs:has(> input:nth-of-type(3):checked) .code-tab-meta[data-idx="2"],
+.code-tabs:has(> input:nth-of-type(4):checked) .code-tab-meta[data-idx="3"],
+.code-tabs:has(> input:nth-of-type(5):checked) .code-tab-meta[data-idx="4"],
+.code-tabs:has(> input:nth-of-type(6):checked) .code-tab-meta[data-idx="5"],
+.code-tabs:has(> input:nth-of-type(7):checked) .code-tab-meta[data-idx="6"],
+.code-tabs:has(> input:nth-of-type(8):checked) .code-tab-meta[data-idx="7"] {
+  display: flex;
+}

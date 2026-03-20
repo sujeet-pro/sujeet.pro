@@ -1,0 +1,18 @@
+flowchart TB
+    subgraph "Region A"
+        LBA["Load Balancer"]
+        SA["Services"]
+        DA[("Database")]
+    end
+
+    subgraph "Region B"
+        LBB["Load Balancer"]
+        SB["Services"]
+        DB[("Database")]
+    end
+
+    GLB["Global LB"] --> LBA & LBB
+    LBA --> SA --> DA
+    LBB --> SB --> DB
+
+    DA <-->|"Bidirectional<br/>Replication"| DB

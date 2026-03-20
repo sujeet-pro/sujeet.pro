@@ -1,0 +1,45 @@
+flowchart TB
+    subgraph Handshake["TLS 1.3 Full Handshake (1-RTT)"]
+        direction TB
+        CH["ClientHello<br/>+ key_share<br/>+ supported_versions"]
+        SH["ServerHello<br/>+ key_share"]
+        EE["EncryptedExtensions"]
+        CERT["Certificate"]
+        CV["CertificateVerify"]
+        SF["Server Finished"]
+        CF["Client Finished"]
+
+        CH --> SH
+        SH --> EE
+        EE --> CERT
+        CERT --> CV
+        CV --> SF
+        SF --> CF
+    end
+
+    subgraph Keys["Key Derivation"]
+        direction TB
+        ES["Early Secret"]
+        HS["Handshake Secret<br/>(from ECDHE)"]
+        MS["Master Secret"]
+        ATS["Application Traffic Secrets"]
+
+        ES --> HS
+        HS --> MS
+        MS --> ATS
+    end
+
+    subgraph Hardening["HTTPS Hardening Stack"]
+        direction TB
+        HSTS["HSTS + Preload"]
+        CT["Certificate Transparency"]
+        OCSP["OCSP Stapling"]
+        CAA["CAA DNS Records"]
+    end
+
+    CH -.->|"Derive"| HS
+    SH -.->|"Derive"| HS
+
+    style Handshake fill:#e3f2fd
+    style Keys fill:#f3e5f5
+    style Hardening fill:#e8f5e9

@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Client
+    participant AuthZ as Authorization Server
+
+    Note over Client,AuthZ: Initial grant
+    AuthZ->>Client: refresh_token_1
+
+    Note over Client,AuthZ: First refresh
+    Client->>AuthZ: refresh_token_1
+    AuthZ->>AuthZ: Invalidate refresh_token_1
+    AuthZ->>Client: access_token_2, refresh_token_2
+
+    Note over Client,AuthZ: Second refresh
+    Client->>AuthZ: refresh_token_2
+    AuthZ->>AuthZ: Invalidate refresh_token_2
+    AuthZ->>Client: access_token_3, refresh_token_3

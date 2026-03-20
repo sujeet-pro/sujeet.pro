@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph App["Your Application"]
+        API[Payment API]
+    end
+
+    subgraph Orchestration["Orchestration Layer"]
+        ROUTER[Smart Router]
+        RULES[Routing Rules]
+    end
+
+    subgraph Providers["Payment Providers"]
+        STRIPE[Stripe]
+        ADYEN[Adyen]
+        PAYPAL[PayPal]
+    end
+
+    API --> ROUTER
+    ROUTER --> RULES
+    RULES --> STRIPE & ADYEN & PAYPAL

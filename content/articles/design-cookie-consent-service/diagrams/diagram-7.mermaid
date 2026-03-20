@@ -1,0 +1,14 @@
+flowchart LR
+    subgraph Write["Consent Update"]
+        W[Write to DB]
+    end
+
+    subgraph Invalidate["Cache Invalidation"]
+        R[Redis: Delete key]
+        E[Edge: Purge by key]
+        C[Client: Refetch]
+    end
+
+    W --> R
+    R --> E
+    E --> C

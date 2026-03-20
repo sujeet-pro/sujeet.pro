@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph "Request-Driven"
+        C1[Client] -->|Request| S1[Service A]
+        S1 -->|Request| S2[Service B]
+        S2 -->|Response| S1
+        S1 -->|Response| C1
+    end
+
+    subgraph "Event-Driven"
+        P[Producer] -->|Publish| EB[Event Broker]
+        EB -->|Subscribe| CA[Consumer A]
+        EB -->|Subscribe| CB[Consumer B]
+        EB -->|Subscribe| CC[Consumer C]
+    end
+
+    style EB fill:#fff2cc,stroke:#d6b656

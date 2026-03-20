@@ -1,0 +1,21 @@
+graph TD
+    subgraph "Application"
+        A[Service] -->|1. Single Transaction| DB[(Database)]
+        DB -->|Write| BT[Business Table]
+        DB -->|Write| OT[Outbox Table]
+    end
+
+    subgraph "Relay Process"
+        MR[Message Relay]
+        MR -->|2. Poll| OT
+        MR -->|3. Publish| MB[Message Broker]
+        MR -->|4. Mark sent| OT
+    end
+
+    classDef appClass fill:#ffcc99,stroke:#000,stroke-width:2px
+    classDef dbClass fill:#cc99ff,stroke:#000,stroke-width:2px
+    classDef relayClass fill:#99ffcc,stroke:#000,stroke-width:2px
+
+    class A appClass
+    class DB,BT,OT dbClass
+    class MR,MB relayClass

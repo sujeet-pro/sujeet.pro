@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph Commands["Command Side"]
+        C[Command] --> V[Validate]
+        V --> ES[Event Store]
+    end
+
+    subgraph Events["Event Log"]
+        ES --> E1[Event 1]
+        E1 --> E2[Event 2]
+        E2 --> E3[Event ...]
+        E3 --> EN[Event N]
+    end
+
+    subgraph Projections["Read Side"]
+        EN --> P1[Projection 1]
+        EN --> P2[Projection 2]
+        EN --> P3[Projection N]
+    end
+
+    subgraph Recovery["Rebuild"]
+        E1 -.-> S[Snapshot]
+        S -.-> R[Replay from Snapshot]
+        R -.-> Current[Current State]
+    end

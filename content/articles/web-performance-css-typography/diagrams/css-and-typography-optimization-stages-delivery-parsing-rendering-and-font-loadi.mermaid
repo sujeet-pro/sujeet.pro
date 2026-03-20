@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph "CSS Performance Pipeline"
+        LOAD["Load<br/>Delivery"] --> PARSE["Parse<br/>CSSOM"]
+        PARSE --> RENDER["Render<br/>Layout/Paint"]
+        RENDER --> ANIMATE["Animate<br/>Composite"]
+    end
+
+    subgraph "Font Pipeline"
+        SUBSET["Subset<br/>Remove unused glyphs"]
+        FORMAT["Format<br/>WOFF2 compression"]
+        LOADF["Load<br/>Preload + swap"]
+        MATCH["Match<br/>size-adjust fallback"]
+    end
+
+    SUBSET --> FORMAT
+    FORMAT --> LOADF
+    LOADF --> MATCH
+
+    subgraph "CWV Impact"
+        LCP["LCP"]
+        CLS["CLS"]
+        FCP["FCP"]
+    end

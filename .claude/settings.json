@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun run build)",
+      "Bash(bun run dev)",
+      "Bash(bun run diagrams*)",
+      "Bash(bun run validate)",
+      "Bash(bun run check-orphans)",
+      "Bash(bun run preview)",
+      "Bash(bun run sitemap)",
+      "Bash(bun scripts/*)",
+      "Bash(ls *)",
+      "Bash(find content/*)",
+      "Bash(wc *)"
+    ]
+  }
+}

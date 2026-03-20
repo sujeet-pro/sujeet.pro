@@ -1,0 +1,43 @@
+flowchart TB
+    subgraph Clients["Client Layer"]
+        Web[Web App]
+        Mobile[Mobile Apps]
+        Desktop[Desktop Clients]
+        Email[Email Integration]
+    end
+
+    subgraph Gateway["API Gateway"]
+        LB[Load Balancer]
+        Auth[Auth Service]
+        RL[Rate Limiter]
+    end
+
+    subgraph Core["Core Services"]
+        EventSvc[Event Service]
+        RecurrenceSvc[Recurrence Service]
+        SchedulingSvc[Scheduling Service]
+        NotifSvc[Notification Service]
+        SyncSvc[Sync Service]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[(PostgreSQL<br/>Events, Users)]
+        Redis[(Redis<br/>Free/Busy Cache)]
+        ES[(Elasticsearch<br/>Search)]
+        S3[(Object Storage<br/>Attachments)]
+    end
+
+    subgraph Async["Async Processing"]
+        Queue[Message Queue]
+        Workers[Background Workers]
+        Scheduler[Job Scheduler]
+    end
+
+    Clients --> LB
+    LB --> Auth --> RL
+    RL --> Core
+    Core --> Data
+    Core --> Queue
+    Queue --> Workers
+    Scheduler --> Workers
+    Workers --> NotifSvc

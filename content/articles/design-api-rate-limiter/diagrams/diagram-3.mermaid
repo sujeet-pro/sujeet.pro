@@ -1,0 +1,4 @@
+flowchart LR
+    CLIENT["Client"] --> GW["API Gateway<br/>(Local Counters)"]
+    GW --> SVC["Backend"]
+    GW -.->|"Periodic sync"| REDIS["Redis<br/>(Global Counters)"]

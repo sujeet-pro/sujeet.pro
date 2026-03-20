@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph US["US Region (Primary)"]
+        USWrite[(Primary DB<br/>Write)]
+        USRead[(Read Replica)]
+        USCache[(Redis)]
+    end
+
+    subgraph EU["EU Region"]
+        EURead[(Read Replica)]
+        EUCache[(Redis)]
+    end
+
+    subgraph AP["AP Region"]
+        APRead[(Read Replica)]
+        APCache[(Redis)]
+    end
+
+    USWrite --> |Async Replication| EURead
+    USWrite --> |Async Replication| APRead
+
+    EUUser --> EUCache --> EURead
+    APUser --> APCache --> APRead
+    USUser --> USCache --> USRead
+    WriteOps --> USWrite

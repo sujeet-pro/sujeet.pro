@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant Client as Email Client
+    participant API as API/Submission
+    participant Queue as Send Queue
+    participant Sign as DKIM Signer
+    participant MTA as Outbound MTA
+    participant DNS as Recipient DNS
+    participant Recip as Recipient MTA
+
+    Client->>API: POST /send (authenticated)
+    API->>API: Validate (rate limits, recipients)
+    API->>Queue: Enqueue message
+    API-->>Client: 202 Accepted (message_id)
+
+    Queue->>Sign: Sign with DKIM
+    Sign->>MTA: Signed message
+
+    MTA->>DNS: Query MX for recipient domain
+    DNS-->>MTA: mx.recipient.com
+
+    MTA->>Recip: SMTP delivery
+    alt Success
+        Recip-->>MTA: 250 OK
+        MTA->>Queue: Mark delivered
+    else Temporary failure (4xx)
+        Recip-->>MTA: 421 Try later
+        MTA->>Queue: Retry with backoff
+    else Permanent failure (5xx)
+        Recip-->>MTA: 550 User unknown
+        MTA->>Queue: Generate bounce
+    end

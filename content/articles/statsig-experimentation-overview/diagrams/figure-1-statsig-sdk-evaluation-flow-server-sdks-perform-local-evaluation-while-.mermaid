@@ -1,0 +1,22 @@
+graph TB
+    A[User Request] --> B{SDK Type?}
+    B -->|Server SDK| C[Local Evaluation]
+    B -->|Client SDK| D[Pre-evaluated Cache]
+
+    C --> E[In-Memory Ruleset]
+    E --> F[Deterministic Hash]
+    F --> G[Result]
+
+    D --> H[Local Storage Cache]
+    H --> I[Network Request]
+    I --> J[Statsig Backend]
+    J --> K[Pre-computed Values]
+    K --> L[Cache Update]
+    L --> G
+
+    G --> M[Feature Flag Result]
+
+    style A fill:#e1f5fe
+    style M fill:#c8e6c9
+    style C fill:#fff3e0
+    style D fill:#f3e5f5

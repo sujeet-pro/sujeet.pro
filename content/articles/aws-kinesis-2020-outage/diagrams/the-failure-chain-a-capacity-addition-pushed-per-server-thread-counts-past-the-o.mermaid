@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph Trigger["Trigger: Capacity Addition"]
+        ADD["New servers added<br/>to front-end fleet"]
+    end
+
+    subgraph FE["Front-End Fleet (monolithic)"]
+        direction TB
+        THREAD["Each server creates<br/>1 OS thread per peer"]
+        LIMIT["Thread count exceeds<br/>OS configuration limit"]
+        SHARD["Shard-map cache<br/>construction fails"]
+        ROUTE["Servers cannot route<br/>requests to back-end"]
+        THREAD --> LIMIT --> SHARD --> ROUTE
+    end
+
+    subgraph Cascade["Cascading Failures"]
+        KIN["Kinesis API errors"]
+        CW["CloudWatch<br/>(metrics + alarms down)"]
+        COG["Cognito<br/>(buffer blocks forever)"]
+        LAM["Lambda<br/>(memory contention)"]
+        AS["AutoScaling<br/>(blind to metrics)"]
+        DASH["Status Dashboard<br/>(can't post updates)"]
+        KIN --> CW & COG & LAM
+        CW --> AS
+        COG --> DASH
+    end
+
+    subgraph Recovery["Recovery: 17 Hours"]
+        RESTART["Controlled restart<br/>(few hundred servers/hour)"]
+        HERD["Thundering herd:<br/>fast restart = worse failure"]
+    end
+
+    ADD --> FE
+    FE --> Cascade
+    Cascade --> Recovery
+
+    style LIMIT fill:#f87171,stroke:#991b1b,color:#000
+    style HERD fill:#fbbf24,stroke:#92400e,color:#000
+    style DASH fill:#f87171,stroke:#991b1b,color:#000

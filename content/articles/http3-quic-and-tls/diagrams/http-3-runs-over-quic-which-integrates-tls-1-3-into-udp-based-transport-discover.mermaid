@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph Discovery["Protocol Discovery"]
+        DNS["DNS SVCB/HTTPS Records"]
+        AltSvc["Alt-Svc Header"]
+    end
+
+    subgraph Transport["Transport Layer"]
+        TCP["TCP + TLS 1.3"]
+        QUIC["QUIC (UDP + TLS 1.3)"]
+    end
+
+    subgraph Application["Application Layer"]
+        H1["HTTP/1.1"]
+        H2["HTTP/2"]
+        H3["HTTP/3"]
+    end
+
+    DNS -->|"alpn=h3,h2"| QUIC
+    DNS -->|"alpn=h2"| TCP
+    AltSvc -->|"h3=:443"| QUIC
+
+    TCP --> H1
+    TCP --> H2
+    QUIC --> H3
+
+    style QUIC fill:#4caf50
+    style H3 fill:#4caf50

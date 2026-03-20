@@ -1,0 +1,19 @@
+flowchart TB
+    subgraph "The Core Problem"
+        direction LR
+        C1[Client 1] -->|"Acquire"| L((Lock Service))
+        C2[Client 2] -->|"Acquire"| L
+        L -->|"Granted"| C1
+        L -->|"Denied/Wait"| C2
+        C1 -->|"Access"| R[(Resource)]
+    end
+
+    subgraph "Failure Modes"
+        direction TB
+        F1["Network Partition: Client thinks it has lock, server disagrees"]
+        F2["Clock Drift: Lease expires early/late"]
+        F3["Process Pause: GC stall outlives lease"]
+        F4["Split-Brain: Multiple clients believe they hold lock"]
+    end
+
+    R -.->|"Corrupted if"| F4

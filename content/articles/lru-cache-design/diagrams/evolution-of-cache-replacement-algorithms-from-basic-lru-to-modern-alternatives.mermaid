@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph "Cache Algorithm Evolution"
+        LRU["LRU<br/>Least Recently Used<br/>✓ O(1) operations<br/>✗ Scan vulnerable"]
+        LRUK["LRU-K<br/>K-th Reference Tracking<br/>✓ Scan resistant<br/>✗ Complex, needs tuning"]
+        TwoQ["2Q<br/>Two Queue System<br/>✓ Simple, O(1)<br/>✓ Scan resistant"]
+        ARC["ARC<br/>Adaptive Replacement<br/>✓ Self-tuning<br/>✓ Patent expired 2024"]
+        SIEVE["SIEVE<br/>Lazy Promotion/Eviction<br/>✓ Simpler than LRU<br/>✓ Better hit rates"]
+    end
+
+    LRU -->|"Add frequency<br/>awareness"| LRUK
+    LRU -->|"Simplified<br/>filtering"| TwoQ
+    LRUK -->|"Adaptive<br/>balancing"| ARC
+    TwoQ -->|"Self-tuning<br/>replacement"| ARC
+    LRU -->|"Lazy promotion<br/>NSDI'24"| SIEVE
+
+    style LRU fill:#fff2cc,stroke:#d6b656
+    style LRUK fill:#dae8fc,stroke:#6c8ebf
+    style TwoQ fill:#d5e8d4,stroke:#82b366
+    style ARC fill:#f8cecc,stroke:#b85450
+    style SIEVE fill:#e1d5e7,stroke:#9673a6

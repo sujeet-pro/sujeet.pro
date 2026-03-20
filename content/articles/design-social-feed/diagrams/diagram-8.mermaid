@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph US["US-East (Primary)"]
+        US_LB["Load Balancer"]
+        US_APP["App Tier"]
+        US_DB["Aurora Primary"]
+        US_REDIS["Redis Primary"]
+    end
+
+    subgraph EU["EU-West (Secondary)"]
+        EU_LB["Load Balancer"]
+        EU_APP["App Tier"]
+        EU_DB["Aurora Replica"]
+        EU_REDIS["Redis Replica"]
+    end
+
+    subgraph APAC["AP-Southeast"]
+        AP_LB["Load Balancer"]
+        AP_APP["App Tier"]
+        AP_DB["Aurora Replica"]
+        AP_REDIS["Redis Replica"]
+    end
+
+    US_DB -.->|"Async Replication"| EU_DB
+    US_DB -.->|"Async Replication"| AP_DB
+    US_REDIS -.->|"Cross-Region Sync"| EU_REDIS
+    US_REDIS -.->|"Cross-Region Sync"| AP_REDIS
+
+    GLOBAL["Global Traffic Manager"] --> US_LB & EU_LB & AP_LB

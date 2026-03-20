@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph Client["Client Layer"]
+        WEB[Web App]
+        MOBILE[Mobile App]
+        POS[Point of Sale]
+    end
+
+    subgraph Gateway["Payment Gateway"]
+        API[Payment API<br/>Idempotent]
+        ROUTER[Smart Router<br/>Failover + Optimization]
+        FRAUD[Fraud Engine<br/>ML Scoring]
+    end
+
+    subgraph Processing["Processing Layer"]
+        AUTH[Authorization<br/>Service]
+        CAPTURE[Capture<br/>Service]
+        REFUND[Refund<br/>Service]
+    end
+
+    subgraph External["External Networks"]
+        VISA[Visa / VisaNet]
+        MC[Mastercard / Banknet]
+        ACH[ACH Network]
+        WALLET[Apple Pay / Google Pay]
+    end
+
+    subgraph Data["Data Layer"]
+        LEDGER[(Double-Entry<br/>Ledger)]
+        VAULT[(Token Vault<br/>PCI Scope)]
+        EVENTS[Event Stream<br/>Kafka]
+    end
+
+    WEB & MOBILE & POS --> API
+    API --> FRAUD
+    FRAUD --> ROUTER
+    ROUTER --> AUTH
+    AUTH --> VISA & MC & ACH & WALLET
+    AUTH --> CAPTURE
+    CAPTURE --> LEDGER
+    CAPTURE --> EVENTS
+    API --> VAULT
+    REFUND --> LEDGER

@@ -1,0 +1,6 @@
+flowchart LR
+    DB[(OLTP DB)] --> CDC[Debezium]
+    CDC --> K[Kafka]
+    K --> F[Flink]
+    F --> DW[(Data Warehouse)]
+    F --> RT[Real-time Dashboard]

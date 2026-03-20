@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: HTTP/2 over TCP: All streams share one byte stream
+    S->>C: Packet 1 (Stream A data)
+    S->>C: Packet 2 (Stream B data)
+    S--xC: Packet 3 (Stream A data) LOST
+    S->>C: Packet 4 (Stream C data)
+
+    Note over C: TCP holds packets 4+ until packet 3 retransmitted
+    Note over C: Streams B and C blocked despite having all their data

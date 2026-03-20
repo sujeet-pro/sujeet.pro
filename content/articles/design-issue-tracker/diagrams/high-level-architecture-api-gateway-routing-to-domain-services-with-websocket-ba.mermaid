@@ -1,0 +1,45 @@
+flowchart TB
+    subgraph Clients["Clients"]
+        WEB["Web App"]
+        MOBILE["Mobile App"]
+        API_CLIENT["API Clients"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CDN["CDN<br/>(Static Assets)"]
+        LB["Load Balancer"]
+        GATEWAY["API Gateway"]
+    end
+
+    subgraph Services["Application Services"]
+        ISSUE_SVC["Issue Service"]
+        PROJECT_SVC["Project Service"]
+        WORKFLOW_SVC["Workflow Service"]
+        SEARCH_SVC["Search Service"]
+        SYNC_SVC["Sync Service"]
+    end
+
+    subgraph Realtime["Real-time Layer"]
+        WS["WebSocket Gateway"]
+        PUBSUB["Redis Pub/Sub"]
+    end
+
+    subgraph Persistence["Data Layer"]
+        POSTGRES[(PostgreSQL<br/>Primary Store)]
+        REDIS["Redis Cache<br/>(Board State)"]
+        ES[(Elasticsearch<br/>Full-text Search)]
+        S3["S3<br/>(Attachments)"]
+    end
+
+    WEB & MOBILE & API_CLIENT --> CDN
+    WEB & MOBILE & API_CLIENT --> LB
+    LB --> GATEWAY
+    GATEWAY --> ISSUE_SVC & PROJECT_SVC & WORKFLOW_SVC & SEARCH_SVC
+    WEB & MOBILE --> WS
+    WS <--> SYNC_SVC
+    SYNC_SVC --> PUBSUB
+    ISSUE_SVC & PROJECT_SVC --> POSTGRES
+    ISSUE_SVC --> REDIS
+    SEARCH_SVC --> ES
+    ISSUE_SVC --> S3
+    PUBSUB --> WS

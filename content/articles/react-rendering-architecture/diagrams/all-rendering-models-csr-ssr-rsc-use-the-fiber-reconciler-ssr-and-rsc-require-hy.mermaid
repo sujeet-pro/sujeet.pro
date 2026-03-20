@@ -1,0 +1,21 @@
+flowchart TB
+    subgraph Fiber["Fiber Reconciler"]
+        direction LR
+        Render["Render Phase<br/>(Interruptible, 5ms slices)"]
+        Commit["Commit Phase<br/>(Synchronous)"]
+        Render --> Commit
+    end
+
+    subgraph Execution["Rendering Models"]
+        direction TB
+        CSR["CSR<br/>Client builds DOM"]
+        SSR["SSR/Streaming<br/>Server renders HTML"]
+        RSC["RSC<br/>Server components + Flight"]
+    end
+
+    Fiber --> CSR
+    Fiber --> SSR
+    Fiber --> RSC
+
+    SSR --> Hydration["Hydration<br/>Attach React to HTML"]
+    RSC --> Hydration

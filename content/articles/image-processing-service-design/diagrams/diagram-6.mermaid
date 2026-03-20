@@ -1,0 +1,52 @@
+graph TB
+    subgraph "Load Balancer"
+        LB[Cloud Load Balancer<br/>AWS ALB / GCP GLB / Azure LB]
+    end
+
+    subgraph "Kubernetes Cluster"
+        subgraph "Ingress Layer"
+            IngressCtrl[Nginx Ingress Controller]
+        end
+
+        subgraph "Services"
+            Gateway[Image Gateway<br/>Replicas: 3-10]
+            Transform[Transform Engine<br/>Replicas: 5-20]
+            Upload[Asset Ingestion<br/>Replicas: 3-10]
+            Control[Control Plane API<br/>Replicas: 2-5]
+            Worker[Transform Workers<br/>Replicas: 5-50]
+        end
+
+        subgraph "Data Tier"
+            Redis[(Redis Cluster<br/>3 masters + 3 replicas)]
+            Postgres[(PostgreSQL<br/>Primary + 2 Replicas)]
+            Queue[RabbitMQ Cluster<br/>3 nodes]
+        end
+    end
+
+    subgraph "External Services"
+        CDN[CDN<br/>CloudFront/Cloudflare]
+        S3[(Object Storage<br/>S3/GCS/Azure Blob)]
+    end
+
+    Client -->|HTTPS| CDN
+    CDN -->|Cache Miss| LB
+    LB --> IngressCtrl
+    IngressCtrl --> Gateway
+    IngressCtrl --> Upload
+    IngressCtrl --> Control
+
+    Gateway --> Transform
+    Gateway --> Redis
+    Gateway --> Postgres
+
+    Transform --> Redis
+    Transform --> Postgres
+    Transform --> S3
+
+    Upload --> Queue
+    Upload --> S3
+    Upload --> Postgres
+
+    Queue --> Worker
+    Worker --> S3
+    Worker --> Postgres

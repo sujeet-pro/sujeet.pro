@@ -1,0 +1,15 @@
+flowchart LR
+    subgraph "Host DOM"
+        HD["Document"]
+        WC["<widget-container>"]
+    end
+
+    subgraph "Shadow Root (closed)"
+        SR["Shadow DOM"]
+        WS["Widget Styles"]
+        WT["Widget Template"]
+    end
+
+    HD --> WC
+    WC -->|"attachShadow({mode:'closed'})"| SR
+    SR --> WS & WT

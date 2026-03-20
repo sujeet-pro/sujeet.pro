@@ -1,0 +1,14 @@
+graph LR
+    MQ[(Main Queue)] --> W[Worker]
+    W -->|Success| Done[✓]
+    W -->|Retry| MQ
+    W -->|Max attempts exceeded| DLQ[(DLQ)]
+    DLQ -->|Manual review| Fix[Fix & Replay]
+
+    classDef queueClass fill:#e0e0e0,stroke:#000,stroke-width:2px
+    classDef workerClass fill:#00ccff,stroke:#000,stroke-width:2px
+    classDef dlqClass fill:#ff6666,stroke:#000,stroke-width:2px
+
+    class MQ queueClass
+    class W workerClass
+    class DLQ dlqClass

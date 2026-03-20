@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant F1 as Follower 1
+    participant L as Leader
+    participant F2 as Follower 2
+
+    F1->>L: Write object X (v1→v2)
+    L->>L: Update cache to v2
+    L-->>F1: ACK with v2
+    L--)F2: Invalidate X, v1→v2
+
+    Note over F2: If F2 has v1, invalidate
+    Note over F2: If F2 has v2+, ignore (stale message)

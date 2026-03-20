@@ -1,0 +1,11 @@
+graph TB
+    B1[Initialize] --> B2[Send User to /initialize]
+    B2 --> B3[Backend Evaluation]
+    B3 --> B4[Pre-computed Values]
+    B4 --> B5[Cache Results]
+    B5 --> B6[Fast Cache Lookup]
+
+    B1 -.->|Client Key| B2
+
+    style B1 fill:#f3e5f5
+    style B6 fill:#c8e6c9

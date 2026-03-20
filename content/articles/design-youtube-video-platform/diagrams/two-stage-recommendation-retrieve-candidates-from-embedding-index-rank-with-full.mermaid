@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph "Offline Pipeline"
+        HISTORY[User History] --> EMBED[Embedding Model<br/>Video + User Vectors]
+        CATALOG[Video Catalog] --> EMBED
+        EMBED --> INDEX[ANN Index<br/>HNSW/Faiss]
+    end
+
+    subgraph "Online Serving"
+        REQ[Recommendation Request] --> RETRIEVE[Candidate Retrieval<br/>Top 1000]
+        RETRIEVE --> RANK[Ranking Model<br/>Top 20]
+        RANK --> FILTER[Business Filters<br/>Age, Duplicates]
+        FILTER --> RESP[Response]
+    end
+
+    INDEX --> RETRIEVE
+    EMBED --> RANK

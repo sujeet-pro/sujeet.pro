@@ -1,0 +1,13 @@
+flowchart TD
+    A["Multi-Region<br/>Decision"] --> B{"RTO requirement?"}
+    B -->|"Minutes OK"| C["Active-Passive"]
+    B -->|"Seconds required"| D{"Can handle<br/>conflict resolution?"}
+    D -->|"No"| E["Active-Active<br/>with partitioned data"]
+    D -->|"Yes"| F["Active-Active<br/>with conflict resolution"]
+
+    G{"Blast radius<br/>concern?"}
+    C --> G
+    F --> G
+    E --> G
+    G -->|"Yes"| H["Add Cell-Based<br/>Isolation"]
+    G -->|"No"| I["Single deployment<br/>per region"]

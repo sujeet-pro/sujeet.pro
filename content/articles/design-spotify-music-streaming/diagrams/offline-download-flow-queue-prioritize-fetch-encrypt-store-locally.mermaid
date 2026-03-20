@@ -1,0 +1,21 @@
+flowchart TB
+    subgraph "User Action"
+        USER[Download Playlist] --> QUEUE[Download Queue]
+    end
+
+    subgraph "Download Manager"
+        QUEUE --> PRIORITY[Priority Scheduler<br/>User-initiated First]
+        PRIORITY --> FETCH[Fetch Service<br/>Parallel Downloads]
+        FETCH --> DECRYPT[License Acquisition<br/>DRM Keys]
+    end
+
+    subgraph "Local Storage"
+        DECRYPT --> ENCRYPT[Encrypted Storage<br/>AES-256]
+        ENCRYPT --> DB[(SQLite<br/>Download Metadata)]
+        ENCRYPT --> FILES[Audio Files<br/>Device Storage]
+    end
+
+    subgraph "Playback"
+        FILES --> PLAYER[Offline Player]
+        DB --> PLAYER
+    end

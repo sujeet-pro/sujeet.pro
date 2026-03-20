@@ -1,0 +1,28 @@
+erDiagram
+    PROJECT ||--o{ STATUS : "has"
+    PROJECT ||--o{ WORKFLOW_TRANSITION : "has"
+    STATUS ||--o{ WORKFLOW_TRANSITION : "from"
+    STATUS ||--o{ WORKFLOW_TRANSITION : "to"
+
+    PROJECT {
+        uuid id PK
+        string key
+        string name
+    }
+
+    STATUS {
+        uuid id PK
+        uuid project_id FK
+        string name
+        string category
+        int position
+    }
+
+    WORKFLOW_TRANSITION {
+        uuid id PK
+        uuid project_id FK
+        uuid from_status_id FK
+        uuid to_status_id FK
+        string name
+        int opsbar_sequence
+    }

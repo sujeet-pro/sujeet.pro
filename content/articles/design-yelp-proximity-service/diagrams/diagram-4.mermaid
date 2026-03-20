@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant Client
+    participant Gateway as API Gateway
+    participant Search as Search Service
+    participant ES as Elasticsearch
+    participant Cache as Redis Cache
+    participant Ranker as Ranking Service
+
+    Client->>Gateway: GET /search?lat=37.77&lon=-122.41&radius=5000
+    Gateway->>Search: Forward with user context
+
+    Search->>Cache: Check geohash cache (dr5ru)
+    alt Cache hit
+        Cache-->>Search: Cached business IDs
+    else Cache miss
+        Search->>ES: geo_distance query
+        ES-->>Search: Matching documents
+        Search->>Cache: Store in cache (TTL: 5min)
+    end
+
+    Search->>Ranker: Rank candidates with signals
+    Ranker-->>Search: Scored results
+    Search-->>Gateway: Paginated response
+    Gateway-->>Client: JSON response

@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph Builder["Form Builder"]
+        Schema["JSON Schema<br/>Field definitions"]
+        UISchema["UI Schema<br/>Rendering hints"]
+        Logic["Logic Rules<br/>Conditions"]
+    end
+
+    subgraph Runtime["Form Runtime"]
+        Registry["Component<br/>Registry"]
+        Renderer["Schema<br/>Renderer"]
+        State["Form State<br/>Manager"]
+        Validator["Validation<br/>Engine"]
+    end
+
+    subgraph Storage["Persistence"]
+        Draft["Draft Storage<br/>IndexedDB"]
+        Submit["Submission<br/>Backend"]
+    end
+
+    Schema --> Renderer
+    UISchema --> Renderer
+    Logic --> Renderer
+    Registry --> Renderer
+    Renderer --> State
+    State --> Validator
+    State --> Draft
+    State --> Submit

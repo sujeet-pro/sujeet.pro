@@ -1,0 +1,66 @@
+flowchart TB
+    subgraph "Clients"
+        IOS[iOS App]
+        ANDROID[Android App]
+        DESKTOP[Desktop App]
+        WEB[Web Player]
+    end
+
+    subgraph "Edge Layer"
+        GW[API Gateway<br/>Envoy/gRPC]
+        AUTH[Auth Service<br/>OAuth 2.0]
+    end
+
+    subgraph "Playback Domain"
+        PLAYBACK[Playback Service]
+        LICENSE[License Service<br/>DRM Keys]
+        TRANSCODE[Transcode Service<br/>On-demand]
+    end
+
+    subgraph "Content Domain"
+        CATALOG[Catalog Service<br/>Tracks, Albums, Artists]
+        PLAYLIST[Playlist Service]
+        LIBRARY[Library Service<br/>User Saves]
+    end
+
+    subgraph "Discovery Domain"
+        SEARCH[Search Service<br/>Elasticsearch]
+        REC[Recommendation<br/>ML Models]
+        BROWSE[Browse Service<br/>Editorial]
+    end
+
+    subgraph "Social Domain"
+        SOCIAL[Social Graph<br/>Follows, Friends]
+        ACTIVITY[Activity Feed]
+    end
+
+    subgraph "Data Stores"
+        PG[(PostgreSQL<br/>Catalog)]
+        CASS[(Cassandra<br/>User Data)]
+        ES[(Elasticsearch<br/>Search Index)]
+        REDIS[(Redis<br/>Cache)]
+        BT[(Bigtable<br/>Features)]
+    end
+
+    subgraph "Delivery"
+        CDN_A[Akamai]
+        CDN_F[Fastly]
+        CDN_AWS[CloudFront]
+        GCS[(GCS Origin)]
+    end
+
+    IOS & ANDROID & DESKTOP & WEB --> GW
+    GW --> AUTH
+    GW --> PLAYBACK --> LICENSE
+    GW --> CATALOG & PLAYLIST & LIBRARY
+    GW --> SEARCH & REC & BROWSE
+    GW --> SOCIAL --> ACTIVITY
+
+    CATALOG --> PG
+    PLAYLIST & LIBRARY --> CASS
+    SEARCH --> ES
+    PLAYBACK & CATALOG --> REDIS
+    REC --> BT
+
+    PLAYBACK --> CDN_A & CDN_F & CDN_AWS
+    CDN_A & CDN_F & CDN_AWS --> GCS

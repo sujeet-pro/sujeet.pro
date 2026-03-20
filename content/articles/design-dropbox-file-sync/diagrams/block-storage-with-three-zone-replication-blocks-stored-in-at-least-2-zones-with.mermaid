@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph Client
+        Chunker[CDC Chunker]
+        BCache[Block Cache]
+    end
+
+    subgraph BlockService["Block Service"]
+        Upload[Upload Handler]
+        Download[Download Handler]
+        Dedup[Dedup Check]
+    end
+
+    subgraph Storage["Distributed Storage"]
+        subgraph Zone1["Zone 1 (West)"]
+            Cell1A[Cell 1A]
+            Cell1B[Cell 1B]
+        end
+        subgraph Zone2["Zone 2 (Central)"]
+            Cell2A[Cell 2A]
+        end
+        subgraph Zone3["Zone 3 (East)"]
+            Cell3A[Cell 3A]
+        end
+    end
+
+    Chunker --> BCache
+    BCache --> Upload
+    Upload --> Dedup
+    Dedup -->|"block exists"| Skip[Skip Upload]
+    Dedup -->|"new block"| Zone1 & Zone2
+    Download --> BCache
+    Zone1 -.->|"async replication"| Zone3

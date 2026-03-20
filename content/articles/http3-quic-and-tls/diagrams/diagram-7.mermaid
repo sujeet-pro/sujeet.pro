@@ -1,0 +1,22 @@
+flowchart TD
+    A[Browser initiates request] --> B{DNS HTTPS record?}
+
+    B -->|Yes, alpn includes h3| C[Race QUIC + TCP]
+    B -->|No| D[TCP + TLS only]
+
+    C --> E{QUIC wins race?}
+    E -->|Yes| F[Use HTTP/3]
+    E -->|No| G[Use HTTP/2 or 1.1]
+
+    D --> H[TLS ALPN negotiation]
+    H --> I{Server supports h2?}
+    I -->|Yes| J[HTTP/2]
+    I -->|No| K[HTTP/1.1]
+
+    J --> L{Alt-Svc header?}
+    L -->|Yes| M[Cache & try QUIC next request]
+    L -->|No| N[Continue HTTP/2]
+
+    style F fill:#4caf50
+    style J fill:#8bc34a
+    style K fill:#ffeb3b

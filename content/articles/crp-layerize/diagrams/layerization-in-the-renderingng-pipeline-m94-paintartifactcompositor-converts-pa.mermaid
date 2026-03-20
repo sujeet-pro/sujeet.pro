@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph MainThread["Main Thread"]
+        Paint["Paint<br/>Paint Artifact"]
+        Layerize["Layerize<br/>(PaintArtifactCompositor)"]
+    end
+
+    subgraph CompositorThread["Compositor Thread"]
+        Commit["Commit<br/>Copy to Pending Tree"]
+        Raster["Rasterize<br/>Tiles → Textures"]
+    end
+
+    Paint --> Layerize
+    Layerize --> Commit
+    Commit --> Raster
+
+    style Layerize fill:#fff9c4,stroke:#f9a825,stroke-width:2px

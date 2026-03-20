@@ -1,0 +1,10 @@
+flowchart TD
+    A[Need CDC] --> B{Team experience?}
+    B -->|Low| C{Budget for managed?}
+    B -->|High| D{Performance requirements?}
+    C -->|Yes| E[Fivetran / AWS DMS]
+    C -->|No| F[Start with Debezium + managed Kafka]
+    D -->|Sub-second| G[Debezium self-managed]
+    D -->|Seconds OK| H{Infrastructure preference?}
+    H -->|AWS-native| I[AWS DMS + MSK]
+    H -->|Multi-cloud| J[Debezium + Confluent Cloud]

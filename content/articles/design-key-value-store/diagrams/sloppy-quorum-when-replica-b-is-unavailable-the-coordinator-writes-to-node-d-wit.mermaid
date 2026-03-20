@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant C as Coordinator
+    participant A as Node A (replica)
+    participant B as Node B (replica)
+    participant D as Node D (hint target)
+    participant Bdown as Node B (down)
+
+    Note over Bdown: Node B unavailable
+
+    C->>A: Write(key, value)
+    A-->>C: ACK
+    C->>Bdown: Write(key, value)
+    Note over C: Timeout, B unreachable
+    C->>D: Write(key, value, hint_for=B)
+    D-->>C: ACK (hint stored)
+
+    Note over C: W=2 satisfied (A + D)
+    C-->>C: Return success
+
+    Note over Bdown: Node B recovers
+    D->>B: Hinted handoff(key, value)
+    B-->>D: ACK
+    D->>D: Delete hint

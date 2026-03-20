@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph Ingest["Ingestion Layer"]
+        Agents[Metric Agents]
+        Collector[Collector/Aggregator]
+        LB[Load Balancer]
+    end
+
+    subgraph Write["Write Path"]
+        Router[Router/Distributor]
+        WAL[(Write-Ahead Log)]
+        MemTable[In-Memory Buffer]
+    end
+
+    subgraph Storage["Storage Engine"]
+        Compactor[Compaction Service]
+        TSM[(TSM/Block Files)]
+        Index[(Inverted Index)]
+        ObjectStore[(Object Storage<br/>Cold Tier)]
+    end
+
+    subgraph Query["Query Path"]
+        QueryEngine[Query Engine]
+        Cache[(Query Cache)]
+        Aggregator[Aggregation Engine]
+    end
+
+    subgraph Lifecycle["Data Lifecycle"]
+        Downsampler[Downsampling Service]
+        RetentionMgr[Retention Manager]
+    end
+
+    Agents --> Collector
+    Collector --> LB
+    LB --> Router
+    Router --> WAL
+    WAL --> MemTable
+    MemTable --> Compactor
+    Compactor --> TSM
+    Compactor --> Index
+    TSM --> ObjectStore
+
+    QueryEngine --> Cache
+    QueryEngine --> Index
+    QueryEngine --> TSM
+    QueryEngine --> Aggregator
+
+    Downsampler --> TSM
+    RetentionMgr --> TSM
+    RetentionMgr --> ObjectStore

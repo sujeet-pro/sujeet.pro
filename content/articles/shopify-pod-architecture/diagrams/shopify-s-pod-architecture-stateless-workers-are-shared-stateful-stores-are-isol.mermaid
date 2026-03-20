@@ -1,0 +1,42 @@
+flowchart TD
+    subgraph "Request Path"
+        LB["nginx + OpenResty<br/>Load Balancers"] --> SH["Sorting Hat<br/>(Lua Script)"]
+        SH -->|"Pod header injected"| APP["Shared Application<br/>Workers (Kubernetes)"]
+    end
+
+    subgraph "Pod A"
+        direction TB
+        MYA["MySQL Shard"]
+        RDA["Redis"]
+        MCA["Memcached"]
+        CRA["Cron Runners"]
+    end
+
+    subgraph "Pod B"
+        direction TB
+        MYB["MySQL Shard"]
+        RDB["Redis"]
+        MCB["Memcached"]
+        CRB["Cron Runners"]
+    end
+
+    subgraph "Pod N"
+        direction TB
+        MYN["MySQL Shard"]
+        RDN["Redis"]
+        MCN["Memcached"]
+        CRN["Cron Runners"]
+    end
+
+    APP -->|"shop_id routing"| MYA
+    APP -->|"shop_id routing"| MYB
+    APP -->|"shop_id routing"| MYN
+
+    subgraph "Cross-Pod Analytics (Read-Only)"
+        CDC["Debezium CDC"] --> KAFKA["Apache Kafka"]
+        KAFKA --> DW["Data Warehouse<br/>(Presto)"]
+    end
+
+    MYA -.->|"binlog"| CDC
+    MYB -.->|"binlog"| CDC
+    MYN -.->|"binlog"| CDC

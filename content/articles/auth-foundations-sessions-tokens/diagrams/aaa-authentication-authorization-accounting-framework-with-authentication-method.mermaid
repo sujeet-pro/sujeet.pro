@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph "AAA Framework"
+        AuthN["Authentication<br/>Who are you?<br/>Identity verification"]
+        AuthZ["Authorization<br/>What can you do?<br/>Permission enforcement"]
+        Audit["Accounting<br/>What did you do?<br/>Activity logging"]
+    end
+
+    subgraph "Authentication Methods"
+        PWD["Password + MFA"]
+        OAUTH["OAuth 2.0 / OIDC"]
+        SAML["SAML 2.0"]
+        WEBAUTHN["WebAuthn / Passkeys"]
+    end
+
+    subgraph "Authorization Models"
+        RBAC["RBAC<br/>Role-Based"]
+        ABAC["ABAC<br/>Attribute-Based"]
+        PBAC["PBAC<br/>Policy-Based"]
+    end
+
+    AuthN --> AuthZ --> Audit
+    PWD & OAUTH & SAML & WEBAUTHN --> AuthN
+    RBAC & ABAC & PBAC --> AuthZ

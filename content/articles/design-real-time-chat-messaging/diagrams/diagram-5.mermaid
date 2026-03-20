@@ -1,0 +1,43 @@
+flowchart TB
+    subgraph Edge
+        R53["Route 53<br/>(GeoDNS)"]
+        CF["CloudFront<br/>(Static + WebSocket)"]
+    end
+
+    subgraph Compute["EKS Cluster"]
+        subgraph Gateway["Gateway Tier"]
+            WS["WebSocket Pods<br/>(Fargate, 4CPU/8GB)"]
+        end
+        subgraph Services["Service Tier"]
+            MSG["Message Service<br/>(Fargate)"]
+            SYNC["Sync Service<br/>(Fargate)"]
+        end
+        subgraph Workers["Worker Tier"]
+            FANOUT["Fan-out Workers<br/>(Fargate Spot)"]
+            PUSH["Push Workers<br/>(Fargate Spot)"]
+        end
+    end
+
+    subgraph Data
+        REDIS["ElastiCache Redis<br/>(Cluster Mode)"]
+        KEYSPACES["Keyspaces<br/>(Cassandra-compatible)"]
+        RDS["RDS PostgreSQL<br/>(Multi-AZ)"]
+        S3["S3<br/>(Media)"]
+    end
+
+    subgraph Streaming
+        MSK["Amazon MSK<br/>(Kafka)"]
+    end
+
+    subgraph Push["Push Notifications"]
+        SNS["SNS<br/>(Mobile Push)"]
+    end
+
+    R53 --> CF --> WS
+    WS --> MSG --> MSK
+    WS --> REDIS
+    MSG --> KEYSPACES
+    MSG --> RDS
+    MSK --> FANOUT --> WS
+    MSK --> PUSH --> SNS
+    SYNC --> KEYSPACES

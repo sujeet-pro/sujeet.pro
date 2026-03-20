@@ -1,0 +1,16 @@
+flowchart TD
+    REQ[Incoming Request] --> CHECK{Idempotency Key<br/>Exists?}
+    CHECK -->|No| PROCESS[Process Request]
+    CHECK -->|Yes| COMPARE{Parameters<br/>Match?}
+
+    COMPARE -->|Yes| RETURN[Return Cached Response]
+    COMPARE -->|No| ERROR[409 Conflict]
+
+    PROCESS --> STORE[Store Response<br/>with Key]
+    STORE --> RESPOND[Return Response]
+
+    subgraph Cache["Idempotency Cache (Redis + PG)"]
+        STORE
+        CHECK
+        COMPARE
+    end

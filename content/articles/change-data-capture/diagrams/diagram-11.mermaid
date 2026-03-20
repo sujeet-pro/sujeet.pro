@@ -1,0 +1,7 @@
+flowchart LR
+    subgraph "Application Transaction"
+        U[Update User] --> O[Write to Outbox]
+    end
+    O --> CDC[CDC]
+    CDC --> K[Kafka]
+    K --> C[Consumers]

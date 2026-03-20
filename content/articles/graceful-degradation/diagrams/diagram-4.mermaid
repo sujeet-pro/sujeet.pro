@@ -1,0 +1,14 @@
+flowchart TD
+    A[Need graceful degradation] --> B{Team experience?}
+    B -->|"Low"| C[Start with service mesh]
+    B -->|"Medium"| D[Use resilience library]
+    B -->|"High"| E{Custom requirements?}
+    E -->|"No"| D
+    E -->|"Yes"| F[Build custom patterns]
+
+    C --> G[Istio / Linkerd]
+    D --> H{Language?}
+    H -->|"JVM"| I[Resilience4j]
+    H -->|"Node.js"| J[opossum / cockatiel]
+    H -->|"Go"| K[go-resiliency / hystrix-go]
+    H -->|"Python"| L[pybreaker / tenacity]

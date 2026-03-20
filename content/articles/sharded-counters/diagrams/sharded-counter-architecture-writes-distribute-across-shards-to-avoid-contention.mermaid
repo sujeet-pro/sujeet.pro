@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Writers["Write Path"]
+        W1[Client 1] --> LB[Load Balancer]
+        W2[Client 2] --> LB
+        W3[Client N] --> LB
+    end
+
+    LB --> |"hash(key) % N"| S1[Shard 0]
+    LB --> |"random()"| S2[Shard 1]
+    LB --> |"random()"| S3[Shard N-1]
+
+    subgraph Shards["Distributed Shards"]
+        S1
+        S2
+        S3
+    end
+
+    subgraph Aggregation["Read Path"]
+        S1 --> AGG[Aggregator]
+        S2 --> AGG
+        S3 --> AGG
+        AGG --> |"Σ shards"| CACHE[Cache Layer]
+    end
+
+    CACHE --> R[Reader]

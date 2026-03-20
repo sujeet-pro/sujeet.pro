@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph Global["Global Infrastructure"]
+        DNS[GeoDNS]
+    end
+
+    subgraph DC1["Datacenter 1 (US)"]
+        LB1[Load Balancer]
+        QP1[Query Processors]
+        subgraph Index1["Index Shards"]
+            S1A[(Shard 1)]
+            S1B[(Shard 2)]
+            S1N[(Shard N)]
+        end
+    end
+
+    subgraph DC2["Datacenter 2 (EU)"]
+        LB2[Load Balancer]
+        QP2[Query Processors]
+        subgraph Index2["Index Shards"]
+            S2A[(Shard 1)]
+            S2B[(Shard 2)]
+            S2N[(Shard N)]
+        end
+    end
+
+    DNS --> LB1 & LB2
+    LB1 --> QP1 --> S1A & S1B & S1N
+    LB2 --> QP2 --> S2A & S2B & S2N

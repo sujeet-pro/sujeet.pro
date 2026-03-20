@@ -1,0 +1,39 @@
+flowchart TB
+    subgraph Clients["Client Layer"]
+        Web["Web App"]
+        Mobile["Mobile Apps"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CDN["CDN (Tile Cache)"]
+        LB["Load Balancer"]
+    end
+
+    subgraph Services["Application Services"]
+        TileService["Tile Service"]
+        RoutingService["Routing Service"]
+        GeocodingService["Geocoding Service"]
+        TrafficService["Traffic Service"]
+        SearchService["Search Service"]
+    end
+
+    subgraph DataStores["Data Layer"]
+        TileStore["Tile Storage<br/>(Object Store)"]
+        GraphDB["Road Graph<br/>(CH Index)"]
+        GeoIndex["Geo Index<br/>(R-tree/S2)"]
+        TrafficDB["Traffic Data<br/>(Time-Series)"]
+        POIStore["POI Database"]
+    end
+
+    subgraph Ingestion["Data Ingestion"]
+        ProbeCollector["Probe Collector"]
+        MapUpdates["Map Updates"]
+        UserReports["User Reports"]
+    end
+
+    Clients --> CDN
+    CDN --> LB
+    LB --> Services
+    Services --> DataStores
+    Ingestion --> TrafficDB
+    Ingestion --> TileStore

@@ -1,0 +1,10 @@
+flowchart LR
+    subgraph "The Sorting Triangle"
+        TIME["Time Complexity<br/>O(n²) → O(n log n) → O(n)"]
+        SPACE["Space Complexity<br/>O(1) → O(log n) → O(n)"]
+        STABILITY["Stability<br/>Preserves equal-element order"]
+    end
+
+    TIME <--> SPACE
+    SPACE <--> STABILITY
+    STABILITY <--> TIME

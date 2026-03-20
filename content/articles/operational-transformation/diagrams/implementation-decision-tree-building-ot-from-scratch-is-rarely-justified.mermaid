@@ -1,0 +1,11 @@
+graph TD
+    A[Building collaborative editor] --> B{Team experience with OT?}
+    B -->|None| C[Use existing library]
+    B -->|Some| D{Document complexity?}
+    D -->|Plain text| E[ShareDB/ot.js]
+    D -->|Rich text| F[CKEditor 5 or Quill]
+    D -->|Custom structure| G[Consider CRDTs instead]
+    C --> H{Document type?}
+    H -->|JSON/text| E
+    H -->|Rich text| F
+    H -->|Code| I[Monaco + custom sync]

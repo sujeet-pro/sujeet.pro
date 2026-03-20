@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Input["Input"]
+        DOCS[Crawled Documents<br/>from Bigtable]
+    end
+
+    subgraph Map["Map Phase"]
+        TOKENIZE[Tokenize]
+        NORMALIZE[Normalize<br/>lowercase, stem]
+        EMIT[Emit<br/>term → doc_id, pos, freq]
+    end
+
+    subgraph Shuffle["Shuffle"]
+        PARTITION[Partition by Term]
+        SORT[Sort by Doc ID]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        MERGE[Merge Posting Lists]
+        COMPRESS[Delta Encode<br/>+ Compress]
+        WRITE[Write to Shard]
+    end
+
+    DOCS --> TOKENIZE --> NORMALIZE --> EMIT
+    EMIT --> PARTITION --> SORT
+    SORT --> MERGE --> COMPRESS --> WRITE

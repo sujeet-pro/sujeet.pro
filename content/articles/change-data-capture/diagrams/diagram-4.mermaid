@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph "Source"
+        RDS[(RDS PostgreSQL)]
+    end
+
+    subgraph "AWS DMS"
+        RI[Replication Instance]
+        RI --> |Full Load| T[Task]
+        T --> |CDC| T
+    end
+
+    subgraph "Targets"
+        S3[(S3)]
+        RS[(Redshift)]
+        MSK[MSK/Kafka]
+    end
+
+    RDS --> RI
+    T --> S3
+    T --> RS
+    T --> MSK

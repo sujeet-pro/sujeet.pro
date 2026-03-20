@@ -1,0 +1,14 @@
+flowchart LR
+    subgraph Core["Core Decisions"]
+        A[Hybrid Architecture] -->|"Tokens + Framework Wrappers"| B[Change Resilience]
+    end
+
+    subgraph Adoption["Adoption Multipliers"]
+        C[Codemods] -->|"Automated Migration"| D[Low Friction Upgrades]
+        E[Usage Analytics] -->|"Data-Driven"| F[Targeted Investment]
+    end
+
+    subgraph Scale["Scale Enablers"]
+        G[Shared CDN Assets] -->|"Cross-App Caching"| H[Performance]
+        I[Version Policies] -->|"Compatibility Windows"| J[Consistency]
+    end

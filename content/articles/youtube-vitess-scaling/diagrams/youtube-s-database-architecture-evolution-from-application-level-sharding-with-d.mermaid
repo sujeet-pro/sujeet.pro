@@ -1,0 +1,16 @@
+flowchart TD
+    subgraph "Before Vitess (2006)"
+        A1[Application Code] -->|"Shard-aware queries<br/>routing logic embedded"| M1[MySQL Shard 1]
+        A1 --> M2[MySQL Shard 2]
+        A1 --> M3[MySQL Shard 3]
+        A1 --> M4[MySQL Shard 4]
+        A1 -->|"5,000+ connections<br/>on failover"| M1
+    end
+
+    subgraph "With Vitess (2011+)"
+        A2[Application Code] -->|"Standard MySQL protocol<br/>shard-unaware"| VG[VTGate<br/>Stateless Proxy]
+        VG --> VT1[VTTablet + MySQL<br/>Shard 1..N]
+        VG --> VT2[VTTablet + MySQL<br/>Shard N+1..2N]
+        VG --> VT3[VTTablet + MySQL<br/>Shard 2N+1..256]
+        TS[Topology Service] -.->|"Shard map<br/>health checks"| VG
+    end

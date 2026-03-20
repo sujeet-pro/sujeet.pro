@@ -1,0 +1,16 @@
+flowchart LR
+    subgraph HashTable["Hash Table (buckets)"]
+        B0["bucket[0] → 2"]
+        B1["bucket[1] → 0"]
+        B2["bucket[2] → 1"]
+    end
+
+    subgraph DataTable["Data Table (insertion order)"]
+        E0["[0] key='first', val=1"]
+        E1["[1] key='second', val=2"]
+        E2["[2] key='third', val=3"]
+    end
+
+    B0 --> E2
+    B1 --> E0
+    B2 --> E1

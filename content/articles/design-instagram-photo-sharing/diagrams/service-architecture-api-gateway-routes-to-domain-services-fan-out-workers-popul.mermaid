@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph "Client Layer"
+        IOS[iOS App]
+        AND[Android App]
+        WEB[Web App]
+    end
+
+    subgraph "API Gateway"
+        GW[API Gateway<br/>Auth + Rate Limiting]
+        LB[Load Balancer<br/>Geographic Routing]
+    end
+
+    subgraph "Core Services"
+        UPLOAD[Upload Service<br/>Image Processing]
+        POST[Post Service<br/>CRUD Operations]
+        FEED[Feed Service<br/>Timeline Generation]
+        STORY[Stories Service<br/>Ephemeral Content]
+        SOCIAL[Social Service<br/>Follow Graph]
+        SEARCH[Search Service<br/>Discovery]
+        EXPLORE[Explore Service<br/>Recommendations]
+        DM[DM Service<br/>Real-time Chat]
+        NOTIFY[Notification Service<br/>Push + In-app]
+    end
+
+    subgraph "Processing Layer"
+        IMG[Image Processor<br/>Resize + Filter]
+        FANOUT[Fan-out Workers<br/>Timeline Population]
+        RANK[Ranking Service<br/>ML Models]
+    end
+
+    subgraph "Data Layer"
+        PG[(PostgreSQL<br/>Users, Posts, Comments)]
+        CASS[(Cassandra<br/>Social Graph, Activity)]
+        REDIS[(Redis Cluster<br/>Timeline Cache)]
+        ES[(Elasticsearch<br/>Search Index)]
+        S3[(Object Storage<br/>Media Files)]
+    end
+
+    subgraph "Delivery"
+        CDN[CDN Edge<br/>Media Delivery]
+        MQTT[MQTT Broker<br/>Real-time Push]
+    end
+
+    IOS & AND & WEB --> LB --> GW
+    GW --> UPLOAD & POST & FEED & STORY & SOCIAL & SEARCH & EXPLORE & DM & NOTIFY
+    UPLOAD --> IMG --> S3 --> CDN
+    POST --> FANOUT --> REDIS
+    FEED --> RANK --> REDIS
+    POST --> PG
+    SOCIAL --> CASS
+    NOTIFY --> MQTT --> IOS & AND

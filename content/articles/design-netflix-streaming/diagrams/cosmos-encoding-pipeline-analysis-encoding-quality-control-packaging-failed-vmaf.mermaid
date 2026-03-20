@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph "Ingestion"
+        MASTER[Studio Master<br/>ProRes/DNxHD] --> VIS[Video Inspection Service<br/>Metadata Extraction]
+    end
+
+    subgraph "Analysis"
+        VIS --> CAS[Complexity Analysis Service<br/>Per-shot Analysis]
+        CAS --> LGS[Ladder Generation Service<br/>Bitrate Optimization]
+    end
+
+    subgraph "Encoding"
+        LGS --> CHUNK[Chunking<br/>Shot-aligned Segments]
+        CHUNK --> VES[Video Encoding Service<br/>Parallel Workers]
+        VES --> ASSEMBLY[Assembly<br/>Concatenation]
+    end
+
+    subgraph "Quality Control"
+        ASSEMBLY --> VMAF[VMAF Validation<br/>93+ Target]
+        VMAF -->|Pass| PACKAGE[Packaging<br/>HLS/DASH/CMAF]
+        VMAF -->|Fail| VES
+    end
+
+    subgraph "Output"
+        PACKAGE --> S3[(S3 Origin)]
+    end

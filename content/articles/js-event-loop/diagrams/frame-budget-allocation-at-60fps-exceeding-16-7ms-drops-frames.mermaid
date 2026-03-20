@@ -1,0 +1,8 @@
+graph LR
+    subgraph "Frame Budget ~16.7ms"
+        A[JS Execution] --> B[rAF Callbacks]
+        B --> C[Style Calculation]
+        C --> D[Layout]
+        D --> E[Paint]
+        E --> F[Composite]
+    end

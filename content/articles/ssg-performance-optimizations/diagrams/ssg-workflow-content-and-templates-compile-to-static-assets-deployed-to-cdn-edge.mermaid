@@ -1,0 +1,7 @@
+graph TD
+    A[Content Sources] --> B{Static Site Generator}
+    C[Templates/Components] --> B
+    B -- Build Process --> D[Static Assets]
+    D -- Deploy --> E[CDN Edge Locations]
+    F[User Request] --> E
+    E -- Serves Cached Asset --> F

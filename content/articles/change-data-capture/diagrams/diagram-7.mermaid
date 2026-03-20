@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph "CDC Sources"
+        S1[(Listings)]
+        S2[(Reviews)]
+        S3[(Users)]
+    end
+
+    subgraph "SpinalTap"
+        CDC[CDC Connectors]
+    end
+
+    subgraph "Processing"
+        K[Kafka]
+        SP[Spark Streaming]
+    end
+
+    subgraph "Materialized Views"
+        MV[(Search View)]
+        MV2[(Payment View)]
+    end
+
+    S1 --> CDC
+    S2 --> CDC
+    S3 --> CDC
+    CDC --> K
+    K --> SP
+    SP --> MV
+    SP --> MV2

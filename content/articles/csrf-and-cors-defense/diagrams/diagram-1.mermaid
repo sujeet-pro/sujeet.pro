@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant User as User Browser
+    participant Attacker as attacker.com
+    participant Target as bank.com
+
+    User->>Target: Login (establishes session cookie)
+    Target-->>User: Set-Cookie: session=abc123
+
+    User->>Attacker: Visit malicious page
+    Attacker-->>User: Hidden form: POST /transfer
+
+    Note over User: Browser auto-attaches<br/>session=abc123
+
+    User->>Target: POST /transfer?to=attacker&amount=10000
+    Target-->>User: Transfer completed (cookie valid)

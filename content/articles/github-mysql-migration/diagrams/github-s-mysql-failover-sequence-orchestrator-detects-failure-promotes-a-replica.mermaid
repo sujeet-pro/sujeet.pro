@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant O as orchestrator/raft
+    participant C as Consul KV
+    participant H as GLB/HAProxy
+    participant R as New Primary
+
+    O->>O: Detect primary failure<br/>(holistic check)
+    O->>R: Promote optimal replica
+    O->>C: Update primary identity<br/>(all raft members)
+    C->>H: consul-template detects change
+    H->>H: Regenerate config, reload
+    H->>R: Route traffic to new primary
+    Note over O,R: Total: 10-13 seconds typical

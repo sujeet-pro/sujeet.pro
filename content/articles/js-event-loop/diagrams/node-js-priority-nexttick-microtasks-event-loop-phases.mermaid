@@ -1,0 +1,16 @@
+graph TD
+    subgraph "Node.js Priority System"
+        A[Synchronous Code] --> B[process.nextTick]
+        B --> C[Microtasks]
+        C --> D[timers Phase]
+        D --> E[poll Phase]
+        E --> F[check Phase]
+        F --> G[close callbacks]
+    end
+
+    subgraph "Scheduling APIs"
+        H[process.nextTick] --> I[Highest Priority]
+        J[Promise.then] --> K[Microtask Level]
+        L[setTimeout] --> M[Timer Phase]
+        N[setImmediate] --> O[Check Phase]
+    end

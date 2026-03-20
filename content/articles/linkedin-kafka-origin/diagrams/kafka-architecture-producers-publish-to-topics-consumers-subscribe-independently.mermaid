@@ -1,0 +1,30 @@
+flowchart TB
+    subgraph Producers
+        App[App Servers]
+        DB[Database CDC]
+        Log[Log Collectors]
+    end
+
+    subgraph Kafka["Kafka Cluster"]
+        T1[Topic: activity-events]
+        T2[Topic: db-changes]
+        T3[Topic: logs]
+    end
+
+    subgraph Consumers
+        Hadoop[Hadoop]
+        RT[Real-time Processing]
+        Search[Search Indexing]
+        Mon[Monitoring]
+    end
+
+    App --> T1
+    DB --> T2
+    Log --> T3
+
+    T1 --> Hadoop
+    T1 --> RT
+    T2 --> Search
+    T2 --> Hadoop
+    T3 --> Mon
+    T3 --> Hadoop

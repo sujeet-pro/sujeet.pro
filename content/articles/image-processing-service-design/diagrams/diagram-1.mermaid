@@ -1,0 +1,74 @@
+graph TB
+    Client[Client Application]
+    CDN[Edge Cache<br/>CloudFlare/CloudFront]
+    LB[Load Balancer]
+
+    subgraph "Image Service Platform"
+        Gateway[Image Gateway<br/>Routing & Auth]
+        Transform[Transform Engine<br/>Image Processing]
+        Upload[Asset Ingestion<br/>Upload Handler]
+        Control[Control Plane API<br/>Tenant Management]
+        Signature[Signature Service<br/>URL Signing]
+
+        subgraph "Data Layer"
+            Registry[(Registry Service<br/>PostgreSQL)]
+            Cache[(Redis Cluster<br/>Application Cache)]
+            Queue[Message Queue<br/>RabbitMQ/SQS]
+        end
+
+        subgraph "Processing"
+            Worker1[Transform Worker]
+            Worker2[Transform Worker]
+            Worker3[Transform Worker]
+        end
+
+        subgraph "Storage Abstraction"
+            Adapter[Object Store Adapter]
+            S3[AWS S3]
+            GCS[Google Cloud Storage]
+            Azure[Azure Blob]
+            MinIO[MinIO<br/>On-Premise]
+        end
+    end
+
+    Monitoring[Monitoring<br/>Prometheus/Grafana]
+
+    Client -->|HTTPS| CDN
+    CDN -->|Cache Miss| LB
+    LB --> Gateway
+
+    Gateway --> Transform
+    Gateway --> Upload
+    Gateway --> Control
+    Gateway --> Signature
+
+    Transform --> Cache
+    Transform --> Registry
+    Transform --> Adapter
+
+    Upload --> Registry
+    Upload --> Queue
+    Upload --> Adapter
+
+    Control --> Registry
+
+    Queue --> Worker1
+    Queue --> Worker2
+    Queue --> Worker3
+
+    Worker1 --> Adapter
+    Worker2 --> Adapter
+    Worker3 --> Adapter
+
+    Worker1 --> Registry
+    Worker2 --> Registry
+    Worker3 --> Registry
+
+    Adapter --> S3
+    Adapter --> GCS
+    Adapter --> Azure
+    Adapter --> MinIO
+
+    Gateway -.->|Metrics| Monitoring
+    Transform -.->|Metrics| Monitoring
+    Worker1 -.->|Metrics| Monitoring

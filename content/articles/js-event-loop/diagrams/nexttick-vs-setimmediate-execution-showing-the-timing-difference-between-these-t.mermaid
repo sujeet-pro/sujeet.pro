@@ -1,0 +1,11 @@
+graph TD
+    A[I/O Callback] --> B[Poll Phase]
+    B --> C[Execute I/O Callback]
+    C --> D[process.nextTick Queue]
+    C --> E[setImmediate Queue]
+    D --> F[Drain nextTick]
+    F --> G[Drain Microtasks]
+    G --> H[Check Phase]
+    H --> I[Execute setImmediate]
+    I --> J[Close Callbacks]
+    J --> K[Next Tick]

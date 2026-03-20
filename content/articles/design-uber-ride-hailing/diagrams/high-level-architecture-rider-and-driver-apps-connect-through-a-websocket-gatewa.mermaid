@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph Clients["Client Layer"]
+        RiderApp[Rider App]
+        DriverApp[Driver App]
+    end
+
+    subgraph Gateway["API Gateway"]
+        LB[Load Balancer]
+        Auth[Auth Service]
+        RL[Rate Limiter]
+    end
+
+    subgraph Core["Core Services"]
+        RideSvc[Ride Service]
+        MatchSvc[Matching Service<br/>DISCO]
+        LocationSvc[Location Service]
+        PricingSvc[Pricing Service]
+        RoutingSvc[Routing & ETA]
+        PaymentSvc[Payment Service]
+    end
+
+    subgraph Realtime["Real-Time Layer"]
+        WS[WebSocket Gateway]
+        LocationQ[Location Queue<br/>Kafka]
+        MatchQ[Match Queue]
+    end
+
+    subgraph Data["Data Layer"]
+        TripDB[(Trip Store<br/>Schemaless)]
+        LocationCache[(Location Cache<br/>Redis + H3)]
+        Cassandra[(Driver State<br/>Cassandra)]
+        Analytics[(Analytics<br/>HDFS/Hive)]
+    end
+
+    subgraph ML["ML Platform"]
+        ETA[DeepETA Model]
+        Surge[Surge Predictor]
+        Fraud[Fraud Detection]
+    end
+
+    Clients --> LB
+    LB --> Auth --> RL
+    RL --> Core
+    DriverApp <--> WS
+    RiderApp <--> WS
+    WS --> LocationQ
+    LocationQ --> LocationSvc
+    LocationSvc --> LocationCache
+    MatchSvc --> LocationCache
+    MatchSvc --> RoutingSvc
+    RoutingSvc --> ETA
+    PricingSvc --> Surge
+    Core --> Data
+    Core --> ML

@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Trigger["Trigger"]
+        A[State Update]
+        B[Context Change]
+        C[Parent Re-render]
+    end
+
+    subgraph Render["Render Phase"]
+        D[Call Components]
+        E[Generate VDOM]
+        F[Reconciliation]
+    end
+
+    subgraph Commit["Commit Phase"]
+        G[DOM Mutations]
+        H[Layout Effects]
+        I[Paint]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E --> F
+    F --> G --> H --> I
+
+    style Render fill:#f5f5f5,stroke:#333
+    style Commit fill:#e8f5e9,stroke:#333

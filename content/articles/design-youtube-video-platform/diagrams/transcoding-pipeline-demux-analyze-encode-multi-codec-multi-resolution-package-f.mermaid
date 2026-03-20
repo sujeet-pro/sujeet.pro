@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph "Input Processing"
+        RAW[Raw Video] --> DEMUX[Demuxer<br/>Extract Streams]
+        DEMUX --> VIDEO[Video Stream]
+        DEMUX --> AUDIO[Audio Streams]
+        DEMUX --> SUB[Subtitles]
+    end
+
+    subgraph "Analysis"
+        VIDEO --> SCENE[Scene Detection<br/>Shot Boundaries]
+        SCENE --> COMPLEX[Complexity Analysis<br/>Per-segment Bitrate]
+    end
+
+    subgraph "Video Encoding"
+        COMPLEX --> H264[H.264/AVC<br/>Universal Compat]
+        COMPLEX --> VP9[VP9<br/>Chrome/Android]
+        COMPLEX --> AV1[AV1<br/>Next-gen Efficiency]
+    end
+
+    subgraph "Resolution Ladder"
+        H264 & VP9 & AV1 --> R2160[4K 2160p]
+        H264 & VP9 & AV1 --> R1440[1440p]
+        H264 & VP9 & AV1 --> R1080[1080p]
+        H264 & VP9 & AV1 --> R720[720p]
+        H264 & VP9 & AV1 --> R480[480p]
+        H264 & VP9 & AV1 --> R360[360p]
+        H264 & VP9 & AV1 --> R240[240p]
+        H264 & VP9 & AV1 --> R144[144p]
+    end
+
+    subgraph "Audio Encoding"
+        AUDIO --> AAC[AAC-LC<br/>Stereo/5.1]
+        AUDIO --> OPUS[Opus<br/>Web Optimized]
+    end
+
+    subgraph "Packaging"
+        R2160 & R1440 & R1080 & R720 & R480 & R360 & R240 & R144 --> SEG[Segmenter<br/>2-4s Segments]
+        AAC & OPUS --> SEG
+        SEG --> HLS[HLS Packager<br/>.m3u8 + .ts/.fmp4]
+        SEG --> DASH[DASH Packager<br/>.mpd + .m4s]
+    end

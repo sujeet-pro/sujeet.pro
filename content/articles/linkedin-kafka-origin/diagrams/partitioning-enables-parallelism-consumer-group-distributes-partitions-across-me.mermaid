@@ -1,0 +1,15 @@
+flowchart LR
+    subgraph "Topic: user-events"
+        P0["Partition 0<br/>user_id % 3 == 0"]
+        P1["Partition 1<br/>user_id % 3 == 1"]
+        P2["Partition 2<br/>user_id % 3 == 2"]
+    end
+
+    subgraph "Consumer Group A"
+        C0[Consumer 0]
+        C1[Consumer 1]
+    end
+
+    P0 --> C0
+    P1 --> C0
+    P2 --> C1

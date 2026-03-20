@@ -1,0 +1,20 @@
+graph TB
+    ROOT[Root Hash: abc123]
+    L1[Hash: def456]
+    L2[Hash: ghi789]
+    L1A[Hash: 111]
+    L1B[Hash: 222]
+    L2A[Hash: 333]
+    L2B[Hash: 444]
+
+    ROOT --> L1
+    ROOT --> L2
+    L1 --> L1A
+    L1 --> L1B
+    L2 --> L2A
+    L2 --> L2B
+
+    L1A --> D1[Keys a-m]
+    L1B --> D2[Keys n-z]
+    L2A --> D3[Keys A-M]
+    L2B --> D4[Keys N-Z]

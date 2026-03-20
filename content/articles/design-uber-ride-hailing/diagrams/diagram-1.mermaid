@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant R as Rider App
+    participant API as API Gateway
+    participant RS as Ride Service
+    participant PS as Pricing Service
+    participant MS as Matching Service
+    participant LS as Location Service
+    participant ES as ETA Service
+    participant WS as WebSocket Gateway
+    participant D as Driver App
+
+    R->>API: POST /rides (pickup, destination)
+    API->>RS: createRide(request)
+    RS->>PS: getPrice(pickup, destination)
+    PS->>PS: Calculate base + surge
+    PS->>RS: Return upfront price
+    RS->>MS: requestMatch(rideId, pickup)
+    MS->>LS: getNearbyDrivers(pickupH3, radius=3km)
+    LS->>MS: Return candidate drivers (10-20)
+    MS->>ES: batchETA(candidates[], pickup)
+    ES->>MS: Return ETAs
+    MS->>MS: Solve assignment (batch with other requests)
+    MS->>RS: Driver assigned (driverId, ETA)
+    RS->>WS: Push match to rider
+    WS->>R: Driver details + ETA
+    RS->>WS: Push dispatch to driver
+    WS->>D: Ride request + pickup location

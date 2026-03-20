@@ -1,0 +1,8 @@
+flowchart TB
+    subgraph "Databus Architecture"
+        OLTP[(Oracle/MySQL)] --> R[Relay]
+        R --> |In-memory buffer| CB[Circular Buffer]
+        CB --> C1[Consumer 1]
+        CB --> C2[Consumer 2]
+        BS[(Bootstrap Server)] --> C3[New Consumer]
+    end

@@ -1,0 +1,32 @@
+flowchart TD
+    subgraph MainThread [Main Thread]
+        Paint["Paint Stage<br/>Record Display Lists"]
+    end
+
+    subgraph CompositorThread [Compositor Thread]
+        Commit["Commit<br/>Sync Layer Tree to Pending"]
+        Tiling["Tiling<br/>Split Layers into Tiles"]
+        Schedule["Schedule<br/>Prioritize by Viewport"]
+        Activate["Activate<br/>Pending → Active Tree"]
+    end
+
+    subgraph RasterPool [Raster Worker Pool]
+        Software["Software Raster<br/>CPU Bitmaps"]
+        GPU["GPU Raster<br/>Skia → GPU Textures"]
+    end
+
+    subgraph VizProcess [Viz Process]
+        Textures["GPU Texture Storage"]
+        Display["Display Compositor<br/>Draw Quads"]
+    end
+
+    Paint --> Commit
+    Commit --> Tiling
+    Tiling --> Schedule
+    Schedule --> Software
+    Schedule --> GPU
+    Software --> Textures
+    GPU --> Textures
+    Schedule --> Activate
+    Activate --> Display
+    Textures --> Display

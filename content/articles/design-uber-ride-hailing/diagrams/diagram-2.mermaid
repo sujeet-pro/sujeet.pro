@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant D as Driver App
+    participant WS as WebSocket Gateway
+    participant K as Kafka
+    participant LS as Location Service
+    participant Redis as Redis Cluster
+    participant MS as Matching Service
+    participant RiderWS as Rider WebSocket
+
+    loop Every 4-5 seconds
+        D->>WS: GPS update (lat, lng, heading, speed)
+        WS->>K: Publish to location topic
+        K->>LS: Consume location event
+        LS->>LS: Compute H3 cell (resolution 9)
+        LS->>Redis: GEOADD drivers:{h3cell} (lng, lat, driverId)
+        LS->>Redis: SET driver:{driverId}:location {payload}
+        LS->>Redis: EXPIRE 30s (auto-cleanup stale drivers)
+    end
+
+    Note over MS: When matching, query Redis
+    MS->>Redis: GEORADIUS drivers:* (pickup, 3km)
+    Redis->>MS: Return drivers with distances

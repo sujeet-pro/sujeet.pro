@@ -1,0 +1,5 @@
+flowchart LR
+    CDC[Debezium] -->|Register schema| SR[(Schema Registry)]
+    CDC -->|Avro + schema ID| K[Kafka]
+    C[Consumer] -->|Fetch schema| SR
+    C -->|Decode with schema| K

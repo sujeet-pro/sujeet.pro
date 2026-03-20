@@ -1,0 +1,14 @@
+flowchart TB
+    START[Heartbeat Timeout<br/>30 seconds]
+
+    START --> MARK[Mark server as dead]
+    MARK --> SCAN[Scan all chunks<br/>on failed server]
+
+    SCAN --> CHECK{Chunk has<br/>< 3 replicas?}
+    CHECK -->|Yes| QUEUE[Add to re-replication queue]
+    CHECK -->|No| SKIP[Skip chunk]
+
+    QUEUE --> PRIORITY[Prioritize:<br/>1. Single replica<br/>2. Two replicas<br/>3. Under-replicated]
+
+    PRIORITY --> COPY[Copy from healthy replica<br/>to new server]
+    COPY --> THROTTLE[Throttle to avoid<br/>network saturation]

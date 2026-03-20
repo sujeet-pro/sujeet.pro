@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant Client1
+    participant Client2
+    participant Primary as Primary CS
+    participant Secondary as Secondary CS
+
+    Note over Client1,Secondary: Both clients append concurrently
+
+    Client1->>Primary: AppendChunk(data1)
+    Client2->>Primary: AppendChunk(data2)
+
+    Primary->>Primary: Serialize: offset1 for data1
+    Primary->>Primary: Serialize: offset2 for data2
+
+    Primary->>Secondary: Append data1 at offset1
+    Primary->>Secondary: Append data2 at offset2
+
+    Secondary-->>Primary: ACK both
+    Primary-->>Client1: Success, offset=offset1
+    Primary-->>Client2: Success, offset=offset2

@@ -1,0 +1,7 @@
+graph LR
+    A[TLS 1.2] --> B[2 RTT Handshake]
+    C[TLS 1.3] --> D[1 RTT Handshake]
+    E[0-RTT Resumption] --> F[0 RTT for Return Visits]
+    B --> G[~200ms Setup Time]
+    D --> H[~100ms Setup Time]
+    F --> I[~0ms Setup Time]

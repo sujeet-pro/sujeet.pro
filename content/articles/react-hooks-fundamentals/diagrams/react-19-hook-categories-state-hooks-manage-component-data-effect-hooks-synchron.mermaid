@@ -1,0 +1,34 @@
+flowchart TB
+    subgraph "Hook Categories (React 19)"
+        direction TB
+        subgraph "State Hooks"
+            useState[useState]
+            useReducer[useReducer]
+            useActionState[useActionState]
+            useOptimistic[useOptimistic]
+        end
+
+        subgraph "Effect Hooks"
+            useEffect[useEffect]
+            useLayoutEffect[useLayoutEffect]
+            useInsertionEffect[useInsertionEffect]
+        end
+
+        subgraph "Performance Hooks"
+            useMemo[useMemo]
+            useCallback[useCallback]
+            useTransition[useTransition]
+            useDeferredValue[useDeferredValue]
+        end
+
+        subgraph "Other Hooks"
+            useRef[useRef]
+            useContext[useContext]
+            useId[useId]
+            useSyncExternalStore[useSyncExternalStore]
+        end
+    end
+
+    useState --> useMemo
+    useReducer --> useCallback
+    useEffect --> useSyncExternalStore

@@ -1,0 +1,18 @@
+flowchart TB
+    subgraph Architecture["Architecture Decisions"]
+        ARCH[Framework Strategy] --> TOKENS[Token Pipeline]
+        TOKENS --> COMPONENTS[Component Library]
+    end
+
+    subgraph Distribution["Distribution & Migration"]
+        COMPONENTS --> BUNDLE[Bundling & Publishing]
+        BUNDLE --> MIGRATE[Migration Strategy]
+    end
+
+    subgraph Operations["Operational Excellence"]
+        MIGRATE --> ADOPTION[Adoption Enablement]
+        ADOPTION --> METRICS[Measurement & Feedback]
+        METRICS --> CODEMODS[Technical Enablement]
+    end
+
+    CODEMODS -.->|"Continuous improvement"| Architecture

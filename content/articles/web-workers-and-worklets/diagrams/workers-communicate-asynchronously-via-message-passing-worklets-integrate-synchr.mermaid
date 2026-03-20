@@ -1,0 +1,30 @@
+flowchart TB
+    subgraph Main["Main Thread"]
+        JS["JavaScript"]
+        DOM["DOM / CSSOM"]
+        Layout["Layout"]
+        Paint["Paint"]
+        Composite["Composite"]
+    end
+
+    subgraph Workers["Worker Threads"]
+        DW["Dedicated Worker"]
+        SW["Shared Worker"]
+        SvcW["Service Worker"]
+    end
+
+    subgraph Worklets["Worklet Contexts"]
+        PW["Paint Worklet"]
+        AW["Animation Worklet"]
+        AudioW["Audio Worklet"]
+    end
+
+    JS <-->|"postMessage"| DW
+    JS <-->|"MessagePort"| SW
+    JS <-->|"Events"| SvcW
+
+    Paint -->|"Sync call"| PW
+    Composite -->|"Sync call"| AW
+    JS -->|"Audio graph"| AudioW
+
+    SvcW -->|"Intercepts"| Network["Network"]

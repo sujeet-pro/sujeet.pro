@@ -1,0 +1,50 @@
+{
+  "name": "pagesmith",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/diagrams.ts && bun scripts/build.ts",
+    "dev": "bun scripts/dev.ts",
+    "preview": "bun scripts/preview.ts",
+    "diagrams": "bun scripts/diagrams.ts",
+    "diagrams:watch": "bun scripts/diagrams.ts --watch",
+    "diagrams:force": "bun scripts/diagrams.ts --force",
+    "diagrams:mermaid": "bun scripts/diagrams.ts --type mermaid",
+    "diagrams:excalidraw": "bun scripts/diagrams.ts --type excalidraw",
+    "sitemap": "bun scripts/sitemap.ts",
+    "validate": "bun scripts/validate.ts",
+    "check-orphans": "bun scripts/check-orphans.ts",
+    "test": "vitest",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "dprint fmt",
+    "format:check": "dprint check"
+  },
+  "dependencies": {
+    "@shikijs/rehype": "^3.0.0",
+    "chokidar": "^4.0.3",
+    "gray-matter": "^4.0.3",
+    "json5": "^2.2.3",
+    "lightningcss": "^1.32.0",
+    "mermaid-isomorphic": "^3.1.0",
+    "playwright": "^1.58.2",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-mathjax": "^7.1.0",
+    "rehype-slug": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.1",
+    "unified": "^11.0.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "dprint": "^0.53.0",
+    "lefthook": "^2.1.4",
+    "oxlint": "^1.56.0",
+    "vitest": "^4.1.0"
+  }
+}

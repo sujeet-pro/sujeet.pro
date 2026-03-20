@@ -1,0 +1,11 @@
+graph LR
+    subgraph "Execution Model"
+        A[Task Queue] --> B[Event Loop]
+        B --> C[Call Stack]
+        C --> D[Function Execution]
+        D --> E[Return/Complete]
+        E --> F[Stack Empty?]
+        F -->|Yes| G[Next Task]
+        F -->|No| D
+        G --> A
+    end

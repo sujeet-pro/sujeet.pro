@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph Edge["Edge Layer"]
+        CF["CloudFront CDN"]
+    end
+
+    subgraph Compute["Compute Layer (VPC)"]
+        ALB["Application Load Balancer"]
+
+        subgraph Services["ECS Cluster"]
+            Tile["Tile Service"]
+            Route["Routing Service"]
+            Geo["Geocoding Service"]
+            Traffic["Traffic Service"]
+        end
+    end
+
+    subgraph Data["Data Layer"]
+        S3["S3 (Tiles)"]
+        EFS["EFS (Graph)"]
+        RDS["RDS PostgreSQL"]
+        ES["OpenSearch"]
+        TS["Timestream"]
+    end
+
+    subgraph Ingestion["Ingestion"]
+        Kinesis["Kinesis"]
+        Lambda["Lambda"]
+    end
+
+    CF --> ALB
+    ALB --> Services
+    Tile --> S3
+    Route --> EFS
+    Geo --> ES
+    Geo --> RDS
+    Traffic --> TS
+    Kinesis --> Lambda
+    Lambda --> TS

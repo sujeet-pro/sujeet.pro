@@ -1,0 +1,122 @@
+flowchart TD
+  %% =========================================
+  %% Event loop processing model (main loop)
+  %% =========================================
+  subgraph EL["Event loop processing model (runs continually)"]
+    EL0([Iteration start]) --> EL1["1. oldestTask = null<br/>1. taskStartTime = null"]
+
+    EL1 --> EL2{"2. Any task queue has<br/>a runnable task?"}
+
+    EL2 -- "Yes" --> EL3["2.1 Choose taskQueue<br/>(implementation-defined)"]
+    EL3 --> EL4["2.2 taskStartTime = unsafe shared current time"]
+    EL4 --> EL5["2.3 oldestTask = first runnable task in taskQueue<br/>    remove it from taskQueue"]
+    EL5 --> EL6{"2.4 oldestTask.document != null?"}
+
+    EL6 -- "Yes" --> EL7["2.4 Record task start time"]
+    EL6 -- "No" --> EL8["(skip)"]
+    EL7 --> EL9["2.5 Set currentlyRunningTask = oldestTask"]
+    EL8 --> EL9
+
+    EL9 --> EL10["2.6 Perform oldestTask.steps"]
+    EL10 --> EL11["2.7 Set currentlyRunningTask = null"]
+    EL11 --> MC0
+
+    MC13 --> EL12["3. taskEndTime = unsafe shared current time"]
+    EL2 -- "No" --> EL12
+
+    EL12 --> EL13{"4. oldestTask != null?"}
+    EL13 -- "Yes" --> EL14["4.1 Collect top-level browsing contexts<br/>    from oldestTask's script-eval settings set"]
+    EL14 --> EL15["4.3 Report long tasks<br/>(taskStartTime, taskEndTime, contexts, oldestTask)"]
+    EL15 --> EL16{"4.4 oldestTask.document != null?"}
+    EL16 -- "Yes" --> EL17["4.4 Record task end time"]
+    EL16 -- "No" --> EL18["(skip)"]
+    EL17 --> EL19
+    EL18 --> EL19
+    EL13 -- "No" --> EL19
+
+    EL19 --> EL20{"5. Window event loop AND<br/>no runnable tasks?"}
+    EL20 -- "Yes" --> ID0["5.1 lastIdlePeriodStartTime = unsafe shared current time"]
+    ID0 --> ID1["5.2 computeDeadline(): min(<br/>    lastIdle+50ms,<br/>    next timer deadline,<br/>    next render deadline if pending renders)"]
+    ID1 --> ID2["5.3 For each same-loop window:<br/>    start an idle period algorithm<br/>(requestIdleCallback)"]
+    ID2 --> WK0
+    EL20 -- "No" --> WK0
+
+    WK0{"6. Worker event loop?"}
+    WK0 -- "Yes" --> WK1{"6.1 Supported DedicatedWorkerGlobalScope<br/>AND UA wants rendering update now?"}
+    WK1 -- "Yes" --> WK2["6.1 now = current high resolution time"]
+    WK2 --> WK3["6.1 Run animation frame callbacks(now)"]
+    WK3 --> WK4["6.1 Update dedicated worker rendering"]
+    WK4 --> WK5{"6.2 No tasks AND closing flag true?"}
+    WK1 -- "No" --> WK5
+
+    WK5 -- "Yes" --> WK6([Destroy event loop])
+    WK5 -- "No" --> EL0
+
+    WK0 -- "No" --> EL0
+  end
+
+  %% =========================================
+  %% Microtask checkpoint (invoked after a task)
+  %% =========================================
+  subgraph MCK["Perform a microtask checkpoint"]
+    MC0[[2.8 Perform microtask checkpoint]] --> MC1{"Already performing<br/>a microtask checkpoint?"}
+    MC1 -- "Yes" --> MC13[[Return]]
+    MC1 -- "No" --> MC2["Set performingMicrotaskCheckpoint = true"]
+
+    MC2 --> MC3{"Microtask queue empty?"}
+    MC3 -- "No" --> MC4["Dequeue oldestMicrotask"]
+    MC4 --> MC5["Set currentlyRunningTask = oldestMicrotask"]
+    MC5 --> MC6["Run oldestMicrotask"]
+    MC6 --> MC7["Set currentlyRunningTask = null"]
+    MC7 --> MC3
+
+    MC3 -- "Yes" --> MC8["Notify about rejected promises<br/>(settings objects whose responsible loop is this loop)"]
+    MC8 --> MC9["Cleanup IndexedDB transactions"]
+    MC9 --> MC10["ClearKeptObjects()"]
+    MC10 --> MC11["Set performingMicrotaskCheckpoint = false"]
+    MC11 --> MC12["Record timing info for microtask checkpoint"]
+    MC12 --> MC13[[Return]]
+  end
+
+  %% =========================================
+  %% Window rendering opportunity watcher (parallel)
+  %% =========================================
+  subgraph PAR["Window event loop: rendering-opportunity watcher (in parallel)"]
+    P0([Loop]) --> P1["Wait until at least one navigable<br/>might have a rendering opportunity"]
+    P1 --> P2["lastRenderOpportunityTime = unsafe shared current time"]
+    P2 --> P3["For each navigable with a rendering opportunity:<br/>queue a global task (rendering task source)<br/>to update the rendering"]
+    P3 --> P0
+  end
+
+  %% Show that queued rendering tasks become runnable tasks for the event loop
+  P3 -.-> EL2
+
+  %% =========================================
+  %% Rendering task body (queued task)
+  %% =========================================
+  subgraph RT["Rendering task: update the rendering"]
+    R0([Run rendering task]) --> R1["frameTimestamp = lastRenderOpportunityTime"]
+    R1 --> R2["docs = fully active Documents in this event loop<br/>(ordered by container/shadow-including tree rules)"]
+    R2 --> R3["Filter non-renderable docs<br/>(render-blocked, hidden, suppressed, no opportunity)"]
+    R3 --> R4["Unnecessary rendering: remove docs where<br/>rendering would have no visible effect AND no rAF callbacks"]
+    R4 --> R5["Optionally remove docs UA prefers to skip"]
+    R5 --> R6["Reveal docs"]
+    R6 --> R7["Flush autofocus candidates (top-level traversable)"]
+    R7 --> R8["Run resize steps"]
+    R8 --> R9["Run scroll steps"]
+    R9 --> R10["Evaluate media queries & report changes"]
+    R10 --> R11["Update animations & send events (timestamp)"]
+    R11 --> R12["Run fullscreen steps"]
+    R12 --> R13["Handle canvas context lost/restored"]
+    R13 --> R14["Run animation frame callbacks (rAF)"]
+    R14 --> R15["Recalculate style & layout;<br/>process ResizeObserver loop"]
+    R15 --> R16["Focus fixup if focused area not focusable"]
+    R16 --> R17["Perform pending transition operations"]
+    R17 --> R18["Update IntersectionObserver observations (timestamp)"]
+    R18 --> R19["Record rendering time; mark paint timing"]
+    R19 --> R20["Update rendering / UI for docs & navigables"]
+    R20 --> R21["Process top layer removals"]
+  end
+
+  %% Indicate the parallel watcher queues this task
+  P3 -.-> R0

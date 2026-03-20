@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph "Task Lifecycle"
+        SUBMIT["Task Submitted"] --> STORE["Stored in Queue/DB"]
+        STORE --> SCHEDULE["Scheduler Picks Task"]
+        SCHEDULE --> ASSIGN["Assigned to Worker"]
+        ASSIGN --> EXECUTE["Worker Executes"]
+        EXECUTE --> SUCCESS["Success"]
+        EXECUTE --> FAIL["Failure"]
+        FAIL --> RETRY{"Retry?"}
+        RETRY -->|Yes| STORE
+        RETRY -->|Max Retries| DLQ["Dead Letter Queue"]
+    end
+
+    subgraph "Coordination Layer"
+        LEADER["Leader Election<br/>or DB Locks"]
+        PARTITION["Task Partitioning"]
+        HEARTBEAT["Heartbeat<br/>Monitoring"]
+    end
+
+    subgraph "Storage Options"
+        DB[(PostgreSQL/MySQL)]
+        BROKER[Message Broker<br/>Redis/RabbitMQ/Kafka]
+        HYBRID["Hybrid:<br/>DB + Broker"]
+    end
+
+    SCHEDULE --> LEADER
+    ASSIGN --> PARTITION
+    EXECUTE --> HEARTBEAT
+
+    style SUCCESS fill:#d5e8d4,stroke:#82b366
+    style FAIL fill:#f8cecc,stroke:#b85450
+    style DLQ fill:#fff2cc,stroke:#d6b656

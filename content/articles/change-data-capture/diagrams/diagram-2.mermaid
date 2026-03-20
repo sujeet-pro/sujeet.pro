@@ -1,0 +1,8 @@
+flowchart LR
+    subgraph PostgreSQL
+        W[Write] --> WAL[(WAL)]
+        WAL --> LD[Logical Decoding]
+        LD --> RS[Replication Slot]
+    end
+    RS --> CDC[CDC Connector]
+    CDC --> K[Kafka]

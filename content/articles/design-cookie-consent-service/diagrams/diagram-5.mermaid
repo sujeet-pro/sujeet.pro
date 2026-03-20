@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant B as Browser
+    participant Auth as Auth Service
+    participant CS as Consent Service
+    participant Redis as Redis
+    participant DB as PostgreSQL
+
+    B->>Auth: Login (device_id in request)
+    Auth->>Auth: Authenticate user
+    Auth->>CS: POST /consent/migrate {device_id, user_id}
+
+    CS->>DB: Get device consent
+    CS->>DB: Get user consent (if exists)
+
+    alt No existing user consent
+        CS->>DB: Link device_id to user_id
+    else Existing user consent
+        CS->>CS: Apply merge strategy
+        CS->>DB: Update user consent
+    end
+
+    CS->>Redis: Invalidate device cache
+    CS->>Redis: Invalidate user cache
+    CS->>CS: Audit migration
+    CS->>Auth: Migration complete
+    Auth->>B: Login response + new consent status

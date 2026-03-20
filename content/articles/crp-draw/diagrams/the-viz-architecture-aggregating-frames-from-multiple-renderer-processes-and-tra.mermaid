@@ -1,0 +1,29 @@
+flowchart TD
+    subgraph RendererProcess["Renderer Process (Multi-process)"]
+        CC1[Compositor Frame 1]
+        CC2[Compositor Frame 2]
+    end
+
+    subgraph VizProcess["Viz Process (GPU)"]
+        FS[FrameSink Manager]
+        Agg[Surface Aggregator]
+        Skia[Skia / Graphite Engine]
+        GPU_I[GPU Driver Interface]
+    end
+
+    subgraph Hardware["Display Hardware"]
+        Swap[Swap Chain / Overlays]
+        DC[Display Controller]
+    end
+
+    CC1 -- "SubmitFrame" --> FS
+    CC2 -- "SubmitFrame" --> FS
+    FS --> Agg
+    Agg -- "Aggregated Frame" --> Skia
+    Skia --> GPU_I
+    GPU_I -- "GL/Vulkan/Metal Commands" --> Swap
+    Swap --> DC
+    DC --> Screen[Physical Screen]
+
+    style Agg fill:#f9f,stroke:#333,stroke-width:2px
+    style Skia fill:#bbf,stroke:#333,stroke-width:2px

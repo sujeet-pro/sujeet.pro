@@ -1,0 +1,10 @@
+graph TD
+    A[Need collaborative editing] --> B{Offline-first required?}
+    B -->|Yes| C{Memory constraints?}
+    B -->|No| D[Client-Server OT]
+    C -->|Tight| E[Consider CRDTs instead]
+    C -->|Flexible| F{Need provable correctness?}
+    F -->|Yes| G[TTF or COT]
+    F -->|Pragmatic| H[Client-Server + sync queue]
+    D --> I[Jupiter/Wave model]
+    I --> J[Wait for ACK between batches]

@@ -1,0 +1,8 @@
+flowchart LR
+    subgraph SaleTime["During Sale"]
+        WR[Waiting Room] --> RL[Rate Limiter]
+        RL --> INV[Inventory Check<br/>Redis Counter]
+        INV --> |count > 0| CHECKOUT[Checkout]
+        INV --> |count = 0| SOLD[Sold Out]
+        CHECKOUT --> DEC[Atomic Decrement]
+    end

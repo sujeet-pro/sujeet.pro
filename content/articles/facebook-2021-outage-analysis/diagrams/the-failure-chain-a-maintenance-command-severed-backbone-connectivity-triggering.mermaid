@@ -1,0 +1,44 @@
+flowchart TB
+    subgraph Trigger["Trigger: Backbone Maintenance Command"]
+        CMD["Maintenance command to<br/>assess backbone capacity"]
+        AUDIT["Audit tool (bug):<br/>fails to block the command"]
+        CMD --> AUDIT
+    end
+
+    subgraph Backbone["Backbone Network Failure"]
+        DISC["All backbone connections<br/>between data centers severed"]
+        EDGE["Edge facilities detect:<br/>cannot reach data centers"]
+        DISC --> EDGE
+    end
+
+    subgraph BGP_DNS["BGP + DNS Cascade"]
+        BGP["Edge routers withdraw<br/>BGP routes for AS32934"]
+        DNS["Authoritative DNS servers<br/>unreachable (still running)"]
+        RESOLVE["Recursive resolvers:<br/>SERVFAIL for all Meta domains"]
+        BGP --> DNS --> RESOLVE
+    end
+
+    subgraph Impact["Global Impact (~6 hours)"]
+        USERS["3.5B users across FB,<br/>Instagram, WhatsApp, Messenger"]
+        THIRD["Third-party sites using<br/>Facebook Login / SDK"]
+        TOOLS["Internal tools, wikis,<br/>communication systems down"]
+        REMOTE["Remote + OOB management<br/>inaccessible"]
+        PHYSICAL["Physical data center access<br/>delayed by network-dependent security"]
+    end
+
+    subgraph Recovery["Recovery"]
+        DISPATCH["Engineers dispatched<br/>physically to data centers"]
+        MANUAL["Manual backbone router<br/>reconfiguration on-site"]
+        STAGED["Staged service restoration<br/>to avoid traffic surge"]
+        DISPATCH --> MANUAL --> STAGED
+    end
+
+    AUDIT --> Backbone
+    Backbone --> BGP_DNS
+    BGP_DNS --> Impact
+    Impact --> Recovery
+
+    style AUDIT fill:#f87171,stroke:#991b1b,color:#000
+    style DISC fill:#f87171,stroke:#991b1b,color:#000
+    style PHYSICAL fill:#fbbf24,stroke:#92400e,color:#000
+    style REMOTE fill:#fbbf24,stroke:#92400e,color:#000

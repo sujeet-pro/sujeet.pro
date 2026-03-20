@@ -1,0 +1,9 @@
+flowchart TB
+    subgraph "Three Decoupling Dimensions"
+        SD[Space: Who?] --- TD[Time: When?]
+        TD --- SYD[Sync: Blocking?]
+    end
+
+    subgraph "Trade-off"
+        DC[Decoupling] <--> DF[Debuggability]
+    end

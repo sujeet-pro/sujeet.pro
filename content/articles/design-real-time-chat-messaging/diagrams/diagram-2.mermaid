@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Publish
+        SENDER["Sender"]
+        GW1["Gateway"]
+        MSG["Message Service"]
+    end
+
+    subgraph Queue
+        KAFKA["Kafka<br/>(partitioned by conversation)"]
+    end
+
+    subgraph Subscribe
+        FO1["Fan-out Worker 1"]
+        FO2["Fan-out Worker 2"]
+        FOn["Fan-out Worker N"]
+    end
+
+    subgraph Deliver
+        GW2["Gateway Pool"]
+        RECIP["Recipients"]
+    end
+
+    SENDER --> GW1 --> MSG --> KAFKA
+    KAFKA --> FO1 & FO2 & FOn
+    FO1 & FO2 & FOn --> GW2 --> RECIP

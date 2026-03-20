@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph "Cassandra Cluster"
+        N1[Node 1<br/>+ Agent]
+        N2[Node 2<br/>+ Agent]
+        N3[Node 3<br/>+ Agent]
+    end
+
+    subgraph "CDC Agents"
+        A1[Agent 1<br/>Primary for keys A-M]
+        A2[Agent 2<br/>Primary for keys N-Z]
+    end
+
+    N1 --> A1
+    N2 --> A2
+    N3 --> A1
+    A1 --> K[Kafka]
+    A2 --> K

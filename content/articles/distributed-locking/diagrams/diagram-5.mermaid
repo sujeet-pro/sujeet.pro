@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant C1 as Client 1
+    participant L as Lock Service
+    participant S as Storage
+
+    C1->>L: Acquire lock
+    L-->>C1: Granted, token=33
+    Note over C1: GC pause (lease expires)
+
+    participant C2 as Client 2
+    C2->>L: Acquire lock
+    L-->>C2: Granted, token=34
+
+    C2->>S: Write (token=34)
+    S-->>C2: OK (highest=34)
+
+    Note over C1: GC ends
+    C1->>S: Write (token=33)
+    S-->>C1: REJECTED (33 < 34)
+    Note over S: Data protected!

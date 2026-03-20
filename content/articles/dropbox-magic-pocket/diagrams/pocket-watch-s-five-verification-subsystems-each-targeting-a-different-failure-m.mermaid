@@ -1,0 +1,8 @@
+flowchart TD
+    subgraph "Continuous Verification"
+        DS[Disk Scrubber<br/>Full sweep every 1-2 weeks] --> |"bit rot, bad sectors"| REPAIR[Re-replication<br/>& Remediation]
+        MS[Metadata Scanner<br/>1M blocks/sec] --> |"missing blocks"| REPAIR
+        SW[Storage Watcher<br/>1% sample at intervals] --> |"end-to-end failures"| ALERT[Alert & Investigate]
+        TI[Trash Inspector<br/>& Extent Referee] --> |"verify safe deletion"| GC[Garbage Collection]
+        CZV[Cross-Zone Verifier] --> |"zone replication gaps"| REPAIR
+    end

@@ -1,0 +1,24 @@
+flowchart LR
+    subgraph "Stage 1: Retrieval"
+        EMBED[User Embedding]
+        CAND[Candidate Pool<br/>Billions of items]
+        ANN[Approximate NN<br/>Two Towers Model]
+        EMBED --> ANN
+        CAND --> ANN
+        ANN --> TOP[Top 10K Candidates]
+    end
+
+    subgraph "Stage 2: Early Ranking"
+        TOP --> LIGHT[Lightweight Model<br/>Filter + Score]
+        LIGHT --> MID[Top 500 Candidates]
+    end
+
+    subgraph "Stage 3: Late Ranking"
+        MID --> DEEP[Deep Neural Network<br/>Multi-task Ranking]
+        DEEP --> FINAL[Final 50 Items]
+    end
+
+    subgraph "Serving"
+        FINAL --> DIVERSE[Diversity Injection]
+        DIVERSE --> USER[User Feed]
+    end

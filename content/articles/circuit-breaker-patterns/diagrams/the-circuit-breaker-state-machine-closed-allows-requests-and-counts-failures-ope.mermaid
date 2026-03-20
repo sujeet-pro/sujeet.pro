@@ -1,0 +1,12 @@
+flowchart LR
+    subgraph States["Circuit Breaker States"]
+        direction TB
+        Closed["🟢 Closed<br/><small>Normal operation</small>"]
+        Open["🔴 Open<br/><small>Fast-fail mode</small>"]
+        HalfOpen["🟡 Half-Open<br/><small>Testing recovery</small>"]
+    end
+
+    Closed -->|"Failure threshold<br/>exceeded"| Open
+    Open -->|"Reset timeout<br/>expires"| HalfOpen
+    HalfOpen -->|"Probe succeeds"| Closed
+    HalfOpen -->|"Probe fails"| Open

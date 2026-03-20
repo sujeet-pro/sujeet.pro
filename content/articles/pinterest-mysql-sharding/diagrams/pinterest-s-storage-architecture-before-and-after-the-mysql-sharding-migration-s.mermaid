@@ -1,0 +1,16 @@
+flowchart TD
+    subgraph "Before (Sept 2011)"
+        A[5 MySQL DBs] --- B[4 Cassandra Nodes]
+        B --- C[15 Membase Nodes]
+        C --- D[3 MongoDB Clusters]
+        D --- E[10 Redis Instances]
+        E --- F[8 Memcache Instances]
+    end
+
+    subgraph "After (Jan 2012)"
+        G[66 Sharded MySQL DBs]
+        H[59 Redis Instances]
+        I[51 Memcache Instances]
+    end
+
+    A -->|"Rearchitecture<br/>6 engineers, 4-5 months"| G

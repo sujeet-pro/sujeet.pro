@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph "ID Generation Approaches"
+        direction TB
+        UUID4["UUID v4<br/>✓ No coordination<br/>✓ No information leak<br/>✗ Not sortable<br/>✗ Poor index locality"]
+        UUID7["UUID v7<br/>✓ Time-sortable<br/>✓ No coordination<br/>✓ RFC standardized<br/>○ Millisecond precision"]
+        SNOW["Snowflake<br/>✓ Time-sortable<br/>✓ 64-bit compact<br/>○ Requires worker IDs<br/>○ ~4M IDs/sec/worker"]
+        ULID["ULID<br/>✓ Time-sortable<br/>✓ Monotonic in ms<br/>✓ 26-char compact<br/>○ Not RFC standardized"]
+    end
+
+    subgraph "Decision Factors"
+        SORT["Need Sortability?"]
+        COORD["Can Coordinate<br/>Worker IDs?"]
+        SIZE["Need 64-bit?"]
+        STD["Need RFC Standard?"]
+    end
+
+    SORT -->|No| UUID4
+    SORT -->|Yes| COORD
+    COORD -->|Yes| SIZE
+    COORD -->|No| STD
+    SIZE -->|Yes| SNOW
+    SIZE -->|No| STD
+    STD -->|Yes| UUID7
+    STD -->|No| ULID
+
+    style UUID4 fill:#f8cecc,stroke:#b85450
+    style UUID7 fill:#d5e8d4,stroke:#82b366
+    style SNOW fill:#dae8fc,stroke:#6c8ebf
+    style ULID fill:#fff2cc,stroke:#d6b656

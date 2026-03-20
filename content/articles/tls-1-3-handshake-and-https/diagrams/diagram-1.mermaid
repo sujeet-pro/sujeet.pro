@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    rect rgb(255, 248, 220)
+    Note over C,S: Plaintext (necessary for key agreement)
+    C->>S: ClientHello + key_share + supported_versions
+    S->>C: ServerHello + key_share
+    end
+
+    rect rgb(220, 248, 220)
+    Note over C,S: Encrypted with Handshake Keys
+    S->>C: EncryptedExtensions
+    S->>C: Certificate (optional CertificateRequest)
+    S->>C: CertificateVerify
+    S->>C: Finished
+    C->>S: Finished
+    end
+
+    rect rgb(220, 230, 255)
+    Note over C,S: Encrypted with Application Keys
+    C->>S: Application Data
+    S->>C: Application Data
+    end

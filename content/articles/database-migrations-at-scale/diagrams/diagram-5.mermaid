@@ -1,0 +1,10 @@
+graph TD
+    A[Need Migration] --> B{What type?}
+    B -->|Schema only| C{Table size?}
+    C -->|< 1M rows| D[Direct ALTER<br/>or INSTANT DDL]
+    C -->|1M - 100M rows| E{Write load?}
+    C -->|> 100M rows| F[OSC Tool<br/>Required]
+    E -->|Low| G[pt-osc]
+    E -->|High| H[gh-ost or Spirit]
+    B -->|Data + Schema| I[Expand-Contract]
+    B -->|Cross-database| J[CDC + Strangler Fig]

@@ -1,0 +1,36 @@
+flowchart TB
+    subgraph "Netflix Origin (AWS)"
+        S3[(S3 - Encoded Content)]
+        FILL_SVC[Fill Service<br/>Popularity-Based]
+    end
+
+    subgraph "Internet Exchange Point"
+        IXP_OCA[OCA Cluster<br/>High Capacity]
+    end
+
+    subgraph "ISP A Network"
+        ISP_A_OCA[OCA Cluster<br/>Embedded]
+        ISP_A_ROUTER[ISP Router]
+    end
+
+    subgraph "ISP B Network"
+        ISP_B_OCA[OCA Cluster<br/>Embedded]
+        ISP_B_ROUTER[ISP Router]
+    end
+
+    subgraph "Subscribers"
+        USER_A[User in ISP A]
+        USER_B[User in ISP B]
+    end
+
+    S3 -->|Proactive Fill<br/>Off-peak Hours| FILL_SVC
+    FILL_SVC -->|BGP + HTTPS| IXP_OCA
+    FILL_SVC -->|BGP + HTTPS| ISP_A_OCA
+    FILL_SVC -->|BGP + HTTPS| ISP_B_OCA
+
+    USER_A --> ISP_A_ROUTER --> ISP_A_OCA
+    USER_B --> ISP_B_ROUTER --> ISP_B_OCA
+
+    ISP_A_OCA -->|Cache Miss| IXP_OCA
+    ISP_B_OCA -->|Cache Miss| IXP_OCA
+    IXP_OCA -->|Origin Fetch| S3

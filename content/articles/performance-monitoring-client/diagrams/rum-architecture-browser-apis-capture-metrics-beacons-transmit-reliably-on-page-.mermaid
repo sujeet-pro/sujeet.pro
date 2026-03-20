@@ -1,0 +1,20 @@
+flowchart LR
+    subgraph "Browser"
+        A[Performance APIs] --> B[Metrics Collection]
+        B --> C[Beacon/sendBeacon]
+    end
+
+    subgraph "Collection"
+        C --> D[Ingestion Endpoint]
+        D --> E[Processing Pipeline]
+    end
+
+    subgraph "Analysis"
+        E --> F[Aggregation]
+        F --> G[Dashboards]
+        F --> H[Alerting]
+    end
+
+    I[Core Web Vitals] --> A
+    J[Custom Metrics] --> A
+    K[Errors] --> A

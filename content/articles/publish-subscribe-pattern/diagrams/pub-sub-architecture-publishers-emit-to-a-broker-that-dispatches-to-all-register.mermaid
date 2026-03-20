@@ -1,0 +1,13 @@
+flowchart LR
+    N1[Publisher 1] -->|emit| PS[Event Bus / Broker]
+    N2[Publisher 2] -->|emit| PS
+    PS -->|dispatch| S1[Subscriber 1]
+    PS -->|dispatch| S2[Subscriber 2]
+    PS -->|dispatch| S3[Subscriber N]
+
+    style N1 fill:#dae8fc,stroke:#6c8ebf
+    style N2 fill:#dae8fc,stroke:#6c8ebf
+    style PS fill:#e1d5e7,stroke:#9673a6
+    style S1 fill:#d5e8d4,stroke:#82b366
+    style S2 fill:#d5e8d4,stroke:#82b366
+    style S3 fill:#d5e8d4,stroke:#82b366

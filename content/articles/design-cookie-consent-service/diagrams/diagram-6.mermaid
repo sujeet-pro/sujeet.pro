@@ -1,0 +1,15 @@
+flowchart TB
+    subgraph Global["Global Defaults"]
+        GD[Default Categories<br/>Default Banner Config<br/>Default SDK]
+    end
+
+    subgraph Tenant["Tenant Level"]
+        TC[Custom Categories<br/>Custom Banner<br/>Regulation Overrides]
+    end
+
+    subgraph Domain["Domain Level (Optional)"]
+        DC[Domain-Specific Overrides<br/>Subdomain Rules]
+    end
+
+    GD --> TC
+    TC --> DC

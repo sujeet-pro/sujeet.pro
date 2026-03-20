@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Browser
+    participant SW as Service Worker
+    participant Network
+
+    Note over Browser,Network: Without Navigation Preload
+    Browser->>SW: Start worker (50-500ms)
+    SW->>Network: fetch()
+    Network-->>SW: Response
+    SW-->>Browser: Response
+
+    Note over Browser,Network: With Navigation Preload
+    par
+        Browser->>SW: Start worker
+        Browser->>Network: Preload request
+    end
+    Network-->>SW: preloadResponse
+    SW-->>Browser: Response

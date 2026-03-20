@@ -1,0 +1,30 @@
+flowchart TB
+    subgraph "Global Load Balancing"
+        GLB[Cloud Load Balancer]
+    end
+
+    subgraph "Compute"
+        GKE[GKE Clusters<br/>300+ Microservices]
+    end
+
+    subgraph "Data"
+        SPANNER[(Cloud Spanner<br/>Global SQL)]
+        BIGTABLE[(Bigtable<br/>ML Features)]
+        GCS[(Cloud Storage<br/>Audio Files)]
+    end
+
+    subgraph "Analytics"
+        PUBSUB[Pub/Sub<br/>1T+ events/day]
+        DATAFLOW[Dataflow<br/>Stream Processing]
+        BQ[(BigQuery<br/>Data Warehouse)]
+    end
+
+    subgraph "ML"
+        VERTEX[Vertex AI<br/>Model Training]
+        TENSORRT[TensorFlow Serving<br/>Inference]
+    end
+
+    GLB --> GKE
+    GKE --> SPANNER & BIGTABLE & GCS
+    GKE --> PUBSUB --> DATAFLOW --> BQ
+    BQ --> VERTEX --> TENSORRT

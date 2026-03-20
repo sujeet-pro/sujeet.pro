@@ -1,0 +1,6 @@
+stateDiagram-v2
+    [*] --> Available: Initial inventory
+    Available --> Reserved: User starts checkout
+    Reserved --> Confirmed: Payment success
+    Reserved --> Available: Checkout timeout/abandon
+    Confirmed --> [*]: Order complete

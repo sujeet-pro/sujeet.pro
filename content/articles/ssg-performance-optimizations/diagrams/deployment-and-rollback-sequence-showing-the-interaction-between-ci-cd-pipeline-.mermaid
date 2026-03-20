@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant CI/CD Pipeline
+    participant Amazon S3
+    participant Amazon CloudFront
+
+    CI/CD Pipeline->>Amazon S3: Upload new build to /v1.2.1
+    CI/CD Pipeline->>Amazon CloudFront: Update Origin Path to /v1.2.1
+    Amazon CloudFront-->>CI/CD Pipeline: Update Acknowledged
+    CI/CD Pipeline->>Amazon CloudFront: Invalidate Cache ('/*')
+    Amazon CloudFront-->>CI/CD Pipeline: Invalidation Acknowledged
+
+    Note over CI/CD Pipeline,Amazon CloudFront: Rollback Triggered!
+    CI/CD Pipeline->>Amazon CloudFront: Update Origin Path to /v1.2.0
+    Amazon CloudFront-->>CI/CD Pipeline: Update Acknowledged
+    CI/CD Pipeline->>Amazon CloudFront: Invalidate Cache ('/*')
+    Amazon CloudFront-->>CI/CD Pipeline: Invalidation Acknowledged

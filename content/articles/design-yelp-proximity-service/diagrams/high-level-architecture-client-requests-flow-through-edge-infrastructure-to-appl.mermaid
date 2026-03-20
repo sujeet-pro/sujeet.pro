@@ -1,0 +1,64 @@
+flowchart TB
+    subgraph Clients["Client Layer"]
+        Mobile["Mobile Apps"]
+        Web["Web App"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CDN["CDN"]
+        LB["Load Balancer"]
+    end
+
+    subgraph Services["Application Services"]
+        Gateway["API Gateway"]
+        Search["Search Service"]
+        Business["Business Service"]
+        Review["Review Service"]
+        User["User Service"]
+        Ranking["Ranking Service"]
+    end
+
+    subgraph Data["Data Layer"]
+        subgraph Primary["Primary Stores"]
+            PG[(PostgreSQL)]
+            ES[(Elasticsearch)]
+        end
+        subgraph Cache["Cache Layer"]
+            Redis[(Redis Cluster)]
+            GeoCache["Geospatial Cache"]
+        end
+        subgraph Async["Async Processing"]
+            Kafka[["Kafka"]]
+            Workers["Background Workers"]
+        end
+    end
+
+    subgraph ML["ML Pipeline"]
+        RankModel["Ranking Model"]
+        SpamDetect["Spam Detection"]
+    end
+
+    Mobile --> CDN
+    Web --> CDN
+    CDN --> LB
+    LB --> Gateway
+    Gateway --> Search
+    Gateway --> Business
+    Gateway --> Review
+    Gateway --> User
+    Search --> ES
+    Search --> GeoCache
+    Search --> Ranking
+    Ranking --> RankModel
+    Business --> PG
+    Business --> Redis
+    Review --> PG
+    Review --> Kafka
+    Kafka --> Workers
+    Workers --> SpamDetect
+    Workers --> ES
+
+    style CDN fill:#dae8fc
+    style ES fill:#d5e8d4
+    style Redis fill:#fff2cc
+    style Kafka fill:#e1d5e7

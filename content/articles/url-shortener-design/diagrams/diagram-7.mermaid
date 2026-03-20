@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph Generator["Offline Generator"]
+        GEN["Key Generator"]
+        VALIDATE["Uniqueness Check"]
+    end
+
+    subgraph Storage["Key Storage"]
+        UNUSED[(Unused Keys<br/>~100M keys)]
+        USED[(Used Keys<br/>Historical)]
+    end
+
+    subgraph Distribution["Key Distribution"]
+        API["KGS API"]
+        QUEUE["Key Queue<br/>(Per App Server)"]
+    end
+
+    GEN --> VALIDATE --> UNUSED
+    API --> UNUSED
+    UNUSED -->|Batch fetch| QUEUE
+    UNUSED -->|Mark used| USED

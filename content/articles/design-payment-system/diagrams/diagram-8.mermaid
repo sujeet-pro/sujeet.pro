@@ -1,0 +1,35 @@
+graph TB
+    subgraph Edge["Edge Layer"]
+        CF[CloudFront]
+        WAF[AWS WAF]
+        SHIELD[AWS Shield]
+    end
+
+    subgraph Compute["Compute Layer"]
+        ALB[Application Load Balancer]
+        ECS[ECS Fargate<br/>Payment API]
+        LAMBDA[Lambda<br/>Webhooks]
+    end
+
+    subgraph Data["Data Layer"]
+        RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+        ELASTICACHE[(ElastiCache Redis)]
+        SQS[SQS FIFO]
+        KINESIS[Kinesis Data Streams]
+    end
+
+    subgraph Security["Security"]
+        KMS[AWS KMS]
+        SECRETS[Secrets Manager]
+    end
+
+    Users --> CF
+    CF --> WAF
+    WAF --> SHIELD
+    SHIELD --> ALB
+    ALB --> ECS
+    ECS --> RDS & ELASTICACHE
+    ECS --> SQS
+    SQS --> LAMBDA
+    LAMBDA --> KINESIS
+    ECS --> KMS & SECRETS

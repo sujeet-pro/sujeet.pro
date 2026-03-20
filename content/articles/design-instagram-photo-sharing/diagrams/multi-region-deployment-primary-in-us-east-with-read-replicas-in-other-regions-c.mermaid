@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph "US-East"
+        LB1[Load Balancer]
+        APP1[App Servers]
+        DB1[(Primary DB)]
+        CACHE1[(Redis Primary)]
+    end
+
+    subgraph "US-West"
+        LB2[Load Balancer]
+        APP2[App Servers]
+        DB2[(Read Replica)]
+        CACHE2[(Redis Replica)]
+    end
+
+    subgraph "EU-West"
+        LB3[Load Balancer]
+        APP3[App Servers]
+        DB3[(Read Replica)]
+        CACHE3[(Redis Replica)]
+    end
+
+    subgraph "Global"
+        DNS[Route 53<br/>Latency Routing]
+        CDN[CloudFront<br/>Global Edge]
+        S3[(S3<br/>Cross-region Replication)]
+    end
+
+    DNS --> LB1 & LB2 & LB3
+    DB1 -->|Async Replication| DB2 & DB3
+    CACHE1 -->|Async Replication| CACHE2 & CACHE3
+    S3 --> CDN

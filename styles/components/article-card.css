@@ -1,0 +1,77 @@
+/* ─── Category listing (articles/blogs/projects index) ─── */
+.intro {
+  margin-bottom: 2rem;
+}
+.series-desc {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-bottom: 0.75rem;
+  margin-top: -0.5rem;
+}
+.listing-stats {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+.category-listing {
+  margin-top: 1rem;
+}
+.category-section {
+  margin-bottom: 2.5rem;
+}
+.category-section h2 {
+  margin-top: 0;
+}
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.article-card {
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+.article-card:hover {
+  background: var(--color-bg-hover);
+}
+.article-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+}
+.article-card-title {
+  font-weight: 500;
+  color: var(--color-text);
+}
+.article-card-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ─── Project links ─── */
+.project-repo-link {
+  display: inline-block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 2px;
+}
+.project-repo-link:hover {
+  color: var(--color-text);
+}
+
+/* ─── Home page ─── */
+.main-home .prose h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin-bottom: 1.5rem;
+}
+.main-home .prose p {
+  font-size: var(--font-size-lg);
+}
+.main-home .prose a {
+  font-weight: 500;
+}

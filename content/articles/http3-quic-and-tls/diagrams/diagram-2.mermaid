@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Initial connection on WiFi
+    C->>S: Packets with CID_1 (192.168.1.10)
+
+    Note over C: Network switch to cellular
+    C->>S: PATH_CHALLENGE (new IP: 100.64.0.5)
+    S->>C: PATH_RESPONSE (validates new path)
+
+    Note over C,S: Connection continues with same CID
+    C->>S: Packets with CID_1 (100.64.0.5)
+    Note over C,S: No re-handshake required

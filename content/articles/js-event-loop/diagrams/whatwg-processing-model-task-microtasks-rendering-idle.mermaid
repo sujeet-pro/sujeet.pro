@@ -1,0 +1,17 @@
+graph TD
+    A[Event Loop Iteration] --> B[Select Task from Queue]
+    B --> C[Execute Task]
+    C --> D[Call Stack Empty?]
+    D -->|No| C
+    D -->|Yes| E[Microtask Checkpoint]
+    E --> F[Drain Microtask Queue]
+    F --> G[Update Rendering?]
+    G -->|Yes| H[Run rAF Callbacks]
+    H --> I[Style Recalculation]
+    I --> J["Layout/Reflow"]
+    J --> K[Paint]
+    K --> L[Composite]
+    G -->|No| M[Idle Period]
+    L --> M
+    M --> N[requestIdleCallback]
+    N --> A

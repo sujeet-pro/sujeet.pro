@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Build["In-House"]
+        GW[Payment Gateway]
+        PROC[Processor Integration]
+        RISK[Risk Engine]
+        LEDGER[Ledger]
+    end
+
+    subgraph External["Card Networks"]
+        ACQ[Acquiring Bank]
+        VISA[VisaNet]
+        MC[Banknet]
+    end
+
+    Client --> GW
+    GW --> RISK
+    RISK --> PROC
+    PROC --> ACQ
+    ACQ --> VISA & MC

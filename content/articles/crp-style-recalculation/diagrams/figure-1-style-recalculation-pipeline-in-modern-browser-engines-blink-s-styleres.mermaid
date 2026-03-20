@@ -1,0 +1,24 @@
+graph TD
+    subgraph Inputs
+        DOM[DOM Tree]
+        CSSOM[CSSOM Tree]
+    end
+
+    subgraph "Style Engine (Blink: StyleResolver)"
+        RI[Rule Indexing<br/>RuleSet partitions by ID/class/tag]
+        SM[Selector Matching<br/>Right-to-left with Bloom filter]
+        CA[Cascade Algorithm<br/>Origin → Layer → Specificity → Order]
+        VC[Value Computation<br/>Relative → Absolute]
+    end
+
+    subgraph Output
+        CS[ComputedStyle per Element]
+    end
+
+    DOM --> RI
+    CSSOM --> RI
+    RI --> SM
+    SM --> CA
+    CA --> VC
+    VC --> CS
+    CS --> Layout[Layout Stage]

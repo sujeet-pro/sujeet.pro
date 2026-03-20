@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph Clients
+        B[Browsers]
+    end
+    subgraph Ingestion["Ingestion Layer"]
+        LB[Load Balancer] --> API[WebFlux API]
+    end
+    subgraph Processing["Processing Layer"]
+        K[(Kafka)] --> CONS[Consumer]
+        CONS --> R[(Redis)]
+    end
+    subgraph Storage["Storage Layer"]
+        SF[(Snowflake)]
+    end
+
+    B -->|CSP Reports| LB
+    API -->|Async| K
+    CONS -->|Batch Write| SF

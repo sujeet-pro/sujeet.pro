@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph "Client"
+        APP[App] --> PREFETCH[Prefetch Manager]
+        PREFETCH --> LOCAL[(Local Cache)]
+    end
+
+    subgraph "Stories Service"
+        API[Stories API]
+        RING[Ring Ordering Service]
+        TTL[TTL Manager]
+    end
+
+    subgraph "Storage"
+        REDIS[(Redis<br/>Story Metadata<br/>24h TTL)]
+        S3[(S3<br/>Story Media)]
+        CDN[CDN Edge]
+    end
+
+    APP --> API
+    API --> RING --> REDIS
+    TTL --> REDIS
+    S3 --> CDN --> PREFETCH

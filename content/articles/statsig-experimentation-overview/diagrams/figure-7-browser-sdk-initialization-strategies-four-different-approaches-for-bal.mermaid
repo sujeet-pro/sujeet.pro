@@ -1,0 +1,24 @@
+graph TB
+    A[Browser SDK Initialization] --> B{Strategy?}
+
+    B -->|Async Awaited| C[Block Rendering]
+    C --> D[Network Request]
+    D --> E[Fresh Values]
+
+    B -->|Bootstrap| F[Server Pre-compute]
+    F --> G[Embed in HTML]
+    G --> H[Instant Render]
+
+    B -->|Synchronous| I[Use Cache]
+    I --> J[Background Update]
+    J --> K[Next Session]
+
+    B -->|On-Device| L[Download Config Spec]
+    L --> M[Local Evaluation]
+    M --> N[Real-time Checks]
+
+    style A fill:#e1f5fe
+    style E fill:#c8e6c9
+    style H fill:#c8e6c9
+    style K fill:#fff3e0
+    style N fill:#f3e5f5

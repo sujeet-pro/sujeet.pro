@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph "AWS US-East"
+        API_E[API Services]
+        DB_E[(Primary DB)]
+    end
+
+    subgraph "AWS US-West"
+        API_W[API Services]
+        DB_W[(Replica)]
+    end
+
+    subgraph "AWS EU-West"
+        API_EU[API Services]
+        DB_EU[(Replica)]
+    end
+
+    subgraph "Open Connect (Global)"
+        OC_NA[North America<br/>OCAs]
+        OC_EU[Europe<br/>OCAs]
+        OC_APAC[Asia-Pacific<br/>OCAs]
+        OC_LATAM[Latin America<br/>OCAs]
+    end
+
+    DB_E <-->|Replication| DB_W
+    DB_E <-->|Replication| DB_EU
+
+    API_E --> OC_NA
+    API_W --> OC_NA
+    API_EU --> OC_EU

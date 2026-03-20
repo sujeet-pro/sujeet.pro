@@ -1,0 +1,10 @@
+graph LR
+    subgraph "Within I/O Cycle"
+        A[I/O Callback] --> B[setImmediate First]
+        B --> C[setTimeout Second]
+    end
+
+    subgraph "Outside I/O Cycle"
+        D[Main Module] --> E[Non-deterministic]
+        E --> F[Performance Dependent]
+    end

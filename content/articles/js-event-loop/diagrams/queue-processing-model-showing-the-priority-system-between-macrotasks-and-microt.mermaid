@@ -1,0 +1,11 @@
+graph TD
+    A[Event Loop Tick] --> B[Select Macrotask]
+    B --> C[Execute Macrotask]
+    C --> D[Call Stack Empty?]
+    D -->|No| C
+    D -->|Yes| E[Microtask Checkpoint]
+    E --> F[Process All Microtasks]
+    F --> G[Microtask Queue Empty?]
+    G -->|No| F
+    G -->|Yes| H[Next Phase]
+    H --> A

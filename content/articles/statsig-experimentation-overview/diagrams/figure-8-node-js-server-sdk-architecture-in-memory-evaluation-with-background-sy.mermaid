@@ -1,0 +1,25 @@
+graph TB
+    subgraph "Node.js Application"
+        A[HTTP Request] --> B[Express/Next.js Handler]
+        B --> C[Statsig SDK]
+        C --> D[In-Memory Ruleset]
+        D --> E[Local Evaluation]
+        E --> F[Response]
+    end
+
+    subgraph "Background Sync"
+        G[Background Timer] --> H[Poll CDN]
+        H --> I[Download Updates]
+        I --> J[Atomic Swap]
+        J --> D
+    end
+
+    subgraph "Data Store (Optional)"
+        K[Redis/Memory] --> L[Config Cache]
+        L --> D
+    end
+
+    style A fill:#e1f5fe
+    style F fill:#c8e6c9
+    style E fill:#fff3e0
+    style J fill:#f3e5f5

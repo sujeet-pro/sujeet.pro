@@ -1,0 +1,14 @@
+flowchart TB
+    API["Notification API"]
+
+    API --> CHECK{"Priority?"}
+
+    CHECK -->|Critical| SYNC["Synchronous Path<br/>(Direct Push)"]
+    CHECK -->|High| FAST["Fast Queue<br/>(Low Latency Workers)"]
+    CHECK -->|Normal| STANDARD["Standard Queue<br/>(Batched Processing)"]
+    CHECK -->|Low| BULK["Bulk Queue<br/>(Off-Peak Delivery)"]
+
+    SYNC --> DELIVER["Delivery"]
+    FAST --> DELIVER
+    STANDARD --> DELIVER
+    BULK --> DELIVER

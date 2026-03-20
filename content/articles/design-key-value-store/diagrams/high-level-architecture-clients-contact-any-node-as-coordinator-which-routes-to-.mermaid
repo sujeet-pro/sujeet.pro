@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph Clients
+        C1[Client 1]
+        C2[Client 2]
+        C3[Client N]
+    end
+
+    subgraph "Coordinator Layer"
+        COORD[Any Node Can Coordinate]
+    end
+
+    subgraph "Storage Ring"
+        direction LR
+        N1[Node A<br/>vnodes: 0-63]
+        N2[Node B<br/>vnodes: 64-127]
+        N3[Node C<br/>vnodes: 128-191]
+        N4[Node D<br/>vnodes: 192-255]
+    end
+
+    subgraph "Per-Node Storage"
+        MEM[Memtable<br/>In-Memory]
+        WAL[Write-Ahead Log]
+        SST[SSTables<br/>On-Disk]
+    end
+
+    C1 & C2 & C3 --> COORD
+    COORD --> N1 & N2 & N3 & N4
+    N1 --> MEM --> WAL --> SST

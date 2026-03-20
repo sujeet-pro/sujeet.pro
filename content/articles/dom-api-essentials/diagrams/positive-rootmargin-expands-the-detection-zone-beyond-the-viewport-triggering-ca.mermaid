@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph viewport["Viewport (root)"]
+        subgraph expanded["Expanded Zone (positive rootMargin)"]
+            content["Visible Content Area"]
+        end
+    end
+
+    element1["Element A<br/>Triggers early"]
+    element2["Element B<br/>In viewport"]
+
+    element1 -.->|"Intersects expanded zone"| expanded
+    element2 -->|"Intersects viewport"| content
+
+    style expanded fill:#dbeafe,stroke:#3b82f6,stroke-dasharray: 5 5
+    style content fill:#f0fdf4,stroke:#22c55e
+    style element1 fill:#fef3c7,stroke:#f59e0b
+    style element2 fill:#f0fdf4,stroke:#22c55e

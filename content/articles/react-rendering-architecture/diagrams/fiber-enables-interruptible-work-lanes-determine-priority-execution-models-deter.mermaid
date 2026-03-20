@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph Foundation["Foundation Layer"]
+        Fiber["Fiber<br/>Virtual call stack"]
+    end
+
+    subgraph Scheduling["Priority Layer"]
+        Lanes["Lanes<br/>31-bit priority bitmask"]
+    end
+
+    subgraph Execution["Execution Models"]
+        CSR["CSR"]
+        SSR["SSR/Streaming"]
+        RSC["RSC"]
+    end
+
+    Fiber --> Lanes
+    Lanes --> CSR
+    Lanes --> SSR
+    Lanes --> RSC

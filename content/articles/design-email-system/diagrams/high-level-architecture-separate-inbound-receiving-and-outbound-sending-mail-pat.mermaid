@@ -1,0 +1,52 @@
+flowchart TB
+    subgraph Clients["Clients"]
+        WEB["Web Client"]
+        MOBILE["Mobile App"]
+        DESKTOP["Desktop Client<br/>(IMAP/SMTP)"]
+    end
+
+    subgraph Edge["Edge Layer"]
+        CDN["CDN<br/>(Static Assets)"]
+        LB["Load Balancer"]
+    end
+
+    subgraph Inbound["Inbound Mail"]
+        MX["MX Servers<br/>(SMTP Receivers)"]
+        AUTH["Authentication<br/>(SPF/DKIM/DMARC)"]
+        SPAM["Spam Filter"]
+        ROUTE["Mail Router"]
+    end
+
+    subgraph Outbound["Outbound Mail"]
+        SUBMIT["Submission Server<br/>(Port 587)"]
+        QUEUE["Delivery Queue"]
+        MTA["MTA Pool<br/>(Outbound SMTP)"]
+    end
+
+    subgraph Core["Core Services"]
+        API["API Gateway"]
+        MAILBOX["Mailbox Service"]
+        SEARCH["Search Service"]
+        THREAD["Threading Service"]
+        LABEL["Label/Folder Service"]
+    end
+
+    subgraph Storage["Storage Layer"]
+        META[(PostgreSQL<br/>User, Labels)]
+        MSG[(Cassandra<br/>Messages)]
+        IDX["Elasticsearch<br/>(Search Index)"]
+        BLOB["S3/GCS<br/>(Attachments)"]
+        CACHE["Redis<br/>(Session, Cache)"]
+    end
+
+    WEB & MOBILE --> CDN --> LB --> API
+    DESKTOP -->|IMAP| MAILBOX
+    DESKTOP -->|SMTP| SUBMIT
+
+    MX --> AUTH --> SPAM --> ROUTE --> MAILBOX
+    SUBMIT --> QUEUE --> MTA
+
+    API --> MAILBOX & SEARCH & THREAD & LABEL
+    MAILBOX --> META & MSG & BLOB
+    SEARCH --> IDX
+    MAILBOX --> CACHE

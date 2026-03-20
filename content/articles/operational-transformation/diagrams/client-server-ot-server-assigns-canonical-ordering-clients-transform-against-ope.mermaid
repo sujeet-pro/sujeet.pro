@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant O as Other Clients
+
+    C->>S: Op1 (based on rev 5)
+    Note over C: Buffer local ops
+    S->>S: Transform Op1 against rev 6,7
+    S->>C: Ack (rev 8 = transformed Op1)
+    S->>O: Broadcast Op1' (rev 8)
+    Note over C: Shift pending ops
+    C->>S: Op2 (based on rev 8)

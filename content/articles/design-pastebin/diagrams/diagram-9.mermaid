@@ -1,0 +1,36 @@
+graph TB
+    subgraph "CDN Edge"
+        CF["CloudFront"]
+    end
+
+    subgraph "VPC"
+        subgraph "Public Subnet"
+            ALB["Application Load Balancer"]
+        end
+
+        subgraph "Private Subnet — Compute"
+            ECS["ECS Cluster<br/>(API + Read Services)"]
+            WORKERS["Highlight Workers<br/>(Fargate Spot)"]
+        end
+
+        subgraph "Private Subnet — Data"
+            RDS[("RDS PostgreSQL<br/>(Multi-AZ)")]
+            REDIS[("ElastiCache Redis<br/>Cluster")]
+        end
+    end
+
+    subgraph "Storage"
+        S3["S3<br/>(Paste Content)"]
+    end
+
+    subgraph "Async"
+        SQS["SQS<br/>(Highlight Jobs)"]
+        LAMBDA["Lambda<br/>(Expiration Sweep)"]
+    end
+
+    CF --> ALB
+    CF --> S3
+    ALB --> ECS
+    ECS --> RDS & REDIS & S3 & SQS
+    WORKERS --> S3 & SQS
+    LAMBDA --> RDS & S3

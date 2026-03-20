@@ -1,0 +1,10 @@
+flowchart LR
+    subgraph "1. Expand"
+        A[Add new column<br/>full_name] --> B[Deploy: Write to<br/>BOTH columns]
+    end
+    subgraph "2. Migrate"
+        B --> C[Backfill old<br/>rows] --> D[Deploy: Read from<br/>new column]
+    end
+    subgraph "3. Contract"
+        D --> E[Deploy: Write to<br/>new column only] --> F[Drop first_name,<br/>last_name]
+    end

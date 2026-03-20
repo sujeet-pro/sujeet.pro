@@ -1,0 +1,22 @@
+flowchart TB
+    subgraph Producers
+        P1[Producer A]
+        P2[Producer B]
+    end
+
+    subgraph "Point-to-Point Queue"
+        Q[Queue]
+        P1 --> Q
+        P2 --> Q
+        Q --> C1[Consumer 1]
+        Q --> C2[Consumer 2]
+    end
+
+    subgraph "Pub/Sub Topic"
+        T[Topic]
+        P1 -.-> T
+        P2 -.-> T
+        T -.-> S1[Subscriber A]
+        T -.-> S2[Subscriber B]
+        T -.-> S3[Subscriber C]
+    end

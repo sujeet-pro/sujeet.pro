@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> parsed: navigator.serviceWorker.register()
+    parsed --> installing: install event fires
+    installing --> installed: install succeeds
+    installing --> redundant: install fails
+    installed --> activating: no existing active worker OR skipWaiting()
+    installed --> waiting: existing worker controls clients
+    waiting --> activating: all controlled clients close
+    activating --> activated: activate succeeds
+    activating --> redundant: activate fails
+    activated --> redundant: replaced by new worker
