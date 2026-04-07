@@ -45,13 +45,12 @@ export default function Listing(props: ListingLayoutProps) {
       >
         <Header site={site} slug={slug} />
         <main class="main-content main-narrow">
-          <h1>{frontmatter.title}</h1>
+          {content ? <div class="intro prose" innerHTML={content} /> : null}
           {totalItems > 0 ? (
             <p class="listing-stats">
               {totalItems} {pageType?.displayName?.toLowerCase() || "items"}
             </p>
           ) : null}
-          {content ? <div class="intro prose" innerHTML={content} /> : null}
           {unsorted.length > 0 ? (
             <ul class="article-list">
               {unsorted.map((a) => (
@@ -86,12 +85,11 @@ export default function Listing(props: ListingLayoutProps) {
               <TOC headings={tocHeadings} />
             </details>
           ) : null}
-          <h1>{frontmatter.title}</h1>
+          {content ? <div class="intro prose" innerHTML={content} /> : null}
           <p class="listing-stats">
             {totalItems} {pageType?.displayName?.toLowerCase() || "items"} across {series.length}{" "}
             {series.length === 1 ? "topic" : "topics"}
           </p>
-          {content ? <div class="intro prose" innerHTML={content} /> : null}
           <div class="category-listing">
             {series.map((s) => (
               <section class="category-section">
