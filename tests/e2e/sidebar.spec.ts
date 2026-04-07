@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
-const SECOND_SERIES_ARTICLE = "/articles/crp-dom-construction/";
 
 test.describe("Left sidebar — Desktop", () => {
   test.use({ viewport: { width: 1280, height: 720 } });

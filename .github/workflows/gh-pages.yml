@@ -25,9 +25,9 @@ jobs:
 
       - run: npx playwright install chromium --with-deps
 
-      - run: tsx scripts/diagrams.ts
+      - run: npm run diagrams
 
-      - run: tsx scripts/build.ts
+      - run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
         with:

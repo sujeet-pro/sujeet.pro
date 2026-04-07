@@ -13,7 +13,7 @@ export function initCopyCode(): void {
     const code = btn.getAttribute("data-code");
     if (!code) return;
 
-    navigator.clipboard.writeText(code).then(() => {
+    void navigator.clipboard.writeText(code).then(() => {
       btn.textContent = "Copied!";
       btn.setAttribute("data-copied", "");
       setTimeout(() => {
