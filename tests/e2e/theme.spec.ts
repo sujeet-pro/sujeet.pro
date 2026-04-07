@@ -92,7 +92,7 @@ test.describe("Theme — CSS variables", () => {
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
     );
-    expect(bg).toBe("#ffffff");
+    expect(bg).toMatch(/^#fff(fff)?$/);
   });
 
   test("dark theme uses dark background", async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe("Theme — CSS variables", () => {
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
     );
-    expect(bg).toBe("#111111");
+    expect(bg).toMatch(/^#111(111)?$/);
   });
 
   test("dark theme changes text color", async ({ page }) => {
@@ -114,7 +114,7 @@ test.describe("Theme — CSS variables", () => {
     const text = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue("--color-text").trim(),
     );
-    expect(text).toBe("#e5e5e5");
+    expect(text).toMatch(/^#e5e5e5$/);
   });
 });
 

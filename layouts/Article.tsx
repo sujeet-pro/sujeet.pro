@@ -11,6 +11,8 @@ export { ArticleLayoutPropsSchema as propsSchema } from "../schemas/layout-props
 
 export default function Article(props: ArticleLayoutProps) {
   const { content, frontmatter, headings, slug, site, pageType, seriesNav } = props;
+  const bp = site.basePath ?? "";
+  const qualifiedSlug = `${bp}/${slug}`;
   const filteredHeadings = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 
   return (
@@ -26,7 +28,7 @@ export default function Article(props: ArticleLayoutProps) {
       <div class={seriesNav ? "layout-three-col" : "layout-two-col"}>
         {seriesNav ? (
           <aside class="sidebar sidebar-left">
-            <ArticleNav seriesNav={seriesNav} currentSlug={slug} />
+            <ArticleNav seriesNav={seriesNav} currentSlug={qualifiedSlug} />
           </aside>
         ) : null}
         <div class="main-content">
@@ -36,7 +38,7 @@ export default function Article(props: ArticleLayoutProps) {
                 Articles
               </a>
               <ContentMeta frontmatter={frontmatter} />
-              {seriesNav ? <SeriesBlock seriesNav={seriesNav} currentSlug={slug} /> : null}
+              {seriesNav ? <SeriesBlock seriesNav={seriesNav} currentSlug={qualifiedSlug} /> : null}
               {filteredHeadings.length > 0 ? (
                 <details class="toc-mobile">
                   <summary>On this page</summary>

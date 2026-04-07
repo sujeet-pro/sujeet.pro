@@ -10,6 +10,8 @@ export { BlogLayoutPropsSchema as propsSchema } from "../schemas/layout-props";
 
 export default function Blog(props: BlogLayoutProps) {
   const { content, frontmatter, headings, slug, site, seriesNav } = props;
+  const bp = site.basePath ?? "";
+  const qualifiedSlug = `${bp}/${slug}`;
   const filtered = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 
   return (
@@ -29,7 +31,7 @@ export default function Blog(props: BlogLayoutProps) {
                 Blogs
               </a>
               <ContentMeta frontmatter={frontmatter} />
-              {seriesNav ? <SeriesBlock seriesNav={seriesNav} currentSlug={slug} /> : null}
+              {seriesNav ? <SeriesBlock seriesNav={seriesNav} currentSlug={qualifiedSlug} /> : null}
               {filtered.length > 0 ? (
                 <details class="toc-mobile">
                   <summary>On this page</summary>

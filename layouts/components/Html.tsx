@@ -161,6 +161,7 @@ export function Html({
         <input type="radio" id="theme-light" name="theme" class="sr-only" />
         <input type="radio" id="theme-dark" name="theme" class="sr-only" />
         {hasLeftSidebar ? <input type="checkbox" id="sidebar-toggle" class="sr-only" /> : null}
+        {hasLeftSidebar ? <label for="sidebar-toggle" class="sidebar-overlay" /> : null}
         {children}
         <script src={`${bp}/assets/main.js`} defer />
       </body>

@@ -10,16 +10,10 @@ export function initSidebar(): void {
   const toggle = document.getElementById("sidebar-toggle") as HTMLInputElement | null;
   if (!toggle) return;
 
-  const overlay = document.querySelector(".sidebar-overlay") as HTMLElement | null;
-
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && toggle.checked) {
       toggle.checked = false;
     }
-  });
-
-  overlay?.addEventListener("click", () => {
-    toggle.checked = false;
   });
 
   const mq = window.matchMedia("(min-width: 140ch)");
