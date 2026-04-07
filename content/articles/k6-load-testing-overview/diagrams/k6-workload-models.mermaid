@@ -1,0 +1,12 @@
+graph TD
+    subgraph Closed["Closed Model (VU-based)"]
+        C1["Input: Fixed VU Count"] --> C2["VUs iterate continuously"]
+        C2 --> C3["Output: Throughput"]
+        C3 --> CE["Executors:<br/>constant-vus, ramping-vus"]
+    end
+
+    subgraph Open["Open Model (Arrival-rate)"]
+        O1["Input: Fixed Request Rate"] --> O2["VUs auto-scaled to sustain rate"]
+        O2 --> O3["Output: VU Count"]
+        O3 --> OE["Executors:<br/>constant-arrival-rate,<br/>ramping-arrival-rate"]
+    end

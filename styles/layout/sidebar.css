@@ -16,3 +16,57 @@
   padding-left: 1rem;
   padding-right: 1.5rem;
 }
+
+/* ─── Left sidebar (Series navigation) ─── */
+.sidebar-left {
+  display: none;
+  padding-top: 2.5rem;
+  padding-bottom: 2rem;
+  padding-left: 1.5rem;
+  padding-right: 1rem;
+  position: sticky;
+  top: var(--header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ─── Sidebar overlay (mobile/tablet < 140ch) ─── */
+#sidebar-toggle {
+  display: none;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+}
+#sidebar-toggle:checked ~ .sidebar-overlay {
+  display: block;
+}
+.sidebar-modal {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  bottom: 0;
+  width: min(300px, 80vw);
+  background: var(--color-bg);
+  z-index: 201;
+  overflow-y: auto;
+  padding: 1.5rem;
+  transform: translateX(-100%);
+  transition: transform var(--transition-normal);
+}
+#sidebar-toggle:checked ~ .sidebar-modal,
+#sidebar-toggle:checked ~ * .sidebar-modal {
+  transform: translateX(0);
+}
+
+@media (min-width: 140ch) {
+  .sidebar-overlay,
+  .sidebar-modal {
+    display: none !important;
+  }
+}

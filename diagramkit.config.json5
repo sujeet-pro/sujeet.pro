@@ -1,0 +1,7 @@
+{
+  outputDir: ".diagramkit",
+  defaultFormats: ["svg"],
+  defaultTheme: "both",
+  sameFolder: true,
+  useManifest: true,
+}

@@ -6,12 +6,12 @@
  * keyboard shortcuts, TOC highlighting, and sidebar scroll-to-current.
  */
 
-import { initCopyCode, } from './copy-code'
-import { initSidebar, } from './sidebar'
-import { initTheme, } from './theme'
-import { initTocHighlight, } from './toc-highlight'
+import { initCopyCode } from "./copy-code";
+import { initSidebar } from "./sidebar";
+import { initTheme } from "./theme";
+import { initTocHighlight } from "./toc-highlight";
 
-initTheme()
-initSidebar()
-initTocHighlight()
-initCopyCode()
+initTheme();
+initSidebar();
+initTocHighlight();
+initCopyCode();

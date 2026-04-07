@@ -1,17 +1,16 @@
-import type { ProjectLayoutProps, } from '../schemas/layout-props'
-import { Fragment, h, } from '../src/jsx-runtime'
-import { ContentMeta, } from './components/ContentMeta'
-import { Footer, } from './components/Footer'
-import { Header, } from './components/Header'
-import { Html, } from './components/Html'
-import { SeriesBlock, } from './components/SeriesBlock'
-import { TOC, } from './components/TOC'
+import type { ProjectLayoutProps } from "../schemas/layout-props";
+import { ContentMeta } from "./components/ContentMeta";
+import { Footer } from "./components/Footer";
+import { Header } from "./components/Header";
+import { Html } from "./components/Html";
+import { SeriesBlock } from "./components/SeriesBlock";
+import { TOC } from "./components/TOC";
 
-export { ProjectLayoutPropsSchema as propsSchema, } from '../schemas/layout-props'
+export { ProjectLayoutPropsSchema as propsSchema } from "../schemas/layout-props";
 
-export default function Project(props: ProjectLayoutProps,) {
-  const { content, frontmatter, headings, slug, site, seriesNav, } = props
-  const filtered = headings.filter((h,) => h.depth >= 2 && h.depth <= 3)
+export default function Project(props: ProjectLayoutProps) {
+  const { content, frontmatter, headings, slug, site, seriesNav } = props;
+  const filtered = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 
   return (
     <Html
@@ -26,42 +25,38 @@ export default function Project(props: ProjectLayoutProps,) {
         <div class="main-content">
           <main>
             <article>
-              <a href="/projects" class="article-back">Projects</a>
+              <a href={`${site.basePath}/projects`} class="article-back">
+                Projects
+              </a>
               <ContentMeta frontmatter={frontmatter} />
               {seriesNav ? <SeriesBlock seriesNav={seriesNav} currentSlug={slug} /> : null}
-              {filtered.length > 0
-                ? (
-                  <details class="toc-mobile">
-                    <summary>On this page</summary>
-                    <TOC headings={headings} />
-                  </details>
-                )
-                : null}
+              {filtered.length > 0 ? (
+                <details class="toc-mobile">
+                  <summary>On this page</summary>
+                  <TOC headings={headings} />
+                </details>
+              ) : null}
               <div class="prose" innerHTML={content} />
-              {seriesNav
-                ? (
-                  <nav class="series-nav" aria-label="Series navigation">
-                    <div class="series-nav-inner">
-                      {seriesNav.prev
-                        ? (
-                          <a href={seriesNav.prev.url} class="series-nav-prev">
-                            <span class="series-nav-label">Previous</span>
-                            <span class="series-nav-title">{seriesNav.prev.title}</span>
-                          </a>
-                        )
-                        : <span />}
-                      {seriesNav.next
-                        ? (
-                          <a href={seriesNav.next.url} class="series-nav-next">
-                            <span class="series-nav-label">Next</span>
-                            <span class="series-nav-title">{seriesNav.next.title}</span>
-                          </a>
-                        )
-                        : null}
-                    </div>
-                  </nav>
-                )
-                : null}
+              {seriesNav ? (
+                <nav class="series-nav" aria-label="Series navigation">
+                  <div class="series-nav-inner">
+                    {seriesNav.prev ? (
+                      <a href={seriesNav.prev.url} class="series-nav-prev">
+                        <span class="series-nav-label">Previous</span>
+                        <span class="series-nav-title">{seriesNav.prev.title}</span>
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                    {seriesNav.next ? (
+                      <a href={seriesNav.next.url} class="series-nav-next">
+                        <span class="series-nav-label">Next</span>
+                        <span class="series-nav-title">{seriesNav.next.title}</span>
+                      </a>
+                    ) : null}
+                  </div>
+                </nav>
+              ) : null}
             </article>
           </main>
           <Footer site={site} />
@@ -71,5 +66,5 @@ export default function Project(props: ProjectLayoutProps,) {
         </aside>
       </div>
     </Html>
-  )
+  );
 }

@@ -1,0 +1,16 @@
+graph LR
+    subgraph K6["k6 Process"]
+        Script["JS Test Script"] --> Engine["Go Engine"]
+        Engine --> Sched["Goroutine Scheduler"]
+        Sched --> VU1["VU 1<br/>Sobek JS + Event Loop"]
+        Sched --> VU2["VU 2<br/>Sobek JS + Event Loop"]
+        Sched --> VUN["VU N<br/>Sobek JS + Event Loop"]
+    end
+
+    VU1 --> SUT["System Under Test"]
+    VU2 --> SUT
+    VUN --> SUT
+
+    SUT --> Metrics["Metrics Pipeline"]
+    Metrics --> Thresh["Threshold Evaluation"]
+    Thresh --> Result{"Pass / Fail"}

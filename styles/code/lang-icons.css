@@ -23,7 +23,10 @@
   color: var(--lang-text, #fff);
   font-size: 7.5px;
   font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   letter-spacing: -0.01em;
   line-height: 1;
   flex-shrink: 0;

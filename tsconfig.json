@@ -3,25 +3,28 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "jsx": "react",
-    "jsxFactory": "h",
-    "jsxFragmentFactory": "Fragment",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@pagesmith/core",
+    "types": ["node"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "#schemas/*": ["./schemas/*"],
+      "#lib/*": ["./lib/*"]
+    }
   },
   "include": [
     "scripts/**/*.ts",
     "layouts/**/*.tsx",
-    "src/**/*.ts",
-    "schemas/**/*.ts",
     "runtime/**/*.ts",
-    "pagesmith.config.ts"
+    "schemas/**/*.ts",
+    "lib/**/*.ts",
+    "pagesmith.config.ts",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "tests/**/*.ts"
   ],
   "exclude": ["dist", "node_modules"]
 }

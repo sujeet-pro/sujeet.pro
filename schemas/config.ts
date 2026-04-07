@@ -1,174 +1,87 @@
-import { z, } from 'zod'
+import { z } from "@pagesmith/core";
 
-// ── Navigation ──
-
-export const NavItemSchema = z.object({
+const NavItemSchema = z.object({
   path: z.string(),
   label: z.string(),
-},)
+});
 
-export type NavItem = z.infer<typeof NavItemSchema>
-
-// ── Social ──
-
-export const SocialLinkSchema = z.object({
+const SocialAccountSchema = z.object({
   handle: z.string(),
   url: z.string().url(),
-},)
+});
 
-export type SocialLink = z.infer<typeof SocialLinkSchema>
-
-// ── Markdown config ──
-
-export const MarkdownConfigSchema = z.object({
-  remarkPlugins: z.array(z.any(),).optional(),
-  rehypePlugins: z.array(z.any(),).optional(),
-  shiki: z
-    .object({
-      themes: z.object({
-        light: z.string(),
-        dark: z.string(),
-      },),
-      langAlias: z.record(z.string(), z.string(),).optional(),
-      defaultShowLineNumbers: z.boolean().optional(),
-    },)
-    .optional(),
-},)
-
-export type MarkdownConfig = z.infer<typeof MarkdownConfigSchema>
-
-// ── Content type definition (NEW) ──
-
-export const ContentTypeDefSchema = z.object({
-  urlPrefix: z.string(),
-  datasource: z.object({
-    markdown: z.boolean(),
-    json: z.boolean(),
-  },),
-  orderBy: z.enum(['manual', 'publishedDate',],),
-},)
-
-export type ContentTypeDef = z.infer<typeof ContentTypeDefSchema>
-
-// ── Singleton page (NEW) ──
-
-export const SingletonPageSchema = z.object({
-  url: z.string(),
-  layout: z.string(),
-  contentFile: z.string(),
-  datasource: z.string().optional(),
-},)
-
-export type SingletonPage = z.infer<typeof SingletonPageSchema>
-
-// ── CSS config (NEW) ──
-
-export const CssConfigSchema = z.object({
-  entries: z.array(z.string(),),
-  minify: z.boolean(),
-},)
-
-export type CssConfig = z.infer<typeof CssConfigSchema>
-
-// ── Generators config ──
-
-export const GeneratorsConfigSchema = z.object({
-  sitemap: z.boolean().optional(),
-  rss: z
-    .object({
-      enabled: z.boolean(),
-      maxItems: z.number().optional(),
-    },)
-    .optional(),
-  agents: z
-    .object({
-      enabled: z.boolean(),
-    },)
-    .optional(),
-},)
-
-export type GeneratorsConfig = z.infer<typeof GeneratorsConfigSchema>
-
-// ── Home page config ──
-
-export const HomeConfigSchema = z.object({
-  pageTitle: z.string(),
-  pageDescription: z.string(),
-  profile: z.object({
-    name: z.string(),
-    title: z.string(),
-    bio: z.string(),
-    imageAlt: z.string(),
-  },),
-  profileActions: z.record(z.string(), z.string(),),
-},)
-
-export type HomeConfig = z.infer<typeof HomeConfigSchema>
-
-// ── Full site config ──
-
-export const SiteConfigSchema = z.object({
-  // Site metadata
-  origin: z.string(),
+const ProfileSchema = z.object({
   name: z.string(),
   title: z.string(),
-  description: z.string(),
-  language: z.string(),
+  bio: z.string(),
+  imageAlt: z.string().optional(),
+});
 
-  // Build config
-  baseUrl: z.string(),
-  defaultLayout: z.string(),
-  styles: z.array(z.string(),),
-  markdown: MarkdownConfigSchema,
+const ProfileActionsSchema = z.object({
+  linkedin: z.string().optional(),
+  viewCv: z.string().optional(),
+  randomArticle: z.string().optional(),
+  allArticles: z.string().optional(),
+});
 
-  // Navigation
-  navItems: z.array(NavItemSchema,),
-  footerLinks: z.array(NavItemSchema,),
+const HomeConfigSchema = z.object({
+  pageTitle: z.string(),
+  pageDescription: z.string(),
+  profile: ProfileSchema,
+  profileActions: ProfileActionsSchema,
+});
 
-  // Social & copyright
-  social: z.object({
-    twitter: SocialLinkSchema,
-    github: SocialLinkSchema,
-    linkedin: SocialLinkSchema,
-  },),
-  copyright: z.object({
-    holder: z.string(),
-    startYear: z.number(),
-  },),
+export const SiteConfigSchema = z
+  .object({
+    origin: z.string().url(),
+    name: z.string(),
+    title: z.string(),
+    description: z.string(),
+    language: z.string().default("en-US"),
+    basePath: z
+      .string()
+      .default("/")
+      .transform((v) => {
+        const trimmed = v.replace(/\/+$/, "");
+        return trimmed === "" ? "" : trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+      }),
+    defaultLayout: z.string().default("Page"),
+    navItems: z.array(NavItemSchema),
+    footerLinks: z.array(NavItemSchema),
+    social: z.object({
+      twitter: SocialAccountSchema,
+      github: SocialAccountSchema,
+      linkedin: SocialAccountSchema,
+    }),
+    copyright: z.object({
+      holder: z.string(),
+      startYear: z.number(),
+    }),
+    featuredArticles: z.array(z.string()).default([]),
+    featuredSeries: z.array(z.string()).default([]),
+    pageTypes: z.array(z.string()).default([]),
+    analytics: z
+      .object({
+        googleAnalytics: z.string().optional(),
+      })
+      .optional(),
+    seo: z
+      .object({
+        locale: z.string().default("en_US"),
+        twitterHandle: z.string().optional(),
+        defaultOgType: z.string().default("website"),
+      })
+      .optional(),
+    theme: z
+      .object({
+        lightColor: z.string().default("#f8fafc"),
+        darkColor: z.string().default("#020617"),
+      })
+      .optional(),
+    home: HomeConfigSchema,
+    markdown: z.any().optional(),
+    css: z.any().optional(),
+  })
+  .passthrough();
 
-  // Featured content
-  featuredArticles: z.array(z.string(),),
-  featuredSeries: z.array(z.string(),),
-
-  // Page types
-  pageTypes: z.array(z.string(),),
-
-  // Home page config
-  home: HomeConfigSchema,
-
-  // Analytics
-  analytics: z.object({
-    googleAnalytics: z.string().optional(),
-  },).optional(),
-
-  // SEO
-  seo: z.object({
-    locale: z.string().optional(),
-    twitterHandle: z.string().optional(),
-    defaultOgType: z.string().optional(),
-  },).optional(),
-
-  // Theme colors
-  theme: z.object({
-    lightColor: z.string(),
-    darkColor: z.string(),
-  },).optional(),
-
-  // NEW optional fields for forward compatibility
-  contentTypes: z.record(z.string(), ContentTypeDefSchema,).optional(),
-  css: CssConfigSchema.optional(),
-  pages: z.array(SingletonPageSchema,).optional(),
-  generators: GeneratorsConfigSchema.optional(),
-},)
-
-export type SiteConfig = z.infer<typeof SiteConfigSchema>
+export type SiteConfig = z.infer<typeof SiteConfigSchema>;

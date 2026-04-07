@@ -1,0 +1,61 @@
+---
+description: Content authoring and management rules for sujeet.pro
+globs: ["content/**/*.md", "content/**/*.json5"]
+alwaysApply: false
+---
+
+# Content Rules
+
+This project is a personal engineering blog at sujeet.pro. When working with content files, follow these guidelines.
+
+## Guidelines
+
+Read the full guidelines before creating or editing content:
+
+- `ai-guidelines/content-structure.md` — Content types, frontmatter, layout rules, citations
+- `ai-guidelines/markdown.md` — Markdown features and syntax
+- `ai-guidelines/diagrams.md` — Diagram authoring with diagramkit
+- `ai-guidelines/packages.md` — @pagesmith/core and diagramkit reference
+
+## Quick Reference
+
+### Frontmatter (required for all content)
+
+```yaml
+---
+title: "Title"
+description: "One-line description"
+publishedDate: 2026-03-15
+lastUpdatedOn: 2026-03-20
+tags: [topic-a, topic-b]
+---
+```
+
+Do NOT set `layout` or `category` — resolved from `meta.json5`.
+
+### Content Types
+
+- Articles: `content/articles/<slug>/README.md` — deep-dive, citations required
+- Blogs: `content/blogs/<slug>/README.md` — shorter, personal
+- Projects: `content/projects/<slug>/README.md` — technical descriptions
+
+### Diagrams
+
+Write source files (`.mermaid`, `.excalidraw`, `.drawio`, `.dot`) in `<slug>/diagrams/`. Never generate SVG directly. Run `npm run diagrams` to render.
+
+Reference with:
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/name-dark.svg" />
+  <img src="./diagrams/name-light.svg" alt="Description" />
+</picture>
+```
+
+### Validation
+
+```bash
+npm run validate         # Check frontmatter
+npm run build            # Full build verification
+vp check                 # Format + lint
+```

@@ -9,7 +9,9 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   background-color: var(--color-header-bg);
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 .header-inner {
   width: 100%;
@@ -42,7 +44,8 @@
   transition: color var(--transition-fast);
   padding: 0.25rem 0;
 }
-.site-nav a:hover, .site-nav a.active {
+.site-nav a:hover,
+.site-nav a.active {
   color: var(--color-text);
 }
 
@@ -64,4 +67,16 @@
 .sidebar-toggle-label svg {
   width: 20px;
   height: 20px;
+}
+
+/* Show hamburger when page has a left sidebar */
+body:has(#sidebar-toggle) .sidebar-toggle-label {
+  display: flex;
+}
+
+/* Hide hamburger when sidebar is in-grid (≥ 140ch) */
+@media (min-width: 140ch) {
+  body:has(#sidebar-toggle) .sidebar-toggle-label {
+    display: none;
+  }
 }

@@ -46,6 +46,11 @@ CSSOM construction transforms CSS bytes into a queryable object model through a 
 
 ## The CSS Parsing Pipeline
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/css-parsing-pipeline-dark.svg" />
+  <img src="./diagrams/css-parsing-pipeline-light.svg" alt="CSS parsing pipeline from bytes through tokenization and parsing to CSSOM tree" />
+</picture>
+
 ### Stage 1: Tokenization
 
 The CSS tokenizer converts a stream of code points into tokens. The [W3C CSS Syntax Module Level 3](https://www.w3.org/TR/css-syntax-3/) defines this process:
@@ -172,6 +177,11 @@ The browser's choice: delay First Contentful Paint (FCP) until CSSOM completes r
 ## Interaction with JavaScript
 
 CSSOM construction creates a synchronization point between stylesheets and scripts. This happens because JavaScript can read computed styles.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/css-js-blocking-chain-dark.svg" />
+  <img src="./diagrams/css-js-blocking-chain-light.svg" alt="Sequence diagram showing how CSS blocks JavaScript execution in the critical rendering path" />
+</picture>
 
 ### Why Scripts Wait for CSSOM
 

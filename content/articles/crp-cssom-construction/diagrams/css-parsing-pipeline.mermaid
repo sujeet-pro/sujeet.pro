@@ -1,0 +1,11 @@
+graph TD
+    bytes["CSS Bytes"] --> encoding["Detect Encoding"]
+    encoding --> preprocess["Preprocess Code Points"]
+    preprocess --> tokenize["Tokenize via State Machine"]
+    tokenize --> tokens["Token Stream"]
+    tokens --> parse["Parse Tokens"]
+    parse --> atrules["At-Rules"]
+    parse --> qualified["Qualified Rules"]
+    atrules --> cssom["CSSOM Tree"]
+    qualified --> cssom
+    cssom --> api["CSSStyleSheet API"]

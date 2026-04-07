@@ -1,0 +1,44 @@
+---
+description: Toolchain and development workflow rules
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Toolchain
+
+## Commands
+
+| Task | Command |
+|------|---------|
+| Dev server | `npm run dev` |
+| Build | `npm run build` |
+| Preview | `npm run preview` |
+| Check (format + lint + types) | `vp check` |
+| Fix (format + lint) | `vp check --fix` |
+| Unit tests | `vp test` |
+| E2E tests | `npm run test:e2e` |
+| Render diagrams | `npm run diagrams` |
+| Validate content | `npm run validate` |
+
+## Tech Stack
+
+- Runtime: Node.js 24 (LTS), managed by Vite+
+- Script runner: tsx (TypeScript execution)
+- Bundler: esbuild (runtime JS)
+- Toolchain: Vite+ (`vp check`, `vp test`)
+- Content: @pagesmith/core (collections, markdown, JSX runtime)
+- Diagrams: diagramkit (Mermaid, Excalidraw, Draw.io, Graphviz)
+- JSX: `@pagesmith/core` custom runtime (no React) — `jsxImportSource: "@pagesmith/core"`
+- CSS: lightningcss via @pagesmith/core, light/dark via CSS variables
+- Testing: Vitest (unit) + Playwright (E2E)
+- CI/CD: GitHub Pages via `.github/workflows/gh-pages.yml`
+
+## Style
+
+- No semicolons (ASI)
+- Single quotes for TS, double quotes for JSX
+- Trailing commas
+- 2-space indent
+- Always parenthesise arrow function params
+
+See `.prettierrc.json` for formatting config.

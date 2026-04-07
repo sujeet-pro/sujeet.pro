@@ -17,6 +17,11 @@ Detecting when an element enters or leaves the viewport was historically done wi
 
 The Intersection Observer API solves this by letting the browser handle visibility detection asynchronously, calling your code only when intersections actually change.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/observer-lifecycle-dark.svg" />
+  <img src="./diagrams/observer-lifecycle-light.svg" alt="Intersection Observer lifecycle from creation through observation to cleanup" />
+</picture>
+
 ## Basic Usage
 
 ```js

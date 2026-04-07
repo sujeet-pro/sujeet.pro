@@ -6,20 +6,20 @@
  */
 
 export function initCopyCode(): void {
-  document.addEventListener('click', (e,) => {
-    const btn = (e.target as HTMLElement).closest('.code-copy-btn',) as HTMLElement | null
-    if (!btn) return
+  document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".code-copy-btn") as HTMLElement | null;
+    if (!btn) return;
 
-    const code = btn.getAttribute('data-code',)
-    if (!code) return
+    const code = btn.getAttribute("data-code");
+    if (!code) return;
 
-    navigator.clipboard.writeText(code,).then(() => {
-      btn.textContent = 'Copied!'
-      btn.setAttribute('data-copied', '',)
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = "Copied!";
+      btn.setAttribute("data-copied", "");
       setTimeout(() => {
-        btn.textContent = 'Copy'
-        btn.removeAttribute('data-copied',)
-      }, 2000,)
-    },)
-  },)
+        btn.textContent = "Copy";
+        btn.removeAttribute("data-copied");
+      }, 2000);
+    });
+  });
 }

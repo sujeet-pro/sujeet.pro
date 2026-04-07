@@ -59,7 +59,9 @@
   height: 40px;
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 .footer-social a:hover {
   color: var(--color-text);

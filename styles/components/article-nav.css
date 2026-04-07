@@ -1,1 +1,40 @@
-/* Article navigation styles removed — left sidebar replaced by 2-column layout */
+/* ─── Article navigation (left sidebar series list) ─── */
+.article-nav {
+  font-size: var(--font-size-sm);
+}
+.sidebar-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+.nav-articles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-left: 2px solid var(--color-border-subtle);
+  padding-left: 0;
+}
+.nav-articles li {
+  list-style: none;
+}
+.nav-articles li a {
+  display: block;
+  padding: 0.3rem 0 0.3rem 0.75rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  transition: color var(--transition-fast);
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+  line-height: 1.4;
+}
+.nav-articles li a:hover {
+  color: var(--color-text);
+}
+.nav-articles li.current a {
+  color: var(--color-text);
+  border-left-color: var(--color-accent);
+  font-weight: 500;
+}

@@ -103,6 +103,11 @@ k6 targets developers, QA engineers, SDETs, and SREs who share responsibility fo
 
 ## The Architectural Foundation: Go and Goroutines
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/k6-execution-architecture-dark.svg" />
+  <img src="./diagrams/k6-execution-architecture-light.svg" alt="k6 execution architecture showing Go engine, goroutine-based VU scheduler, Sobek JS runtimes, and metrics pipeline" />
+</picture>
+
 ### Performance through Efficiency: The Go Concurrency Model
 
 The performance and efficiency of a load generation tool are paramount, as the tool itself must not become the bottleneck in the system under test. The architectural foundation of k6 is the Go programming language, a choice that directly addresses the limitations of older, thread-heavy performance testing frameworks and provides the resource efficiency necessary for modern development practices.
@@ -217,6 +222,11 @@ Each property within the scenarios object defines a unique scenario that can:
 ### Executor Deep Dive: Open vs. Closed Models
 
 The behavior of each scenario is dictated by its assigned executor. k6 provides a variety of executors that can be broadly categorized into two fundamental workload models:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/k6-workload-models-dark.svg" />
+  <img src="./diagrams/k6-workload-models-light.svg" alt="Comparison of closed (VU-based) and open (arrival-rate) workload models with their respective executors" />
+</picture>
 
 <figure>
 

@@ -1,11 +1,11 @@
-import { build, } from '../src/build'
+import { renderSite } from "#lib/renderer";
 
-export { build, }
-
-if (import.meta.main) {
-  const parallel = process.argv.includes('--parallel',)
-  build({ parallel, },).catch((err,) => {
-    console.error(err,)
-    process.exit(1,)
-  },)
-}
+const start = performance.now();
+await renderSite({
+  outDir: "./dist",
+  contentDir: "./content",
+  layoutsDir: "./layouts",
+  publicDir: "./public",
+});
+const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+console.log(`Build complete in ${elapsed}s`);

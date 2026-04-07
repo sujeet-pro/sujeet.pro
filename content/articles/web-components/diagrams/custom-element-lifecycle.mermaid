@@ -1,0 +1,8 @@
+stateDiagram-v2
+    [*] --> Constructed: constructor()
+    Constructed --> Connected: connectedCallback()
+    Connected --> AttributeChanged: attributeChangedCallback()
+    AttributeChanged --> Connected: Update complete
+    Connected --> Disconnected: disconnectedCallback()
+    Disconnected --> Connected: Re-inserted into DOM
+    Disconnected --> [*]: Garbage collected

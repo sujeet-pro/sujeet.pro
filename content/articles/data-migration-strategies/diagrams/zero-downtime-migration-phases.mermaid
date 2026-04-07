@@ -1,0 +1,15 @@
+graph TD
+    start["Start Migration"] --> assess["Assess Schema Compatibility"]
+    assess --> dual["Enable Dual Writes"]
+    dual --> backfill["Backfill Historical Data"]
+    backfill --> validate["Validate and Reconcile"]
+    validate -->|"Mismatches"| fix["Fix Discrepancies"]
+    fix --> validate
+    validate -->|"Consistent"| shadow["Shadow Reads from New DB"]
+    shadow --> compare["Compare Read Results"]
+    compare -->|"Divergent"| investigate["Investigate and Fix"]
+    investigate --> shadow
+    compare -->|"Match"| cutover["Cutover: Switch Primary"]
+    cutover --> monitor["Monitor in Production"]
+    monitor -->|"Issues"| rollback["Rollback to Old DB"]
+    monitor -->|"Stable"| cleanup["Decommission Old DB"]

@@ -1,0 +1,16 @@
+graph TD
+    Host["Custom Element: my-card"] --> SR["Shadow Root"]
+    Host --> Light["Light DOM Children"]
+
+    SR --> CSS["Scoped Styles<br/>No leak in or out"]
+    SR --> Template["Internal Template"]
+    Template --> NamedSlot["Named Slot: title"]
+    Template --> DefaultSlot["Default Slot"]
+
+    Light --> UserTitle["User Title Content"]
+    Light --> UserBody["User Body Content"]
+
+    UserTitle -.->|"Projected"| NamedSlot
+    UserBody -.->|"Projected"| DefaultSlot
+
+    ExtCSS["External Page CSS"] -.->|"Blocked by<br/>shadow boundary"| SR

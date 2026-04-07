@@ -24,6 +24,11 @@ Designing load tests that inform capacity and reliability decisions.
 
 ## Outline
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/capacity-planning-workflow-dark.svg" />
+  <img src="./diagrams/capacity-planning-workflow-light.svg" alt="Capacity planning workflow from defining objectives through traffic modeling, test execution, bottleneck analysis, and final capacity plan" />
+</picture>
+
 1. Test objectives and hypotheses
 2. Traffic modeling and scenarios
 3. Infrastructure and data preparation

@@ -83,6 +83,11 @@ The architecture of libuv is elegantly constructed upon three primary abstractio
 
 #### The Two Modalities of Asynchronicity: Kernel Polling vs. Thread Pool Offloading
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/io-dual-strategy-dark.svg" />
+  <img src="./diagrams/io-dual-strategy-light.svg" alt="libuv I/O dual strategy showing network I/O via kernel polling versus file I/O and DNS via thread pool" />
+</picture>
+
 A deep analysis of libuv reveals a pragmatic dichotomy in its approach to asynchronicity, a design choice dictated not by preference but by the practical limitations of modern operating systems. The library employs two fundamentally different strategies to achieve its non-blocking behavior.
 
 **For network I/O**, libuv achieves true asynchronicity at the kernel level. All network operations are performed on non-blocking sockets, and the main event loop thread directly polls these sockets for readiness using the most efficient native mechanism available on the host platform. This allows a single thread to manage thousands of concurrent network connections with minimal overhead, as the thread only wakes up when there is actual work to be done.
@@ -177,6 +182,11 @@ The libuv event loop is not a simple First-In-First-Out (FIFO) queue. It is a so
 </figure>
 
 ### The Anatomy of a Single Loop Iteration
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/event-loop-phases-dark.svg" />
+  <img src="./diagrams/event-loop-phases-light.svg" alt="The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks" />
+</picture>
 
 Each full turn of the event loop, initiated by a call to uv_run(), proceeds through the following distinct stages:
 

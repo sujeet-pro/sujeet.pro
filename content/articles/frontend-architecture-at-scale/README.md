@@ -22,6 +22,11 @@ How large teams organize UI codebases, ownership, and release workflows.
 - Ownership models determine build and release speed
 - Cross-cutting concerns need shared contracts
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/domain-boundary-ownership-dark.svg" />
+  <img src="./diagrams/domain-boundary-ownership-light.svg" alt="Domain-driven frontend architecture with team boundaries and shared platform" />
+</picture>
+
 ## Outline
 
 1. Domain-driven UI boundaries

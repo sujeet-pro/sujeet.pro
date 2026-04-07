@@ -22,6 +22,11 @@ A decision guide for state boundaries, data ownership, and consistency.
 
 ## Outline
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/state-taxonomy-dark.svg" />
+  <img src="./diagrams/state-taxonomy-light.svg" alt="Frontend state taxonomy showing local, global, and server state categories with their characteristics and relationships" />
+</picture>
+
 1. State taxonomy and ownership
 2. Local vs global state boundaries
 3. Server state caching and invalidation

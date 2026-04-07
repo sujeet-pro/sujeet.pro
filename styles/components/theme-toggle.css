@@ -8,7 +8,9 @@
   color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 .theme-toggle-label:hover {
   color: var(--color-text);

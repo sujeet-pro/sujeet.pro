@@ -1,97 +1,109 @@
-import { z, } from 'zod'
-import { HeadingSchema, } from '../src/schemas/heading'
-import { SiteConfigSchema, } from './config'
-import {
-  ArticleSummarySchema,
-  PageMetaSchema,
-  PageTypeDataSchema,
-  SeriesDataSchema,
-  SeriesNavSchema,
-  TagPageDataSchema,
-} from './page-data'
+import { z, type Heading } from "@pagesmith/core";
+import type { SiteConfig } from "./config";
+import type { PageTypeData, SeriesNav, TagIndex } from "./page-data";
 
-// ── Base layout props (shared by all layouts) ──
+export type BaseLayoutProps = {
+  site: SiteConfig;
+};
+
+export type PageLayoutProps = {
+  content: string;
+  frontmatter: Record<string, any>;
+  headings: Heading[];
+  slug: string;
+  site: SiteConfig;
+};
+
+export type ArticleLayoutProps = {
+  content: string;
+  frontmatter: Record<string, any>;
+  headings: Heading[];
+  slug: string;
+  site: SiteConfig;
+  pageType: PageTypeData;
+  seriesNav?: SeriesNav;
+};
+
+export type BlogLayoutProps = {
+  content: string;
+  frontmatter: Record<string, any>;
+  headings: Heading[];
+  slug: string;
+  site: SiteConfig;
+  seriesNav?: SeriesNav;
+};
+
+export type ProjectLayoutProps = BlogLayoutProps;
+
+export type HomeLayoutProps = {
+  site: SiteConfig;
+  featuredArticles: { title: string; description?: string; url: string }[];
+  featuredSeries: {
+    slug: string;
+    displayName: string;
+    description?: string;
+    articles: { title: string; url: string }[];
+  }[];
+  stats: { totalArticles: number; totalSeries: number };
+};
+
+export type ListingLayoutProps = {
+  content: string;
+  frontmatter: Record<string, any>;
+  headings: Heading[];
+  slug: string;
+  site: SiteConfig;
+  pageType: PageTypeData;
+};
+
+export type TagIndexLayoutProps = {
+  frontmatter: Record<string, any>;
+  slug: string;
+  site: SiteConfig;
+  allTags: TagIndex;
+};
+
+export type TagListingLayoutProps = TagIndexLayoutProps;
 
 export const BaseLayoutPropsSchema = z.object({
+  site: z.any(),
+});
+
+export const PageLayoutPropsSchema = z.object({
   content: z.string(),
-  frontmatter: z.record(z.string(), z.any(),),
-  headings: z.array(HeadingSchema,),
+  frontmatter: z.record(z.string(), z.any()),
+  headings: z.array(z.any()),
   slug: z.string(),
-  site: SiteConfigSchema,
-},)
+  site: z.any(),
+});
 
-export type BaseLayoutProps = z.infer<typeof BaseLayoutPropsSchema>
+export const ArticleLayoutPropsSchema = PageLayoutPropsSchema.extend({
+  pageType: z.any(),
+  seriesNav: z.any().optional(),
+});
 
-// ── Article layout props ──
+export const BlogLayoutPropsSchema = PageLayoutPropsSchema.extend({
+  seriesNav: z.any().optional(),
+});
 
-export const ArticleLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  pages: z.array(PageMetaSchema,),
-  pageType: PageTypeDataSchema.optional(),
-  allTags: z.record(z.string(), TagPageDataSchema,).optional(),
-  seriesNav: SeriesNavSchema.optional(),
-},)
+export const ProjectLayoutPropsSchema = BlogLayoutPropsSchema;
 
-export type ArticleLayoutProps = z.infer<typeof ArticleLayoutPropsSchema>
+export const HomeLayoutPropsSchema = z.object({
+  site: z.any(),
+  featuredArticles: z.array(z.any()),
+  featuredSeries: z.array(z.any()),
+  stats: z.any(),
+});
 
-// ── Blog layout props ──
+export const ListingLayoutPropsSchema = PageLayoutPropsSchema.extend({
+  pageType: z.any(),
+});
 
-export const BlogLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  pages: z.array(PageMetaSchema,),
-  seriesNav: SeriesNavSchema.optional(),
-},)
+export const TagIndexLayoutPropsSchema = z.object({
+  frontmatter: z.record(z.string(), z.any()),
+  slug: z.string(),
+  site: z.any(),
+  allTags: z.any(),
+});
 
-export type BlogLayoutProps = z.infer<typeof BlogLayoutPropsSchema>
-
-// ── Project layout props ──
-
-export const ProjectLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  pages: z.array(PageMetaSchema,),
-  seriesNav: SeriesNavSchema.optional(),
-},)
-
-export type ProjectLayoutProps = z.infer<typeof ProjectLayoutPropsSchema>
-
-// ── Home layout props ──
-
-export const HomeLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  featuredArticles: z.array(ArticleSummarySchema,).optional(),
-  featuredSeries: z.array(SeriesDataSchema,).optional(),
-  stats: z.object({
-    totalArticles: z.number(),
-    totalSeries: z.number(),
-  },).optional(),
-},)
-
-export type HomeLayoutProps = z.infer<typeof HomeLayoutPropsSchema>
-
-// ── Page layout props ──
-
-export const PageLayoutPropsSchema = BaseLayoutPropsSchema
-
-export type PageLayoutProps = z.infer<typeof PageLayoutPropsSchema>
-
-// ── Listing layout props ──
-
-export const ListingLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  pageType: PageTypeDataSchema.optional(),
-},)
-
-export type ListingLayoutProps = z.infer<typeof ListingLayoutPropsSchema>
-
-// ── Tag index layout props ──
-
-export const TagIndexLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  allTags: z.record(z.string(), TagPageDataSchema,).optional(),
-  pages: z.array(PageMetaSchema,).optional(),
-},)
-
-export type TagIndexLayoutProps = z.infer<typeof TagIndexLayoutPropsSchema>
-
-// ── Tag listing layout props ──
-
-export const TagListingLayoutPropsSchema = BaseLayoutPropsSchema.extend({
-  allTags: z.record(z.string(), TagPageDataSchema,).optional(),
-  pages: z.array(PageMetaSchema,).optional(),
-},)
-
-export type TagListingLayoutProps = z.infer<typeof TagListingLayoutPropsSchema>
+export const TagListingLayoutPropsSchema = TagIndexLayoutPropsSchema;

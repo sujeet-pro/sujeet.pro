@@ -51,6 +51,11 @@ Custom element names must contain a hyphen (`-`). This prevents conflicts with c
 
 ## Shadow DOM
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/shadow-dom-encapsulation-dark.svg" />
+  <img src="./diagrams/shadow-dom-encapsulation-light.svg" alt="Shadow DOM encapsulation showing how shadow root isolates styles and how slots project light DOM content" />
+</picture>
+
 Shadow DOM creates an isolated DOM tree with its own scope for styles and markup. Styles inside the shadow root don't leak out; external styles don't leak in.
 
 ```js
@@ -128,6 +133,11 @@ Usage:
 Named slots (`slot="heading"`) project content to specific locations. The default (unnamed) slot catches everything else.
 
 ## Lifecycle Callbacks
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/custom-element-lifecycle-dark.svg" />
+  <img src="./diagrams/custom-element-lifecycle-light.svg" alt="Custom element lifecycle state diagram showing transitions between constructed, connected, attribute changed, and disconnected states" />
+</picture>
 
 Custom elements have four lifecycle methods:
 

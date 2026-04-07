@@ -1,0 +1,22 @@
+graph LR
+    subgraph Local["Local State"]
+        L1["Component-scoped"]
+        L2["Form inputs, toggles, UI"]
+        L3["useState / useReducer"]
+    end
+
+    subgraph Global["Global State"]
+        G1["App-wide shared"]
+        G2["Auth, theme, feature flags"]
+        G3["Redux / Zustand / Context"]
+    end
+
+    subgraph Server["Server State"]
+        S1["Remote data + cache"]
+        S2["API responses, user profiles"]
+        S3["React Query / SWR / Apollo"]
+    end
+
+    Local -->|"Shared access needed"| Global
+    Local -->|"Remote data needed"| Server
+    Server -->|"Cached locally"| Global

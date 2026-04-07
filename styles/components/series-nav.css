@@ -9,16 +9,20 @@
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
-.series-nav-prev, .series-nav-next {
+.series-nav-prev,
+.series-nav-next {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   padding: 1rem;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
-.series-nav-prev:hover, .series-nav-next:hover {
+.series-nav-prev:hover,
+.series-nav-next:hover {
   border-color: var(--color-border-hover);
   background: var(--color-bg-hover);
 }

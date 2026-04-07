@@ -21,6 +21,11 @@ Designing fast, reliable build and deployment pipelines.
 - Artifact integrity and provenance are critical
 - Fail-fast checks prevent expensive rebuilds
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/ci-cd-pipeline-stages-dark.svg" />
+  <img src="./diagrams/ci-cd-pipeline-stages-light.svg" alt="CI/CD pipeline stages from commit to production with quality gates" />
+</picture>
+
 ## Outline
 
 1. Pipeline stages and responsibilities

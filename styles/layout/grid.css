@@ -52,8 +52,10 @@
    ═══════════════════════════════════════════════════════════════ */
 .layout-two-col {
   display: grid;
-  grid-template-columns:
-    minmax(0, 1fr) minmax(0, var(--content-max)) minmax(var(--sidebar-width), 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--content-max)) minmax(
+      var(--sidebar-width),
+      1fr
+    );
   min-height: calc(100vh - var(--header-height));
 }
 
@@ -65,6 +67,43 @@
   grid-column: 3;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Three-column grid: [left sidebar] [content] [right sidebar]
+
+   Mobile-first: starts single-column, adds columns at breakpoints.
+   Left sidebar for series article navigation.
+   ═══════════════════════════════════════════════════════════════ */
+.layout-three-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100vh - var(--header-height));
+}
+
+/* ≥ 110ch: content + right sidebar */
+@media (min-width: 110ch) {
+  .layout-three-col {
+    grid-template-columns: minmax(0, 1fr) 30ch;
+  }
+}
+
+/* ≥ 140ch: left sidebar + content + right sidebar */
+@media (min-width: 140ch) {
+  .layout-three-col {
+    grid-template-columns: 30ch minmax(0, 1fr) 30ch;
+  }
+  .layout-three-col > .sidebar-left {
+    display: block;
+  }
+}
+
+/* ≥ 160ch: cap content width, center */
+@media (min-width: 160ch) {
+  .layout-three-col {
+    grid-template-columns: 30ch minmax(0, 100ch) 30ch;
+    justify-content: center;
+  }
+}
+
 /* ─── Mobile accordion (hidden when sidebar visible) ─── */
 .toc-mobile {
   display: none;
@@ -74,7 +113,8 @@
    Responsive: single column
    ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 110ch) {
-  .layout-two-col {
+  .layout-two-col,
+  .layout-three-col {
     display: block;
   }
   .sidebar-right {

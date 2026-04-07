@@ -1,14 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bun run build)",
-      "Bash(bun run dev)",
-      "Bash(bun run diagrams*)",
-      "Bash(bun run validate)",
-      "Bash(bun run check-orphans)",
-      "Bash(bun run preview)",
-      "Bash(bun run sitemap)",
-      "Bash(bun scripts/*)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npm run preview)",
+      "Bash(npm run diagrams*)",
+      "Bash(npm run validate)",
+      "Bash(npm run check-orphans)",
+      "Bash(tsx scripts/*)",
+      "Bash(vp check*)",
+      "Bash(vp test*)",
+      "Bash(vp staged*)",
+      "Bash(vp config*)",
+      "Bash(vp install*)",
+      "Bash(npm install*)",
+      "Bash(npx *)",
       "Bash(ls *)",
       "Bash(find content/*)",
       "Bash(wc *)"

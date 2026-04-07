@@ -22,6 +22,11 @@ Patterns for moving data without disrupting production systems.
 - Cutovers require observability and rollback plans
 - Schema compatibility is the biggest hidden risk
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/zero-downtime-migration-phases-dark.svg" />
+  <img src="./diagrams/zero-downtime-migration-phases-light.svg" alt="Zero-downtime data migration phases from dual writes through cutover" />
+</picture>
+
 ## Outline
 
 1. Migration goals and risk assessment

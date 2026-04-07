@@ -1,0 +1,18 @@
+graph TD
+    push["Push / Pull Request"] --> lint["Lint and Type Check"]
+    lint --> gate1{"Pass?"}
+    gate1 -->|"No"| stop1["Fail Fast: Stop"]
+    gate1 -->|"Yes"| build["Compile and Bundle"]
+    build --> artifacts["Cache Build Artifacts"]
+    artifacts --> tests["Unit and Integration Tests"]
+    tests --> gate2{"Pass?"}
+    gate2 -->|"No"| stop2["Stop and Notify"]
+    gate2 -->|"Yes"| security["SAST and Dependency Audit"]
+    security --> gate3{"Pass?"}
+    gate3 -->|"No"| stop3["Block and Alert"]
+    gate3 -->|"Yes"| staging["Deploy to Staging"]
+    staging --> smoke["Smoke Tests"]
+    smoke --> gate4{"Pass?"}
+    gate4 -->|"No"| rollback["Rollback Staging"]
+    gate4 -->|"Yes"| prod["Deploy to Production"]
+    prod --> monitor["Monitor and Observe"]

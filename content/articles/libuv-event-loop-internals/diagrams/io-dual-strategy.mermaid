@@ -1,0 +1,11 @@
+graph TD
+    App["Application Code"] --> IOType{"I/O Type?"}
+
+    IOType -->|"Network I/O<br/>(TCP, UDP)"| NB["Non-blocking Sockets"]
+    NB --> Poll["Kernel Polling<br/>epoll / kqueue / IOCP"]
+    Poll --> ELT1["Callback on<br/>Event Loop Thread"]
+
+    IOType -->|"File I/O, DNS"| WQ["Work Queue"]
+    WQ --> TP["Thread Pool<br/>Default: 4 workers, max 1024"]
+    TP --> Block["Blocking syscall<br/>on worker thread"]
+    Block --> ELT2["Callback on<br/>Event Loop Thread"]

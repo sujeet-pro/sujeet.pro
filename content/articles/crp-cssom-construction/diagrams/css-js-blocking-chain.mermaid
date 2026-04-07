@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant HP as HTML Parser
+    participant Net as Network
+    participant CSS as CSS Engine
+    participant JS as JS Engine
+
+    HP->>Net: Discover link rel=stylesheet
+    HP->>HP: Continue parsing HTML
+    Net-->>CSS: CSS bytes arrive
+    CSS->>CSS: Tokenize and parse CSS
+    HP->>HP: Encounter script tag
+    Note over HP: Parser pauses
+    HP->>Net: Request script
+    Net-->>JS: Script ready
+    Note over JS: Blocked: CSSOM not complete
+    CSS->>CSS: Finish building CSSOM
+    CSS-->>JS: CSSOM ready
+    JS->>JS: Execute script
+    Note over JS: Can call getComputedStyle()
+    JS-->>HP: Script complete
+    HP->>HP: Resume parsing

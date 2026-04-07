@@ -1,0 +1,36 @@
+graph TD
+    subgraph shell["App Shell"]
+        router["Router and Navigation"]
+        auth["Auth Context"]
+    end
+
+    subgraph platform["Platform Team"]
+        ds["Design System"]
+        libs["Shared Libraries"]
+        cicd["Build and CI/CD"]
+    end
+
+    subgraph teamA["Team A: Catalog"]
+        catUI["Catalog Pages"]
+        catAPI["Catalog API Client"]
+    end
+
+    subgraph teamB["Team B: Checkout"]
+        chkUI["Checkout Flow"]
+        chkAPI["Checkout API Client"]
+    end
+
+    subgraph teamC["Team C: Account"]
+        accUI["Account Pages"]
+        accAPI["Account API Client"]
+    end
+
+    router --> catUI
+    router --> chkUI
+    router --> accUI
+    ds --> catUI
+    ds --> chkUI
+    ds --> accUI
+    libs --> catAPI
+    libs --> chkAPI
+    libs --> accAPI
