@@ -42,42 +42,46 @@ test.describe("TOC — Desktop", () => {
     await firstTocLink.click();
     await page.waitForTimeout(500);
 
-    const heading = page.locator(`#${CSS.escape(targetId)}`);
+    const heading = page.locator(`[id="${targetId}"]`);
     await expect(heading).toBeInViewport();
   });
 
   test("active TOC item highlights on scroll", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     const tocItems = page.locator(".sidebar-right .toc-item");
     const secondLink = tocItems.nth(1).locator("a");
     const href = await secondLink.getAttribute("href");
     const targetId = href!.replace("#", "");
 
-    await page.locator(`#${CSS.escape(targetId)}`).scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-
-    await expect(tocItems.nth(1)).toHaveClass(/active/);
+    await page.evaluate(
+      (id) => document.getElementById(id)?.scrollIntoView({ block: "start" }),
+      targetId,
+    );
+    await expect(tocItems.nth(1)).toHaveClass(/active/, { timeout: 5000 });
   });
 
   test("active item changes when scrolling to different section", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
+    await page.waitForTimeout(1000);
     const tocItems = page.locator(".sidebar-right .toc-item");
     const count = await tocItems.count();
     if (count < 3) return;
 
-    const secondLink = tocItems.nth(1).locator("a");
-    const secondHref = await secondLink.getAttribute("href");
-    await page.locator(`#${CSS.escape(secondHref!.replace("#", ""))}`).scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-    await expect(tocItems.nth(1)).toHaveClass(/active/);
+    const secondId = await tocItems.nth(1).locator("a").getAttribute("href");
+    await page.evaluate(
+      (id) => document.getElementById(id)?.scrollIntoView({ block: "start" }),
+      secondId!.replace("#", ""),
+    );
+    await expect(tocItems.nth(1)).toHaveClass(/active/, { timeout: 5000 });
 
-    const thirdLink = tocItems.nth(2).locator("a");
-    const thirdHref = await thirdLink.getAttribute("href");
-    await page.locator(`#${CSS.escape(thirdHref!.replace("#", ""))}`).scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-    await expect(tocItems.nth(2)).toHaveClass(/active/);
+    const thirdId = await tocItems.nth(2).locator("a").getAttribute("href");
+    await page.evaluate(
+      (id) => document.getElementById(id)?.scrollIntoView({ block: "start" }),
+      thirdId!.replace("#", ""),
+    );
+    await expect(tocItems.nth(2)).toHaveClass(/active/, { timeout: 5000 });
   });
 
   test("TOC NOT visible on home page", async ({ page }) => {
@@ -123,7 +127,7 @@ test.describe("TOC — Articles listing page", () => {
     await tocLink.click();
     await page.waitForTimeout(500);
 
-    const section = page.locator(`#${CSS.escape(targetId)}`);
+    const section = page.locator(`[id="${targetId}"]`);
     await expect(section).toBeInViewport();
   });
 });

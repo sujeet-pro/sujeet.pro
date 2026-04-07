@@ -107,8 +107,7 @@ test.describe("Left sidebar — Tablet", () => {
     await page.locator(".sidebar-toggle-label").click();
     await expect(page.locator(".sidebar-left")).toBeVisible();
 
-    const toggle = page.locator("#sidebar-toggle");
-    await toggle.uncheck({ force: true });
+    await page.locator(".sidebar-overlay").click();
     await expect(page.locator(".sidebar-left")).not.toBeVisible();
   });
 
