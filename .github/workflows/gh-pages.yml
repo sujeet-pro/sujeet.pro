@@ -23,11 +23,7 @@ jobs:
 
       - run: vp install
 
-      - run: npx playwright install chromium --with-deps
-
-      - run: npm run diagrams
-
-      - run: npm run build
+      - run: npx tsx scripts/build.ts
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -18,8 +18,8 @@
     "test:e2e": "npx playwright test"
   },
   "dependencies": {
-    "@pagesmith/core": "file:../pagesmith/packages/core",
-    "diagramkit": "file:../diagramkit",
+    "@pagesmith/core": "^0.4.2",
+    "diagramkit": "^0.1.0",
     "json5": "^2.2.3"
   },
   "devDependencies": {
