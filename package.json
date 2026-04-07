@@ -33,5 +33,6 @@
     "vite-plus": "latest",
     "vitest": "^4.1.2",
     "ws": "^8.18.0"
-  }
+  },
+  "packageManager": "npm@11.12.1"
 }
