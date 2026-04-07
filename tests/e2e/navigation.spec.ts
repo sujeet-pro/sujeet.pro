@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { withBase } from "./helpers";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 const BLOG_SLUG = "/blogs/chrome-developer-setup/";
@@ -55,7 +56,7 @@ test.describe("Article page", () => {
     await page.goto(SERIES_ARTICLE);
     const back = page.locator(".article-back");
     await expect(back).toBeVisible();
-    await expect(back).toHaveAttribute("href", "/articles");
+    await expect(back).toHaveAttribute("href", withBase("/articles"));
   });
 
   test("shows series block for series articles", async ({ page }) => {
@@ -109,7 +110,9 @@ test.describe("Tags", () => {
 test.describe("404 page", () => {
   test("renders for unknown routes", async ({ page }) => {
     const response = await page.goto("/this-page-does-not-exist/");
-    expect(response?.status()).toBe(404);
+    if (!process.env.DEPLOYED_URL) {
+      expect(response?.status()).toBe(404);
+    }
     await expect(page.locator(".not-found")).toBeVisible();
     await expect(page.locator(".not-found-code")).toHaveText("404");
     await expect(page.locator(".not-found-title")).toHaveText("Page Not Found");
@@ -117,8 +120,11 @@ test.describe("404 page", () => {
 
   test("has navigation actions", async ({ page }) => {
     await page.goto("/this-page-does-not-exist/");
-    await expect(page.locator(".not-found-btn-primary")).toHaveAttribute("href", "/articles");
-    await expect(page.locator(".not-found-btn-outline")).toHaveAttribute("href", "/");
+    await expect(page.locator(".not-found-btn-primary")).toHaveAttribute(
+      "href",
+      withBase("/articles"),
+    );
+    await expect(page.locator(".not-found-btn-outline")).toHaveAttribute("href", withBase("/"));
   });
 });
 
@@ -127,7 +133,7 @@ test.describe("Header navigation", () => {
     await page.goto("/articles/");
     const logo = page.locator(".site-logo");
     await expect(logo).toBeVisible();
-    await expect(logo).toHaveAttribute("href", "/");
+    await expect(logo).toHaveAttribute("href", withBase("/"));
   });
 
   test("nav links are present and work", async ({ page }) => {
@@ -135,20 +141,22 @@ test.describe("Header navigation", () => {
     const nav = page.locator(".site-nav");
     await expect(nav.locator("a")).toHaveCount(3);
 
-    await expect(nav.locator('a[href="/articles"]')).toHaveText("Articles");
-    await expect(nav.locator('a[href="/blogs"]')).toHaveText("Blogs");
-    await expect(nav.locator('a[href="/projects"]')).toHaveText("Projects");
+    await expect(nav.locator(`a[href="${withBase("/articles")}"]`)).toHaveText("Articles");
+    await expect(nav.locator(`a[href="${withBase("/blogs")}"]`)).toHaveText("Blogs");
+    await expect(nav.locator(`a[href="${withBase("/projects")}"]`)).toHaveText("Projects");
   });
 
   test("clicking Articles nav goes to articles listing", async ({ page }) => {
     await page.goto("/");
-    await page.locator('.site-nav a[href="/articles"]').click();
+    await page.locator(`.site-nav a[href="${withBase("/articles")}"]`).click();
     await expect(page).toHaveURL(/\/articles\/?$/);
   });
 
   test("active nav link is highlighted", async ({ page }) => {
     await page.goto("/articles/");
-    await expect(page.locator('.site-nav a[href="/articles"]')).toHaveClass(/active/);
+    await expect(page.locator(`.site-nav a[href="${withBase("/articles")}"]`)).toHaveClass(
+      /active/,
+    );
   });
 });
 

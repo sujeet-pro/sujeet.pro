@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const deployedUrl = process.env.DEPLOYED_URL;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:4000",
+    baseURL: deployedUrl || "http://localhost:4000",
     trace: "on-first-retry",
   },
   projects: [
@@ -16,9 +18,11 @@ export default defineConfig({
     { name: "tablet", use: { viewport: { width: 900, height: 1024 } } },
     { name: "mobile", use: { ...devices["iPhone 13"] } },
   ],
-  webServer: {
-    command: "tsx scripts/preview.ts",
-    url: "http://localhost:4000",
-    reuseExistingServer: !process.env.CI,
-  },
+  ...(!deployedUrl && {
+    webServer: {
+      command: "tsx scripts/preview.ts",
+      url: "http://localhost:4000",
+      reuseExistingServer: !process.env.CI,
+    },
+  }),
 });
