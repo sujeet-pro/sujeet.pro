@@ -63,7 +63,7 @@ Comparing arbitrary trees is O(n³). React uses two heuristics to achieve O(n):
 1. **Different element types produce different trees.** Changing `<div>` to `<span>` unmounts the entire subtree and rebuilds from scratch.
 2. **Keys identify stable children.** Without keys, React matches children by position—reordering causes unnecessary unmount/remount cycles.
 
-```tsx title="Key behavior" {5}
+```tsx title="Key behavior" mark={5}
 // Without keys: inserting at index 0 remounts ALL items
 <ul>
   {items.map(item => <li>{item.name}</li>)}
@@ -135,7 +135,7 @@ function Dashboard() {
 
 **Custom comparison:** For deep comparisons, pass a second argument:
 
-```tsx title="Custom comparison" {3-7}
+```tsx title="Custom comparison" mark={3-7}
 const Chart = memo(
   function Chart({ dataPoints }: { dataPoints: Point[] }) {
     /* ... */
@@ -175,7 +175,7 @@ function TodoList({ todos, filter }: { todos: Todo[]; filter: string }) {
 
 **Dependency comparison:** React uses `Object.is` on each dependency. If you create a new object in the component body and use it as a dependency, `useMemo` recalculates every render—defeating its purpose.
 
-```tsx title="Dependency trap" {4-5,8-9}
+```tsx title="Dependency trap" mark={4-5,8-9}
 function Search({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("")
 
@@ -192,7 +192,7 @@ function Search({ items }: { items: Item[] }) {
 
 **Fix:** Move the object creation inside `useMemo`, or memoize the options object separately:
 
-```tsx title="Fixed dependency" {4-5}
+```tsx title="Fixed dependency" mark={4-5}
 function Search({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("")
 
@@ -231,7 +231,7 @@ function Parent() {
 
 **Common mistake—stale closures:**
 
-```tsx title="Stale closure trap" {3-5,8-10}
+```tsx title="Stale closure trap" mark={3-5,8-10}
 function Counter() {
   const [count, setCount] = useState(0)
 
@@ -325,7 +325,7 @@ function TabContainer() {
 
 **Critical limitation:** Don't use transitions for controlled input state. The input value must update synchronously for the input to feel responsive:
 
-```tsx title="Transition limitation" {4-5,9-10}
+```tsx title="Transition limitation" mark={4-5,9-10}
 function SearchForm() {
   const [query, setQuery] = useState("")
 
@@ -414,7 +414,7 @@ function ProfileDetails({ userId }) {
 
 **Transitions + Suspense:** Without a transition, suspending hides already-shown content and shows the fallback. With a transition, React keeps showing the current content until the new content is ready:
 
-```tsx title="Transition preserves visible content" {4-6}
+```tsx title="Transition preserves visible content" mark={4-6}
 function Router() {
   const [page, setPage] = useState("/")
 

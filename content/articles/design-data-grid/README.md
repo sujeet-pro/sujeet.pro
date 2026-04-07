@@ -506,7 +506,7 @@ react-window exposes `overscanCount` prop. MUI DataGrid uses `rowBuffer` and `co
 
 Client-side sorting is straightforward but blocks the main thread:
 
-```ts title="Sort blocking the main thread" {3-5}
+```ts title="Sort blocking the main thread" mark={3-5}
 // Naive: Blocks UI during sort
 function sortRows(rows: Row[], sortKey: string, direction: "asc" | "desc") {
   return [...rows].sort((a, b) => {

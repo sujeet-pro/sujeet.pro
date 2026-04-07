@@ -78,7 +78,7 @@ Radix UI, Headless UI, and Chakra UI all use this pattern. The alternative—a s
 
 Components should support both controlled and uncontrolled modes. Controlled components receive state externally via props:
 
-```tsx title="Controlled input" {3,5}
+```tsx title="Controlled input" mark={3,5}
 function ControlledExample() {
   const [value, setValue] = useState("")
 
@@ -88,7 +88,7 @@ function ControlledExample() {
 
 Uncontrolled components manage state internally:
 
-```tsx title="Uncontrolled input" {3}
+```tsx title="Uncontrolled input" mark={3}
 function UncontrolledExample() {
   const inputRef = useRef<HTMLInputElement>(null)
 

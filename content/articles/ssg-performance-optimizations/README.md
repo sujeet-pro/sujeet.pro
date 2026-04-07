@@ -184,10 +184,8 @@ For sophisticated rollback and A/B testing scenarios, Lambda@Edge functions rout
 **Why Lambda@Edge over CloudFront Functions?** This pattern requires modifying the origin request after cache miss—CloudFront Functions can only modify viewer request/response and cannot change origin domain or path dynamically.
 
 <figure>
-
-![SSG CloudFront Architecture with Build Version Management](./assets/ssg-cloudfront-arch.inline.svg)
-
-<figcaption>Architecture diagram showing SSG deployment with CloudFront and build version management for zero-downtime deployments</figcaption>
+  <img src="./assets/ssg-cloudfront-arch.inline.svg" alt="SSG CloudFront Architecture with Build Version Management" />
+  <figcaption>Architecture diagram showing SSG deployment with CloudFront and build version management for zero-downtime deployments</figcaption>
 </figure>
 
 **S3 Bucket Structure:**
@@ -216,11 +214,8 @@ S3 Bucket
 Add a custom origin header in CloudFront's origin configuration that is always updated with the new release post syncing all files to S3. This header contains the current build version.
 
 <figure>
-
-![Adding Build Version Header in CloudFront](./assets/add-build-version.jpg)
-
-<figcaption>Screenshot showing CloudFront configuration for adding build version headers to enable dynamic routing</figcaption>
-
+  <img src="./assets/add-build-version.jpg" alt="Adding Build Version Header in CloudFront" />
+  <figcaption>Screenshot showing CloudFront configuration for adding build version headers to enable dynamic routing</figcaption>
 </figure>
 
 **Lambda@Edge Function:**

@@ -95,11 +95,8 @@ The parser maintains two critical data structures:
 ```
 
 <figure>
-
-![DOM Construction Example](./assets/dom-construction-example.invert.png)
-
-<figcaption>DOM tree construction from HTML parsing: each element becomes a node with parent-child relationships preserved.</figcaption>
-
+  <img src="./assets/dom-construction-example.invert.png" alt="DOM Construction Example" />
+  <figcaption>DOM tree construction from HTML parsing: each element becomes a node with parent-child relationships preserved.</figcaption>
 </figure>
 
 ## HTML5 Error Recovery
@@ -244,10 +241,8 @@ The browser must wait for CSS to finish to build the CSSOM, so it can safely exe
 ## JavaScript Loading Strategies
 
 <figure>
-
-![Async, Defer, Module Diagram](./assets/asyncdefer.inline.svg)
-
-<figcaption>Timeline comparison: default scripts block parsing; async/defer enable parallel download.</figcaption>
+  <img src="./assets/asyncdefer.inline.svg" alt="Async, Defer, Module Diagram" />
+  <figcaption>Timeline comparison: default scripts block parsing; async/defer enable parallel download.</figcaption>
 </figure>
 
 ### Default (Parser-Blocking)

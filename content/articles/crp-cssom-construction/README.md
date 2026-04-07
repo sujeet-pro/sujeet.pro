@@ -19,10 +19,8 @@ tags:
 The **CSS Object Model (CSSOM)** is the browser engine's internal representation of all CSS rules—a tree structure of stylesheets, rule objects, and declaration blocks. Unlike [DOM construction](../crp-dom-construction/README.md), which is incremental, CSSOM construction must complete entirely before rendering can proceed. This render-blocking behavior exists because the CSS cascade requires the full rule set to resolve which declarations win.
 
 <figure>
-
-![CSSOM Construction](./assets/cssom-construction.inline.svg)
-
-<figcaption>CSSOM tree structure: CSSStyleSheet objects contain ordered lists of CSSRule objects. The browser must process all rules before computing styles because later rules can override earlier ones via the cascade.</figcaption>
+  <img src="./assets/cssom-construction.inline.svg" alt="CSSOM Construction" />
+  <figcaption>CSSOM tree structure: CSSStyleSheet objects contain ordered lists of CSSRule objects. The browser must process all rules before computing styles because later rules can override earlier ones via the cascade.</figcaption>
 </figure>
 
 ## Abstract

@@ -125,7 +125,7 @@ Cassandra warns at 100 MB partitions and begins to degrade significantly as part
 
 Discord introduced a **bucket** — a static 10-day time window — as part of the partition key:
 
-```sql title="Bucketed Cassandra Schema" {3}
+```sql title="Bucketed Cassandra Schema" mark={3}
 CREATE TABLE messages (
   channel_id bigint,
   bucket int,

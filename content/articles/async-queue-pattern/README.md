@@ -85,11 +85,11 @@ In-memory queues throttle async operations within a single process—useful for 
 
 **Naive implementation** (for understanding the pattern):
 
-```ts file=./2025-01-24-code-sample.ts collapse={1-1, 45-95, 97-114}
+```ts title="2025-01-24-code-sample.ts" collapse={1-1, 45-95, 97-114}
 
 ```
 
-> **Note**: This uses [`Promise.withResolvers()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/withResolvers) (Baseline 2024).
+> **Note**: This uses [Promise.withResolvers()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/withResolvers) (Baseline 2024).
 
 **Critical limitations of in-memory queues:**
 

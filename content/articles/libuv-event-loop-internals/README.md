@@ -19,10 +19,8 @@ tags:
 Explore libuv's event loop architecture, asynchronous I/O capabilities, thread pool management, and how it enables Node.js's non-blocking, event-driven programming model.
 
 <figure>
-
-![Libuv Design Overview from libuv.org](./assets/libuv-architecture.webp)
-
-<figcaption>Libuv architecture diagram showing the core components and their relationships in the cross-platform I/O library</figcaption>
+  <img src="./assets/libuv-architecture.webp" alt="Libuv Design Overview from libuv.org" />
+  <figcaption>Libuv architecture diagram showing the core components and their relationships in the cross-platform I/O library</figcaption>
 
 </figure>
 
@@ -174,10 +172,8 @@ It is critical to reiterate that network I/O (e.g., TCP, UDP operations) is not 
 The libuv event loop is not a simple First-In-First-Out (FIFO) queue. It is a sophisticated, multi-phase process that executes different categories of callbacks in a specific, predictable order within each iteration, or "tick," of the loop ([libuv design docs](https://docs.libuv.org/en/v1.x/design.html)). A granular understanding of these phases is essential for comprehending the execution order of asynchronous operations and for debugging complex timing-related issues.
 
 <figure>
-
-![Async Operations Slide by Bert Belder at Node Interactive - 2016](./assets/async-operations.jpg)
-
-<figcaption>Async operations diagram showing how libuv handles non-blocking I/O operations through the event loop</figcaption>
+  <img src="./assets/async-operations.jpg" alt="Async Operations Slide by Bert Belder at Node Interactive - 2016" />
+  <figcaption>Async operations diagram showing how libuv handles non-blocking I/O operations through the event loop</figcaption>
 
 </figure>
 
@@ -321,10 +317,8 @@ The primary architectural achievement of libuv is its ability to present a clean
 | Threading Model     | Single or multiple threads can call epoll_pwait on the same epoll fd | Single or multiple threads can call kevent                      | Designed for a pool of worker threads to service completion packets |
 
 <figure>
-
-![Loop Iteration from libuv.org](./assets/loop_iteration.webp)
-
-<figcaption>Detailed view of a single libuv event loop iteration showing the sequence of phases and their execution order</figcaption>
+  <img src="./assets/loop_iteration.webp" alt="Loop Iteration from libuv.org" />
+  <figcaption>Detailed view of a single libuv event loop iteration showing the sequence of phases and their execution order</figcaption>
 
 </figure>
 

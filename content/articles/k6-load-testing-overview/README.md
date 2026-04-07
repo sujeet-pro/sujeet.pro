@@ -94,11 +94,8 @@ k6 represents a paradigmatic shift in performance testing, engineered from first
 k6 targets developers, QA engineers, SDETs, and SREs who share responsibility for system performance. Its "Everything as code" approach enables test scripts to be version-controlled in Git, subjected to peer review, and seamlessly integrated into automated workflows—enabling "shift-left" testing that embeds performance validation early in the development process.
 
 <figure>
-
-![Performance Testing Patterns Overview](./assets/smoke-test.png)
-
-<figcaption>Overview of different performance testing patterns including smoke, load, stress, soak, and spike testing methodologies</figcaption>
-
+  <img src="./assets/smoke-test.png" alt="Performance Testing Patterns Overview" />
+  <figcaption>Overview of different performance testing patterns including smoke, load, stress, soak, and spike testing methodologies</figcaption>
 </figure>
 
 ## The Architectural Foundation: Go and Goroutines
@@ -229,11 +226,8 @@ The behavior of each scenario is dictated by its assigned executor. k6 provides 
 </picture>
 
 <figure>
-
-![Load Testing Patterns](./assets/avg-load-test.png)
-
-<figcaption>Average load testing pattern showing consistent user load over time to measure system performance under normal conditions</figcaption>
-
+  <img src="./assets/avg-load-test.png" alt="Load Testing Patterns" />
+  <figcaption>Average load testing pattern showing consistent user load over time to measure system performance under normal conditions</figcaption>
 </figure>
 
 #### Closed Models (VU-based)
@@ -378,11 +372,8 @@ export default function () {
 Smoke tests have minimal load and are used to verify that the system works well under minimal load and to gather baseline performance values.
 
 <figure>
-
-![Smoke Testing Pattern](./assets/smoke-test.png)
-
-<figcaption>Smoke testing pattern demonstrating minimal load to verify basic system functionality</figcaption>
-
+  <img src="./assets/smoke-test.png" alt="Smoke Testing Pattern" />
+  <figcaption>Smoke testing pattern demonstrating minimal load to verify basic system functionality</figcaption>
 </figure>
 
 ```js collapse={1-2}
@@ -415,11 +406,8 @@ export default function () {
 Load testing assesses how the system performs under typical load conditions.
 
 <figure>
-
-![Average Load Testing Pattern](./assets/avg-load-test.png)
-
-<figcaption>Average load testing pattern showing consistent user load over time to measure system performance under normal conditions</figcaption>
-
+  <img src="./assets/avg-load-test.png" alt="Average Load Testing Pattern" />
+  <figcaption>Average load testing pattern showing consistent user load over time to measure system performance under normal conditions</figcaption>
 </figure>
 
 ```js collapse={1-2}
@@ -449,11 +437,8 @@ export default function () {
 Stress testing subjects the application to extreme loads to identify its breaking point and assess its behavior under stress.
 
 <figure>
-
-![Stress Testing Pattern](./assets/stress-test.png)
-
-<figcaption>Stress testing pattern showing increasing load until system failure to identify breaking points</figcaption>
-
+  <img src="./assets/stress-test.png" alt="Stress Testing Pattern" />
+  <figcaption>Stress testing pattern showing increasing load until system failure to identify breaking points</figcaption>
 </figure>
 
 ```js collapse={1-2}
@@ -483,11 +468,8 @@ export default function () {
 Soak testing focuses on extended periods to analyze performance degradation and resource consumption over time.
 
 <figure>
-
-![Soak Testing Pattern](./assets/soak-testing.png)
-
-<figcaption>Soak testing pattern showing sustained load over extended periods to detect memory leaks and performance degradation</figcaption>
-
+  <img src="./assets/soak-testing.png" alt="Soak Testing Pattern" />
+  <figcaption>Soak testing pattern showing sustained load over extended periods to detect memory leaks and performance degradation</figcaption>
 </figure>
 
 ```js collapse={1-2}
@@ -517,11 +499,8 @@ export default function () {
 Spike testing verifies whether the system survives and performs under sudden and massive rushes of utilization.
 
 <figure>
-
-![Spike Testing Pattern](./assets/spike-testing.png)
-
-<figcaption>Spike testing pattern showing sudden load increases to test system resilience and recovery capabilities</figcaption>
-
+  <img src="./assets/spike-testing.png" alt="Spike Testing Pattern" />
+  <figcaption>Spike testing pattern showing sudden load increases to test system resilience and recovery capabilities</figcaption>
 </figure>
 
 ```js collapse={1-2}

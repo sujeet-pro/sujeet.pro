@@ -233,7 +233,7 @@ Example: A 4-second segment at 30fps contains 120 frames. With one frame per CMA
 
 ffmpeg is the workhorse of video processing. Here's a multi-bitrate HLS encoding pipeline:
 
-```bash file=./hls.bash collapse={1-4}
+```bash title="hls.bash" collapse={1-4}
 
 ```
 
@@ -268,7 +268,7 @@ HLS uses a two-level playlist structure:
 
 **Master Playlist** (entry point, lists all variants):
 
-```m3u8 file=./master.m3u8
+```m3u8 title="master.m3u8"
 
 ```
 
@@ -284,7 +284,7 @@ HLS uses a two-level playlist structure:
 
 **Media Playlist** (lists segments for one variant):
 
-```m3u8 file=./playlist.m3u8
+```m3u8 title="playlist.m3u8"
 
 ```
 
