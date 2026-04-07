@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "fs";
 import { join, extname } from "path";
 
 const ASSET_EXTENSIONS = new Set([
@@ -22,6 +22,15 @@ const ASSET_EXTENSIONS = new Set([
 export function copyPublicAssets(publicDir: string, outDir: string): void {
   if (!existsSync(publicDir)) return;
   cpSync(publicDir, outDir, { recursive: true });
+
+  const fontsDir = join(publicDir, "fonts");
+  if (existsSync(fontsDir) && statSync(fontsDir).isDirectory()) {
+    const assetsDir = join(outDir, "assets");
+    mkdirSync(assetsDir, { recursive: true });
+    for (const file of readdirSync(fontsDir)) {
+      cpSync(join(fontsDir, file), join(assetsDir, file));
+    }
+  }
 }
 
 export function copyContentAssets(contentDir: string, outDir: string): void {
