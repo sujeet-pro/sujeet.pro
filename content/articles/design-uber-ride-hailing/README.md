@@ -250,11 +250,17 @@ Handles financial transactions:
 
 ### Data Flow: Requesting a Ride
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Data Flow: Real-Time Location Tracking
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -1099,7 +1105,10 @@ window.addEventListener("online", () => {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 | Component         | AWS Service           | Configuration                           |
 | ----------------- | --------------------- | --------------------------------------- |

@@ -300,7 +300,10 @@ Style Dictionary (originally from Amazon) is the industry standard for token tra
 
 ### Pipeline Architecture
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Style Dictionary Configuration
 

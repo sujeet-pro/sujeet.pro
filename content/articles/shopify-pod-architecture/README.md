@@ -88,7 +88,10 @@ The root cause was architectural, not operational: **sharding partitions data bu
 
 After database sharding, Shopify's architecture looked like this:
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 The MySQL shards were isolated from each other, but every other stateful component was shared. A shard failure affected operations for shops on that shard. A Redis failure affected _all_ shops.
 

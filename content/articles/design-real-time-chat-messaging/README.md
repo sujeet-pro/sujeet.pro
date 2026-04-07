@@ -118,7 +118,10 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -148,7 +151,10 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -177,7 +183,10 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -220,7 +229,10 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### WebSocket Gateway
 
@@ -1343,7 +1355,10 @@ class VirtualMessageList {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configurations:**
 

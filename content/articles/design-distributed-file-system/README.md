@@ -115,7 +115,10 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -146,7 +149,10 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -177,7 +183,10 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -223,7 +232,10 @@ Path B (Federation) is covered briefly in the scaling section. Path C (Distribut
 
 ### Component Overview
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Master Server
 
@@ -571,7 +583,10 @@ chunk_<handle>.meta:
 
 #### Standard Write
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Why separate data push from write command:**
 
@@ -584,7 +599,10 @@ chunk_<handle>.meta:
 
 Atomic append is the key differentiator from traditional file systems:
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Append semantics:**
 
@@ -691,7 +709,10 @@ The third approach (1 + 2) balances reliability and bandwidth.
 
 #### Chunk Server Failure
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Re-replication throttling:**
 
@@ -900,7 +921,10 @@ Network capacity = Expected throughput × Headroom
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Instance selection:**
 

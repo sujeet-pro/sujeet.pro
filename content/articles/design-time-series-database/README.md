@@ -239,11 +239,17 @@ Handles data retention and downsampling:
 
 ### Data Flow: Write Path
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Data Flow: Query Path
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -818,7 +824,10 @@ class InMemoryIndex {
 
 Compaction merges small blocks into larger ones, improving query efficiency:
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ```typescript collapse={1-10, 50-60}
 // Compaction strategy
@@ -1123,7 +1132,10 @@ async function fetchDashboard(queries: DashboardQuery[]): Promise<Map<string, Qu
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 | Component     | AWS Service        | Configuration                           |
 | ------------- | ------------------ | --------------------------------------- |

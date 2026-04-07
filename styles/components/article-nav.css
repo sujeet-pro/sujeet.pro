@@ -13,8 +13,8 @@
 .nav-articles {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  border-left: 2px solid var(--color-border-subtle);
+  gap: 0.1rem;
+  border-left: 1px solid var(--color-border-subtle);
   padding-left: 0;
 }
 .nav-articles li {
@@ -27,7 +27,7 @@
   font-size: var(--font-size-sm);
   transition: color var(--transition-fast);
   border-left: 2px solid transparent;
-  margin-left: -2px;
+  margin-left: -1px;
   line-height: 1.4;
 }
 .nav-articles li a:hover {

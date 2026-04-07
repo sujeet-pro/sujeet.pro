@@ -111,7 +111,10 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -141,7 +144,10 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -198,7 +204,10 @@ Path B implementation details are covered in the [Variations](#variations) secti
 
 ### Request Flow
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -475,7 +484,10 @@ The waiting room is the first line of defense. It must:
 
 **Architecture:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **Static HTML design:**
 
@@ -800,7 +812,10 @@ export async function confirmReservation(productId: string, reservationId: strin
 
 **Reservation lifecycle:**
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Design decisions:**
 
@@ -992,7 +1007,10 @@ export async function handleDeadLetter(record: SQSRecord): Promise<void> {
 
 ### Multi-Layer Bot Defense
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Layer 1: Edge defense (WAF)**
 
@@ -1268,7 +1286,10 @@ function restoreState(): FlashSaleState | null {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configuration:**
 

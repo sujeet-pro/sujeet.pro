@@ -73,7 +73,10 @@ Large-scale forms (tax software, insurance applications, enterprise workflows) r
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -148,7 +151,10 @@ React JSON Schema Form (RJSF) powers forms at Mozilla, Postman, and numerous ent
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -220,7 +226,10 @@ tRPC, Remix, and Next.js applications commonly use Zod for end-to-end type safet
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 

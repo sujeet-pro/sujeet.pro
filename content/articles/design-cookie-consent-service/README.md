@@ -116,7 +116,10 @@ SDK delivery: 10K RPS × 50KB = 500MB/s (CDN handles most)
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -146,7 +149,10 @@ SDK delivery: 10K RPS × 50KB = 500MB/s (CDN handles most)
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -204,11 +210,17 @@ Path B details are covered in the [Variations](#variations) section.
 
 ### Request Flow: Consent Check
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### Request Flow: Consent Update
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -812,7 +824,10 @@ function mergeConsent(device: ConsentRecord, user: ConsentRecord, strategy: stri
 
 **Migration flow:**
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Edge cases:**
 
@@ -935,7 +950,10 @@ function applyTenantOverrides(detected: RegulationResult, tenantConfig: TenantCo
 
 **Configuration hierarchy:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Configuration resolution:**
 
@@ -997,7 +1015,10 @@ async function updateTenantConfig(tenantId: string, updates: Partial<TenantConfi
 
 **Layered cache invalidation:**
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation:**
 
@@ -1254,7 +1275,10 @@ function updateGoogleConsent(consent: ConsentStatus): void {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configuration:**
 
@@ -1271,7 +1295,10 @@ function updateGoogleConsent(consent: ConsentStatus): void {
 
 ### Multi-Region Deployment
 
-![Diagram](./diagram-9.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
+</figure>
 
 **Design decisions:**
 

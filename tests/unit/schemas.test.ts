@@ -56,7 +56,7 @@ describe("SiteConfigSchema", () => {
     };
     const result = SiteConfigSchema.parse(config);
     expect(result.language).toBe("en-US");
-    expect(result.baseUrl).toBe("/");
+    expect(result.basePath).toBe("");
     expect(result.defaultLayout).toBe("Page");
   });
 });

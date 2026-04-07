@@ -111,7 +111,10 @@ All practical distributed locks use **leases**—time-bounded locks that expire 
 
 ### Core Mechanism
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### TTL Selection Formula
 
@@ -276,7 +279,10 @@ async function redlockAcquire(instances: Redis[], resource: string, ttlMs: numbe
 
 **Ephemeral sequential node recipe:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Algorithm:**
 
@@ -463,7 +469,10 @@ UPDATE resources SET ... WHERE id = 'resource-1';
 
 ### Decision Framework
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ## Fencing Tokens
 
@@ -473,7 +482,10 @@ Leases expire. When they do, a "stale" lock holder may still be executing its cr
 
 **Example failure scenario:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### How Fencing Tokens Work
 
@@ -482,7 +494,10 @@ Leases expire. When they do, a "stale" lock holder may still be executing its cr
 3. Resource tracks **highest token ever seen**
 4. Resource **rejects** operations with token < highest seen
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Implementation Pattern
 
@@ -766,7 +781,10 @@ async function optimisticUpdate(id: string, transform: (data: unknown) => unknow
 
 Route all operations for a resource to a single queue/partition.
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 This eliminates concurrent access by design.
 

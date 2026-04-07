@@ -26,7 +26,10 @@ A comprehensive technical analysis of OAuth 2.0 authorization flows, OpenID Conn
 
 OAuth 2.0 is an **authorization delegation framework**—it lets users grant applications limited access to their resources without sharing credentials. OIDC (OpenID Connect) is an **identity layer on top of OAuth**—it proves _who_ the user is via ID tokens. The core security model relies on:
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 | Component              | Purpose                                     | Lifetime     | Audience              |
 | ---------------------- | ------------------------------------------- | ------------ | --------------------- |
@@ -264,7 +267,10 @@ PKCE (Proof Key for Code Exchange, RFC 7636) prevents authorization code interce
 
 ### The Attack PKCE Prevents
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Attack scenario**: On mobile platforms, multiple apps can register the same custom URI scheme (`com.example.app://`). A malicious app intercepts the redirect containing the authorization code and exchanges it for tokens.
 
@@ -480,13 +486,19 @@ grant_type=refresh_token
 
 Rotation issues a new refresh token with each use, invalidating the previous one:
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### Reuse Detection
 
 If a previously-used refresh token is presented, it indicates token theft:
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation considerations:**
 
@@ -550,7 +562,10 @@ async function handleRefreshToken(refreshToken) {
 
 **Backend-for-Frontend (BFF) Pattern** (most secure for SPAs):
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 - Browser never sees OAuth tokens
 - BFF maintains server-side session
@@ -613,7 +628,10 @@ DPoP (RFC 9449) sender-constrains tokens to prevent stolen tokens from being usa
 
 ### How DPoP Works
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 ### DPoP Proof JWT Structure
 

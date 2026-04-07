@@ -77,7 +77,10 @@ The 16ms frame budget disappears quickly. A scroll event handler that calculates
 
 TanStack Table (formerly React Table v8) provides table logic without rendering opinions. You get state management, sorting, filtering, grouping, and pagination—but zero UI.
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -158,7 +161,10 @@ TanStack Table powers countless production applications where teams need precise
 
 AG Grid provides everything: virtualization, sorting, filtering, grouping, pivoting, Excel export, and enterprise features. The core is vanilla JavaScript with framework-specific wrappers.
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -241,7 +247,10 @@ Financial institutions use AG Grid for trading desks where grids display real-ti
 
 Canvas-based grids bypass the DOM entirely, drawing cells directly to a 2D canvas context. This eliminates DOM overhead but requires implementing everything: text rendering, selection highlights, scrollbars.
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -297,7 +306,10 @@ Google Sheets uses canvas rendering for the main cell area. Their architecture a
 
 MUI X DataGrid combines React integration with built-in virtualization. It renders real DOM elements but only for visible cells, bridging the gap between canvas performance and DOM accessibility.
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -375,7 +387,10 @@ Internal admin dashboards commonly use MUI DataGrid because it integrates cleanl
 | Learning curve    | Medium                    | Low                     | Very high      | Low                    |
 | Styling freedom   | Full                      | Moderate                | Full           | Material-themed        |
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ## Virtualization Deep Dive
 
@@ -535,7 +550,10 @@ sortAsync(largeDataset, "name", "asc").then(setSortedRows)
 
 Pinning creates three synchronized scroll regions:
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 Implementation requirements:
 

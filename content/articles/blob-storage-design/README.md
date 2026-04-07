@@ -541,7 +541,10 @@ Single-stream upload of large files (GBs+):
 
 ### Multipart Upload Flow
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Design Decisions
 

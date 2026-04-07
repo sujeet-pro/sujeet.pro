@@ -172,7 +172,10 @@ CDC resolves this by **reading changes where they're already reliably recorded**
 
 ### Decision Framework
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Log-Based CDC Internals
 
@@ -182,7 +185,10 @@ PostgreSQL's CDC uses **logical replication**, which decodes the physical WAL in
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Configuration requirements:**
 
@@ -304,7 +310,10 @@ changeStream.on("change", (change) => {
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **When to choose this path:**
 
@@ -373,7 +382,10 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **When to choose this path:**
 
@@ -410,7 +422,10 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **When to choose:**
 
@@ -460,7 +475,10 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation details:**
 
@@ -491,7 +509,10 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Riverbed (materialized views):**
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Scale (2024):**
 
@@ -543,7 +564,10 @@ DBLog approach:
 
 **Implementation:**
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Key design decisions:**
 
@@ -578,7 +602,10 @@ CDC events must carry schema information. When source schema changes, downstream
 
 ### Schema Registry Integration
 
-![Diagram](./diagram-9.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
+</figure>
 
 **How it works:**
 
@@ -720,7 +747,10 @@ exactly.once.source.support=enabled
 
 For true end-to-end exactly-once:
 
-![Diagram](./diagram-10.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-10.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-10.dark.svg" alt="Diagram" />
+</figure>
 
 Consumer-side idempotency:
 
@@ -749,7 +779,10 @@ async function processChange(change: ChangeEvent) {
 
 The **transactional outbox pattern** ensures reliable event publishing by writing events to a database table (outbox) within the same transaction as business data.
 
-![Diagram](./diagram-11.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-11.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-11.dark.svg" alt="Diagram" />
+</figure>
 
 **CDC as outbox relay:**
 
@@ -788,7 +821,10 @@ COMMIT;
 
 CDC enables event-driven cache invalidation without TTL guessing:
 
-![Diagram](./diagram-12.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-12.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-12.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation:**
 
@@ -824,7 +860,10 @@ async function handleChange(change: ChangeEvent) {
 
 CDC keeps search indices in sync with source of truth:
 
-![Diagram](./diagram-13.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-13.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-13.dark.svg" alt="Diagram" />
+</figure>
 
 **Kafka Connect Elasticsearch sink:**
 
@@ -850,7 +889,10 @@ CDC keeps search indices in sync with source of truth:
 
 CDC enables real-time analytics without batch ETL:
 
-![Diagram](./diagram-14.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-14.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-14.dark.svg" alt="Diagram" />
+</figure>
 
 **Lambda architecture simplification:**
 
@@ -967,7 +1009,10 @@ Consumer must be idempotent to handle potential duplicates during snapshot-to-st
 
 ### Starting Point Decision
 
-![Diagram](./diagram-15.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-15.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-15.dark.svg" alt="Diagram" />
+</figure>
 
 ### Checklist for Production CDC
 

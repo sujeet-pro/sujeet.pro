@@ -161,7 +161,10 @@ Leaders are the coordination point. One leader tier per region. All writes flow 
 2. **Write ordering**: Leader applies writes in order received
 3. **Consistency**: Leader updates its cache before responding, enabling read-after-write
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Write-Through vs Write-Back
 
@@ -229,7 +232,10 @@ TAO uses a hybrid invalidation strategy:
 
 **Version numbers**: Every cache entry has a version number. Invalidation messages include the version being invalidated. If a follower has a newer version (due to out-of-order message delivery), it ignores the invalidation.
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ## Implementation Details
 

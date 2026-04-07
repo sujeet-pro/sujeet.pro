@@ -406,7 +406,10 @@ Feature flags separate **deployment** (code reaching production) from **release*
 
 ### Architectural Pattern
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key insight**: Rollback becomes a flag toggle (milliseconds) rather than a deployment (minutes to hours). Even if the underlying deployment strategy is rolling update, feature flags provide instant rollback for the specific feature.
 

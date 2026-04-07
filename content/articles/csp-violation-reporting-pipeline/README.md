@@ -106,7 +106,10 @@ We have selected the latest Long-Term Support (LTS) and stable versions projecte
 
 The system follows a Streaming Data Pipeline pattern.
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### 4.2 Component Breakdown
 

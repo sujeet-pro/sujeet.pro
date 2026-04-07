@@ -24,7 +24,10 @@ Infrastructure optimization addresses the foundation of web performance—the la
 
 Infrastructure performance follows a layered model where each layer multiplies the impact of the one below it:
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Core mental model**: Every request traverses DNS → Connection → Edge → Origin. Optimization means either eliminating layers entirely (edge caching bypasses origin), reducing round trips within layers (HTTP/3 merges crypto and transport handshakes), or moving computation closer to the user (edge functions).
 
@@ -98,7 +101,10 @@ HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114), June 2022) ab
 
 **Adoption (2025)**: 37% of websites globally support HTTP/3 (W3Techs), with 21% of actual requests using HTTP/3 (Cloudflare Radar). Browser support is mature: Chrome 87+, Firefox 88+, Safari 16+ (enabled by default September 2024), Edge 87+.
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Performance Impact (2025 benchmarks):**
 
@@ -126,7 +132,10 @@ TLS 1.3 ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446), August 2018;
 
 **Adoption (2025)**: 62-70% of websites support TLS 1.3 (SSL Labs). Browser support: Chrome 70+, Firefox 63+, Safari 12.2+, Edge 79+. Post-quantum cryptography with TLS 1.3 is emerging: 43% of Cloudflare connections use hybrid post-quantum key exchange (September 2025).
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### 1.4 Connection Layer Trade-offs
 

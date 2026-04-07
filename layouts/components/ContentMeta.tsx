@@ -4,6 +4,7 @@ type Props = {
 
 function formatDate(val: unknown): string | null {
   if (!val) return null;
+  if (typeof val !== "string" && typeof val !== "number" && !(val instanceof Date)) return null;
   const d = val instanceof Date ? val : new Date(String(val));
   if (isNaN(d.getTime())) return null;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });

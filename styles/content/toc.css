@@ -13,8 +13,8 @@
 .toc-list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  border-left: 2px solid var(--color-border-subtle);
+  gap: 0.1rem;
+  border-left: 1px solid var(--color-border-subtle);
   padding-left: 0;
 }
 .toc-item a {
@@ -24,7 +24,7 @@
   transition: color var(--transition-fast), border-color var(--transition-fast);
   line-height: 1.4;
   border-left: 2px solid transparent;
-  margin-left: -2px;
+  margin-left: -1px;
 }
 .toc-item a:hover {
   color: var(--color-text);

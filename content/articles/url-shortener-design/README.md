@@ -119,7 +119,10 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -148,7 +151,10 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -182,7 +188,10 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Snowflake ID structure (64-bit):**
 
@@ -213,7 +222,10 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -256,7 +268,10 @@ This article focuses on **Path D (KGS) + Snowflake hybrid** because:
 
 ### Component Overview
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Shortening Service
 
@@ -285,7 +300,10 @@ The most critical service—handles 99% of traffic. Must be blazing fast.
 
 **Flow:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Critical optimizations:**
 
@@ -300,7 +318,10 @@ Pre-generates unique short codes for zero-collision guarantee.
 
 **Architecture:**
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Key allocation strategy:**
 
@@ -1294,7 +1315,10 @@ class ClickStreamClient {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configurations:**
 

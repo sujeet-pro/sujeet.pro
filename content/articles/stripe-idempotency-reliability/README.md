@@ -136,7 +136,10 @@ CREATE TABLE idempotency_keys (
 
 An **atomic phase** groups database operations that occur between external API calls. Each phase executes in a serializable transaction. If the transaction commits, that phase is complete—even if the process crashes immediately after.
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Recovery Points
 

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
+import JSON5 from "json5";
 
 const DIST = "./dist";
 const PORT = 4000;
@@ -32,13 +33,31 @@ async function isFile(path: string): Promise<boolean> {
   }
 }
 
+async function getBasePath(): Promise<string> {
+  if (process.env.BASE_PATH !== undefined) return process.env.BASE_PATH.replace(/\/+$/, "");
+  try {
+    const raw = await readFile("./content/site.json5", "utf-8");
+    const config = JSON5.parse(raw) as { basePath?: string };
+    return config.basePath ?? "";
+  } catch {
+    return "";
+  }
+}
+
+const basePath = await getBasePath();
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url!, `http://localhost:${PORT}`);
 
-  let filePath = join(DIST, url.pathname);
+  let pathname = url.pathname;
+  if (basePath && pathname.startsWith(basePath)) {
+    pathname = pathname.slice(basePath.length) || "/";
+  }
+
+  let filePath = join(DIST, pathname);
 
   if (!(await isFile(filePath))) {
-    filePath = join(DIST, url.pathname, "index.html");
+    filePath = join(DIST, pathname, "index.html");
   }
 
   if (!(await isFile(filePath))) {

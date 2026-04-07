@@ -135,7 +135,10 @@ Cell = (row_key, column_name, ref_key) → JSON body
 2. Worker routes to storage node (default: master, configurable per request)
 3. Storage node returns cell with highest `ref_key`
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Sharding Architecture
 
@@ -226,7 +229,10 @@ Storage nodes are MySQL instances that:
 
 **Buffered writes (hinted handoff)**:
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Trade-off**: Buffered writes are not immediately readable. Client knows the master is down but cannot read the buffered data until recovery.
 
@@ -293,7 +299,10 @@ def on_trip_update(cell):
 3. Workers poll for cells with `added_id > offset`
 4. Process cell, advance offset
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Delivery guarantee**: At-least-once. Triggers must be idempotent.
 
@@ -322,7 +331,10 @@ def on_trip_update(cell):
 
 Migration from PostgreSQL to Schemaless used a **dual-write pattern**:
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 1. **Phase 1**: All writes go to PostgreSQL. Shadow writes to Schemaless.
 2. **Phase 2**: Shadow reads from Schemaless, compare with PostgreSQL results.

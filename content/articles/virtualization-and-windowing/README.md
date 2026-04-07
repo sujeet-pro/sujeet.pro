@@ -424,7 +424,10 @@ web.dev reports a 7x rendering performance improvement on the Chrome DevRel blog
 
 ### Decision Framework
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Browser APIs for Virtualization
 

@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import { test } from "./helpers";
 
 const STORAGE_KEY = "pagesmith-theme";
+const VARIANT_KEY = "pagesmith-variant";
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 
 test.describe("Theme — defaults", () => {
@@ -150,5 +151,129 @@ test.describe("Theme — code blocks", () => {
     );
 
     expect(lightBg).not.toBe(darkBg);
+  });
+});
+
+test.describe("Theme — footer dropdown", () => {
+  test("dropdown opens and closes on button click", async ({ page }) => {
+    await page.goto("/");
+    const btn = page.locator(".footer-theme-btn");
+    const dropdown = page.locator(".footer-theme-dropdown");
+
+    await expect(dropdown).toHaveClass(/closed/);
+    await btn.click();
+    await expect(dropdown).not.toHaveClass(/closed/);
+    await btn.click();
+    await expect(dropdown).toHaveClass(/closed/);
+  });
+
+  test("dropdown closes on outside click", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    const dropdown = page.locator(".footer-theme-dropdown");
+    await expect(dropdown).not.toHaveClass(/closed/);
+
+    await page.locator("body").click({ position: { x: 10, y: 10 } });
+    await expect(dropdown).toHaveClass(/closed/);
+  });
+
+  test("dropdown closes on Escape", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    const dropdown = page.locator(".footer-theme-dropdown");
+    await expect(dropdown).not.toHaveClass(/closed/);
+
+    await page.keyboard.press("Escape");
+    await expect(dropdown).toHaveClass(/closed/);
+  });
+});
+
+test.describe("Theme — variants", () => {
+  test("selecting reader variant sets data-variant attribute", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
+
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
+  });
+
+  test("selecting contrast variant sets data-variant attribute", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
+
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "contrast");
+  });
+
+  test("selecting regular variant removes data-variant attribute", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
+
+    await page.locator('input[name="footer-variant"][value="regular"]').check({ force: true });
+    const attr = await page.locator("html").getAttribute("data-variant");
+    expect(attr).toBeNull();
+  });
+
+  test("variant persists in localStorage", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
+
+    const stored = await page.evaluate((key) => localStorage.getItem(key), VARIANT_KEY);
+    expect(stored).toBe("contrast");
+  });
+
+  test("variant survives page navigation", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
+
+    await page.goto("/articles/");
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
+  });
+
+  test("stored variant applied on fresh page load (FOUC prevention)", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate((key) => localStorage.setItem(key, "contrast"), VARIANT_KEY);
+    await page.reload();
+
+    await expect(page.locator("html")).toHaveAttribute("data-variant", "contrast");
+  });
+
+  test("reader variant changes background color", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".theme-toggle-to-light").click();
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
+
+    const bg = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
+    );
+    expect(bg).toBe("#faf5eb");
+  });
+
+  test("contrast variant with dark mode", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".theme-toggle-to-light").click();
+    await page.locator(".theme-toggle-to-dark").click();
+    await page.locator(".footer-theme-btn").click();
+    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
+
+    const bg = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
+    );
+    expect(bg).toBe("#0a0a0a");
+  });
+
+  test("footer mode radio syncs with header toggle", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".theme-toggle-to-light").click();
+
+    await page.locator(".footer-theme-btn").click();
+    const lightRadio = page.locator('input[name="footer-mode"][value="light"]');
+    await expect(lightRadio).toBeChecked();
   });
 });

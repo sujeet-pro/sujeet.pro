@@ -34,7 +34,7 @@ export function buildSeriesData(
     articles: def.articles
       .map((slug) => {
         const entry = articleMap.get(slug);
-        if (!entry) return undefined;
+        if (!entry || entry.data.draft) return undefined;
         return entryToListItem(entry, "articles", basePath);
       })
       .filter((a): a is ArticleListItem => a !== undefined),
@@ -77,7 +77,7 @@ export function buildPageTypeData(
   );
 
   const unsorted = entries
-    .filter((e) => !inSeries.has(e.slug))
+    .filter((e) => !inSeries.has(e.slug) && !e.data.draft)
     .map((e) => entryToListItem(e, collection, basePath));
 
   return {

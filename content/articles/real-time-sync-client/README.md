@@ -170,7 +170,10 @@ Long polling simulates push by having the client hold an open HTTP request until
 
 ### Decision Framework
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Connection Management
 

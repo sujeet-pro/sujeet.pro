@@ -616,7 +616,10 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 ### Decision Framework
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Production Implementations
 
@@ -632,7 +635,10 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Specific details:**
 
@@ -680,7 +686,10 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Specific details:**
 
@@ -1001,7 +1010,10 @@ Publish fails if a message with that subject already exists—provides infinite 
 
 ### Starting Point Decision
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### System Selection Guide
 

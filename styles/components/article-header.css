@@ -1,16 +1,22 @@
 /* ─── Back link ─── */
 .article-back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
   transition: color var(--transition-fast);
 }
 .article-back::before {
-  content: "\2190\00a0";
+  content: "\2190";
+  transition: transform var(--transition-fast);
 }
 .article-back:hover {
   color: var(--color-text);
+}
+.article-back:hover::before {
+  transform: translateX(-2px);
 }
 
 /* ─── Content meta bar ─── */

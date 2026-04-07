@@ -25,7 +25,10 @@ An in-depth technical analysis of AAA frameworks for expert practitioners, explo
 
 **Mental model**: Authentication establishes _who you are_; authorization determines _what you can do_; accounting records _what you did_. The core tension in auth systems is **security vs. usability vs. operational complexity**—every design choice trades between these.
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Core Design Trade-offs
 

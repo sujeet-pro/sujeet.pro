@@ -121,7 +121,10 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -151,7 +154,10 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -182,7 +188,10 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -241,7 +250,10 @@ The architecture sections show how to integrate third-party providers while main
 
 ### Payment Lifecycle
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Authorization vs Capture Timing
 
@@ -603,7 +615,10 @@ Idempotency prevents duplicate charges when clients retry failed requests. Strip
 
 **Request flow:**
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation:**
 
@@ -772,7 +787,10 @@ Real-time fraud scoring must complete within 100ms to avoid impacting checkout l
 
 **Scoring architecture:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Feature examples (1000+ per transaction):**
 
@@ -838,7 +856,10 @@ Reconciliation ensures internal ledger matches external settlements. Discrepanci
 
 **Reconciliation process:**
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation:**
 
@@ -1167,7 +1188,10 @@ export function getErrorMessage(declineCode: string): string {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configuration:**
 

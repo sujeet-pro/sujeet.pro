@@ -483,7 +483,10 @@ RETURNING id;
 
 ## How to Choose
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Default recommendation (2024+):** UUID v7 for most new systems. It provides time-ordering, excellent database performance, RFC standardization, and requires no coordination.
 

@@ -1,52 +1,54 @@
 /* ─── Home: Profile ─── */
 .home-profile {
   text-align: center;
-  padding: 2rem 0;
+  padding: 3rem 0 2rem;
 }
 .home-name {
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 400;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.25rem;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.35rem;
 }
 .home-title {
   font-size: var(--font-size-base);
   color: var(--color-text-muted);
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 .home-bio {
   color: var(--color-text-secondary);
-  max-width: 55ch;
-  margin: 0 auto 1.5rem;
+  max-width: 50ch;
+  margin: 0 auto 2rem;
   line-height: 1.7;
 }
 .home-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 .home-action {
   font-size: var(--font-size-sm);
   font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  padding: 0.4rem 1rem;
+  color: var(--color-text-muted);
+  padding: 0.5rem 1.25rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   transition:
     color var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 .home-action:hover {
   color: var(--color-text);
   border-color: var(--color-border-hover);
+  background: var(--color-accent-subtle);
 }
 
 /* ─── Home: Divider ─── */
 .home-divider {
   border: none;
   border-top: 1px solid var(--color-border-subtle);
-  margin: 2.5rem 0;
+  margin: 3rem 0;
 }
 
 /* ─── Home: Section ─── */
@@ -98,14 +100,19 @@
 .home-series-card {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1.25rem;
+  gap: 0.35rem;
+  padding: 1.25rem 1.5rem;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  transition: border-color var(--transition-fast);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
 }
 .home-series-card:hover {
   border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-md);
+  background: var(--color-bg-alt);
 }
 .home-series-name {
   font-weight: 500;
@@ -136,12 +143,19 @@
 .home-featured-item a {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 1rem 0;
-  transition: color var(--transition-fast);
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  margin: 0 -0.75rem;
+  border-radius: var(--radius-md);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+.home-featured-item a:hover {
+  background: var(--color-bg-hover);
 }
 .home-featured-item a:hover .home-featured-title {
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 .home-featured-title {
   font-weight: 500;

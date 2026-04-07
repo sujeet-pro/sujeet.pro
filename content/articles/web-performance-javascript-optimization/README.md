@@ -63,7 +63,10 @@ The parser maintains a "list of scripts that will execute when the document has 
 
 ### `async` vs `defer` Decision Matrix
 
-![Decision tree for selecting script loading attributes based on dependency requirements.](./decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir.svg)
+<figure>
+<img class="only-light" src="./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir.light.svg" alt="Decision tree for selecting script loading attributes based on dependency requirements." />
+<img class="only-dark" src="./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir.dark.svg" alt="Decision tree for selecting script loading attributes based on dependency requirements." />
+</figure>
 
 <figcaption>Decision tree for selecting script loading attributes based on dependency requirements.</figcaption>
 

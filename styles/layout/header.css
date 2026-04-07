@@ -5,9 +5,9 @@
   z-index: 100;
   width: 100%;
   height: var(--header-height);
-  border-bottom: 1px solid var(--color-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   background-color: var(--color-header-bg);
   transition:
     background-color var(--transition-fast),
@@ -41,10 +41,13 @@
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-muted);
+  letter-spacing: 0.01em;
   transition: color var(--transition-fast);
   padding: 0.25rem 0;
 }
-.site-nav a:hover,
+.site-nav a:hover {
+  color: var(--color-text-secondary);
+}
 .site-nav a.active {
   color: var(--color-text);
 }

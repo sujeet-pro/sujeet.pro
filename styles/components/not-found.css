@@ -16,10 +16,10 @@
 
 .not-found-code {
   font-size: 8rem;
-  font-weight: 300;
+  font-weight: 200;
   line-height: 1;
-  color: var(--color-text-muted);
-  opacity: 0.5;
+  letter-spacing: -0.04em;
+  color: var(--color-border);
 }
 
 .not-found-title {
@@ -63,12 +63,11 @@
 
 .not-found-btn-primary {
   background-color: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-text-inverse);
 }
 
 .not-found-btn-primary:hover {
   background-color: var(--color-accent-hover, var(--color-accent));
-  opacity: 0.9;
 }
 
 .not-found-btn-outline {
@@ -79,7 +78,7 @@
 
 .not-found-btn-outline:hover {
   border-color: var(--color-text-muted);
-  background-color: var(--color-surface);
+  background-color: var(--color-bg-hover);
 }
 
 @media (max-width: 799px) {

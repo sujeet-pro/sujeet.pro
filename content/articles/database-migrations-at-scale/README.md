@@ -219,7 +219,10 @@ For changes that require data transformation (not just schema changes), the expa
 
 **Phases:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Stage 1: Expand (backward compatible)**
 
@@ -288,7 +291,10 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 ### Decision Framework
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ## Production Implementations
 
@@ -332,7 +338,10 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Specific details:**
 
@@ -362,7 +371,10 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 **Architecture:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **Specific details:**
 
@@ -431,7 +443,10 @@ experiment.run
 
 ### Starting Point Decision
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Tool Selection Matrix
 

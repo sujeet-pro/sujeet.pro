@@ -123,7 +123,10 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -153,7 +156,10 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -183,7 +189,10 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -226,7 +235,10 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Feed Generation Service (Multifeed)
 
@@ -276,7 +288,10 @@ Manages the social graph (follows, friends, blocks) and content relationships:
 - Associations stored on source object's shard
 - Enables single-shard queries for common patterns
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Fan-out Service
 
@@ -305,7 +320,10 @@ type FanoutStrategy =
 
 Multi-stage funnel progressively narrows candidates:
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -1271,7 +1289,10 @@ class FeedPrefetcher {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configurations:**
 
@@ -1287,7 +1308,10 @@ class FeedPrefetcher {
 
 ### Multi-Region Deployment
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Multi-region considerations:**
 

@@ -50,7 +50,10 @@ Statsig's architecture is built on several fundamental principles that enable it
 
 • **High-Performance Design**: Optimized for sub-millisecond evaluation latencies with global CDN distribution and sophisticated caching strategies.
 
-![Figure 1: Statsig SDK Evaluation Flow - Server SDKs perform local evaluation while client SDKs use pre-computed cache](./figure-1-statsig-sdk-evaluation-flow-server-sdks-perform-local-evaluation-while-.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-1-statsig-sdk-evaluation-flow-server-sdks-perform-local-evaluation-while-.light.svg" alt="Figure 1: Statsig SDK Evaluation Flow - Server SDKs perform local evaluation while client SDKs use pre-computed cache" />
+<img class="only-dark" src="./diagrams/figure-1-statsig-sdk-evaluation-flow-server-sdks-perform-local-evaluation-while-.dark.svg" alt="Figure 1: Statsig SDK Evaluation Flow - Server SDKs perform local evaluation while client SDKs use pre-computed cache" />
+</figure>
 
 <figcaption>Figure 1: Statsig SDK Evaluation Flow - Server SDKs perform local evaluation while client SDKs use pre-computed cache</figcaption>
 
@@ -58,7 +61,10 @@ Statsig's architecture is built on several fundamental principles that enable it
 
 Statsig's most fundamental design tenet is its "unified system" approach where feature flags, experimentation, product analytics, and session replay all share a single, common data pipeline. This directly addresses the prevalent industry problem of "tool sprawl" where organizations employ disparate services for different functions.
 
-![Figure 2: Unified Platform Architecture - All components share a single data pipeline ensuring consistency](./figure-2-unified-platform-architecture-all-components-share-a-single-data-pipeli.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-2-unified-platform-architecture-all-components-share-a-single-data-pipeli.light.svg" alt="Figure 2: Unified Platform Architecture - All components share a single data pipeline ensuring consistency" />
+<img class="only-dark" src="./diagrams/figure-2-unified-platform-architecture-all-components-share-a-single-data-pipeli.dark.svg" alt="Figure 2: Unified Platform Architecture - All components share a single data pipeline ensuring consistency" />
+</figure>
 
 <figcaption>Figure 2: Unified Platform Architecture - All components share a single data pipeline ensuring consistency</figcaption>
 
@@ -83,13 +89,19 @@ Statsig employs two fundamentally different models for configuration synchroniza
 
 #### Server SDK Architecture
 
-![Figure 3a: Server SDK Architecture - Downloads full config and evaluates locally](./figure-3a-server-sdk-architecture-downloads-full-config-and-evaluates-locally.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-3a-server-sdk-architecture-downloads-full-config-and-evaluates-locally.light.svg" alt="Figure 3a: Server SDK Architecture - Downloads full config and evaluates locally" />
+<img class="only-dark" src="./diagrams/figure-3a-server-sdk-architecture-downloads-full-config-and-evaluates-locally.dark.svg" alt="Figure 3a: Server SDK Architecture - Downloads full config and evaluates locally" />
+</figure>
 
 <figcaption>Figure 3a: Server SDK Architecture - Downloads full config and evaluates locally</figcaption>
 
 #### Client SDK Architecture
 
-![Figure 3b: Client SDK Architecture - Receives pre-computed values and caches them](./figure-3b-client-sdk-architecture-receives-pre-computed-values-and-caches-them.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-3b-client-sdk-architecture-receives-pre-computed-values-and-caches-them.light.svg" alt="Figure 3b: Client SDK Architecture - Receives pre-computed values and caches them" />
+<img class="only-dark" src="./diagrams/figure-3b-client-sdk-architecture-receives-pre-computed-values-and-caches-them.dark.svg" alt="Figure 3b: Client SDK Architecture - Receives pre-computed values and caches them" />
+</figure>
 
 <figcaption>Figure 3b: Client SDK Architecture - Receives pre-computed values and caches them</figcaption>
 
@@ -176,7 +188,10 @@ const result = getFeatureFlags() // Fast cache lookup, no network calls
 
 Server SDKs maintain authoritative configuration state by downloading complete rule definitions:
 
-![Figure 4: Server-Side Configuration Synchronization - Continuous polling with delta updates](./figure-4-server-side-configuration-synchronization-continuous-polling-with-delta.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-4-server-side-configuration-synchronization-continuous-polling-with-delta.light.svg" alt="Figure 4: Server-Side Configuration Synchronization - Continuous polling with delta updates" />
+<img class="only-dark" src="./diagrams/figure-4-server-side-configuration-synchronization-continuous-polling-with-delta.dark.svg" alt="Figure 4: Server-Side Configuration Synchronization - Continuous polling with delta updates" />
+</figure>
 
 <figcaption>Figure 4: Server-Side Configuration Synchronization - Continuous polling with delta updates</figcaption>
 
@@ -202,7 +217,10 @@ interface ConfigSpecs {
 
 Client SDKs receive pre-evaluated results rather than raw configuration rules:
 
-![Figure 5: Client-Side Evaluation Caching - Pre-computed values with local storage fallback](./figure-5-client-side-evaluation-caching-pre-computed-values-with-local-storage-f.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-5-client-side-evaluation-caching-pre-computed-values-with-local-storage-f.light.svg" alt="Figure 5: Client-Side Evaluation Caching - Pre-computed values with local storage fallback" />
+<img class="only-dark" src="./diagrams/figure-5-client-side-evaluation-caching-pre-computed-values-with-local-storage-f.dark.svg" alt="Figure 5: Client-Side Evaluation Caching - Pre-computed values with local storage fallback" />
+</figure>
 
 <figcaption>Figure 5: Client-Side Evaluation Caching - Pre-computed values with local storage fallback</figcaption>
 
@@ -233,7 +251,10 @@ Client SDKs receive pre-evaluated results rather than raw configuration rules:
 
 Statsig's bucket assignment algorithm ensures consistent, deterministic user allocation:
 
-![Figure 6: Deterministic Assignment Algorithm - SHA-256 hashing with salt ensures consistent user bucketing](./figure-6-deterministic-assignment-algorithm-sha-256-hashing-with-salt-ensures-co.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-6-deterministic-assignment-algorithm-sha-256-hashing-with-salt-ensures-co.light.svg" alt="Figure 6: Deterministic Assignment Algorithm - SHA-256 hashing with salt ensures consistent user bucketing" />
+<img class="only-dark" src="./diagrams/figure-6-deterministic-assignment-algorithm-sha-256-hashing-with-salt-ensures-co.dark.svg" alt="Figure 6: Deterministic Assignment Algorithm - SHA-256 hashing with salt ensures consistent user bucketing" />
+</figure>
 
 <figcaption>Figure 6: Deterministic Assignment Algorithm - SHA-256 hashing with salt ensures consistent user bucketing</figcaption>
 
@@ -291,7 +312,10 @@ console.log(`Bucket ${result.bucket}, group: ${result.group}`)
 
 The browser SDK implements four distinct initialization strategies:
 
-![Figure 7: Browser SDK Initialization Strategies - Four different approaches for balancing performance and freshness](./figure-7-browser-sdk-initialization-strategies-four-different-approaches-for-bal.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-7-browser-sdk-initialization-strategies-four-different-approaches-for-bal.light.svg" alt="Figure 7: Browser SDK Initialization Strategies - Four different approaches for balancing performance and freshness" />
+<img class="only-dark" src="./diagrams/figure-7-browser-sdk-initialization-strategies-four-different-approaches-for-bal.dark.svg" alt="Figure 7: Browser SDK Initialization Strategies - Four different approaches for balancing performance and freshness" />
+</figure>
 
 <figcaption>Figure 7: Browser SDK Initialization Strategies - Four different approaches for balancing performance and freshness</figcaption>
 
@@ -349,7 +373,10 @@ interface CachedEvaluations {
 
 ### Server-Side Architecture Patterns
 
-![Figure 8: Node.js Server SDK Architecture - In-memory evaluation with background synchronization](./figure-8-node-js-server-sdk-architecture-in-memory-evaluation-with-background-sy.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-8-node-js-server-sdk-architecture-in-memory-evaluation-with-background-sy.light.svg" alt="Figure 8: Node.js Server SDK Architecture - In-memory evaluation with background synchronization" />
+<img class="only-dark" src="./diagrams/figure-8-node-js-server-sdk-architecture-in-memory-evaluation-with-background-sy.dark.svg" alt="Figure 8: Node.js Server SDK Architecture - In-memory evaluation with background synchronization" />
+</figure>
 
 <figcaption>Figure 8: Node.js Server SDK Architecture - In-memory evaluation with background synchronization</figcaption>
 
@@ -438,7 +465,10 @@ class RedisDataAdapter implements DataAdapter {
 
 ### Bootstrap Initialization for Next.js
 
-![Figure 9: Bootstrap Initialization Flow - Server pre-computes values for instant client-side rendering](./figure-9-bootstrap-initialization-flow-server-pre-computes-values-for-instant-cl.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-9-bootstrap-initialization-flow-server-pre-computes-values-for-instant-cl.light.svg" alt="Figure 9: Bootstrap Initialization Flow - Server pre-computes values for instant client-side rendering" />
+<img class="only-dark" src="./diagrams/figure-9-bootstrap-initialization-flow-server-pre-computes-values-for-instant-cl.dark.svg" alt="Figure 9: Bootstrap Initialization Flow - Server pre-computes values for instant client-side rendering" />
+</figure>
 
 <figcaption>Figure 9: Bootstrap Initialization Flow - Server pre-computes values for instant client-side rendering</figcaption>
 
@@ -491,7 +521,10 @@ const statsig = await Statsig.initialize("secret-key", {
 
 ### Feature Gate Overrides
 
-![Figure 10: Override System Hierarchy - Overrides take precedence over normal rule evaluation](./figure-10-override-system-hierarchy-overrides-take-precedence-over-normal-rule-e.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-10-override-system-hierarchy-overrides-take-precedence-over-normal-rule-e.light.svg" alt="Figure 10: Override System Hierarchy - Overrides take precedence over normal rule evaluation" />
+<img class="only-dark" src="./diagrams/figure-10-override-system-hierarchy-overrides-take-precedence-over-normal-rule-e.dark.svg" alt="Figure 10: Override System Hierarchy - Overrides take precedence over normal rule evaluation" />
+</figure>
 
 <figcaption>Figure 10: Override System Hierarchy - Overrides take precedence over normal rule evaluation</figcaption>
 
@@ -520,7 +553,10 @@ const statsig = await Statsig.initialize("secret-key", {
 
 ### Microservices Integration
 
-![Figure 11: Microservices Integration - Shared Redis cache ensures consistent configuration across services](./figure-11-microservices-integration-shared-redis-cache-ensures-consistent-config.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-11-microservices-integration-shared-redis-cache-ensures-consistent-config.light.svg" alt="Figure 11: Microservices Integration - Shared Redis cache ensures consistent configuration across services" />
+<img class="only-dark" src="./diagrams/figure-11-microservices-integration-shared-redis-cache-ensures-consistent-config.dark.svg" alt="Figure 11: Microservices Integration - Shared Redis cache ensures consistent configuration across services" />
+</figure>
 
 <figcaption>Figure 11: Microservices Integration - Shared Redis cache ensures consistent configuration across services</figcaption>
 
@@ -538,7 +574,10 @@ const statsig = await Statsig.initialize("secret-key", {
 
 ### Serverless Architecture Considerations
 
-![Figure 12: Serverless Architecture - Cold start optimization with shared Redis cache](./figure-12-serverless-architecture-cold-start-optimization-with-shared-redis-cach.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-12-serverless-architecture-cold-start-optimization-with-shared-redis-cach.light.svg" alt="Figure 12: Serverless Architecture - Cold start optimization with shared Redis cache" />
+<img class="only-dark" src="./diagrams/figure-12-serverless-architecture-cold-start-optimization-with-shared-redis-cach.dark.svg" alt="Figure 12: Serverless Architecture - Cold start optimization with shared Redis cache" />
+</figure>
 
 <figcaption>Figure 12: Serverless Architecture - Cold start optimization with shared Redis cache</figcaption>
 
@@ -572,7 +611,10 @@ export async function handler(event: APIGatewayEvent) {
 
 ### Next.js with Bootstrap Initialization
 
-![Figure 13: Next.js Bootstrap Implementation - Server-side pre-computation eliminates client-side network requests](./figure-13-next-js-bootstrap-implementation-server-side-pre-computation-eliminate.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-13-next-js-bootstrap-implementation-server-side-pre-computation-eliminate.light.svg" alt="Figure 13: Next.js Bootstrap Implementation - Server-side pre-computation eliminates client-side network requests" />
+<img class="only-dark" src="./diagrams/figure-13-next-js-bootstrap-implementation-server-side-pre-computation-eliminate.dark.svg" alt="Figure 13: Next.js Bootstrap Implementation - Server-side pre-computation eliminates client-side network requests" />
+</figure>
 
 <figcaption>Figure 13: Next.js Bootstrap Implementation - Server-side pre-computation eliminates client-side network requests</figcaption>
 
@@ -688,7 +730,10 @@ router.get("/bootstrap/:userId", async (req, res) => {
 
 Statsig SDKs are designed to handle various network failure scenarios gracefully:
 
-![Figure 14: Error Handling and Resilience - Multi-layered fallback mechanisms ensure system reliability](./figure-14-error-handling-and-resilience-multi-layered-fallback-mechanisms-ensure.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-14-error-handling-and-resilience-multi-layered-fallback-mechanisms-ensure.light.svg" alt="Figure 14: Error Handling and Resilience - Multi-layered fallback mechanisms ensure system reliability" />
+<img class="only-dark" src="./diagrams/figure-14-error-handling-and-resilience-multi-layered-fallback-mechanisms-ensure.dark.svg" alt="Figure 14: Error Handling and Resilience - Multi-layered fallback mechanisms ensure system reliability" />
+</figure>
 
 <figcaption>Figure 14: Error Handling and Resilience - Multi-layered fallback mechanisms ensure system reliability</figcaption>
 
@@ -735,7 +780,10 @@ const statsig = await Statsig.initialize("secret-key", {
 
 ### SDK Health Monitoring
 
-![Figure 15: Monitoring and Observability - Comprehensive metrics collection and alerting system](./figure-15-monitoring-and-observability-comprehensive-metrics-collection-and-aler.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-15-monitoring-and-observability-comprehensive-metrics-collection-and-aler.light.svg" alt="Figure 15: Monitoring and Observability - Comprehensive metrics collection and alerting system" />
+<img class="only-dark" src="./diagrams/figure-15-monitoring-and-observability-comprehensive-metrics-collection-and-aler.dark.svg" alt="Figure 15: Monitoring and Observability - Comprehensive metrics collection and alerting system" />
+</figure>
 
 <figcaption>Figure 15: Monitoring and Observability - Comprehensive metrics collection and alerting system</figcaption>
 
@@ -778,7 +826,10 @@ function checkGateWithMetrics(user: StatsigUser, gateName: string) {
 
 ### API Key Management
 
-![Figure 16: Security Considerations - Multi-layered security approach with environment isolation](./figure-16-security-considerations-multi-layered-security-approach-with-environme.svg)
+<figure>
+<img class="only-light" src="./diagrams/figure-16-security-considerations-multi-layered-security-approach-with-environme.light.svg" alt="Figure 16: Security Considerations - Multi-layered security approach with environment isolation" />
+<img class="only-dark" src="./diagrams/figure-16-security-considerations-multi-layered-security-approach-with-environme.dark.svg" alt="Figure 16: Security Considerations - Multi-layered security approach with environment isolation" />
+</figure>
 
 <figcaption>Figure 16: Security Considerations - Multi-layered security approach with environment isolation</figcaption>
 

@@ -128,7 +128,10 @@ HTTP/2 replaced text parsing with a fixed 9-octet frame header:
 
 Streams are independent, bidirectional sequences of frames sharing a single TCP connection:
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Stream identifier rules** (RFC 9113 Section 5.1.1):
 
@@ -211,7 +214,10 @@ Server push allowed servers to send responses proactively via PUSH_PROMISE frame
 
 HTTP/2 solved application-layer HOL blocking but exposed a transport-layer constraint: TCP's in-order delivery guarantee.
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Impact**: A single lost packet stalls all HTTP/2 streams, even those with complete data in the receive buffer. On networks with 1-2% packet loss, HTTP/2's single connection can underperform HTTP/1.1's multiple connections (which experience independent loss).
 
@@ -225,7 +231,10 @@ This limitation directly motivated HTTP/3's use of QUIC, which provides independ
 
 Browsers require TLS for HTTP/2, using the ALPN extension (RFC 7301) during the TLS handshake:
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Protocol identifiers**:
 

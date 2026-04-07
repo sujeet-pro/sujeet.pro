@@ -144,7 +144,7 @@ export function Html({
         <link rel="stylesheet" href={`${bp}/assets/style.css`} />
 
         {/* Theme init (before paint) */}
-        <script innerHTML="(function(){var d=document.documentElement;d.classList.remove('no-js');try{var t=localStorage.getItem('pagesmith-theme');if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);var r=document.getElementById('theme-'+t);if(r)r.checked=true}}catch(e){}})()" />
+        <script innerHTML="(function(){var d=document.documentElement;d.classList.remove('no-js');try{var t=localStorage.getItem('pagesmith-theme');if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);var r=document.getElementById('theme-'+t);if(r)r.checked=true}var v=localStorage.getItem('pagesmith-variant');if(v==='reader'||v==='contrast'){d.setAttribute('data-variant',v)}}catch(e){}})()" />
 
         {/* Google Analytics */}
         {gaId ? (

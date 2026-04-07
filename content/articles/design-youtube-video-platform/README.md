@@ -244,7 +244,10 @@ The tus protocol provides HTTP-based resumable uploads, critical for large files
 
 ### Upload Processing Pipeline
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Validation checks:**
 
@@ -563,7 +566,10 @@ When using multiple CDN providers, normalize cache keys:
 
 **Failover architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ## Video Storage
 
@@ -733,7 +739,10 @@ CREATE INDEX idx_videos_trending ON videos(view_count DESC)
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Deduplication strategy:**
 

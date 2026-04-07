@@ -123,7 +123,10 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -152,7 +155,10 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -181,7 +187,10 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -323,15 +332,24 @@ This approximation smooths the boundary burst problem while maintaining O(1) mem
 
 ### Component Overview
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Request Flow
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **When rate limited:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 ### Rate Limit Service (Decision Engine)
 
@@ -732,7 +750,10 @@ return {1, math.floor(tokens), 0}
 
 When a request arrives, multiple rules may match. Resolution follows a hierarchical evaluation:
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Rule precedence:** All matching rules are evaluated. The most restrictive (lowest remaining quota) determines the response. This prevents a user from bypassing a 20 req/min write limit by pointing to their 5000 req/min general limit.
 
@@ -779,7 +800,10 @@ The rate limiter is on the critical path of every API request. A Redis failure m
 
 **Strategy: Fail-open with circuit breaker**
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Stripe's fail-open principle:** Catch exceptions at all levels so that any coding or operational errors fail open. Feature flags enable rapid disabling of individual limiters. Clear HTTP status codes distinguish rate limiting (429) from load shedding (503).
 
@@ -936,7 +960,10 @@ async function fetchWithRateLimit(url: string, options?: RequestInit): Promise<R
 
 ### Production Deployment
 
-![Diagram](./diagram-9.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
+</figure>
 
 ## Variations
 

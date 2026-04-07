@@ -203,7 +203,10 @@ Path B implementation details are covered in the "Elasticsearch Alternative" sec
 
 ### Request Flow
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Sharding Strategy
 
@@ -749,7 +752,10 @@ const handleInputChange = (value: string) => {
 
 ### Pipeline Architecture
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ### Batch vs. Streaming Updates
 
@@ -956,7 +962,10 @@ def is_hot_prefix(prefix: str) -> bool:
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configuration:**
 

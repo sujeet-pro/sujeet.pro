@@ -117,7 +117,10 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Trade-offs:**
 
@@ -141,7 +144,10 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Trade-offs:**
 
@@ -229,7 +235,10 @@ This article focuses on **Path C (GraphQL with REST fallback)** because:
 
 ### Component Overview
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### Issue Service
 
@@ -287,7 +296,10 @@ Enforces workflow rules and transitions.
 
 **Transition validation flow:**
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -999,7 +1011,10 @@ async function rebalanceColumn(projectId: string, statusId: string): Promise<voi
 
 ### Optimistic Locking Flow
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Implementation
 
@@ -1226,7 +1241,10 @@ async function moveIssue(input: MoveIssueInput): Promise<UpdateResult> {
 
 Each project has its own workflow, defined by statuses and transitions.
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 ### Fetching Workflow Configuration
 
@@ -1631,7 +1649,10 @@ function VirtualizedColumn({
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configurations:**
 

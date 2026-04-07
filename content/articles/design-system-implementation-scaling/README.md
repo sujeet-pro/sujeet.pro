@@ -462,7 +462,7 @@ Checkout flows often serve double duty: web checkout and native app webview. Nat
 
 #### Microfrontend Integration Patterns
 
-Microfrontend architectures introduce unique design system challenges: multiple independently deployed applications must present a unified visual experience while maintaining deployment independence. For comprehensive coverage of microfrontend architecture, see [Micro-Frontends Architecture](../../frontend-architecture-patterns/micro-frontends-architecture/README.md).
+Microfrontend architectures introduce unique design system challenges: multiple independently deployed applications must present a unified visual experience while maintaining deployment independence. For comprehensive coverage of microfrontend architecture, see [Micro-Frontends Architecture](../micro-frontends-architecture/README.md).
 
 **Module Federation (2025 State)**
 

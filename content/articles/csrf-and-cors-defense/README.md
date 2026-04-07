@@ -58,7 +58,10 @@ The attack requires three conditions:
 
 **Attack flow**:
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Why it works**: The browser sees a request to `bank.com` and automatically includes `bank.com`'s cookies. The server cannot distinguish between a legitimate user action and an attacker-induced request—both carry the same session cookie.
 

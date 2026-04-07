@@ -164,7 +164,10 @@ This article focuses on **Path B (Availability-First)** because it represents th
 
 ### Service Architecture
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ### Cart Service
 
@@ -180,7 +183,10 @@ Manages cart lifecycle: creation, item management, persistence, and merge operat
 
 **Data Flow - Add to Cart:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 ### Inventory Service
 
@@ -195,7 +201,10 @@ Manages stock levels, reservations, and availability across warehouses.
 
 **Reservation State Machine:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### Checkout Orchestrator
 
@@ -686,7 +695,10 @@ Cart merge occurs when a guest user authenticates. The system must combine items
 
 ### Merge Algorithm
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Merge Implementation
 
@@ -800,7 +812,10 @@ The checkout process spans multiple services that must coordinate atomically des
 
 ### Saga Orchestration
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ### Saga State Machine
 
@@ -1202,7 +1217,10 @@ function useCartPriceSync(cartId: string) {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 ### AWS Service Mapping
 
@@ -1222,7 +1240,10 @@ function useCartPriceSync(cartId: string) {
 
 For high availability during peak events:
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Failover Strategy:**
 

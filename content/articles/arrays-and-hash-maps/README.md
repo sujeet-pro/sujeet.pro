@@ -187,7 +187,10 @@ V8's Map implementation maintains two separate structures:
 1. **Hash table**: Array of bucket indices for O(1) key lookup
 2. **Data table**: Entries stored in insertion order
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 Lookup: hash the key → find bucket → follow index to data table entry.
 Iteration: simply walk the data table sequentially (O(n) total, O(1) per element).

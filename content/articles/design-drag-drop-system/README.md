@@ -533,7 +533,10 @@ pointerdown → capture → pointermove (throttled) → hit test drop targets �
 
 ### Decision Framework
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 ## Implementing Core Patterns
 

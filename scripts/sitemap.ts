@@ -6,6 +6,7 @@ import { generateSitemap } from "#lib/generators";
 function formatDate(val: unknown): string | undefined {
   if (!val) return undefined;
   if (val instanceof Date) return val.toISOString().slice(0, 10);
+  if (typeof val !== "string" && typeof val !== "number") return undefined;
   const s = String(val);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   const d = new Date(s);

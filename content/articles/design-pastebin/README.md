@@ -121,7 +121,10 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -152,7 +155,10 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -183,7 +189,10 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -226,7 +235,10 @@ This article focuses on **Path B (Split Storage)** with optional content-address
 
 ### Component Overview
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Paste Write Service
 
@@ -234,7 +246,10 @@ Accepts text content, compresses it, stores it in S3, and persists metadata.
 
 **Write flow:**
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 **Design decisions:**
 
@@ -251,7 +266,10 @@ The hot path. Retrieves paste content via multi-tier cache.
 
 **Read flow:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Critical optimizations:**
 
@@ -294,7 +312,10 @@ Handles time-based paste expiration and burn-after-read.
 
 **Burn-after-read implementation:**
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Race condition handling:** The `SELECT ... FOR UPDATE` acquires a row-level lock. If two concurrent readers hit the same burn-after-read paste, only the first gets the content; the second sees `deleted_at IS NOT NULL` and receives `410 Gone`. This is the correct behavior—exactly one reader sees the content.
 
@@ -568,7 +589,10 @@ The KGS is the critical component that decouples ID generation from the write pa
 
 #### KGS Implementation Details
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **Batch allocation query (PostgreSQL):**
 
@@ -843,7 +867,10 @@ Storage cost is negligible. The dominant cost is compute (API servers) and Redis
 
 ### Production Deployment
 
-![Diagram](./diagram-9.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
+</figure>
 
 ## Variations
 

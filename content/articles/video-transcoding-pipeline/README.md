@@ -155,7 +155,10 @@ Parallel chunked (6 workers, 10 chunks):
 
 **Distributed chunking workflow (fan-out/fan-in):**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Splitting at keyframes:**
 
@@ -314,7 +317,10 @@ Example static ladder (H.264):
 
 **Convex hull optimization:** Encode at many bitrate/resolution combinations, measure quality (VMAF), plot rate-distortion curve. Select the Pareto-optimal points (convex hull) where quality improvements justify bitrate increases.
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Per-shot encoding (advanced):** Netflix's current approach varies encoding parameters per shot within a video, not just per title. Scene cuts trigger re-evaluation of optimal settings. This exploits the observation that complexity varies dramatically within a single video.
 

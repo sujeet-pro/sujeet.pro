@@ -122,7 +122,10 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -151,7 +154,10 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -182,7 +188,10 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -241,11 +250,17 @@ The design sections show how to build each component (crawler, indexer, ranker, 
 
 ### Request Flow
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 ### Crawl Pipeline
 
-![Diagram](./diagram-5.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
+</figure>
 
 ## API Design
 
@@ -481,7 +496,10 @@ Building an inverted index from crawled documents at web scale requires careful 
 
 **Index Build Pipeline:**
 
-![Diagram](./diagram-6.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
+</figure>
 
 **Implementation (Conceptual MapReduce):**
 
@@ -564,7 +582,10 @@ Google uses a hybrid: the main index updates incrementally, while a separate "fr
 
 ### Query Processing Pipeline
 
-![Diagram](./diagram-7.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
+</figure>
 
 **Spell Correction Implementation:**
 
@@ -610,7 +631,10 @@ async function correctSpelling(query: string): Promise<SpellResult> {
 
 Google combines multiple ranking systems, each contributing different signals:
 
-![Diagram](./diagram-8.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
+</figure>
 
 **PageRank Computation:**
 
@@ -1039,7 +1063,10 @@ Google uses traditional pagination rather than infinite scroll. Design rationale
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-9.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
+</figure>
 
 **Service sizing (for ~10K QPS, 1B documents):**
 

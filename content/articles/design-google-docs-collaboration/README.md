@@ -114,7 +114,10 @@ Collaborative document editing requires solving three interrelated problems: **r
 
 **Architecture:**
 
-![Diagram](./diagram-1.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -144,7 +147,10 @@ Collaborative document editing requires solving three interrelated problems: **r
 
 **Architecture:**
 
-![Diagram](./diagram-2.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
+</figure>
 
 **Key characteristics:**
 
@@ -208,13 +214,16 @@ This article focuses on **Path A (OT with server ordering)** because:
 3. Simpler to implement correctly
 4. Existing libraries (ShareDB, ot.js) provide solid foundations
 
-Path B (CRDT) details are covered in [CRDTs for Collaborative Systems](../../core-distributed-patterns/crdt-for-collaborative-systems/README.md).
+Path B (CRDT) details are covered in [CRDTs for Collaborative Systems](../crdt-for-collaborative-systems/README.md).
 
 ## High-Level Design
 
 ### Component Overview
 
-![Diagram](./diagram-3.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
+</figure>
 
 ### WebSocket Gateway
 
@@ -1155,7 +1164,10 @@ class OfflineQueue {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagram-4.svg)
+<figure>
+<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
+<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
+</figure>
 
 **Service configurations:**
 
@@ -1272,5 +1284,5 @@ This design provides real-time collaborative document editing with:
 
 **Related Articles:**
 
-- [Operational Transformation](../../core-distributed-patterns/operational-transformation/README.md) - Deep dive into OT algorithms
-- [CRDTs for Collaborative Systems](../../core-distributed-patterns/crdt-for-collaborative-systems/README.md) - Alternative approach for offline-first
+- [Operational Transformation](../operational-transformation/README.md) - Deep dive into OT algorithms
+- [CRDTs for Collaborative Systems](../crdt-for-collaborative-systems/README.md) - Alternative approach for offline-first

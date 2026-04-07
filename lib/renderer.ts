@@ -7,7 +7,7 @@ import { loadSiteConfig, loadMetaConfig, loadRedirects } from "./config";
 import { createSiteContentLayer, loadAllContent } from "./collections";
 import { buildSeriesData, findSeriesNav, buildPageTypeData } from "./series";
 import { buildTagIndex } from "./tags";
-import { copyPublicAssets, copyContentAssets, writeCss } from "./assets";
+import { copyPublicAssets, buildContentAssets, writeCss, type AssetManifest } from "./assets";
 import {
   generateTagPages,
   generateRedirectPages,
@@ -38,6 +38,7 @@ export async function renderPage(
 function formatDate(val: unknown): string | undefined {
   if (!val) return undefined;
   if (val instanceof Date) return val.toISOString().slice(0, 10);
+  if (typeof val !== "string" && typeof val !== "number") return undefined;
   const s = String(val);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   const d = new Date(s);
@@ -55,6 +56,42 @@ function writeHtmlFile(outDir: string, slug: string, html: string): void {
   writeFileSync(filePath, html);
 }
 
+function rewriteAssetPaths(html: string, contentRelDir: string, manifest: AssetManifest): string {
+  return html.replace(/(src|srcset)="([^"]+)"/g, (match, attr: string, rawPath: string) => {
+    if (
+      rawPath.startsWith("/") ||
+      rawPath.startsWith("http:") ||
+      rawPath.startsWith("https:") ||
+      rawPath.startsWith("data:") ||
+      rawPath.startsWith("#")
+    ) {
+      return match;
+    }
+    const resolved = join(contentRelDir, rawPath).replace(/\\/g, "/");
+    const url = manifest.get(resolved);
+    return url ? `${attr}="${url}"` : match;
+  });
+}
+
+function rewriteContentLinks(html: string, contentRelDir: string, basePath: string): string {
+  return html.replace(/href="([^"]+)"/g, (match, rawPath: string) => {
+    if (!rawPath.includes("README.md")) return match;
+    if (
+      rawPath.startsWith("http:") ||
+      rawPath.startsWith("https:") ||
+      rawPath.startsWith("data:")
+    ) {
+      return match;
+    }
+
+    const [pathPart, hash] = rawPath.split("#");
+    const resolved = join(contentRelDir, pathPart).replace(/\\/g, "/");
+    const slug = resolved.replace(/\/README\.md$/, "");
+    const hashSuffix = hash ? `#${hash}` : "";
+    return `href="${basePath}/${slug}${hashSuffix}"`;
+  });
+}
+
 export async function renderSite(options: RenderSiteOptions): Promise<void> {
   const { outDir, contentDir, layoutsDir, publicDir } = options;
 
@@ -67,12 +104,14 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
   const projectsMeta = loadMetaConfig(join(contentDir, "projects"));
   const redirects = loadRedirects(contentDir);
 
-  // 2. Load content
+  // 2. Build asset manifest (needed before rendering to rewrite image paths)
+  const bp = siteConfig.basePath;
+  const assetManifest = buildContentAssets(contentDir, outDir, bp);
+  copyPublicAssets(publicDir, outDir);
+
+  // 3. Load content
   const layer = createSiteContentLayer();
   const content = await loadAllContent(layer);
-
-  // 3. Build derived data
-  const bp = siteConfig.basePath;
 
   const articleSeriesData = buildSeriesData(articlesMeta, content.articles, bp);
   const articlePageType = buildPageTypeData(
@@ -106,7 +145,7 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
     projects: { meta: projectsMeta, seriesData: projectSeriesData, pageType: projectPageType },
   };
 
-  // 4. Render content entries
+  // 5. Render content entries
   const sitemapEntries: { slug: string; lastmod?: string }[] = [{ slug: "/" }];
   const rssEntries: { title: string; url: string; description?: string; date?: string }[] = [];
 
@@ -119,10 +158,16 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
       if (entry.data.draft) continue;
 
       const rendered = await entry.render();
+      const withAssets = rewriteAssetPaths(
+        rendered.html,
+        `${collection}/${entry.slug}`,
+        assetManifest,
+      );
+      const contentHtml = rewriteContentLinks(withAssets, `${collection}/${entry.slug}`, bp);
       const seriesNav = findSeriesNav(seriesData, entry.slug, bp);
 
       const props: Record<string, any> = {
-        content: rendered.html,
+        content: contentHtml,
         frontmatter: entry.data,
         headings: rendered.headings,
         slug: `${collection}/${entry.slug}`,
@@ -156,6 +201,8 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
   // Render listing pages and home
   for (const page of content.pages) {
     const rendered = await page.render();
+    const pageContentDir = page.slug === "_home" ? "" : page.slug;
+    const pageHtml = rewriteAssetPaths(rendered.html, pageContentDir, assetManifest);
     let layoutName: string;
     let props: Record<string, any>;
 
@@ -166,7 +213,7 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
       const { meta, pageType } = metaByCollection[page.slug];
       layoutName = meta.layout;
       props = {
-        content: rendered.html,
+        content: pageHtml,
         frontmatter: page.data,
         headings: rendered.headings,
         slug: page.slug,
@@ -176,7 +223,7 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
     } else {
       layoutName = page.data.layout ?? siteConfig.defaultLayout;
       props = {
-        content: rendered.html,
+        content: pageHtml,
         frontmatter: page.data,
         headings: rendered.headings,
         slug: page.slug,
@@ -192,27 +239,27 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
     }
   }
 
-  // 5. Generate tag pages
+  // 6. Generate tag pages
   await generateTagPages(tagIndex, siteConfig, layoutsDir, outDir);
   sitemapEntries.push({ slug: "tags" });
   for (const [tag] of tagIndex) {
     sitemapEntries.push({ slug: `tags/${tag}` });
   }
 
-  // 6. Generate redirect pages
+  // 7. Generate redirect pages
   generateRedirectPages(redirects.redirects, redirects.vanity, outDir, bp);
 
-  // 7. Generate 404 page
+  // 8. Generate 404 page
   await generateNotFoundPage(siteConfig, layoutsDir, outDir);
 
-  // 8. Build CSS
+  // 9. Build CSS
   let css = buildCss("./styles/main.css", { minify: true });
   if (bp) {
     css = css.replaceAll("url(/assets/", `url(${bp}/assets/`);
   }
   writeCss(css, outDir);
 
-  // 9. Bundle runtime JS
+  // 10. Bundle runtime JS
   const bundleResult = await esbuild.build({
     entryPoints: ["./runtime/main.ts"],
     outdir: join(outDir, "assets"),
@@ -225,10 +272,6 @@ export async function renderSite(options: RenderSiteOptions): Promise<void> {
   if (bundleResult.errors.length > 0) {
     console.error("JS bundle failed:", bundleResult.errors);
   }
-
-  // 10. Copy assets
-  copyPublicAssets(publicDir, outDir);
-  copyContentAssets(contentDir, outDir);
 
   // 11. Generate sitemap, RSS, and manifest
   generateSitemap(sitemapEntries, siteConfig.origin, bp, outDir);

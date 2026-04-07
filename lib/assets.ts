@@ -1,5 +1,14 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "fs";
-import { join, extname } from "path";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "fs";
+import { join, extname, relative } from "path";
+import { createHash } from "node:crypto";
 
 const ASSET_EXTENSIONS = new Set([
   ".png",
@@ -19,6 +28,8 @@ const ASSET_EXTENSIONS = new Set([
   ".pdf",
 ]);
 
+export type AssetManifest = Map<string, string>;
+
 export function copyPublicAssets(publicDir: string, outDir: string): void {
   if (!existsSync(publicDir)) return;
   cpSync(publicDir, outDir, { recursive: true });
@@ -33,9 +44,14 @@ export function copyPublicAssets(publicDir: string, outDir: string): void {
   }
 }
 
-export function copyContentAssets(contentDir: string, outDir: string): void {
+export function buildContentAssets(
+  contentDir: string,
+  outDir: string,
+  basePath: string,
+): AssetManifest {
   const assetsOut = join(outDir, "assets");
   mkdirSync(assetsOut, { recursive: true });
+  const manifest: AssetManifest = new Map();
 
   function walk(dir: string) {
     if (!existsSync(dir)) return;
@@ -46,14 +62,25 @@ export function copyContentAssets(contentDir: string, outDir: string): void {
         continue;
       }
       if (!ASSET_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue;
-      const dest = join(assetsOut, entry.name);
+
+      const content = readFileSync(full);
+      const hash = createHash("sha256").update(content).digest("hex").slice(0, 8);
+      const ext = extname(entry.name);
+      const nameWithoutExt = entry.name.slice(0, -ext.length);
+      const hashedName = `${nameWithoutExt}-${hash}${ext}`;
+
+      const dest = join(assetsOut, hashedName);
       if (!existsSync(dest)) {
         cpSync(full, dest);
       }
+
+      const relPath = relative(contentDir, full).replace(/\\/g, "/");
+      manifest.set(relPath, `${basePath}/assets/${hashedName}`);
     }
   }
 
   walk(contentDir);
+  return manifest;
 }
 
 export function writeCss(css: string, outDir: string): void {
