@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { withBase } from "./helpers";
+import { expect } from "@playwright/test";
+import { test, withBase } from "./helpers";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 const BLOG_SLUG = "/blogs/chrome-developer-setup/";
@@ -173,9 +173,9 @@ test.describe("Footer", () => {
     await page.goto("/");
     const social = page.locator(".footer-social a");
     await expect(social).toHaveCount(3);
-    await expect(social.locator('[aria-label="GitHub"]')).toBeVisible();
-    await expect(social.locator('[aria-label="LinkedIn"]')).toBeVisible();
-    await expect(social.locator('[aria-label="Twitter"]')).toBeVisible();
+    await expect(page.locator('.footer-social a[aria-label="GitHub"]')).toBeVisible();
+    await expect(page.locator('.footer-social a[aria-label="LinkedIn"]')).toBeVisible();
+    await expect(page.locator('.footer-social a[aria-label="Twitter"]')).toBeVisible();
   });
 
   test("copyright is shown", async ({ page }) => {

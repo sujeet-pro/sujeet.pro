@@ -16,7 +16,7 @@
     "check:fix": "vp check --fix",
     "test": "vp test",
     "test:e2e": "npx playwright test",
-    "test:e2e:deployed": "DEPLOYED_URL=https://projects.sujeet.pro/v5.sujeet.pro BASE_PATH=/v5.sujeet.pro npx playwright test"
+    "test:e2e:deployed": "DEPLOYED_URL=https://projects.sujeet.pro BASE_PATH=/v5.sujeet.pro npx playwright test"
   },
   "dependencies": {
     "@pagesmith/core": "^0.4.2",

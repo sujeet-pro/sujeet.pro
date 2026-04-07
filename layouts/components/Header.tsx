@@ -37,7 +37,10 @@ export function Header({ site, slug, hasLeftSidebar }: Props) {
         <div class="header-nav-group">
           <nav class="site-nav">
             {site.navItems.map((item) => (
-              <a href={`${bp}${item.path}`} class={slug.startsWith(item.path) ? "active" : ""}>
+              <a
+                href={`${bp}${item.path}`}
+                class={`/${slug}`.startsWith(item.path) ? "active" : ""}
+              >
                 {item.label}
               </a>
             ))}

@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./helpers";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 const BLOG_SLUG = "/blogs/chrome-developer-setup/";

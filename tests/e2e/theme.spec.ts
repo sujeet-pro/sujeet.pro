@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./helpers";
 
 const STORAGE_KEY = "pagesmith-theme";
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
