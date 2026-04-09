@@ -16,6 +16,9 @@
     }
   },
   "include": [
+    "entry-server.tsx",
+    "client.ts",
+    "src/**/*.ts",
     "scripts/**/*.ts",
     "layouts/**/*.tsx",
     "runtime/**/*.ts",

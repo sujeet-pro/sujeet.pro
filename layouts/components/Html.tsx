@@ -9,7 +9,7 @@ type Props = {
   pageType?: string;
   noindex?: boolean;
   hasLeftSidebar?: boolean;
-  site: SiteConfig;
+  site: SiteConfig & { cssPath?: string; jsPath?: string };
   children?: any;
 };
 
@@ -141,7 +141,7 @@ export function Html({
         />
 
         {/* CSS */}
-        <link rel="stylesheet" href={`${bp}/assets/style.css`} />
+        <link rel="stylesheet" href={site.cssPath ?? `${bp}/assets/style.css`} />
 
         {/* Theme init (before paint) */}
         <script innerHTML="(function(){var d=document.documentElement;d.classList.remove('no-js');try{var t=localStorage.getItem('pagesmith-theme');if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);var r=document.getElementById('theme-'+t);if(r)r.checked=true}var v=localStorage.getItem('pagesmith-variant');if(v==='reader'||v==='contrast'){d.setAttribute('data-variant',v)}}catch(e){}})()" />
@@ -163,7 +163,7 @@ export function Html({
         {hasLeftSidebar ? <input type="checkbox" id="sidebar-toggle" class="sr-only" /> : null}
         {hasLeftSidebar ? <label for="sidebar-toggle" class="sidebar-overlay" /> : null}
         {children}
-        <script src={`${bp}/assets/main.js`} defer />
+        {site.jsPath ? <script type="module" src={site.jsPath} defer /> : null}
       </body>
     </html>
   );
