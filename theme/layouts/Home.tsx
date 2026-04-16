@@ -132,7 +132,7 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
               </p>
               <div class="site-home-series-grid">
                 {featuredSeries.map((series) => (
-                  <a href={`${base}/articles/#${series.slug}`} class="site-home-series-card">
+                  <a href={`${base}/articles#${series.slug}`} class="site-home-series-card">
                     <span class="site-home-series-name">{series.displayName}</span>
                     <span class="site-home-series-count">{series.articles.length} articles</span>
                     {series.description ? (
@@ -156,7 +156,7 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
               <ul class="site-home-featured-list">
                 {featuredArticles.map((entry) => (
                   <li class="site-home-featured-item">
-                    <a href={`${entry.path}/`} class="site-home-featured-link">
+                    <a href={entry.path} class="site-home-featured-link">
                       <span class="site-home-featured-title">{entry.title}</span>
                       {entry.description ? (
                         <span class="site-home-featured-desc">{entry.description}</span>

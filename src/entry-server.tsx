@@ -34,7 +34,17 @@ function rewriteReadmeLinks(html: string): string {
   return html.replace(
     /\bhref=(["'])([^"'?#]*?)README\.md([?#][^"']*)?\1/g,
     (_match, quote, prefix, suffix = "") => {
-      const base = prefix.length > 0 ? prefix : "./";
+      let base = prefix.length > 0 ? prefix : "./";
+      // In flat HTML output (trailingSlash: false), content directories become
+      // sibling .html files. ../slug/README.md from crp-commit/README.md targets
+      // the sibling crp-paint.html, not ../crp-paint/. Remove one ../ level since
+      // the directory-to-file collapse reduces nesting by one.
+      if (!siteConfig.trailingSlash && base.startsWith("../")) {
+        base = base.slice(3) || "./";
+      }
+      if (base !== "./" && base.endsWith("/")) {
+        base = base.slice(0, -1);
+      }
       return `href=${quote}${base}${suffix}${quote}`;
     },
   );

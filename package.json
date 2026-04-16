@@ -21,9 +21,10 @@
     "check:ci": "npm run check && npm run validate && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
   },
   "dependencies": {
-    "@pagesmith/site": "^0.9.4",
-    "diagramkit": "^0.2.4",
-    "json5": "^2.2.3"
+    "@pagesmith/site": "^0.9.5",
+    "diagramkit": "^0.2.5",
+    "json5": "^2.2.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
