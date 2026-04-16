@@ -18,11 +18,8 @@ Deep-dive into Operational Transformation (OT): the algorithm powering Google Do
 
 OT enables real-time collaborative editing by transforming concurrent operations so that all clients converge to the same document state. Despite being the foundation of nearly every production collaborative editor since 1995, OT has a troubled academic history—most published algorithms were later proven incorrect. This article covers why OT is hard, which approaches actually work, and how production systems sidestep the theoretical pitfalls.
 
-<figure>
-<img class="only-light" src="./diagrams/ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv.light.svg" alt="OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence." />
-<img class="only-dark" src="./diagrams/ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv.dark.svg" alt="OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence." />
-<figcaption>OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence.</figcaption>
-</figure>
+![OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence.](./diagrams/ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv-light.svg "OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence.")
+![OT core flow: concurrent operations are transformed against each other to preserve intent while achieving convergence.](./diagrams/ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv-dark.svg)
 
 ## Abstract
 
@@ -156,11 +153,8 @@ Clients maintain three states:
 - **Pending operations**: Sent to server, awaiting acknowledgment
 - **Local operations**: Not yet sent (buffered during server round-trip)
 
-<figure>
-<img class="only-light" src="./diagrams/client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope.light.svg" alt="Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen." />
-<img class="only-dark" src="./diagrams/client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope.dark.svg" alt="Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen." />
-<figcaption>Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen.</figcaption>
-</figure>
+![Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen.](./diagrams/client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope-light.svg "Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen.")
+![Client-server OT: server assigns canonical ordering, clients transform against operations they haven't seen.](./diagrams/client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope-dark.svg)
 
 **Critical design choice**: Clients must wait for acknowledgment before sending the next operation batch. Google Wave enforced this strictly—during the wait, clients buffer local operations and send them in bulk after ACK.
 
@@ -333,11 +327,8 @@ COT powers several academic and commercial systems: CoMaya (3D modeling), CoWord
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-ot-variant-selection-client-server-dominates-production-use.light.svg" alt="Decision tree for OT variant selection. Client-server dominates production use." />
-<img class="only-dark" src="./diagrams/decision-tree-for-ot-variant-selection-client-server-dominates-production-use.dark.svg" alt="Decision tree for OT variant selection. Client-server dominates production use." />
-<figcaption>Decision tree for OT variant selection. Client-server dominates production use.</figcaption>
-</figure>
+![Decision tree for OT variant selection. Client-server dominates production use.](./diagrams/decision-tree-for-ot-variant-selection-client-server-dominates-production-use-light.svg "Decision tree for OT variant selection. Client-server dominates production use.")
+![Decision tree for OT variant selection. Client-server dominates production use.](./diagrams/decision-tree-for-ot-variant-selection-client-server-dominates-production-use-dark.svg)
 
 ## Production Implementations
 
@@ -467,11 +458,8 @@ Rich text isn't a string—it's a tree (paragraphs containing spans containing t
 
 ### Starting Point Decision
 
-<figure>
-<img class="only-light" src="./diagrams/implementation-decision-tree-building-ot-from-scratch-is-rarely-justified.light.svg" alt="Implementation decision tree. Building OT from scratch is rarely justified." />
-<img class="only-dark" src="./diagrams/implementation-decision-tree-building-ot-from-scratch-is-rarely-justified.dark.svg" alt="Implementation decision tree. Building OT from scratch is rarely justified." />
-<figcaption>Implementation decision tree. Building OT from scratch is rarely justified.</figcaption>
-</figure>
+![Implementation decision tree. Building OT from scratch is rarely justified.](./diagrams/implementation-decision-tree-building-ot-from-scratch-is-rarely-justified-light.svg "Implementation decision tree. Building OT from scratch is rarely justified.")
+![Implementation decision tree. Building OT from scratch is rarely justified.](./diagrams/implementation-decision-tree-building-ot-from-scratch-is-rarely-justified-dark.svg)
 
 ### Library Options
 

@@ -16,21 +16,15 @@ tags:
 
 This document presents the architectural design for a cloud-agnostic, multi-tenant image processing platform that provides on-the-fly transformations with enterprise-grade security, performance, and cost optimization. The platform supports hierarchical multi-tenancy (Organization → Tenant → Space), public and private image delivery, and deployment across AWS, GCP, Azure, or on-premise infrastructure. Key capabilities include deterministic transformation caching to ensure sub-second delivery, HMAC-SHA256 signed URLs for secure private access, CDN (Content Delivery Network) integration for global edge caching, and a "transform-once-serve-forever" approach that minimizes processing costs while guaranteeing HTTP 200 responses even for first-time transformation requests.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-request-images-through-cdn-with-cache-misses-han.light.svg" alt="High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage" />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-request-images-through-cdn-with-cache-misses-han.dark.svg" alt="High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage" />
-<figcaption>High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage</figcaption>
-</figure>
+![High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage](./diagrams/high-level-architecture-clients-request-images-through-cdn-with-cache-misses-han-light.svg "High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage")
+![High-level architecture: Clients request images through CDN, with cache misses handled by the Image Gateway which orchestrates transformation, caching, and storage](./diagrams/high-level-architecture-clients-request-images-through-cdn-with-cache-misses-han-dark.svg)
 
 ## Abstract
 
 Image processing at scale requires balancing three competing concerns: **latency** (users expect sub-second delivery), **cost** (processing and storage grow with traffic), and **correctness** (transformations must be deterministic and secure). This architecture resolves these tensions through a layered caching strategy with content-addressed storage.
 
-<figure>
-<img class="only-light" src="./diagrams/multi-layer-caching-eliminates-99-9-of-redundant-processing-only-the-first-reque.light.svg" alt="Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine." />
-<img class="only-dark" src="./diagrams/multi-layer-caching-eliminates-99-9-of-redundant-processing-only-the-first-reque.dark.svg" alt="Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine." />
-<figcaption>Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine.</figcaption>
-</figure>
+![Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine.](./diagrams/multi-layer-caching-eliminates-99-9-of-redundant-processing-only-the-first-reque-light.svg "Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine.")
+![Multi-layer caching eliminates 99.9% of redundant processing—only the first request for each unique transformation hits the Transform Engine.](./diagrams/multi-layer-caching-eliminates-99-9-of-redundant-processing-only-the-first-reque-dark.svg)
 
 **Core mental model:**
 
@@ -300,24 +294,18 @@ npm install redlock
 
 ### System Diagram
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Request Flow: Public Image
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ### Request Flow: Private Image
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### Edge Authentication Patterns
 
@@ -833,17 +821,13 @@ function canonicalizeOperations(opsString) {
 
 ### Upload Flow with Auto-Presets
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Synchronous Transform Flow (Guaranteed 200)
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ---
 
@@ -1619,10 +1603,8 @@ export default RateLimiter
 
 ### Kubernetes Deployment
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### Storage Abstraction Layer
 
@@ -2058,10 +2040,8 @@ volumes:
 
 ### Multi-Layer Caching Strategy
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 ### Storage Lifecycle Management
 

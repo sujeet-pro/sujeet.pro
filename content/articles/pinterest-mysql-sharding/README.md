@@ -16,11 +16,8 @@ tags:
 
 In 2012, Pinterest had 3.2 million users doubling every 45 days, 3 engineers, and five different database technologies all breaking simultaneously. Their fix: abandon every NoSQL database, shard MySQL with a 64-bit ID scheme that embeds shard location directly in every object ID, and never move data between shards. This case study examines how Pinterest's "boring technology" philosophy produced one of the most enduring database architectures in Silicon Valley---still running in production over a decade later---and the specific design decisions that made it work at 150+ billion objects.
 
-<figure>
-<img class="only-light" src="./diagrams/pinterest-s-storage-architecture-before-and-after-the-mysql-sharding-migration-s.light.svg" alt="Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three." />
-<img class="only-dark" src="./diagrams/pinterest-s-storage-architecture-before-and-after-the-mysql-sharding-migration-s.dark.svg" alt="Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three." />
-<figcaption>Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three.</figcaption>
-</figure>
+![Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three.](./diagrams/pinterest-s-storage-architecture-before-and-after-the-mysql-sharding-migration-s-light.svg "Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three.")
+![Pinterest's storage architecture before and after the MySQL sharding migration. Six different database technologies replaced by three.](./diagrams/pinterest-s-storage-architecture-before-and-after-the-mysql-sharding-migration-s-dark.svg)
 
 ## Abstract
 
@@ -361,11 +358,8 @@ The `board_id` stored in a pin's JSON blob encodes the board's shard in its uppe
 
 **Write path: Creating a new pin**
 
-<figure>
-<img class="only-light" src="./diagrams/write-path-for-creating-a-new-pin-the-shard-is-determined-by-the-board-s-id-keep.light.svg" alt="Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board." />
-<img class="only-dark" src="./diagrams/write-path-for-creating-a-new-pin-the-shard-is-determined-by-the-board-s-id-keep.dark.svg" alt="Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board." />
-<figcaption>Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board.</figcaption>
-</figure>
+![Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board.](./diagrams/write-path-for-creating-a-new-pin-the-shard-is-determined-by-the-board-s-id-keep-light.svg "Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board.")
+![Write path for creating a new pin. The shard is determined by the board's ID, keeping pins colocated with their board.](./diagrams/write-path-for-creating-a-new-pin-the-shard-is-determined-by-the-board-s-id-keep-dark.svg)
 
 1. Extract shard ID from the `board_id` (the pin should colocate with its board)
 2. Look up shard configuration to find the physical host

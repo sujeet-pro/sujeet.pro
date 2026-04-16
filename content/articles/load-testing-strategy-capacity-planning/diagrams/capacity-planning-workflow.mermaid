@@ -1,12 +1,14 @@
-graph TD
-    A["Define Test Objectives<br/>and Hypotheses"] --> B["Model Traffic Patterns<br/>and Scenarios"]
-    B --> C["Prepare Infrastructure<br/>and Test Data"]
-    C --> D["Execute Load Tests"]
-    D --> E["Monitor and<br/>Collect Metrics"]
-    E --> F{"Bottleneck<br/>Found?"}
-    F -->|Yes| G["Identify Root Cause"]
-    G --> H["Remediate"]
+%% Diagram: Capacity Planning Workflow
+%% Type: flowchart
+flowchart TD
+    A["Frame objectives<br/>and falsifiable hypotheses"] --> B["Model workload mix<br/>and scenarios"]
+    B --> C["Prepare systems<br/>and realistic data or mocks"]
+    C --> D["Warmup then validate<br/>steady-state behavior"]
+    D --> E["Execute scenarios<br/>and observe SLO signals"]
+    E --> F{"Bottleneck or<br/>SLO violation?"}
+    F -->|Yes| G["Classify bottleneck<br/>and isolate variables"]
+    G --> H["Remediate or refine model"]
     H --> D
-    F -->|No| I["Estimate Capacity"]
-    I --> J["Apply Headroom<br/>Factor"]
-    J --> K["Publish Capacity<br/>Plan Report"]
+    F -->|No| I["Derive capacity envelope<br/>from saturation points"]
+    I --> J["Apply headroom to<br/>targets and risk budget"]
+    J --> K["Report decisions, limits,<br/>and operational follow-ups"]

@@ -1,0 +1,16 @@
+%% Diagram: Invalidate After Mutation
+%% Type: sequence
+sequenceDiagram
+    participant UI as Client UI
+    participant Cache as Client cache
+    participant API as Origin API
+
+    UI->>Cache: Read cached query
+    Cache-->>UI: Possibly stale snapshot
+    UI->>API: Mutation (POST/PATCH/DELETE)
+    API-->>UI: Success + canonical body or version
+    Note over UI,Cache: Invalidate or update cache from response
+    UI->>Cache: Mark affected keys stale / patch entities
+    UI->>API: Refetch or background revalidate
+    API-->>Cache: Fresh representation
+    Cache-->>UI: Consistent read path

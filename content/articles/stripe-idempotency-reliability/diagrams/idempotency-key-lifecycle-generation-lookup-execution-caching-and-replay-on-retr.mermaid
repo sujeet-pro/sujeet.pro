@@ -1,3 +1,5 @@
+%% Diagram: Idempotency Key Lifecycle Generation Lookup Execution Caching And Replay On Retr
+%% Type: flowchart
 flowchart TD
     subgraph "Client Request with Idempotency Key"
         A[Client generates UUID] --> B[POST /v1/charges<br/>Idempotency-Key: abc123]

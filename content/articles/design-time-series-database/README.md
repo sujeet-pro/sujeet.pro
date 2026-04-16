@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a metrics and monitoring time-series database (TSDB) handling high-velocity writes, efficient compression, and long-term retention. This design addresses write throughput at millions of samples/second, sub-millisecond queries over billions of datapoints, cardinality management for dimensional data, and multi-tier storage for cost-effective retention.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf.light.svg" alt="High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention." />
-<img class="only-dark" src="./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf.dark.svg" alt="High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention." />
-<figcaption>High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.</figcaption>
-</figure>
+![High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.](./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf-light.svg "High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.")
+![High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.](./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf-dark.svg)
 
 ## Abstract
 
@@ -239,17 +236,13 @@ Handles data retention and downsampling:
 
 ### Data Flow: Write Path
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Data Flow: Query Path
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## API Design
 
@@ -824,10 +817,8 @@ class InMemoryIndex {
 
 Compaction merges small blocks into larger ones, improving query efficiency:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ```typescript collapse={1-10, 50-60}
 // Compaction strategy
@@ -1132,10 +1123,8 @@ async function fetchDashboard(queries: DashboardQuery[]): Promise<Map<string, Qu
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 | Component     | AWS Service        | Configuration                           |
 | ------------- | ------------------ | --------------------------------------- |

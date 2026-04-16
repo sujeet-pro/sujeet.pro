@@ -16,11 +16,8 @@ tags:
 
 Database indexes accelerate reads by trading write overhead and storage for faster lookups. This article covers index data structures, composite index design, query planner behavior, and maintenance strategies for production systems.
 
-<figure>
-<img class="only-light" src="./diagrams/query-execution-flow-planner-estimates-costs-selects-scan-type-based-on-selectiv.light.svg" alt="Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap." />
-<img class="only-dark" src="./diagrams/query-execution-flow-planner-estimates-costs-selects-scan-type-based-on-selectiv.dark.svg" alt="Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap." />
-<figcaption>Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap.</figcaption>
-</figure>
+![Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap.](./diagrams/query-execution-flow-planner-estimates-costs-selects-scan-type-based-on-selectiv-light.svg "Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap.")
+![Query execution flow: planner estimates costs, selects scan type based on selectivity, and accesses data through indexes or heap.](./diagrams/query-execution-flow-planner-estimates-costs-selects-scan-type-based-on-selectiv-dark.svg)
 
 ## Abstract
 

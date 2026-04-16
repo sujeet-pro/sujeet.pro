@@ -5,42 +5,79 @@ const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 const BLOG_SLUG = "/blogs/chrome-developer-setup/";
 
 test.describe("Home page", () => {
-  test("renders profile section", async ({ page }) => {
+  test("renders hero section", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".home-profile")).toBeVisible();
-    await expect(page.locator(".home-name")).toHaveText("Sujeet Jaiswal");
-    await expect(page.locator(".home-title")).toHaveText("Principal Software Engineer");
+    await expect(page.locator(".site-hero")).toBeVisible();
+    await expect(page.locator(".site-hero-name")).toHaveText("Sujeet Jaiswal");
+    await expect(page.locator(".site-hero-tagline")).toHaveText("Principal Software Engineer");
+    await expect(page.locator(".site-hero-description")).toBeVisible();
+  });
+
+  test("shows action links", async ({ page }) => {
+    await page.goto("/");
+    const actions = page.locator(".site-actions .site-action");
+    await expect(actions).not.toHaveCount(0);
+    await expect(actions.filter({ hasText: "Browse Articles" })).toBeVisible();
+    await expect(actions.filter({ hasText: "Read Blogs" })).toBeVisible();
   });
 
   test("shows featured series cards", async ({ page }) => {
     await page.goto("/");
-    const cards = page.locator(".home-series-card");
+    const cards = page.locator(".site-home-series-card");
     await expect(cards).not.toHaveCount(0);
     await expect(cards.first()).toBeVisible();
   });
 
+  test("series cards link to articles listing anchors", async ({ page }) => {
+    await page.goto("/");
+    const firstCard = page.locator(".site-home-series-card").first();
+    const href = await firstCard.getAttribute("href");
+    expect(href).toMatch(/\/articles\/#/);
+  });
+
   test("shows featured articles", async ({ page }) => {
     await page.goto("/");
-    const items = page.locator(".home-featured-item");
+    const items = page.locator(".site-home-featured-item");
     await expect(items).not.toHaveCount(0);
     await expect(items.first()).toBeVisible();
+  });
+
+  test("featured article links navigate to article pages", async ({ page }) => {
+    await page.goto("/");
+    const firstLink = page.locator(".site-home-featured-link").first();
+    const href = await firstLink.getAttribute("href");
+    expect(href).toMatch(/\/articles\//);
   });
 });
 
 test.describe("Articles listing", () => {
-  test("shows series categories", async ({ page }) => {
+  test("shows page heading", async ({ page }) => {
     await page.goto("/articles/");
-    await expect(page.locator("h1")).toBeVisible();
-    const sections = page.locator(".category-section");
-    await expect(sections).not.toHaveCount(0);
-    await expect(sections.first().locator("h2")).toBeVisible();
+    const heading = page.locator(".site-section-intro h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText("Articles");
   });
 
-  test("category sections contain article cards", async ({ page }) => {
+  test("shows listing stats", async ({ page }) => {
     await page.goto("/articles/");
-    const firstSection = page.locator(".category-section").first();
-    const cards = firstSection.locator(".article-card");
+    await expect(page.locator(".site-listing-stats")).toBeVisible();
+  });
+
+  test("shows series categories with article cards", async ({ page }) => {
+    await page.goto("/articles/");
+    const sections = page.locator(".site-section-group");
+    await expect(sections).not.toHaveCount(0);
+    await expect(sections.first().locator("h2")).toBeVisible();
+
+    const cards = sections.first().locator(".site-card");
     await expect(cards).not.toHaveCount(0);
+  });
+
+  test("article cards have title and description", async ({ page }) => {
+    await page.goto("/articles/");
+    const firstCard = page.locator(".site-card").first();
+    await expect(firstCard.locator(".site-card-title")).toBeVisible();
+    await expect(firstCard.locator(".site-card-desc")).toBeVisible();
   });
 });
 
@@ -52,24 +89,35 @@ test.describe("Article page", () => {
     await expect(headings).not.toHaveCount(0);
   });
 
-  test("shows back link to articles", async ({ page }) => {
+  test("shows breadcrumbs and content metadata", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const back = page.locator(".article-back");
-    await expect(back).toBeVisible();
-    await expect(back).toHaveAttribute("href", withBase("/articles"));
+    await expect(page.locator(".doc-breadcrumbs")).toBeVisible();
+    await expect(page.locator(".site-content-meta")).toBeVisible();
   });
 
-  test("shows series block for series articles", async ({ page }) => {
+  test("breadcrumbs contain link back to articles", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".series-block")).toBeVisible();
+    const articlesLink = page.locator(`.doc-breadcrumbs a[href="${withBase("/articles")}"]`);
+    await expect(articlesLink).toBeVisible();
   });
 });
 
 test.describe("Blogs listing", () => {
+  test("shows page heading", async ({ page }) => {
+    await page.goto("/blogs/");
+    const heading = page.locator(".site-section-intro h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText("Blogs");
+  });
+
+  test("shows listing stats", async ({ page }) => {
+    await page.goto("/blogs/");
+    await expect(page.locator(".site-listing-stats")).toBeVisible();
+  });
+
   test("shows blog entries", async ({ page }) => {
     await page.goto("/blogs/");
-    await expect(page.locator("h1")).toBeVisible();
-    const cards = page.locator(".article-card");
+    const cards = page.locator(".site-card");
     await expect(cards).not.toHaveCount(0);
   });
 });
@@ -78,32 +126,12 @@ test.describe("Blog page", () => {
   test("renders content", async ({ page }) => {
     await page.goto(BLOG_SLUG);
     await expect(page.locator(".prose")).toBeVisible();
-  });
-});
-
-test.describe("Tags", () => {
-  test("tag index shows tag cloud", async ({ page }) => {
-    await page.goto("/tags/");
-    await expect(page.locator("h1")).toBeVisible();
-    const tags = page.locator(".tag-item");
-    await expect(tags).not.toHaveCount(0);
+    await expect(page.locator(".site-content-meta")).toBeVisible();
   });
 
-  test("clicking a tag navigates to tag page", async ({ page }) => {
-    await page.goto("/tags/");
-    const firstTag = page.locator(".tag-link").first();
-    const tagHref = await firstTag.getAttribute("href");
-    await firstTag.click();
-    await expect(page).toHaveURL(new RegExp(`${tagHref!.replace(/\//g, "\\/")}/?$`));
-    await expect(page.locator("h1")).toContainText("Tag:");
-  });
-
-  test("tag page lists tagged articles", async ({ page }) => {
-    await page.goto("/tags/");
-    const firstTagLink = page.locator(".tag-link").first();
-    await firstTagLink.click();
-    const articles = page.locator(".article-card");
-    await expect(articles).not.toHaveCount(0);
+  test("shows breadcrumbs", async ({ page }) => {
+    await page.goto(BLOG_SLUG);
+    await expect(page.locator(".doc-breadcrumbs")).toBeVisible();
   });
 });
 
@@ -113,73 +141,120 @@ test.describe("404 page", () => {
     if (!process.env.DEPLOYED_URL) {
       expect(response?.status()).toBe(404);
     }
-    await expect(page.locator(".not-found")).toBeVisible();
-    await expect(page.locator(".not-found-code")).toHaveText("404");
-    await expect(page.locator(".not-found-title")).toHaveText("Page Not Found");
+    await expect(page.locator(".site-not-found")).toBeVisible();
+    await expect(page.locator(".site-not-found-code")).toHaveText("404");
+    await expect(page.locator(".site-not-found h1")).toHaveText("Page Not Found");
   });
 
-  test("has navigation actions", async ({ page }) => {
+  test("has a home action", async ({ page }) => {
     await page.goto("/this-page-does-not-exist/");
-    await expect(page.locator(".not-found-btn-primary")).toHaveAttribute(
+    await expect(page.locator(".site-action-primary")).toHaveAttribute(
       "href",
-      withBase("/articles"),
+      /\/v5\.sujeet\.pro\/?$/,
     );
-    await expect(page.locator(".not-found-btn-outline")).toHaveAttribute("href", withBase("/"));
   });
 });
 
 test.describe("Header navigation", () => {
   test("logo links to home", async ({ page }) => {
     await page.goto("/articles/");
-    const logo = page.locator(".site-logo");
+    const logo = page.locator(".doc-logo");
     await expect(logo).toBeVisible();
-    await expect(logo).toHaveAttribute("href", withBase("/"));
+    await expect(logo).toHaveAttribute("href", /\/v5\.sujeet\.pro\/?$/);
   });
 
   test("nav links are present and work", async ({ page }) => {
     await page.goto("/");
-    const nav = page.locator(".site-nav");
-    await expect(nav.locator("a")).toHaveCount(3);
+    const nav = page.locator(".doc-nav");
+    await expect(nav.locator("a")).toHaveCount(2);
 
     await expect(nav.locator(`a[href="${withBase("/articles")}"]`)).toHaveText("Articles");
     await expect(nav.locator(`a[href="${withBase("/blogs")}"]`)).toHaveText("Blogs");
-    await expect(nav.locator(`a[href="${withBase("/projects")}"]`)).toHaveText("Projects");
+    await expect(page.locator("pagefind-modal-trigger.doc-search-trigger")).toBeVisible();
   });
 
-  test("clicking Articles nav goes to articles listing", async ({ page }) => {
+  test("clicking Blogs nav goes to blogs listing", async ({ page }) => {
     await page.goto("/");
-    await page.locator(`.site-nav a[href="${withBase("/articles")}"]`).click();
-    await expect(page).toHaveURL(/\/articles\/?$/);
+    const navLink = page.locator(`.doc-nav a[href="${withBase("/blogs")}"]`);
+    if (await navLink.isVisible()) {
+      await navLink.click();
+    } else {
+      await page.locator(".doc-sidebar-toggle").click();
+      await page
+        .locator('.doc-sidebar-modal .doc-sidebar-section:has-text("Navigation") a', {
+          hasText: "Blogs",
+        })
+        .click();
+    }
+    await expect(page).toHaveURL(/\/blogs\/?$/);
   });
 
   test("active nav link is highlighted", async ({ page }) => {
     await page.goto("/articles/");
-    await expect(page.locator(`.site-nav a[href="${withBase("/articles")}"]`)).toHaveClass(
-      /active/,
-    );
+    await expect(page.locator(`.doc-nav a[href="${withBase("/articles")}"]`)).toHaveClass(/active/);
   });
 });
 
 test.describe("Footer", () => {
   test("footer links are present", async ({ page }) => {
     await page.goto("/");
-    const footerLinks = page.locator(".footer-links a");
+    const footerLinks = page.locator(".doc-footer-links a");
     await expect(footerLinks).not.toHaveCount(0);
-    await expect(footerLinks.filter({ hasText: "Resume" })).toBeVisible();
-    await expect(footerLinks.filter({ hasText: "Tags" })).toBeVisible();
+    await expect(footerLinks.filter({ hasText: "Articles" })).toBeVisible();
+    await expect(footerLinks.filter({ hasText: "Blogs" })).toBeVisible();
   });
 
-  test("social links are present", async ({ page }) => {
+  test("profile links are present", async ({ page }) => {
     await page.goto("/");
-    const social = page.locator(".footer-social a");
-    await expect(social).toHaveCount(3);
-    await expect(page.locator('.footer-social a[aria-label="GitHub"]')).toBeVisible();
-    await expect(page.locator('.footer-social a[aria-label="LinkedIn"]')).toBeVisible();
-    await expect(page.locator('.footer-social a[aria-label="Twitter"]')).toBeVisible();
+    const profileLinks = page.locator('.doc-footer-link-group:has-text("Profiles") a');
+    await expect(profileLinks).toHaveCount(3);
+    await expect(profileLinks.filter({ hasText: "GitHub" })).toBeVisible();
+    await expect(profileLinks.filter({ hasText: "LinkedIn" })).toBeVisible();
+    await expect(profileLinks.filter({ hasText: "Twitter" })).toBeVisible();
   });
 
   test("copyright is shown", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".footer-copyright")).toContainText("Sujeet Jaiswal");
+    await expect(page.locator(".doc-footer-copyright")).toContainText("Sujeet Jaiswal");
+  });
+});
+
+test.describe("Redirects", () => {
+  test("vanity URLs redirect via meta refresh", async ({ page }) => {
+    await page.goto("/gh/");
+    await expect(page).not.toHaveURL(/\/gh\/?$/);
+  });
+});
+
+test.describe("SEO", () => {
+  test("home page has required meta tags", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      /Sujeet Jaiswal/,
+    );
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", /.+/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /.+/);
+  });
+
+  test("article page has title and description meta", async ({ page }) => {
+    await page.goto(SERIES_ARTICLE);
+    await expect(page.locator("title")).toContainText(/.+/);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /.+/);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", /.+/);
+  });
+});
+
+test.describe("Accessibility", () => {
+  test("skip link is present and targets main content", async ({ page }) => {
+    await page.goto("/");
+    const skipLink = page.locator(".doc-skip-link");
+    await expect(skipLink).toHaveAttribute("href", "#doc-main-content");
+    await expect(page.locator("#doc-main-content")).toBeAttached();
+  });
+
+  test("navigation has aria-label", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator(".doc-nav")).toHaveAttribute("aria-label", /navigation/i);
   });
 });

@@ -3,13 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "preview": "tsx scripts/preview.ts",
-    "build": "tsx scripts/diagrams.ts && tsx scripts/build.ts && tsx scripts/post-build.ts",
+    "dev": "vite",
+    "preview": "vite preview",
+    "build": "tsx scripts/diagrams.ts && vite build && tsx scripts/postbuild.ts",
     "check": "vp check",
     "check:fix": "vp check --fix",
     "validate": "tsx scripts/validate.ts",
-    "validate:orphans": "tsx scripts/check-orphans.ts",
+    "check-orphans": "tsx scripts/check-orphans.ts",
+    "validate:orphans": "npm run check-orphans",
     "validate:dist": "tsx scripts/validate-dist.ts",
     "test": "vp test",
     "test:e2e": "BASE_PATH=/v5.sujeet.pro npx playwright test",
@@ -17,19 +18,21 @@
     "diagrams": "tsx scripts/diagrams.ts",
     "diagrams:watch": "tsx scripts/diagrams.ts --watch",
     "diagrams:force": "tsx scripts/diagrams.ts --force",
-    "ci": "npm run check && npm run validate && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
+    "check:ci": "npm run check && npm run validate && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
   },
   "dependencies": {
-    "@pagesmith/core": "^0.4.2",
-    "diagramkit": "^0.1.0",
+    "@pagesmith/site": "^0.9.4",
+    "diagramkit": "^0.2.3",
     "json5": "^2.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.6.0",
+    "pagefind": "^1.5.2",
     "tsx": "^4.21.0",
+    "vite": "^8.0.8",
     "vite-plus": "latest",
-    "vitest": "^4.1.3"
+    "vitest": "^4.1.4"
   },
   "packageManager": "npm@11.12.1"
 }

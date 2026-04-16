@@ -14,11 +14,8 @@ tags:
 
 How Stripe prevents double charges and enables safe retries across billions of transactions using idempotency keys, atomic phases, and database-backed state machines. This case study examines the design decisions behind Stripe's approach—why they chose database transactions over distributed consensus, how they handle foreign state mutations, and the patterns that enabled 99.999% uptime while processing $1 trillion in payments.
 
-<figure>
-<img class="only-light" src="./diagrams/idempotency-key-lifecycle-generation-lookup-execution-caching-and-replay-on-retr.light.svg" alt="Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry." />
-<img class="only-dark" src="./diagrams/idempotency-key-lifecycle-generation-lookup-execution-caching-and-replay-on-retr.dark.svg" alt="Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry." />
-<figcaption>Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry.</figcaption>
-</figure>
+![Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry.](./diagrams/idempotency-key-lifecycle-generation-lookup-execution-caching-and-replay-on-retr-light.svg "Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry.")
+![Idempotency key lifecycle: generation, lookup, execution, caching, and replay on retry.](./diagrams/idempotency-key-lifecycle-generation-lookup-execution-caching-and-replay-on-retr-dark.svg)
 
 ## Abstract
 
@@ -136,10 +133,8 @@ CREATE TABLE idempotency_keys (
 
 An **atomic phase** groups database operations that occur between external API calls. Each phase executes in a serializable transaction. If the transaction commits, that phase is complete—even if the process crashes immediately after.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Recovery Points
 

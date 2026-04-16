@@ -13,11 +13,8 @@ tags:
 
 A comprehensive system design for a URL shortening service covering ID generation strategies, database sharding, caching layers, analytics pipelines, and abuse prevention. This design addresses sub-50ms redirect latency at Bitly scale (6 billion clicks/month) with 99.99% availability and real-time click tracking.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte.light.svg" alt="High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects." />
-<img class="only-dark" src="./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte.dark.svg" alt="High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects." />
-<figcaption>High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.</figcaption>
-</figure>
+![High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-light.svg "High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.")
+![High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-dark.svg)
 
 ## Abstract
 
@@ -119,10 +116,8 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -151,10 +146,8 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -188,10 +181,8 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Snowflake ID structure (64-bit):**
 
@@ -222,10 +213,8 @@ URL shorteners solve a deceptively simple problem—mapping short codes to long 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Key characteristics:**
 
@@ -268,10 +257,8 @@ This article focuses on **Path D (KGS) + Snowflake hybrid** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Shortening Service
 
@@ -300,10 +287,8 @@ The most critical service—handles 99% of traffic. Must be blazing fast.
 
 **Flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Critical optimizations:**
 
@@ -318,10 +303,8 @@ Pre-generates unique short codes for zero-collision guarantee.
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Key allocation strategy:**
 
@@ -1315,10 +1298,8 @@ class ClickStreamClient {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Service configurations:**
 

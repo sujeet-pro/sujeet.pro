@@ -16,11 +16,8 @@ tags:
 
 How Dropbox migrated 500+ petabytes off AWS S3 onto custom infrastructure in under two years, saving $74.6 million net while achieving higher durability than the service it replaced. Magic Pocket is a content-addressable, immutable block store built by a team of fewer than six engineers, now serving 700+ million users across 600,000+ storage drives.
 
-<figure>
-<img class="only-light" src="./diagrams/magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh.light.svg" alt="Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication." />
-<img class="only-dark" src="./diagrams/magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh.dark.svg" alt="Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication." />
-<figcaption>Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication.</figcaption>
-</figure>
+![Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication.](./diagrams/magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh-light.svg "Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication.")
+![Magic Pocket's core architecture: clients interact with Edgestore for metadata, which routes to Magic Pocket frontends. Frontends consult the Block Index for placement and store blocks across three geographic zones with cross-zone replication.](./diagrams/magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh-dark.svg)
 
 ## Abstract
 
@@ -157,11 +154,8 @@ S3 is a general-purpose object store. It cannot:
 
 Magic Pocket's architecture reflects a single design principle: **immutable, content-addressed blocks eliminate most distributed systems complexity**. There are no distributed transactions, no consensus protocols, no cache invalidation for data. The system is a distributed key-value store where keys are SHA-256 hashes and values are compressed, encrypted blobs.
 
-<figure>
-<img class="only-light" src="./diagrams/magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes.light.svg" alt="Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone." />
-<img class="only-dark" src="./diagrams/magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes.dark.svg" alt="Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone." />
-<figcaption>Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone.</figcaption>
-</figure>
+![Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone.](./diagrams/magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes-light.svg "Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone.")
+![Magic Pocket's data hierarchy: blocks aggregate into buckets, buckets into volumes replicated across OSDs, stored as extents within cells, organized by geographic zone.](./diagrams/magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes-dark.svg)
 
 | Level      | Size                | Description                                                                            |
 | ---------- | ------------------- | -------------------------------------------------------------------------------------- |
@@ -345,11 +339,8 @@ Approximately 10% of data remained on AWS S3---primarily for European users and 
 
 More than **50% of the workload on disks and databases** is internal verification traffic. This is an unusual design choice---most storage systems optimize for user-facing throughput. Dropbox chose to dedicate half their I/O capacity to catching corruption before it becomes data loss.
 
-<figure>
-<img class="only-light" src="./diagrams/pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m.light.svg" alt="Pocket Watch's five verification subsystems, each targeting a different failure mode." />
-<img class="only-dark" src="./diagrams/pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m.dark.svg" alt="Pocket Watch's five verification subsystems, each targeting a different failure mode." />
-<figcaption>Pocket Watch's five verification subsystems, each targeting a different failure mode.</figcaption>
-</figure>
+![Pocket Watch's five verification subsystems, each targeting a different failure mode.](./diagrams/pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m-light.svg "Pocket Watch's five verification subsystems, each targeting a different failure mode.")
+![Pocket Watch's five verification subsystems, each targeting a different failure mode.](./diagrams/pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m-dark.svg)
 
 ### Disk Scrubber
 

@@ -15,11 +15,8 @@ tags:
 
 Building a web-scale search engine that processes 8.5 billion queries daily across 400+ billion indexed pages with sub-second latency. Search engines solve the fundamental information retrieval problem: given a query, return the most relevant documents from a massive corpus—instantly. This design covers crawling (web discovery), indexing (content organization), ranking (relevance scoring), and serving (query processing)—the four pillars that make search work at planetary scale.
 
-<figure>
-<img class="only-light" src="./diagrams/google-search-architecture-queries-flow-through-spell-correction-and-intent-unde.light.svg" alt="Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage." />
-<img class="only-dark" src="./diagrams/google-search-architecture-queries-flow-through-spell-correction-and-intent-unde.dark.svg" alt="Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage." />
-<figcaption>Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage.</figcaption>
-</figure>
+![Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage.](./diagrams/google-search-architecture-queries-flow-through-spell-correction-and-intent-unde-light.svg "Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage.")
+![Google Search architecture: Queries flow through spell correction and intent understanding, then fan out to distributed index shards. Results aggregate through ranking systems (PageRank, BERT, RankBrain) before returning. Crawlers continuously feed fresh content into the index via Bigtable storage.](./diagrams/google-search-architecture-queries-flow-through-spell-correction-and-intent-unde-dark.svg)
 
 ## Abstract
 
@@ -122,10 +119,8 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -154,10 +149,8 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -188,10 +181,8 @@ Replication factor: 3x minimum for durability
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -250,17 +241,13 @@ The design sections show how to build each component (crawler, indexer, ranker, 
 
 ### Request Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Crawl Pipeline
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ## API Design
 
@@ -496,10 +483,8 @@ Building an inverted index from crawled documents at web scale requires careful 
 
 **Index Build Pipeline:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Implementation (Conceptual MapReduce):**
 
@@ -582,10 +567,8 @@ Google uses a hybrid: the main index updates incrementally, while a separate "fr
 
 ### Query Processing Pipeline
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Spell Correction Implementation:**
 
@@ -631,10 +614,8 @@ async function correctSpelling(query: string): Promise<SpellResult> {
 
 Google combines multiple ranking systems, each contributing different signals:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **PageRank Computation:**
 
@@ -1063,10 +1044,8 @@ Google uses traditional pagination rather than infinite scroll. Design rationale
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-9-light.svg)
+![Diagram](./diagrams/diagram-9-dark.svg)
 
 **Service sizing (for ~10K QPS, 1B documents):**
 

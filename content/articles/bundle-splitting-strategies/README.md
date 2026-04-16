@@ -15,11 +15,8 @@ tags:
 
 Modern JavaScript applications ship megabytes of code by default. Without bundle splitting, users download, parse, and execute the entire application before seeing anything interactive—regardless of which features they'll actually use. Bundle splitting transforms monolithic builds into targeted delivery: load the code for the current route immediately, defer everything else until needed. The payoff is substantial—30-60% reduction in initial bundle size translates directly to faster Time to Interactive (TTI) and improved Core Web Vitals.
 
-<figure>
-<img class="only-light" src="./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c.light.svg" alt="Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest." />
-<img class="only-dark" src="./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c.dark.svg" alt="Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest." />
-<figcaption>Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.</figcaption>
-</figure>
+![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c-light.svg "Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.")
+![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c-dark.svg)
 
 ## Abstract
 
@@ -427,10 +424,8 @@ Spotify's web player uses a micro-frontend architecture where different squads o
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Resource Hints: Prefetch and Preload
 

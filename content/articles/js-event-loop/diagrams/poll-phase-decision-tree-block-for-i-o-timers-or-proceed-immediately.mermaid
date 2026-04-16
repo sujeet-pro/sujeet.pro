@@ -1,3 +1,5 @@
+%% Diagram: Poll Phase Decision Tree Block For I O Timers Or Proceed Immediately
+%% Type: flowchart
 graph TD
     A[Enter Poll Phase] --> B{setImmediate callbacks?}
     B -->|Yes| C[Don't Block]

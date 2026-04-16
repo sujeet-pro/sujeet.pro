@@ -17,11 +17,8 @@ tags:
 
 A systematic approach to diagnosing DNS outages, propagation delays, and resolution failures. This playbook provides decision trees for symptom-driven triage, command recipes for isolating failures across the resolution chain, and DNSSEC (Domain Name System Security Extensions) debugging workflows for the most common signing failures.
 
-<figure>
-<img class="only-light" src="./diagrams/symptom-driven-triage-flow-for-dns-failures-mapping-symptoms-to-diagnostic-comma.light.svg" alt="Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories." />
-<img class="only-dark" src="./diagrams/symptom-driven-triage-flow-for-dns-failures-mapping-symptoms-to-diagnostic-comma.dark.svg" alt="Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories." />
-<figcaption>Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories.</figcaption>
-</figure>
+![Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories.](./diagrams/symptom-driven-triage-flow-for-dns-failures-mapping-symptoms-to-diagnostic-comma-light.svg "Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories.")
+![Symptom-driven triage flow for DNS failures, mapping symptoms to diagnostic commands and root cause categories.](./diagrams/symptom-driven-triage-flow-for-dns-failures-mapping-symptoms-to-diagnostic-comma-dark.svg)
 
 ## Abstract
 

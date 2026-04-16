@@ -3,7 +3,7 @@ title: 'React Hooks Advanced Patterns: Specialized Hooks and Composition'
 description: >-
   Deep dive into React's specialized hooks — useTransition, useDeferredValue, useLayoutEffect, useSyncExternalStore, useInsertionEffect, useId, and the React 19 use API — explaining the specific architectural problems each one solves.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -15,11 +15,8 @@ tags:
 
 Advanced hook APIs, performance patterns, and composition techniques for concurrent React applications. Covers `useId`, `use`, `useLayoutEffect`, `useSyncExternalStore`, `useInsertionEffect`, `useDeferredValue`, and `useTransition`—hooks that solve specific problems the core hooks cannot.
 
-<figure>
-<img class="only-light" src="./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op.light.svg" alt="Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state." />
-<img class="only-dark" src="./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op.dark.svg" alt="Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state." />
-<figcaption>Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.</figcaption>
-</figure>
+![Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.](./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op-light.svg "Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.")
+![Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.](./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op-dark.svg)
 
 ## Abstract
 

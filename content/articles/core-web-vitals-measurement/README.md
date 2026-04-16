@@ -16,11 +16,8 @@ tags:
 
 How to measure, interpret, and debug Core Web Vitals using lab tools, field data (Real User Monitoring), and the web-vitals library. Covers metric-specific diagnostics for LCP, INP, and CLS with implementation patterns for production RUM pipelines.
 
-<figure>
-<img class="only-light" src="./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline.light.svg" alt="Core Web Vitals measurement architecture: from browser APIs to analytics pipelines" />
-<img class="only-dark" src="./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline.dark.svg" alt="Core Web Vitals measurement architecture: from browser APIs to analytics pipelines" />
-<figcaption>Core Web Vitals measurement architecture: from browser APIs to analytics pipelines</figcaption>
-</figure>
+![Core Web Vitals measurement architecture: from browser APIs to analytics pipelines](./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline-light.svg "Core Web Vitals measurement architecture: from browser APIs to analytics pipelines")
+![Core Web Vitals measurement architecture: from browser APIs to analytics pipelines](./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline-dark.svg)
 
 ## Abstract
 

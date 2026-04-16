@@ -16,11 +16,8 @@ tags:
 
 Facebook's social graph presents a unique data access problem: billions of users generating trillions of edges (friendships, likes, comments) that must be readable at sub-millisecond latencies and writable at millions of operations per second. TAO (The Associations and Objects) replaced the generic memcache+MySQL architecture with a graph-aware caching system that handles over 1 billion reads per second at 96.4% cache hit rate. This case study examines why generic key-value caches failed for graph data, how TAO's two-tier write-through architecture solves thundering herd and consistency problems, and what design patterns emerge for caching highly connected data.
 
-<figure>
-<img class="only-light" src="./diagrams/tao-s-two-tier-caching-architecture-followers-handle-reads-locally-leaders-coord.light.svg" alt="TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution." />
-<img class="only-dark" src="./diagrams/tao-s-two-tier-caching-architecture-followers-handle-reads-locally-leaders-coord.dark.svg" alt="TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution." />
-<figcaption>TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution.</figcaption>
-</figure>
+![TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution.](./diagrams/tao-s-two-tier-caching-architecture-followers-handle-reads-locally-leaders-coord-light.svg "TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution.")
+![TAO's two-tier caching architecture: followers handle reads locally, leaders coordinate writes and protect MySQL from thundering herds. Cross-region replication enables geographic distribution.](./diagrams/tao-s-two-tier-caching-architecture-followers-handle-reads-locally-leaders-coord-dark.svg)
 
 ## Abstract
 
@@ -161,10 +158,8 @@ Leaders are the coordination point. One leader tier per region. All writes flow 
 2. **Write ordering**: Leader applies writes in order received
 3. **Consistency**: Leader updates its cache before responding, enabling read-after-write
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Write-Through vs Write-Back
 
@@ -232,10 +227,8 @@ TAO uses a hybrid invalidation strategy:
 
 **Version numbers**: Every cache entry has a version number. Invalidation messages include the version being invalidated. If a follower has a newer version (due to out-of-order message delivery), it ignores the invalidation.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## Implementation Details
 

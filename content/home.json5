@@ -1,0 +1,33 @@
+{
+  title: 'Sujeet Jaiswal',
+  description:
+    'Personal blog and portfolio of Sujeet Jaiswal, a Principal Software Engineer crafting exceptional user experiences through innovative frontend architecture and scalable design systems.',
+  hero: {
+    name: 'Sujeet Jaiswal',
+    text: 'Principal Software Engineer',
+    tagline:
+      'Writing deep technical guides on frontend architecture, web performance, distributed systems, and system design.',
+    actions: [
+      { text: 'Browse Articles', link: '/articles' },
+      { text: 'Read Blogs', link: '/blogs', theme: 'alt' },
+      { text: 'GitHub', link: 'https://github.com/sujeet-pro', theme: 'alt' },
+      {
+        text: 'LinkedIn',
+        link: 'https://www.linkedin.com/in/sujeetkrjaiswal/',
+        theme: 'alt',
+      },
+    ],
+  },
+  featuredArticles: [
+    'design-uber-ride-hailing',
+    'consistency-and-cap-theorem',
+    'frontend-architecture-at-scale',
+    'web-performance-infrastructure-stack',
+    'v8-engine-architecture',
+  ],
+  featuredSeries: [
+    'system-design-scenarios',
+    'critical-rendering-path',
+    'js-runtime-internals',
+  ],
+}

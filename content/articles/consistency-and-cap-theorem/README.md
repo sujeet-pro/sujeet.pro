@@ -15,11 +15,8 @@ tags:
 
 Understanding consistency guarantees in distributed systems: from the theoretical foundations of CAP to practical consistency models, their trade-offs, and when to choose each for production systems.
 
-<figure>
-<img class="only-light" src="./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically.light.svg" alt="The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability" />
-<img class="only-dark" src="./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically.dark.svg" alt="The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability" />
-<figcaption>The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability</figcaption>
-</figure>
+![The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability](./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically-light.svg "The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability")
+![The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability](./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically-dark.svg)
 
 ## Abstract
 

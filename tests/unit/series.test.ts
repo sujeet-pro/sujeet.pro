@@ -1,38 +1,46 @@
-import { describe, it, expect } from "vitest";
+import {
+  getArticleListing,
+  getFeaturedArticles,
+  getFeaturedSeries,
+  getSiteStats,
+} from "../../theme/lib/content";
+import { describe, expect, it } from "vitest";
 
-describe("series building", () => {
-  it("calculates prev/next navigation within a series", () => {
-    const articles = [
-      { slug: "a", url: "/articles/a", title: "Article A" },
-      { slug: "b", url: "/articles/b", title: "Article B" },
-      { slug: "c", url: "/articles/c", title: "Article C" },
-    ];
+describe("article listing helpers", () => {
+  it("groups articles by configured series order", () => {
+    const listing = getArticleListing("/v5.sujeet.pro");
+    const series = listing.series.find((entry) => entry.slug === "critical-rendering-path");
 
-    // For article 'b' (index 1)
-    const prev = articles[0];
-    const next = articles[2];
-
-    expect(prev.title).toBe("Article A");
-    expect(next.title).toBe("Article C");
+    expect(series).toBeDefined();
+    expect(series?.articles[0]?.slug).toBe("crp-rendering-pipeline-overview");
+    expect(series?.articles.at(-1)?.slug).toBe("crp-draw");
   });
 
-  it("first article has no prev", () => {
-    const articles = [
-      { slug: "a", url: "/articles/a", title: "Article A" },
-      { slug: "b", url: "/articles/b", title: "Article B" },
-    ];
-    const index = 0;
-    const prev = index > 0 ? articles[index - 1] : undefined;
-    expect(prev).toBeUndefined();
+  it("resolves featured articles and series from home config slugs", () => {
+    const featuredArticles = getFeaturedArticles("/v5.sujeet.pro", [
+      "design-uber-ride-hailing",
+      "v8-engine-architecture",
+    ]);
+    const featuredSeries = getFeaturedSeries("/v5.sujeet.pro", [
+      "system-design-scenarios",
+      "critical-rendering-path",
+    ]);
+
+    expect(featuredArticles.map((entry) => entry.slug)).toEqual([
+      "design-uber-ride-hailing",
+      "v8-engine-architecture",
+    ]);
+    expect(featuredSeries.map((entry) => entry.slug)).toEqual([
+      "system-design-scenarios",
+      "critical-rendering-path",
+    ]);
   });
 
-  it("last article has no next", () => {
-    const articles = [
-      { slug: "a", url: "/articles/a", title: "Article A" },
-      { slug: "b", url: "/articles/b", title: "Article B" },
-    ];
-    const index = articles.length - 1;
-    const next = index < articles.length - 1 ? articles[index + 1] : undefined;
-    expect(next).toBeUndefined();
+  it("reports article and blog counts for the home page", () => {
+    const stats = getSiteStats();
+
+    expect(stats.articleCount).toBeGreaterThan(100);
+    expect(stats.blogCount).toBe(2);
+    expect(stats.seriesCount).toBeGreaterThan(0);
   });
 });

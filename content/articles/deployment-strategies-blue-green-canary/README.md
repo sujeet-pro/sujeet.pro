@@ -16,11 +16,8 @@ tags:
 
 Production deployment strategies for balancing release velocity against blast radius. Covers the architectural trade-offs between blue-green, canary, and rolling deployments—with specific focus on traffic shifting mechanics, database migration coordination, automated rollback criteria, and operational failure modes that senior engineers encounter during incident response.
 
-<figure>
-<img class="only-light" src="./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d.light.svg" alt="Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility." />
-<img class="only-dark" src="./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d.dark.svg" alt="Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility." />
-<figcaption>Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.</figcaption>
-</figure>
+![Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-light.svg "Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.")
+![Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-dark.svg)
 
 ## Abstract
 
@@ -55,11 +52,8 @@ The core requirement: a routing layer that can instantly redirect 100% of traffi
 
 **Why atomic switching matters**: Partial deployments create version skew—users might receive HTML from v2 but JavaScript from v1. Blue-green eliminates this by ensuring all requests hit one environment or the other, never both simultaneously.
 
-<figure>
-<img class="only-light" src="./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p.light.svg" alt="Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback." />
-<img class="only-dark" src="./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p.dark.svg" alt="Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback." />
-<figcaption>Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.</figcaption>
-</figure>
+![Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-light.svg "Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.")
+![Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-dark.svg)
 
 ### AWS Implementation
 
@@ -150,11 +144,8 @@ Traffic progression follows predefined stages with metric evaluation at each gat
 
 From [Google SRE Workbook Chapter 16](https://sre.google/workbook/canarying-releases/): manual graph inspection is insufficient for detecting canary issues. Automated analysis comparing canary metrics against baseline is required for reliable detection.
 
-<figure>
-<img class="only-light" src="./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor.light.svg" alt="Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable." />
-<img class="only-dark" src="./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor.dark.svg" alt="Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable." />
-<figcaption>Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.</figcaption>
-</figure>
+![Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-light.svg "Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.")
+![Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-dark.svg)
 
 ### Metrics-Driven Release Gates
 
@@ -406,10 +397,8 @@ Feature flags separate **deployment** (code reaching production) from **release*
 
 ### Architectural Pattern
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key insight**: Rollback becomes a flag toggle (milliseconds) rather than a deployment (minutes to hours). Even if the underlying deployment strategy is rolling update, feature flags provide instant rollback for the specific feature.
 
@@ -476,11 +465,8 @@ ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT false;
 
 The expand-contract pattern (also called parallel change) from [Martin Fowler](https://martinfowler.com/bliki/ParallelChange.html) solves this by splitting migrations into backward-compatible phases:
 
-<figure>
-<img class="only-light" src="./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll.light.svg" alt="Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete." />
-<img class="only-dark" src="./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll.dark.svg" alt="Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete." />
-<figcaption>Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.</figcaption>
-</figure>
+![Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-light.svg "Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.")
+![Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-dark.svg)
 
 **Phase 1 - Expand**:
 

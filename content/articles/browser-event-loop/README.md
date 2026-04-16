@@ -17,11 +17,8 @@ tags:
 
 Spec-accurate map of the WHATWG HTML Living Standard event loop in window and worker contexts, centered on task selection, microtask checkpoints, rendering opportunities, and idle scheduling. Focus is on latency and frame-budget trade-offs rather than beginner JavaScript async basics.
 
-<figure>
-<img class="only-light" src="./diagrams/event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks.light.svg" alt="Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat." />
-<img class="only-dark" src="./diagrams/event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks.dark.svg" alt="Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat." />
-<figcaption>Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat.</figcaption>
-</figure>
+![Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat.](./diagrams/event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks-light.svg "Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat.")
+![Event loop iteration: one task → drain microtasks → optional rendering → idle callbacks → repeat.](./diagrams/event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks-dark.svg)
 
 ## Abstract
 
@@ -42,11 +39,8 @@ The browser event loop is a **policy-driven, single-threaded scheduler** with th
 
 ## Processing model at a glance
 
-<figure>
-<img class="only-light" src="./diagrams/event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r.light.svg" alt="Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks." />
-<img class="only-dark" src="./diagrams/event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r.dark.svg" alt="Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks." />
-<figcaption>Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks.</figcaption>
-</figure>
+![Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks.](./diagrams/event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r-light.svg "Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks.")
+![Event loop iteration with a parallel rendering-opportunity watcher that queues rendering tasks.](./diagrams/event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r-dark.svg)
 
 The processing model selects a task queue with a runnable task, executes that task to completion, and then performs a microtask checkpoint. Rendering opportunities are detected in parallel and enqueue update-rendering tasks that later compete with other tasks for selection.
 

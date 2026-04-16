@@ -16,11 +16,8 @@ tags:
 
 Production CDN caching architecture for balancing content freshness against cache efficiency. Covers cache key design, invalidation strategies (path-based, tag-based, versioned URLs), stale-while-revalidate patterns, and edge compute use cases—with specific focus on design tradeoffs, operational failure modes, and the thundering herd problem that senior engineers encounter during cache-related incidents.
 
-<figure>
-<img class="only-light" src="./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac.light.svg" alt="CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing." />
-<img class="only-dark" src="./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac.dark.svg" alt="CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing." />
-<figcaption>CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.</figcaption>
-</figure>
+![CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.](./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac-light.svg "CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.")
+![CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.](./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac-dark.svg)
 
 ## Abstract
 
@@ -306,11 +303,8 @@ Cache-Control: max-age=600, stale-while-revalidate=30
 
 **Design rationale**: Hides revalidation latency from users. The first request after TTL expires gets served instantly from cache while triggering background refresh. Subsequent requests get fresh content.
 
-<figure>
-<img class="only-light" src="./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content.light.svg" alt="Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content." />
-<img class="only-dark" src="./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content.dark.svg" alt="Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content." />
-<figcaption>Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.</figcaption>
-</figure>
+![Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.](./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content-light.svg "Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.")
+![Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.](./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content-dark.svg)
 
 **Browser support**: Chrome 75+, Firefox 68+, Safari 13+, Edge 79+.
 
@@ -518,11 +512,8 @@ Cache hit ratio (CHR) is the primary health metric for CDN effectiveness:
 
 **Problem**: When a popular cache entry expires, all concurrent requests miss cache and hit origin simultaneously.
 
-<figure>
-<img class="only-light" src="./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca.light.svg" alt="Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency." />
-<img class="only-dark" src="./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca.dark.svg" alt="Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency." />
-<figcaption>Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.</figcaption>
-</figure>
+![Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.](./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca-light.svg "Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.")
+![Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.](./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca-dark.svg)
 
 **Real-world impact**: A cache entry with 98% hit ratio expiring means 50x origin load spike (2% misses become 100% misses during revalidation window).
 

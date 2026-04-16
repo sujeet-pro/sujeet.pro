@@ -1,151 +1,134 @@
 # Package Reference
 
-Feature reference for the two external packages powering sujeet.pro. This file is auto-updated by `/sp-sync` when package versions change.
+Canonical package reference map for the tooling that powers `sujeet.pro`.
 
-<!-- Last synced: 2026-04-07 -->
-<!-- @pagesmith/core: file:../pagesmith/packages/core -->
-<!-- diagramkit: file:../diagramkit -->
+Use the installed package docs as the source of truth. This local file tells repo-local skills what to read and highlights the current integration points in this repo.
+
+<!-- Last synced: 2026-04-13 -->
+<!-- @pagesmith/core: node_modules/@pagesmith/core -->
+<!-- @pagesmith/site: node_modules/@pagesmith/site -->
+<!-- diagramkit: node_modules/diagramkit -->
 
 ## @pagesmith/core
 
-Content layer, markdown pipeline, custom JSX runtime, and CSS bundling for static sites.
+Read these files when the task touches markdown behavior, frontmatter, collections, rendering, or Pagesmith-specific constraints:
 
-### Content Layer API
+| File                                                                | Why it matters                                        |
+| ------------------------------------------------------------------- | ----------------------------------------------------- |
+| `node_modules/@pagesmith/core/REFERENCE.md`                         | Full API reference and current runtime behavior       |
+| `node_modules/@pagesmith/core/ai-guidelines/usage.md`               | Agent-facing integration guidance and prompt patterns |
+| `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md`     | Setup, integration, and project-doc pointers          |
+| `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md` | Canonical markdown feature reference                  |
+| `node_modules/@pagesmith/core/ai-guidelines/recipes.md`             | Task recipes for common Pagesmith work                |
+| `node_modules/@pagesmith/core/ai-guidelines/errors.md`              | Error catalog for validation and pipeline issues      |
+| `node_modules/@pagesmith/core/ai-guidelines/migration.md`           | Upgrade workflow and compatibility checks             |
+| `node_modules/@pagesmith/core/ai-guidelines/changelog-notes.md`     | Version-specific behavior changes                     |
 
-```ts
-import { createContentLayer, defineCollection, defineConfig, z } from "@pagesmith/core";
-```
+### Current repo integration
 
-| Function               | Purpose                                                    |
-| ---------------------- | ---------------------------------------------------------- |
-| `defineCollection()`   | Define a content collection with loader, directory, schema |
-| `defineConfig()`       | Create a typed configuration object                        |
-| `createContentLayer()` | Create a content layer from config                         |
-| `z`                    | Re-exported Zod (always use this, not `zod` directly)      |
+This repo uses `@pagesmith/core` + `@pagesmith/site` directly, not `@pagesmith/docs`.
 
-### Collection Options
+Current integration points:
 
-| Option                     | Type                                                  | Description                                |
-| -------------------------- | ----------------------------------------------------- | ------------------------------------------ |
-| `loader`                   | `'markdown' \| 'json' \| 'json5' \| 'yaml' \| 'toml'` | Content loader                             |
-| `directory`                | `string`                                              | Directory containing content files         |
-| `schema`                   | `z.ZodType`                                           | Zod schema for frontmatter validation      |
-| `include`                  | `string[]`                                            | Glob include patterns                      |
-| `exclude`                  | `string[]`                                            | Glob exclude patterns                      |
-| `slugify`                  | `(filePath, directory) => string`                     | Custom slug generation                     |
-| `computed`                 | `Record<string, fn>`                                  | Computed fields                            |
-| `validate`                 | `fn`                                                  | Custom validation                          |
-| `filter`                   | `fn`                                                  | Filter entries                             |
-| `transform`                | `fn`                                                  | Pre-validation transform                   |
-| `validators`               | `ContentValidator[]`                                  | Custom content validators                  |
-| `disableBuiltinValidators` | `boolean`                                             | Disable link/heading/code-block validators |
+- `site.config.json5` is the site-level config. It is validated by `schemas/site.ts` and loaded through `lib/site-config.ts`.
+- `content.config.ts` defines the `homePage`, `articleIndex`, `blogIndex`, `articles`, `blogs`, `rootMeta`, `articleMeta`, `blogMeta`, `homeData`, and `redirects` collections.
+- `content.config.ts` also owns the repo-local Shiki aliases such as `redis`, `promql`, `dns`, and `asciidoc`.
+- `vite.config.ts` keeps `pagesmithContent` on `@pagesmith/core/vite`.
+- `src/entry-server.tsx` consumes `virtual:content/<collection>` payloads and maps them into `theme/layouts/*`.
+- `theme/lib/content.ts` merges frontmatter with `content/meta.json5`, section `meta.json5`, `content/home.json5`, and `content/redirects.json5` to build listings, sidebars, breadcrumbs, series navigation, and featured content.
+- `scripts/postbuild.ts` writes repo-specific post-build artifacts such as `sitemap.xml` and `rss.xml`.
+- `scripts/validate.ts` validates site config, diagramkit config, content collections, and cross-file references.
 
-### Frontmatter Schemas
+Rules for this repo:
 
-| Schema                     | Fields                                                        |
-| -------------------------- | ------------------------------------------------------------- |
-| `BaseFrontmatterSchema`    | title, description, publishedDate, lastUpdatedOn, tags, draft |
-| `BlogFrontmatterSchema`    | extends base + category, featured, coverImage                 |
-| `ProjectFrontmatterSchema` | extends base + gitRepo, links                                 |
+- Do not invent Pagesmith behavior. Read the installed docs first.
+- Do not reintroduce `@pagesmith/docs`, `pagesmith.config.json5`, or the `pagesmith` CLI.
+- Keep collection and config validation in `schemas/frontmatter.ts`, `schemas/content-data.ts`, `schemas/site.ts`, and `schemas/diagramkit.ts`.
+- Treat `ai-guidelines/markdown.md` as the local supplement, not a replacement for the upstream file.
+- Treat project content as legacy unless the user explicitly asks to work on it.
+- When editing content, update companion metadata (`content/articles/meta.json5`, `content/blogs/meta.json5`, `content/home.json5`, `content/redirects.json5`) in the same change when needed.
 
-### JSX Runtime
+## @pagesmith/site
 
-Server-side HTML generation without React:
+Read these files when the task touches Vite SSG, JSX rendering, runtime JS, CSS bundles, or the site shell:
 
-```json
-// tsconfig.json
-{ "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "@pagesmith/core" } }
-```
+| File                                                            | Why it matters                                       |
+| --------------------------------------------------------------- | ---------------------------------------------------- |
+| `node_modules/@pagesmith/site/REFERENCE.md`                     | Full site toolkit reference and SSG/runtime contract |
+| `node_modules/@pagesmith/site/ai-guidelines/setup-site.md`      | Canonical bootstrap and retrofit workflow            |
+| `node_modules/@pagesmith/site/ai-guidelines/usage.md`           | Agent-facing usage patterns and package split rules  |
+| `node_modules/@pagesmith/site/ai-guidelines/site-guidelines.md` | Package responsibilities and non-negotiable rules    |
+| `node_modules/@pagesmith/site/ai-guidelines/recipes.md`         | Targeted recipes for Vite SSG and runtime adoption   |
+| `node_modules/@pagesmith/site/ai-guidelines/migration.md`       | Upgrade workflow and compatibility checks            |
 
-```tsx
-import { Fragment } from "@pagesmith/core/jsx-runtime";
+### Current repo integration
 
-function Page({ title, content }: { title: string; content: string }) {
-  return (
-    <html>
-      <head>
-        <title>{title}</title>
-      </head>
-      <body>
-        <Fragment innerHTML={content} />
-      </body>
-    </html>
-  );
-}
-```
+- `vite.config.ts` wires `pagesmithSsg` and `sharedAssetsPlugin` from `@pagesmith/site/vite` while keeping `pagesmithContent` on `@pagesmith/core/vite`.
+- `index.html` declares the Vite-managed `src/theme.css` and `src/client.ts` entry points used by the site plugin to discover built CSS and JS assets.
+- `src/theme.css` imports the shipped standalone Pagesmith site CSS bundles. `public/site-theme.css` remains the repo-local visual override layer.
+- `src/client.ts` loads `@pagesmith/site/runtime/standalone` and only keeps the repo-specific browser enhancements that the package does not yet ship.
+- `theme/components/Html.tsx` consumes the SSG-provided `cssPath` and `jsPath` instead of hardcoding runtime asset filenames.
 
-### CSS Exports
+Rules for this repo:
 
-| Import Path                      | Use Case                                       |
-| -------------------------------- | ---------------------------------------------- |
-| `@pagesmith/core/css/content`    | Embedding rendered markdown in an existing app |
-| `@pagesmith/core/css/standalone` | Full layout with sidebar and TOC               |
-| `@pagesmith/core/css/viewport`   | Minimal responsive shell                       |
-| `@pagesmith/core/css/fonts`      | Bundled Open Sans + JetBrains Mono             |
-
-Code block CSS is injected inline by Expressive Code — do NOT import separate code block CSS.
-
-### Built-in Content Validators
-
-- **linkValidator** — warns on bare URLs, empty link text, suspicious protocols
-- **headingValidator** — enforces single H1, sequential heading depth
-- **codeBlockValidator** — warns on missing language, unknown meta properties
-
-### Full Reference
-
-- API reference: `node_modules/@pagesmith/core/REFERENCE.md`
-- Usage guide: `node_modules/@pagesmith/core/docs/agents/usage.md`
-- Core guidelines: `../pagesmith/ai-guidelines/core-guidelines.md`
-
----
+- Keep collections, schemas, markdown rendering, and `pagesmithContent` on `@pagesmith/core`.
+- Keep Vite SSG, the JSX runtime, shared CSS bundles, and shared browser runtime modules on `@pagesmith/site`.
+- Do not replace the repo's Vite command set with `pagesmith-site` unless the project adopts a preset-defined workflow.
 
 ## diagramkit
 
-Diagram rendering CLI and library. Converts source files to SVG/PNG with automatic light/dark mode support.
+Read these files when the task touches diagrams:
 
-### Supported Formats
+| File                                                         | Why it matters                     |
+| ------------------------------------------------------------ | ---------------------------------- |
+| `node_modules/diagramkit/ai-guidelines/usage.md`             | Primary entry point                |
+| `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` | Diagram authoring guidance         |
+| `node_modules/diagramkit/ai-guidelines/llms.txt`             | Quick command and option reference |
+| `node_modules/diagramkit/ai-guidelines/llms-full.txt`        | Full CLI and authoring reference   |
 
-| Input      | Extensions                       |
-| ---------- | -------------------------------- |
-| Mermaid    | `.mermaid`, `.mmd`, `.mmdc`      |
-| Excalidraw | `.excalidraw`                    |
-| Draw.io    | `.drawio`, `.drawio.xml`, `.dio` |
-| Graphviz   | `.dot`, `.gv`, `.graphviz`       |
+### Current repo integration
 
-Output: SVG (default), PNG, JPEG, WebP, AVIF.
+- `diagramkit.config.json5` is validated by `schemas/diagramkit.ts` and loaded via `lib/diagramkit-config.ts`.
+- `scripts/diagrams.ts` validates the repo-local config and then delegates to the official `diagramkit render` CLI so the repo keeps the full diagramkit flag surface.
+- Repo defaults are `sameFolder: true`, `defaultFormats: ["svg"]`, `defaultTheme: "both"`, and manifest-backed incremental rendering.
+- Source files live in sibling `diagrams/` folders next to the content entry, and rendered `-light.svg` / `-dark.svg` files are written into that same folder.
 
-### CLI Commands
+Primary commands:
 
 ```bash
-diagramkit render <file-or-dir>    # Render diagrams
-diagramkit warmup                  # Pre-install Playwright chromium
-diagramkit doctor                  # Validate runtime dependencies
-diagramkit init [--ts]             # Create config file
+npm run diagrams
+npm run diagrams:force
+npm run diagrams:watch
 ```
 
-### Render Options
+Rules:
 
-| Option                        | Description                                           |
-| ----------------------------- | ----------------------------------------------------- |
-| `--format <formats>`          | Output formats, comma-separated (default: svg)        |
-| `--theme <light\|dark\|both>` | Theme variants (default: both)                        |
-| `--force`                     | Re-render all, ignore manifest                        |
-| `--watch`                     | Watch for changes and re-render                       |
-| `--same-folder`               | Output next to source files                           |
-| `--type <type>`               | Filter by type: mermaid, excalidraw, drawio, graphviz |
-| `--dry-run`                   | Preview what would render                             |
+- Keep source files in `./diagrams/` next to the content entry.
+- Prefer SVG unless the destination explicitly needs raster output.
+- Let `diagramkit` generate the themed outputs.
+- Do not hand-author final SVGs without a source diagram.
+- If you change repo-wide diagram behavior, update both `diagramkit.config.json5` and `schemas/diagramkit.ts`.
 
-### Programmatic API
+## When refreshing AI docs
 
-```ts
-import { renderAll, watchDiagrams, dispose } from "diagramkit";
+When updating repo guidance or skill wrappers:
 
-await renderAll({ dir: ".", force: false });
-const watcher = await watchDiagrams({ dir: "." });
-await dispose();
-```
-
-### Full Reference
-
-- Quick reference: `node_modules/diagramkit/llms.txt`
-- Full reference: `node_modules/diagramkit/llms-full.txt`
+1. Read the upstream `@pagesmith/core` and `@pagesmith/site` files listed above.
+2. Read the diagramkit references listed above.
+3. Read the local integration surfaces that define the current behavior:
+   - `site.config.json5`
+   - `vite.config.ts`
+   - `index.html`
+   - `src/theme.css`
+   - `src/client.ts`
+   - `diagramkit.config.json5`
+   - `content.config.ts`
+   - `schemas/`
+   - `src/entry-server.tsx`
+   - `theme/lib/content.ts`
+   - `scripts/validate.ts`
+   - `scripts/postbuild.ts`
+4. Update `ai-guidelines/` first.
+5. Then update `AGENTS.md`, `CLAUDE.md`, `.claude/skills/`, `.cursor/skills/`, `.agents/`, and `.cursor/rules/`.
+6. Keep wrapper files thin and point them back into `ai-guidelines/`.
+7. Preserve repo-specific editorial rules instead of copying upstream text blindly.

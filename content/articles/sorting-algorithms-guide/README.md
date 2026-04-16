@@ -3,7 +3,7 @@ title: 'Sorting Algorithms: Complexity, Stability, and Use Cases'
 description: >-
   Sorting algorithms from bubble sort through merge sort, quicksort, and radix sort — with TypeScript implementations, stability and complexity analysis, and the production hybrids (TimSort, pdqsort) that power real-world runtimes.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -14,21 +14,15 @@ tags:
 
 A comprehensive guide to sorting algorithms covering fundamental concepts, implementation details, performance characteristics, and real-world applications. Learn when to use each algorithm and understand the engineering trade-offs behind production sorting implementations.
 
-<figure>
-<img class="only-light" src="./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics.light.svg" alt="Sorting algorithm taxonomy showing complexity classes and key characteristics" />
-<img class="only-dark" src="./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics.dark.svg" alt="Sorting algorithm taxonomy showing complexity classes and key characteristics" />
-<figcaption>Sorting algorithm taxonomy showing complexity classes and key characteristics</figcaption>
-</figure>
+![Sorting algorithm taxonomy showing complexity classes and key characteristics](./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics-light.svg "Sorting algorithm taxonomy showing complexity classes and key characteristics")
+![Sorting algorithm taxonomy showing complexity classes and key characteristics](./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics-dark.svg)
 
 ## Abstract
 
 Sorting algorithms exist on a spectrum defined by three fundamental constraints:
 
-<figure>
-<img class="only-light" src="./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi.light.svg" alt="Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another." />
-<img class="only-dark" src="./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi.dark.svg" alt="Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another." />
-<figcaption>Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.</figcaption>
-</figure>
+![Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.](./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi-light.svg "Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.")
+![Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.](./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi-dark.svg)
 
 **Core mental model:**
 
@@ -140,7 +134,7 @@ function selectionSort(arr: number[]): number[] {
 
 ### Insertion Sort
 
-**Design rationale**: Insertion Sort builds a sorted array one element at a time, inserting each element into its correct position within the already-sorted prefix. Its power lies in adaptivity—it does O(k) work where k is the number of inversions (out-of-order pairs). For nearly-sorted data, k ≈ n, giving O(n) performance.
+**Design rationale**: Insertion Sort builds a sorted array one element at a time, inserting each element into its correct position within the already-sorted prefix. Its power lies in adaptivity—it does O(k) work where k is the number of inversions (out-of-order pairs). For nearly-sorted data, `k` stays small relative to `n`, giving near-linear performance.
 
 ```typescript collapse={1-3, 14-16}
 function insertionSort(arr: number[]): number[] {
@@ -176,7 +170,7 @@ function insertionSort(arr: number[]): number[] {
 
 ### Merge Sort
 
-**Design rationale**: Merge Sort uses divide-and-conquer: split the array in half, recursively sort each half, then merge the sorted halves. The key insight is that merging two sorted arrays takes O(n) time with O(n) space—trading memory for guaranteed O(n log n) worst-case performance and stability.
+**Design rationale**: Merge Sort uses divide-and-conquer: split the array in half, recursively sort each half, then merge the sorted halves. The key insight is that merging two sorted arrays takes O(n) time with O(n) auxiliary space in the classic two-buffer formulation. The teaching implementation below uses `slice()` for readability, which allocates additional arrays beyond that textbook baseline.
 
 ```typescript collapse={1-10, 18-27}
 function mergeSort(arr: number[]): number[] {
@@ -529,11 +523,8 @@ function bucketSort(arr: number[], bucketCount: number = 10): number[] {
 
 ### Decision Flowchart
 
-<figure>
-<img class="only-light" src="./diagrams/algorithm-selection-based-on-data-constraints-and-requirements.light.svg" alt="Algorithm selection based on data constraints and requirements" />
-<img class="only-dark" src="./diagrams/algorithm-selection-based-on-data-constraints-and-requirements.dark.svg" alt="Algorithm selection based on data constraints and requirements" />
-<figcaption>Algorithm selection based on data constraints and requirements</figcaption>
-</figure>
+![Algorithm selection based on data constraints and requirements](./diagrams/algorithm-selection-based-on-data-constraints-and-requirements-light.svg "Algorithm selection based on data constraints and requirements")
+![Algorithm selection based on data constraints and requirements](./diagrams/algorithm-selection-based-on-data-constraints-and-requirements-dark.svg)
 
 ## Why Quick Sort Beats Heap Sort in Practice
 
@@ -617,9 +608,8 @@ function partition(arr: number[], low: number, high: number): number {
 
 **Probability analysis**:
 
-- For O(n²) to occur, you need to consistently pick the worst pivot
-- With random pivots, probability of O(n²) is approximately `1/n!`
-- For n = 1000: probability ≈ 1 in 10^2567 (effectively impossible)
+- For O(n²) to occur, you need repeatedly unlucky pivot choices that create highly unbalanced partitions
+- Random pivots make that path dramatically less likely in practice, but the exact tail probability depends on the pivot model and is better treated qualitatively than as a hand-wavy `1/n!` rule
 
 **Median-of-three** is another practical defense:
 

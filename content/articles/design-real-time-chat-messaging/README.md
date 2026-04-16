@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for real-time chat and messaging covering connection management, message delivery guarantees, ordering strategies, presence systems, group chat fan-out, and offline synchronization. This design addresses sub-second message delivery at WhatsApp/Discord scale (100B+ messages/day) with strong delivery guarantees and mobile-first offline resilience.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-websocket-gateways-handle-persistent-connections-kafka-p.light.svg" alt="High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients." />
-<img class="only-dark" src="./diagrams/high-level-architecture-websocket-gateways-handle-persistent-connections-kafka-p.dark.svg" alt="High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients." />
-<figcaption>High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients.</figcaption>
-</figure>
+![High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients.](./diagrams/high-level-architecture-websocket-gateways-handle-persistent-connections-kafka-p-light.svg "High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients.")
+![High-level architecture: WebSocket gateways handle persistent connections, Kafka provides message routing, and fan-out service distributes messages to recipients.](./diagrams/high-level-architecture-websocket-gateways-handle-persistent-connections-kafka-p-dark.svg)
 
 ## Abstract
 
@@ -118,10 +115,8 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -151,10 +146,8 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -183,10 +176,8 @@ Real-time chat systems solve three interrelated problems: **low-latency delivery
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -229,10 +220,8 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### WebSocket Gateway
 
@@ -1355,10 +1344,8 @@ class VirtualMessageList {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Service configurations:**
 

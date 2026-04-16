@@ -15,11 +15,8 @@ tags:
 
 Distributed caching is the backbone of high-throughput systems. This article covers cache topologies, partitioning strategies, consistency trade-offs, and operational patterns—with design reasoning for each architectural choice.
 
-<figure>
-<img class="only-light" src="./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac.light.svg" alt="Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database." />
-<img class="only-dark" src="./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac.dark.svg" alt="Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database." />
-<figcaption>Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.</figcaption>
-</figure>
+![Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.](./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac-light.svg "Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.")
+![Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.](./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac-dark.svg)
 
 ## Abstract
 

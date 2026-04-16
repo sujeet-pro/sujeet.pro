@@ -18,11 +18,8 @@ tags:
 
 Rasterization is the process where the browser converts recorded display lists into actual pixels—bitmaps for software raster or GPU textures for hardware-accelerated paths. This stage marks the transition from abstract paint commands to concrete visual data. In Chromium, rasterization is managed by the compositor thread and executed by worker threads, ensuring smooth interactions even when the main thread is saturated with JavaScript or layout work.
 
-<figure>
-<img class="only-light" src="./diagrams/the-rasterization-pipeline-display-lists-flow-from-the-main-thread-through-tilin.light.svg" alt="The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor." />
-<img class="only-dark" src="./diagrams/the-rasterization-pipeline-display-lists-flow-from-the-main-thread-through-tilin.dark.svg" alt="The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor." />
-<figcaption>The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor.</figcaption>
-</figure>
+![The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor.](./diagrams/the-rasterization-pipeline-display-lists-flow-from-the-main-thread-through-tilin-light.svg "The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor.")
+![The Rasterization Pipeline: Display lists flow from the main thread through tiling and scheduling on the compositor thread, then to worker threads for rasterization, with final textures consumed by the Viz process's display compositor.](./diagrams/the-rasterization-pipeline-display-lists-flow-from-the-main-thread-through-tilin-dark.svg)
 
 ## Abstract
 

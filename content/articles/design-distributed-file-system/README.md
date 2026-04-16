@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a distributed file system like GFS or HDFS covering metadata management, chunk storage, replication strategies, consistency models, and failure handling. This design addresses petabyte-scale storage with high throughput for batch processing workloads while maintaining fault tolerance across commodity hardware.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-query-the-master-for-chunk-locations-then-read-w.light.svg" alt="High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas." />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-query-the-master-for-chunk-locations-then-read-w.dark.svg" alt="High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas." />
-<figcaption>High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas.</figcaption>
-</figure>
+![High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas.](./diagrams/high-level-architecture-clients-query-the-master-for-chunk-locations-then-read-w-light.svg "High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas.")
+![High-level architecture: Clients query the master for chunk locations, then read/write directly to chunk servers. Writes pipeline through replicas.](./diagrams/high-level-architecture-clients-query-the-master-for-chunk-locations-then-read-w-dark.svg)
 
 ## Abstract
 
@@ -115,10 +112,8 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -149,10 +144,8 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -183,10 +176,8 @@ Distributed file systems solve the problem of storing and accessing files that e
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -232,10 +223,8 @@ Path B (Federation) is covered briefly in the scaling section. Path C (Distribut
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Master Server
 
@@ -583,10 +572,8 @@ chunk_<handle>.meta:
 
 #### Standard Write
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Why separate data push from write command:**
 
@@ -599,10 +586,8 @@ chunk_<handle>.meta:
 
 Atomic append is the key differentiator from traditional file systems:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Append semantics:**
 
@@ -709,10 +694,8 @@ The third approach (1 + 2) balances reliability and bandwidth.
 
 #### Chunk Server Failure
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Re-replication throttling:**
 
@@ -921,10 +904,8 @@ Network capacity = Expected throughput × Headroom
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Instance selection:**
 

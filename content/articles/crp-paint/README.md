@@ -18,11 +18,8 @@ tags:
 
 The Paint stage records drawing instructions into display lists—it does not produce pixels. Following [Prepaint](../crp-prepaint/README.md) (property tree construction and invalidation), Paint walks the layout tree and generates a sequence of low-level graphics commands stored in **Paint Artifacts**. These artifacts are later consumed by the [Rasterization](../crp-raster/README.md) stage, which executes them to produce actual pixels on the GPU.
 
-<figure>
-<img class="only-light" src="./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa.light.svg" alt="The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies." />
-<img class="only-dark" src="./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa.dark.svg" alt="The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies." />
-<figcaption>The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.</figcaption>
-</figure>
+![The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.](./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa-light.svg "The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.")
+![The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.](./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa-dark.svg)
 
 ## Abstract
 

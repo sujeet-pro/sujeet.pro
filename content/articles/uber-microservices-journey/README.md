@@ -14,11 +14,8 @@ tags:
 
 How Uber evolved from two monolithic services to 4,000+ microservices and then restructured into domain-oriented architecture, demonstrating that the hardest part of microservices is not splitting the monolith but managing what comes after. Each architectural phase solved real scaling bottlenecks while creating new organizational and operational challenges at the next order of magnitude.
 
-<figure>
-<img class="only-light" src="./diagrams/uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous-.light.svg" alt="Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude." />
-<img class="only-dark" src="./diagrams/uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous-.dark.svg" alt="Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude." />
-<figcaption>Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude.</figcaption>
-</figure>
+![Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude.](./diagrams/uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous--light.svg "Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude.")
+![Uber's three architectural phases. Each transition was triggered by the previous architecture hitting its operational limits at the next order of magnitude.](./diagrams/uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous--dark.svg)
 
 ## Abstract
 

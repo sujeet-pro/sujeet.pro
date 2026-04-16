@@ -14,11 +14,8 @@ tags:
 
 How Shopify evolved from a single-database Rails monolith to a pod-based architecture that isolates millions of merchants into self-contained units — surviving 284 million edge requests per minute during Black Friday 2024 while maintaining sub-10-second failover. This case study examines why sharding alone wasn't enough, how pods enforce blast radius containment, the zero-downtime migration tooling that moves shops between pods in seconds, and the organizational patterns that let 1,000+ developers deploy 40 times a day to a 2.8-million-line Ruby codebase.
 
-<figure>
-<img class="only-light" src="./diagrams/shopify-s-pod-architecture-stateless-workers-are-shared-stateful-stores-are-isol.light.svg" alt="Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline." />
-<img class="only-dark" src="./diagrams/shopify-s-pod-architecture-stateless-workers-are-shared-stateful-stores-are-isol.dark.svg" alt="Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline." />
-<figcaption>Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline.</figcaption>
-</figure>
+![Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline.](./diagrams/shopify-s-pod-architecture-stateless-workers-are-shared-stateful-stores-are-isol-light.svg "Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline.")
+![Shopify's pod architecture: stateless workers are shared, stateful stores are isolated per pod, and cross-pod data flows only through an eventually consistent CDC pipeline.](./diagrams/shopify-s-pod-architecture-stateless-workers-are-shared-stateful-stores-are-isol-dark.svg)
 
 ## Abstract
 
@@ -88,10 +85,8 @@ The root cause was architectural, not operational: **sharding partitions data bu
 
 After database sharding, Shopify's architecture looked like this:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 The MySQL shards were isolated from each other, but every other stateful component was shared. A shard failure affected operations for shops on that shard. A Redis failure affected _all_ shops.
 
@@ -174,19 +169,13 @@ The MySQL shards were isolated from each other, but every other stateful compone
 
 **Before (Sharded Monolith)**:
 
-<figure>
-<img class="only-light" src="./diagrams/pre-pod-architecture-mysql-shards-provide-write-throughput-scaling-but-redis-mem.light.svg" alt="Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure." />
-<img class="only-dark" src="./diagrams/pre-pod-architecture-mysql-shards-provide-write-throughput-scaling-but-redis-mem.dark.svg" alt="Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure." />
-<figcaption>Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure.</figcaption>
-</figure>
+![Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure.](./diagrams/pre-pod-architecture-mysql-shards-provide-write-throughput-scaling-but-redis-mem-light.svg "Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure.")
+![Pre-pod architecture: MySQL shards provide write throughput scaling, but Redis, Memcached, and cron are shared across all shops — single points of failure.](./diagrams/pre-pod-architecture-mysql-shards-provide-write-throughput-scaling-but-redis-mem-dark.svg)
 
 **After (Pod Architecture)**:
 
-<figure>
-<img class="only-light" src="./diagrams/pod-architecture-each-pod-is-a-complete-isolated-set-of-stateful-infrastructure-.light.svg" alt="Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id." />
-<img class="only-dark" src="./diagrams/pod-architecture-each-pod-is-a-complete-isolated-set-of-stateful-infrastructure-.dark.svg" alt="Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id." />
-<figcaption>Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id.</figcaption>
-</figure>
+![Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id.](./diagrams/pod-architecture-each-pod-is-a-complete-isolated-set-of-stateful-infrastructure--light.svg "Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id.")
+![Pod architecture: each pod is a complete, isolated set of stateful infrastructure. Dedicated pods serve high-traffic merchants. Stateless workers are shared and route via shop_id.](./diagrams/pod-architecture-each-pod-is-a-complete-isolated-set-of-stateful-infrastructure--dark.svg)
 
 **Key differences**:
 

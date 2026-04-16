@@ -14,11 +14,8 @@ tags:
 
 Scaling data stores beyond a single machine requires two complementary strategies: **sharding** (horizontal partitioning) distributes data across nodes to scale writes and storage capacity; **replication** copies data across nodes to improve read throughput and availability. These mechanisms are orthogonal—you choose a sharding strategy independently from a replication model—but their interaction determines your system's consistency, availability, and operational complexity. This article covers design choices, trade-offs, and production patterns from systems handling millions of queries per second.
 
-<figure>
-<img class="only-light" src="./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to.light.svg" alt="Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key." />
-<img class="only-dark" src="./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to.dark.svg" alt="Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key." />
-<figcaption>Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.</figcaption>
-</figure>
+![Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.](./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to-light.svg "Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.")
+![Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.](./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to-dark.svg)
 
 ## Abstract
 

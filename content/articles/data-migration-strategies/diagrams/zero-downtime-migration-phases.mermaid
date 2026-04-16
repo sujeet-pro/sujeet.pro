@@ -1,15 +1,44 @@
-graph TD
-    start["Start Migration"] --> assess["Assess Schema Compatibility"]
-    assess --> dual["Enable Dual Writes"]
-    dual --> backfill["Backfill Historical Data"]
-    backfill --> validate["Validate and Reconcile"]
-    validate -->|"Mismatches"| fix["Fix Discrepancies"]
-    fix --> validate
-    validate -->|"Consistent"| shadow["Shadow Reads from New DB"]
-    shadow --> compare["Compare Read Results"]
-    compare -->|"Divergent"| investigate["Investigate and Fix"]
-    investigate --> shadow
-    compare -->|"Match"| cutover["Cutover: Switch Primary"]
-    cutover --> monitor["Monitor in Production"]
-    monitor -->|"Issues"| rollback["Rollback to Old DB"]
-    monitor -->|"Stable"| cleanup["Decommission Old DB"]
+%% Diagram: Zero Downtime Migration Phases
+%% Type: flowchart
+flowchart TD
+  subgraph P0["Phase 0 · Contract & safety"]
+    A0[Define invariants, SLOs, and rollback boundary]
+    A1[Instrument source of truth + target metrics]
+    A0 --> A1
+  end
+
+  subgraph P1["Phase 1 · Overlap"]
+    B0[Capture every change durably<br/>WAL / binlog / outbox]
+    B1[Apply idempotent writes to target<br/>dual write or stream fan-out]
+    B2[Backfill history with checkpoints<br/>bounded workers, rate limits]
+    B0 --> B1
+    B1 --> B2
+    B2 --> B0
+  end
+
+  subgraph P2["Phase 2 · Prove equivalence"]
+    C0[Reconciliation jobs + row / aggregate checks]
+    C1[Shadow or sampled reads vs authoritative]
+    C0 --> C1
+    C1 --> C0
+  end
+
+  subgraph P3["Phase 3 · Cutover"]
+    D0[Freeze breaking changes, drain lag]
+    D1[Flip reads and/or writes behind feature flags]
+    D2[Post-cutover burn-in + error budgets]
+    D0 --> D1 --> D2
+  end
+
+  subgraph P4["Phase 4 · Decommission"]
+    E0[Stop writers to old store]
+    E1[Archive or export, revoke credentials]
+    E2[Remove compatibility shims]
+    E0 --> E1 --> E2
+  end
+
+  A1 --> B0
+  P1 --> C0
+  C1 -->|"gates green"| D0
+  D2 -->|"stable + no rollback trigger"| E0
+  D2 -->|"rollback condition"| A1

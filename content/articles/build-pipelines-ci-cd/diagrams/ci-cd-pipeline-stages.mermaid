@@ -1,18 +1,20 @@
-graph TD
-    push["Push / Pull Request"] --> lint["Lint and Type Check"]
-    lint --> gate1{"Pass?"}
-    gate1 -->|"No"| stop1["Fail Fast: Stop"]
-    gate1 -->|"Yes"| build["Compile and Bundle"]
-    build --> artifacts["Cache Build Artifacts"]
-    artifacts --> tests["Unit and Integration Tests"]
-    tests --> gate2{"Pass?"}
-    gate2 -->|"No"| stop2["Stop and Notify"]
-    gate2 -->|"Yes"| security["SAST and Dependency Audit"]
-    security --> gate3{"Pass?"}
-    gate3 -->|"No"| stop3["Block and Alert"]
-    gate3 -->|"Yes"| staging["Deploy to Staging"]
-    staging --> smoke["Smoke Tests"]
-    smoke --> gate4{"Pass?"}
-    gate4 -->|"No"| rollback["Rollback Staging"]
-    gate4 -->|"Yes"| prod["Deploy to Production"]
-    prod --> monitor["Monitor and Observe"]
+%% Diagram: Ci Cd Pipeline Stages
+%% Type: flowchart
+flowchart TD
+  T[Version control event: commit or PR] --> V[Static verification: lint, format, typecheck]
+  V --> F1{Pass?}
+  F1 -->|No| X1[Fail fast: fix locally]
+  F1 -->|Yes| U[Fast tests: unit and scoped integration]
+  U --> F2{Pass?}
+  F2 -->|No| X2[Block merge or mainline signal]
+  F2 -->|Yes| B[Build: compile, package, container image]
+  B --> A[Publish immutable artifacts with digest metadata]
+  A --> G[Security and policy gates: SAST, SCA, secrets, licenses]
+  G --> F3{Pass?}
+  F3 -->|No| X3[Quarantine or deny promotion]
+  F3 -->|Yes| N[Deploy to non-production environment]
+  N --> S[Environment tests: smoke, contract, targeted e2e]
+  S --> F4{Pass?}
+  F4 -->|No| R1[Roll back or hold promotion]
+  F4 -->|Yes| P[Controlled production rollout with monitors]
+  P --> O[Observe: SLOs, errors, business KPIs]

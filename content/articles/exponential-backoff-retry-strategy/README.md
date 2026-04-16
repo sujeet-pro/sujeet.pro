@@ -16,11 +16,8 @@ tags:
 
 Learn how to build resilient distributed systems using exponential backoff, jitter, and modern retry strategies to handle transient failures and prevent cascading outages.
 
-<figure>
-<img class="only-light" src="./diagrams/evolution-from-naive-retries-to-exponential-backoff-with-jitter-for-preventing-t.light.svg" alt="Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems" />
-<img class="only-dark" src="./diagrams/evolution-from-naive-retries-to-exponential-backoff-with-jitter-for-preventing-t.dark.svg" alt="Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems" />
-<figcaption>Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems</figcaption>
-</figure>
+![Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems](./diagrams/evolution-from-naive-retries-to-exponential-backoff-with-jitter-for-preventing-t-light.svg "Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems")
+![Evolution from naive retries to exponential backoff with jitter for preventing thundering herd problems](./diagrams/evolution-from-naive-retries-to-exponential-backoff-with-jitter-for-preventing-t-dark.svg)
 
 ## Abstract
 

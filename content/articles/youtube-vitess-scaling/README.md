@@ -14,11 +14,8 @@ tags:
 
 How YouTube built Vitess to horizontally scale MySQL from 4 shards to 256 across tens of thousands of nodes, serving millions of queries per second without abandoning the relational model—and why they eventually migrated to Spanner anyway.
 
-<figure>
-<img class="only-light" src="./diagrams/youtube-s-database-architecture-evolution-from-application-level-sharding-with-d.light.svg" alt="YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications." />
-<img class="only-dark" src="./diagrams/youtube-s-database-architecture-evolution-from-application-level-sharding-with-d.dark.svg" alt="YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications." />
-<figcaption>YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications.</figcaption>
-</figure>
+![YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications.](./diagrams/youtube-s-database-architecture-evolution-from-application-level-sharding-with-d-light.svg "YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications.")
+![YouTube's database architecture evolution: from application-level sharding with direct MySQL connections to Vitess's proxy-based middleware that abstracts sharding from applications.](./diagrams/youtube-s-database-architecture-evolution-from-application-level-sharding-with-d-dark.svg)
 
 ## Abstract
 
@@ -202,11 +199,8 @@ Building the parser transformed Vitess from a connection pooler into a distribut
 
 ### Architecture: Three Core Components
 
-<figure>
-<img class="only-light" src="./diagrams/vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq.light.svg" alt="Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata." />
-<img class="only-dark" src="./diagrams/vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq.dark.svg" alt="Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata." />
-<figcaption>Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata.</figcaption>
-</figure>
+![Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata.](./diagrams/vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq-light.svg "Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata.")
+![Vitess's three-tier architecture: VTGate routes queries, VTTablet manages per-MySQL connections and safety, and the Topology Service provides shard metadata.](./diagrams/vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq-dark.svg)
 
 #### VTGate: The Stateless Query Router
 

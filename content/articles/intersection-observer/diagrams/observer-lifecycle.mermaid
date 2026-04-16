@@ -1,12 +1,11 @@
-graph TD
-    create["new IntersectionObserver"] --> configure["Configure Options"]
-    configure --> observe["observe(element)"]
-    observe --> monitor["Browser Monitors Visibility"]
-    monitor -->|"Crosses threshold"| callback["Callback Fires"]
-    callback --> check{"isIntersecting?"}
-    check -->|"Entering"| action["Trigger Action"]
-    check -->|"Leaving"| leaving["Element Left Viewport"]
-    action --> oneshot{"One-time?"}
-    oneshot -->|"Yes"| unobserve["unobserve(element)"]
-    oneshot -->|"No"| monitor
-    leaving --> monitor
+%% Diagram: Observer Lifecycle
+%% Type: flowchart
+flowchart TB
+  N["new IntersectionObserver(callback, options)"] --> O["observe(target)"]
+  O --> U["Async intersection updates"]
+  U --> C["callback(entries)"]
+  C --> M{"Continue?"}
+  M -->|"keep observing"| U
+  M -->|"one target done"| X["unobserve(target)"]
+  X --> U
+  M -->|"teardown"| D["disconnect()"]

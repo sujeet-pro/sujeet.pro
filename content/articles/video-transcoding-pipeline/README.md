@@ -14,11 +14,8 @@ tags:
 
 Building scalable video transcoding pipelines requires orchestrating CPU/GPU-intensive encoding jobs across distributed infrastructure while optimizing for quality, cost, and throughput. This article covers pipeline architecture patterns, codec selection, rate control strategies, job orchestration with chunked parallel processing, quality validation, and failure handling for production video platforms.
 
-<figure>
-<img class="only-light" src="./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr.light.svg" alt="End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery" />
-<img class="only-dark" src="./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr.dark.svg" alt="End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery" />
-<figcaption>End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery</figcaption>
-</figure>
+![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr-light.svg "End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery")
+![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr-dark.svg)
 
 ## Abstract
 
@@ -155,10 +152,8 @@ Parallel chunked (6 workers, 10 chunks):
 
 **Distributed chunking workflow (fan-out/fan-in):**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Splitting at keyframes:**
 
@@ -317,10 +312,8 @@ Example static ladder (H.264):
 
 **Convex hull optimization:** Encode at many bitrate/resolution combinations, measure quality (VMAF), plot rate-distortion curve. Select the Pareto-optimal points (convex hull) where quality improvements justify bitrate increases.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Per-shot encoding (advanced):** Netflix's current approach varies encoding parameters per shot within a video, not just per title. Scene cuts trigger re-evaluation of optimal settings. This exploits the observation that complexity varies dramatically within a single video.
 

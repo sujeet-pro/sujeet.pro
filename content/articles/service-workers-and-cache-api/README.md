@@ -15,21 +15,15 @@ tags:
 
 A comprehensive exploration of offline-first web architecture, examining how the [Service Worker API](https://w3c.github.io/ServiceWorker/) (W3C Working Draft, January 2026) enables network interception and background processing, how the [Cache API](https://w3c.github.io/ServiceWorker/#cache-interface) provides fine-grained storage for request/response pairs, and how update flows ensure clients transition safely between versions. These APIs form the foundation of Progressive Web Apps (PWAs): service workers intercept fetches and decide response sources, Cache API stores those responses durably, and the lifecycle model ensures exactly one version controls clients at any time.
 
-<figure>
-<img class="only-light" src="./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ.light.svg" alt="Service workers intercept requests and decide whether to serve from cache, network, or both" />
-<img class="only-dark" src="./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ.dark.svg" alt="Service workers intercept requests and decide whether to serve from cache, network, or both" />
-<figcaption>Service workers intercept requests and decide whether to serve from cache, network, or both</figcaption>
-</figure>
+![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-light.svg "Service workers intercept requests and decide whether to serve from cache, network, or both")
+![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-dark.svg)
 
 ## Abstract
 
 Service workers represent a fundamental shift from traditional web architecture: instead of the browser directly fetching resources, an intermediary script can intercept every network request and programmatically decide how to respond.
 
-<figure>
-<img class="only-light" src="./diagrams/core-design-principles-and-their-operational-trade-offs.light.svg" alt="Core design principles and their operational trade-offs" />
-<img class="only-dark" src="./diagrams/core-design-principles-and-their-operational-trade-offs.dark.svg" alt="Core design principles and their operational trade-offs" />
-<figcaption>Core design principles and their operational trade-offs</figcaption>
-</figure>
+![Core design principles and their operational trade-offs](./diagrams/core-design-principles-and-their-operational-trade-offs-light.svg "Core design principles and their operational trade-offs")
+![Core design principles and their operational trade-offs](./diagrams/core-design-principles-and-their-operational-trade-offs-dark.svg)
 
 **Mental model:**
 
@@ -51,11 +45,8 @@ The lifecycle is the most complex part of service workers—and the most importa
 
 ### State Machine
 
-<figure>
-<img class="only-light" src="./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events.light.svg" alt="Service worker state transitions—only "activated" workers handle fetch events" />
-<img class="only-dark" src="./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events.dark.svg" alt="Service worker state transitions—only "activated" workers handle fetch events" />
-<figcaption>Service worker state transitions—only "activated" workers handle fetch events</figcaption>
-</figure>
+![Service worker state transitions—only ](./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events-light.svg "Service worker state transitions—only \"activated\" workers handle fetch events")
+![Service worker state transitions—only ](./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events-dark.svg)
 
 | State        | Can Handle Fetches? | Trigger to Next State                                     |
 | ------------ | ------------------- | --------------------------------------------------------- |
@@ -440,11 +431,8 @@ Navigation preload solves a performance problem: when a user navigates, the brow
 
 Navigation preload starts the network request in parallel with worker startup:
 
-<figure>
-<img class="only-light" src="./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay.light.svg" alt="Navigation preload eliminates serial worker startup + fetch delay" />
-<img class="only-dark" src="./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay.dark.svg" alt="Navigation preload eliminates serial worker startup + fetch delay" />
-<figcaption>Navigation preload eliminates serial worker startup + fetch delay</figcaption>
-</figure>
+![Navigation preload eliminates serial worker startup + fetch delay](./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay-light.svg "Navigation preload eliminates serial worker startup + fetch delay")
+![Navigation preload eliminates serial worker startup + fetch delay](./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay-dark.svg)
 
 ### Enabling Navigation Preload
 

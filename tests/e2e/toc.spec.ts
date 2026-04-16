@@ -9,14 +9,14 @@ test.describe("TOC — Desktop", () => {
 
   test("right sidebar TOC visible on article pages", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const toc = page.locator(".sidebar-right .toc");
+    const toc = page.locator(".doc-aside .doc-toc");
     await expect(toc).toBeVisible();
-    await expect(toc.locator(".toc-title")).toHaveText("On this page");
+    await expect(toc.locator(".doc-toc-title")).toHaveText("On this page");
   });
 
   test("TOC lists h2 and h3 headings", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const tocItems = page.locator(".sidebar-right .toc-item");
+    const tocItems = page.locator(".doc-aside .doc-toc-item");
     await expect(tocItems).not.toHaveCount(0);
 
     const proseHeadings = page.locator(".prose h2, .prose h3");
@@ -27,7 +27,7 @@ test.describe("TOC — Desktop", () => {
 
   test("TOC items have correct depth classes", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const tocItems = page.locator(".sidebar-right .toc-item");
+    const tocItems = page.locator(".doc-aside .doc-toc-item");
     const firstItem = tocItems.first();
     const className = await firstItem.getAttribute("class");
     expect(className).toMatch(/depth-[23]/);
@@ -35,22 +35,19 @@ test.describe("TOC — Desktop", () => {
 
   test("clicking TOC link scrolls to heading", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const firstTocLink = page.locator(".sidebar-right .toc-item a").first();
+    const firstTocLink = page.locator(".doc-aside .doc-toc-item a").first();
     const href = await firstTocLink.getAttribute("href");
     const targetId = href!.replace("#", "");
 
     await firstTocLink.click();
-    await page.waitForTimeout(500);
-
     const heading = page.locator(`[id="${targetId}"]`);
-    await expect(heading).toBeInViewport();
+    await expect(heading).toBeInViewport({ timeout: 3000 });
   });
 
   test("active TOC item highlights on scroll", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.waitForTimeout(1000);
+    const tocItems = page.locator(".doc-aside .doc-toc-item");
 
-    const tocItems = page.locator(".sidebar-right .toc-item");
     const secondLink = tocItems.nth(1).locator("a");
     const href = await secondLink.getAttribute("href");
     const targetId = href!.replace("#", "");
@@ -64,8 +61,7 @@ test.describe("TOC — Desktop", () => {
 
   test("active item changes when scrolling to different section", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.waitForTimeout(1000);
-    const tocItems = page.locator(".sidebar-right .toc-item");
+    const tocItems = page.locator(".doc-aside .doc-toc-item");
     const count = await tocItems.count();
     if (count < 3) return;
 
@@ -86,12 +82,12 @@ test.describe("TOC — Desktop", () => {
 
   test("TOC NOT visible on home page", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".sidebar-right")).not.toBeAttached();
+    await expect(page.locator(".doc-aside .doc-toc")).not.toBeAttached();
   });
 
   test("blog page has right sidebar TOC", async ({ page }) => {
     await page.goto(BLOG_SLUG);
-    await expect(page.locator(".sidebar-right .toc")).toBeVisible();
+    await expect(page.locator(".doc-aside .doc-toc")).toBeVisible();
   });
 });
 
@@ -100,19 +96,19 @@ test.describe("TOC — Articles listing page", () => {
 
   test("listing TOC shows series headings", async ({ page }) => {
     await page.goto("/articles/");
-    const toc = page.locator(".sidebar-right .toc");
+    const toc = page.locator(".doc-aside .doc-toc");
     await expect(toc).toBeVisible();
 
-    const tocItems = toc.locator(".toc-item");
+    const tocItems = toc.locator(".doc-toc-item");
     await expect(tocItems).not.toHaveCount(0);
   });
 
   test("TOC entries correspond to category sections on page", async ({ page }) => {
     await page.goto("/articles/");
-    const sections = page.locator(".category-section h2");
+    const sections = page.locator(".site-section-group h2");
     const sectionCount = await sections.count();
 
-    const tocItems = page.locator(".sidebar-right .toc-item");
+    const tocItems = page.locator(".doc-aside .doc-toc-item");
     const tocCount = await tocItems.count();
 
     expect(tocCount).toBeGreaterThanOrEqual(sectionCount);
@@ -120,37 +116,30 @@ test.describe("TOC — Articles listing page", () => {
 
   test("clicking listing TOC link scrolls to category", async ({ page }) => {
     await page.goto("/articles/");
-    const tocLink = page.locator(".sidebar-right .toc-item a").first();
+    const tocLink = page.locator(".doc-aside .doc-toc-item a").first();
     const href = await tocLink.getAttribute("href");
     const targetId = href!.replace("#", "");
 
     await tocLink.click();
-    await page.waitForTimeout(500);
-
     const section = page.locator(`[id="${targetId}"]`);
-    await expect(section).toBeInViewport();
+    await expect(section).toBeInViewport({ timeout: 3000 });
   });
 });
 
 test.describe("TOC — Mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("right sidebar TOC is hidden", async ({ page }) => {
-    await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-right")).not.toBeVisible();
-  });
-
   test("mobile TOC accordion is visible", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const mobileToc = page.locator(".toc-mobile");
+    const mobileToc = page.locator(".doc-toc-mobile");
     await expect(mobileToc).toBeVisible();
     await expect(mobileToc.locator("summary")).toContainText("On this page");
   });
 
   test("accordion opens and closes on click", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const accordion = page.locator(".toc-mobile");
-    const tocList = accordion.locator(".toc-list");
+    const accordion = page.locator(".doc-toc-mobile");
+    const tocList = accordion.locator(".doc-toc-list");
 
     await expect(accordion).not.toHaveAttribute("open", "");
     await accordion.locator("summary").click();
@@ -163,10 +152,10 @@ test.describe("TOC — Mobile", () => {
 
   test("mobile accordion contains same headings as page", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const accordion = page.locator(".toc-mobile");
+    const accordion = page.locator(".doc-toc-mobile");
     await accordion.locator("summary").click();
 
-    const mobileTocItems = accordion.locator(".toc-item");
+    const mobileTocItems = accordion.locator(".doc-toc-item");
     await expect(mobileTocItems).not.toHaveCount(0);
 
     const proseHeadings = page.locator(".prose h2, .prose h3");
@@ -177,25 +166,11 @@ test.describe("TOC — Mobile", () => {
 
   test("mobile TOC not shown on home page", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".toc-mobile")).not.toBeAttached();
+    await expect(page.locator(".doc-toc-mobile")).not.toBeAttached();
   });
-});
 
-test.describe("TOC — Tablet", () => {
-  test.use({ viewport: { width: 900, height: 1024 } });
-
-  test("right sidebar TOC visible at tablet width", async ({ page }) => {
+  test("desktop TOC is not visible on mobile", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const isWideEnough = await page.evaluate(() => {
-      return window.matchMedia("(min-width: 110ch)").matches;
-    });
-    const toc = page.locator(".sidebar-right");
-    if (isWideEnough) {
-      await expect(toc).toBeVisible();
-      await expect(page.locator(".toc-mobile")).not.toBeVisible();
-    } else {
-      await expect(toc).not.toBeVisible();
-      await expect(page.locator(".toc-mobile")).toBeVisible();
-    }
+    await expect(page.locator(".doc-aside .doc-toc")).not.toBeVisible();
   });
 });

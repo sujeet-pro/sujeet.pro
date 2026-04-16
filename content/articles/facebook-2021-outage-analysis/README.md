@@ -18,11 +18,8 @@ tags:
 
 How a routine maintenance command on Facebook's backbone routers accidentally withdrew all BGP (Border Gateway Protocol) routes for AS32934, making Facebook's authoritative DNS servers unreachable for ~6 hours on October 4, 2021. With 3.5 billion combined users across Facebook, Instagram, WhatsApp, and Messenger unable to resolve any Meta domain, this incident exposed what happens when DNS infrastructure, remote management, physical security, and internal tooling all depend on the same network backbone—and that backbone vanishes.
 
-<figure>
-<img class="only-light" src="./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering.light.svg" alt="The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network." />
-<img class="only-dark" src="./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering.dark.svg" alt="The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network." />
-<figcaption>The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.</figcaption>
-</figure>
+![The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.](./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering-light.svg "The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.")
+![The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.](./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering-dark.svg)
 
 ## Abstract
 

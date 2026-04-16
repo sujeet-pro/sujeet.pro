@@ -5,7 +5,7 @@ description: >-
   between textbook complexity and real-world cache performance — plus when
   d-ary heaps, pairing heaps, or Fibonacci heaps actually win.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -16,11 +16,8 @@ tags:
 
 Heaps provide the fundamental abstraction for "give me the most important thing next" in O(log n) time. Priority queues—the abstract interface—power task schedulers, shortest-path algorithms, and event-driven simulations. Binary heaps dominate in practice not because they're theoretically optimal, but because array storage exploits cache locality. Understanding the gap between textbook complexity and real-world performance reveals when to use standard libraries, when to roll your own, and when the "better" algorithm is actually worse.
 
-<figure>
-<img class="only-light" src="./diagrams/priority-queue-implementations-binary-heaps-win-for-most-workloads-pairing-heaps.light.svg" alt="Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent." />
-<img class="only-dark" src="./diagrams/priority-queue-implementations-binary-heaps-win-for-most-workloads-pairing-heaps.dark.svg" alt="Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent." />
-<figcaption>Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent.</figcaption>
-</figure>
+![Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent.](./diagrams/priority-queue-implementations-binary-heaps-win-for-most-workloads-pairing-heaps-light.svg "Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent.")
+![Priority queue implementations. Binary heaps win for most workloads; pairing heaps excel when decrease-key is frequent.](./diagrams/priority-queue-implementations-binary-heaps-win-for-most-workloads-pairing-heaps-dark.svg)
 
 ## Abstract
 
@@ -348,7 +345,7 @@ class SimplePriorityQueue<T> {
 
   extractMin(): T | undefined {
     while (this.heap.length > 0) {
-      const entry = this.extractTop()
+      const entry = this.extractRoot()
       if (entry?.valid) return entry.value
       // Skip invalid entries from previous decrease-key operations
     }
@@ -381,7 +378,7 @@ smallest = heapq.heappop(data)  # O(log n) extract min
 
 CPython implements `heapq` in C (`_heapqmodule.c`) for performance. The Python fallback in `Lib/heapq.py` uses optimized sift-up/sift-down that minimizes swaps by finding the final position before moving the element.
 
-**Design decision**: Python uses 0-indexed arrays and `<` operator only (not `<=`), maintaining stability for equal elements within the heap operations themselves (though heapsort remains unstable).
+**Design decision**: Python uses 0-indexed arrays and `<` operator only (not `<=`). Equal-priority items are therefore **not** guaranteed to come out in insertion order unless you add your own tiebreaker (for example `(priority, sequenceNumber, value)` tuples).
 
 ### Go: container/heap Package
 

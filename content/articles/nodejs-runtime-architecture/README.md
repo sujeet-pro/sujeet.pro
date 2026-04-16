@@ -18,21 +18,15 @@ tags:
 
 Node.js is a host environment that pairs V8 with libuv, a C++ bindings layer, and a large set of JavaScript core modules and Application Programming Interfaces (APIs). This article focuses on the runtime boundaries that matter at scale: event loop ordering, microtasks, thread pool backpressure, buffer and stream memory, and Application Binary Interface (ABI) stable extension points. Coverage is current as of Node.js 22 LTS (libuv 1.49+, V8 12.4+).
 
-<figure>
-<img class="only-light" src="./diagrams/runtime-layering-from-javascript-to-native-engines-dependencies-and-the-os.light.svg" alt="Runtime layering from JavaScript to native engines, dependencies, and the OS." />
-<img class="only-dark" src="./diagrams/runtime-layering-from-javascript-to-native-engines-dependencies-and-the-os.dark.svg" alt="Runtime layering from JavaScript to native engines, dependencies, and the OS." />
-<figcaption>Runtime layering from JavaScript to native engines, dependencies, and the OS.</figcaption>
-</figure>
+![Runtime layering from JavaScript to native engines, dependencies, and the OS.](./diagrams/runtime-layering-from-javascript-to-native-engines-dependencies-and-the-os-light.svg "Runtime layering from JavaScript to native engines, dependencies, and the OS.")
+![Runtime layering from JavaScript to native engines, dependencies, and the OS.](./diagrams/runtime-layering-from-javascript-to-native-engines-dependencies-and-the-os-dark.svg)
 
 ## Abstract
 
 Node.js runtime behavior is defined by three boundaries: the V8 JavaScript-to-native edge (where JIT tiers and GC pauses originate), the libuv event loop (where phase ordering and microtask interleaving determine callback timing), and the thread pool (where nominally "async" file I/O becomes a blocking queue). Mastering the runtime means understanding what crosses each boundary and when.
 
-<figure>
-<img class="only-light" src="./diagrams/mental-model-javascript-triggers-microtasks-which-drain-before-the-loop-advances.light.svg" alt="Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking)." />
-<img class="only-dark" src="./diagrams/mental-model-javascript-triggers-microtasks-which-drain-before-the-loop-advances.dark.svg" alt="Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking)." />
-<figcaption>Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking).</figcaption>
-</figure>
+![Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking).](./diagrams/mental-model-javascript-triggers-microtasks-which-drain-before-the-loop-advances-light.svg "Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking).")
+![Mental model: JavaScript triggers microtasks, which drain before the loop advances. The poll phase dispatches to either the thread pool (blocking) or OS async I/O (non-blocking).](./diagrams/mental-model-javascript-triggers-microtasks-which-drain-before-the-loop-advances-dark.svg)
 
 **Key mental models:**
 

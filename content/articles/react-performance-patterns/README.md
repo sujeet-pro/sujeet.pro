@@ -3,7 +3,7 @@ title: 'React Performance Patterns: Rendering, Memoization, and Scheduling'
 description: >-
   Practical patterns for keeping React apps fast — understanding the render pipeline, applying memo/useMemo/useCallback correctly, leveraging concurrent features like useTransition, virtualizing large lists, and profiling with React DevTools.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -13,13 +13,10 @@ tags:
 
 # React Performance Patterns: Rendering, Memoization, and Scheduling
 
-Patterns for keeping React applications fast as they scale: understanding the render pipeline, applying memoization correctly, leveraging concurrent features, and profiling effectively. Covers React 18+ with notes on React 19 and the React Compiler.
+Patterns for keeping React applications fast as they scale: understanding the render pipeline, applying memoization correctly, leveraging concurrent features, and profiling effectively. Covers React 18+ with explicit callouts where examples rely on React 19 features like `use()` or the React Compiler.
 
-<figure>
-<img class="only-light" src="./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter.light.svg" alt="React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous." />
-<img class="only-dark" src="./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter.dark.svg" alt="React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous." />
-<figcaption>React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.</figcaption>
-</figure>
+![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.](./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter-light.svg "React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.")
+![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.](./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter-dark.svg)
 
 ## Abstract
 
@@ -262,7 +259,7 @@ Memoization has overhead: storing cached values, comparing dependencies. For che
 
 ### React Compiler: Automatic Memoization
 
-React Compiler (currently in beta) analyzes your code at build time and automatically inserts memoization. It makes manual `memo`, `useMemo`, and `useCallback` largely unnecessary:
+React Compiler (stable as of the React Compiler 1.0 release in October 2025) analyzes your code at build time and automatically inserts memoization. It makes manual `memo`, `useMemo`, and `useCallback` largely unnecessary:
 
 ```tsx title="With React Compiler"
 // No manual memoization needed—compiler handles it
@@ -383,7 +380,7 @@ function SearchPage() {
 
 ### Suspense for Data Fetching
 
-Suspense lets components "wait" for data, showing a fallback until ready:
+Suspense lets components "wait" for data, showing a fallback until ready. The `use()` example below assumes React 19 or a framework-managed Suspense data source; in React 18, reach for route loaders or a library that explicitly integrates with Suspense.
 
 ```tsx title="Suspense boundaries" collapse={1-3,16-20}
 import { Suspense } from "react"
@@ -399,7 +396,7 @@ function ProfilePage({ userId }: { userId: string }) {
   )
 }
 
-// Components use Suspense-enabled data fetching
+// React 19+ or framework-managed Suspense data fetching
 function ProfileDetails({ userId }) {
   const user = use(fetchUser(userId)) // Suspends until resolved
   return <h1>{user.name}</h1>
@@ -546,7 +543,7 @@ Compare `actualDuration` to `baseDuration` to verify memoization effectiveness. 
 
 ### Profiling in Production
 
-Development builds include extra checks that slow rendering. Production builds are 2-10x faster. For accurate measurements:
+Development builds include extra checks that slow rendering. Production builds are often substantially faster, so always profile with production settings before drawing conclusions:
 
 1. Use a **profiling build**: `react-dom/profiling` instead of `react-dom`
 2. Measure in production-like conditions

@@ -18,11 +18,8 @@ tags:
 
 Style Recalculation transforms the DOM and CSSOM into computed styles for every element. The browser engine matches CSS selectors against DOM nodes, resolves cascade conflicts, and computes absolute values—producing the `ComputedStyle` objects that the Layout stage consumes. In Chromium's Blink engine, this phase is handled by the `StyleResolver`, which uses indexed rule sets, Bloom filters, and invalidation sets to minimize work on each frame.
 
-<figure>
-<img class="only-light" src="./diagrams/figure-1-style-recalculation-pipeline-in-modern-browser-engines-blink-s-styleres.light.svg" alt="Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation." />
-<img class="only-dark" src="./diagrams/figure-1-style-recalculation-pipeline-in-modern-browser-engines-blink-s-styleres.dark.svg" alt="Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation." />
-<figcaption>Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation.</figcaption>
-</figure>
+![Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation.](./diagrams/figure-1-style-recalculation-pipeline-in-modern-browser-engines-blink-s-styleres-light.svg "Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation.")
+![Figure 1: Style Recalculation pipeline in modern browser engines. Blink's StyleResolver orchestrates rule indexing, selector matching, cascading, and value computation.](./diagrams/figure-1-style-recalculation-pipeline-in-modern-browser-engines-blink-s-styleres-dark.svg)
 
 ## Abstract
 

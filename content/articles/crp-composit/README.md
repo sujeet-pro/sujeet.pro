@@ -18,11 +18,8 @@ tags:
 
 How the compositor thread assembles rasterized layers into compositor frames and coordinates with the Viz process to display the final pixels on screen.
 
-<figure>
-<img class="only-light" src="./diagrams/the-compositing-pipeline-the-main-thread-commits-property-trees-to-the-composito.light.svg" alt="The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display." />
-<img class="only-dark" src="./diagrams/the-compositing-pipeline-the-main-thread-commits-property-trees-to-the-composito.dark.svg" alt="The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display." />
-<figcaption>The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display.</figcaption>
-</figure>
+![The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display.](./diagrams/the-compositing-pipeline-the-main-thread-commits-property-trees-to-the-composito-light.svg "The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display.")
+![The compositing pipeline: the main thread commits property trees to the compositor thread, which builds compositor frames sent to Viz for final display.](./diagrams/the-compositing-pipeline-the-main-thread-commits-property-trees-to-the-composito-dark.svg)
 
 ## Abstract
 

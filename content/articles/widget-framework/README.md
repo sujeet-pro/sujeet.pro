@@ -14,11 +14,8 @@ tags:
 
 Designing a frontend framework that hosts third-party extensions—dynamically loaded at runtime based on tenant configurations. This article covers the architectural decisions behind systems like VS Code extensions, Figma plugins, and Shopify embedded apps: module loading strategies (Webpack Module Federation vs SystemJS), sandboxing techniques (iframe, Shadow DOM, Web Workers, WASM), manifest and registry design, the host SDK API contract, and multi-tenant orchestration that resolves widget implementations per user or organization.
 
-<figure>
-<img class="only-light" src="./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load.light.svg" alt="Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication." />
-<img class="only-dark" src="./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load.dark.svg" alt="Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication." />
-<figcaption>Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.</figcaption>
-</figure>
+![Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.](./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load-light.svg "Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.")
+![Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.](./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load-dark.svg)
 
 ## Abstract
 
@@ -104,11 +101,8 @@ A pluggable widget framework is a **microkernel architecture**: minimal core sys
 
 ### Path 1: Webpack Module Federation
 
-<figure>
-<img class="only-light" src="./diagrams/module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti.light.svg" alt="Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules." />
-<img class="only-dark" src="./diagrams/module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti.dark.svg" alt="Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules." />
-<figcaption>Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules.</figcaption>
-</figure>
+![Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules.](./diagrams/module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti-light.svg "Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules.")
+![Module Federation: host and remotes share dependencies (React) via singleton negotiation; widgets load as federated modules.](./diagrams/module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti-dark.svg)
 
 **How it works:**
 
@@ -224,11 +218,8 @@ export function WidgetSlot({ widgetId }: { widgetId: string }) {
 
 ### Path 2: iframe Sandbox
 
-<figure>
-<img class="only-light" src="./diagrams/iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme.light.svg" alt="iframe sandbox: widget runs in isolated browsing context; communication via postMessage only." />
-<img class="only-dark" src="./diagrams/iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme.dark.svg" alt="iframe sandbox: widget runs in isolated browsing context; communication via postMessage only." />
-<figcaption>iframe sandbox: widget runs in isolated browsing context; communication via postMessage only.</figcaption>
-</figure>
+![iframe sandbox: widget runs in isolated browsing context; communication via postMessage only.](./diagrams/iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme-light.svg "iframe sandbox: widget runs in isolated browsing context; communication via postMessage only.")
+![iframe sandbox: widget runs in isolated browsing context; communication via postMessage only.](./diagrams/iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme-dark.svg)
 
 **How it works:**
 
@@ -389,11 +380,8 @@ function callHost(method: string, args: unknown[]): Promise<unknown> {
 
 ### Path 3: Shadow DOM + Web Components
 
-<figure>
-<img class="only-light" src="./diagrams/shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex.light.svg" alt="Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context." />
-<img class="only-dark" src="./diagrams/shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex.dark.svg" alt="Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context." />
-<figcaption>Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context.</figcaption>
-</figure>
+![Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context.](./diagrams/shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex-light.svg "Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context.")
+![Shadow DOM: CSS isolation via encapsulated DOM tree; JavaScript shares host context.](./diagrams/shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex-dark.svg)
 
 **How it works:**
 
@@ -486,11 +474,8 @@ widget-container {
 
 ### Path 4: WASM Sandbox (Figma Model)
 
-<figure>
-<img class="only-light" src="./diagrams/wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic.light.svg" alt="WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI." />
-<img class="only-dark" src="./diagrams/wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic.dark.svg" alt="WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI." />
-<figcaption>WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI.</figcaption>
-</figure>
+![WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI.](./diagrams/wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic-light.svg "WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI.")
+![WASM sandbox: JavaScript engine (QuickJS) compiled to WebAssembly runs plugin logic; separate iframe renders UI.](./diagrams/wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic-dark.svg)
 
 **How it works:**
 
@@ -602,11 +587,8 @@ This separation prevents plugins from both manipulating the document AND accessi
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s.light.svg" alt="Decision tree for selecting widget isolation strategy based on trust level and security requirements." />
-<img class="only-dark" src="./diagrams/decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s.dark.svg" alt="Decision tree for selecting widget isolation strategy based on trust level and security requirements." />
-<figcaption>Decision tree for selecting widget isolation strategy based on trust level and security requirements.</figcaption>
-</figure>
+![Decision tree for selecting widget isolation strategy based on trust level and security requirements.](./diagrams/decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s-light.svg "Decision tree for selecting widget isolation strategy based on trust level and security requirements.")
+![Decision tree for selecting widget isolation strategy based on trust level and security requirements.](./diagrams/decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s-dark.svg)
 
 ## The Registry and Manifest
 
@@ -1091,11 +1073,8 @@ export const hostSDK = new WidgetSDK()
 
 The tenant config service maps tenant identifiers to their widget configurations. This enables per-tenant customization without code changes.
 
-<figure>
-<img class="only-light" src="./diagrams/multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re.light.svg" alt="Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles." />
-<img class="only-dark" src="./diagrams/multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re.dark.svg" alt="Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles." />
-<figcaption>Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles.</figcaption>
-</figure>
+![Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles.](./diagrams/multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re-light.svg "Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles.")
+![Multi-tenant widget loading flow: tenant config determines widget IDs; registry resolves to URLs; CDN serves bundles.](./diagrams/multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re-dark.svg)
 
 ```typescript title="host/src/TenantConfig.ts"
 interface TenantWidgetConfig {

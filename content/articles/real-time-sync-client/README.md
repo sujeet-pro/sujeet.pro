@@ -14,11 +14,8 @@ tags:
 
 Client-side architecture for real-time data synchronization: transport protocols, connection management, conflict resolution, and state reconciliation patterns used by Figma, Notion, Discord, and Linear.
 
-<figure>
-<img class="only-light" src="./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi.light.svg" alt="Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state." />
-<img class="only-dark" src="./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi.dark.svg" alt="Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state." />
-<figcaption>Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.</figcaption>
-</figure>
+![Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.](./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi-light.svg "Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.")
+![Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.](./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi-dark.svg)
 
 ## Abstract
 
@@ -170,10 +167,8 @@ Long polling simulates push by having the client hold an open HTTP request until
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Connection Management
 

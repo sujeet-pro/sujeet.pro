@@ -18,11 +18,8 @@ tags:
 
 The browser's rendering pipeline transforms HTML, CSS, and JavaScript into visual pixels through a series of discrete, highly optimized stages. Modern browser engines like Chromium employ the **RenderingNG** architecture—a next-generation rendering system developed between 2014 and 2021—which decouples the main thread from the compositor and GPU processes to ensure 60fps+ performance and minimize interaction latency.
 
-<figure>
-<img class="only-light" src="./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs-.light.svg" alt="The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently." />
-<img class="only-dark" src="./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs-.dark.svg" alt="The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently." />
-<figcaption>The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.</figcaption>
-</figure>
+![The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.](./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs--light.svg "The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.")
+![The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.](./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs--dark.svg)
 
 ## Abstract
 

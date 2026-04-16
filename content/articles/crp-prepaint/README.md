@@ -18,11 +18,8 @@ tags:
 
 Prepaint is a RenderingNG pipeline stage that performs an in-order traversal of the **LayoutObject tree** to build **Property Trees** and compute paint invalidations. It decouples visual effect state (transforms, clips, filters, scroll offsets) from the paint and compositing stages, enabling compositor-driven animations and off-main-thread scrolling.
 
-<figure>
-<img class="only-light" src="./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a.light.svg" alt="PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references." />
-<img class="only-dark" src="./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a.dark.svg" alt="PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references." />
-<figcaption>PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.</figcaption>
-</figure>
+![PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.](./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a-light.svg "PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.")
+![PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.](./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a-dark.svg)
 
 ## Abstract
 

@@ -15,11 +15,8 @@ tags:
 
 A video platform at YouTube scale handles massive upload volumes, transcoding across dozens of resolution/codec combinations, and global delivery to billions of daily viewers. This design covers the upload pipeline, transcoding infrastructure, adaptive streaming delivery, and metadata/discovery systems—focusing on the architectural decisions that enable sub-second playback start times while processing 500+ hours of new video every minute.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-upload-transcode-store-deliver-metadata-flows-in-paralle.light.svg" alt="High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes." />
-<img class="only-dark" src="./diagrams/high-level-architecture-upload-transcode-store-deliver-metadata-flows-in-paralle.dark.svg" alt="High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes." />
-<figcaption>High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes.</figcaption>
-</figure>
+![High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes.](./diagrams/high-level-architecture-upload-transcode-store-deliver-metadata-flows-in-paralle-light.svg "High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes.")
+![High-level architecture: upload → transcode → store → deliver. Metadata flows in parallel to enable immediate discoverability while transcoding completes.](./diagrams/high-level-architecture-upload-transcode-store-deliver-metadata-flows-in-paralle-dark.svg)
 
 ## Abstract
 
@@ -180,11 +177,8 @@ This article focuses on **Path B (Distributed Chunk-Based)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/system-components-upload-flow-top-left-processing-center-storage-bottom-left-dis.light.svg" alt="System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right)." />
-<img class="only-dark" src="./diagrams/system-components-upload-flow-top-left-processing-center-storage-bottom-left-dis.dark.svg" alt="System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right)." />
-<figcaption>System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right).</figcaption>
-</figure>
+![System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right).](./diagrams/system-components-upload-flow-top-left-processing-center-storage-bottom-left-dis-light.svg "System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right).")
+![System components: upload flow (top-left), processing (center), storage (bottom-left), discovery (center-right), delivery (right).](./diagrams/system-components-upload-flow-top-left-processing-center-storage-bottom-left-dis-dark.svg)
 
 ### Upload Flow
 
@@ -219,11 +213,8 @@ The tus protocol provides HTTP-based resumable uploads, critical for large files
 
 **Protocol flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/resumable-upload-client-queries-offset-after-disconnection-resumes-from-last-con.light.svg" alt="Resumable upload: client queries offset after disconnection, resumes from last confirmed position." />
-<img class="only-dark" src="./diagrams/resumable-upload-client-queries-offset-after-disconnection-resumes-from-last-con.dark.svg" alt="Resumable upload: client queries offset after disconnection, resumes from last confirmed position." />
-<figcaption>Resumable upload: client queries offset after disconnection, resumes from last confirmed position.</figcaption>
-</figure>
+![Resumable upload: client queries offset after disconnection, resumes from last confirmed position.](./diagrams/resumable-upload-client-queries-offset-after-disconnection-resumes-from-last-con-light.svg "Resumable upload: client queries offset after disconnection, resumes from last confirmed position.")
+![Resumable upload: client queries offset after disconnection, resumes from last confirmed position.](./diagrams/resumable-upload-client-queries-offset-after-disconnection-resumes-from-last-con-dark.svg)
 
 **Key protocol headers:**
 
@@ -244,10 +235,8 @@ The tus protocol provides HTTP-based resumable uploads, critical for large files
 
 ### Upload Processing Pipeline
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Validation checks:**
 
@@ -279,11 +268,8 @@ The tus protocol provides HTTP-based resumable uploads, critical for large files
 
 ### Encoding Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/transcoding-pipeline-demux-analyze-encode-multi-codec-multi-resolution-package-f.light.svg" alt="Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming." />
-<img class="only-dark" src="./diagrams/transcoding-pipeline-demux-analyze-encode-multi-codec-multi-resolution-package-f.dark.svg" alt="Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming." />
-<figcaption>Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming.</figcaption>
-</figure>
+![Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming.](./diagrams/transcoding-pipeline-demux-analyze-encode-multi-codec-multi-resolution-package-f-light.svg "Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming.")
+![Transcoding pipeline: demux → analyze → encode (multi-codec × multi-resolution) → package for streaming.](./diagrams/transcoding-pipeline-demux-analyze-encode-multi-codec-multi-resolution-package-f-dark.svg)
 
 ### Codec Selection
 
@@ -494,11 +480,8 @@ YouTube uses 2-4 second segments; Netflix uses 4-6 seconds. Lower durations impr
 
 ### Multi-Tier Caching Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/three-tier-caching-edge-95-hit-rate-shield-99-cumulative-origin-handles-1-of-req.light.svg" alt="Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests)." />
-<img class="only-dark" src="./diagrams/three-tier-caching-edge-95-hit-rate-shield-99-cumulative-origin-handles-1-of-req.dark.svg" alt="Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests)." />
-<figcaption>Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests).</figcaption>
-</figure>
+![Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests).](./diagrams/three-tier-caching-edge-95-hit-rate-shield-99-cumulative-origin-handles-1-of-req-light.svg "Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests).")
+![Three-tier caching: edge (95% hit rate), shield (99% cumulative), origin (handles 1% of requests).](./diagrams/three-tier-caching-edge-95-hit-rate-shield-99-cumulative-origin-handles-1-of-req-dark.svg)
 
 **Cache hit rate targets:**
 
@@ -566,10 +549,8 @@ When using multiple CDN providers, normalize cache keys:
 
 **Failover architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## Video Storage
 
@@ -739,10 +720,8 @@ CREATE INDEX idx_videos_trending ON videos(view_count DESC)
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Deduplication strategy:**
 
@@ -769,11 +748,8 @@ Recommendations drive 70%+ of YouTube watch time. The system balances:
 
 ### Recommendation Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/two-stage-recommendation-retrieve-candidates-from-embedding-index-rank-with-full.light.svg" alt="Two-stage recommendation: retrieve candidates from embedding index, rank with full model." />
-<img class="only-dark" src="./diagrams/two-stage-recommendation-retrieve-candidates-from-embedding-index-rank-with-full.dark.svg" alt="Two-stage recommendation: retrieve candidates from embedding index, rank with full model." />
-<figcaption>Two-stage recommendation: retrieve candidates from embedding index, rank with full model.</figcaption>
-</figure>
+![Two-stage recommendation: retrieve candidates from embedding index, rank with full model.](./diagrams/two-stage-recommendation-retrieve-candidates-from-embedding-index-rank-with-full-light.svg "Two-stage recommendation: retrieve candidates from embedding index, rank with full model.")
+![Two-stage recommendation: retrieve candidates from embedding index, rank with full model.](./diagrams/two-stage-recommendation-retrieve-candidates-from-embedding-index-rank-with-full-dark.svg)
 
 ### Signal Types
 
@@ -863,11 +839,8 @@ Maximum (cap prefetch): 60 seconds
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/aws-deployment-s3-for-storage-mediaconvert-or-batch-for-transcoding-cloudfront-w.light.svg" alt="AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery." />
-<img class="only-dark" src="./diagrams/aws-deployment-s3-for-storage-mediaconvert-or-batch-for-transcoding-cloudfront-w.dark.svg" alt="AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery." />
-<figcaption>AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery.</figcaption>
-</figure>
+![AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery.](./diagrams/aws-deployment-s3-for-storage-mediaconvert-or-batch-for-transcoding-cloudfront-w-light.svg "AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery.")
+![AWS deployment: S3 for storage, MediaConvert or Batch for transcoding, CloudFront with Origin Shield for delivery.](./diagrams/aws-deployment-s3-for-storage-mediaconvert-or-batch-for-transcoding-cloudfront-w-dark.svg)
 
 **Service selection:**
 

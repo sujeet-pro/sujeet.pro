@@ -15,11 +15,8 @@ tags:
 
 A system design for search autocomplete (typeahead) covering prefix data structures, ranking algorithms, distributed architecture, and sub-100ms latency requirements. This design addresses the challenge of returning relevant suggestions within the user's typing cadence—typically under 100ms—while handling billions of queries daily.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-client-debouncing-feeds-through-cdn-cache-to-sharded-tri.light.svg" alt="High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs." />
-<img class="only-dark" src="./diagrams/high-level-architecture-client-debouncing-feeds-through-cdn-cache-to-sharded-tri.dark.svg" alt="High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs." />
-<figcaption>High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs.</figcaption>
-</figure>
+![High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs.](./diagrams/high-level-architecture-client-debouncing-feeds-through-cdn-cache-to-sharded-tri-light.svg "High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs.")
+![High-level architecture: Client debouncing feeds through CDN cache to sharded trie services with pre-computed rankings. Indexing pipeline rebuilds tries from query logs.](./diagrams/high-level-architecture-client-debouncing-feeds-through-cdn-cache-to-sharded-tri-dark.svg)
 
 ## Abstract
 
@@ -203,10 +200,8 @@ Path B implementation details are covered in the "Elasticsearch Alternative" sec
 
 ### Request Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Sharding Strategy
 
@@ -752,10 +747,8 @@ const handleInputChange = (value: string) => {
 
 ### Pipeline Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ### Batch vs. Streaming Updates
 
@@ -962,10 +955,8 @@ def is_hot_prefix(prefix: str) -> bool:
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Service configuration:**
 

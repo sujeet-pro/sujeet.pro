@@ -13,11 +13,8 @@ tags:
 
 Designing unique identifier systems for distributed environments: understanding the trade-offs between sortability, coordination overhead, collision probability, and database performance across UUIDs, Snowflake IDs, ULIDs, and KSUIDs.
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-selecting-unique-id-generation-strategy-based-on-system-requir.light.svg" alt="Decision tree for selecting unique ID generation strategy based on system requirements" />
-<img class="only-dark" src="./diagrams/decision-tree-for-selecting-unique-id-generation-strategy-based-on-system-requir.dark.svg" alt="Decision tree for selecting unique ID generation strategy based on system requirements" />
-<figcaption>Decision tree for selecting unique ID generation strategy based on system requirements</figcaption>
-</figure>
+![Decision tree for selecting unique ID generation strategy based on system requirements](./diagrams/decision-tree-for-selecting-unique-id-generation-strategy-based-on-system-requir-light.svg "Decision tree for selecting unique ID generation strategy based on system requirements")
+![Decision tree for selecting unique ID generation strategy based on system requirements](./diagrams/decision-tree-for-selecting-unique-id-generation-strategy-based-on-system-requir-dark.svg)
 
 ## Abstract
 
@@ -483,10 +480,8 @@ RETURNING id;
 
 ## How to Choose
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Default recommendation (2024+):** UUID v7 for most new systems. It provides time-ordering, excellent database performance, RFC standardization, and requires no coordination.
 

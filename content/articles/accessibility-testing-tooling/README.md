@@ -16,11 +16,8 @@ tags:
 
 A practical workflow for automated and manual accessibility testing, covering tool selection, CI/CD integration, and testing strategies. Automated testing catches approximately 57% of accessibility issues (Deque, 2021)—the remaining 43% requires keyboard navigation testing, screen reader verification, and subjective judgment about content quality. This guide covers how to build a testing strategy that maximizes automated coverage while establishing the manual testing practices that no tool can replace.
 
-<figure>
-<img class="only-light" src="./diagrams/accessibility-testing-workflow-automated-tools-catch-structural-issues-early-man.light.svg" alt="Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment" />
-<img class="only-dark" src="./diagrams/accessibility-testing-workflow-automated-tools-catch-structural-issues-early-man.dark.svg" alt="Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment" />
-<figcaption>Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment</figcaption>
-</figure>
+![Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment](./diagrams/accessibility-testing-workflow-automated-tools-catch-structural-issues-early-man-light.svg "Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment")
+![Accessibility testing workflow: automated tools catch structural issues early; manual testing catches semantic and experiential issues that require human judgment](./diagrams/accessibility-testing-workflow-automated-tools-catch-structural-issues-early-man-dark.svg)
 
 ## Abstract
 

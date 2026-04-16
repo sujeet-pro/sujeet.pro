@@ -14,21 +14,15 @@ tags:
 
 Master CSS delivery, critical CSS extraction, containment properties, and font optimization techniques including WOFF2, subsetting, variable fonts, and CLS-free loading strategies for optimal Core Web Vitals.
 
-<figure>
-<img class="only-light" src="./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi.light.svg" alt="CSS and typography optimization stages: delivery, parsing, rendering, and font loading" />
-<img class="only-dark" src="./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi.dark.svg" alt="CSS and typography optimization stages: delivery, parsing, rendering, and font loading" />
-<figcaption>CSS and typography optimization stages: delivery, parsing, rendering, and font loading</figcaption>
-</figure>
+![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-light.svg "CSS and typography optimization stages: delivery, parsing, rendering, and font loading")
+![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-dark.svg)
 
 ## Abstract
 
 CSS and typography performance follows a layered optimization model:
 
-<figure>
-<img class="only-light" src="./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou.light.svg" alt="Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts" />
-<img class="only-dark" src="./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou.dark.svg" alt="Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts" />
-<figcaption>Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts</figcaption>
-</figure>
+![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-light.svg "Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts")
+![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-dark.svg)
 
 **Core mental model**: CSS is render-blocking by design—browsers must build the CSSOM before first paint. Every optimization either reduces blocking time (critical CSS, compression), reduces layout scope (containment), or prevents reflows (compositor animations, font metrics).
 

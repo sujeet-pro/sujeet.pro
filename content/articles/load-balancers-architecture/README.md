@@ -16,11 +16,8 @@ tags:
 
 How load balancers distribute traffic, terminate TLS, and maintain availability at scale. This article covers the design choices behind L4/L7 balancing, algorithm selection, health checking, and session management—with real-world examples from Netflix, Google, and Cloudflare.
 
-<figure>
-<img class="only-light" src="./diagrams/two-tier-load-balancing-l4-for-connection-distribution-l7-for-intelligent-reques.light.svg" alt="Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability." />
-<img class="only-dark" src="./diagrams/two-tier-load-balancing-l4-for-connection-distribution-l7-for-intelligent-reques.dark.svg" alt="Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability." />
-<figcaption>Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability.</figcaption>
-</figure>
+![Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability.](./diagrams/two-tier-load-balancing-l4-for-connection-distribution-l7-for-intelligent-reques-light.svg "Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability.")
+![Two-tier load balancing: L4 for connection distribution, L7 for intelligent request routing. Health checkers continuously verify backend availability.](./diagrams/two-tier-load-balancing-l4-for-connection-distribution-l7-for-intelligent-reques-dark.svg)
 
 ## Abstract
 

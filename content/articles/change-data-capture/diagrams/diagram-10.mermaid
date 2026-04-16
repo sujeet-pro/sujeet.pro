@@ -1,3 +1,5 @@
+%% Diagram: Diagram 10
+%% Type: flowchart
 flowchart LR
     DB[(Source DB)] -->|EOS| CDC[Debezium]
     CDC -->|EOS| K[Kafka]

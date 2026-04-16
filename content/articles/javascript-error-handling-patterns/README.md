@@ -16,19 +16,13 @@ tags:
 
 Master exception-based and value-based error handling approaches, from traditional try-catch patterns to modern functional programming techniques with monadic structures.
 
-<figure>
-<img class="only-light" src="./diagrams/evolution-from-exception-based-to-value-based-error-handling-paradigms.light.svg" alt="Evolution from exception-based to value-based error handling paradigms" />
-<img class="only-dark" src="./diagrams/evolution-from-exception-based-to-value-based-error-handling-paradigms.dark.svg" alt="Evolution from exception-based to value-based error handling paradigms" />
-<figcaption>Evolution from exception-based to value-based error handling paradigms</figcaption>
-</figure>
+![Evolution from exception-based to value-based error handling paradigms](./diagrams/evolution-from-exception-based-to-value-based-error-handling-paradigms-light.svg "Evolution from exception-based to value-based error handling paradigms")
+![Evolution from exception-based to value-based error handling paradigms](./diagrams/evolution-from-exception-based-to-value-based-error-handling-paradigms-dark.svg)
 
 ## Abstract
 
-<figure>
-<img class="only-light" src="./diagrams/error-handling-paradigms-from-implicit-exception-propagation-to-explicit-value-b.light.svg" alt="Error handling paradigms: from implicit exception propagation to explicit value-based composition" />
-<img class="only-dark" src="./diagrams/error-handling-paradigms-from-implicit-exception-propagation-to-explicit-value-b.dark.svg" alt="Error handling paradigms: from implicit exception propagation to explicit value-based composition" />
-<figcaption>Error handling paradigms: from implicit exception propagation to explicit value-based composition</figcaption>
-</figure>
+![Error handling paradigms: from implicit exception propagation to explicit value-based composition](./diagrams/error-handling-paradigms-from-implicit-exception-propagation-to-explicit-value-b-light.svg "Error handling paradigms: from implicit exception propagation to explicit value-based composition")
+![Error handling paradigms: from implicit exception propagation to explicit value-based composition](./diagrams/error-handling-paradigms-from-implicit-exception-propagation-to-explicit-value-b-dark.svg)
 
 The core decision in JavaScript error handling is **where failure information lives**: in an invisible control flow path (exceptions) or in the function's return type (values). This choice ripples through your entire architecture.
 
@@ -408,11 +402,8 @@ This structure makes invalid states **impossible at the type level**. You cannot
 
 **Railway Oriented Programming** (Scott Wlaschin's term) visualizes this as two parallel tracks:
 
-<figure>
-<img class="only-light" src="./diagrams/failures-automatically-bypass-subsequent-success-handlers-the-railway-metaphor.light.svg" alt="Failures automatically bypass subsequent success handlers—the "railway" metaphor" />
-<img class="only-dark" src="./diagrams/failures-automatically-bypass-subsequent-success-handlers-the-railway-metaphor.dark.svg" alt="Failures automatically bypass subsequent success handlers—the "railway" metaphor" />
-<figcaption>Failures automatically bypass subsequent success handlers—the "railway" metaphor</figcaption>
-</figure>
+![Failures automatically bypass subsequent success handlers—the ](./diagrams/failures-automatically-bypass-subsequent-success-handlers-the-railway-metaphor-light.svg "Failures automatically bypass subsequent success handlers—the \"railway\" metaphor")
+![Failures automatically bypass subsequent success handlers—the ](./diagrams/failures-automatically-bypass-subsequent-success-handlers-the-railway-metaphor-dark.svg)
 
 **The chainable API**:
 

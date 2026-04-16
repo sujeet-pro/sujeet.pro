@@ -16,11 +16,8 @@ tags:
 
 Message queues and publish-subscribe systems decouple producers from consumers, enabling asynchronous communication, elastic scaling, and fault isolation. The choice between queue-based and pub/sub patterns—and the specific broker implementation—determines delivery guarantees, ordering semantics, and operational complexity. This article covers design choices, trade-offs, and production patterns from systems handling trillions of messages daily.
 
-<figure>
-<img class="only-light" src="./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e.light.svg" alt="Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out)." />
-<img class="only-dark" src="./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e.dark.svg" alt="Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out)." />
-<figcaption>Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).</figcaption>
-</figure>
+![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e-light.svg "Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).")
+![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e-dark.svg)
 
 ## Abstract
 

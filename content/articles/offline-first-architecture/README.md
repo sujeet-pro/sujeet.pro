@@ -18,11 +18,8 @@ Building applications that prioritize local data and functionality, treating net
 
 Offline-first inverts the traditional web model: instead of fetching data from servers and caching it locally, data lives locally first and syncs to servers when possible. This article explores the browser APIs that enable this pattern, the sync strategies that keep data consistent, and how production applications like Figma, Notion, and Linear solve these problems at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi.light.svg" alt="Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows." />
-<img class="only-dark" src="./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi.dark.svg" alt="Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows." />
-<figcaption>Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.</figcaption>
-</figure>
+![Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.](./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi-light.svg "Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.")
+![Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.](./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi-dark.svg)
 
 ## Abstract
 
@@ -846,10 +843,8 @@ text.insert(0, "Hello")
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Real-World Implementations
 

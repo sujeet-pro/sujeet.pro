@@ -16,11 +16,8 @@ tags:
 
 Digital Rights Management (DRM) for streaming media combines encryption, license management, and platform-specific security to control content playback. This article covers the encryption architecture (CENC, AES modes), the three dominant DRM systems (Widevine, FairPlay, PlayReady), license server design, client integration via EME (Encrypted Media Extensions), and operational considerations including key rotation, security levels, and the threat model that DRM addresses.
 
-<figure>
-<img class="only-light" src="./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers.light.svg" alt="DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs" />
-<img class="only-dark" src="./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers.dark.svg" alt="DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs" />
-<figcaption>DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs</figcaption>
-</figure>
+![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers-light.svg "DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs")
+![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers-dark.svg)
 
 ## Abstract
 
@@ -397,10 +394,8 @@ Encrypted Media Extensions (EME) is the W3C API that connects web applications t
 
 ### EME Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Key API Components
 

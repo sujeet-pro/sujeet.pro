@@ -15,11 +15,8 @@ tags:
 
 Designing observability infrastructure for metrics, logs, and traces: understanding time-series databases, collection architectures, sampling strategies, and alerting systems that scale to billions of data points.
 
-<figure>
-<img class="only-light" src="./diagrams/overview-of-distributed-monitoring-architecture-showing-collection-methods-telem.light.svg" alt="Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends" />
-<img class="only-dark" src="./diagrams/overview-of-distributed-monitoring-architecture-showing-collection-methods-telem.dark.svg" alt="Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends" />
-<figcaption>Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends</figcaption>
-</figure>
+![Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends](./diagrams/overview-of-distributed-monitoring-architecture-showing-collection-methods-telem-light.svg "Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends")
+![Overview of distributed monitoring architecture showing collection methods, telemetry types, and storage backends](./diagrams/overview-of-distributed-monitoring-architecture-showing-collection-methods-telem-dark.svg)
 
 ## Abstract
 

@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for an issue tracking and project management tool covering API design for dynamic workflows, efficient kanban board pagination, drag-and-drop ordering without full row updates, concurrent edit handling, and real-time synchronization. This design addresses the challenges of project-specific column configurations while maintaining consistent user-defined ordering across views.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba.light.svg" alt="High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast." />
-<img class="only-dark" src="./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba.dark.svg" alt="High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast." />
-<figcaption>High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.</figcaption>
-</figure>
+![High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.](./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba-light.svg "High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.")
+![High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.](./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba-dark.svg)
 
 ## Abstract
 
@@ -117,10 +114,8 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Trade-offs:**
 
@@ -144,10 +139,8 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Trade-offs:**
 
@@ -235,10 +228,8 @@ This article focuses on **Path C (GraphQL with REST fallback)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### Issue Service
 
@@ -296,10 +287,8 @@ Enforces workflow rules and transitions.
 
 **Transition validation flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ## API Design
 
@@ -1011,10 +1000,8 @@ async function rebalanceColumn(projectId: string, statusId: string): Promise<voi
 
 ### Optimistic Locking Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Implementation
 
@@ -1241,10 +1228,8 @@ async function moveIssue(input: MoveIssueInput): Promise<UpdateResult> {
 
 Each project has its own workflow, defined by statuses and transitions.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### Fetching Workflow Configuration
 
@@ -1649,10 +1634,8 @@ function VirtualizedColumn({
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Service configurations:**
 

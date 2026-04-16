@@ -1,48 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { getBlogListing } from "../../theme/lib/content";
+import { describe, expect, it } from "vitest";
 
-describe("tag index building", () => {
-  it("groups entries by tag", () => {
-    const entries = [
-      { slug: "a", data: { title: "A", tags: ["react", "typescript"] }, collection: "articles" },
-      { slug: "b", data: { title: "B", tags: ["react"] }, collection: "articles" },
-      { slug: "c", data: { title: "C", tags: ["typescript"] }, collection: "blogs" },
-    ];
+describe("blog listing helpers", () => {
+  it("returns blog entries with base-prefixed paths", () => {
+    const { entries } = getBlogListing("/v5.sujeet.pro");
 
-    const tagIndex = new Map<string, { entries: Record<string, any[]> }>();
-
-    for (const entry of entries) {
-      const tags = (entry.data.tags as string[]) || [];
-      for (const tag of tags) {
-        if (!tagIndex.has(tag)) {
-          tagIndex.set(tag, { entries: {} });
-        }
-        const tagData = tagIndex.get(tag)!;
-        if (!tagData.entries[entry.collection]) {
-          tagData.entries[entry.collection] = [];
-        }
-        tagData.entries[entry.collection].push({
-          title: entry.data.title,
-          url: `/${entry.collection}/${entry.slug}`,
-        });
-      }
-    }
-
-    expect(tagIndex.size).toBe(2);
-    expect(tagIndex.get("react")!.entries.articles).toHaveLength(2);
-    expect(tagIndex.get("typescript")!.entries.articles).toHaveLength(1);
-    expect(tagIndex.get("typescript")!.entries.blogs).toHaveLength(1);
+    expect(entries.length).toBe(2);
+    expect(entries.every((entry) => entry.path.startsWith("/v5.sujeet.pro/blogs/"))).toBe(true);
   });
 
-  it("handles entries with no tags", () => {
-    const entries = [{ slug: "a", data: { title: "A", tags: [] }, collection: "articles" }];
-
-    const tagIndex = new Map<string, { entries: Record<string, any[]> }>();
-    for (const entry of entries) {
-      for (const tag of (entry.data.tags as string[]) || []) {
-        if (!tagIndex.has(tag)) tagIndex.set(tag, { entries: {} });
-      }
-    }
-
-    expect(tagIndex.size).toBe(0);
+  it("sorts blogs by date and title for stable listing order", () => {
+    const { entries } = getBlogListing("/v5.sujeet.pro");
+    expect(entries.map((entry) => entry.slug)).toEqual([
+      "chrome-developer-setup",
+      "editor-terminal-setup",
+    ]);
   });
 });

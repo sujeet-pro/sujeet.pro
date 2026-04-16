@@ -1,0 +1,16 @@
+%% Diagram: Bottleneck Saturation Signals
+%% Type: flowchart
+flowchart LR
+    subgraph Pressure["Resource pressure"]
+        U["Rising utilization<br/>CPU memory disk network"]
+    end
+    subgraph Queuing["Queuing and contention"]
+        Q["Growing queues<br/>pool waits lock waits"]
+    end
+    subgraph Latency["User-visible latency"]
+        L["Tail latency growth<br/>p95 p99 SLO pressure"]
+    end
+    subgraph Saturation["Saturation and failure"]
+        S["Timeouts errors<br/>throttling upstream limits"]
+    end
+    U --> Q --> L --> S

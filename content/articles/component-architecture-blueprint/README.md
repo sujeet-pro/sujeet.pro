@@ -15,19 +15,13 @@ tags:
 
 Modern frontend applications face a common challenge: as codebases grow, coupling between UI components, business logic, and framework-specific APIs creates maintenance nightmares and testing friction. This architecture addresses these issues through strict layering, dependency injection via React Context, and boundary enforcement via ESLint.
 
-<figure>
-<img class="only-light" src="./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit.light.svg" alt="Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting." />
-<img class="only-dark" src="./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit.dark.svg" alt="Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting." />
-<figcaption>Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.</figcaption>
-</figure>
+![Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.](./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit-light.svg "Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.")
+![Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.](./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit-dark.svg)
 
 ## Abstract
 
-<figure>
-<img class="only-light" src="./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr.light.svg" alt="Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration." />
-<img class="only-dark" src="./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr.dark.svg" alt="Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration." />
-<figcaption>Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.</figcaption>
-</figure>
+![Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.](./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr-light.svg "Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.")
+![Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.](./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr-dark.svg)
 
 The architecture answers three questions:
 

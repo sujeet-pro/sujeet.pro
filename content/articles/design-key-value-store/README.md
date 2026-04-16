@@ -15,11 +15,8 @@ tags:
 
 A distributed key-value store provides simple get/put semantics while handling the complexities of partitioning, replication, and failure recovery across a cluster of machines. This design explores the architectural decisions behind systems like Amazon Dynamo, Apache Cassandra, and Riak—AP systems that prioritize availability and partition tolerance over strong consistency. We also contrast with CP alternatives like etcd for scenarios requiring linearizability.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to-.light.svg" alt="High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine." />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to-.dark.svg" alt="High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine." />
-<figcaption>High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine.</figcaption>
-</figure>
+![High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine.](./diagrams/high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to--light.svg "High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine.")
+![High-level architecture: clients contact any node as coordinator, which routes to the correct replicas based on consistent hashing. Each node uses an LSM-tree storage engine.](./diagrams/high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to--dark.svg)
 
 ## Abstract
 
@@ -157,11 +154,8 @@ For CP key-value store design, see etcd's architecture documentation and the Raf
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/component-interactions-coordinator-routes-requests-gossip-maintains-membership-s.light.svg" alt="Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence." />
-<img class="only-dark" src="./diagrams/component-interactions-coordinator-routes-requests-gossip-maintains-membership-s.dark.svg" alt="Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence." />
-<figcaption>Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence.</figcaption>
-</figure>
+![Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence.](./diagrams/component-interactions-coordinator-routes-requests-gossip-maintains-membership-s-light.svg "Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence.")
+![Component interactions: coordinator routes requests, gossip maintains membership, storage engine persists data, anti-entropy mechanisms ensure replica convergence.](./diagrams/component-interactions-coordinator-routes-requests-gossip-maintains-membership-s-dark.svg)
 
 ### Request Flow
 
@@ -281,11 +275,8 @@ Example with N=3:
 
 **Sloppy quorum solution:** Write to any N healthy nodes from an extended preference list. If the designated replica is down, write to the next available node with a "hint" to forward later.
 
-<figure>
-<img class="only-light" src="./diagrams/sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit.light.svg" alt="Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data." />
-<img class="only-dark" src="./diagrams/sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit.dark.svg" alt="Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data." />
-<figcaption>Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data.</figcaption>
-</figure>
+![Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data.](./diagrams/sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit-light.svg "Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data.")
+![Sloppy quorum: when replica B is unavailable, the coordinator writes to node D with a hint. When B recovers, D forwards the data.](./diagrams/sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit-dark.svg)
 
 **Hint storage limits:**
 
@@ -403,11 +394,8 @@ Fixed timeouts must be tuned per-environment. Phi accrual adapts to observed net
 
 Merkle trees enable efficient comparison of large datasets. Each leaf is a hash of a data range; internal nodes are hashes of children.
 
-<figure>
-<img class="only-light" src="./diagrams/merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma.light.svg" alt="Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges." />
-<img class="only-dark" src="./diagrams/merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma.dark.svg" alt="Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges." />
-<figcaption>Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges.</figcaption>
-</figure>
+![Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges.](./diagrams/merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma-light.svg "Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges.")
+![Merkle tree: comparing root hashes identifies if replicas differ. Traversing mismatched branches locates specific divergent key ranges.](./diagrams/merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma-dark.svg)
 
 **Synchronization algorithm:**
 
@@ -462,11 +450,8 @@ LSM (Log-Structured Merge) trees convert random writes to sequential I/O:
 
 ### Write Path Details
 
-<figure>
-<img class="only-light" src="./diagrams/write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im.light.svg" alt="Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables." />
-<img class="only-dark" src="./diagrams/write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im.dark.svg" alt="Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables." />
-<figcaption>Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables.</figcaption>
-</figure>
+![Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables.](./diagrams/write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im-light.svg "Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables.")
+![Write path: WAL ensures durability, memtable provides fast writes, flush creates immutable SSTables.](./diagrams/write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im-dark.svg)
 
 **Memtable sizing:** Cassandra allocates 1/4 of heap to memtables by default. Larger memtables reduce flush frequency but increase recovery time after crashes.
 
@@ -583,11 +568,8 @@ Response:
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros.light.svg" alt="AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups." />
-<img class="only-dark" src="./diagrams/aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros.dark.svg" alt="AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups." />
-<figcaption>AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups.</figcaption>
-</figure>
+![AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups.](./diagrams/aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros-light.svg "AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups.")
+![AWS deployment: i3 instances with local NVMe for low-latency storage, spread across 3 AZs for fault tolerance, S3 for backups.](./diagrams/aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros-dark.svg)
 
 **Instance selection:**
 

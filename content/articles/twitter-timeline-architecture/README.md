@@ -14,11 +14,8 @@ tags:
 
 How Twitter evolved from a monolithic Ruby on Rails app delivering reverse-chronological tweets at 4,600 writes/second into a distributed ML pipeline that processes 500 million tweets daily through a multi-stage recommendation system -- and how X replaced all of it with a Grok-based transformer in 2026. This case study traces the full arc: fanout-on-write, the hybrid celebrity problem, the algorithmic timeline controversy, the unprecedented open-sourcing of the recommendation algorithm, and the latest Phoenix/Thunder architecture.
 
-<figure>
-<img class="only-light" src="./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s.light.svg" alt="Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+)." />
-<img class="only-dark" src="./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s.dark.svg" alt="Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+)." />
-<figcaption>Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).</figcaption>
-</figure>
+![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s-light.svg "Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).")
+![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s-dark.svg)
 
 ## Abstract
 
@@ -72,11 +69,8 @@ Three inflection points drove architectural transformations:
 
 The canonical description comes from Raffi Krikorian's "Timelines at Scale" presentation at QCon (April 2013). The core insight: shift computation from read time to write time.
 
-<figure>
-<img class="only-light" src="./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll.light.svg" alt="Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups." />
-<img class="only-dark" src="./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll.dark.svg" alt="Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups." />
-<figcaption>Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.</figcaption>
-</figure>
+![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-light.svg "Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.")
+![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-dark.svg)
 
 **Write path:**
 
@@ -164,11 +158,8 @@ On March 31, 2023, Twitter published the recommendation algorithm across two rep
 
 The "For You" timeline pipeline processed approximately 500 million tweets daily across 400 billion real-time events, running roughly 5 billion times per day with an average latency under 1.5 seconds -- though each execution consumed approximately 220 seconds of CPU time, parallelized across services.
 
-<figure>
-<img class="only-light" src="./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug.light.svg" alt="The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework." />
-<img class="only-dark" src="./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug.dark.svg" alt="The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework." />
-<figcaption>The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.</figcaption>
-</figure>
+![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug-light.svg "The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.")
+![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug-dark.svg)
 
 ### Stage 1: Candidate Sourcing
 

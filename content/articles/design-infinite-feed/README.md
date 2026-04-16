@@ -16,11 +16,8 @@ tags:
 
 Building infinite scrolling feed interfaces that scale from hundreds to millions of items while maintaining 60fps scroll performance. This article covers pagination strategies, scroll detection, virtualization, state management, and accessibility patterns that power feeds at Twitter, Instagram, and LinkedIn.
 
-<figure>
-<img class="only-light" src="./diagrams/infinite-feed-architecture-intersection-observer-triggers-pagination-when-sentin.light.svg" alt="Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache." />
-<img class="only-dark" src="./diagrams/infinite-feed-architecture-intersection-observer-triggers-pagination-when-sentin.dark.svg" alt="Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache." />
-<figcaption>Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache.</figcaption>
-</figure>
+![Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache.](./diagrams/infinite-feed-architecture-intersection-observer-triggers-pagination-when-sentin-light.svg "Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache.")
+![Infinite feed architecture: Intersection Observer triggers pagination when sentinel enters viewport; cursor-based queries return stable pages; virtualization renders only visible items from memory cache.](./diagrams/infinite-feed-architecture-intersection-observer-triggers-pagination-when-sentin-dark.svg)
 
 ## Abstract
 

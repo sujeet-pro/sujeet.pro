@@ -14,11 +14,8 @@ tags:
 
 Designing scalable object storage systems requires understanding the fundamental trade-offs between storage efficiency, durability, and access performance. This article covers the core building blocks—chunking, deduplication, metadata management, redundancy, and tiered storage—with design reasoning for each architectural choice.
 
-<figure>
-<img class="only-light" src="./diagrams/blob-storage-architecture-clients-interact-through-an-api-gateway-metadata-and-d.light.svg" alt="Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes." />
-<img class="only-dark" src="./diagrams/blob-storage-architecture-clients-interact-through-an-api-gateway-metadata-and-d.dark.svg" alt="Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes." />
-<figcaption>Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes.</figcaption>
-</figure>
+![Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes.](./diagrams/blob-storage-architecture-clients-interact-through-an-api-gateway-metadata-and-d-light.svg "Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes.")
+![Blob storage architecture: clients interact through an API gateway; metadata and deduplication index are managed separately from the data layer, which uses erasure coding across distributed storage nodes.](./diagrams/blob-storage-architecture-clients-interact-through-an-api-gateway-metadata-and-d-dark.svg)
 
 ## Abstract
 
@@ -541,10 +538,8 @@ Single-stream upload of large files (GBs+):
 
 ### Multipart Upload Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Design Decisions
 

@@ -18,10 +18,7 @@ tags:
 
 The event loop is not a JavaScript language feature—it is the host environment's mechanism for orchestrating asynchronous operations around the engine's single-threaded execution. Browsers implement the WHATWG HTML Standard processing model optimized for UI responsiveness (60 frames per second, ~16.7ms budgets). Node.js implements a phased architecture via libuv, optimized for high-throughput I/O (Input/Output). Understanding both models is essential for debugging timing issues, avoiding starvation, and choosing the right scheduling primitive.
 
-<figure>
-  <img src="./assets/nodejs-event-loop-with-example.png" alt="Node.js Event Loop Phases" />
-  <figcaption>Node.js event loop phases showing the libuv-managed execution order</figcaption>
-</figure>
+![Node.js Event Loop Phases](./assets/nodejs-event-loop-with-example.png "Node.js event loop phases showing the libuv-managed execution order")
 
 ## Abstract
 
@@ -46,11 +43,8 @@ The event loop implements a two-tier priority system:
 
 JavaScript's characterization as a "single-threaded, non-blocking, asynchronous, concurrent language" obscures the division of labor between engine and host. The ECMAScript specification (ECMA-262) defines the language semantics—call stack, heap, run-to-completion—but delegates asynchronous scheduling to the host via abstract "Jobs" and "Job Queues." The host environment (browser or Node.js) implements the concrete event loop that processes these jobs.
 
-<figure>
-<img class="only-light" src="./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host.light.svg" alt="JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components" />
-<img class="only-dark" src="./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host.dark.svg" alt="JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components" />
-<figcaption>JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components</figcaption>
-</figure>
+![JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components](./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host-light.svg "JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components")
+![JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components](./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host-dark.svg)
 
 ### Core Execution Primitives
 
@@ -62,19 +56,13 @@ The ECMAScript specification defines three fundamental primitives:
 
 This run-to-completion model simplifies reasoning about shared state (no need for locks) but means long-running synchronous code blocks everything—including rendering in browsers.
 
-<figure>
-<img class="only-light" src="./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta.light.svg" alt="Core execution model showing the flow between task queue, event loop, and call stack" />
-<img class="only-dark" src="./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta.dark.svg" alt="Core execution model showing the flow between task queue, event loop, and call stack" />
-<figcaption>Core execution model showing the flow between task queue, event loop, and call stack</figcaption>
-</figure>
+![Core execution model showing the flow between task queue, event loop, and call stack](./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta-light.svg "Core execution model showing the flow between task queue, event loop, and call stack")
+![Core execution model showing the flow between task queue, event loop, and call stack](./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta-dark.svg)
 
 ### Specification Hierarchy
 
-<figure>
-<img class="only-light" src="./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop.light.svg" alt="ECMAScript defines abstract Jobs; host environments implement concrete event loops" />
-<img class="only-dark" src="./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop.dark.svg" alt="ECMAScript defines abstract Jobs; host environments implement concrete event loops" />
-<figcaption>ECMAScript defines abstract Jobs; host environments implement concrete event loops</figcaption>
-</figure>
+![ECMAScript defines abstract Jobs; host environments implement concrete event loops](./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop-light.svg "ECMAScript defines abstract Jobs; host environments implement concrete event loops")
+![ECMAScript defines abstract Jobs; host environments implement concrete event loops](./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop-dark.svg)
 
 The ECMAScript 2025 specification (16th edition) defines an **Agent** as the execution context for JavaScript code—comprising a call stack, running execution context, and job queues. The spec provides abstract operations like `HostEnqueuePromiseJob` that hosts must implement. This separation allows browsers and Node.js to optimize for different workloads while maintaining language semantics.
 
@@ -84,19 +72,13 @@ All modern JavaScript environments implement a two-tiered priority system. Per t
 
 ### Queue Processing Model
 
-<figure>
-<img class="only-light" src="./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt.light.svg" alt="Queue processing model showing the priority system between macrotasks and microtasks in the event loop" />
-<img class="only-dark" src="./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt.dark.svg" alt="Queue processing model showing the priority system between macrotasks and microtasks in the event loop" />
-<figcaption>Queue processing model showing the priority system between macrotasks and microtasks in the event loop</figcaption>
-</figure>
+![Queue processing model showing the priority system between macrotasks and microtasks in the event loop](./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt-light.svg "Queue processing model showing the priority system between macrotasks and microtasks in the event loop")
+![Queue processing model showing the priority system between macrotasks and microtasks in the event loop](./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt-dark.svg)
 
 ### Priority Hierarchy
 
-<figure>
-<img class="only-light" src="./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic.light.svg" alt="Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks" />
-<img class="only-dark" src="./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic.dark.svg" alt="Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks" />
-<figcaption>Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks</figcaption>
-</figure>
+![Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks](./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic-light.svg "Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks")
+![Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks](./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic-dark.svg)
 
 ### Microtask Starvation Pattern
 
@@ -130,21 +112,15 @@ The browser event loop is optimized for UI (User Interface) responsiveness, inte
 
 The WHATWG HTML Living Standard (January 2026) defines the event loop processing model:
 
-<figure>
-<img class="only-light" src="./diagrams/whatwg-processing-model-task-microtasks-rendering-idle.light.svg" alt="WHATWG processing model: Task → Microtasks → Rendering → Idle" />
-<img class="only-dark" src="./diagrams/whatwg-processing-model-task-microtasks-rendering-idle.dark.svg" alt="WHATWG processing model: Task → Microtasks → Rendering → Idle" />
-<figcaption>WHATWG processing model: Task → Microtasks → Rendering → Idle</figcaption>
-</figure>
+![WHATWG processing model: Task → Microtasks → Rendering → Idle](./diagrams/whatwg-processing-model-task-microtasks-rendering-idle-light.svg "WHATWG processing model: Task → Microtasks → Rendering → Idle")
+![WHATWG processing model: Task → Microtasks → Rendering → Idle](./diagrams/whatwg-processing-model-task-microtasks-rendering-idle-dark.svg)
 
 **Design rationale**: Running all microtasks before rendering ensures the DOM (Document Object Model) reaches a consistent state. If microtasks ran interleaved with rendering, intermediate states could flash on screen. The tradeoff: long microtask chains can delay rendering, causing dropped frames.
 
 ### Rendering Pipeline Integration
 
-<figure>
-<img class="only-light" src="./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames.light.svg" alt="Frame budget allocation at 60fps. Exceeding 16.7ms drops frames." />
-<img class="only-dark" src="./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames.dark.svg" alt="Frame budget allocation at 60fps. Exceeding 16.7ms drops frames." />
-<figcaption>Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.</figcaption>
-</figure>
+![Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.](./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames-light.svg "Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.")
+![Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.](./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames-dark.svg)
 
 **requestAnimationFrame (rAF) timing**: Per the spec, rAF callbacks run after microtasks but before style recalculation—the optimal point for DOM mutations that should appear in the next frame.
 
@@ -194,21 +170,15 @@ Node.js implements a phased event loop architecture via libuv, optimized for hig
 
 ### libuv Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an.light.svg" alt="libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms" />
-<img class="only-dark" src="./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an.dark.svg" alt="libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms" />
-<figcaption>libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms</figcaption>
-</figure>
+![libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms](./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an-light.svg "libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms")
+![libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms](./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an-dark.svg)
 
 ### Phased Event Loop Structure
 
 As of Node.js 20+, the event loop executes in six phases. Each phase has a FIFO (First-In-First-Out) queue; all callbacks in that queue execute before moving to the next phase:
 
-<figure>
-<img class="only-light" src="./diagrams/six-phases-of-the-node-js-event-loop.light.svg" alt="Six phases of the Node.js event loop" />
-<img class="only-dark" src="./diagrams/six-phases-of-the-node-js-event-loop.dark.svg" alt="Six phases of the Node.js event loop" />
-<figcaption>Six phases of the Node.js event loop</figcaption>
-</figure>
+![Six phases of the Node.js event loop](./diagrams/six-phases-of-the-node-js-event-loop-light.svg "Six phases of the Node.js event loop")
+![Six phases of the Node.js event loop](./diagrams/six-phases-of-the-node-js-event-loop-dark.svg)
 
 | Phase                 | Executes                                       | Examples                       |
 | --------------------- | ---------------------------------------------- | ------------------------------ |
@@ -223,11 +193,8 @@ As of Node.js 20+, the event loop executes in six phases. Each phase has a FIFO 
 
 ### Poll Phase Logic
 
-<figure>
-<img class="only-light" src="./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately.light.svg" alt="Poll phase decision tree: block for I/O, timers, or proceed immediately" />
-<img class="only-dark" src="./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately.dark.svg" alt="Poll phase decision tree: block for I/O, timers, or proceed immediately" />
-<figcaption>Poll phase decision tree: block for I/O, timers, or proceed immediately</figcaption>
-</figure>
+![Poll phase decision tree: block for I/O, timers, or proceed immediately](./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately-light.svg "Poll phase decision tree: block for I/O, timers, or proceed immediately")
+![Poll phase decision tree: block for I/O, timers, or proceed immediately](./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately-dark.svg)
 
 The poll phase is where libuv spends most of its time in I/O-heavy applications. It blocks waiting for new I/O events unless:
 
@@ -239,11 +206,8 @@ The poll phase is where libuv spends most of its time in I/O-heavy applications.
 
 Network I/O is **always** performed on the event loop's thread using non-blocking OS primitives (epoll, kqueue, IOCP). File system operations use the thread pool because, per the libuv design docs: "Unlike network I/O, there are no platform-specific file I/O primitives libuv could rely on."
 
-<figure>
-<img class="only-light" src="./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o.light.svg" alt="Thread pool for blocking operations; event loop for non-blocking network I/O" />
-<img class="only-dark" src="./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o.dark.svg" alt="Thread pool for blocking operations; event loop for non-blocking network I/O" />
-<figcaption>Thread pool for blocking operations; event loop for non-blocking network I/O</figcaption>
-</figure>
+![Thread pool for blocking operations; event loop for non-blocking network I/O](./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o-light.svg "Thread pool for blocking operations; event loop for non-blocking network I/O")
+![Thread pool for blocking operations; event loop for non-blocking network I/O](./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o-dark.svg)
 
 **Thread pool configuration**:
 
@@ -265,11 +229,8 @@ Node.js provides unique scheduling primitives with distinct priority levels. Cri
 
 ### Priority Hierarchy
 
-<figure>
-<img class="only-light" src="./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases.light.svg" alt="Node.js priority: nextTick → microtasks → event loop phases" />
-<img class="only-dark" src="./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases.dark.svg" alt="Node.js priority: nextTick → microtasks → event loop phases" />
-<figcaption>Node.js priority: nextTick → microtasks → event loop phases</figcaption>
-</figure>
+![Node.js priority: nextTick → microtasks → event loop phases](./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases-light.svg "Node.js priority: nextTick → microtasks → event loop phases")
+![Node.js priority: nextTick → microtasks → event loop phases](./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases-dark.svg)
 
 ### process.nextTick() vs queueMicrotask()
 
@@ -288,21 +249,15 @@ Node.js provides unique scheduling primitives with distinct priority levels. Cri
 
 ### nextTick vs setImmediate Execution
 
-<figure>
-<img class="only-light" src="./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t.light.svg" alt="nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms" />
-<img class="only-dark" src="./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t.dark.svg" alt="nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms" />
-<figcaption>nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms</figcaption>
-</figure>
+![nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms](./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t-light.svg "nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms")
+![nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms](./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t-dark.svg)
 
 ### setTimeout vs setImmediate Ordering
 
 Within an I/O callback, `setImmediate()` always executes before `setTimeout(fn, 0)` because the poll phase proceeds to the check phase before wrapping back to timers. Outside I/O callbacks (e.g., in the main module), the order is **non-deterministic** and depends on process performance at startup.
 
-<figure>
-<img class="only-light" src="./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic.light.svg" alt="Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic." />
-<img class="only-dark" src="./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic.dark.svg" alt="Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic." />
-<figcaption>Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.</figcaption>
-</figure>
+![Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.](./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic-light.svg "Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.")
+![Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.](./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic-dark.svg)
 
 ```javascript title="timer-ordering.js"
 const fs = require("fs")
@@ -328,11 +283,8 @@ Worker threads (browser Web Workers or Node.js `worker_threads`) provide true pa
 
 ### Worker Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/workers-have-independent-event-loops-communication-via-message-passing.light.svg" alt="Workers have independent event loops; communication via message passing" />
-<img class="only-dark" src="./diagrams/workers-have-independent-event-loops-communication-via-message-passing.dark.svg" alt="Workers have independent event loops; communication via message passing" />
-<figcaption>Workers have independent event loops; communication via message passing</figcaption>
-</figure>
+![Workers have independent event loops; communication via message passing](./diagrams/workers-have-independent-event-loops-communication-via-message-passing-light.svg "Workers have independent event loops; communication via message passing")
+![Workers have independent event loops; communication via message passing](./diagrams/workers-have-independent-event-loops-communication-via-message-passing-dark.svg)
 
 ### Data Transfer Mechanisms
 

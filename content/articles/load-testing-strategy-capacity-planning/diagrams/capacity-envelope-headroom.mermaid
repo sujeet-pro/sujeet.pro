@@ -1,0 +1,7 @@
+%% Diagram: Capacity Envelope Headroom
+%% Type: flowchart
+flowchart TB
+    M["Measure max sustainable throughput<br/>per scenario and bottleneck"] --> E["Plot capacity envelope<br/>across load shapes"]
+    E --> T["Choose production traffic target<br/>peak plus planned growth"]
+    T --> H["Reserve headroom for failover<br/>deploys bursts and model error"]
+    H --> D["Publish limits rollback triggers<br/>and re-test cadence"]

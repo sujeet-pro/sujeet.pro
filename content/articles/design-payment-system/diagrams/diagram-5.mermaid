@@ -1,3 +1,5 @@
+%% Diagram: Diagram 5
+%% Type: flowchart
 flowchart TD
     REQ[Incoming Request] --> CHECK{Idempotency Key<br/>Exists?}
     CHECK -->|No| PROCESS[Process Request]

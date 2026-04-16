@@ -17,11 +17,8 @@ tags:
 
 HTTP/3 eliminates TCP's head-of-line blocking by building HTTP directly on QUIC, a UDP-based transport with integrated TLS 1.3. This article covers QUIC's design rationale, the TLS 1.3 integration that enables 1-RTT handshakes, 0-RTT security trade-offs, and the DNS/Alt-Svc discovery mechanisms browsers use for protocol negotiation.
 
-<figure>
-<img class="only-light" src="./diagrams/http-3-runs-over-quic-which-integrates-tls-1-3-into-udp-based-transport-discover.light.svg" alt="HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers." />
-<img class="only-dark" src="./diagrams/http-3-runs-over-quic-which-integrates-tls-1-3-into-udp-based-transport-discover.dark.svg" alt="HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers." />
-<figcaption>HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers.</figcaption>
-</figure>
+![HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers.](./diagrams/http-3-runs-over-quic-which-integrates-tls-1-3-into-udp-based-transport-discover-light.svg "HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers.")
+![HTTP/3 runs over QUIC, which integrates TLS 1.3 into UDP-based transport. Discovery occurs via DNS SVCB/HTTPS records or Alt-Svc headers.](./diagrams/http-3-runs-over-quic-which-integrates-tls-1-3-into-udp-based-transport-discover-dark.svg)
 
 ## Abstract
 
@@ -46,10 +43,8 @@ HTTP/3 exists because TCP's design creates unavoidable head-of-line (HOL) blocki
 
 HTTP/2 multiplexes streams over a single TCP connection. TCP guarantees in-order, reliable delivery—but this guarantee applies to the entire byte stream, not individual HTTP streams.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **The problem**: When packet 3 (belonging to Stream A) is lost, TCP cannot deliver packets 4+ to the application until packet 3 arrives. Streams B and C stall even though they have complete data waiting in the receive buffer.
 
@@ -102,10 +97,8 @@ QUIC uses Connection IDs instead. Per RFC 9000 Section 5.1:
 
 **Security requirement**: Connection IDs "MUST NOT contain any information that can be used by an external observer... to correlate them with other connection IDs for the same connection."
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **PATH_CHALLENGE/PATH_RESPONSE** (RFC 9000 Sections 8.2, 19.17-19.18):
 
@@ -131,10 +124,8 @@ QUIC uses Connection IDs instead. Per RFC 9000 Section 5.1:
 
 Each QUIC stream maintains independent state: flow control windows, retransmission buffers, and delivery ordering.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Stream ID structure** (RFC 9114 Section 6.1):
 
@@ -153,10 +144,8 @@ Each QUIC stream maintains independent state: flow control windows, retransmissi
 
 Traditional HTTPS requires sequential handshakes: TCP (1-RTT) then TLS (1-2 RTT). QUIC integrates TLS 1.3 directly into the transport handshake.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Latency comparison:**
 
@@ -261,10 +250,8 @@ QPACK uses explicit synchronization via dedicated unidirectional streams:
 
 **Key mechanism**: Each encoded header block includes a "Required Insert Count"—the minimum dynamic table state needed to decode it. If the decoder's current insert count is lower, the stream blocks until encoder stream updates arrive.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Design trade-off**: QPACK can still cause blocking if encoder stream packets are delayed. But this blocking is localized to streams that actually reference the missing dynamic table entries, not all streams.
 
@@ -333,17 +320,13 @@ Alt-Svc: h3=":443"; ma=86400, h3-29=":443"; ma=86400
 
 **Upgrade flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### Browser Protocol Selection
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Happy Eyeballs for QUIC**: Browsers race QUIC and TCP connections simultaneously. If QUIC fails (UDP blocked, middlebox interference), TCP provides immediate fallback without user-visible delay.
 

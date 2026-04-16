@@ -1,0 +1,25 @@
+%% Diagram: Wc Boundaries And Interop
+%% Type: flowchart
+flowchart TB
+  subgraph Consumer["App and framework layer"]
+    FW["UI framework"]
+    PageCSS["Global CSS and tokens"]
+    A11y["Focus, labels, landmarks"]
+  end
+
+  subgraph CE["Custom element public surface"]
+    Host["Host attributes, properties, events, CSS variables"]
+    Parts["part export via exportparts"]
+  end
+
+  subgraph Internal["Shadow internals"]
+    Shadow["Shadow tree"]
+    Slots["Slots"]
+  end
+
+  FW --> Host
+  PageCSS --> Host
+  A11y --> Host
+  Host --> Shadow
+  Shadow --> Slots
+  Parts -.-> Shadow

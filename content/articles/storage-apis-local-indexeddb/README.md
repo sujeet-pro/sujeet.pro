@@ -15,21 +15,15 @@ tags:
 
 A deep dive into browser-side persistence, examining the design trade-offs behind each storage API, their quota models, transaction semantics, and eviction behavior. The [WHATWG Storage Standard](https://storage.spec.whatwg.org/) (Living Standard) unifies quota management under a single bucket model, while individual APIs—[Web Storage](https://html.spec.whatwg.org/multipage/webstorage.html) (localStorage/sessionStorage), [IndexedDB](https://www.w3.org/TR/IndexedDB-3/) (W3C, version 3.0), and the [Cache API](https://w3c.github.io/ServiceWorker/#cache-interface) (W3C)—each optimize for different access patterns. Choosing the right API depends on data shape, access frequency, thread requirements, and durability guarantees—not just capacity limits.
 
-<figure>
-<img class="only-light" src="./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system.light.svg" alt="Browser storage APIs and their relationship to the unified quota system" />
-<img class="only-dark" src="./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system.dark.svg" alt="Browser storage APIs and their relationship to the unified quota system" />
-<figcaption>Browser storage APIs and their relationship to the unified quota system</figcaption>
-</figure>
+![Browser storage APIs and their relationship to the unified quota system](./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system-light.svg "Browser storage APIs and their relationship to the unified quota system")
+![Browser storage APIs and their relationship to the unified quota system](./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system-dark.svg)
 
 ## Abstract
 
 Browser storage is not one system—it's five APIs with different serialization models, threading guarantees, and eviction behaviors, all sharing a per-origin quota.
 
-<figure>
-<img class="only-light" src="./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego.light.svg" alt="Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model" />
-<img class="only-dark" src="./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego.dark.svg" alt="Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model" />
-<figcaption>Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model</figcaption>
-</figure>
+![Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model](./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego-light.svg "Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model")
+![Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model](./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego-dark.svg)
 
 **Core mental model:**
 
@@ -209,11 +203,8 @@ function isStorageAvailable(): boolean {
 
 ### Data Model
 
-<figure>
-<img class="only-light" src="./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q.light.svg" alt="IndexedDB data model: databases contain object stores, which contain indexes for query optimization" />
-<img class="only-dark" src="./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q.dark.svg" alt="IndexedDB data model: databases contain object stores, which contain indexes for query optimization" />
-<figcaption>IndexedDB data model: databases contain object stores, which contain indexes for query optimization</figcaption>
-</figure>
+![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q-light.svg "IndexedDB data model: databases contain object stores, which contain indexes for query optimization")
+![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q-dark.svg)
 
 - **Database**: Named container with a version number. Multiple databases per origin are allowed
 - **Object store**: Named collection of records (analogous to a table). Records are key-value pairs where values are structured-cloneable objects

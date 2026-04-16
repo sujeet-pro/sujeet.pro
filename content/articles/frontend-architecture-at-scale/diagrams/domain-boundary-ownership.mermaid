@@ -1,36 +1,58 @@
-graph TD
-    subgraph shell["App Shell"]
-        router["Router and Navigation"]
-        auth["Auth Context"]
-    end
+%% Diagram: Domain Boundary Ownership
+%% Type: flowchart
+flowchart TB
+  subgraph shell["App shell (composition & cross-cutting bootstrap)"]
+    router["Router / composition root"]
+    shellConcerns["Shell concerns: auth session bootstrap, global telemetry hooks"]
+  end
 
-    subgraph platform["Platform Team"]
-        ds["Design System"]
-        libs["Shared Libraries"]
-        cicd["Build and CI/CD"]
-    end
+  subgraph platform["Platform layer (explicit ownership & SLAs)"]
+    ds["Design system & tokens"]
+    headless["Accessible primitives & patterns"]
+    build["Build graph, CI gates, artifact registry"]
+    published["Published contracts: generated API clients, shared event schemas, shared types"]
+  end
 
-    subgraph teamA["Team A: Catalog"]
-        catUI["Catalog Pages"]
-        catAPI["Catalog API Client"]
-    end
+  subgraph teamA["Team A: Catalog domain"]
+    catUI["Catalog UI surfaces"]
+    catLogic["Catalog-specific state & orchestration"]
+    catClient["Thin adapters over generated clients"]
+  end
 
-    subgraph teamB["Team B: Checkout"]
-        chkUI["Checkout Flow"]
-        chkAPI["Checkout API Client"]
-    end
+  subgraph teamB["Team B: Checkout domain"]
+    chkUI["Checkout UI surfaces"]
+    chkLogic["Checkout-specific state & orchestration"]
+    chkClient["Thin adapters over generated clients"]
+  end
 
-    subgraph teamC["Team C: Account"]
-        accUI["Account Pages"]
-        accAPI["Account API Client"]
-    end
+  subgraph teamC["Team C: Account domain"]
+    accUI["Account UI surfaces"]
+    accLogic["Account-specific state & orchestration"]
+    accClient["Thin adapters over generated clients"]
+  end
 
-    router --> catUI
-    router --> chkUI
-    router --> accUI
-    ds --> catUI
-    ds --> chkUI
-    ds --> accUI
-    libs --> catAPI
-    libs --> chkAPI
-    libs --> accAPI
+  router --> catUI
+  router --> chkUI
+  router --> accUI
+  shellConcerns --> catUI
+  shellConcerns --> chkUI
+  shellConcerns --> accUI
+
+  ds --> catUI
+  ds --> chkUI
+  ds --> accUI
+  headless --> catUI
+  headless --> chkUI
+  headless --> accUI
+
+  published --> catClient
+  published --> chkClient
+  published --> accClient
+
+  catClient --> catLogic
+  chkClient --> chkLogic
+  accClient --> accLogic
+
+  build -.->|"gates & policies"| catUI
+  build -.->|"gates & policies"| chkUI
+  build -.->|"gates & policies"| accUI

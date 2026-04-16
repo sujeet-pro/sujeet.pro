@@ -15,11 +15,8 @@ tags:
 
 Build resilient, scalable asynchronous task processing systems—from basic in-memory queues to advanced distributed patterns—using Node.js. This article covers the design reasoning behind queue architectures, concurrency control mechanisms, and resilience patterns for production systems.
 
-<figure>
-<img class="only-light" src="./diagrams/asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded.light.svg" alt="Asynchronous task queue distributing work across multiple executors with bounded concurrency" />
-<img class="only-dark" src="./diagrams/asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded.dark.svg" alt="Asynchronous task queue distributing work across multiple executors with bounded concurrency" />
-<figcaption>Asynchronous task queue distributing work across multiple executors with bounded concurrency</figcaption>
-</figure>
+![Asynchronous task queue distributing work across multiple executors with bounded concurrency](./diagrams/asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded-light.svg "Asynchronous task queue distributing work across multiple executors with bounded concurrency")
+![Asynchronous task queue distributing work across multiple executors with bounded concurrency](./diagrams/asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded-dark.svg)
 
 ## Abstract
 
@@ -53,11 +50,8 @@ Producer → Queue (buffer) → Consumer(s)
 
 Node.js uses a single-threaded, event-driven architecture. This model excels at I/O-bound operations but blocks the main thread during CPU-intensive work. Understanding the event loop phases is essential for designing queue processors that remain responsive.
 
-<figure>
-<img class="only-light" src="./diagrams/node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase.light.svg" alt="Node.js event loop phases with microtask queues processed between each phase" />
-<img class="only-dark" src="./diagrams/node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase.dark.svg" alt="Node.js event loop phases with microtask queues processed between each phase" />
-<figcaption>Node.js event loop phases with microtask queues processed between each phase</figcaption>
-</figure>
+![Node.js event loop phases with microtask queues processed between each phase](./diagrams/node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-light.svg "Node.js event loop phases with microtask queues processed between each phase")
+![Node.js event loop phases with microtask queues processed between each phase](./diagrams/node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-dark.svg)
 
 **Event Loop Phases** (as of Node.js 20+):
 
@@ -122,11 +116,8 @@ For persistence, horizontal scaling, and cross-process coordination, tasks must 
 
 ### 2.1 Distributed Architecture Components
 
-<figure>
-<img class="only-light" src="./diagrams/distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa.light.svg" alt="Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs" />
-<img class="only-dark" src="./diagrams/distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa.dark.svg" alt="Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs" />
-<figcaption>Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs</figcaption>
-</figure>
+![Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs](./diagrams/distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa-light.svg "Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs")
+![Distributed queue with producers, Redis broker, competing consumers, and DLQ for failed jobs](./diagrams/distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa-dark.svg)
 
 **Component responsibilities:**
 
@@ -251,11 +242,8 @@ const worker = new Worker("api-calls", processor, {
 
 Naive immediate retries cause thundering herd—all failed jobs retry simultaneously, overwhelming the recovering service.
 
-<figure>
-<img class="only-light" src="./diagrams/exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes.light.svg" alt="Exponential backoff with jitter desynchronizes retries, preventing load spikes" />
-<img class="only-dark" src="./diagrams/exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes.dark.svg" alt="Exponential backoff with jitter desynchronizes retries, preventing load spikes" />
-<figcaption>Exponential backoff with jitter desynchronizes retries, preventing load spikes</figcaption>
-</figure>
+![Exponential backoff with jitter desynchronizes retries, preventing load spikes](./diagrams/exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes-light.svg "Exponential backoff with jitter desynchronizes retries, preventing load spikes")
+![Exponential backoff with jitter desynchronizes retries, preventing load spikes](./diagrams/exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes-dark.svg)
 
 **Formula**: `delay = min(cap, base × 2^attempt) + random(0, delay × jitterFactor)`
 
@@ -277,11 +265,8 @@ await queue.add("api-call", payload, {
 
 Some jobs are inherently unprocessable: malformed payloads, missing dependencies, or bugs in consumer logic. These "poison messages" must be isolated.
 
-<figure>
-<img class="only-light" src="./diagrams/dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue.light.svg" alt="DLQ isolates poison messages, allowing main queue processing to continue" />
-<img class="only-dark" src="./diagrams/dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue.dark.svg" alt="DLQ isolates poison messages, allowing main queue processing to continue" />
-<figcaption>DLQ isolates poison messages, allowing main queue processing to continue</figcaption>
-</figure>
+![DLQ isolates poison messages, allowing main queue processing to continue](./diagrams/dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue-light.svg "DLQ isolates poison messages, allowing main queue processing to continue")
+![DLQ isolates poison messages, allowing main queue processing to continue](./diagrams/dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue-dark.svg)
 
 BullMQ automatically moves jobs to "failed" state after exhausting retries. Query failed jobs for manual inspection:
 
@@ -334,11 +319,8 @@ const worker = new Worker("user-registration", async (job) => {
 
 **Problem**: How do you atomically update a database AND publish an event? If you publish first and the DB write fails, you've sent an invalid event. If you write first and publishing fails, the event is lost.
 
-<figure>
-<img class="only-light" src="./diagrams/transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro.light.svg" alt="Transactional outbox ensures atomic DB writes and event publishing via relay process" />
-<img class="only-dark" src="./diagrams/transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro.dark.svg" alt="Transactional outbox ensures atomic DB writes and event publishing via relay process" />
-<figcaption>Transactional outbox ensures atomic DB writes and event publishing via relay process</figcaption>
-</figure>
+![Transactional outbox ensures atomic DB writes and event publishing via relay process](./diagrams/transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro-light.svg "Transactional outbox ensures atomic DB writes and event publishing via relay process")
+![Transactional outbox ensures atomic DB writes and event publishing via relay process](./diagrams/transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro-dark.svg)
 
 **Solution**: Write events to an "outbox" table in the same transaction as business data. A separate relay process polls the outbox and publishes to the message broker.
 
@@ -381,11 +363,8 @@ async function relayOutboxEvents() {
 
 When a business operation spans multiple services (each with its own database), traditional ACID transactions don't apply. The Saga pattern coordinates distributed operations through a sequence of local transactions with compensating actions for rollback.
 
-<figure>
-<img class="only-light" src="./diagrams/saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio.light.svg" alt="Saga with compensating transactions: each step has a corresponding rollback action" />
-<img class="only-dark" src="./diagrams/saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio.dark.svg" alt="Saga with compensating transactions: each step has a corresponding rollback action" />
-<figcaption>Saga with compensating transactions: each step has a corresponding rollback action</figcaption>
-</figure>
+![Saga with compensating transactions: each step has a corresponding rollback action](./diagrams/saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio-light.svg "Saga with compensating transactions: each step has a corresponding rollback action")
+![Saga with compensating transactions: each step has a corresponding rollback action](./diagrams/saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio-dark.svg)
 
 **Choreography vs. Orchestration:**
 
@@ -434,11 +413,8 @@ class OrderSagaOrchestrator {
 
 Event Sourcing stores state changes as an immutable sequence of events rather than current state. Queues distribute these events to consumers that build read models (CQRS).
 
-<figure>
-<img class="only-light" src="./diagrams/event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r.light.svg" alt="Event Sourcing with CQRS: events flow from write side through queue to multiple read models" />
-<img class="only-dark" src="./diagrams/event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r.dark.svg" alt="Event Sourcing with CQRS: events flow from write side through queue to multiple read models" />
-<figcaption>Event Sourcing with CQRS: events flow from write side through queue to multiple read models</figcaption>
-</figure>
+![Event Sourcing with CQRS: events flow from write side through queue to multiple read models](./diagrams/event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r-light.svg "Event Sourcing with CQRS: events flow from write side through queue to multiple read models")
+![Event Sourcing with CQRS: events flow from write side through queue to multiple read models](./diagrams/event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r-dark.svg)
 
 **Why use queues with Event Sourcing?**
 

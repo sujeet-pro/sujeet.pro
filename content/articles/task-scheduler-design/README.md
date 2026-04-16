@@ -13,11 +13,8 @@ tags:
 
 Designing reliable distributed task scheduling systems: understanding scheduling models, coordination mechanisms, delivery guarantees, and failure handling strategies across Airflow, Celery, Temporal, and similar platforms.
 
-<figure>
-<img class="only-light" src="./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han.light.svg" alt="Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths" />
-<img class="only-dark" src="./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han.dark.svg" alt="Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths" />
-<figcaption>Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths</figcaption>
-</figure>
+![Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths](./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han-light.svg "Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths")
+![Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths](./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han-dark.svg)
 
 ## Abstract
 

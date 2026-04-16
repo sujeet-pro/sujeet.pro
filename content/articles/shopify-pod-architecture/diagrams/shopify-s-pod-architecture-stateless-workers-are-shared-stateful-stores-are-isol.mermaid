@@ -1,3 +1,5 @@
+%% Diagram: Shopify S Pod Architecture Stateless Workers Are Shared Stateful Stores Are Isol
+%% Type: flowchart
 flowchart TD
     subgraph "Request Path"
         LB["nginx + OpenResty<br/>Load Balancers"] --> SH["Sorting Hat<br/>(Lua Script)"]

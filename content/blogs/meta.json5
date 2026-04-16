@@ -1,8 +1,8 @@
 {
   displayName: "Blogs",
   description: "Thoughts, explorations, and shorter-form writing.",
-  layout: "Listing",
-  itemLayout: "Blog",
+  layout: "BlogListing",
+  itemLayout: "BlogPage",
   orderBy: "publishedDate",
   series: [],
 }

@@ -16,11 +16,8 @@ tags:
 
 Observability in distributed systems rests on three complementary signals: logs capture discrete events with full context, metrics quantify system behavior over time, and traces reconstruct request paths across service boundaries. Each signal answers different questions, and choosing wrong defaults for cardinality, sampling, or retention can render your observability pipeline either useless or prohibitively expensive. This article covers the design reasoning behind each signal type, OpenTelemetry's unified data model, and the operational trade-offs that determine whether your system remains debuggable at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/opentelemetry-s-unified-instrumentation-model-three-signals-exported-via-otlp-wi.light.svg" alt="OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together." />
-<img class="only-dark" src="./diagrams/opentelemetry-s-unified-instrumentation-model-three-signals-exported-via-otlp-wi.dark.svg" alt="OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together." />
-<figcaption>OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together.</figcaption>
-</figure>
+![OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together.](./diagrams/opentelemetry-s-unified-instrumentation-model-three-signals-exported-via-otlp-wi-light.svg "OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together.")
+![OpenTelemetry's unified instrumentation model: three signals exported via OTLP, with trace context linking them together.](./diagrams/opentelemetry-s-unified-instrumentation-model-three-signals-exported-via-otlp-wi-dark.svg)
 
 ## Abstract
 

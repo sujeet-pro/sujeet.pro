@@ -1,0 +1,28 @@
+%% Diagram: Coordination Costs
+%% Type: flowchart
+flowchart LR
+    subgraph Share["Shared state surface"]
+        W["Single write API"]
+        R1["Reader A"]
+        R2["Reader B"]
+        R3["Reader C"]
+    end
+
+    subgraph Costs["Synchronization costs"]
+        C1["Resubscribe / rerender fan-out"]
+        C2["Merge + conflict detection"]
+        C3["Fixtures + test prelude grow"]
+        C4["Stampede risk after invalidation"]
+    end
+
+    W --> R1
+    W --> R2
+    W --> R3
+    R1 --> C1
+    R2 --> C1
+    R3 --> C1
+    W --> C2
+    Share --> C3
+    R1 --> C4
+    R2 --> C4
+    R3 --> C4

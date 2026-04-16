@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for social feed generation and ranking covering fan-out strategies, ML-powered ranking, graph-based storage, and caching at scale. This design addresses sub-second feed delivery for billions of users with personalized content ranking, handling the "celebrity problem" where a single post can require millions of fan-out operations.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-aggregators-query-leaf-servers-for-candidates-ranking-se.light.svg" alt="High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage." />
-<img class="only-dark" src="./diagrams/high-level-architecture-aggregators-query-leaf-servers-for-candidates-ranking-se.dark.svg" alt="High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage." />
-<figcaption>High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage.</figcaption>
-</figure>
+![High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage.](./diagrams/high-level-architecture-aggregators-query-leaf-servers-for-candidates-ranking-se-light.svg "High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage.")
+![High-level architecture: Aggregators query leaf servers for candidates, ranking service applies ML models, fan-out service distributes posts to follower feeds, and TAO provides graph storage.](./diagrams/high-level-architecture-aggregators-query-leaf-servers-for-candidates-ranking-se-dark.svg)
 
 ## Abstract
 
@@ -123,10 +120,8 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -156,10 +151,8 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -189,10 +182,8 @@ Social feed systems solve three interconnected problems: **efficient content dis
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -235,10 +226,8 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Feed Generation Service (Multifeed)
 
@@ -288,10 +277,8 @@ Manages the social graph (follows, friends, blocks) and content relationships:
 - Associations stored on source object's shard
 - Enables single-shard queries for common patterns
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Fan-out Service
 
@@ -320,10 +307,8 @@ type FanoutStrategy =
 
 Multi-stage funnel progressively narrows candidates:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ## API Design
 
@@ -1289,10 +1274,8 @@ class FeedPrefetcher {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Service configurations:**
 
@@ -1308,10 +1291,8 @@ class FeedPrefetcher {
 
 ### Multi-Region Deployment
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Multi-region considerations:**
 

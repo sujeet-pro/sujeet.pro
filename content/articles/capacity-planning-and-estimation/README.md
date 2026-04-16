@@ -15,11 +15,8 @@ tags:
 
 Capacity planning validates architectural decisions before writing code. This article covers the mental models, reference numbers, and calculation techniques that let you estimate QPS, storage, bandwidth, and server counts—transforming vague "we need to handle millions of users" into concrete infrastructure requirements.
 
-<figure>
-<img class="only-light" src="./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re.light.svg" alt="Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins." />
-<img class="only-dark" src="./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re.dark.svg" alt="Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins." />
-<figcaption>Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.</figcaption>
-</figure>
+![Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.](./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re-light.svg "Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.")
+![Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.](./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re-dark.svg)
 
 ## Abstract
 

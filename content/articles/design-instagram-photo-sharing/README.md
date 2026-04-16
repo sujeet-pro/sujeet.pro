@@ -15,11 +15,8 @@ tags:
 
 A photo-sharing social platform at Instagram scale handles 1+ billion photos uploaded daily, serves feeds to 500M+ daily active users, and delivers sub-second playback for Stories. This design covers the image upload pipeline, feed generation with fan-out strategies, Stories architecture, and the recommendation systems that power Explore—focusing on the architectural decisions that enable Instagram to process 95M+ daily uploads while maintaining real-time feed delivery.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid.light.svg" alt="High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization." />
-<img class="only-dark" src="./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid.dark.svg" alt="High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization." />
-<figcaption>High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.</figcaption>
-</figure>
+![High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.](./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-light.svg "High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.")
+![High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.](./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-dark.svg)
 
 ## Abstract
 
@@ -208,11 +205,8 @@ This article focuses on **Path C (Hybrid Fan-out)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul.light.svg" alt="Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push." />
-<img class="only-dark" src="./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul.dark.svg" alt="Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push." />
-<figcaption>Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.</figcaption>
-</figure>
+![Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.](./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul-light.svg "Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.")
+![Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.](./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul-dark.svg)
 
 ### Service Responsibilities
 
@@ -232,11 +226,8 @@ This article focuses on **Path C (Hybrid Fan-out)** because:
 
 ### Upload Flow
 
-<figure>
-<img class="only-light" src="./diagrams/two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr.light.svg" alt="Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously." />
-<img class="only-dark" src="./diagrams/two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr.dark.svg" alt="Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously." />
-<figcaption>Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously.</figcaption>
-</figure>
+![Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously.](./diagrams/two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr-light.svg "Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously.")
+![Two-phase upload: media upload returns immediately with media_id; post creation triggers fan-out asynchronously.](./diagrams/two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr-dark.svg)
 
 ### Image Processing Pipeline
 
@@ -320,11 +311,8 @@ Migration policy:
 
 ### Hybrid Fan-out Implementation
 
-<figure>
-<img class="only-light" src="./diagrams/hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto.light.svg" alt="Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time." />
-<img class="only-dark" src="./diagrams/hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto.dark.svg" alt="Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time." />
-<figcaption>Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time.</figcaption>
-</figure>
+![Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time.](./diagrams/hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto-light.svg "Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time.")
+![Hybrid fan-out: regular users trigger push to follower caches; celebrity posts stored separately and merged at read time.](./diagrams/hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto-dark.svg)
 
 ### Timeline Cache Structure
 
@@ -471,11 +459,8 @@ Stories have fundamentally different requirements than feed posts:
 | Caching strategy | CDN + Redis | Aggressive prefetch  |
 | Ranking          | Complex ML  | Recency + engagement |
 
-<figure>
-<img class="only-light" src="./diagrams/stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin.light.svg" alt="Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence." />
-<img class="only-dark" src="./diagrams/stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin.dark.svg" alt="Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence." />
-<figcaption>Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence.</figcaption>
-</figure>
+![Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence.](./diagrams/stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin-light.svg "Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence.")
+![Stories architecture: aggressive client-side prefetch with TTL-synced caching. Ring ordering determines story tray sequence.](./diagrams/stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin-dark.svg)
 
 ### Story Ring Ordering
 
@@ -550,11 +535,8 @@ On story view:
 
 Instagram DMs handle real-time messaging with E2E encryption support.
 
-<figure>
-<img class="only-light" src="./diagrams/dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p.light.svg" alt="DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately." />
-<img class="only-dark" src="./diagrams/dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p.dark.svg" alt="DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately." />
-<figcaption>DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately.</figcaption>
-</figure>
+![DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately.](./diagrams/dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p-light.svg "DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately.")
+![DM flow: mutation manager ensures durability before ACK. MQTT delivers real-time push. Client shows optimistic UI immediately.](./diagrams/dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p-dark.svg)
 
 ### MQTT for Real-time
 
@@ -652,11 +634,8 @@ Instagram's Explore recommendation system:
 
 ### Three-Stage Recommendation Pipeline
 
-<figure>
-<img class="only-light" src="./diagrams/three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu.light.svg" alt="Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints." />
-<img class="only-dark" src="./diagrams/three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu.dark.svg" alt="Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints." />
-<figcaption>Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints.</figcaption>
-</figure>
+![Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints.](./diagrams/three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu-light.svg "Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints.")
+![Three-stage pipeline: retrieval narrows billions to thousands; early ranking to hundreds; late ranking produces final set with diversity constraints.](./diagrams/three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu-dark.svg)
 
 ### Two Towers Model (Retrieval)
 
@@ -1048,11 +1027,8 @@ $$ LANGUAGE PLPGSQL;
 
 ### Multi-Region Deployment
 
-<figure>
-<img class="only-light" src="./diagrams/multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c.light.svg" alt="Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region." />
-<img class="only-dark" src="./diagrams/multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c.dark.svg" alt="Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region." />
-<figcaption>Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region.</figcaption>
-</figure>
+![Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region.](./diagrams/multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c-light.svg "Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region.")
+![Multi-region deployment: primary in US-East with read replicas in other regions. CDN serves media globally. DNS routes users to nearest region.](./diagrams/multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c-dark.svg)
 
 ### Instagram's Migration (AWS → Facebook)
 

@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a ride-hailing platform handling real-time driver-rider matching, geospatial indexing at scale, dynamic pricing, and sub-second location tracking. This design addresses the core challenges of matching millions of riders with drivers in real-time while optimizing for ETAs, driver utilization, and surge pricing across global markets.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-rider-and-driver-apps-connect-through-a-websocket-gatewa.light.svg" alt="High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch." />
-<img class="only-dark" src="./diagrams/high-level-architecture-rider-and-driver-apps-connect-through-a-websocket-gatewa.dark.svg" alt="High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch." />
-<figcaption>High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch.</figcaption>
-</figure>
+![High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch.](./diagrams/high-level-architecture-rider-and-driver-apps-connect-through-a-websocket-gatewa-light.svg "High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch.")
+![High-level architecture: Rider and driver apps connect through a WebSocket gateway for real-time updates. The Matching Service (DISCO) uses H3-indexed location data and ML-powered ETA predictions to optimize driver dispatch.](./diagrams/high-level-architecture-rider-and-driver-apps-connect-through-a-websocket-gatewa-dark.svg)
 
 ## Abstract
 
@@ -250,17 +247,13 @@ Handles financial transactions:
 
 ### Data Flow: Requesting a Ride
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Data Flow: Real-Time Location Tracking
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## API Design
 
@@ -1105,10 +1098,8 @@ window.addEventListener("online", () => {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 | Component         | AWS Service           | Configuration                           |
 | ----------------- | --------------------- | --------------------------------------- |

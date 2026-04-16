@@ -15,11 +15,8 @@ tags:
 
 Web Content Accessibility Guidelines (WCAG) 2.2 became a W3C Recommendation in October 2023, adding 9 new success criteria focused on cognitive accessibility, mobile interaction, and focus visibility. This guide covers implementation strategies for semantic HTML, ARIA patterns, and testing methodologies—practical knowledge for building inclusive web experiences that meet legal requirements in the US (ADA) and EU (European Accessibility Act).
 
-<figure>
-<img class="only-light" src="./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin.light.svg" alt="WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria" />
-<img class="only-dark" src="./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin.dark.svg" alt="WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria" />
-<figcaption>WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria</figcaption>
-</figure>
+![WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-light.svg "WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria")
+![WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-dark.svg)
 
 ## Abstract
 

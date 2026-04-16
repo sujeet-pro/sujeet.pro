@@ -14,11 +14,8 @@ tags:
 
 JavaScript execution is the primary source of main-thread blocking in modern web applications. This article covers the browser's script loading pipeline, task scheduling primitives, code splitting strategies, and Web Workers—with emphasis on design rationale and current API status as of 2025.
 
-<figure>
-<img class="only-light" src="./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita.light.svg" alt="JavaScript performance optimization techniques and their impact on Core Web Vitals metrics." />
-<img class="only-dark" src="./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita.dark.svg" alt="JavaScript performance optimization techniques and their impact on Core Web Vitals metrics." />
-<figcaption>JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.</figcaption>
-</figure>
+![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-light.svg "JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.")
+![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-dark.svg)
 
 ## Abstract
 
@@ -63,10 +60,8 @@ The parser maintains a "list of scripts that will execute when the document has 
 
 ### `async` vs `defer` Decision Matrix
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir.light.svg" alt="Decision tree for selecting script loading attributes based on dependency requirements." />
-<img class="only-dark" src="./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir.dark.svg" alt="Decision tree for selecting script loading attributes based on dependency requirements." />
-</figure>
+![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-light.svg)
+![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-dark.svg)
 
 <figcaption>Decision tree for selecting script loading attributes based on dependency requirements.</figcaption>
 

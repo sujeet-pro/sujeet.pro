@@ -4,7 +4,7 @@ description: >-
   How V8 internally represents arrays and objects through elements kinds, hidden classes, and
   deterministic hash tables — and why certain patterns permanently degrade performance.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -13,13 +13,10 @@ tags:
 
 # Arrays and Hash Maps: Engine Internals and Performance Reality
 
-Theoretical complexity hides the real story. Arrays promise O(1) access but degrade to O(n) with sparse indices. Hash maps guarantee O(1) lookups until collisions chain into linear probes. Understanding V8's internal representations—elements kinds, hidden classes, and deterministic hash tables—reveals when these data structures actually deliver their promised performance and when they fail.
+Theoretical complexity hides the real story. Dense arrays usually deliver fast indexed access, but sparse indices can push V8 into slower dictionary-style storage with very different constants. Hash maps promise average-case O(1) lookups until collisions and resizing dominate the hot path. Understanding V8's internal representations—elements kinds, hidden classes, and deterministic hash tables—reveals when these data structures actually deliver their promised performance and when they fail.
 
-<figure>
-<img class="only-light" src="./diagrams/v8-s-internal-representation-hierarchy-both-structures-can-irreversibly-degrade-.light.svg" alt="V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes." />
-<img class="only-dark" src="./diagrams/v8-s-internal-representation-hierarchy-both-structures-can-irreversibly-degrade-.dark.svg" alt="V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes." />
-<figcaption>V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes.</figcaption>
-</figure>
+![V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes.](./diagrams/v8-s-internal-representation-hierarchy-both-structures-can-irreversibly-degrade--light.svg "V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes.")
+![V8's internal representation hierarchy. Both structures can irreversibly degrade from optimized to slow modes.](./diagrams/v8-s-internal-representation-hierarchy-both-structures-can-irreversibly-degrade--dark.svg)
 
 ## Abstract
 
@@ -187,10 +184,8 @@ V8's Map implementation maintains two separate structures:
 1. **Hash table**: Array of bucket indices for O(1) key lookup
 2. **Data table**: Entries stored in insertion order
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 Lookup: hash the key → find bucket → follow index to data table entry.
 Iteration: simply walk the data table sequentially (O(n) total, O(1) per element).
@@ -260,24 +255,16 @@ This O(n) operation amortizes to O(1) per insertion over time, but causes latenc
 | Sequential dense data   | ✅ Optimal             | ❌ Wrong tool            | ❌ Wrong tool                |
 | Keyed lookups (strings) | ❌                     | ✅ Good                  | ✅ Best for frequent updates |
 | Non-string keys         | ❌                     | ❌ Coerces to string     | ✅ Any key type              |
-| Insertion order         | ❌ Not guaranteed      | ⚠️ Complex rules         | ✅ Guaranteed                |
+| Insertion order         | ✅ Numeric index order | ⚠️ Complex rules         | ✅ Guaranteed                |
 | Frequent add/delete     | ⚠️ End operations only | ❌ Delete is slow        | ✅ Designed for this         |
 | Iteration performance   | ✅ Cache-friendly      | ⚠️ Property enumeration  | ✅ Sequential data table     |
 | Memory efficiency       | ✅ Best when dense     | ⚠️ Hidden class overhead | ⚠️ Hash table overhead       |
 
 ### Benchmark Reality
 
-Real-world V8 benchmarks (approximate, varies by workload):
+Microbenchmarks often show `Map` outperforming `Object` for dynamic keyed workloads, especially when inserts and deletes dominate. The exact ratios vary heavily with engine version, key distribution, object shape stability, and whether the benchmark accidentally rewards monomorphic property access. Treat benchmark tables as workload-specific evidence, not universal multipliers.
 
-| Operation     | Object | Map           | Winner                    |
-| ------------- | ------ | ------------- | ------------------------- |
-| Insertion     | 1×     | 4-5× faster   | Map                       |
-| Key lookup    | 1×     | 2-3× faster   | Map                       |
-| Has-key check | 1×     | ~1×           | Tie                       |
-| Deletion      | 1×     | 10-50× faster | Map                       |
-| Iteration     | ~1×    | ~1×           | Tie (Map slightly better) |
-
-Objects win only when the shape is stable and properties are accessed via monomorphic call sites. For dynamic keyed collections, Map dominates.
+Objects still win when the shape is stable and properties are accessed through monomorphic call sites. For dynamic keyed collections, `Map` is usually the safer default.
 
 ## Cache Locality: Why Memory Layout Matters
 

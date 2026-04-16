@@ -17,11 +17,8 @@ Change Data Capture (CDC) extracts and streams database changes to downstream sy
 
 This article covers CDC approaches, log-based implementation internals, production patterns, and when each variant makes sense.
 
-<figure>
-<img class="only-light" src="./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch.light.svg" alt="CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata." />
-<img class="only-dark" src="./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch.dark.svg" alt="CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata." />
-<figcaption>CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.</figcaption>
-</figure>
+![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-light.svg "CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.")
+![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-dark.svg)
 
 ## Abstract
 
@@ -172,10 +169,8 @@ CDC resolves this by **reading changes where they're already reliably recorded**
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Log-Based CDC Internals
 
@@ -185,10 +180,8 @@ PostgreSQL's CDC uses **logical replication**, which decodes the physical WAL in
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Configuration requirements:**
 
@@ -310,10 +303,8 @@ changeStream.on("change", (change) => {
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **When to choose this path:**
 
@@ -382,10 +373,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **When to choose this path:**
 
@@ -422,10 +411,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **When to choose:**
 
@@ -475,10 +462,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Implementation details:**
 
@@ -509,10 +494,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Riverbed (materialized views):**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Scale (2024):**
 
@@ -564,10 +547,8 @@ DBLog approach:
 
 **Implementation:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Key design decisions:**
 
@@ -602,10 +583,8 @@ CDC events must carry schema information. When source schema changes, downstream
 
 ### Schema Registry Integration
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-9-light.svg)
+![Diagram](./diagrams/diagram-9-dark.svg)
 
 **How it works:**
 
@@ -747,10 +726,8 @@ exactly.once.source.support=enabled
 
 For true end-to-end exactly-once:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-10.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-10.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-10-light.svg)
+![Diagram](./diagrams/diagram-10-dark.svg)
 
 Consumer-side idempotency:
 
@@ -779,10 +756,8 @@ async function processChange(change: ChangeEvent) {
 
 The **transactional outbox pattern** ensures reliable event publishing by writing events to a database table (outbox) within the same transaction as business data.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-11.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-11.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-11-light.svg)
+![Diagram](./diagrams/diagram-11-dark.svg)
 
 **CDC as outbox relay:**
 
@@ -821,10 +796,8 @@ COMMIT;
 
 CDC enables event-driven cache invalidation without TTL guessing:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-12.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-12.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-12-light.svg)
+![Diagram](./diagrams/diagram-12-dark.svg)
 
 **Implementation:**
 
@@ -860,10 +833,8 @@ async function handleChange(change: ChangeEvent) {
 
 CDC keeps search indices in sync with source of truth:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-13.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-13.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-13-light.svg)
+![Diagram](./diagrams/diagram-13-dark.svg)
 
 **Kafka Connect Elasticsearch sink:**
 
@@ -889,10 +860,8 @@ CDC keeps search indices in sync with source of truth:
 
 CDC enables real-time analytics without batch ETL:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-14.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-14.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-14-light.svg)
+![Diagram](./diagrams/diagram-14-dark.svg)
 
 **Lambda architecture simplification:**
 
@@ -1009,10 +978,8 @@ Consumer must be idempotent to handle potential duplicates during snapshot-to-st
 
 ### Starting Point Decision
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-15.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-15.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-15-light.svg)
+![Diagram](./diagrams/diagram-15-dark.svg)
 
 ### Checklist for Production CDC
 

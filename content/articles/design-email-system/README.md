@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for building a scalable email service like Gmail or Outlook. This design addresses reliable delivery, spam filtering, conversation threading, and search at scale—handling billions of messages daily with sub-second search latency and 99.99% delivery reliability.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat.light.svg" alt="High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure." />
-<img class="only-dark" src="./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat.dark.svg" alt="High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure." />
-<figcaption>High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.</figcaption>
-</figure>
+![High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.](./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat-light.svg "High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.")
+![High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.](./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat-dark.svg)
 
 ## Abstract
 
@@ -125,10 +122,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -160,10 +155,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -196,10 +189,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -248,10 +239,8 @@ This article focuses on **Path B (Microservices)** because:
 
 When an external server sends mail to your domain:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **MX Server responsibilities:**
 
@@ -269,10 +258,8 @@ Rejecting spam during the SMTP transaction (5xx response) causes the sender's MT
 
 When a user sends an email:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Outbound MTA responsibilities:**
 
@@ -1030,10 +1017,8 @@ class DMARCEvaluator {
 
 #### Multi-Stage Classification
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 #### Naive Bayes Classifier
 
@@ -1548,10 +1533,8 @@ class OfflineMailbox {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Service configurations:**
 

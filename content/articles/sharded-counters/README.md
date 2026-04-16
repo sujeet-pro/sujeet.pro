@@ -15,11 +15,8 @@ Scaling counters beyond single-node write limitations through distributed shardi
 
 A counter seems trivial—increment a number, read it back. At scale, this simplicity becomes a bottleneck. A single counter in Firestore supports ~1 write/second. A viral tweet generates millions of likes. Meta's TAO handles 10 billion requests/second. The gap between "increment a number" and "count engagements for 2 billion users" spans orders of magnitude in both throughput and architectural complexity.
 
-<figure>
-<img class="only-light" src="./diagrams/sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention.light.svg" alt="Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer." />
-<img class="only-dark" src="./diagrams/sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention.dark.svg" alt="Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer." />
-<figcaption>Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer.</figcaption>
-</figure>
+![Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer.](./diagrams/sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention-light.svg "Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer.")
+![Sharded counter architecture: writes distribute across shards to avoid contention; reads aggregate shard values, typically through a cache layer.](./diagrams/sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention-dark.svg)
 
 ## Abstract
 

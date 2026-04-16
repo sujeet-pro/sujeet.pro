@@ -17,21 +17,15 @@ tags:
 
 A comprehensive exploration of the modern web's network primitives, examining how the [Fetch Standard](https://fetch.spec.whatwg.org/) (WHATWG Living Standard, January 2026) unifies request/response handling across all platform features, how the [Streams Standard](https://streams.spec.whatwg.org/) enables incremental data processing with automatic backpressure, and how [AbortController/AbortSignal](https://dom.spec.whatwg.org/#aborting-ongoing-activities) (DOM Standard Section 3.3) provide composable cancellation semantics. These three APIs form an integrated system: Fetch exposes response bodies as ReadableStreams, Streams propagate backpressure through pipe chains, and AbortSignal enables cancellation at any point in the pipeline.
 
-<figure>
-<img class="only-light" src="./diagrams/the-three-apis-integrate-tightly-fetch-produces-streams-streams-handle-data-flow.light.svg" alt="The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations" />
-<img class="only-dark" src="./diagrams/the-three-apis-integrate-tightly-fetch-produces-streams-streams-handle-data-flow.dark.svg" alt="The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations" />
-<figcaption>The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations</figcaption>
-</figure>
+![The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations](./diagrams/the-three-apis-integrate-tightly-fetch-produces-streams-streams-handle-data-flow-light.svg "The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations")
+![The three APIs integrate tightly: Fetch produces streams, Streams handle data flow, AbortController cancels operations](./diagrams/the-three-apis-integrate-tightly-fetch-produces-streams-streams-handle-data-flow-dark.svg)
 
 ## Abstract
 
 The Fetch/Streams/AbortController triad represents a unified approach to network data handling built on three core principles:
 
-<figure>
-<img class="only-light" src="./diagrams/core-design-principles-and-their-resulting-trade-offs.light.svg" alt="Core design principles and their resulting trade-offs" />
-<img class="only-dark" src="./diagrams/core-design-principles-and-their-resulting-trade-offs.dark.svg" alt="Core design principles and their resulting trade-offs" />
-<figcaption>Core design principles and their resulting trade-offs</figcaption>
-</figure>
+![Core design principles and their resulting trade-offs](./diagrams/core-design-principles-and-their-resulting-trade-offs-light.svg "Core design principles and their resulting trade-offs")
+![Core design principles and their resulting trade-offs](./diagrams/core-design-principles-and-their-resulting-trade-offs-dark.svg)
 
 **Mental model:**
 
@@ -165,11 +159,8 @@ The Streams Standard addresses a fundamental limitation: Promises represent sing
 
 A ReadableStream wraps an **underlying source** (push or pull) and maintains an internal queue of chunks:
 
-<figure>
-<img class="only-light" src="./diagrams/readablestream-mediates-between-sources-and-consumers-with-automatic-backpressur.light.svg" alt="ReadableStream mediates between sources and consumers with automatic backpressure" />
-<img class="only-dark" src="./diagrams/readablestream-mediates-between-sources-and-consumers-with-automatic-backpressur.dark.svg" alt="ReadableStream mediates between sources and consumers with automatic backpressure" />
-<figcaption>ReadableStream mediates between sources and consumers with automatic backpressure</figcaption>
-</figure>
+![ReadableStream mediates between sources and consumers with automatic backpressure](./diagrams/readablestream-mediates-between-sources-and-consumers-with-automatic-backpressur-light.svg "ReadableStream mediates between sources and consumers with automatic backpressure")
+![ReadableStream mediates between sources and consumers with automatic backpressure](./diagrams/readablestream-mediates-between-sources-and-consumers-with-automatic-backpressur-dark.svg)
 
 **Constructor options**:
 

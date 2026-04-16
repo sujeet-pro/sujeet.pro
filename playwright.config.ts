@@ -1,7 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
+import { normalizeBasePath, withBasePath } from "@pagesmith/site";
+import { loadSiteConfig } from "./lib/site-config.ts";
 
+const siteConfig = loadSiteConfig();
+const e2eBasePath = normalizeBasePath(process.env.BASE_PATH ?? siteConfig.basePath);
 const deployed = !!process.env.DEPLOYED_URL;
-const baseURL = process.env.DEPLOYED_URL || "http://localhost:4000";
+const previewPort = Number(process.env.PLAYWRIGHT_PREVIEW_PORT ?? 4173);
+const previewOrigin = `http://127.0.0.1:${previewPort}`;
+const previewUrl = `${previewOrigin}${withBasePath(e2eBasePath, "/")}`;
+const baseURL = process.env.DEPLOYED_URL || previewOrigin;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -22,9 +29,9 @@ export default defineConfig({
   ],
   ...(!deployed && {
     webServer: {
-      command: "tsx scripts/preview.ts",
-      url: "http://localhost:4000",
-      reuseExistingServer: !process.env.CI,
+      command: `npm run preview -- --host 127.0.0.1 --port ${previewPort} --strictPort`,
+      url: previewUrl,
+      reuseExistingServer: false,
     },
   }),
 });

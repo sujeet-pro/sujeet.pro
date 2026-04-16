@@ -18,11 +18,8 @@ tags:
 
 Layout is the rendering pipeline stage that transforms styled elements into physical geometry—computing exact pixel positions and sizes for every visible box. In Chromium's LayoutNG architecture, this stage produces the **Fragment Tree**, an immutable data structure describing how elements are broken into boxes (fragments) with resolved coordinates.
 
-<figure>
-<img class="only-light" src="./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation.light.svg" alt="Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint." />
-<img class="only-dark" src="./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation.dark.svg" alt="Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint." />
-<figcaption>Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint.</figcaption>
-</figure>
+![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation-light.svg "Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint.")
+![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and produces an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation-dark.svg)
 
 ## Abstract
 

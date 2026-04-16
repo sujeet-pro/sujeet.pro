@@ -16,21 +16,15 @@ tags:
 
 CSP-Sentinel is a centralized system designed to collect, process, and analyze Content Security Policy (CSP) violation reports from web browsers at scale. The system handles baseline 50k RPS with burst capacity to 500k+ RPS while maintaining sub-millisecond response times and near-zero impact on client browsers.
 
-<figure>
-<img class="only-light" src="./diagrams/csp-sentinel-high-level-architecture-browsers-send-violation-reports-through-a-n.light.svg" alt="CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake" />
-<img class="only-dark" src="./diagrams/csp-sentinel-high-level-architecture-browsers-send-violation-reports-through-a-n.dark.svg" alt="CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake" />
-<figcaption>CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake</figcaption>
-</figure>
+![CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake](./diagrams/csp-sentinel-high-level-architecture-browsers-send-violation-reports-through-a-n-light.svg "CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake")
+![CSP-Sentinel high-level architecture: browsers send violation reports through a non-blocking API to Kafka, where consumers deduplicate and batch-write to Snowflake](./diagrams/csp-sentinel-high-level-architecture-browsers-send-violation-reports-through-a-n-dark.svg)
 
 ## Abstract
 
 CSP violation reporting presents a specific scaling challenge: browsers generate reports unpredictably, often in bursts during incidents, and the data is high-volume but low-value per individual event. The core insight is to treat reports as a **streaming analytics problem**, not a transactional one.
 
-<figure>
-<img class="only-light" src="./diagrams/mental-model-csp-reports-flow-through-a-pipeline-optimized-for-eventual-consiste.light.svg" alt="Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees" />
-<img class="only-dark" src="./diagrams/mental-model-csp-reports-flow-through-a-pipeline-optimized-for-eventual-consiste.dark.svg" alt="Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees" />
-<figcaption>Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees</figcaption>
-</figure>
+![Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees](./diagrams/mental-model-csp-reports-flow-through-a-pipeline-optimized-for-eventual-consiste-light.svg "Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees")
+![Mental model: CSP reports flow through a pipeline optimized for eventual consistency and noise reduction, not transactional guarantees](./diagrams/mental-model-csp-reports-flow-through-a-pipeline-optimized-for-eventual-consiste-dark.svg)
 
 **Key design trade-offs:**
 
@@ -106,10 +100,8 @@ We have selected the latest Long-Term Support (LTS) and stable versions projecte
 
 The system follows a Streaming Data Pipeline pattern.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### 4.2 Component Breakdown
 

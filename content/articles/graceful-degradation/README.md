@@ -16,11 +16,8 @@ tags:
 
 Graceful degradation is the discipline of designing distributed systems that maintain partial functionality when components fail, rather than collapsing entirely. The core insight: a system serving degraded responses to all users is preferable to one returning errors to most users. This article covers the pattern variants, implementation trade-offs, and production strategies that separate resilient systems from fragile ones.
 
-<figure>
-<img class="only-light" src="./diagrams/graceful-degradation-creates-multiple-intermediate-states-between-full-health-an.light.svg" alt="Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation." />
-<img class="only-dark" src="./diagrams/graceful-degradation-creates-multiple-intermediate-states-between-full-health-an.dark.svg" alt="Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation." />
-<figcaption>Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation.</figcaption>
-</figure>
+![Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation.](./diagrams/graceful-degradation-creates-multiple-intermediate-states-between-full-health-an-light.svg "Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation.")
+![Graceful degradation creates multiple intermediate states between full health and complete failure, with recovery paths back to normal operation.](./diagrams/graceful-degradation-creates-multiple-intermediate-states-between-full-health-an-dark.svg)
 
 ## Abstract
 
@@ -108,10 +105,8 @@ The circuit breaker monitors call success rates and "trips" when failures exceed
 
 **Three states:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 - **Closed**: Normal operation, requests pass through, failures tracked
 - **Open**: Requests fail immediately without calling dependency
@@ -411,10 +406,8 @@ class Bulkhead {
 
 AWS uses cell-based architecture for blast radius containment:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 Each cell:
 
@@ -695,10 +688,8 @@ Result: Flags work even if PostHog's servers are unreachable.
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ## Production Implementations
 
@@ -822,10 +813,8 @@ Slack's Checkpoint system implements orchestration-level circuit breakers:
 
 ### Starting Point Decision
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Library Options
 

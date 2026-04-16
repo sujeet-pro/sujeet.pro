@@ -16,11 +16,8 @@ tags:
 
 Building systems that span multiple geographic regions to achieve lower latency, higher availability, and regulatory compliance. This article covers the design paths—active-passive, active-active, and cell-based architectures—along with production implementations from Netflix, Slack, and Uber, data replication strategies, conflict resolution approaches, and the operational complexity trade-offs that determine which pattern fits your constraints.
 
-<figure>
-<img class="only-light" src="./diagrams/multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re.light.svg" alt="Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions." />
-<img class="only-dark" src="./diagrams/multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re.dark.svg" alt="Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions." />
-<figcaption>Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions.</figcaption>
-</figure>
+![Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions.](./diagrams/multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re-light.svg "Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions.")
+![Multi-region architecture with cell-based isolation: traffic routes to nearest region, cells provide fault isolation within regions, and data replicates asynchronously across regions.](./diagrams/multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re-dark.svg)
 
 ## Abstract
 
@@ -83,11 +80,8 @@ Multi-region architecture exists to navigate this tension by:
 
 ### Path 1: Active-Passive
 
-<figure>
-<img class="only-light" src="./diagrams/active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da.light.svg" alt="Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover." />
-<img class="only-dark" src="./diagrams/active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da.dark.svg" alt="Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover." />
-<figcaption>Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover.</figcaption>
-</figure>
+![Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover.](./diagrams/active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da-light.svg "Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover.")
+![Active-passive: all traffic goes to primary region; standby receives replicated data but serves no traffic until failover.](./diagrams/active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da-dark.svg)
 
 **How it works:**
 
@@ -133,11 +127,8 @@ Multi-region architecture exists to navigate this tension by:
 
 ### Path 2: Active-Active
 
-<figure>
-<img class="only-light" src="./diagrams/active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data-.light.svg" alt="Active-active: both regions serve traffic simultaneously with bidirectional data replication." />
-<img class="only-dark" src="./diagrams/active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data-.dark.svg" alt="Active-active: both regions serve traffic simultaneously with bidirectional data replication." />
-<figcaption>Active-active: both regions serve traffic simultaneously with bidirectional data replication.</figcaption>
-</figure>
+![Active-active: both regions serve traffic simultaneously with bidirectional data replication.](./diagrams/active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data--light.svg "Active-active: both regions serve traffic simultaneously with bidirectional data replication.")
+![Active-active: both regions serve traffic simultaneously with bidirectional data replication.](./diagrams/active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data--dark.svg)
 
 **How it works:**
 
@@ -194,11 +185,8 @@ Result: Invisible failover to users; routine Chaos Kong tests drop entire region
 
 ### Path 3: Cell-Based Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s.light.svg" alt="Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3." />
-<img class="only-dark" src="./diagrams/cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s.dark.svg" alt="Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3." />
-<figcaption>Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3.</figcaption>
-</figure>
+![Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3.](./diagrams/cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s-light.svg "Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3.")
+![Cell-based architecture: each cell is an isolated, complete deployment serving a subset of users; failure in Cell A1 (highlighted) doesn't affect A2 or A3.](./diagrams/cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s-dark.svg)
 
 **How it works:**
 
@@ -253,11 +241,8 @@ Cell-based architecture is orthogonal to active-passive/active-active:
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c.light.svg" alt="Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns." />
-<img class="only-dark" src="./diagrams/decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c.dark.svg" alt="Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns." />
-<figcaption>Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns.</figcaption>
-</figure>
+![Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns.](./diagrams/decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c-light.svg "Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns.")
+![Decision tree for multi-region architecture patterns based on RTO requirements, conflict handling capability, and blast radius concerns.](./diagrams/decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c-dark.svg)
 
 **Quick decision matrix:**
 
@@ -361,11 +346,8 @@ Client → Primary → [N replicas confirm] → Ack
 
 ### Replication Topology Patterns
 
-<figure>
-<img class="only-light" src="./diagrams/replication-topologies.light.svg" alt="Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active)." />
-<img class="only-dark" src="./diagrams/replication-topologies.dark.svg" alt="Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active)." />
-<figcaption>Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active).</figcaption>
-</figure>
+![Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active).](./diagrams/replication-topologies-light.svg "Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active).")
+![Replication topologies: Star (primary to all replicas), Chain (reduces primary load), Mesh (multi-primary active-active).](./diagrams/replication-topologies-dark.svg)
 
 | Topology | Use Case                        | Trade-off                   |
 | -------- | ------------------------------- | --------------------------- |

@@ -15,11 +15,8 @@ tags:
 
 Building real-time ranking systems that scale from thousands to hundreds of millions of players. This article covers the data structures, partitioning strategies, tie-breaking approaches, and scaling techniques that power leaderboards at gaming platforms, fitness apps, and competitive systems.
 
-<figure>
-<img class="only-light" src="./diagrams/leaderboard-architecture-score-updates-write-to-redis-sorted-sets-with-o-log-n-c.light.svg" alt="Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players." />
-<img class="only-dark" src="./diagrams/leaderboard-architecture-score-updates-write-to-redis-sorted-sets-with-o-log-n-c.dark.svg" alt="Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players." />
-<figcaption>Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players.</figcaption>
-</figure>
+![Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players.](./diagrams/leaderboard-architecture-score-updates-write-to-redis-sorted-sets-with-o-log-n-c-light.svg "Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players.")
+![Leaderboard architecture: score updates write to Redis sorted sets with O(log N) complexity; rank queries served from sorted sets without database joins; WebSockets push real-time rank changes to subscribed players.](./diagrams/leaderboard-architecture-score-updates-write-to-redis-sorted-sets-with-o-log-n-c-dark.svg)
 
 ## Abstract
 

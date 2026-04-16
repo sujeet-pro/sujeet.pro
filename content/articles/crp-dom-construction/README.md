@@ -18,11 +18,8 @@ tags:
 
 How browsers parse HTML bytes into a Document Object Model (DOM) tree, why JavaScript loading strategies dictate performance, and how the preload scanner mitigates the cost of parser-blocking resources.
 
-<figure>
-<img class="only-light" src="./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con.light.svg" alt="The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early." />
-<img class="only-dark" src="./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con.dark.svg" alt="The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early." />
-<figcaption>The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.</figcaption>
-</figure>
+![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-light.svg "The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.")
+![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-dark.svg)
 
 ## Abstract
 
@@ -94,10 +91,7 @@ The parser maintains two critical data structures:
 </html>
 ```
 
-<figure>
-  <img src="./assets/dom-construction-example.invert.png" alt="DOM Construction Example" />
-  <figcaption>DOM tree construction from HTML parsing: each element becomes a node with parent-child relationships preserved.</figcaption>
-</figure>
+![DOM Construction Example](./assets/dom-construction-example.invert.png "DOM tree construction from HTML parsing: each element becomes a node with parent-child relationships preserved.")
 
 ## HTML5 Error Recovery
 
@@ -240,10 +234,7 @@ The browser must wait for CSS to finish to build the CSSOM, so it can safely exe
 
 ## JavaScript Loading Strategies
 
-<figure>
-  <img src="./assets/asyncdefer.inline.svg" alt="Async, Defer, Module Diagram" />
-  <figcaption>Timeline comparison: default scripts block parsing; async/defer enable parallel download.</figcaption>
-</figure>
+![Async, Defer, Module Diagram](./assets/asyncdefer.inline.svg "Timeline comparison: default scripts block parsing; async/defer enable parallel download.")
 
 ### Default (Parser-Blocking)
 

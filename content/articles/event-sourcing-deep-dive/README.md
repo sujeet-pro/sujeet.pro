@@ -16,11 +16,8 @@ tags:
 
 A deep-dive into event sourcing: understanding the core pattern, implementation variants, snapshot strategies, schema evolution, and production trade-offs across different architectures.
 
-<figure>
-<img class="only-light" src="./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections.light.svg" alt="Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots." />
-<img class="only-dark" src="./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections.dark.svg" alt="Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots." />
-<figcaption>Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.</figcaption>
-</figure>
+![Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.](./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections-light.svg "Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.")
+![Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.](./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections-dark.svg)
 
 ## Abstract
 
@@ -389,10 +386,8 @@ Key implementation details:
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Snapshot Strategies
 

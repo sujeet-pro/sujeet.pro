@@ -18,11 +18,8 @@ Understanding how distributed systems reach agreement despite failures—the fun
 
 Consensus is deceptively simple: get N nodes to agree on a value. The challenge is doing so when nodes can fail, messages can be lost, and clocks can drift. This article explores why consensus is provably hard, the algorithms that solve it in practice, and how systems like etcd, ZooKeeper, and CockroachDB implement these ideas at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/leader-based-consensus-client-writes-go-through-the-leader-which-replicates-to-f.light.svg" alt="Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges." />
-<img class="only-dark" src="./diagrams/leader-based-consensus-client-writes-go-through-the-leader-which-replicates-to-f.dark.svg" alt="Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges." />
-<figcaption>Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges.</figcaption>
-</figure>
+![Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges.](./diagrams/leader-based-consensus-client-writes-go-through-the-leader-which-replicates-to-f-light.svg "Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges.")
+![Leader-based consensus: client writes go through the leader, which replicates to followers and commits once a majority acknowledges.](./diagrams/leader-based-consensus-client-writes-go-through-the-leader-which-replicates-to-f-dark.svg)
 
 ## Abstract
 

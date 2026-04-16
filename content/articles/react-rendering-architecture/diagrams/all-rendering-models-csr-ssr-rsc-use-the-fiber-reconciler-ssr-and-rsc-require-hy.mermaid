@@ -1,3 +1,5 @@
+%% Diagram: All Rendering Models Csr Ssr Rsc Use The Fiber Reconciler Ssr And Rsc Require Hy
+%% Type: flowchart
 flowchart TB
     subgraph Fiber["Fiber Reconciler"]
         direction LR
@@ -17,5 +19,6 @@ flowchart TB
     Fiber --> SSR
     Fiber --> RSC
 
-    SSR --> Hydration["Hydration<br/>Attach React to HTML"]
-    RSC --> Hydration
+    SSR --> Hydration["Hydration<br/>Attach React to SSR HTML"]
+    RSC --> Flight["Flight stream<br/>Server component payload"]
+    Flight --> ClientBoundaries["Hydrate client boundaries<br/>where interactivity exists"]

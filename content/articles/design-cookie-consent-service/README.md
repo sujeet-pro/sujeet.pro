@@ -15,11 +15,8 @@ tags:
 
 Building a multi-tenant consent management platform that handles regulatory compliance (GDPR, CCPA, LGPD) at scale. Cookie consent services face unique challenges: read-heavy traffic patterns (every page load queries consent status), strict latency requirements (consent checks block page rendering), regulatory complexity across jurisdictions, and the need to merge anonymous visitor consent with authenticated user profiles. This design covers edge-cached consent delivery, anonymous-to-authenticated identity migration, and a multi-tenant architecture serving thousands of websites.
 
-<figure>
-<img class="only-light" src="./diagrams/cookie-consent-service-architecture-edge-cached-sdk-for-sub-50ms-consent-checks-.light.svg" alt="Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website." />
-<img class="only-dark" src="./diagrams/cookie-consent-service-architecture-edge-cached-sdk-for-sub-50ms-consent-checks-.dark.svg" alt="Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website." />
-<figcaption>Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website.</figcaption>
-</figure>
+![Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website.](./diagrams/cookie-consent-service-architecture-edge-cached-sdk-for-sub-50ms-consent-checks--light.svg "Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website.")
+![Cookie consent service architecture: Edge-cached SDK for sub-50ms consent checks, read replicas for global distribution, immutable audit log for regulatory compliance, multi-tenant configuration per website.](./diagrams/cookie-consent-service-architecture-edge-cached-sdk-for-sub-50ms-consent-checks--dark.svg)
 
 ## Abstract
 
@@ -116,10 +113,8 @@ SDK delivery: 10K RPS × 50KB = 500MB/s (CDN handles most)
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -149,10 +144,8 @@ SDK delivery: 10K RPS × 50KB = 500MB/s (CDN handles most)
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -210,17 +203,13 @@ Path B details are covered in the [Variations](#variations) section.
 
 ### Request Flow: Consent Check
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### Request Flow: Consent Update
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ## API Design
 
@@ -824,10 +813,8 @@ function mergeConsent(device: ConsentRecord, user: ConsentRecord, strategy: stri
 
 **Migration flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Edge cases:**
 
@@ -950,10 +937,8 @@ function applyTenantOverrides(detected: RegulationResult, tenantConfig: TenantCo
 
 **Configuration hierarchy:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Configuration resolution:**
 
@@ -1015,10 +1000,8 @@ async function updateTenantConfig(tenantId: string, updates: Partial<TenantConfi
 
 **Layered cache invalidation:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Implementation:**
 
@@ -1275,10 +1258,8 @@ function updateGoogleConsent(consent: ConsentStatus): void {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Service configuration:**
 
@@ -1295,10 +1276,8 @@ function updateGoogleConsent(consent: ConsentStatus): void {
 
 ### Multi-Region Deployment
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-9-light.svg)
+![Diagram](./diagrams/diagram-9-dark.svg)
 
 **Design decisions:**
 

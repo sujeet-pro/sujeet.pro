@@ -1,126 +1,129 @@
 # Diagram Guidelines
 
-Guidelines for creating and managing diagrams on sujeet.pro using [diagramkit](https://github.com/nicholasgriffintn/diagramkit).
+Diagram rules for `sujeet.pro`.
 
-## Supported Formats
+Canonical upstream references:
 
-| Format     | Extensions                       | Best For                                                   |
-| ---------- | -------------------------------- | ---------------------------------------------------------- |
-| Mermaid    | `.mermaid`, `.mmd`               | Flowcharts, sequence diagrams, state machines, ER diagrams |
-| Excalidraw | `.excalidraw`                    | Hand-drawn style, conceptual diagrams                      |
-| Draw.io    | `.drawio`, `.drawio.xml`, `.dio` | Complex architecture diagrams                              |
-| Graphviz   | `.dot`, `.gv`, `.graphviz`       | Graph layouts, dependency trees                            |
+- `node_modules/diagramkit/ai-guidelines/usage.md` (primary entry point)
+- `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
+- `node_modules/diagramkit/ai-guidelines/llms.txt`
+- `node_modules/diagramkit/ai-guidelines/llms-full.txt`
+- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
 
-**Prefer Mermaid** for most diagrams. Use Excalidraw for conceptual/hand-drawn style. Use Draw.io for complex multi-layer architecture.
+This file captures the repo-specific expectations for where diagrams belong and how they should be embedded in article and blog content.
 
-## File Organization
+## Diagram bar
 
-Place diagram source files in a sibling `diagrams/` directory:
+- Diagrams are expected for substantial technical content.
+- Articles should usually have an overview diagram near the top when the topic involves architecture, flow, or system boundaries.
+- Major sections should get focused diagrams when the concept is easier to learn visually.
+- Blogs should include diagrams whenever the post explains a mechanism, migration, architecture, or process.
+- Do not add decorative diagrams that repeat prose without adding understanding.
 
-```
+## Preferred source formats
+
+| Format     | Best for                                         | Notes                                |
+| ---------- | ------------------------------------------------ | ------------------------------------ |
+| Mermaid    | flows, sequences, states, ER, comparisons        | Default choice for most diagrams     |
+| Excalidraw | conceptual and black-box diagrams                | Good for high-level mental models    |
+| Draw.io    | dense infrastructure or multi-layer architecture | Use when Mermaid becomes too cramped |
+| Graphviz   | strict graph layout or existing DOT assets       | Use only when layout control matters |
+
+Prefer Mermaid first. Move to Excalidraw or Draw.io when the concept needs freer layout or denser visuals.
+
+## File layout
+
+Keep diagram source files next to the content they support:
+
+```text
 content/articles/<slug>/
   README.md
   diagrams/
-    flow.mermaid              # Source file (committed)
-    flow-light.svg            # Generated output (gitignored)
-    flow-dark.svg             # Generated output (gitignored)
+    request-flow.mermaid
+    request-flow-light.svg
+    request-flow-dark.svg
 ```
 
-## Naming
+Rules:
 
-- Use descriptive names: `request-lifecycle.mermaid`, not `diagram1.mermaid`
-- One concept per diagram — keep focused
-- Name reflects what the diagram shows, not where it appears
+- Commit the source files.
+- Treat rendered SVGs as generated artifacts.
+- Use descriptive filenames such as `cache-invalidation-flow.mermaid`.
+- Keep one diagram per concept.
 
 ## Rendering
 
+Use repo-native commands:
+
 ```bash
-npm run diagrams               # Render changed diagrams only (manifest-cached)
-npm run diagrams:force         # Re-render all diagrams
-npm run diagrams:watch         # Watch for changes and re-render
+npm run diagrams
+npm run diagrams:force
+npm run diagrams:watch
 ```
 
-diagramkit generates `<name>-light.svg` and `<name>-dark.svg` in the same folder as the source file. Config is in `diagramkit.config.json5` at project root.
+`diagramkit` generates `-light.svg` and `-dark.svg` variants in the same folder as the source file.
 
-## Referencing in Markdown
+Repo defaults live in `diagramkit.config.json5` and are validated by `schemas/diagramkit.ts`:
 
-Use a `<picture>` tag with a `<source>` for dark mode:
+- `sameFolder: true`
+- `defaultFormats: ["svg"]`
+- `defaultTheme: "both"`
+- `useManifest: true`
 
-```html
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/name-dark.svg" />
-  <img src="./diagrams/name-light.svg" alt="Descriptive alt text" />
-</picture>
+## Embedding in markdown
+
+Use consecutive markdown images with `-light` and `-dark` suffixes. The Pagesmith pipeline automatically merges them into a themed `<figure>`:
+
+```md
+![System overview](./diagrams/overview-light.svg "How requests move through the system.")
+![System overview](./diagrams/overview-dark.svg)
 ```
 
-For diagrams with a caption:
+Notes:
 
-```html
-<figure>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./diagrams/name-dark.svg" />
-    <img src="./diagrams/name-light.svg" alt="Descriptive alt text" />
-  </picture>
-  <figcaption>Caption describing the diagram</figcaption>
-</figure>
-```
+- Always include meaningful alt text.
+- Add a caption via the markdown title attribute on the light image when the diagram needs interpretation: `![alt](src "caption")`.
+- Light image always comes first, dark image immediately after.
+- Do not use `<figure>`, `<img>`, or `<picture>` HTML for diagram embeds.
 
-## Key Rules
+## Where to add diagrams
 
-1. **Never generate SVG directly.** Write source files and run `npm run diagrams`.
-2. **Every diagram must have alt text** that describes what it shows (accessibility).
-3. **Always generate both light and dark variants** (diagramkit does this by default with `theme: "both"`).
-4. **Keep diagrams focused** — one concept per file. Split complex diagrams into multiple files.
-5. **Update diagrams when content changes.** If the concept a diagram illustrates changes, update the source file.
-6. **Delete unused diagrams.** When removing a diagram reference from markdown:
-   - Delete the source file (`.mermaid`, `.excalidraw`, etc.)
-   - Delete the rendered SVGs (`*-light.svg`, `*-dark.svg`)
-   - Remove the `<picture>` tag from markdown
-   - Clean up manifest entries if present
+Add diagrams when the content explains:
 
-## When to Add Diagrams
+- architecture or component boundaries
+- data or request flow
+- lifecycle or state transitions
+- protocol or sequence behavior
+- trade-off comparisons
+- failure domains or fallback paths
 
-Add a diagram when the content describes:
+Do not add diagrams for:
 
-- System architecture or component relationships
-- Request/data flows through a system
-- State machines or lifecycle transitions
-- Sequence of interactions between components
-- Decision trees or branching logic
-- Comparison of approaches (as a visual summary)
+- trivial lists
+- content that is clearer as code
+- sections where the visual would only restate the heading
 
-Do NOT add diagrams for:
+## Article-specific expectations
 
-- Simple concepts that prose explains clearly
-- Code-level details better shown as code blocks
-- Lists or enumerations (use markdown lists instead)
+- Put an overview diagram near the top when the article benefits from a black-box model.
+- Use additional section-level diagrams for hard-to-visualize mechanisms.
+- A single article can have multiple diagrams. That is normal.
 
-## Mermaid Tips
+## Blog-specific expectations
 
-```mermaid
-graph TD
-    A[Client] --> B[Load Balancer]
-    B --> C[Server 1]
-    B --> D[Server 2]
-```
+- Use at least one diagram when the post explains a system, migration, or design choice.
+- Short reflective blogs can skip diagrams only when prose is clearly enough on its own.
 
-- Use `graph TD` (top-down) or `graph LR` (left-right) based on flow direction
-- Keep node labels short and clear
-- Use subgraphs for logical grouping
-- Avoid more than ~15 nodes in a single diagram
+## Update and delete rules
 
-## diagramkit Configuration
+- Never hand-author final SVGs without a source file.
+- When the content changes, update the source diagram and re-render.
+- When removing a diagram, remove the source file, rendered artifacts, and markdown reference together.
+- When changing repo-wide diagram behavior, update `diagramkit.config.json5`, `schemas/diagramkit.ts`, and any relevant AI docs together.
 
-Project config at `diagramkit.config.json5`:
+## Authoring heuristics
 
-```json5
-{
-  outputDir: ".diagramkit",
-  defaultFormats: ["svg"],
-  defaultTheme: "both",
-  sameFolder: true,
-  useManifest: true,
-}
-```
-
-For full CLI options and API: `node_modules/diagramkit/llms.txt`
+- Keep node labels short.
+- Prefer one visual story per diagram.
+- Split dense visuals into multiple diagrams instead of one unreadable figure.
+- Use captions to explain why the diagram matters, not just what it is.

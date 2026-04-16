@@ -17,11 +17,8 @@ tags:
 
 Modern browsers are multi-process systems with sophisticated isolation boundaries, layered caching hierarchies, and extension architectures that modify page behavior at precise lifecycle points. This article maps Chromium's process model (browser, renderer, GPU, network, utility processes), the threading architecture within renderers (main thread, compositor, raster workers), caching layers from DNS through HTTP disk cache, speculative loading mechanisms, and extension content script injection timing.
 
-<figure>
-<img class="only-light" src="./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render.light.svg" alt="Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC" />
-<img class="only-dark" src="./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render.dark.svg" alt="Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC" />
-<figcaption>Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC</figcaption>
-</figure>
+![Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC](./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render-light.svg "Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC")
+![Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC](./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render-dark.svg)
 
 ## Abstract
 

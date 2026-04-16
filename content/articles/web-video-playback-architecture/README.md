@@ -14,11 +14,8 @@ tags:
 
 The complete video delivery pipeline from codecs and compression to adaptive streaming protocols, DRM systems, and ultra-low latency technologies. Covers protocol internals, design trade-offs, and production failure modes for building resilient video applications.
 
-<figure>
-<img class="only-light" src="./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to-.light.svg" alt="End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback" />
-<img class="only-dark" src="./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to-.dark.svg" alt="End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback" />
-<figcaption>End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback</figcaption>
-</figure>
+![End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback](./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to--light.svg "End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback")
+![End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback](./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to--dark.svg)
 
 ## Abstract
 

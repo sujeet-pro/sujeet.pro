@@ -2,278 +2,116 @@ import { expect } from "@playwright/test";
 import { test } from "./helpers";
 
 const STORAGE_KEY = "pagesmith-theme";
-const VARIANT_KEY = "pagesmith-variant";
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 
 test.describe("Theme — defaults", () => {
-  test("default theme is auto (no data-theme attribute)", async ({ page }) => {
+  test("default classes use auto color scheme and paper theme", async ({ page }) => {
     await page.goto("/");
-    const dataTheme = await page.locator("html").getAttribute("data-theme");
-    expect(dataTheme).toBeNull();
-  });
-
-  test("auto radio is checked by default", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator("#theme-auto")).toBeChecked();
-    await expect(page.locator("#theme-light")).not.toBeChecked();
-    await expect(page.locator("#theme-dark")).not.toBeChecked();
+    await expect(page.locator("html")).toHaveClass(/color-scheme-auto/);
+    await expect(page.locator("html")).toHaveClass(/theme-paper/);
   });
 });
 
-test.describe("Theme — toggle cycling", () => {
-  test("auto → light → dark → auto", async ({ page }) => {
+test.describe("Theme — header controls", () => {
+  test("dropdown opens and theme selections update html classes", async ({ page }) => {
     await page.goto("/");
+    const toggle = page.locator("[data-theme-toggle-btn]");
+    const dropdown = page.locator("[data-theme-dropdown]");
 
-    // auto state: "to-light" label visible (clicking switches to light)
-    const toLightBtn = page.locator(".theme-toggle-to-light");
-    await expect(toLightBtn).toBeVisible();
-    await toLightBtn.click();
+    await expect(dropdown).toBeHidden();
+    await toggle.click();
+    await expect(dropdown).toBeVisible();
 
-    // now light: data-theme="light", "to-dark" label visible
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(page.locator("#theme-light")).toBeChecked();
+    await page.locator('[data-theme-dropdown] input[name="colorScheme"][value="light"]').check({
+      force: true,
+    });
+    await expect(page.locator("html")).toHaveClass(/color-scheme-light/);
 
-    const toDarkBtn = page.locator(".theme-toggle-to-dark");
-    await expect(toDarkBtn).toBeVisible();
-    await toDarkBtn.click();
+    await page.locator('[data-theme-dropdown] input[name="theme"][value="high-contrast"]').check({
+      force: true,
+    });
+    await expect(page.locator("html")).toHaveClass(/theme-high-contrast/);
 
-    // now dark: data-theme="dark", "to-auto" label visible
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(page.locator("#theme-dark")).toBeChecked();
-
-    const toAutoBtn = page.locator(".theme-toggle-to-auto");
-    await expect(toAutoBtn).toBeVisible();
-    await toAutoBtn.click();
-
-    // back to auto: no data-theme
-    const dataTheme = await page.locator("html").getAttribute("data-theme");
-    expect(dataTheme).toBeNull();
-    await expect(page.locator("#theme-auto")).toBeChecked();
+    await page.locator('[data-theme-dropdown] input[name="textSize"][value="large"]').check({
+      force: true,
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-text-size", "large");
   });
 });
 
 test.describe("Theme — persistence", () => {
-  test("theme persists in localStorage", async ({ page }) => {
+  test("preferences persist in localStorage as a JSON payload", async ({ page }) => {
     await page.goto("/");
+    await page.locator("[data-footer-scheme] button[data-scheme='dark']").click();
+    await page.locator("[data-footer-theme-type] button[data-theme='high-contrast']").click();
+    await page.locator("[data-footer-text-size] button[data-size='large']").click();
 
-    await page.locator(".theme-toggle-to-light").click();
-    const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
-    expect(stored).toBe("light");
+    const stored = await page.evaluate((key) => {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    }, STORAGE_KEY);
 
-    await page.locator(".theme-toggle-to-dark").click();
-    const storedDark = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
-    expect(storedDark).toBe("dark");
+    expect(stored).toEqual({
+      colorScheme: "dark",
+      theme: "high-contrast",
+      textSize: "large",
+    });
   });
 
-  test("theme survives page navigation", async ({ page }) => {
+  test("stored preferences survive navigation and reload", async ({ page }) => {
     await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.locator("[data-footer-scheme] button[data-scheme='dark']").click();
+    await page.locator("[data-footer-theme-type] button[data-theme='high-contrast']").click();
 
     await page.goto("/articles/");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(page.locator("#theme-light")).toBeChecked();
+    await expect(page.locator("html")).toHaveClass(/color-scheme-dark/);
+    await expect(page.locator("html")).toHaveClass(/theme-high-contrast/);
+
+    await page.reload();
+    await expect(page.locator("html")).toHaveClass(/color-scheme-dark/);
+    await expect(page.locator("html")).toHaveClass(/theme-high-contrast/);
   });
 
-  test("stored theme applied on fresh page load", async ({ page }) => {
+  test("stored preferences are applied before reload completes", async ({ page }) => {
     await page.goto("/");
-    await page.evaluate((key) => localStorage.setItem(key, "dark"), STORAGE_KEY);
+    await page.evaluate((key) => {
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          colorScheme: "light",
+          theme: "high-contrast",
+          textSize: "small",
+        }),
+      );
+    }, STORAGE_KEY);
     await page.reload();
 
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(page.locator("#theme-dark")).toBeChecked();
+    await expect(page.locator("html")).toHaveClass(/color-scheme-light/);
+    await expect(page.locator("html")).toHaveClass(/theme-high-contrast/);
+    await expect(page.locator("html")).toHaveAttribute("data-text-size", "small");
   });
 });
 
-test.describe("Theme — CSS variables", () => {
-  test("light theme uses light background", async ({ page }) => {
+test.describe("Theme — footer controls", () => {
+  test("footer buttons update color scheme, theme, and text size", async ({ page }) => {
     await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
+    await page.locator("[data-footer-scheme] button[data-scheme='dark']").click();
+    await expect(page.locator("html")).toHaveClass(/color-scheme-dark/);
 
-    const bg = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
-    );
-    expect(bg).toMatch(/^#fff(fff)?$/);
-  });
+    await page.locator("[data-footer-theme-type] button[data-theme='high-contrast']").click();
+    await expect(page.locator("html")).toHaveClass(/theme-high-contrast/);
 
-  test("dark theme uses dark background", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-    await page.locator(".theme-toggle-to-dark").click();
-
-    const bg = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
-    );
-    expect(bg).toMatch(/^#111(111)?$/);
-  });
-
-  test("dark theme changes text color", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-    await page.locator(".theme-toggle-to-dark").click();
-
-    const text = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--color-text").trim(),
-    );
-    expect(text).toMatch(/^#e5e5e5$/);
+    await page.locator("[data-footer-text-size] button[data-size='large']").click();
+    await expect(page.locator("html")).toHaveAttribute("data-text-size", "large");
   });
 });
 
-test.describe("Theme — code blocks", () => {
-  test("code uses light shiki vars in light mode", async ({ page }) => {
+test.describe("Theme — content runtime", () => {
+  test("code blocks render copy buttons from the core runtime", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.locator(".theme-toggle-to-light").click();
-
-    const codeBlock = page.locator(".shiki").first();
-    if ((await codeBlock.count()) === 0) return;
-
-    const color = await codeBlock.evaluate((el) => getComputedStyle(el).getPropertyValue("color"));
-    const bgColor = await codeBlock.evaluate((el) =>
-      getComputedStyle(el).getPropertyValue("background-color"),
-    );
-    expect(color).toBeTruthy();
-    expect(bgColor).toBeTruthy();
-  });
-
-  test("code theme changes in dark mode", async ({ page }) => {
-    await page.goto(SERIES_ARTICLE);
-    const codeBlock = page.locator(".shiki").first();
-    if ((await codeBlock.count()) === 0) return;
-
-    await page.locator(".theme-toggle-to-light").click();
-    const lightBg = await codeBlock.evaluate((el) =>
-      getComputedStyle(el).getPropertyValue("background-color"),
-    );
-
-    await page.locator(".theme-toggle-to-dark").click();
-    const darkBg = await codeBlock.evaluate((el) =>
-      getComputedStyle(el).getPropertyValue("background-color"),
-    );
-
-    expect(lightBg).not.toBe(darkBg);
-  });
-});
-
-test.describe("Theme — footer dropdown", () => {
-  test("dropdown opens and closes on button click", async ({ page }) => {
-    await page.goto("/");
-    const btn = page.locator(".footer-theme-btn");
-    const dropdown = page.locator(".footer-theme-dropdown");
-
-    await expect(dropdown).toHaveClass(/closed/);
-    await btn.click();
-    await expect(dropdown).not.toHaveClass(/closed/);
-    await btn.click();
-    await expect(dropdown).toHaveClass(/closed/);
-  });
-
-  test("dropdown closes on outside click", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    const dropdown = page.locator(".footer-theme-dropdown");
-    await expect(dropdown).not.toHaveClass(/closed/);
-
-    await page.locator("body").click({ position: { x: 10, y: 10 } });
-    await expect(dropdown).toHaveClass(/closed/);
-  });
-
-  test("dropdown closes on Escape", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    const dropdown = page.locator(".footer-theme-dropdown");
-    await expect(dropdown).not.toHaveClass(/closed/);
-
-    await page.keyboard.press("Escape");
-    await expect(dropdown).toHaveClass(/closed/);
-  });
-});
-
-test.describe("Theme — variants", () => {
-  test("selecting reader variant sets data-variant attribute", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
-
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
-  });
-
-  test("selecting contrast variant sets data-variant attribute", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
-
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "contrast");
-  });
-
-  test("selecting regular variant removes data-variant attribute", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
-
-    await page.locator('input[name="footer-variant"][value="regular"]').check({ force: true });
-    const attr = await page.locator("html").getAttribute("data-variant");
-    expect(attr).toBeNull();
-  });
-
-  test("variant persists in localStorage", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
-
-    const stored = await page.evaluate((key) => localStorage.getItem(key), VARIANT_KEY);
-    expect(stored).toBe("contrast");
-  });
-
-  test("variant survives page navigation", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
-
-    await page.goto("/articles/");
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "reader");
-  });
-
-  test("stored variant applied on fresh page load (FOUC prevention)", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate((key) => localStorage.setItem(key, "contrast"), VARIANT_KEY);
-    await page.reload();
-
-    await expect(page.locator("html")).toHaveAttribute("data-variant", "contrast");
-  });
-
-  test("reader variant changes background color", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="reader"]').check({ force: true });
-
-    const bg = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
-    );
-    expect(bg).toBe("#faf5eb");
-  });
-
-  test("contrast variant with dark mode", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-    await page.locator(".theme-toggle-to-dark").click();
-    await page.locator(".footer-theme-btn").click();
-    await page.locator('input[name="footer-variant"][value="contrast"]').check({ force: true });
-
-    const bg = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim(),
-    );
-    expect(bg).toBe("#0a0a0a");
-  });
-
-  test("footer mode radio syncs with header toggle", async ({ page }) => {
-    await page.goto("/");
-    await page.locator(".theme-toggle-to-light").click();
-
-    await page.locator(".footer-theme-btn").click();
-    const lightRadio = page.locator('input[name="footer-mode"][value="light"]');
-    await expect(lightRadio).toBeChecked();
+    const copyButton = page.locator("[data-ps-code-copy='true']").first();
+    await expect(copyButton).toBeVisible();
+    await copyButton.click();
+    await expect(copyButton).toHaveAttribute("data-copy-state", /success|error/);
   });
 });

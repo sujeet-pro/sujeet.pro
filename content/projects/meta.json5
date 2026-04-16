@@ -1,8 +1,0 @@
-{
-  displayName: "Projects",
-  description: "Open source projects and tools.",
-  layout: "Listing",
-  itemLayout: "Project",
-  orderBy: "manual",
-  items: ["stateloom", "paramanu", "md2cf"],
-}

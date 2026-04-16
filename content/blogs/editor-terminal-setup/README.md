@@ -13,11 +13,8 @@ tags:
 
 A production-ready development environment for macOS, designed around keyboard-driven workflows, reproducible setup via Ansible, and modern CLI tools that replace legacy UNIX utilities. This configuration separates work and personal contexts at the Git, SSH, and directory levels. Optimized for Apple Silicon with sub-100ms shell startup.
 
-<figure>
-<img class="only-light" src="./diagrams/bootstrap-flow-homebrew-ansible-tool-installation-config-symlinking-runtime-load.light.svg" alt="Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt." />
-<img class="only-dark" src="./diagrams/bootstrap-flow-homebrew-ansible-tool-installation-config-symlinking-runtime-load.dark.svg" alt="Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt." />
-<figcaption>Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt.</figcaption>
-</figure>
+![Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt.](./diagrams/bootstrap-flow-homebrew-ansible-tool-installation-config-symlinking-runtime-load.light.svg "Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt.")
+![Bootstrap flow: Homebrew → Ansible → tool installation + config symlinking. Runtime loads shell config, git profiles, and prompt.](./diagrams/bootstrap-flow-homebrew-ansible-tool-installation-config-symlinking-runtime-load.dark.svg)
 
 ## Abstract
 

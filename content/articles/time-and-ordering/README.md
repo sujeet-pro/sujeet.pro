@@ -16,11 +16,8 @@ Understanding how distributed systems establish event ordering without a global 
 
 Time in distributed systems is not what it seems. Physical clocks drift, networks delay messages unpredictably, and there's no omniscient observer to stamp events with "true" time. Yet ordering events correctly is essential for everything from database transactions to chat message display. This article explores the design choices for establishing order in distributed systems, when each approach makes sense, and how production systems like Spanner, CockroachDB, and Discord have solved these challenges.
 
-<figure>
-<img class="only-light" src="./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide.light.svg" alt="The spectrum of time solutions mapped to ordering guarantees they can provide" />
-<img class="only-dark" src="./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide.dark.svg" alt="The spectrum of time solutions mapped to ordering guarantees they can provide" />
-<figcaption>The spectrum of time solutions mapped to ordering guarantees they can provide</figcaption>
-</figure>
+![The spectrum of time solutions mapped to ordering guarantees they can provide](./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide-light.svg "The spectrum of time solutions mapped to ordering guarantees they can provide")
+![The spectrum of time solutions mapped to ordering guarantees they can provide](./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide-dark.svg)
 
 ## Abstract
 

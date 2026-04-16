@@ -1,0 +1,21 @@
+%% Diagram: Deployment Strategies Overview
+%% Type: flowchart
+flowchart TB
+  subgraph rolling["Rolling replace"]
+    direction TB
+    R0[Instances on current version] --> R1[Replace subset in waves]
+    R1 --> R2[Pool converges to new version]
+  end
+
+  subgraph bluegreen["Blue or green"]
+    direction TB
+    B0[One color serves all traffic] --> B1[Deploy and verify standby color]
+    B1 --> B2[Rapid router flip]
+    B2 --> B3[Prior color kept for fast rollback]
+  end
+
+  subgraph canary["Canary or progressive"]
+    direction TB
+    C0[Small traffic slice on candidate] --> C1[Expand while error and latency budgets pass]
+    C1 --> C2[Full promotion or automated rollback]
+  end

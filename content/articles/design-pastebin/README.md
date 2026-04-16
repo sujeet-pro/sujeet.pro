@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a text-sharing service like Pastebin covering URL generation strategies, content storage at scale, expiration policies, syntax highlighting, access control, and abuse prevention. This design addresses sub-100ms paste retrieval at 10:1 read-to-write ratio with content deduplication and multi-tier storage tiering.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv.light.svg" alt="High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling." />
-<img class="only-dark" src="./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv.dark.svg" alt="High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling." />
-<figcaption>High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.</figcaption>
-</figure>
+![High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.](./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv-light.svg "High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.")
+![High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.](./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv-dark.svg)
 
 ## Abstract
 
@@ -121,10 +118,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -155,10 +150,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -189,10 +182,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -235,10 +226,8 @@ This article focuses on **Path B (Split Storage)** with optional content-address
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Paste Write Service
 
@@ -246,10 +235,8 @@ Accepts text content, compresses it, stores it in S3, and persists metadata.
 
 **Write flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Design decisions:**
 
@@ -266,10 +253,8 @@ The hot path. Retrieves paste content via multi-tier cache.
 
 **Read flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Critical optimizations:**
 
@@ -312,10 +297,8 @@ Handles time-based paste expiration and burn-after-read.
 
 **Burn-after-read implementation:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Race condition handling:** The `SELECT ... FOR UPDATE` acquires a row-level lock. If two concurrent readers hit the same burn-after-read paste, only the first gets the content; the second sees `deleted_at IS NOT NULL` and receives `410 Gone`. This is the correct behavior—exactly one reader sees the content.
 
@@ -589,10 +572,8 @@ The KGS is the critical component that decouples ID generation from the write pa
 
 #### KGS Implementation Details
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Batch allocation query (PostgreSQL):**
 
@@ -867,10 +848,8 @@ Storage cost is negligible. The dominant cost is compute (API servers) and Redis
 
 ### Production Deployment
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-9.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-9.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-9-light.svg)
+![Diagram](./diagrams/diagram-9-dark.svg)
 
 ## Variations
 

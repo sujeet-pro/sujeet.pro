@@ -16,18 +16,10 @@ tags:
 
 JavaScript's `string.length` returns UTF-16 code units—a 1995 design decision that predates Unicode's expansion beyond 65,536 characters. This causes `'👨‍👩‍👧‍👦'.length` to return 11 instead of 1, breaking character counting, truncation, and cursor positioning for any text containing emoji, combining marks, or supplementary plane characters. Understanding the three abstraction layers—grapheme clusters, code points, and code units—is essential for correct Unicode handling.
 
-<figure>
-  <img src="./assets/cover.jpg" alt="Image with different non-text icons" />
-  <figcaption>
-    Photo by <a href="https://unsplash.com/@rikku72?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash">Maria Cappelli</a> on <a href="https://unsplash.com/photos/assorted-color-and-shape-plastic-toy-fXjG59gqZxo?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash">Unsplash</a>
-  </figcaption>
-</figure>
+![Image with different non-text icons](./assets/cover.jpg)
 
-<figure>
-<img class="only-light" src="./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code.light.svg" alt="Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)" />
-<img class="only-dark" src="./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code.dark.svg" alt="Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)" />
-<figcaption>Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)</figcaption>
-</figure>
+![Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-light.svg "Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)")
+![Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-dark.svg)
 
 ## Abstract
 

@@ -16,11 +16,8 @@ tags:
 
 Changing database schemas in production systems without downtime requires coordinating schema changes, data transformations, and application code across distributed systems. The core challenge: the schema change itself takes milliseconds, but MySQL's `ALTER TABLE` on a 500GB table with row locking would take days and block all writes. This article covers the design paths, tool mechanisms, and production patterns that enable zero-downtime migrations.
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-selecting-migration-approach-based-on-table-characteristics-an.light.svg" alt="Decision tree for selecting migration approach based on table characteristics and change type." />
-<img class="only-dark" src="./diagrams/decision-tree-for-selecting-migration-approach-based-on-table-characteristics-an.dark.svg" alt="Decision tree for selecting migration approach based on table characteristics and change type." />
-<figcaption>Decision tree for selecting migration approach based on table characteristics and change type.</figcaption>
-</figure>
+![Decision tree for selecting migration approach based on table characteristics and change type.](./diagrams/decision-tree-for-selecting-migration-approach-based-on-table-characteristics-an-light.svg "Decision tree for selecting migration approach based on table characteristics and change type.")
+![Decision tree for selecting migration approach based on table characteristics and change type.](./diagrams/decision-tree-for-selecting-migration-approach-based-on-table-characteristics-an-dark.svg)
 
 ## Abstract
 
@@ -219,10 +216,8 @@ For changes that require data transformation (not just schema changes), the expa
 
 **Phases:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Stage 1: Expand (backward compatible)**
 
@@ -291,10 +286,8 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## Production Implementations
 
@@ -338,10 +331,8 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Specific details:**
 
@@ -371,10 +362,8 @@ ALTER TABLE users DROP COLUMN first_name, DROP COLUMN last_name;
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Specific details:**
 
@@ -443,10 +432,8 @@ experiment.run
 
 ### Starting Point Decision
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Tool Selection Matrix
 

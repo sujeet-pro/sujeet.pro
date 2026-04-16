@@ -15,11 +15,8 @@ tags:
 
 A system design for an e-commerce shopping cart handling millions of concurrent users, real-time inventory, dynamic pricing, and distributed checkout. This design focuses on high availability during flash sales, consistent inventory management, and seamless guest-to-user cart transitions.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-shopping-cart-architecture-showing-client-apps-gateway-layer-applicat.light.svg" alt="High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery." />
-<img class="only-dark" src="./diagrams/high-level-shopping-cart-architecture-showing-client-apps-gateway-layer-applicat.dark.svg" alt="High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery." />
-<figcaption>High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery.</figcaption>
-</figure>
+![High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery.](./diagrams/high-level-shopping-cart-architecture-showing-client-apps-gateway-layer-applicat-light.svg "High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery.")
+![High-level shopping cart architecture showing client apps, gateway layer, application services, and data stores with async processing for cart expiration and abandoned cart recovery.](./diagrams/high-level-shopping-cart-architecture-showing-client-apps-gateway-layer-applicat-dark.svg)
 
 ## Abstract
 
@@ -164,10 +161,8 @@ This article focuses on **Path B (Availability-First)** because it represents th
 
 ### Service Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Cart Service
 
@@ -183,10 +178,8 @@ Manages cart lifecycle: creation, item management, persistence, and merge operat
 
 **Data Flow - Add to Cart:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ### Inventory Service
 
@@ -201,10 +194,8 @@ Manages stock levels, reservations, and availability across warehouses.
 
 **Reservation State Machine:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### Checkout Orchestrator
 
@@ -695,10 +686,8 @@ Cart merge occurs when a guest user authenticates. The system must combine items
 
 ### Merge Algorithm
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Merge Implementation
 
@@ -812,10 +801,8 @@ The checkout process spans multiple services that must coordinate atomically des
 
 ### Saga Orchestration
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Saga State Machine
 
@@ -1217,10 +1204,8 @@ function useCartPriceSync(cartId: string) {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### AWS Service Mapping
 
@@ -1240,10 +1225,8 @@ function useCartPriceSync(cartId: string) {
 
 For high availability during peak events:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Failover Strategy:**
 

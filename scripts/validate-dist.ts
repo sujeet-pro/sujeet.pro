@@ -1,22 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, extname, relative } from "node:path";
-import JSON5 from "json5";
+import { normalizeBasePath } from "@pagesmith/site";
+import { loadSiteConfig } from "../lib/site-config.ts";
 
-const DIST = process.env.DIST_DIR || "./dist";
-
-function getBasePath(): string {
-  if (process.env.BASE_PATH !== undefined) return process.env.BASE_PATH.replace(/\/+$/, "");
-  try {
-    const raw = readFileSync("./content/site.json5", "utf-8");
-    const config = JSON5.parse(raw) as { basePath?: string };
-    const bp = (config.basePath ?? "").replace(/\/+$/, "");
-    return bp === "" ? "" : bp.startsWith("/") ? bp : `/${bp}`;
-  } catch {
-    return "";
-  }
-}
-
-const basePath = getBasePath();
+const siteConfig = loadSiteConfig();
+const DIST = process.env.DIST_DIR || siteConfig.outDir;
+const basePath = normalizeBasePath(siteConfig.basePath);
 
 type Issue = { file: string; message: string };
 const errors: Issue[] = [];
@@ -56,15 +45,48 @@ const REQUIRED_FILES = [
   "sitemap.xml",
   "rss.xml",
   "robots.txt",
-  "manifest.json",
-  "assets/style.css",
-  "assets/main.js",
+  ".nojekyll",
 ];
 
 function checkRequiredFiles(): void {
   for (const file of REQUIRED_FILES) {
     if (!fileExists(join(DIST, file))) {
       errors.push({ file, message: "Required file missing" });
+    }
+  }
+
+  if (siteConfig.search.enabled && !existsSync(join(DIST, "pagefind"))) {
+    errors.push({ file: "pagefind/", message: "Search output missing" });
+  }
+}
+
+function checkBundledAssets(): void {
+  const entryHtmlPath = join(DIST, "index.html");
+  if (!fileExists(entryHtmlPath)) {
+    return;
+  }
+
+  const html = readFileSync(entryHtmlPath, "utf-8");
+  const assetRefs = Array.from(html.matchAll(/\b(?:href|src)=["']([^"']+\.(?:css|js))["']/gi)).map(
+    (match) => match[1]!,
+  );
+  const cssRefs = assetRefs.filter((ref) => /\.css(?:[?#].*)?$/i.test(ref));
+  const jsRefs = assetRefs.filter((ref) => /\.js(?:[?#].*)?$/i.test(ref));
+
+  if (cssRefs.length === 0) {
+    errors.push({ file: "index.html", message: "No bundled CSS asset discovered" });
+  }
+
+  if (jsRefs.length === 0) {
+    errors.push({ file: "index.html", message: "No bundled JS asset discovered" });
+  }
+
+  for (const ref of [...cssRefs, ...jsRefs]) {
+    const resolved = resolveLocalHref(ref, entryHtmlPath);
+    if (!resolved) continue;
+
+    if (!fileExists(resolved) && !fileExists(join(resolved, "index.html"))) {
+      errors.push({ file: "index.html", message: `Bundled asset missing: ${ref}` });
     }
   }
 }
@@ -77,6 +99,15 @@ function checkHtmlIntegrity(files: Map<string, string>): void {
     if (content.trim().length === 0) {
       errors.push({ file: rel, message: "Empty HTML file" });
       continue;
+    }
+    const doctypeMatches = content.match(/<!doctype html>/gi) ?? [];
+    if (doctypeMatches.length === 0) {
+      errors.push({ file: rel, message: "Missing <!DOCTYPE html>" });
+    } else if (doctypeMatches.length > 1) {
+      errors.push({ file: rel, message: "Duplicate <!DOCTYPE html>" });
+    }
+    if (!content.trimStart().toLowerCase().startsWith("<!doctype html>")) {
+      errors.push({ file: rel, message: "<!DOCTYPE html> must be the first node" });
     }
     if (isRedirect(content)) continue;
     if (!/<html[\s>]/i.test(content)) errors.push({ file: rel, message: "Missing <html> element" });
@@ -211,6 +242,7 @@ if (!existsSync(DIST)) {
 }
 
 checkRequiredFiles();
+checkBundledAssets();
 
 const htmlPaths = walkFiles(DIST, ".html");
 const htmlFiles = new Map<string, string>();

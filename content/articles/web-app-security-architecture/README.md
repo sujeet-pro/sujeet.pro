@@ -14,11 +14,8 @@ tags:
 
 A defense-in-depth guide to security controls, threat mitigation strategies, and implementation patterns for modern web applications—covering security headers, authentication, cryptography, and the OWASP Top 10:2025.
 
-<figure>
-<img class="only-light" src="./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f.light.svg" alt="Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system." />
-<img class="only-dark" src="./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f.dark.svg" alt="Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system." />
-<figcaption>Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.</figcaption>
-</figure>
+![Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.](./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f-light.svg "Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.")
+![Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.](./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f-dark.svg)
 
 ## Abstract
 

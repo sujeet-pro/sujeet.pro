@@ -13,11 +13,8 @@ tags:
 
 A Chrome configuration optimized for senior developers: omnibox keywords for instant navigation, browser-agnostic tooling for cross-browser testing, and profile isolation for multi-account workflows.
 
-<figure>
-<img class="only-light" src="./diagrams/address-bar-keywords-route-queries-directly-to-target-services-via-url-template-.light.svg" alt="Address bar keywords route queries directly to target services via URL template substitution" />
-<img class="only-dark" src="./diagrams/address-bar-keywords-route-queries-directly-to-target-services-via-url-template-.dark.svg" alt="Address bar keywords route queries directly to target services via URL template substitution" />
-<figcaption>Address bar keywords route queries directly to target services via URL template substitution</figcaption>
-</figure>
+![Address bar keywords route queries directly to target services via URL template substitution](./diagrams/address-bar-keywords-route-queries-directly-to-target-services-via-url-template-.light.svg "Address bar keywords route queries directly to target services via URL template substitution")
+![Address bar keywords route queries directly to target services via URL template substitution](./diagrams/address-bar-keywords-route-queries-directly-to-target-services-via-url-template-.dark.svg)
 
 ## Abstract
 

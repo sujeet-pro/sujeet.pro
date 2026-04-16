@@ -15,11 +15,8 @@ tags:
 
 How Content Delivery Networks reduce latency, protect origins, and scale global traffic distribution. This article covers request routing mechanisms, cache key design, invalidation strategies, tiered caching architectures, and edge compute—with explicit trade-offs for each design choice.
 
-<figure>
-<img class="only-light" src="./diagrams/cdn-request-flow-dns-routes-users-to-nearest-edge-pop-cache-misses-aggregate-thr.light.svg" alt="CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin." />
-<img class="only-dark" src="./diagrams/cdn-request-flow-dns-routes-users-to-nearest-edge-pop-cache-misses-aggregate-thr.dark.svg" alt="CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin." />
-<figcaption>CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin.</figcaption>
-</figure>
+![CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin.](./diagrams/cdn-request-flow-dns-routes-users-to-nearest-edge-pop-cache-misses-aggregate-thr-light.svg "CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin.")
+![CDN request flow: DNS routes users to nearest edge PoP. Cache misses aggregate through origin shield before reaching origin.](./diagrams/cdn-request-flow-dns-routes-users-to-nearest-edge-pop-cache-misses-aggregate-thr-dark.svg)
 
 ## Abstract
 

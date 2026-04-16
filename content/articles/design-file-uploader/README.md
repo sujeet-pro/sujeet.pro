@@ -16,11 +16,8 @@ tags:
 
 Building robust file upload requires handling browser constraints, network failures, and user experience across a wide spectrum of file sizes and device capabilities. A naive approach—form submission or single XHR (XMLHttpRequest)—fails at scale: large files exhaust memory, network interruptions lose progress, and users see no feedback. Production uploaders solve this through chunked uploads, resumable protocols, and careful memory management.
 
-<figure>
-<img class="only-light" src="./diagrams/chunked-uploads-enable-resumability-and-progress-tracking-while-keeping-memory-u.light.svg" alt="Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size." />
-<img class="only-dark" src="./diagrams/chunked-uploads-enable-resumability-and-progress-tracking-while-keeping-memory-u.dark.svg" alt="Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size." />
-<figcaption>Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size.</figcaption>
-</figure>
+![Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size.](./diagrams/chunked-uploads-enable-resumability-and-progress-tracking-while-keeping-memory-u-light.svg "Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size.")
+![Chunked uploads enable resumability and progress tracking while keeping memory usage constant regardless of file size.](./diagrams/chunked-uploads-enable-resumability-and-progress-tracking-while-keeping-memory-u-dark.svg)
 
 ## Abstract
 
@@ -406,10 +403,8 @@ class TusUpload {
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## File Selection and Validation
 

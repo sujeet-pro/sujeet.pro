@@ -16,11 +16,8 @@ tags:
 
 Every CSS architecture answers the same question: how do you organize styles so that a growing team can ship changes without breaking existing UI? The answer involves tradeoffs between naming discipline, tooling overhead, runtime cost, and the dependency direction between markup and styles. This article dissects the three dominant paradigms—naming conventions (BEM and descendants), utility-first systems (Tailwind CSS, UnoCSS), and CSS-in-JS (runtime and zero-runtime variants)—then maps modern CSS platform features that are collapsing the gaps between them.
 
-<figure>
-<img class="only-light" src="./diagrams/css-architecture-strategies-address-specificity-naming-dead-code-and-coupling-mo.light.svg" alt="CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling." />
-<img class="only-dark" src="./diagrams/css-architecture-strategies-address-specificity-naming-dead-code-and-coupling-mo.dark.svg" alt="CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling." />
-<figcaption>CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling.</figcaption>
-</figure>
+![CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling.](./diagrams/css-architecture-strategies-address-specificity-naming-dead-code-and-coupling-mo-light.svg "CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling.")
+![CSS architecture strategies address specificity, naming, dead code, and coupling. Modern CSS platform features are shifting the calculus by solving problems that previously required tooling.](./diagrams/css-architecture-strategies-address-specificity-naming-dead-code-and-coupling-mo-dark.svg)
 
 ## Abstract
 

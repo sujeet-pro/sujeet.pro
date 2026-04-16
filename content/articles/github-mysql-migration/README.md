@@ -16,11 +16,8 @@ tags:
 
 How GitHub evolved its MySQL infrastructure from a single monolithic database to a fleet of 1,200+ hosts across 50+ clusters serving 5.5 million queries per second (QPS)—through vertical partitioning, custom tooling (gh-ost, orchestrator, freno), Vitess adoption, and a major version upgrade—while keeping github.com available throughout.
 
-<figure>
-<img class="only-light" src="./diagrams/github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas.light.svg" alt="GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts." />
-<img class="only-dark" src="./diagrams/github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas.dark.svg" alt="GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts." />
-<figcaption>GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts.</figcaption>
-</figure>
+![GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts.](./diagrams/github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas-light.svg "GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts.")
+![GitHub's MySQL infrastructure evolution across four phases, from a single database to a distributed fleet of 1,200+ hosts.](./diagrams/github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas-dark.svg)
 
 ## Abstract
 
@@ -135,11 +132,8 @@ GitHub runs continuous migration tests on all production tables (including table
 3. **GLB/HAProxy**: Anycast load balancer with writer pools containing exactly one backend (the primary) per cluster. consul-template watches for Consul KV changes and reloads HAProxy automatically
 4. **Holistic failure detection**: orchestrator monitors both the primary AND all replicas. Failover only proceeds when replicas corroborate that the primary is unreachable—preventing false positives
 
-<figure>
-<img class="only-light" src="./diagrams/github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica.light.svg" alt="GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds." />
-<img class="only-dark" src="./diagrams/github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica.dark.svg" alt="GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds." />
-<figcaption>GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds.</figcaption>
-</figure>
+![GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds.](./diagrams/github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica-light.svg "GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds.")
+![GitHub's MySQL failover sequence: orchestrator detects failure, promotes a replica, updates Consul, and HAProxy reroutes traffic—typically within 10–13 seconds.](./diagrams/github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica-dark.svg)
 
 **Failover performance:**
 

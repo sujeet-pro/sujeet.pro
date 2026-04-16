@@ -15,11 +15,8 @@ tags:
 
 How TLS 1.3 achieves 1-RTT handshakes, enforces forward secrecy by design, and what production HTTPS hardening actually requires—from certificate chains and OCSP stapling to HSTS preload and 0-RTT replay risks.
 
-<figure>
-<img class="only-light" src="./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th.light.svg" alt="TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments." />
-<img class="only-dark" src="./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th.dark.svg" alt="TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments." />
-<figcaption>TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.</figcaption>
-</figure>
+![TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.](./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th-light.svg "TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.")
+![TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.](./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th-dark.svg)
 
 ## Abstract
 
@@ -46,10 +43,8 @@ Since the set of acceptable curves is small and well-known (X25519, P-256, P-384
 
 ### Message Sequence: What Crosses the Wire
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Phase 1: Key Exchange (Plaintext)**
 
@@ -128,10 +123,8 @@ Both client and server generate fresh key pairs per connection. Even if the serv
 
 TLS 1.3 derives multiple independent keys from a single handshake using HKDF (HMAC-based Key Derivation Function) with different labels:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 Each derived key is cryptographically independent. Compromising one doesn't compromise others. This is why handshake encryption uses different keys than application data encryption.
 
@@ -180,10 +173,8 @@ After a successful handshake, the server sends NewSessionTicket messages contain
 
 The client stores this and includes the PSK identity in subsequent ClientHello messages via the `pre_shared_key` extension.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### PSK Binder: Cryptographic Binding
 
@@ -323,10 +314,8 @@ CT (RFC 9162, replacing RFC 6962) makes all certificate issuance publicly audita
 
 ### How CT Works
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Components**:
 
@@ -370,10 +359,8 @@ When a certificate's private key is compromised, revocation should invalidate it
 
 OCSP stapling (RFC 6066) lets servers fetch OCSP responses and bundle them with the TLS handshake:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Benefits**:
 

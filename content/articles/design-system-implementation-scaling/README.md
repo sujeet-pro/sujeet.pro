@@ -5,7 +5,7 @@ description: >-
   platform-agnostic tokens, codemod-driven migrations, tree-shakeable distribution,
   usage analytics, and version compatibility strategies.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -17,21 +17,15 @@ tags:
 
 Technical implementation patterns for building, migrating, and operating design systems at enterprise scale. This article assumes governance and strategic alignment are in place (see [Design System Adoption: Foundations and Governance](../design-system-adoption-foundations/README.md)) and focuses on the engineering decisions that determine whether a design system thrives or becomes technical debt.
 
-<figure>
-<img class="only-light" src="./diagrams/design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu.light.svg" alt="Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution." />
-<img class="only-dark" src="./diagrams/design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu.dark.svg" alt="Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution." />
-<figcaption>Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution.</figcaption>
-</figure>
+![Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution.](./diagrams/design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu-light.svg "Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution.")
+![Design system implementation lifecycle: architecture decisions flow into distribution, which feeds operational practices that inform architectural evolution.](./diagrams/design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu-dark.svg)
 
 ## Abstract
 
 Design system implementation succeeds when three forces align: **architecture that anticipates change**, **distribution that minimizes friction**, and **operations that treat the system as a product**.
 
-<figure>
-<img class="only-light" src="./diagrams/the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr.light.svg" alt="The mental model: architecture enables change, automation reduces friction, data drives decisions." />
-<img class="only-dark" src="./diagrams/the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr.dark.svg" alt="The mental model: architecture enables change, automation reduces friction, data drives decisions." />
-<figcaption>The mental model: architecture enables change, automation reduces friction, data drives decisions.</figcaption>
-</figure>
+![The mental model: architecture enables change, automation reduces friction, data drives decisions.](./diagrams/the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr-light.svg "The mental model: architecture enables change, automation reduces friction, data drives decisions.")
+![The mental model: architecture enables change, automation reduces friction, data drives decisions.](./diagrams/the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr-dark.svg)
 
 **Architecture**: The hybrid approach—platform-agnostic tokens with framework-specific component wrappers—survives technology shifts. React Server Components (RSC) compatibility, headless accessibility primitives (Radix, React Aria), and tree-shakeable bundles are table stakes for 2025+.
 
@@ -157,27 +151,27 @@ Building accessible components from scratch is expensive and error-prone. The pr
 | **React Aria**  | Hooks + optional components                 | 260K+            | Complex ARIA patterns, i18n           |
 | **Headless UI** | Tailwind-focused components                 | 500K+            | Tailwind-native teams                 |
 
-**Design reasoning**: These libraries handle focus management, keyboard navigation, and ARIA attributes correctly. Radix now offers a unified `radix-ui` package with tree-shakeable exports. React Aria's `react-aria-components` layer provides simpler consumption than raw hooks.
+**Design reasoning**: These libraries handle focus management, keyboard navigation, and ARIA attributes correctly. Package surfaces and higher-level wrappers change over time, so standardize on the accessibility contract you need and verify the current import guidance before locking tooling around a specific vendor package layout.
 
 **2. React Server Components Compatibility**
 
 RSC is production-ready in Next.js 15+. Design systems must consider the server/client boundary:
 
-```tsx title="RSC-compatible component pattern" collapse={1-4}
-// Server-safe: no useState, useEffect, event handlers
-// Client components need 'use client' directive
+```tsx title="Client boundary for an interactive wrapper" collapse={1-4}
+// Stateful wrappers live behind an explicit client boundary.
+// Keep the server-safe primitives and markup separate from interactive behavior.
 "use client"
 
 import { useState } from "react"
-import { Button as RadixButton } from "@radix-ui/react-button"
+import { Button } from "@company/design-system/button"
 
 export function InteractiveButton({ children, ...props }) {
   const [loading, setLoading] = useState(false)
-  return <RadixButton {...props}>{loading ? "Loading..." : children}</RadixButton>
+  return <Button {...props}>{loading ? "Loading..." : children}</Button>
 }
 ```
 
-**Why RSC matters**: RSC-compatible design systems can reduce client bundle size by 40-60% in content-heavy applications. The industry is shifting toward libraries that enable maximum tree-shaking with minimal runtime JavaScript.
+**Why RSC matters**: RSC-compatible design systems can reduce client bundle size materially in content-heavy applications, but the payoff depends on how much logic stays in server components versus interactive client boundaries. Treat bundle savings as an application-specific measurement problem, not a guaranteed percentage.
 
 > **2025+ Trend**: The shadcn/ui model—where consumers own the source code—is gaining traction because it provides maximum tree-shaking, minimal bundle size, and true RSC control. Consider offering both npm-distributed components and copy-paste primitives.
 
@@ -215,12 +209,12 @@ export function ConfirmDialog({ title, description, onConfirm, onCancel }) {
 
 Storybook 8 (released March 2024, with 8.2+ updates through 2025) is the standard development environment for design systems. Key features for implementation:
 
-| Feature                | Benefit                              | Configuration              |
-| ---------------------- | ------------------------------------ | -------------------------- |
-| **Visual Tests Addon** | Chromatic integration built-in       | `@chromatic-com/storybook` |
-| **RSC Support**        | Experimental React Server Components | Next.js framework only     |
-| **Autodocs**           | 25-50% faster React docgen           | `tags: ['autodocs']`       |
-| **Test Builds**        | 2-4x faster CI                       | SWC support for Webpack    |
+| Feature                | Benefit                                             | Configuration              |
+| ---------------------- | --------------------------------------------------- | -------------------------- |
+| **Visual Tests Addon** | Storybook-native visual regression workflows        | `@chromatic-com/storybook` |
+| **RSC Support**        | Framework-specific integration is improving         | Next.js framework only     |
+| **Autodocs**           | Faster API-page generation from component metadata  | `tags: ['autodocs']`       |
+| **Test Builds**        | Faster CI on supported builders                     | SWC support for Webpack    |
 
 ```typescript title=".storybook/main.ts" collapse={1-2}
 import type { StorybookConfig } from "@storybook/react-vite"
@@ -249,14 +243,14 @@ Organize stories by function (Forms, Navigation, Feedback) rather than implement
 3. **Interactive**: Controls for all props (auto-generated with autodocs)
 4. **Edge Cases**: Loading states, error states, boundary conditions
 
-**Visual Regression Testing (2025 Pricing)**
+**Visual Regression Testing Trade-offs**
 
-| Tool          | Cost              | Key Differentiator                    |
-| ------------- | ----------------- | ------------------------------------- |
-| **Chromatic** | $0.006/snapshot   | Git-based baselines, Storybook-native |
-| **Percy**     | $0.036/screenshot | OCR-based detection, cross-browser    |
+| Tool          | Commercial Model            | Key Differentiator                    |
+| ------------- | --------------------------- | ------------------------------------- |
+| **Chromatic** | Usage-based commercial SaaS | Git-based baselines, Storybook-native |
+| **Percy**     | Usage-based commercial SaaS | Cross-browser screenshot comparison   |
 
-**Design reasoning**: Chromatic's Git-based baseline management means baselines persist through branches and merges like code changes. Percy's OCR detection eliminates false positives from minor text rendering differences. Choose Chromatic for Storybook-centric workflows; Percy for full-page cross-browser validation.
+**Design reasoning**: Chromatic's Git-based baseline management means baselines persist through branches and merges like code changes. Percy is strongest when you need broader page-level and browser-matrix coverage. Choose based on workflow shape, not a snapshot-price spreadsheet that will drift.
 
 > **Real-World Example: SWAN's Documentation Excellence**
 >
@@ -432,7 +426,7 @@ All applications import from this shared location:
 
 Configure aggressive caching headers (`Cache-Control: public, max-age=31536000, immutable`) for versioned asset paths. When the design system releases a new version, assets move to a new path (`/v4/`), while existing applications continue using `/v3/` until they upgrade. This prevents cache invalidation storms during rollouts while enabling gradual adoption.
 
-CORS headers must allow all consuming domains: `Access-Control-Allow-Origin: *.example.com`. For organizations with multiple top-level domains, consider a dedicated asset domain with explicit CORS allowlists.
+Browsers do **not** accept `Access-Control-Allow-Origin: *.example.com`. Return a single explicit origin per request when you need CORS, or use `*` only for truly public assets that do not require credentials. For organizations with multiple top-level domains, consider a dedicated asset domain with an explicit allowlist or origin-reflection layer.
 
 #### Version Mismatch Across Applications
 
@@ -775,11 +769,8 @@ Understanding adoption across the organization requires systematic scanning of a
 
 **The Repository Scanner Architecture**
 
-<figure>
-<img class="only-light" src="./diagrams/repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo.light.svg" alt="Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization" />
-<img class="only-dark" src="./diagrams/repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo.dark.svg" alt="Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization" />
-<figcaption>Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization</figcaption>
-</figure>
+![Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization](./diagrams/repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo-light.svg "Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization")
+![Repository scanner pipeline: discover repos, analyze dependencies, feed into dashboards and prioritization](./diagrams/repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo-dark.svg)
 
 **Implementation Approach**
 

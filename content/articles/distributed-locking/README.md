@@ -18,11 +18,8 @@ Distributed locks coordinate access to shared resources across multiple processe
 
 This article covers lock implementations (Redis, ZooKeeper, etcd, Chubby), the Redlock controversy, fencing tokens, lease-based expiration, and when to avoid locks entirely.
 
-<figure>
-<img class="only-light" src="./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw.light.svg" alt="Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously." />
-<img class="only-dark" src="./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw.dark.svg" alt="Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously." />
-<figcaption>Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.</figcaption>
-</figure>
+![Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.](./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw-light.svg "Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.")
+![Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.](./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw-dark.svg)
 
 ## Abstract
 
@@ -111,10 +108,8 @@ All practical distributed locks use **leases**—time-bounded locks that expire 
 
 ### Core Mechanism
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### TTL Selection Formula
 
@@ -279,10 +274,8 @@ async function redlockAcquire(instances: Redis[], resource: string, ttlMs: numbe
 
 **Ephemeral sequential node recipe:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Algorithm:**
 
@@ -469,10 +462,8 @@ UPDATE resources SET ... WHERE id = 'resource-1';
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ## Fencing Tokens
 
@@ -482,10 +473,8 @@ Leases expire. When they do, a "stale" lock holder may still be executing its cr
 
 **Example failure scenario:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### How Fencing Tokens Work
 
@@ -494,10 +483,8 @@ Leases expire. When they do, a "stale" lock holder may still be executing its cr
 3. Resource tracks **highest token ever seen**
 4. Resource **rejects** operations with token < highest seen
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Implementation Pattern
 
@@ -781,10 +768,8 @@ async function optimisticUpdate(id: string, transform: (data: unknown) => unknow
 
 Route all operations for a resource to a single queue/partition.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 This eliminates concurrent access by design.
 

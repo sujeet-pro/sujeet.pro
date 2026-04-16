@@ -17,11 +17,8 @@ tags:
 
 A DNS query traverses multiple actors before returning an answer: stub resolver, recursive resolver, and a chain of authoritative servers (root, TLD, domain). Each hop introduces latency, caching decisions, and potential failure modes. Understanding this path is essential for diagnosing resolution delays, debugging SERVFAIL responses, and architecting systems that depend on DNS availability.
 
-<figure>
-<img class="only-light" src="./diagrams/end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver.light.svg" alt="End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain." />
-<img class="only-dark" src="./diagrams/end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver.dark.svg" alt="End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain." />
-<figcaption>End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain.</figcaption>
-</figure>
+![End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain.](./diagrams/end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver-light.svg "End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain.")
+![End-to-end DNS resolution flow showing iterative queries from recursive resolver to authoritative chain.](./diagrams/end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver-dark.svg)
 
 ## Abstract
 

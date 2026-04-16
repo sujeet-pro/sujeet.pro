@@ -14,11 +14,8 @@ tags:
 
 How services find each other in dynamic distributed environments where instance locations change continuously. This article covers discovery models, registry design, health checking mechanisms, and production trade-offs across client-side, server-side, and service mesh approaches.
 
-<figure>
-<img class="only-light" src="./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist.light.svg" alt="Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary." />
-<img class="only-dark" src="./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist.dark.svg" alt="Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary." />
-<figcaption>Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.</figcaption>
-</figure>
+![Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.](./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist-light.svg "Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.")
+![Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.](./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist-dark.svg)
 
 ## Abstract
 

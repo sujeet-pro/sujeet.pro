@@ -16,11 +16,8 @@ tags:
 
 Patterns for fetching, caching, and synchronizing server state in frontend applications. Covers request deduplication, cache invalidation strategies, stale-while-revalidate mechanics, and library implementations.
 
-<figure>
-<img class="only-light" src="./diagrams/data-fetching-lifecycle-from-request-to-cache-management-showing-deduplication-v.light.svg" alt="Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states" />
-<img class="only-dark" src="./diagrams/data-fetching-lifecycle-from-request-to-cache-management-showing-deduplication-v.dark.svg" alt="Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states" />
-<figcaption>Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states</figcaption>
-</figure>
+![Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states](./diagrams/data-fetching-lifecycle-from-request-to-cache-management-showing-deduplication-v-light.svg "Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states")
+![Data fetching lifecycle from request to cache management, showing deduplication, validation, and garbage collection states](./diagrams/data-fetching-lifecycle-from-request-to-cache-management-showing-deduplication-v-dark.svg)
 
 ## Abstract
 
@@ -312,10 +309,8 @@ The stale-while-revalidate (SWR) pattern serves cached data immediately while fe
 
 ### Pattern Mechanics
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Implementation Details
 

@@ -1,0 +1,30 @@
+%% Diagram: Write Fanout And Reconciliation
+%% Type: flowchart
+flowchart TB
+  subgraph authoritative["Authoritative row / document"]
+    S[(Source of truth)]
+  end
+
+  subgraph path_dual["Application-level dual write"]
+    APP1[Service]
+    APP1 --> S
+    APP1 --> T1[(Target)]
+  end
+
+  subgraph path_log["Single commit + change stream"]
+    APP2[Service]
+    APP2 --> S2[(Source of truth)]
+    S2 --> LOG[(Transaction log / outbox)]
+    LOG --> WORKER[Idempotent consumer or<br/>managed replication e.g. DMS]
+    WORKER --> T2[(Target)]
+  end
+
+  subgraph reconcile["Reconciliation loop"]
+    R1[Compare keys in watermark window]
+    R2[Emit repair events or quarantine rows]
+    R3[Re-run until drift within budget]
+    R1 --> R2 --> R3 --> R1
+  end
+
+  T1 -.-> reconcile
+  T2 -.-> reconcile

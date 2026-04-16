@@ -18,11 +18,8 @@ This comprehensive guide outlines the strategic migration from Static Site Gener
 
 Your marketing team launches a campaign at 9 AM. By 9:15, they discover the featured product shows yesterday's price because the site rebuild hasn't completed. By 10 AM, Google Ads has rejected the campaign for price mismatch. This scenario—and dozens like it—drove our migration from SSG to SSR. The lessons learned section documents our missteps—including a mid-project pivot from App Router to Pages Router—that shaped the final approach.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti.light.svg" alt="High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms" />
-<img class="only-dark" src="./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti.dark.svg" alt="High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms" />
-<figcaption>High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms</figcaption>
-</figure>
+![High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms](./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti-light.svg "High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms")
+![High-level architecture comparison: SSG's build-time approach vs SSR's request-time rendering, with the Strangler Fig pattern enabling gradual traffic migration between platforms](./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti-dark.svg)
 
 ## Terminology
 
@@ -334,11 +331,8 @@ The platform A/B approach allows for controlled, gradual migration:
 
 Our implementation used AWS CloudFront with Lambda@Edge functions at three trigger points: Viewer Request, Origin Request, and Viewer Response. This architecture handles bucketing at the edge before requests reach either origin.
 
-<figure>
-<img class="only-light" src="./diagrams/cloudfront-lambda-edge-flow-viewer-request-handles-user-identification-and-bucke.light.svg" alt="CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies" />
-<img class="only-dark" src="./diagrams/cloudfront-lambda-edge-flow-viewer-request-handles-user-identification-and-bucke.dark.svg" alt="CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies" />
-<figcaption>CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies</figcaption>
-</figure>
+![CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies](./diagrams/cloudfront-lambda-edge-flow-viewer-request-handles-user-identification-and-bucke-light.svg "CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies")
+![CloudFront Lambda@Edge flow: Viewer Request handles user identification and bucketing, Origin Request routes to the appropriate origin, and Viewer Response persists cookies](./diagrams/cloudfront-lambda-edge-flow-viewer-request-handles-user-identification-and-bucke-dark.svg)
 
 **Viewer Request Function** — Runs on every request before cache lookup:
 

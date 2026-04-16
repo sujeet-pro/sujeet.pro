@@ -14,20 +14,15 @@ tags:
 
 Infrastructure optimization addresses the foundation of web performance—the layers between a user's request and your application's response. This article covers DNS as a performance lever, HTTP/3 and QUIC for eliminating protocol-level bottlenecks, CDN and edge computing for geographic proximity, compression strategies for payload reduction, and caching patterns that can reduce Time to First Byte (TTFB) by 85-95% while offloading 80%+ of traffic from origin servers.
 
-<figure>
-<img class="only-light" src="./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to.light.svg" alt="Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB" />
-<img class="only-dark" src="./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to.dark.svg" alt="Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB" />
-<figcaption>Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB</figcaption>
-</figure>
+![Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB](./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to-light.svg "Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB")
+![Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB](./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to-dark.svg)
 
 ## Abstract
 
 Infrastructure performance follows a layered model where each layer multiplies the impact of the one below it:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Core mental model**: Every request traverses DNS → Connection → Edge → Origin. Optimization means either eliminating layers entirely (edge caching bypasses origin), reducing round trips within layers (HTTP/3 merges crypto and transport handshakes), or moving computation closer to the user (edge functions).
 
@@ -101,10 +96,8 @@ HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114), June 2022) ab
 
 **Adoption (2025)**: 37% of websites globally support HTTP/3 (W3Techs), with 21% of actual requests using HTTP/3 (Cloudflare Radar). Browser support is mature: Chrome 87+, Firefox 88+, Safari 16+ (enabled by default September 2024), Edge 87+.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Performance Impact (2025 benchmarks):**
 
@@ -132,10 +125,8 @@ TLS 1.3 ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446), August 2018;
 
 **Adoption (2025)**: 62-70% of websites support TLS 1.3 (SSL Labs). Browser support: Chrome 70+, Firefox 63+, Safari 12.2+, Edge 79+. Post-quantum cryptography with TLS 1.3 is emerging: 43% of Cloudflare connections use hybrid post-quantum key exchange (September 2025).
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### 1.4 Connection Layer Trade-offs
 

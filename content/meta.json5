@@ -1,0 +1,26 @@
+{
+  displayName: 'Sujeet Jaiswal',
+  description:
+    'Personal engineering writing on frontend architecture, web performance, distributed systems, and system design.',
+  headerLinks: [
+    { path: '/articles', label: 'Articles' },
+    { path: '/blogs', label: 'Blogs' },
+  ],
+  footerLinks: [
+    {
+      header: 'Content',
+      links: [
+        { path: '/articles', label: 'Articles' },
+        { path: '/blogs', label: 'Blogs' },
+      ],
+    },
+    {
+      header: 'Profiles',
+      links: [
+        { path: 'https://github.com/sujeet-pro', label: 'GitHub' },
+        { path: 'https://www.linkedin.com/in/sujeetkrjaiswal/', label: 'LinkedIn' },
+        { path: 'https://twitter.com/sujeetpro', label: 'Twitter' },
+      ],
+    },
+  ],
+}

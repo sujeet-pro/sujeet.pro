@@ -14,11 +14,8 @@ tags:
 
 Choosing between SQL and NoSQL databases based on data model requirements, access patterns, consistency needs, and operational constraints. This guide presents the design choices, trade-offs, and decision factors that drive storage architecture decisions in production systems.
 
-<figure>
-<img class="only-light" src="./diagrams/storage-paradigms-map-to-different-consistency-and-scaling-defaults-but-these-ar.light.svg" alt="Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries." />
-<img class="only-dark" src="./diagrams/storage-paradigms-map-to-different-consistency-and-scaling-defaults-but-these-ar.dark.svg" alt="Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries." />
-<figcaption>Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries.</figcaption>
-</figure>
+![Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries.](./diagrams/storage-paradigms-map-to-different-consistency-and-scaling-defaults-but-these-ar-light.svg "Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries.")
+![Storage paradigms map to different consistency and scaling defaults—but these are defaults, not absolutes. Modern systems blur these boundaries.](./diagrams/storage-paradigms-map-to-different-consistency-and-scaling-defaults-but-these-ar-dark.svg)
 
 ## Abstract
 

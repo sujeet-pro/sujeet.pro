@@ -16,21 +16,15 @@ tags:
 
 Architectural principles, implementation trade-offs, and production patterns for event-driven systems. Covers the three decoupling dimensions, subscriber ordering guarantees, error isolation strategies, and when Pub/Sub is the wrong choice.
 
-<figure>
-<img class="only-light" src="./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register.light.svg" alt="Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers" />
-<img class="only-dark" src="./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register.dark.svg" alt="Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers" />
-<figcaption>Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers</figcaption>
-</figure>
+![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-light.svg "Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers")
+![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-dark.svg)
 
 ## Abstract
 
 **Mental Model:** Pub/Sub trades explicit control flow for decoupling. Publishers fire events into a broker without knowing who (if anyone) receives them. Subscribers register interest without knowing who produces events. The broker is the single point of coupling.
 
-<figure>
-<img class="only-light" src="./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic.light.svg" alt="Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow" />
-<img class="only-dark" src="./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic.dark.svg" alt="Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow" />
-<figcaption>Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow</figcaption>
-</figure>
+![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic-light.svg "Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow")
+![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic-dark.svg)
 
 **Core Trade-off:** Loose coupling enables independent component evolution and many-to-many communication. The cost is implicit control flow—debugging requires tracing events across the system rather than following function calls.
 

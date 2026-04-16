@@ -15,11 +15,8 @@ tags:
 
 A system design for a mapping and navigation platform handling tile-based rendering, real-time routing with traffic awareness, geocoding, and offline maps. This design addresses continental-scale road networks (18M+ nodes), sub-second routing queries, and 97%+ ETA accuracy.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod.light.svg" alt="High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion." />
-<img class="only-dark" src="./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod.dark.svg" alt="High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion." />
-<figcaption>High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.</figcaption>
-</figure>
+![High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.](./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-light.svg "High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.")
+![High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.](./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-dark.svg)
 
 ## Abstract
 
@@ -191,11 +188,8 @@ Vector tiles (Mapbox Vector Tile specification) encode features as Protocol Buff
 
 Computes optimal paths using Contraction Hierarchies with traffic overlays.
 
-<figure>
-<img class="only-light" src="./diagrams/contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s.light.svg" alt="Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search "upward" in the hierarchy from both ends." />
-<img class="only-dark" src="./diagrams/contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s.dark.svg" alt="Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search "upward" in the hierarchy from both ends." />
-<figcaption>Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search "upward" in the hierarchy from both ends.</figcaption>
-</figure>
+![Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search ](./diagrams/contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s-light.svg "Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search \"upward\" in the hierarchy from both ends.")
+![Contraction Hierarchies: offline preprocessing creates shortcuts; online queries search ](./diagrams/contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s-dark.svg)
 
 **How Contraction Hierarchies Work:**
 
@@ -578,11 +572,8 @@ CREATE INDEX idx_places_name_trgm ON places USING GIN(name gin_trgm_ops);
 
 ### Contraction Hierarchies Implementation
 
-<figure>
-<img class="only-light" src="./diagrams/node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier.light.svg" alt="Node ordering determines preprocessing quality. Lower priority = contracted earlier." />
-<img class="only-dark" src="./diagrams/node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier.dark.svg" alt="Node ordering determines preprocessing quality. Lower priority = contracted earlier." />
-<figcaption>Node ordering determines preprocessing quality. Lower priority = contracted earlier.</figcaption>
-</figure>
+![Node ordering determines preprocessing quality. Lower priority = contracted earlier.](./diagrams/node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier-light.svg "Node ordering determines preprocessing quality. Lower priority = contracted earlier.")
+![Node ordering determines preprocessing quality. Lower priority = contracted earlier.](./diagrams/node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier-dark.svg)
 
 **Node Ordering Heuristic:**
 
@@ -912,11 +903,8 @@ User → Edge PoP → Regional Cache → Origin Shield → Tile Server
 | POI Database       | RDS PostgreSQL             | PostGIS extension                           |
 | Graph Storage      | EFS                        | Shared memory-mapped files                  |
 
-<figure>
-<img class="only-light" src="./diagrams/aws-reference-architecture-with-regional-routing-service-instances-and-global-ti.light.svg" alt="AWS reference architecture with regional routing service instances and global tile CDN." />
-<img class="only-dark" src="./diagrams/aws-reference-architecture-with-regional-routing-service-instances-and-global-ti.dark.svg" alt="AWS reference architecture with regional routing service instances and global tile CDN." />
-<figcaption>AWS reference architecture with regional routing service instances and global tile CDN.</figcaption>
-</figure>
+![AWS reference architecture with regional routing service instances and global tile CDN.](./diagrams/aws-reference-architecture-with-regional-routing-service-instances-and-global-ti-light.svg "AWS reference architecture with regional routing service instances and global tile CDN.")
+![AWS reference architecture with regional routing service instances and global tile CDN.](./diagrams/aws-reference-architecture-with-regional-routing-service-instances-and-global-ti-dark.svg)
 
 ### Self-Hosted Alternatives
 

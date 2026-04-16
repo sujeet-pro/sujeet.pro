@@ -3,7 +3,7 @@ title: 'Trees and Graphs: Traversals and Applications'
 description: >-
   Tree variants (BST, AVL, Red-Black, B-trees, tries) and graph algorithms (DFS, BFS, topological sort, shortest paths) with design trade-offs — when to choose each structure and why, from database indexes to dependency resolution.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -14,11 +14,8 @@ tags:
 
 Hierarchical and networked data structures that underpin file systems, databases, build tools, and routing. This guide covers tree variants (BST, AVL, Red-Black, B-trees, tries), graph representations (adjacency matrix vs list), traversal algorithms (DFS, BFS), and key algorithms (cycle detection, topological sort, shortest paths). Focus on design trade-offs and when to choose each structure.
 
-<figure>
-<img class="only-light" src="./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver.light.svg" alt="Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths." />
-<img class="only-dark" src="./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver.dark.svg" alt="Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths." />
-<figcaption>Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.</figcaption>
-</figure>
+![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-light.svg "Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.")
+![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-dark.svg)
 
 ## Abstract
 
@@ -322,7 +319,7 @@ function bfs(graph: Map<number, number[]>, start: number): void {
 
 **Key property**: BFS finds shortest path in unweighted graphs. The first time BFS reaches a node, it's via the shortest path (in terms of edge count).
 
-**When to use**: Shortest path (unweighted), level-order traversal, finding nearest neighbors, web crawling by depth.
+**When to use**: Shortest path (unweighted), level-order traversal, finding nearest neighbors, web crawling by breadth.
 
 ### DFS vs BFS: Choosing the Right Traversal
 
@@ -546,9 +543,9 @@ Greedy algorithm using a priority queue. Always processes the vertex with smalle
 
 **Limitation**: Cannot handle negative edge weights—the greedy assumption breaks.
 
-**Complexity**: O(E + V log V) with binary heap, O(E + V log V) with Fibonacci heap.
+**Complexity**: O((V + E) log V) with a binary heap, O(E + V log V) with a Fibonacci heap.
 
-**Use cases**: GPS navigation, network routing (OSPF protocol).
+**Use cases**: GPS navigation, network routing (OSPF protocol). For all-pairs shortest paths, switch to Floyd-Warshall or run a single-source shortest-path algorithm from each source node.
 
 ### Bellman-Ford (Handles Negative Weights)
 

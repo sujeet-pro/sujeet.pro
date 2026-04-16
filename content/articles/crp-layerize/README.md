@@ -18,11 +18,8 @@ tags:
 
 The Layerize stage converts paint chunks into composited layers (`cc::Layer` objects), determining how display items should be grouped for independent rasterization and animation. This process happens after [Paint](../crp-paint/README.md) produces the paint artifact and before [Rasterization](../crp-raster/README.md) converts those layers into GPU textures.
 
-<figure>
-<img class="only-light" src="./diagrams/layerization-in-the-renderingng-pipeline-m94-paintartifactcompositor-converts-pa.light.svg" alt="Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization." />
-<img class="only-dark" src="./diagrams/layerization-in-the-renderingng-pipeline-m94-paintartifactcompositor-converts-pa.dark.svg" alt="Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization." />
-<figcaption>Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization.</figcaption>
-</figure>
+![Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization.](./diagrams/layerization-in-the-renderingng-pipeline-m94-paintartifactcompositor-converts-pa-light.svg "Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization.")
+![Layerization in the RenderingNG pipeline (M94+): PaintArtifactCompositor converts paint chunks to cc::Layers on the main thread, which are then committed to the compositor thread for rasterization.](./diagrams/layerization-in-the-renderingng-pipeline-m94-paintartifactcompositor-converts-pa-dark.svg)
 
 ## Abstract
 

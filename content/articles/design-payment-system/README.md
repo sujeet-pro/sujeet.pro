@@ -15,11 +15,8 @@ tags:
 
 Building a payment processing platform that handles card transactions, bank transfers, and digital wallets with PCI DSS compliance, idempotent processing, and real-time fraud detection. Payment systems operate under unique constraints: zero tolerance for duplicate charges, regulatory mandates (PCI DSS), and sub-second fraud decisions. This design covers the complete payment lifecycle—authorization, capture, settlement—plus reconciliation, refunds, and multi-gateway routing.
 
-<figure>
-<img class="only-light" src="./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap.light.svg" alt="Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger." />
-<img class="only-dark" src="./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap.dark.svg" alt="Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger." />
-<figcaption>Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.</figcaption>
-</figure>
+![Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.](./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap-light.svg "Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.")
+![Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.](./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap-dark.svg)
 
 ## Abstract
 
@@ -121,10 +118,8 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -154,10 +149,8 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -188,10 +181,8 @@ Total authorization: 2000ms budget
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -250,10 +241,8 @@ The architecture sections show how to integrate third-party providers while main
 
 ### Payment Lifecycle
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Authorization vs Capture Timing
 
@@ -615,10 +604,8 @@ Idempotency prevents duplicate charges when clients retry failed requests. Strip
 
 **Request flow:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Implementation:**
 
@@ -787,10 +774,8 @@ Real-time fraud scoring must complete within 100ms to avoid impacting checkout l
 
 **Scoring architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Feature examples (1000+ per transaction):**
 
@@ -856,10 +841,8 @@ Reconciliation ensures internal ledger matches external settlements. Discrepanci
 
 **Reconciliation process:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Implementation:**
 
@@ -1188,10 +1171,8 @@ export function getErrorMessage(declineCode: string): string {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-8.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-8.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-8-light.svg)
+![Diagram](./diagrams/diagram-8-dark.svg)
 
 **Service configuration:**
 

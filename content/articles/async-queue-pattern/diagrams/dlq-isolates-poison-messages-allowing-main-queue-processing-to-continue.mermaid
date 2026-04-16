@@ -1,3 +1,5 @@
+%% Diagram: Dlq Isolates Poison Messages Allowing Main Queue Processing To Continue
+%% Type: flowchart
 graph LR
     MQ[(Main Queue)] --> W[Worker]
     W -->|Success| Done[✓]

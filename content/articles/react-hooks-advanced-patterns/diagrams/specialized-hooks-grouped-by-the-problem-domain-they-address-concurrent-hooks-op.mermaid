@@ -1,3 +1,5 @@
+%% Diagram: Specialized Hooks Grouped By The Problem Domain They Address Concurrent Hooks Op
+%% Type: flowchart
 flowchart TB
     subgraph "Specialized Hooks by Problem Domain"
         direction TB
@@ -20,7 +22,3 @@ flowchart TB
             useId["useId<br/>Stable unique IDs"]
         end
     end
-
-    useTransition --> useDeferredValue
-    useLayoutEffect --> useInsertionEffect
-    use --> useSyncExternalStore

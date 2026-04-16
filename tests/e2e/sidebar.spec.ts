@@ -2,170 +2,116 @@ import { expect } from "@playwright/test";
 import { test } from "./helpers";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
+const BLOG_LISTING = "/blogs/";
 
-test.describe("Left sidebar — Desktop", () => {
+test.describe("Docs sidebar — Desktop", () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test("visible on article pages in a series", async ({ page }) => {
+  test("is visible on article pages", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-left")).toBeVisible();
-    await expect(page.locator(".layout-three-col")).toBeVisible();
+    await expect(page.locator(".doc-sidebar")).toBeVisible();
+    await expect(page.locator(".doc-layout")).toBeVisible();
   });
 
-  test("shows series articles with current highlighted", async ({ page }) => {
+  test("shows the current article as active", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const nav = page.locator(".sidebar-left .article-nav");
+    const nav = page.locator(".doc-sidebar .doc-sidebar-nav");
     await expect(nav).toBeVisible();
-
-    const articles = nav.locator(".nav-articles li");
-    await expect(articles).not.toHaveCount(0);
-
-    const current = nav.locator(".nav-articles li.current");
-    await expect(current).toHaveCount(1);
+    await expect(nav.locator(".doc-sidebar-item.active")).not.toHaveCount(0);
   });
 
-  test("sidebar shows series name", async ({ page }) => {
+  test("shows the article series heading", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-left .sidebar-title")).toContainText("CRP");
+    await expect(page.locator(".doc-sidebar-heading").first()).toContainText(
+      "Critical Rendering Path",
+    );
   });
 
-  test("clicking sidebar link navigates to article", async ({ page }) => {
+  test("listing pages also render the docs sidebar", async ({ page }) => {
+    await page.goto(BLOG_LISTING);
+    await expect(page.locator(".doc-sidebar")).toBeVisible();
+    await expect(page.locator(".doc-sidebar-link")).not.toHaveCount(0);
+  });
+
+  test("clicking a sidebar link navigates to another article", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const secondLink = page.locator(".sidebar-left .nav-articles li:not(.current) a").first();
+    const secondLink = page
+      .locator(".doc-sidebar .doc-sidebar-item:not(.active) .doc-sidebar-link")
+      .first();
     const href = await secondLink.getAttribute("href");
     await secondLink.click();
-    await expect(page).toHaveURL(new RegExp(href!.replace(/\//g, "\\/")));
+    const normalizedHref = href!.replace(/\/+$/, "").replace(/\//g, "\\/");
+    await expect(page).toHaveURL(new RegExp(`${normalizedHref}\\/?$`));
   });
 
-  test("hamburger is NOT visible on desktop", async ({ page }) => {
+  test("header toggle is hidden on desktop", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeVisible();
+    await expect(page.locator(".doc-sidebar-toggle")).not.toBeVisible();
   });
 });
 
-test.describe("Left sidebar — not shown on non-article pages", () => {
-  test.use({ viewport: { width: 1280, height: 720 } });
-
-  test("home page has no sidebar", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator(".sidebar-left")).not.toBeAttached();
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-
-  test("articles listing has no left sidebar", async ({ page }) => {
-    await page.goto("/articles/");
-    await expect(page.locator(".sidebar-left")).not.toBeAttached();
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-
-  test("blogs listing has no left sidebar", async ({ page }) => {
-    await page.goto("/blogs/");
-    await expect(page.locator(".sidebar-left")).not.toBeAttached();
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-
-  test("404 page has no sidebar", async ({ page }) => {
-    await page.goto("/nonexistent/");
-    await expect(page.locator(".sidebar-left")).not.toBeAttached();
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-});
-
-test.describe("Left sidebar — Tablet", () => {
+test.describe("Docs sidebar modal — Tablet", () => {
   test.use({ viewport: { width: 900, height: 1024 } });
 
-  test("left sidebar is hidden in page flow", async ({ page }) => {
+  test("toggle button is visible", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-left")).not.toBeVisible();
+    await expect(page.locator(".doc-sidebar-toggle")).toBeVisible();
   });
 
-  test("hamburger button is visible", async ({ page }) => {
+  test("clicking the toggle opens the sidebar modal", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-toggle-label")).toBeVisible();
+    await page.locator(".doc-sidebar-toggle").click();
+
+    const modal = page.locator(".doc-sidebar-modal");
+    await expect(modal).toHaveAttribute("open", "");
+    await expect(modal.locator(".doc-sidebar-nav")).toBeVisible();
   });
 
-  test("clicking hamburger opens sidebar overlay", async ({ page }) => {
+  test("pressing ESC closes the modal", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-
-    const sidebar = page.locator(".sidebar-left");
-    await expect(sidebar).toBeVisible();
-    await expect(sidebar.locator(".article-nav")).toBeVisible();
-  });
-
-  test("pressing ESC closes sidebar", async ({ page }) => {
-    await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-    await expect(page.locator(".sidebar-left")).toBeVisible();
+    await page.locator(".doc-sidebar-toggle").click();
+    await expect(page.locator(".doc-sidebar-modal")).toHaveAttribute("open", "");
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".sidebar-left")).not.toBeVisible();
+    await expect(page.locator(".doc-sidebar-modal")).not.toHaveAttribute("open", "");
   });
 
-  test("clicking overlay backdrop closes sidebar", async ({ page }) => {
+  test("clicking the backdrop closes the modal", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-    await expect(page.locator(".sidebar-left")).toBeVisible();
+    await page.locator(".doc-sidebar-toggle").click();
+    await expect(page.locator(".doc-sidebar-modal")).toHaveAttribute("open", "");
 
-    await page.locator(".sidebar-overlay").click();
-    await expect(page.locator(".sidebar-left")).not.toBeVisible();
+    await page.locator(".doc-sidebar-modal-backdrop").click();
+    await expect(page.locator(".doc-sidebar-modal")).not.toHaveAttribute("open", "");
   });
 
-  test("sidebar closes on resize to desktop width", async ({ page }) => {
+  test("modal contains top-level navigation links", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-    await expect(page.locator(".sidebar-left")).toBeVisible();
-
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await expect(page.locator(".sidebar-left")).toBeVisible();
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeVisible();
-  });
-
-  test("no hamburger on pages without sidebar", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-
-    await page.goto("/articles/");
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
+    await page.locator(".doc-sidebar-toggle").click();
+    const navSection = page.locator(
+      '.doc-sidebar-modal .doc-sidebar-section:has-text("Navigation")',
+    );
+    await expect(navSection).toBeVisible();
+    await expect(navSection.locator("a")).toHaveCount(2);
   });
 });
 
-test.describe("Left sidebar — Mobile", () => {
+test.describe("Docs sidebar modal — Mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("left sidebar hidden, hamburger visible", async ({ page }) => {
+  test("toggle opens the mobile sidebar modal", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".sidebar-left")).not.toBeVisible();
-    await expect(page.locator(".sidebar-toggle-label")).toBeVisible();
+    await expect(page.locator(".doc-sidebar-toggle")).toBeVisible();
+    await page.locator(".doc-sidebar-toggle").click();
+    await expect(page.locator(".doc-sidebar-modal")).toHaveAttribute("open", "");
   });
 
-  test("hamburger opens sidebar overlay", async ({ page }) => {
+  test("escape closes the mobile sidebar modal", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-    await expect(page.locator(".sidebar-left")).toBeVisible();
-  });
-
-  test("ESC closes mobile sidebar", async ({ page }) => {
-    await page.goto(SERIES_ARTICLE);
-    await page.locator(".sidebar-toggle-label").click();
-    await expect(page.locator(".sidebar-left")).toBeVisible();
+    await page.locator(".doc-sidebar-toggle").click();
+    await expect(page.locator(".doc-sidebar-modal")).toHaveAttribute("open", "");
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".sidebar-left")).not.toBeVisible();
-  });
-
-  test("no hamburger on home page", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-
-  test("no hamburger on listing pages", async ({ page }) => {
-    await page.goto("/blogs/");
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
-  });
-
-  test("no hamburger on 404", async ({ page }) => {
-    await page.goto("/nonexistent/");
-    await expect(page.locator(".sidebar-toggle-label")).not.toBeAttached();
+    await expect(page.locator(".doc-sidebar-modal")).not.toHaveAttribute("open", "");
   });
 });

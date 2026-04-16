@@ -5,7 +5,7 @@ description: >-
   component), DTCG specification, naming conventions, multi-platform transformation
   pipelines with Style Dictionary, and theming architecture for dark mode and multi-brand.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -17,11 +17,8 @@ tags:
 
 Design tokens encode design decisions as platform-agnostic data, enabling consistent UI across web, iOS, and Android from a single source of truth. This article covers the token taxonomy, semantic layering for theming, multi-platform transformation pipelines, and governance strategies that make enterprise design systems maintainable at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/design-token-pipeline-tokens-defined-once-transformed-per-platform.light.svg" alt="Design token pipeline: tokens defined once, transformed per platform." />
-<img class="only-dark" src="./diagrams/design-token-pipeline-tokens-defined-once-transformed-per-platform.dark.svg" alt="Design token pipeline: tokens defined once, transformed per platform." />
-<figcaption>Design token pipeline: tokens defined once, transformed per platform.</figcaption>
-</figure>
+![Design token pipeline: tokens defined once, transformed per platform.](./diagrams/design-token-pipeline-tokens-defined-once-transformed-per-platform-light.svg "Design token pipeline: tokens defined once, transformed per platform.")
+![Design token pipeline: tokens defined once, transformed per platform.](./diagrams/design-token-pipeline-tokens-defined-once-transformed-per-platform-dark.svg)
 
 ## Abstract
 
@@ -33,7 +30,7 @@ Design tokens are named entities storing visual design attributes—colors, spac
 
 Theming works by swapping semantic layers while primitives remain constant. A dark theme redefines `color-background` from `{gray-50}` to `{gray-900}`—components referencing the semantic token adapt automatically.
 
-The W3C Design Tokens Community Group (DTCG) specification (v2025.10) standardizes the JSON format with `$value`, `$type`, and `$description` properties. Tools like Style Dictionary transform this source into platform-specific outputs (CSS custom properties, Swift UIColor, Android XML resources).
+The W3C Design Tokens Community Group (DTCG) specification (v2025.10) standardizes the JSON format with `$value`, `$type`, and `$description` properties. Tools like Style Dictionary transform this source into platform-specific outputs (CSS custom properties, Swift UIColor, Android XML resources). The examples in this article intentionally stay compact to highlight naming and aliasing mechanics; production token sets often add richer type-specific metadata and structured values.
 
 ## Token Taxonomy
 
@@ -49,10 +46,12 @@ Primitives define the raw design palette with no semantic meaning attached. They
     "blue": {
       "100": { "$value": "#dbeafe", "$type": "color" },
       "500": { "$value": "#3b82f6", "$type": "color" },
+      "600": { "$value": "#2563eb", "$type": "color" },
       "900": { "$value": "#1e3a8a", "$type": "color" }
     },
     "gray": {
       "50": { "$value": "#f9fafb", "$type": "color" },
+      "600": { "$value": "#4b5563", "$type": "color" },
       "900": { "$value": "#111827", "$type": "color" }
     }
   },
@@ -300,10 +299,8 @@ Style Dictionary (originally from Amazon) is the industry standard for token tra
 
 ### Pipeline Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Pipeline from source tokens through validation and transforms into CSS, iOS, Android, and documentation outputs.](./diagrams/diagram-1-light.svg "One source token set fans out through validation and transformation into platform-specific artifacts.")
+![Pipeline from source tokens through validation and transforms into CSS, iOS, Android, and documentation outputs.](./diagrams/diagram-1-dark.svg)
 
 ### Style Dictionary Configuration
 
@@ -433,7 +430,7 @@ Tokens Studio (Figma plugin) enables designers to define tokens in Figma and syn
 4. Platform outputs published to package registries
 5. Consuming apps update dependency version
 
-Tokens Studio supports 24+ token types—more than native Figma Variables (which only support color, number, boolean, string). As of v1.37, Tokens Studio can sync plugin tokens with native Figma Variables for broader tool compatibility.
+Tokens Studio supports more token types than native Figma Variables and can sync token data into Figma's native variable model for broader tool compatibility. Verify the current plugin capabilities before hard-coding workflow assumptions into CI or design governance.
 
 ## Version Management
 

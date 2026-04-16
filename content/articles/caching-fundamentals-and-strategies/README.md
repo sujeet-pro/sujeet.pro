@@ -15,11 +15,8 @@ tags:
 
 Understanding caching for distributed systems: design choices, trade-offs, and when to use each approach. From CPU cache hierarchies to globally distributed CDNs, caching exploits locality of reference to reduce latency and backend load—the same principle, applied at every layer of the stack.
 
-<figure>
-<img class="only-light" src="./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each-.light.svg" alt="The caching hierarchy from CPU to origin server, showing typical latency at each layer" />
-<img class="only-dark" src="./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each-.dark.svg" alt="The caching hierarchy from CPU to origin server, showing typical latency at each layer" />
-<figcaption>The caching hierarchy from CPU to origin server, showing typical latency at each layer</figcaption>
-</figure>
+![The caching hierarchy from CPU to origin server, showing typical latency at each layer](./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each--light.svg "The caching hierarchy from CPU to origin server, showing typical latency at each layer")
+![The caching hierarchy from CPU to origin server, showing typical latency at each layer](./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each--dark.svg)
 
 ## Abstract
 

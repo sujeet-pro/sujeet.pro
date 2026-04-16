@@ -4,7 +4,7 @@ description: >-
   Compound component APIs, controlled/uncontrolled patterns, SemVer governance, federated
   contribution models, and quality gates for building React component libraries that teams actually adopt.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -18,11 +18,8 @@ A component library is a product with internal customers. Its success depends on
 
 The focus is on React-based systems, though most principles apply across frameworks.
 
-<figure>
-<img class="only-light" src="./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des.light.svg" alt="Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption." />
-<img class="only-dark" src="./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des.dark.svg" alt="Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption." />
-<figcaption>Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.</figcaption>
-</figure>
+![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des-light.svg "Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.")
+![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des-dark.svg)
 
 ## Abstract
 
@@ -34,7 +31,7 @@ A component library succeeds when it achieves three things: predictable APIs tha
 
 **Governance** scales through federation. A dedicated core team maintains standards while distributed contributors add domain-specific components. RFCs (Request for Comments) formalize substantial changes. Inner-source practices—visibility, pull requests, documentation—break silos and increase reuse.
 
-**Quality gates** automate what can be automated. Accessibility testing with axe-core catches roughly 57% of WCAG issues but doesn't replace manual audits. Visual regression testing (Chromatic, Percy) prevents unintended changes. Performance budgets prevent library bloat.
+**Quality gates** automate what can be automated. axe-core documentation is explicit that automated testing only catches a subset of WCAG issues, so manual audits still matter. Visual regression testing (Chromatic, Percy, or equivalent) prevents unintended changes. Performance budgets prevent library bloat.
 
 **Adoption** requires active enablement: playbooks, champions, training. Measure contextually—who uses which components, not just download counts.
 
@@ -157,7 +154,7 @@ This seems obvious, but the definition of "breaking change" matters. In componen
 - Modifying DOM structure (affects selectors in tests)
 - Changing TypeScript types
 
-**Design decision**: Some teams version the entire library (monolithic—all components at v3.2.1). Others version per-component (Button v2.1.0, Dialog v1.4.0). Per-component versioning signals component maturity and allows independent release cadences. Atlassian adopted per-component SemVer by 2023 with detailed changelogs per package. The overhead is higher but the flexibility benefits large systems.
+**Design decision**: Some teams version the entire library (monolithic—all components at v3.2.1). Others version per-component (Button v2.1.0, Dialog v1.4.0). Independent package versioning raises overhead, but it can be worth it when large systems need different release cadences and clearer ownership boundaries.
 
 ### Deprecation Patterns
 
@@ -238,7 +235,7 @@ Carbon Design System maintains RFCs in a dedicated repository. Each RFC has a st
 
 **Centralized model**: A single team makes all decisions and builds all components. This works for early-stage systems or organizations requiring strict brand consistency. The bottleneck is capacity—requests queue behind the core team's bandwidth.
 
-**Federated model**: Multiple teams contribute under shared guidelines. A core team maintains standards, tooling, and governance. Product teams contribute domain-specific components. Atlassian evolved to this model with "design system champions" embedded across the organization.
+**Federated model**: Multiple teams contribute under shared guidelines. A core team maintains standards, tooling, and governance. Product teams contribute domain-specific components. In practice, this often works best when teams also maintain a champion network or designated reviewers across product areas.
 
 **Trade-offs**:
 
@@ -250,7 +247,7 @@ Carbon Design System maintains RFCs in a dedicated repository. Each RFC has a st
 | Coordination | Minimal                   | Requires clear processes               |
 | Adoption     | Push model (core decides) | Pull model (teams request what's used) |
 
-Most mature systems land on federated with strong governance. Shopify's Polaris balances autonomy with coherence across 100+ teams through design proposal templates and designated councils for triage.
+Most mature systems land on federated with strong governance. Large organizations often pair proposal templates with designated triage councils so contribution volume can grow without turning the library into a free-for-all.
 
 ### Inner-Source Practices
 
@@ -370,7 +367,7 @@ describe("Button accessibility", () => {
 })
 ```
 
-**Limitation**: Automated testing catches approximately 57% of WCAG issues on average (per axe-core's own documentation). Manual audits remain essential. Automated tests catch regressions on known issues and provide immediate feedback during development.
+**Limitation**: Automated testing catches only a subset of WCAG issues (as axe-core's own documentation notes). Manual audits remain essential. Automated tests catch regressions on known issues and provide immediate feedback during development.
 
 ### Visual Regression Testing
 
@@ -382,13 +379,13 @@ Visual regression testing compares screenshots between builds to detect unintend
 - Captures screenshots of every story
 - Highlights pixel differences
 - Requires approval for intentional changes
-- Free tier: 5,000 screenshots/month
+- Pricing and screenshot quotas vary by plan, so verify the current commercial limits before baking them into rollout assumptions
 
 **Percy** (by BrowserStack):
 
 - Framework-agnostic (works beyond Storybook)
 - Cross-browser screenshot comparison
-- AI-powered detection ignores anti-aliasing, focuses on meaningful changes
+- Offers heuristics to reduce noise from browser rendering differences, but teams should still tune thresholds against their own UI and browser matrix
 
 **When to use which**: Chromatic for component-focused workflows where Storybook is the source of truth. Percy for full-page validation across browsers and devices.
 
@@ -417,7 +414,7 @@ Sustainable design systems require dedicated investment. Side-of-desk efforts pr
 
 ### Team Composition
 
-Atlassian's design system team (as of 2023): 18 full-time equivalents (FTEs)—5 designers, 1 content writer, 1 product manager, 11 developers.
+Enterprise design system teams often include design, engineering, content, and product roles rather than only frontend developers. The exact ratio varies with scope, but documentation and enablement work need explicit ownership just as much as component implementation does.
 
 **Core team responsibilities**:
 
@@ -469,7 +466,7 @@ Adoption doesn't happen passively. Teams need:
 - **Recognition**: Visibility for teams and individuals contributing quality components
 - **Clear pathways**: How to request new components, report bugs, propose changes
 
-Shopify evolved Polaris from passive documentation to active enablement. The result: faster onboarding and higher adoption across 100+ teams.
+Mature systems rarely rely on passive documentation alone. Playbooks, office hours, sample migrations, and champions are usually what turns a component library from "available" into "adopted."
 
 ## Conclusion
 

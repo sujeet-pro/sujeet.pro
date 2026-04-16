@@ -16,11 +16,8 @@ tags:
 
 True exactly-once delivery is impossible in distributed systems—the Two Generals Problem (1975) and FLP impossibility theorem (1985) prove this mathematically. What we call "exactly-once" is actually "effectively exactly-once": at-least-once delivery combined with idempotency and deduplication mechanisms that ensure each message's effect occurs exactly once, even when the message itself is delivered multiple times.
 
-<figure>
-<img class="only-light" src="./diagrams/exactly-once-semantics-at-least-once-delivery-idempotent-consumption-effectively.light.svg" alt="Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect." />
-<img class="only-dark" src="./diagrams/exactly-once-semantics-at-least-once-delivery-idempotent-consumption-effectively.dark.svg" alt="Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect." />
-<figcaption>Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect.</figcaption>
-</figure>
+![Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect.](./diagrams/exactly-once-semantics-at-least-once-delivery-idempotent-consumption-effectively-light.svg "Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect.")
+![Exactly-once semantics: at-least-once delivery + idempotent consumption = effectively exactly-once effect.](./diagrams/exactly-once-semantics-at-least-once-delivery-idempotent-consumption-effectively-dark.svg)
 
 ## Abstract
 
@@ -616,10 +613,8 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Production Implementations
 
@@ -635,10 +630,8 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Specific details:**
 
@@ -686,10 +679,8 @@ Debezium's outbox connector reads the outbox table via CDC and publishes to Kafk
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Specific details:**
 
@@ -1010,10 +1001,8 @@ Publish fails if a message with that subject already exists—provides infinite 
 
 ### Starting Point Decision
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### System Selection Guide
 

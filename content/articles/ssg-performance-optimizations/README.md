@@ -14,11 +14,8 @@ tags:
 
 Production-grade Static Site Generation (SSG) architecture for AWS CloudFront delivery. Covers atomic deployments, pre-compression strategies, Lambda@Edge routing patterns, and Core Web Vitals optimization—with specific focus on design tradeoffs and operational failure modes that senior engineers encounter in production.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-showing-the-build-time-rendering-aws-deployment-and-edge.light.svg" alt="High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites" />
-<img class="only-dark" src="./diagrams/high-level-architecture-showing-the-build-time-rendering-aws-deployment-and-edge.dark.svg" alt="High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites" />
-<figcaption>High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites</figcaption>
-</figure>
+![High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites](./diagrams/high-level-architecture-showing-the-build-time-rendering-aws-deployment-and-edge-light.svg "High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites")
+![High-level architecture showing the build-time rendering, AWS deployment, and edge delivery flow for SSG sites](./diagrams/high-level-architecture-showing-the-build-time-rendering-aws-deployment-and-edge-dark.svg)
 
 ## Abstract
 
@@ -56,11 +53,8 @@ The process:
 3. **Asset generation**: Optimized HTML, CSS, JS bundles
 4. **Deployment**: Upload to S3, configure CloudFront origin
 
-<figure>
-<img class="only-light" src="./diagrams/ssg-workflow-content-and-templates-compile-to-static-assets-deployed-to-cdn-edge.light.svg" alt="SSG workflow: content and templates compile to static assets deployed to CDN edge locations." />
-<img class="only-dark" src="./diagrams/ssg-workflow-content-and-templates-compile-to-static-assets-deployed-to-cdn-edge.dark.svg" alt="SSG workflow: content and templates compile to static assets deployed to CDN edge locations." />
-<figcaption>SSG workflow: content and templates compile to static assets deployed to CDN edge locations.</figcaption>
-</figure>
+![SSG workflow: content and templates compile to static assets deployed to CDN edge locations.](./diagrams/ssg-workflow-content-and-templates-compile-to-static-assets-deployed-to-cdn-edge-light.svg "SSG workflow: content and templates compile to static assets deployed to CDN edge locations.")
+![SSG workflow: content and templates compile to static assets deployed to CDN edge locations.](./diagrams/ssg-workflow-content-and-templates-compile-to-static-assets-deployed-to-cdn-edge-dark.svg)
 
 ### Framework Comparison and Build Performance
 
@@ -171,11 +165,8 @@ The preferred strategy: single CloudFront distribution with origin path pointing
 
 **Propagation timing**: Invalidations complete within seconds to minutes across 225+ edge locations. Not instant—plan for 1-2 minute visibility delay during deployments.
 
-<figure>
-<img class="only-light" src="./diagrams/deployment-and-rollback-sequence-showing-the-interaction-between-ci-cd-pipeline-.light.svg" alt="Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments" />
-<img class="only-dark" src="./diagrams/deployment-and-rollback-sequence-showing-the-interaction-between-ci-cd-pipeline-.dark.svg" alt="Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments" />
-<figcaption>Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments</figcaption>
-</figure>
+![Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments](./diagrams/deployment-and-rollback-sequence-showing-the-interaction-between-ci-cd-pipeline--light.svg "Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments")
+![Deployment and rollback sequence showing the interaction between CI/CD pipeline, S3, and CloudFront for atomic deployments](./diagrams/deployment-and-rollback-sequence-showing-the-interaction-between-ci-cd-pipeline--dark.svg)
 
 ### Lambda@Edge Build Version Routing
 
@@ -183,10 +174,7 @@ For sophisticated rollback and A/B testing scenarios, Lambda@Edge functions rout
 
 **Why Lambda@Edge over CloudFront Functions?** This pattern requires modifying the origin request after cache miss—CloudFront Functions can only modify viewer request/response and cannot change origin domain or path dynamically.
 
-<figure>
-  <img src="./assets/ssg-cloudfront-arch.inline.svg" alt="SSG CloudFront Architecture with Build Version Management" />
-  <figcaption>Architecture diagram showing SSG deployment with CloudFront and build version management for zero-downtime deployments</figcaption>
-</figure>
+![SSG CloudFront Architecture with Build Version Management](./assets/ssg-cloudfront-arch.inline.svg "Architecture diagram showing SSG deployment with CloudFront and build version management for zero-downtime deployments")
 
 **S3 Bucket Structure:**
 
@@ -213,10 +201,7 @@ S3 Bucket
 **CloudFront Configuration:**
 Add a custom origin header in CloudFront's origin configuration that is always updated with the new release post syncing all files to S3. This header contains the current build version.
 
-<figure>
-  <img src="./assets/add-build-version.jpg" alt="Adding Build Version Header in CloudFront" />
-  <figcaption>Screenshot showing CloudFront configuration for adding build version headers to enable dynamic routing</figcaption>
-</figure>
+![Adding Build Version Header in CloudFront](./assets/add-build-version.jpg "Screenshot showing CloudFront configuration for adding build version headers to enable dynamic routing")
 
 **Lambda@Edge Function:**
 
@@ -463,11 +448,8 @@ Compression determines bandwidth and load time. The architectural decision: comp
 
 Coordinates build process, S3 metadata, edge function content negotiation, and cache policy configuration.
 
-<figure>
-<img class="only-light" src="./diagrams/pre-compression-architecture-showing-the-build-process-s3-deployment-and-lambda-.light.svg" alt="Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow" />
-<img class="only-dark" src="./diagrams/pre-compression-architecture-showing-the-build-process-s3-deployment-and-lambda-.dark.svg" alt="Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow" />
-<figcaption>Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow</figcaption>
-</figure>
+![Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow](./diagrams/pre-compression-architecture-showing-the-build-process-s3-deployment-and-lambda--light.svg "Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow")
+![Pre-compression architecture showing the build process, S3 deployment, and Lambda@Edge content negotiation flow](./diagrams/pre-compression-architecture-showing-the-build-process-s3-deployment-and-lambda--dark.svg)
 
 **Build step**: After bundling, generate Gzip and Brotli variants:
 

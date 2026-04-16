@@ -1,8 +1,17 @@
+%% Diagram: Custom Element Lifecycle
+%% Type: state
 stateDiagram-v2
-    [*] --> Constructed: constructor()
-    Constructed --> Connected: connectedCallback()
-    Connected --> AttributeChanged: attributeChangedCallback()
-    AttributeChanged --> Connected: Update complete
-    Connected --> Disconnected: disconnectedCallback()
-    Disconnected --> Connected: Re-inserted into DOM
-    Disconnected --> [*]: Garbage collected
+  [*] --> Constructed: new or upgrade
+  Constructed --> Connected: connectedCallback
+  Connected --> AttributeChanged: attributeChangedCallback
+  AttributeChanged --> Connected: sync or render
+  Connected --> Adopted: adoptedCallback
+  Adopted --> Connected: still connected
+  Connected --> Disconnected: disconnectedCallback
+  Disconnected --> Connected: re-inserted
+  Disconnected --> [*]: GC when unreachable
+
+  note right of Constructed
+    constructor: call super only;
+    defer DOM work to connectedCallback
+  end note

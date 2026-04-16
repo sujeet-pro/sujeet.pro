@@ -18,11 +18,8 @@ Building drag and drop interactions that work across input devices, handle compl
 
 Drag and drop appears simple: grab an element, move it, release it. In practice, it requires handling three incompatible input APIs (mouse, touch, pointer), working around significant browser inconsistencies in the HTML5 Drag and Drop API, providing keyboard alternatives for accessibility, and managing visual feedback during the operation. This article covers the underlying browser APIs, the design decisions that differentiate library approaches, and how production applications solve these problems at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen.light.svg" alt="Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback." />
-<img class="only-dark" src="./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen.dark.svg" alt="Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback." />
-<figcaption>Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.</figcaption>
-</figure>
+![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen-light.svg "Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.")
+![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen-dark.svg)
 
 ## Abstract
 
@@ -533,10 +530,8 @@ pointerdown → capture → pointermove (throttled) → hit test drop targets �
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Implementing Core Patterns
 

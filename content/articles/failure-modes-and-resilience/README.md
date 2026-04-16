@@ -16,11 +16,8 @@ tags:
 
 Distributed systems fail in complex, often surprising ways. This article covers the taxonomy of failures—from clean crashes to insidious gray failures—and the resilience patterns that mitigate them. The focus is on design decisions: when to use each pattern, how to tune parameters, and what trade-offs you're accepting.
 
-<figure>
-<img class="only-light" src="./diagrams/failure-modes-flow-through-detection-mechanisms-to-mitigation-patterns-with-blas.light.svg" alt="Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer." />
-<img class="only-dark" src="./diagrams/failure-modes-flow-through-detection-mechanisms-to-mitigation-patterns-with-blas.dark.svg" alt="Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer." />
-<figcaption>Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer.</figcaption>
-</figure>
+![Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer.](./diagrams/failure-modes-flow-through-detection-mechanisms-to-mitigation-patterns-with-blas-light.svg "Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer.")
+![Failure modes flow through detection mechanisms to mitigation patterns, with blast radius isolation as the outer defense layer.](./diagrams/failure-modes-flow-through-detection-mechanisms-to-mitigation-patterns-with-blas-dark.svg)
 
 ## Abstract
 
@@ -365,10 +362,8 @@ Not all errors should be retried:
 
 **Mechanism:** Stop calling a failing dependency, give it time to recover.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **States:**
 

@@ -18,11 +18,7 @@ tags:
 
 Explore libuv's event loop architecture, asynchronous I/O capabilities, thread pool management, and how it enables Node.js's non-blocking, event-driven programming model.
 
-<figure>
-  <img src="./assets/libuv-architecture.webp" alt="Libuv Design Overview from libuv.org" />
-  <figcaption>Libuv architecture diagram showing the core components and their relationships in the cross-platform I/O library</figcaption>
-
-</figure>
+![Libuv Design Overview from libuv.org](./assets/libuv-architecture.webp "Libuv architecture diagram showing the core components and their relationships in the cross-platform I/O library")
 
 ## Abstract
 
@@ -81,10 +77,8 @@ The architecture of libuv is elegantly constructed upon three primary abstractio
 
 #### The Two Modalities of Asynchronicity: Kernel Polling vs. Thread Pool Offloading
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/io-dual-strategy-dark.svg" />
-  <img src="./diagrams/io-dual-strategy-light.svg" alt="libuv I/O dual strategy showing network I/O via kernel polling versus file I/O and DNS via thread pool" />
-</picture>
+![libuv I/O dual strategy showing network I/O via kernel polling versus file I/O and DNS via thread pool](./diagrams/io-dual-strategy-light.svg)
+![libuv I/O dual strategy showing network I/O via kernel polling versus file I/O and DNS via thread pool](./diagrams/io-dual-strategy-dark.svg)
 
 A deep analysis of libuv reveals a pragmatic dichotomy in its approach to asynchronicity, a design choice dictated not by preference but by the practical limitations of modern operating systems. The library employs two fundamentally different strategies to achieve its non-blocking behavior.
 
@@ -171,18 +165,12 @@ It is critical to reiterate that network I/O (e.g., TCP, UDP operations) is not 
 
 The libuv event loop is not a simple First-In-First-Out (FIFO) queue. It is a sophisticated, multi-phase process that executes different categories of callbacks in a specific, predictable order within each iteration, or "tick," of the loop ([libuv design docs](https://docs.libuv.org/en/v1.x/design.html)). A granular understanding of these phases is essential for comprehending the execution order of asynchronous operations and for debugging complex timing-related issues.
 
-<figure>
-  <img src="./assets/async-operations.jpg" alt="Async Operations Slide by Bert Belder at Node Interactive - 2016" />
-  <figcaption>Async operations diagram showing how libuv handles non-blocking I/O operations through the event loop</figcaption>
-
-</figure>
+![Async Operations Slide by Bert Belder at Node Interactive - 2016](./assets/async-operations.jpg "Async operations diagram showing how libuv handles non-blocking I/O operations through the event loop")
 
 ### The Anatomy of a Single Loop Iteration
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/event-loop-phases-dark.svg" />
-  <img src="./diagrams/event-loop-phases-light.svg" alt="The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks" />
-</picture>
+![The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks](./diagrams/event-loop-phases-light.svg)
+![The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks](./diagrams/event-loop-phases-dark.svg)
 
 Each full turn of the event loop, initiated by a call to uv_run(), proceeds through the following distinct stages:
 
@@ -316,11 +304,7 @@ The primary architectural achievement of libuv is its ability to present a clean
 | File I/O Support    | Not suitable for disk I/O (can block)                                | EVFILT_VNODE for file changes, but not ideal for async data I/O | Native support for both sockets and files                           |
 | Threading Model     | Single or multiple threads can call epoll_pwait on the same epoll fd | Single or multiple threads can call kevent                      | Designed for a pool of worker threads to service completion packets |
 
-<figure>
-  <img src="./assets/loop_iteration.webp" alt="Loop Iteration from libuv.org" />
-  <figcaption>Detailed view of a single libuv event loop iteration showing the sequence of phases and their execution order</figcaption>
-
-</figure>
+![Loop Iteration from libuv.org](./assets/loop_iteration.webp "Detailed view of a single libuv event loop iteration showing the sequence of phases and their execution order")
 
 ## In-Depth Analysis of Handles and Requests
 

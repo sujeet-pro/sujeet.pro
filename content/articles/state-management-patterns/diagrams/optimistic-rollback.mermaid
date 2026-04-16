@@ -1,0 +1,8 @@
+%% Diagram: Optimistic Rollback
+%% Type: state
+stateDiagram-v2
+    [*] --> Pending: User action (assume success)
+    Pending --> Confirmed: Server ACK + merge canonical
+    Pending --> RolledBack: Server error or conflict
+    Confirmed --> [*]
+    RolledBack --> [*]: Restore prior snapshot + user message

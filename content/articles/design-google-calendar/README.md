@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a calendar and scheduling application handling recurring events, timezone complexity, and real-time collaboration. This design addresses event recurrence at scale (RRULE expansion), global timezone handling across DST boundaries, availability aggregation for meeting scheduling, and multi-client synchronization with conflict resolution.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services-.light.svg" alt="High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion." />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services-.dark.svg" alt="High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion." />
-<figcaption>High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.</figcaption>
-</figure>
+![High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.](./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services--light.svg "High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.")
+![High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.](./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services--dark.svg)
 
 ## Abstract
 
@@ -233,17 +230,13 @@ Delivers reminders and alerts:
 
 ### Data Flow: Creating a Recurring Event
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Data Flow: Querying Calendar View
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## API Design
 
@@ -914,10 +907,8 @@ $$ LANGUAGE plpgsql;
 
 When an organizer invites attendees, the system generates iTIP REQUEST messages:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **iMIP Email Format:**
 
@@ -1115,10 +1106,8 @@ function handleRecurringEventDrop(eventId: string, instanceDate: Date, newTime: 
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 | Component          | AWS Service       | Configuration                            |
 | ------------------ | ----------------- | ---------------------------------------- |

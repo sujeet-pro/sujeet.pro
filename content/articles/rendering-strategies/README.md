@@ -14,11 +14,8 @@ tags:
 
 Choosing between CSR, SSR, SSG, and hybrid rendering is not a binary decision—it's about matching rendering strategy to content characteristics. Static content benefits from build-time rendering; dynamic, personalized content needs request-time rendering; interactive components need client-side JavaScript. Modern frameworks like Next.js 15, Astro 5, and Nuxt 3 enable mixing strategies within a single application, rendering each route—or even each component—with the optimal approach.
 
-<figure>
-<img class="only-light" src="./diagrams/rendering-strategies-span-build-time-request-time-and-client-time-modern-applica.light.svg" alt="Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics." />
-<img class="only-dark" src="./diagrams/rendering-strategies-span-build-time-request-time-and-client-time-modern-applica.dark.svg" alt="Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics." />
-<figcaption>Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics.</figcaption>
-</figure>
+![Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics.](./diagrams/rendering-strategies-span-build-time-request-time-and-client-time-modern-applica-light.svg "Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics.")
+![Rendering strategies span build-time, request-time, and client-time—modern applications mix these based on content characteristics.](./diagrams/rendering-strategies-span-build-time-request-time-and-client-time-modern-applica-dark.svg)
 
 ## Abstract
 

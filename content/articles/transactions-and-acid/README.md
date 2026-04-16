@@ -14,11 +14,8 @@ tags:
 
 Database transactions provide the foundation for reliable data operations: atomicity ensures all-or-nothing execution, consistency maintains invariants, isolation controls concurrent access, and durability guarantees persistence. This article explores implementation mechanisms (WAL, MVCC, locking), isolation level semantics across major databases, distributed transaction protocols (2PC, 3PC, Spanner's TrueTime), and practical alternatives (sagas, outbox pattern) for systems where traditional transactions don't scale.
 
-<figure>
-<img class="only-light" src="./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co.light.svg" alt="Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure" />
-<img class="only-dark" src="./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co.dark.svg" alt="Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure" />
-<figcaption>Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure</figcaption>
-</figure>
+![Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure](./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co-light.svg "Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure")
+![Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure](./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co-dark.svg)
 
 ## Abstract
 

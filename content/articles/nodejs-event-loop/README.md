@@ -18,10 +18,7 @@ tags:
 
 As of Node.js 22 LTS (libuv 1.48.0), this article covers how Node schedules input/output (I/O): libuv phases first, then V8 (the JavaScript engine) microtasks and `process.nextTick()`, and finally process exit conditions. Includes a spec-precise contrast to the Hypertext Markup Language (HTML) event loop and the ECMAScript job queue.
 
-<figure>
-  <img src="./assets/nodejs-event-loop-with-example.png" alt="Node.js Event Loop Phases" />
-  <figcaption>Phased diagram of the Node.js event loop showing the libuv phase order.</figcaption>
-</figure>
+![Node.js Event Loop Phases](./assets/nodejs-event-loop-with-example.png "Phased diagram of the Node.js event loop showing the libuv phase order.")
 
 ## Abstract
 
@@ -55,11 +52,8 @@ Example: A Hypertext Transfer Protocol (HTTP) server accepts a socket, runs the 
 
 Node follows libuv's six phases, each with its own callback queue. The order is fixed; what changes is how much work is queued in each phase and how long poll blocks.
 
-<figure>
-<img class="only-light" src="./diagrams/phase-order-annotated-with-the-post-callback-drain-points-for-process-nexttick-a.light.svg" alt="Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks." />
-<img class="only-dark" src="./diagrams/phase-order-annotated-with-the-post-callback-drain-points-for-process-nexttick-a.dark.svg" alt="Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks." />
-<figcaption>Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks.</figcaption>
-</figure>
+![Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks.](./diagrams/phase-order-annotated-with-the-post-callback-drain-points-for-process-nexttick-a-light.svg "Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks.")
+![Phase order annotated with the post-callback drain points for `process.nextTick()` and microtasks.](./diagrams/phase-order-annotated-with-the-post-callback-drain-points-for-process-nexttick-a-dark.svg)
 
 > "Each phase has a FIFO queue of callbacks to execute." - Node.js Event Loop docs.
 

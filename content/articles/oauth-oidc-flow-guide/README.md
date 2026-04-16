@@ -16,20 +16,15 @@ tags:
 
 A comprehensive technical analysis of OAuth 2.0 authorization flows, OpenID Connect (OIDC) identity layer, PKCE security mechanism, and token lifecycle management for secure authentication and authorization implementations.
 
-<figure>
-<img class="only-light" src="./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera.light.svg" alt="Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server." />
-<img class="only-dark" src="./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera.dark.svg" alt="Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server." />
-<figcaption>Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.</figcaption>
-</figure>
+![Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.](./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera-light.svg "Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.")
+![Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.](./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera-dark.svg)
 
 ## Abstract
 
 OAuth 2.0 is an **authorization delegation framework**—it lets users grant applications limited access to their resources without sharing credentials. OIDC (OpenID Connect) is an **identity layer on top of OAuth**—it proves _who_ the user is via ID tokens. The core security model relies on:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 | Component              | Purpose                                     | Lifetime     | Audience              |
 | ---------------------- | ------------------------------------------- | ------------ | --------------------- |
@@ -267,10 +262,8 @@ PKCE (Proof Key for Code Exchange, RFC 7636) prevents authorization code interce
 
 ### The Attack PKCE Prevents
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Attack scenario**: On mobile platforms, multiple apps can register the same custom URI scheme (`com.example.app://`). A malicious app intercepts the redirect containing the authorization code and exchanges it for tokens.
 
@@ -486,19 +479,15 @@ grant_type=refresh_token
 
 Rotation issues a new refresh token with each use, invalidating the previous one:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### Reuse Detection
 
 If a previously-used refresh token is presented, it indicates token theft:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Implementation considerations:**
 
@@ -562,10 +551,8 @@ async function handleRefreshToken(refreshToken) {
 
 **Backend-for-Frontend (BFF) Pattern** (most secure for SPAs):
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 - Browser never sees OAuth tokens
 - BFF maintains server-side session
@@ -628,10 +615,8 @@ DPoP (RFC 9449) sender-constrains tokens to prevent stolen tokens from being usa
 
 ### How DPoP Works
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### DPoP Proof JWT Structure
 

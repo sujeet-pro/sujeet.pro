@@ -14,11 +14,8 @@ tags:
 
 How WhatsApp scaled from zero to 1 billion users on Erlang/BEAM and FreeBSD — with fewer than 50 engineers, ~800 servers, and a custom protocol that compressed messages to 20 bytes — by pushing per-server density to limits most teams never attempt.
 
-<figure>
-<img class="only-light" src="./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti.light.svg" alt="WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers." />
-<img class="only-dark" src="./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti.dark.svg" alt="WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers." />
-<figcaption>WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.</figcaption>
-</figure>
+![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.](./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti-light.svg "WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.")
+![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.](./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti-dark.svg)
 
 ## Abstract
 

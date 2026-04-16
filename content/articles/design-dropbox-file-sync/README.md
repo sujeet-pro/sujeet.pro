@@ -15,11 +15,8 @@ tags:
 
 A system design for a file synchronization service that keeps files consistent across multiple devices. This design addresses the core challenges of efficient data transfer, conflict resolution, and real-time synchronization at scale—handling 500+ petabytes of data across 700 million users.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s.light.svg" alt="High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue." />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s.dark.svg" alt="High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue." />
-<figcaption>High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.</figcaption>
-</figure>
+![High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.](./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s-light.svg "High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.")
+![High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.](./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s-dark.svg)
 
 ## Abstract
 
@@ -246,11 +243,8 @@ function findChunkBoundary(
 
 ### Block Storage Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with.light.svg" alt="Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async." />
-<img class="only-dark" src="./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with.dark.svg" alt="Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async." />
-<figcaption>Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.</figcaption>
-</figure>
+![Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.](./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with-light.svg "Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.")
+![Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.](./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with-dark.svg)
 
 **Block addressing:** Content hash (SHA-256) as block ID. Two identical blocks anywhere in the system share storage.
 
@@ -465,11 +459,8 @@ POST /api/v2/files/upload_session/finish
 
 ### Block Sync Protocol
 
-<figure>
-<img class="only-light" src="./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre.light.svg" alt="Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes." />
-<img class="only-dark" src="./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre.dark.svg" alt="Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes." />
-<figcaption>Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.</figcaption>
-</figure>
+![Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.](./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre-light.svg "Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.")
+![Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.](./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre-dark.svg)
 
 **Streaming sync optimization:** Clients can prefetch blocks from partial blocklists before commit finalizes—reduces end-to-end sync time by 2x for large files.
 

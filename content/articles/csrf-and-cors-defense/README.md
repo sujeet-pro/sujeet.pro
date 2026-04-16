@@ -16,11 +16,8 @@ tags:
 
 A deep dive into Cross-Site Request Forgery (CSRF) and Cross-Origin Resource Sharing (CORS)—their threat models, specification-level mechanics, and defense-in-depth implementation patterns for production web applications.
 
-<figure>
-<img class="only-light" src="./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or.light.svg" alt="CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together." />
-<img class="only-dark" src="./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or.dark.svg" alt="CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together." />
-<figcaption>CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together.</figcaption>
-</figure>
+![CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together.](./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or-light.svg "CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together.")
+![CSRF exploits ambient authority (cookies sent automatically); CORS controls same-origin policy relaxation. Defense requires both browser-level and server-level controls working together.](./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or-dark.svg)
 
 ## Abstract
 
@@ -58,10 +55,8 @@ The attack requires three conditions:
 
 **Attack flow**:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Why it works**: The browser sees a request to `bank.com` and automatically includes `bank.com`'s cookies. The server cannot distinguish between a legitimate user action and an attacker-induced request—both carry the same session cookie.
 

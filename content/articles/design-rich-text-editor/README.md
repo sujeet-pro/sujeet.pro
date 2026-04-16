@@ -16,11 +16,8 @@ tags:
 
 Building a rich text editor for web applications requires choosing between fundamentally different document models, input handling strategies, and collaboration architectures. This article covers contentEditable vs custom rendering trade-offs, the document models behind ProseMirror, Slate, Lexical, and Quill, transaction-based state management, browser input handling (Input Events Level 2, IME), collaboration patterns (OT vs CRDT), virtualization for large documents, and accessibility requirements.
 
-<figure>
-<img class="only-light" src="./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u.light.svg" alt="Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync." />
-<img class="only-dark" src="./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u.dark.svg" alt="Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync." />
-<figcaption>Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.</figcaption>
-</figure>
+![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u-light.svg "Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.")
+![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u-dark.svg)
 
 ## Abstract
 

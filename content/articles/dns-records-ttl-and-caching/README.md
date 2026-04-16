@@ -17,11 +17,8 @@ tags:
 
 DNS records encode more than addresses—they define routing policies, ownership verification, security constraints, and service discovery. TTL (Time To Live) values control how long resolvers cache these records, creating a fundamental trade-off between propagation speed and query load. This article covers record types in depth, TTL design decisions for different operational scenarios, and the caching behaviors that determine how quickly DNS changes take effect.
 
-<figure>
-<img class="only-light" src="./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa.light.svg" alt="DNS record types grouped by function, and the caching layers that determine propagation timing." />
-<img class="only-dark" src="./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa.dark.svg" alt="DNS record types grouped by function, and the caching layers that determine propagation timing." />
-<figcaption>DNS record types grouped by function, and the caching layers that determine propagation timing.</figcaption>
-</figure>
+![DNS record types grouped by function, and the caching layers that determine propagation timing.](./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa-light.svg "DNS record types grouped by function, and the caching layers that determine propagation timing.")
+![DNS record types grouped by function, and the caching layers that determine propagation timing.](./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa-dark.svg)
 
 ## Abstract
 

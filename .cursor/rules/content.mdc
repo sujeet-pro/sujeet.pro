@@ -12,10 +12,27 @@ This project is a personal engineering blog at sujeet.pro. When working with con
 
 Read the full guidelines before creating or editing content:
 
-- `ai-guidelines/content-structure.md` — Content types, frontmatter, layout rules, citations
-- `ai-guidelines/markdown.md` — Markdown features and syntax
-- `ai-guidelines/diagrams.md` — Diagram authoring with diagramkit
-- `ai-guidelines/packages.md` — @pagesmith/core and diagramkit reference
+- `ai-guidelines/README.md` — task routing and validation commands
+- `ai-guidelines/content-structure.md` — content model, audience, frontmatter, citations
+- `ai-guidelines/markdown.md` — local markdown rules layered on top of Pagesmith
+- `ai-guidelines/diagrams.md` — diagram expectations, file layout, embedding
+- `ai-guidelines/packages.md` — Pagesmith and diagramkit reference map
+- `ai-guidelines/workflows/article-workflow.md` — article create/update/review
+- `ai-guidelines/workflows/blog-workflow.md` — blog create/update/review
+- `ai-guidelines/workflows/update-docs.md` — AI doc refresh workflow
+
+Prefer repo-local skills when they match the task:
+
+- `sp-article`
+- `sp-blog`
+- `sp-sync`
+
+Before editing content, identify the companion metadata that may need to change with it:
+
+- `content/articles/meta.json5`
+- `content/blogs/meta.json5`
+- `content/home.json5`
+- `content/redirects.json5`
 
 ## Quick Reference
 
@@ -35,27 +52,27 @@ Do NOT set `layout` or `category` — resolved from `meta.json5`.
 
 ### Content Types
 
-- Articles: `content/articles/<slug>/README.md` — deep-dive, citations required
-- Blogs: `content/blogs/<slug>/README.md` — shorter, personal
-- Projects: `content/projects/<slug>/README.md` — technical descriptions
+- Articles: `content/articles/<slug>/README.md` — research-backed, staff-level, diagram-heavy
+- Blogs: `content/blogs/<slug>/README.md` — shorter, personal, still technically correct
+- Projects: legacy only for now; do not create new project content unless explicitly asked
 
 ### Diagrams
 
 Write source files (`.mermaid`, `.excalidraw`, `.drawio`, `.dot`) in `<slug>/diagrams/`. Never generate SVG directly. Run `npm run diagrams` to render.
 
-Reference with:
+Preferred reference pattern:
 
 ```html
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/name-dark.svg" />
-  <img src="./diagrams/name-light.svg" alt="Description" />
-</picture>
+<figure>
+  <img class="only-light" src="./diagrams/name-light.svg" alt="Description" />
+  <img class="only-dark" src="./diagrams/name-dark.svg" alt="Description" />
+</figure>
 ```
 
 ### Validation
 
 ```bash
-npm run validate         # Check frontmatter
+npm run validate         # Check schemas and cross-file references
 npm run build            # Full build verification
 vp check                 # Format + lint
 ```

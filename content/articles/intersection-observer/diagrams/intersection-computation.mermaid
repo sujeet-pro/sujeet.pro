@@ -1,0 +1,24 @@
+%% Diagram: Intersection Computation
+%% Type: flowchart
+flowchart TB
+  subgraph geometry["Geometry inputs"]
+    root["root (viewport or element)"]
+    margin["rootMargin expands/contracts root intersection rectangle"]
+    target["target.getBoundingClientRect() (after other layout)"]
+  end
+  subgraph derive["Intersection computation"]
+    rir["Root intersection rectangle"]
+    clip["Clip target to root's overflow box"]
+    ratio["intersectionRatio vs target area"]
+  end
+  subgraph notify["Notification"]
+    thr["Compare prior ratio to threshold list"]
+    batch["If a threshold crossed → append entry; run callback later"]
+  end
+  root --> rir
+  margin --> rir
+  rir --> clip
+  target --> clip
+  clip --> ratio
+  ratio --> thr
+  thr --> batch

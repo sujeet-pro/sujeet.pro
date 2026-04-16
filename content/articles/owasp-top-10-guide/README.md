@@ -16,11 +16,8 @@ tags:
 
 The OWASP Top 10 is a ranked list of the most critical web application security risks, derived from real-world vulnerability data. The 2025 edition analyzed 2.8 million applications with 589 CWE (Common Weakness Enumeration) mappings across 248 categories, making it the definitive baseline for application security priorities.
 
-<figure>
-<img class="only-light" src="./diagrams/defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories.light.svg" alt="Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories" />
-<img class="only-dark" src="./diagrams/defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories.dark.svg" alt="Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories" />
-<figcaption>Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories</figcaption>
-</figure>
+![Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories](./diagrams/defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories-light.svg "Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories")
+![Defense-in-depth model mapped to OWASP Top 10:2025 vulnerability categories](./diagrams/defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories-dark.svg)
 
 ## Abstract
 

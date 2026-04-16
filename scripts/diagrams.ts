@@ -1,43 +1,82 @@
-import { renderAll, dispose, watchDiagrams, type BatchOptions } from "diagramkit";
+import { spawn } from "node:child_process";
+import { resolve } from "node:path";
+import { loadDiagramkitConfig } from "../lib/diagramkit-config.ts";
 
-function parseArgs(): BatchOptions & { watch: boolean } {
-  const args = process.argv.slice(2);
-  const opts: BatchOptions & { watch: boolean } = {
-    dir: "./content",
-    formats: ["svg"],
-    theme: "both",
-    watch: false,
-    force: false,
-  };
+const VALUE_FLAGS = new Set([
+  "--format",
+  "--theme",
+  "--scale",
+  "--quality",
+  "--type",
+  "--output",
+  "--config",
+  "--dir",
+  "--output-dir",
+  "--manifest-file",
+  "--output-prefix",
+  "--output-suffix",
+  "--max-type-lanes",
+  "--log-level",
+]);
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--watch") opts.watch = true;
-    else if (args[i] === "--force") opts.force = true;
-    else if (args[i] === "--type" && args[i + 1]) {
-      const t = args[++i];
-      if (t !== "mermaid" && t !== "excalidraw") {
-        console.error(`Unknown type: ${t}. Use 'mermaid' or 'excalidraw'.`);
-        process.exit(1);
-      }
-      opts.type = t as "mermaid" | "excalidraw";
+function resolveConfigPath(args: string[]): string {
+  const configIndex = args.indexOf("--config");
+  if (configIndex === -1) {
+    return resolve(process.cwd(), "diagramkit.config.json5");
+  }
+
+  const value = args[configIndex + 1];
+  if (!value) {
+    console.error("Missing value for --config.");
+    process.exit(1);
+  }
+
+  return resolve(process.cwd(), value);
+}
+
+function hasExplicitTarget(args: string[]): boolean {
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (!arg) continue;
+    if (!arg.startsWith("-")) return true;
+    if (VALUE_FLAGS.has(arg)) {
+      index++;
     }
   }
 
-  return opts;
+  return false;
 }
 
-const opts = parseArgs();
-const start = performance.now();
+const rawArgs = process.argv.slice(2);
+const configPath = resolveConfigPath(rawArgs);
 
-const result = await renderAll(opts);
-const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-console.log(
-  `Diagrams: ${result.rendered.length} rendered, ${result.skipped.length} cached (${elapsed}s)`,
-);
+// Validate the repo-local diagramkit config against the local schema before handing off to the CLI.
+loadDiagramkitConfig(configPath);
 
-if (opts.watch) {
-  console.log("Watching for diagram changes...");
-  watchDiagrams({ dir: opts.dir! });
-} else {
-  await dispose();
+const cliArgs = ["render"];
+if (!hasExplicitTarget(rawArgs)) {
+  cliArgs.push("./content");
 }
+cliArgs.push(...rawArgs);
+
+if (!rawArgs.includes("--config")) {
+  cliArgs.push("--config", configPath);
+}
+
+const child = spawn("diagramkit", cliArgs, {
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
+
+child.on("error", (error) => {
+  console.error(`Failed to launch diagramkit: ${error.message}`);
+  process.exit(1);
+});
+
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 0);
+});

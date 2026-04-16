@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for multi-channel notifications covering event ingestion, channel routing, delivery guarantees, user preferences, rate limiting, and failure handling. This design addresses sub-second delivery at Uber/LinkedIn scale (millions of notifications per second) with at-least-once delivery guarantees and user-centric throttling.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p.light.svg" alt="High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers." />
-<img class="only-dark" src="./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p.dark.svg" alt="High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers." />
-<figcaption>High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.</figcaption>
-</figure>
+![High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.](./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p-light.svg "High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.")
+![High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.](./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p-dark.svg)
 
 ## Abstract
 
@@ -122,10 +119,8 @@ Notification systems solve three interconnected problems: **reliable delivery** 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -155,10 +150,8 @@ Notification systems solve three interconnected problems: **reliable delivery** 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -188,10 +181,8 @@ Notification systems solve three interconnected problems: **reliable delivery** 
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -236,10 +227,8 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Notification API
 
@@ -1481,10 +1470,8 @@ class PushPermissionManager {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Service configurations:**
 

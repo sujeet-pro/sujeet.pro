@@ -1,0 +1,25 @@
+%% Diagram: Reproducibility Cache Artifacts
+%% Type: flowchart
+flowchart LR
+  subgraph inputs["Pinned inputs"]
+    SRC[Source revision]
+    LOCK[Lockfiles and manifests]
+    TOOL[Compiler and runtime versions]
+    CFG[Build definitions as code]
+  end
+
+  subgraph cache["Layered caches"]
+    DEPS[Dependency restore cache]
+    INCR[Incremental compiler or graph cache]
+  end
+
+  subgraph outputs["Durable outputs"]
+    ART[Content-addressed artifacts]
+    DIG[Cryptographic digests]
+    PRV[Provenance and attestations]
+  end
+
+  inputs --> cache
+  cache --> outputs
+  ART --> DIG
+  ART --> PRV

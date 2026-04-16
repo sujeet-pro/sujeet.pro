@@ -15,11 +15,8 @@ tags:
 
 Spotify serves 675+ million monthly active users across 180+ markets, streaming from a catalog of 100+ million tracks. Unlike video platforms where files are gigabytes, audio files are megabytes—but the scale of concurrent streams, personalization depth, and the expectation of instant playback create unique challenges. This design covers the audio delivery pipeline, the recommendation engine that drives 30%+ of listening, offline sync, and the microservices architecture that enables 300+ autonomous teams to ship independently.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-clients-connect-through-api-gateway-to-microservices-aud.light.svg" alt="High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics." />
-<img class="only-dark" src="./diagrams/high-level-architecture-clients-connect-through-api-gateway-to-microservices-aud.dark.svg" alt="High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics." />
-<figcaption>High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics.</figcaption>
-</figure>
+![High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics.](./diagrams/high-level-architecture-clients-connect-through-api-gateway-to-microservices-aud-light.svg "High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics.")
+![High-level architecture: clients connect through API gateway to microservices; audio delivered via multi-CDN; events flow through Pub/Sub to analytics.](./diagrams/high-level-architecture-clients-connect-through-api-gateway-to-microservices-aud-dark.svg)
 
 ## Abstract
 
@@ -202,11 +199,8 @@ This article focuses on **Path B (Multi-CDN)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/domain-driven-microservices-architecture-with-specialized-data-stores-per-domain.light.svg" alt="Domain-driven microservices architecture with specialized data stores per domain." />
-<img class="only-dark" src="./diagrams/domain-driven-microservices-architecture-with-specialized-data-stores-per-domain.dark.svg" alt="Domain-driven microservices architecture with specialized data stores per domain." />
-<figcaption>Domain-driven microservices architecture with specialized data stores per domain.</figcaption>
-</figure>
+![Domain-driven microservices architecture with specialized data stores per domain.](./diagrams/domain-driven-microservices-architecture-with-specialized-data-stores-per-domain-light.svg "Domain-driven microservices architecture with specialized data stores per domain.")
+![Domain-driven microservices architecture with specialized data stores per domain.](./diagrams/domain-driven-microservices-architecture-with-specialized-data-stores-per-domain-dark.svg)
 
 ### Service Communication
 
@@ -257,11 +251,8 @@ Follow event → Pub/Sub → Social graph update
 
 ### Audio Encoding Strategy
 
-<figure>
-<img class="only-light" src="./diagrams/multi-bitrate-encoding-each-track-encoded-to-4-quality-levels-for-adaptive-strea.light.svg" alt="Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming." />
-<img class="only-dark" src="./diagrams/multi-bitrate-encoding-each-track-encoded-to-4-quality-levels-for-adaptive-strea.dark.svg" alt="Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming." />
-<figcaption>Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming.</figcaption>
-</figure>
+![Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming.](./diagrams/multi-bitrate-encoding-each-track-encoded-to-4-quality-levels-for-adaptive-strea-light.svg "Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming.")
+![Multi-bitrate encoding: each track encoded to 4 quality levels for adaptive streaming.](./diagrams/multi-bitrate-encoding-each-track-encoded-to-4-quality-levels-for-adaptive-strea-dark.svg)
 
 ### Quality Levels
 
@@ -325,11 +316,8 @@ For seamless album listening:
 
 ### Multi-CDN Strategy
 
-<figure>
-<img class="only-light" src="./diagrams/cdn-tiering-akamai-aws-for-latency-sensitive-audio-fastly-for-cacheable-assets.light.svg" alt="CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets." />
-<img class="only-dark" src="./diagrams/cdn-tiering-akamai-aws-for-latency-sensitive-audio-fastly-for-cacheable-assets.dark.svg" alt="CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets." />
-<figcaption>CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets.</figcaption>
-</figure>
+![CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets.](./diagrams/cdn-tiering-akamai-aws-for-latency-sensitive-audio-fastly-for-cacheable-assets-light.svg "CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets.")
+![CDN tiering: Akamai/AWS for latency-sensitive audio, Fastly for cacheable assets.](./diagrams/cdn-tiering-akamai-aws-for-latency-sensitive-audio-fastly-for-cacheable-assets-dark.svg)
 
 ### CDN Selection Logic
 
@@ -694,11 +682,8 @@ CREATE TABLE listening_history (
 
 ### Architecture Overview
 
-<figure>
-<img class="only-light" src="./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with-.light.svg" alt="Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model." />
-<img class="only-dark" src="./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with-.dark.svg" alt="Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model." />
-<figcaption>Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model.</figcaption>
-</figure>
+![Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--light.svg "Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model.")
+![Two-stage recommendation: retrieve candidates via embedding similarity, rank with ML model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--dark.svg)
 
 ### Collaborative Filtering
 
@@ -773,11 +758,8 @@ For real-time recommendations, use Annoy (Approximate Nearest Neighbors Oh Yeah)
 
 ### Download Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/offline-download-flow-queue-prioritize-fetch-encrypt-store-locally.light.svg" alt="Offline download flow: queue → prioritize → fetch → encrypt → store locally." />
-<img class="only-dark" src="./diagrams/offline-download-flow-queue-prioritize-fetch-encrypt-store-locally.dark.svg" alt="Offline download flow: queue → prioritize → fetch → encrypt → store locally." />
-<figcaption>Offline download flow: queue → prioritize → fetch → encrypt → store locally.</figcaption>
-</figure>
+![Offline download flow: queue → prioritize → fetch → encrypt → store locally.](./diagrams/offline-download-flow-queue-prioritize-fetch-encrypt-store-locally-light.svg "Offline download flow: queue → prioritize → fetch → encrypt → store locally.")
+![Offline download flow: queue → prioritize → fetch → encrypt → store locally.](./diagrams/offline-download-flow-queue-prioritize-fetch-encrypt-store-locally-dark.svg)
 
 ### License Management
 
@@ -852,11 +834,8 @@ Device storage: 2.1 GB available
 
 ### Search Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/search-pipeline-parse-correct-expand-search-rank-deduplicate.light.svg" alt="Search pipeline: parse → correct → expand → search → rank → deduplicate." />
-<img class="only-dark" src="./diagrams/search-pipeline-parse-correct-expand-search-rank-deduplicate.dark.svg" alt="Search pipeline: parse → correct → expand → search → rank → deduplicate." />
-<figcaption>Search pipeline: parse → correct → expand → search → rank → deduplicate.</figcaption>
-</figure>
+![Search pipeline: parse → correct → expand → search → rank → deduplicate.](./diagrams/search-pipeline-parse-correct-expand-search-rank-deduplicate-light.svg "Search pipeline: parse → correct → expand → search → rank → deduplicate.")
+![Search pipeline: parse → correct → expand → search → rank → deduplicate.](./diagrams/search-pipeline-parse-correct-expand-search-rank-deduplicate-dark.svg)
 
 ### Typeahead/Autocomplete
 
@@ -1011,11 +990,8 @@ function crossfade(currentSource, nextSource, duration) {
 
 ### Google Cloud Platform Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/gcp-deployment-gke-for-microservices-managed-data-services-pub-sub-for-event-str.light.svg" alt="GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming." />
-<img class="only-dark" src="./diagrams/gcp-deployment-gke-for-microservices-managed-data-services-pub-sub-for-event-str.dark.svg" alt="GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming." />
-<figcaption>GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming.</figcaption>
-</figure>
+![GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming.](./diagrams/gcp-deployment-gke-for-microservices-managed-data-services-pub-sub-for-event-str-light.svg "GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming.")
+![GCP deployment: GKE for microservices, managed data services, Pub/Sub for event streaming.](./diagrams/gcp-deployment-gke-for-microservices-managed-data-services-pub-sub-for-event-str-dark.svg)
 
 ### Key GCP Services
 

@@ -14,11 +14,8 @@ tags:
 
 Every page load is a sequence of decisions: where HTML is generated, when data is fetched, and how interactivity is attached. The four canonical rendering strategies — Client-Side Rendering (CSR), Server-Side Rendering (SSR), Static Site Generation (SSG), and Incremental Static Regeneration (ISR) — represent different trade-off points along axes of freshness, performance, cost, and complexity. Modern frameworks blur the boundaries further with per-route strategies, streaming, islands architecture, and Partial Prerendering (PPR). This article examines the mechanics, failure modes, and design reasoning behind each approach, then builds a decision framework for choosing between them.
 
-<figure>
-<img class="only-light" src="./diagrams/the-rendering-spectrum-where-and-when-html-is-produced-modern-approaches-like-pp.light.svg" alt="The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page." />
-<img class="only-dark" src="./diagrams/the-rendering-spectrum-where-and-when-html-is-produced-modern-approaches-like-pp.dark.svg" alt="The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page." />
-<figcaption>The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page.</figcaption>
-</figure>
+![The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page.](./diagrams/the-rendering-spectrum-where-and-when-html-is-produced-modern-approaches-like-pp-light.svg "The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page.")
+![The rendering spectrum: where and when HTML is produced. Modern approaches like PPR and islands combine multiple strategies within a single page.](./diagrams/the-rendering-spectrum-where-and-when-html-is-produced-modern-approaches-like-pp-dark.svg)
 
 ## Abstract
 

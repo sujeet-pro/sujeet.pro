@@ -3,7 +3,7 @@ title: 'Search Algorithms: Linear, Binary, and Graph Traversal'
 description: >-
   Search algorithms from linear and binary search through BFS, DFS, Dijkstra, and A* — with TypeScript implementations, complexity analysis, and guidance on choosing the right algorithm based on data structure and search goal.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -14,21 +14,15 @@ tags:
 
 A comprehensive guide to search algorithms covering fundamental concepts, implementation details, performance characteristics, and real-world applications. Learn when to use each algorithm and understand the engineering trade-offs behind production search implementations.
 
-<figure>
-<img class="only-light" src="./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c.light.svg" alt="Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics" />
-<img class="only-dark" src="./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c.dark.svg" alt="Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics" />
-<figcaption>Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics</figcaption>
-</figure>
+![Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics](./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c-light.svg "Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics")
+![Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics](./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c-dark.svg)
 
 ## Abstract
 
 Search algorithms answer a fundamental question: _how do I find what I'm looking for?_ The answer depends on two factors: **data organization** and **search goal**.
 
-<figure>
-<img class="only-light" src="./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice.light.svg" alt="The core mental model: data structure and goal determine algorithm choice" />
-<img class="only-dark" src="./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice.dark.svg" alt="The core mental model: data structure and goal determine algorithm choice" />
-<figcaption>The core mental model: data structure and goal determine algorithm choice</figcaption>
-</figure>
+![The core mental model: data structure and goal determine algorithm choice](./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice-light.svg "The core mental model: data structure and goal determine algorithm choice")
+![The core mental model: data structure and goal determine algorithm choice](./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice-dark.svg)
 
 **Core trade-offs to internalize:**
 
@@ -61,7 +55,7 @@ Search problems vary along two axes: **data structure** and **search goal**.
 
 | Data Structure | Algorithms                        | Key Constraint        |
 | -------------- | --------------------------------- | --------------------- |
-| Unsorted Array | Linear Search                     | No random access      |
+| Unsorted Array | Linear Search                     | Requires scanning or an auxiliary index |
 | Sorted Array   | Binary, Jump, Interpolation, Exp. | Requires sorted order |
 | Graph          | BFS, DFS, Dijkstra, A\*           | Edge relationships    |
 | Hash Table     | Direct lookup                     | O(n) extra space      |
@@ -638,7 +632,7 @@ function bfsWithDistance(graph: Graph, start: number): Map<number, number> {
 **Practical applications**:
 
 - **Social networks**: Finding friends within N degrees of separation (LinkedIn connections)
-- **Web crawlers**: Crawling websites level by level (Google's PageRank)
+- **Web crawlers**: Crawling websites level by level or expanding a frontier outward from a seed set
 - **GPS navigation**: Shortest path in unweighted road networks (equal segment lengths)
 - **Network broadcasting**: Packet routing to all nodes (flooding algorithms)
 - **Puzzle solving**: Shortest solution in games (Rubik's cube, sliding puzzles)
@@ -941,7 +935,8 @@ function dijkstra(graph: WeightedGraph, start: number): Map<number, number> {
   const distances = new Map<number, number>()
   const visited = new Set<number>()
 
-  // Min-heap priority queue: [distance, node]
+  // Teaching shortcut: sorted array used as the priority queue.
+  // Swap in a binary heap to reach the usual O((V + E) log V) complexity.
   const pq: [number, number][] = [[0, start]]
   distances.set(start, 0)
 
@@ -1832,7 +1827,7 @@ Search algorithms are fundamentally about exploiting structure. The more you kno
 - **BFS O(V+E)**: Guarantees shortest path in unweighted graphs; level-order exploration
 - **DFS O(V+E)**: Memory efficient (O(depth) vs O(width)); use for cycle detection, topological sort
 - **Dijkstra O((V+E) log V)**: Shortest path for non-negative weighted graphs; greedy with priority queue
-- **A\* O(E) best case**: Dijkstra + heuristic; exponentially faster with good heuristic, optimal if admissible
+- **A\***: Dijkstra + heuristic guidance; often expands far fewer nodes than Dijkstra when the heuristic is strong and remains optimal when the heuristic is admissible
 
 ### References
 

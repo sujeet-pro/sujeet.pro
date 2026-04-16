@@ -1,3 +1,5 @@
+%% Diagram: The Thundering Herd Loop That Constrained Recovery Speed Restarting Too Many Ser
+%% Type: flowchart
 flowchart LR
     A["Restart<br/>servers"] --> B["Shard-map<br/>construction<br/>consumes CPU"]
     B --> C["Few resources<br/>for requests"]

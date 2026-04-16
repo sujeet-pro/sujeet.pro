@@ -18,21 +18,15 @@ tags:
 
 The Draw stage is the final phase of the browser's rendering pipeline. The Viz process (Visuals) in Chromium takes abstract compositor frames—consisting of render passes and draw quads—and translates them into low-level GPU commands to produce actual pixels on the display.
 
-<figure>
-<img class="only-light" src="./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra.light.svg" alt="The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands." />
-<img class="only-dark" src="./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra.dark.svg" alt="The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands." />
-<figcaption>The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.</figcaption>
-</figure>
+![The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra-light.svg "The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.")
+![The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra-dark.svg)
 
 ## Abstract
 
 The Draw stage exists to solve a fundamental problem: multiple isolated renderer processes (main page, cross-origin iframes, browser UI) each produce independent compositor frames, but the display requires a single, coherent image.
 
-<figure>
-<img class="only-light" src="./diagrams/multiple-frame-sources-converge-in-viz-to-produce-a-single-aggregated-output.light.svg" alt="Multiple frame sources converge in Viz to produce a single aggregated output." />
-<img class="only-dark" src="./diagrams/multiple-frame-sources-converge-in-viz-to-produce-a-single-aggregated-output.dark.svg" alt="Multiple frame sources converge in Viz to produce a single aggregated output." />
-<figcaption>Multiple frame sources converge in Viz to produce a single aggregated output.</figcaption>
-</figure>
+![Multiple frame sources converge in Viz to produce a single aggregated output.](./diagrams/multiple-frame-sources-converge-in-viz-to-produce-a-single-aggregated-output-light.svg "Multiple frame sources converge in Viz to produce a single aggregated output.")
+![Multiple frame sources converge in Viz to produce a single aggregated output.](./diagrams/multiple-frame-sources-converge-in-viz-to-produce-a-single-aggregated-output-dark.svg)
 
 **Core mental model:**
 

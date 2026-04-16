@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a location-based business discovery service. This design addresses proximity search at scale, multi-signal ranking, and user-generated content moderation with a focus on sub-100ms search latency and global availability.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-client-requests-flow-through-edge-infrastructure-to-appl.light.svg" alt="High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka." />
-<img class="only-dark" src="./diagrams/high-level-architecture-client-requests-flow-through-edge-infrastructure-to-appl.dark.svg" alt="High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka." />
-<figcaption>High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka.</figcaption>
-</figure>
+![High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka.](./diagrams/high-level-architecture-client-requests-flow-through-edge-infrastructure-to-appl-light.svg "High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka.")
+![High-level architecture: Client requests flow through edge infrastructure to application services, with geospatial indexing in Elasticsearch and real-time updates via Kafka.](./diagrams/high-level-architecture-client-requests-flow-through-edge-infrastructure-to-appl-dark.svg)
 
 ## Abstract
 
@@ -108,10 +105,8 @@ Proximity services solve a fundamentally different problem than traditional text
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -141,10 +136,8 @@ Proximity services solve a fundamentally different problem than traditional text
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -174,10 +167,8 @@ Proximity services solve a fundamentally different problem than traditional text
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Key characteristics:**
 
@@ -649,10 +640,8 @@ CREATE INDEX idx_reviews_pending ON reviews (status, created_at)
 
 ### Search Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 ### Elasticsearch Query Construction
 
@@ -863,10 +852,8 @@ Where:
 
 ### Review Submission Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 ### Spam Detection Signals
 
@@ -1038,10 +1025,8 @@ interface MapSearchParams {
 
 ### Cloud-Agnostic Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 ### AWS Reference Implementation
 

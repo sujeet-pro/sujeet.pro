@@ -3,7 +3,7 @@ title: 'React Rendering Architecture: Fiber, SSR, and RSC'
 description: >-
   How React renders under the hood — the Fiber reconciliation engine, lane-based priority scheduling, two-phase render/commit cycle, streaming SSR, and React Server Components as stabilized in React 19.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -15,21 +15,15 @@ tags:
 
 React's rendering architecture has evolved from a synchronous stack-based reconciler to a sophisticated concurrent system built on Fiber's virtual call stack. This article examines the Fiber reconciliation engine, lane-based priority scheduling, streaming Server-Side Rendering (SSR), and React Server Components (RSC)—now stable as of React 19 (December 2024). Understanding these internals is essential for making informed architectural decisions about rendering strategies, performance optimization, and infrastructure requirements.
 
-<figure>
-<img class="only-light" src="./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy.light.svg" alt="All rendering models (CSR, SSR, RSC) use the Fiber reconciler. SSR and RSC require hydration on the client to become interactive." />
-<img class="only-dark" src="./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy.dark.svg" alt="All rendering models (CSR, SSR, RSC) use the Fiber reconciler. SSR and RSC require hydration on the client to become interactive." />
-<figcaption>All rendering models (CSR, SSR, RSC) use the Fiber reconciler. SSR and RSC require hydration on the client to become interactive.</figcaption>
-</figure>
+![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams server output and hydrates only the client boundaries that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-light.svg "Fiber underpins CSR, SSR, and RSC. Traditional SSR hydrates the rendered tree; RSC keeps non-interactive server components on the server and hydrates only client boundaries.")
+![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams server output and hydrates only the client boundaries that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-dark.svg)
 
 ## Abstract
 
 React's rendering architecture rests on three interdependent pillars:
 
-<figure>
-<img class="only-light" src="./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter.light.svg" alt="Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs." />
-<img class="only-dark" src="./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter.dark.svg" alt="Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs." />
-<figcaption>Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.</figcaption>
-</figure>
+![Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-light.svg "Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.")
+![Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-dark.svg)
 
 **Mental model:**
 
@@ -41,7 +35,7 @@ React's rendering architecture rests on three interdependent pillars:
 
 4. **Rendering location is orthogonal to Fiber**: CSR, SSR, and RSC all use Fiber for reconciliation. RSC differs by serializing the component tree into a streamable Flight protocol, sending only UI descriptions—never component code—to the client.
 
-5. **RSC is stable in React 19**: Server Components ship zero JavaScript to the client, fetch data directly on the server, and integrate with Suspense for progressive streaming.
+5. **RSC is stable in React 19**: Server Components themselves ship zero JavaScript to the client, fetch data directly on the server, and integrate with Suspense for progressive streaming while client boundaries hydrate where interactivity is needed.
 
 ## 1. The Fiber Reconciliation Engine
 
@@ -544,7 +538,7 @@ The `"use server"` directive marks a function as a **Server Action**—callable 
 
 React 19 introduced the **React Compiler** (formerly "React Forget")—a build-time optimization tool that automatically memoizes components and values.
 
-### What It Does
+### 5.1 What It Does
 
 The compiler analyzes your code and inserts optimizations:
 
@@ -564,7 +558,7 @@ const filteredList = items.filter(predicate) // Compiler memoizes
 const handleClick = () => doSomething(id) // Compiler stabilizes
 ```
 
-### Limitations
+### 5.2 Limitations
 
 The compiler optimizes **how** components render, not **whether** they render. Architectural decisions remain your responsibility:
 

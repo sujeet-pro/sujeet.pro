@@ -14,11 +14,8 @@ tags:
 
 Rate limiting protects distributed systems from abuse, prevents resource exhaustion, and ensures fair access. This article examines five core algorithms—their internal mechanics, trade-offs, and production implementations—plus distributed coordination patterns that make rate limiting work at scale.
 
-<figure>
-<img class="only-light" src="./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro.light.svg" alt="Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off." />
-<img class="only-dark" src="./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro.dark.svg" alt="Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off." />
-<figcaption>Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.</figcaption>
-</figure>
+![Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.](./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro-light.svg "Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.")
+![Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.](./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro-dark.svg)
 
 ## Abstract
 

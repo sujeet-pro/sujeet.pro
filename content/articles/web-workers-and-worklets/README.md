@@ -15,11 +15,8 @@ tags:
 
 Concurrency primitives for keeping the main thread responsive. Workers provide general-purpose parallelism via message passing; worklets integrate directly into the browser's rendering pipeline for synchronized paint, animation, and audio processing.
 
-<figure>
-<img class="only-light" src="./diagrams/workers-communicate-asynchronously-via-message-passing-worklets-integrate-synchr.light.svg" alt="Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages." />
-<img class="only-dark" src="./diagrams/workers-communicate-asynchronously-via-message-passing-worklets-integrate-synchr.dark.svg" alt="Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages." />
-<figcaption>Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages.</figcaption>
-</figure>
+![Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages.](./diagrams/workers-communicate-asynchronously-via-message-passing-worklets-integrate-synchr-light.svg "Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages.")
+![Workers communicate asynchronously via message passing. Worklets integrate synchronously at specific rendering pipeline stages.](./diagrams/workers-communicate-asynchronously-via-message-passing-worklets-integrate-synchr-dark.svg)
 
 ## Abstract
 

@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for real-time collaborative document editing covering synchronization algorithms, presence broadcasting, conflict resolution, storage patterns, and offline support. This design addresses sub-second convergence for concurrent edits while maintaining document history and supporting 10-50 simultaneous editors.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-websocket-based-real-time-sync-with-operation-log-persis.light.svg" alt="High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots." />
-<img class="only-dark" src="./diagrams/high-level-architecture-websocket-based-real-time-sync-with-operation-log-persis.dark.svg" alt="High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots." />
-<figcaption>High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots.</figcaption>
-</figure>
+![High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots.](./diagrams/high-level-architecture-websocket-based-real-time-sync-with-operation-log-persis-light.svg "High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots.")
+![High-level architecture: WebSocket-based real-time sync with operation log persistence and periodic snapshots.](./diagrams/high-level-architecture-websocket-based-real-time-sync-with-operation-log-persis-dark.svg)
 
 ## Abstract
 
@@ -114,10 +111,8 @@ Collaborative document editing requires solving three interrelated problems: **r
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -147,10 +142,8 @@ Collaborative document editing requires solving three interrelated problems: **r
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -220,10 +213,8 @@ Path B (CRDT) details are covered in [CRDTs for Collaborative Systems](../crdt-f
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ### WebSocket Gateway
 
@@ -1164,10 +1155,8 @@ class OfflineQueue {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Service configurations:**
 

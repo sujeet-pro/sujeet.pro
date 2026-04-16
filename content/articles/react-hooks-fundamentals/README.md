@@ -3,7 +3,7 @@ title: 'React Hooks Fundamentals: Rules, Core Hooks, and Custom Hooks'
 description: >-
   A ground-up guide to React Hooks covering the call-order linked list model, core hooks like useState, useEffect, useRef, useMemo, and useCallback, plus patterns for building composable custom hooks.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - react
   - design-systems
@@ -15,11 +15,8 @@ tags:
 
 React Hooks enable functional components to manage state and side effects. Introduced in React 16.8 (February 2019), hooks replaced class components as the recommended approach for most use cases. This article covers the architectural principles, core hooks, and patterns for building production applications.
 
-<figure>
-<img class="only-light" src="./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron.light.svg" alt="React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering." />
-<img class="only-dark" src="./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron.dark.svg" alt="React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering." />
-<figcaption>React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.</figcaption>
-</figure>
+![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-light.svg "React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.")
+![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-dark.svg)
 
 ## Abstract
 
@@ -152,7 +149,8 @@ setObj({ ...obj, x: 10 })
 // ❌ createTodos() runs every render (result ignored after first)
 const [todos, setTodos] = useState(createTodos())
 
-// ✅ createTodos only runs once
+// ✅ createTodos runs for the initial render
+// In Strict Mode development builds, React may call it twice to verify purity.
 const [todos, setTodos] = useState(createTodos)
 ```
 
@@ -552,8 +550,8 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (v: T | ((
 
 Detects when elements enter/leave the viewport. Replaces inefficient scroll listeners.
 
-```tsx title="useIntersectionObserver.tsx" collapse={1-5, 22-28}
-import { useEffect, useRef, useState, useCallback } from "react"
+```tsx title="useIntersectionObserver.tsx" collapse={1-5, 19-28}
+import { useEffect, useState } from "react"
 
 interface Options {
   threshold?: number
@@ -564,31 +562,24 @@ interface Options {
 export function useIntersectionObserver(options: Options = {}) {
   const { threshold = 0, rootMargin = "0px", freezeOnceVisible = false } = options
   const [isIntersecting, setIsIntersecting] = useState(false)
-  const frozen = useRef(false)
-  const ref = useRef<Element | null>(null)
+  const [node, setNode] = useState<Element | null>(null)
 
-  const setRef = useCallback(
-    (node: Element | null) => {
-      if (ref.current) return // Already observing
-      ref.current = node
-      if (!node) return
+  useEffect(() => {
+    if (!node) return
+    if (freezeOnceVisible && isIntersecting) return
 
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (frozen.current) return
-          if (freezeOnceVisible && entry.isIntersecting) frozen.current = true
-          setIsIntersecting(entry.isIntersecting)
-        },
-        { threshold, rootMargin },
-      )
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting)
+      },
+      { threshold, rootMargin },
+    )
 
-      observer.observe(node)
-      return () => observer.disconnect()
-    },
-    [threshold, rootMargin, freezeOnceVisible],
-  )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [node, threshold, rootMargin, freezeOnceVisible, isIntersecting])
 
-  return [setRef, isIntersecting] as const
+  return [setNode, isIntersecting] as const
 }
 ```
 

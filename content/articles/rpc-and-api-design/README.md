@@ -14,11 +14,8 @@ tags:
 
 Choosing communication protocols and patterns for distributed systems. This article covers REST, gRPC, and GraphQL—their design trade-offs, when each excels, and real-world implementations. Also covers API versioning, pagination, rate limiting, and documentation strategies that scale.
 
-<figure>
-<img class="only-light" src="./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an.light.svg" alt="API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries." />
-<img class="only-dark" src="./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an.dark.svg" alt="API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries." />
-<figcaption>API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.</figcaption>
-</figure>
+![API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.](./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an-light.svg "API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.")
+![API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.](./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an-dark.svg)
 
 ## Abstract
 

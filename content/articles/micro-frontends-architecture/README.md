@@ -81,17 +81,11 @@ A cornerstone of the architecture is the ability for each team to deploy their m
 
 Microfrontends should be modeled around business domains, not technical layers. This ensures that teams are focused on delivering business value and that the boundaries between components are logical and clear.
 
-<figure>
-<img class="only-light" src="./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl.light.svg" alt="Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve" />
-<img class="only-dark" src="./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl.dark.svg" alt="Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve" />
-<figcaption>Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve</figcaption>
-</figure>
+![Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve](./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl-light.svg "Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve")
+![Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve](./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl-dark.svg)
 
-<figure>
-<img class="only-light" src="./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec.light.svg" alt="Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy" />
-<img class="only-dark" src="./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec.dark.svg" alt="Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy" />
-<figcaption>Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy</figcaption>
-</figure>
+![Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy](./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec-light.svg "Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy")
+![Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy](./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec-dark.svg)
 
 ## The Composition Conundrum: Where to Assemble the Puzzle?
 
@@ -103,11 +97,8 @@ The method by which independent microfrontends are stitched together into a cohe
 | **Server-Side**      | Origin Server      | Server-Side Includes (SSI), SSR Frameworks (e.g., Next.js) | SEO-critical applications where initial load performance is paramount and state-sharing complexity is high                                            |
 | **Edge-Side**        | CDN / Edge Network | ESI, Cloudflare Workers, AWS Lambda@Edge                   | Applications with global audiences that require high availability, low latency, and the ability to offload scalability challenges to the CDN provider |
 
-<figure>
-<img class="only-light" src="./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro.light.svg" alt="Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends" />
-<img class="only-dark" src="./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro.dark.svg" alt="Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends" />
-<figcaption>Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends</figcaption>
-</figure>
+![Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends](./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro-light.svg "Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends")
+![Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends](./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro-dark.svg)
 
 ## A Deep Dive into Integration Techniques
 
@@ -405,11 +396,8 @@ A core tenet of microfrontends is independent deployability, which necessitates 
 
 Each microfrontend must have its own dedicated CI/CD pipeline, allowing its owning team to build, test, and deploy without coordinating with others. This is fundamental to achieving team autonomy.
 
-<figure>
-<img class="only-light" src="./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy.light.svg" alt="Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others" />
-<img class="only-dark" src="./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy.dark.svg" alt="Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others" />
-<figcaption>Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others</figcaption>
-</figure>
+![Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others](./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy-light.svg "Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others")
+![Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others](./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy-dark.svg)
 
 ### Repository Strategy
 
@@ -769,11 +757,8 @@ The "best" microfrontend approach is context-dependent. The decision should be d
 - The unparalleled security sandboxing of iframes is required
 - You need complete isolation between different parts of the application
 
-<figure>
-<img class="only-light" src="./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on.light.svg" alt="Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements" />
-<img class="only-dark" src="./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on.dark.svg" alt="Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements" />
-<figcaption>Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements</figcaption>
-</figure>
+![Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements](./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on-light.svg "Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements")
+![Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements](./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on-dark.svg)
 
 ## Conclusion
 

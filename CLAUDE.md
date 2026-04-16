@@ -1,87 +1,100 @@
 # sujeet.pro
 
-Personal engineering blog and portfolio, powered by `@pagesmith/core` and `diagramkit`.
+Personal engineering blog and portfolio, powered directly by `@pagesmith/core`, `@pagesmith/site`, and `diagramkit`.
+
+This repo should stay on a core-native setup. Do not reintroduce `@pagesmith/docs`.
 
 ## Quick Commands
 
 ```bash
-npm run build              # Render diagrams + build site
-npm run dev                # Dev server with hot reload (port 3000)
-npm run preview            # Serve production build (port 4000)
-vp check                   # Format + lint + type-check (Oxfmt + Oxlint + tsgo)
-vp check --fix             # Auto-fix formatting and lint issues
-vp test                    # Unit tests (Vitest)
-npm run test:e2e           # E2E tests (Playwright)
-npm run diagrams           # Render diagrams using diagramkit
-npm run diagrams:force     # Force re-render all diagrams
-npm run validate           # Check all content frontmatter
-npm run check-orphans      # Find unreferenced assets
+npm run dev            # Vite dev server (port 3000)
+npm run build          # Render diagrams, run Vite SSG, and write postbuild assets
+npm run preview        # Preview built output (port 4000)
+npm run validate       # Validate config, collections, and cross-file references
+npm run check-orphans  # Find unreferenced assets
+vp check               # Format + lint + type-check
+vp check --fix         # Auto-fix formatting and lint issues
+vp test                # Unit tests
+npm run test:e2e       # E2E tests
+npm run diagrams       # Render changed diagrams
+npm run diagrams:force # Re-render all diagrams
 ```
 
-## Content Structure
+## Read First
 
-```
-content/
-  site.json5               # Site-wide config (nav, social, analytics)
-  redirects.json5          # Vanity URLs + old→new content redirects
-  README.md                # Homepage (layout: Home)
-  articles/
-    meta.json5             # Series definitions, layout config
-    README.md              # Articles listing page (layout: Listing)
-    <article-slug>/        # Flat! No category/topic nesting
-      README.md            # Article content
-      diagrams/            # .mermaid, .excalidraw, .drawio, .dot source files
-      assets/              # Images
-  blogs/
-    meta.json5
-    README.md
-    <blog-slug>/README.md
-  projects/
-    meta.json5
-    <project-slug>/README.md
-```
+Read `ai-guidelines/README.md` first.
 
-All articles live flat under `content/articles/`. Related articles are grouped by **series** defined in `meta.json5`.
+Canonical repo guidance lives in `ai-guidelines/`:
+
+- `ai-guidelines/README.md`
+- `ai-guidelines/content-structure.md`
+- `ai-guidelines/markdown.md`
+- `ai-guidelines/diagrams.md`
+- `ai-guidelines/packages.md`
+- `ai-guidelines/workflows/article-workflow.md`
+- `ai-guidelines/workflows/blog-workflow.md`
+- `ai-guidelines/workflows/update-docs.md`
 
 ## Skills
 
-### /sp-doc — Content Management
+### /sp-doc
 
-Unified skill for creating, reviewing, and updating content. Handles articles, blogs, and projects with deep research, citations, and diagram lifecycle management.
+Route article, blog, or docs-refresh work.
 
+### /sp-article
+
+Create, update, or review deep technical articles under `content/articles/`.
+
+### /sp-blog
+
+Create, update, or review technical blog posts under `content/blogs/`.
+
+### /sp-sync
+
+Refresh `ai-guidelines/`, root docs, rules, and thin skill wrappers.
+
+## Core Config Surfaces
+
+- `site.config.json5` — site-level config for base path, search, theme, analytics, edit links, and ports
+- `diagramkit.config.json5` — diagram rendering defaults and manifest behavior
+- `content.config.ts` — `@pagesmith/core` collections and markdown settings
+- `schemas/` — Zod schemas for site config, frontmatter, content metadata, and diagramkit config
+- `content/meta.json5` — top-level nav and footer links
+- `content/articles/meta.json5` — article listing behavior, manual order, and series definitions
+- `content/blogs/meta.json5` — blog listing behavior and ordering
+- `content/home.json5` — homepage hero and featured content
+- `content/redirects.json5` — vanity URLs and legacy redirects
+
+## Content Model
+
+```text
+content/
+  README.md
+  meta.json5
+  home.json5
+  redirects.json5
+  articles/
+    README.md
+    meta.json5
+    <slug>/
+      README.md
+      diagrams/
+      assets/
+  blogs/
+    README.md
+    meta.json5
+    <slug>/
+      README.md
+      diagrams/
+      assets/
+  projects/            # Legacy only
 ```
-/sp-doc <path-or-topic> [--mode create|review|update] [--type article|blog|project]
-```
 
-- **Create**: Deep research → outline → write → diagrams → validate
-- **Review**: Structure, depth, accuracy, citations, diagrams checklist
-- **Update**: Edit content + add/update/delete diagrams automatically
-
-### /sp-sync — Sync Package Guidelines
-
-Updates AI guidelines when `@pagesmith/core` or `diagramkit` versions change.
-
-```
-/sp-sync                   # Sync all guidelines
-/sp-sync --check           # Check if guidelines are outdated
-```
-
-## Guidelines
-
-All content authoring guidelines live in `ai-guidelines/`:
-
-| File                                 | Purpose                                             |
-| ------------------------------------ | --------------------------------------------------- |
-| `ai-guidelines/content-structure.md` | Content types, frontmatter, layout rules, citations |
-| `ai-guidelines/markdown.md`          | Markdown features, code blocks, syntax reference    |
-| `ai-guidelines/diagrams.md`          | Diagram authoring with diagramkit                   |
-| `ai-guidelines/packages.md`          | @pagesmith/core and diagramkit API reference        |
-
-**Read these before creating or editing content.**
+All articles live flat under `content/articles/`. Related articles are grouped by series defined in `content/articles/meta.json5`.
 
 ## Frontmatter
 
-Required for all content (articles, blogs, projects):
+Articles and blogs use this shape:
 
 ```yaml
 ---
@@ -94,104 +107,58 @@ draft: true # Optional
 ---
 ```
 
-Do NOT set `layout` or `category` — resolved from `meta.json5`.
+Rules:
 
-Title and description are NOT rendered on the page — they are for SEO, RSS, and listing cards only.
-
-## Series
-
-Defined in `content/articles/meta.json5`. Each series has `slug`, `displayName`, `shortName`, `description`, and ordered `articles` list. Articles in a series get prev/next navigation.
+- Do not set `layout` or `category` in article or blog frontmatter.
+- `title` and `description` are for SEO, cards, and feeds.
+- The visible page title still comes from the markdown `# H1`.
+- If a slug, series membership, homepage feature, or canonical path changes, update the coordinating `meta.json5`, `home.json5`, and `redirects.json5` files in the same change.
 
 ## Diagrams
 
-Source files in `<article>/diagrams/`. Rendered by `diagramkit` to light/dark SVG pairs.
+Source files live in the entry's `diagrams/` folder. Supported source formats are `.mermaid`, `.excalidraw`, `.drawio`, `.dot`, and `.gv`.
 
-**Supported:** `.mermaid`, `.excalidraw`, `.drawio`, `.dot`, `.gv`
+The repo uses `diagramkit` with `sameFolder: true`, so source files and generated `-light.svg` / `-dark.svg` outputs live side by side.
 
-Reference in markdown:
+Preferred embed pattern (consecutive light/dark markdown images are auto-merged by Pagesmith):
 
-```html
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/name-dark.svg" />
-  <img src="./diagrams/name-light.svg" alt="Description" />
-</picture>
+```md
+![Description](./diagrams/name-light.svg)
+![Description](./diagrams/name-dark.svg)
 ```
 
-**Never generate SVG directly** — write source files and run `npm run diagrams`.
+Never generate SVGs by hand.
 
-See `ai-guidelines/diagrams.md` for full guidelines.
+## Architecture And Code Flow
 
-## Architecture
-
-**Packages:**
-
-- `@pagesmith/core` — Content layer, markdown pipeline, custom JSX runtime, CSS bundling
-- `diagramkit` — Diagram rendering (Mermaid, Excalidraw, Draw.io, Graphviz → SVG)
-
-**App-specific:**
-
-- `schemas/` — Zod schemas (config, layout-props, page-data, meta)
-- `lib/` — Build pipeline modules (config, collections, series, tags, assets, renderer)
-- `scripts/` — Build scripts run via `tsx` (thin wrappers around `lib/`)
-- `layouts/` — TSX layout components (`@pagesmith/core` JSX runtime)
-- `runtime/` — Browser JS (theme, sidebar, TOC, copy code)
-- `styles/` — CSS source
-- `pagesmith.config.ts` — Content layer config (collections, markdown options)
-- `vite.config.ts` — Toolchain config (lint, format, test, staged hooks)
+- `content.config.ts` defines the content collections and markdown behavior.
+- `vite.config.ts` keeps `pagesmithContent(...)` on `@pagesmith/core/vite` and wires `sharedAssetsPlugin()` plus `...pagesmithSsg(...)` from `@pagesmith/site/vite`.
+- `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
+- `src/entry-server.tsx` imports `virtual:content/*` payloads and renders routes through `theme/layouts/*`.
+- `theme/lib/content.ts` merges entry frontmatter with section metadata, homepage data, and redirects to build navigation, listings, breadcrumbs, series navigation, and featured content.
+- `scripts/postbuild.ts` writes repo-specific post-build artifacts such as `sitemap.xml` and `rss.xml`.
+- `scripts/validate.ts` validates config, content collections, and cross-file integrity.
 
 ## Toolchain
 
-| Tool                                     | Purpose                                                                            |
-| ---------------------------------------- | ---------------------------------------------------------------------------------- |
-| [Vite+](https://viteplus.dev/)           | `vp check` (Oxlint + Oxfmt + tsgo), `vp test` (Vitest), `vp staged` (commit hooks) |
-| [Node.js 24](https://nodejs.org/)        | Runtime (LTS) — managed by Vite+                                                   |
-| [tsx](https://tsx.is/)                   | TypeScript script runner                                                           |
-| [esbuild](https://esbuild.github.io/)    | Runtime JS bundling                                                                |
-| [@pagesmith/core](https://pagesmith.dev) | Content layer, markdown, JSX runtime, CSS                                          |
-| [diagramkit](https://diagramkit.dev)     | Diagram rendering CLI & library                                                    |
-| [Playwright](https://playwright.dev)     | E2E testing                                                                        |
-
-## Responsive Layout
-
-- **Desktop (≥140ch):** 3 columns — left sidebar (series nav), content, right sidebar (TOC)
-- **Tablet (110ch–140ch):** 2 columns — content + TOC. Left sidebar → hamburger overlay.
-- **Mobile (<110ch):** 1 column. TOC → collapsible accordion above content.
-- Home/listing/tag pages: no left sidebar
-
-## Runtime JavaScript (`runtime/`)
-
-- `theme.ts` — Theme switcher (auto/light/dark), localStorage, `data-theme`
-- `sidebar.ts` — Mobile sidebar toggle, overlay, ESC key, viewport resize
-- `toc-highlight.ts` — TOC section highlight sync with scroll
-- `copy-code.ts` — Copy-to-clipboard for code blocks
-- `main.ts` — Entry point
-
-## Testing
-
-- Unit: `vp test` (Vitest, `tests/unit/`)
-- E2E: `npm run test:e2e` (Playwright, `tests/e2e/`)
-- E2E covers: navigation, sidebar, TOC, responsive layout, theme switching
-
-## Dist Output
-
-```
-dist/
-  assets/           # CSS, JS, fonts, images, diagrams (all content-hashed)
-  favicons/         # Favicon files (unhashed)
-  robots.txt
-  manifest.json
-  browserconfig.xml
-  sitemap.xml
-  rss.xml
-  agents.md
-  index.html
-  articles/<slug>/index.html
-```
+- `@pagesmith/core` — content layer, markdown pipeline, schemas/loaders, and `pagesmithContent`
+- `@pagesmith/site` — JSX runtime, site CSS/runtime bundles, and Vite SSG helpers
+- `diagramkit` — Mermaid, Excalidraw, Draw.io, and Graphviz rendering
+- `tsx` — TypeScript script runner
+- `Vite+` — `vp check`, `vp test`, commit hooks
+- `Playwright` — diagram rendering runtime and E2E tests
 
 ## Package References
 
-- @pagesmith/core API: `node_modules/@pagesmith/core/REFERENCE.md`
-- @pagesmith/core usage: `node_modules/@pagesmith/core/docs/agents/usage.md`
-- Markdown guidelines: `../pagesmith/ai-guidelines/markdown-guidelines.md`
-- diagramkit quick ref: `node_modules/diagramkit/llms.txt`
-- diagramkit full ref: `node_modules/diagramkit/llms-full.txt`
+- `node_modules/@pagesmith/core/REFERENCE.md`
+- `node_modules/@pagesmith/site/ai-guidelines/setup-site.md`
+- `node_modules/@pagesmith/site/ai-guidelines/usage.md`
+- `node_modules/@pagesmith/site/REFERENCE.md`
+- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
+- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
+- `node_modules/@pagesmith/core/ai-guidelines/migration.md`
+- `node_modules/diagramkit/ai-guidelines/usage.md`
+- `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
+- `node_modules/diagramkit/ai-guidelines/llms.txt`
+- `node_modules/diagramkit/ai-guidelines/llms-full.txt`

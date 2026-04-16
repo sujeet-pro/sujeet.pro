@@ -14,11 +14,8 @@ tags:
 
 Overview of web performance optimization covering infrastructure, JavaScript, CSS, images, and fonts. Provides quick reference tables and links to detailed articles in the series.
 
-<figure>
-<img class="only-light" src="./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals.light.svg" alt="Web performance optimization layers and their impact on Core Web Vitals" />
-<img class="only-dark" src="./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals.dark.svg" alt="Web performance optimization layers and their impact on Core Web Vitals" />
-<figcaption>Web performance optimization layers and their impact on Core Web Vitals</figcaption>
-</figure>
+![Web performance optimization layers and their impact on Core Web Vitals](./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals-light.svg "Web performance optimization layers and their impact on Core Web Vitals")
+![Web performance optimization layers and their impact on Core Web Vitals](./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals-dark.svg)
 
 ## Abstract
 

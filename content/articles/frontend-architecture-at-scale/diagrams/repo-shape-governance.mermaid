@@ -1,0 +1,29 @@
+%% Diagram: Repo Shape Governance
+%% Type: flowchart
+flowchart LR
+  subgraph mono["Monorepo emphasis"]
+    m1["Single graph visibility"]
+    m2["Shared tooling & enforced graph rules"]
+    m3["CODEOWNERS + path-scoped CI"]
+    m4["Central dependency policy & upgrades"]
+  end
+
+  subgraph poly["Polyrepo emphasis"]
+    p1["Hard repo boundaries by default"]
+    p2["Versioned packages as primary contract"]
+    p3["Per-repo CI with duplicated or templated config"]
+    p4["Cross-repo change coordination cost"]
+  end
+
+  mono -->|"strength"| m1
+  mono --> m2
+  mono --> m3
+  mono --> m4
+
+  poly -->|"strength"| p1
+  poly --> p2
+  poly --> p3
+  poly --> p4
+
+  m2 -.->|"mitigation"| p4
+  p2 -.->|"mitigation"| m4

@@ -18,11 +18,8 @@ tags:
 
 Commit is the synchronization point where the Main Thread hands over processed frame data to the Compositor Thread. This blocking operation ensures the compositor receives an immutable, consistent snapshot of property trees and display lists—enabling the dual-tree architecture that allows rasterization to proceed independently while the main thread prepares the next frame.
 
-<figure>
-<img class="only-light" src="./diagrams/the-commit-synchronization-proxymain-blocks-via-mutex-while-proxyimpl-copies-dat.light.svg" alt="The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree." />
-<img class="only-dark" src="./diagrams/the-commit-synchronization-proxymain-blocks-via-mutex-while-proxyimpl-copies-dat.dark.svg" alt="The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree." />
-<figcaption>The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree.</figcaption>
-</figure>
+![The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree.](./diagrams/the-commit-synchronization-proxymain-blocks-via-mutex-while-proxyimpl-copies-dat-light.svg "The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree.")
+![The Commit synchronization: ProxyMain blocks via mutex while ProxyImpl copies data structures to the pending tree. After commit, the main thread can process the next frame while rasterization proceeds on the pending tree.](./diagrams/the-commit-synchronization-proxymain-blocks-via-mutex-while-proxyimpl-copies-dat-dark.svg)
 
 ## Abstract
 

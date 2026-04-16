@@ -14,11 +14,8 @@ tags:
 
 Service Level Objectives (SLOs), Service Level Indicators (SLIs), and error budgets form a framework for quantifying reliability and balancing it against development velocity. This is not just monitoring—it is a business tool that aligns engineering effort with user experience. SLIs measure what users care about, SLOs set explicit targets, and error budgets convert those targets into actionable resource constraints. The framework originated at Google's SRE practice and has become the industry standard for reliability management. This article covers the design reasoning behind each concept, the mathematics of error budget consumption and burn rate alerting, and the operational practices that make SLOs effective in production.
 
-<figure>
-<img class="only-light" src="./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve.light.svg" alt="SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment." />
-<img class="only-dark" src="./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve.dark.svg" alt="SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment." />
-<figcaption>SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.</figcaption>
-</figure>
+![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve-light.svg "SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.")
+![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve-dark.svg)
 
 ## Abstract
 

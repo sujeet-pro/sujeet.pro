@@ -1,16 +1,19 @@
-graph TD
-    Host["Custom Element: my-card"] --> SR["Shadow Root"]
-    Host --> Light["Light DOM Children"]
+%% Diagram: Shadow Dom Encapsulation
+%% Type: flowchart
+flowchart LR
+  subgraph Page["Document (light DOM)"]
+    Host["Host: my-card"]
+    Light["Light DOM children"]
+    ExtCSS["Page CSS / selectors"]
+  end
 
-    SR --> CSS["Scoped Styles<br/>No leak in or out"]
-    SR --> Template["Internal Template"]
-    Template --> NamedSlot["Named Slot: title"]
-    Template --> DefaultSlot["Default Slot"]
+  subgraph Shadow["Shadow tree (scoped)"]
+    SR["Shadow root"]
+    IntCSS["Internal styles"]
+    Slots["slot insertion points"]
+  end
 
-    Light --> UserTitle["User Title Content"]
-    Light --> UserBody["User Body Content"]
-
-    UserTitle -.->|"Projected"| NamedSlot
-    UserBody -.->|"Projected"| DefaultSlot
-
-    ExtCSS["External Page CSS"] -.->|"Blocked by<br/>shadow boundary"| SR
+  Host --> SR
+  Light -.->|"projection (composed tree)"| Slots
+  ExtCSS -.->|"default: no pierce"| SR
+  IntCSS --> Slots

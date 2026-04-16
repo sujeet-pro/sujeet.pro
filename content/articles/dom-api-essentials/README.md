@@ -17,21 +17,15 @@ tags:
 
 A comprehensive exploration of DOM APIs, examining the interface hierarchy design decisions, selector return type differences, and the modern Observer pattern for efficient DOM monitoring. The [DOM Standard](https://dom.spec.whatwg.org/) (WHATWG Living Standard, last updated January 2026) defines a layered inheritance model where each interface adds specific capabilities while maintaining backward compatibility—understanding this design reveals why certain methods exist on `Element` rather than `HTMLElement` and why selector APIs return different collection types with distinct liveness semantics.
 
-<figure>
-<img class="only-light" src="./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al.light.svg" alt="DOM interface inheritance hierarchy showing Element as the universal base for all markup types" />
-<img class="only-dark" src="./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al.dark.svg" alt="DOM interface inheritance hierarchy showing Element as the universal base for all markup types" />
-<figcaption>DOM interface inheritance hierarchy showing Element as the universal base for all markup types</figcaption>
-</figure>
+![DOM interface inheritance hierarchy showing Element as the universal base for all markup types](./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al-light.svg "DOM interface inheritance hierarchy showing Element as the universal base for all markup types")
+![DOM interface inheritance hierarchy showing Element as the universal base for all markup types](./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al-dark.svg)
 
 ## Abstract
 
 The Document Object Model (DOM) API exposes document structure through a **layered interface hierarchy** designed for cross-markup compatibility. The core mental model:
 
-<figure>
-<img class="only-light" src="./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ.light.svg" alt="DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection" />
-<img class="only-dark" src="./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ.dark.svg" alt="DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection" />
-<figcaption>DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection</figcaption>
-</figure>
+![DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection](./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ-light.svg "DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection")
+![DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection](./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ-dark.svg)
 
 **Key design decisions:**
 
@@ -77,11 +71,8 @@ Element (universal element operations)
 
 ### Interface Responsibilities
 
-<figure>
-<img class="only-light" src="./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func.light.svg" alt="Each interface layer adds specific capabilities while inheriting all parent functionality" />
-<img class="only-dark" src="./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func.dark.svg" alt="Each interface layer adds specific capabilities while inheriting all parent functionality" />
-<figcaption>Each interface layer adds specific capabilities while inheriting all parent functionality</figcaption>
-</figure>
+![Each interface layer adds specific capabilities while inheriting all parent functionality](./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func-light.svg "Each interface layer adds specific capabilities while inheriting all parent functionality")
+![Each interface layer adds specific capabilities while inheriting all parent functionality](./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func-dark.svg)
 
 **[EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)** (`EventTarget`)
 
@@ -285,11 +276,8 @@ const namedElements = document.getElementsByName("email")
 
 ### Performance Considerations
 
-<figure>
-<img class="only-light" src="./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots.light.svg" alt="Trade-offs between live collections that auto-update vs static snapshots" />
-<img class="only-dark" src="./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots.dark.svg" alt="Trade-offs between live collections that auto-update vs static snapshots" />
-<figcaption>Trade-offs between live collections that auto-update vs static snapshots</figcaption>
-</figure>
+![Trade-offs between live collections that auto-update vs static snapshots](./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots-light.svg "Trade-offs between live collections that auto-update vs static snapshots")
+![Trade-offs between live collections that auto-update vs static snapshots](./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots-dark.svg)
 
 **Live collections** (HTMLCollection, `childNodes`):
 
@@ -456,11 +444,8 @@ const observer = new IntersectionObserver(
 
 The `rootMargin` option adjusts the root's bounding box before calculating intersections, using CSS margin syntax. **Default value: `"0px 0px 0px 0px"`**.
 
-<figure>
-<img class="only-light" src="./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca.light.svg" alt="Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible" />
-<img class="only-dark" src="./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca.dark.svg" alt="Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible" />
-<figcaption>Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible</figcaption>
-</figure>
+![Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible](./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca-light.svg "Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible")
+![Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible](./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca-dark.svg)
 
 **Syntax** follows CSS margin shorthand (top, right, bottom, left):
 
@@ -987,11 +972,8 @@ const observer = new ResizeObserver((entries) => {
 
 ### Observer Performance Comparison
 
-<figure>
-<img class="only-light" src="./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf.light.svg" alt="Observer APIs batch changes and invoke callbacks asynchronously for optimal performance" />
-<img class="only-dark" src="./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf.dark.svg" alt="Observer APIs batch changes and invoke callbacks asynchronously for optimal performance" />
-<figcaption>Observer APIs batch changes and invoke callbacks asynchronously for optimal performance</figcaption>
-</figure>
+![Observer APIs batch changes and invoke callbacks asynchronously for optimal performance](./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf-light.svg "Observer APIs batch changes and invoke callbacks asynchronously for optimal performance")
+![Observer APIs batch changes and invoke callbacks asynchronously for optimal performance](./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf-dark.svg)
 
 **Compared to traditional event listeners**:
 

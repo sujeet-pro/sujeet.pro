@@ -16,11 +16,8 @@ tags:
 
 How Discord evolved its message storage from a single MongoDB replica set to Cassandra to ScyllaDB over 8 years, building Rust-based data services and a custom "super-disk" storage architecture along the way — reducing cluster size from 177 to 72 nodes while dropping p99 read latency from 125ms to 15ms.
 
-<figure>
-<img class="only-light" src="./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s.light.svg" alt="Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services." />
-<img class="only-dark" src="./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s.dark.svg" alt="Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services." />
-<figcaption>Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.</figcaption>
-</figure>
+![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s-light.svg "Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.")
+![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s-dark.svg)
 
 ## Abstract
 

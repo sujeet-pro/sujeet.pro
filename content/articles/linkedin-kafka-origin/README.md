@@ -18,11 +18,8 @@ tags:
 
 In 2010, LinkedIn faced a data infrastructure crisis: connecting 10 specialized data systems required 90 custom pipelines, each prone to failure. Oracle SQL\*Loader jobs took 2-3 days with manual babysitting. Despite significant engineering effort, only 14% of their data reached Hadoop. Traditional messaging systems like ActiveMQ required a full TCP/IP roundtrip per message—unacceptable for billions of daily events. Jay Kreps, Neha Narkhede, and Jun Rao built Kafka to solve this: a distributed commit log that decoupled data producers from consumers, enabling any-to-any data flow through a single, scalable pipeline. This case study examines the architectural decisions that made Kafka the backbone of modern data infrastructure.
 
-<figure>
-<img class="only-light" src="./diagrams/linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p.light.svg" alt="LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log." />
-<img class="only-dark" src="./diagrams/linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p.dark.svg" alt="LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log." />
-<figcaption>LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log.</figcaption>
-</figure>
+![LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log.](./diagrams/linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p-light.svg "LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log.")
+![LinkedIn's data integration complexity before and after Kafka. The O(N²) point-to-point connections collapsed into O(N) connections through a unified log.](./diagrams/linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p-dark.svg)
 
 ## Abstract
 
@@ -245,11 +242,8 @@ Each arrow represents a custom integration.
 
 **After: Kafka as Central Hub**
 
-<figure>
-<img class="only-light" src="./diagrams/kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently.light.svg" alt="Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset." />
-<img class="only-dark" src="./diagrams/kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently.dark.svg" alt="Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset." />
-<figcaption>Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset.</figcaption>
-</figure>
+![Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset.](./diagrams/kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently-light.svg "Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset.")
+![Kafka architecture: producers publish to topics, consumers subscribe independently. Each consumer maintains its own offset.](./diagrams/kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently-dark.svg)
 
 ### Core Design Decisions
 
@@ -300,11 +294,8 @@ Each arrow represents a custom integration.
 - Each partition is an independent, ordered log
 - Consumer group assigns partitions to consumers
 
-<figure>
-<img class="only-light" src="./diagrams/partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me.light.svg" alt="Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering." />
-<img class="only-dark" src="./diagrams/partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me.dark.svg" alt="Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering." />
-<figcaption>Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering.</figcaption>
-</figure>
+![Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering.](./diagrams/partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me-light.svg "Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering.")
+![Partitioning enables parallelism. Consumer group distributes partitions across members. Messages with the same key always go to the same partition, preserving per-key ordering.](./diagrams/partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me-dark.svg)
 
 **Trade-off**: Consumer parallelism is bounded by partition count. A topic with 10 partitions can have at most 10 consumers in a group processing in parallel. Choose partition count based on expected peak parallelism.
 
@@ -416,11 +407,8 @@ while (true) {
 
 ### Scale Progression
 
-<figure>
-<img class="only-light" src="./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability.light.svg" alt="LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture." />
-<img class="only-dark" src="./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability.dark.svg" alt="LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture." />
-<figcaption>LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.</figcaption>
-</figure>
+![LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.](./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability-light.svg "LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.")
+![LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.](./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability-dark.svg)
 
 ### Unexpected Benefits
 

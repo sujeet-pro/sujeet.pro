@@ -15,11 +15,8 @@ tags:
 
 Learn the classic LRU cache implementation, understand its limitations, and explore modern alternatives like LRU-K, 2Q, ARC, and SIEVE for building high-performance caching systems.
 
-<figure>
-<img class="only-light" src="./diagrams/evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives.light.svg" alt="Evolution of cache replacement algorithms from basic LRU to modern alternatives" />
-<img class="only-dark" src="./diagrams/evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives.dark.svg" alt="Evolution of cache replacement algorithms from basic LRU to modern alternatives" />
-<figcaption>Evolution of cache replacement algorithms from basic LRU to modern alternatives</figcaption>
-</figure>
+![Evolution of cache replacement algorithms from basic LRU to modern alternatives](./diagrams/evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives-light.svg "Evolution of cache replacement algorithms from basic LRU to modern alternatives")
+![Evolution of cache replacement algorithms from basic LRU to modern alternatives](./diagrams/evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives-dark.svg)
 
 ## Abstract
 
@@ -81,11 +78,8 @@ A cache is only useful if it's fast. Both `get` and `put` must be O(1)—anythin
 
 **Why Doubly Linked List?** A singly linked list requires O(n) to find the predecessor for unlinking. Doubly linked lists store `prev` and `next` pointers, enabling O(1) removal from any position.
 
-<figure>
-<img class="only-light" src="./diagrams/lru-data-structure-hashmap-with-doubly-linked-list.light.svg" alt="LRU Data Structure - hashmap with Doubly linked list" />
-<img class="only-dark" src="./diagrams/lru-data-structure-hashmap-with-doubly-linked-list.dark.svg" alt="LRU Data Structure - hashmap with Doubly linked list" />
-<figcaption>LRU Data Structure - hashmap with Doubly linked list</figcaption>
-</figure>
+![LRU Data Structure - hashmap with Doubly linked list](./diagrams/lru-data-structure-hashmap-with-doubly-linked-list-light.svg "LRU Data Structure - hashmap with Doubly linked list")
+![LRU Data Structure - hashmap with Doubly linked list](./diagrams/lru-data-structure-hashmap-with-doubly-linked-list-dark.svg)
 
 ### Implementation 1: Utilizing JavaScript Map's Insertion Order
 

@@ -15,11 +15,8 @@ tags:
 
 Building a system to handle millions of concurrent users competing for limited inventory during time-bounded sales events. Flash sales present a unique challenge: extreme traffic spikes (10-100x normal) concentrated in seconds, with zero tolerance for inventory errors. This design covers virtual waiting rooms, atomic inventory management, and asynchronous order processing.
 
-<figure>
-<img class="only-light" src="./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu.light.svg" alt="Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing." />
-<img class="only-dark" src="./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu.dark.svg" alt="Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing." />
-<figcaption>Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.</figcaption>
-</figure>
+![Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.](./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu-light.svg "Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.")
+![Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.](./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu-dark.svg)
 
 ## Abstract
 
@@ -111,10 +108,8 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Key characteristics:**
 
@@ -144,10 +139,8 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Key characteristics:**
 
@@ -204,10 +197,8 @@ Path B implementation details are covered in the [Variations](#variations) secti
 
 ### Request Flow
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 ## API Design
 
@@ -484,10 +475,8 @@ The waiting room is the first line of defense. It must:
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-4.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-4.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-4-light.svg)
+![Diagram](./diagrams/diagram-4-dark.svg)
 
 **Static HTML design:**
 
@@ -812,10 +801,8 @@ export async function confirmReservation(productId: string, reservationId: strin
 
 **Reservation lifecycle:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-5.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-5.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-5-light.svg)
+![Diagram](./diagrams/diagram-5-dark.svg)
 
 **Design decisions:**
 
@@ -1007,10 +994,8 @@ export async function handleDeadLetter(record: SQSRecord): Promise<void> {
 
 ### Multi-Layer Bot Defense
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-6.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-6.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-6-light.svg)
+![Diagram](./diagrams/diagram-6-dark.svg)
 
 **Layer 1: Edge defense (WAF)**
 
@@ -1286,10 +1271,8 @@ function restoreState(): FlashSaleState | null {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-7.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-7.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-7-light.svg)
+![Diagram](./diagrams/diagram-7-dark.svg)
 
 **Service configuration:**
 

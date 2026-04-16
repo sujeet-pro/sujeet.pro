@@ -15,11 +15,8 @@ tags:
 
 Circuit breakers prevent cascading failures by failing fast when downstream dependencies are unhealthy. This article examines design choices—threshold-based vs time-window detection, thread pool vs semaphore isolation, per-host vs per-service scoping—along with production configurations from Netflix, Shopify, and modern implementations in Resilience4j.
 
-<figure>
-<img class="only-light" src="./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope.light.svg" alt="The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete." />
-<img class="only-dark" src="./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope.dark.svg" alt="The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete." />
-<figcaption>The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.</figcaption>
-</figure>
+![The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.](./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope-light.svg "The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.")
+![The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.](./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope-dark.svg)
 
 ## Abstract
 

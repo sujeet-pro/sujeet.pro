@@ -15,11 +15,8 @@ tags:
 
 Building scalable full-text search systems: inverted index internals, partitioning strategies, ranking algorithms, near-real-time indexing, and distributed query execution. This article covers the design choices that shape modern search infrastructure—from Lucene's segment architecture to Elasticsearch's scatter-gather execution model.
 
-<figure>
-<img class="only-light" src="./diagrams/distributed-search-architecture-coordinating-node-scatters-queries-to-shards-eac.light.svg" alt="Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability." />
-<img class="only-dark" src="./diagrams/distributed-search-architecture-coordinating-node-scatters-queries-to-shards-eac.dark.svg" alt="Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability." />
-<figcaption>Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability.</figcaption>
-</figure>
+![Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability.](./diagrams/distributed-search-architecture-coordinating-node-scatters-queries-to-shards-eac-light.svg "Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability.")
+![Distributed search architecture: coordinating node scatters queries to shards, each containing multiple immutable segments with inverted indexes. Replicas provide fault tolerance and read scalability.](./diagrams/distributed-search-architecture-coordinating-node-scatters-queries-to-shards-eac-dark.svg)
 
 ## Abstract
 

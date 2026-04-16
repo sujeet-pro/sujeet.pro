@@ -14,11 +14,8 @@ tags:
 
 Comprehensive guide to image optimization covering modern formats (AVIF, WebP, JPEG XL), responsive image implementation with `srcset` and `sizes`, loading strategies with `fetchpriority` and `decoding` attributes, and network-aware delivery. Targets 50-80% bandwidth reduction and significant Largest Contentful Paint (LCP) improvements.
 
-<figure>
-<img class="only-light" src="./diagrams/image-optimization-pipeline-showing-format-selection-responsive-sizing-loading-s.light.svg" alt="Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals" />
-<img class="only-dark" src="./diagrams/image-optimization-pipeline-showing-format-selection-responsive-sizing-loading-s.dark.svg" alt="Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals" />
-<figcaption>Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals</figcaption>
-</figure>
+![Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals](./diagrams/image-optimization-pipeline-showing-format-selection-responsive-sizing-loading-s-light.svg "Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals")
+![Image optimization pipeline showing format selection, responsive sizing, loading strategies, and their impact on Core Web Vitals](./diagrams/image-optimization-pipeline-showing-format-selection-responsive-sizing-loading-s-dark.svg)
 
 ## Abstract
 

@@ -15,11 +15,8 @@ tags:
 
 Centralized traffic management for microservices: design choices for routing, authentication, rate limiting, and protocol translation—with real-world implementations from Netflix, Google, and Amazon.
 
-<figure>
-<img class="only-light" src="./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th.light.svg" alt="API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage." />
-<img class="only-dark" src="./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th.dark.svg" alt="API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage." />
-<figcaption>API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.</figcaption>
-</figure>
+![API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.](./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th-light.svg "API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.")
+![API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.](./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th-dark.svg)
 
 ## Abstract
 

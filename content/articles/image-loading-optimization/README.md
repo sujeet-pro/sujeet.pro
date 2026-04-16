@@ -16,11 +16,8 @@ tags:
 
 Client-side strategies for optimizing image delivery: lazy loading, responsive images, modern formats, and Cumulative Layout Shift (CLS) prevention. Covers browser mechanics, priority hints, and real-world implementation patterns.
 
-<figure>
-<img class="only-light" src="./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter.light.svg" alt="Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift." />
-<img class="only-dark" src="./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter.dark.svg" alt="Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift." />
-<figcaption>Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.</figcaption>
-</figure>
+![Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.](./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter-light.svg "Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.")
+![Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.](./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter-dark.svg)
 
 ## Abstract
 

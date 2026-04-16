@@ -16,11 +16,8 @@ tags:
 
 Designing systems around events rather than synchronous requests: when events beat API calls, event sourcing vs. state storage, CQRS trade-offs, saga patterns for distributed transactions, and production patterns from systems processing trillions of events daily.
 
-<figure>
-<img class="only-light" src="./diagrams/request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro.light.svg" alt="Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers." />
-<img class="only-dark" src="./diagrams/request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro.dark.svg" alt="Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers." />
-<figcaption>Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers.</figcaption>
-</figure>
+![Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers.](./diagrams/request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro-light.svg "Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers.")
+![Request-driven: synchronous call chains with tight coupling. Event-driven: asynchronous fan-out with loose coupling—producers don't know (or care) about consumers.](./diagrams/request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro-dark.svg)
 
 ## Abstract
 
@@ -257,11 +254,8 @@ Kafka's log compaction offers an alternative to snapshots for key-based streams.
 
 CQRS separates the write model (commands) from the read model (queries). Commands modify state through domain logic; queries retrieve optimized read views.
 
-<figure>
-<img class="only-light" src="./diagrams/cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch.light.svg" alt="CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously." />
-<img class="only-dark" src="./diagrams/cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch.dark.svg" alt="CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously." />
-<figcaption>CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously.</figcaption>
-</figure>
+![CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously.](./diagrams/cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch-light.svg "CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously.")
+![CQRS separates write (command) and read (query) paths. Events synchronize them asynchronously.](./diagrams/cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch-dark.svg)
 
 ### Why CQRS Exists
 
@@ -383,11 +377,8 @@ If payment fails after inventory is reserved, how do you rollback?
 
 **Mechanism**: Each service reacts to events and publishes its own events. No central coordinator.
 
-<figure>
-<img class="only-light" src="./diagrams/choreography-services-react-to-events-each-triggering-the-next-step-without-cent.light.svg" alt="Choreography: services react to events, each triggering the next step without central coordination." />
-<img class="only-dark" src="./diagrams/choreography-services-react-to-events-each-triggering-the-next-step-without-cent.dark.svg" alt="Choreography: services react to events, each triggering the next step without central coordination." />
-<figcaption>Choreography: services react to events, each triggering the next step without central coordination.</figcaption>
-</figure>
+![Choreography: services react to events, each triggering the next step without central coordination.](./diagrams/choreography-services-react-to-events-each-triggering-the-next-step-without-cent-light.svg "Choreography: services react to events, each triggering the next step without central coordination.")
+![Choreography: services react to events, each triggering the next step without central coordination.](./diagrams/choreography-services-react-to-events-each-triggering-the-next-step-without-cent-dark.svg)
 
 **Trade-offs**:
 
@@ -412,11 +403,8 @@ PaymentFailed event → Inventory listens → releases reservation
 
 **Mechanism**: A saga orchestrator knows the workflow and commands each service in sequence.
 
-<figure>
-<img class="only-light" src="./diagrams/orchestration-central-orchestrator-commands-services-and-handles-the-workflow.light.svg" alt="Orchestration: central orchestrator commands services and handles the workflow." />
-<img class="only-dark" src="./diagrams/orchestration-central-orchestrator-commands-services-and-handles-the-workflow.dark.svg" alt="Orchestration: central orchestrator commands services and handles the workflow." />
-<figcaption>Orchestration: central orchestrator commands services and handles the workflow.</figcaption>
-</figure>
+![Orchestration: central orchestrator commands services and handles the workflow.](./diagrams/orchestration-central-orchestrator-commands-services-and-handles-the-workflow-light.svg "Orchestration: central orchestrator commands services and handles the workflow.")
+![Orchestration: central orchestrator commands services and handles the workflow.](./diagrams/orchestration-central-orchestrator-commands-services-and-handles-the-workflow-dark.svg)
 
 **Trade-offs**:
 
@@ -457,11 +445,8 @@ PaymentFailed → Orchestrator calls Inventory.ReleaseReservation()
 
 **Solution**: Write both to the database in a single transaction.
 
-<figure>
-<img class="only-light" src="./diagrams/transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state.light.svg" alt="Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process." />
-<img class="only-dark" src="./diagrams/transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state.dark.svg" alt="Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process." />
-<figcaption>Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process.</figcaption>
-</figure>
+![Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process.](./diagrams/transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state-light.svg "Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process.")
+![Transactional outbox: events written to outbox table in same transaction as state, then reliably published by separate process.](./diagrams/transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state-dark.svg)
 
 **Implementation**:
 

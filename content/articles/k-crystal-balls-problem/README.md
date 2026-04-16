@@ -5,7 +5,7 @@ description: >-
   O(n^(1/k)) jump search pattern from first principles, with applications to
   version bisection, MTU discovery, and reliability testing.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-14
 tags:
   - algorithms
   - data-structures
@@ -16,11 +16,8 @@ tags:
 
 The K-crystal balls (or K-egg drop) problem demonstrates how constrained resources fundamentally change optimal search strategy. With unlimited test resources, binary search achieves O(log n). With exactly k resources that are consumed on failure, the optimal worst-case complexity becomes O(n^(1/k))—a jump search pattern where each resource enables one level of hierarchical partitioning.
 
-<figure>
-<img class="only-light" src="./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more.light.svg" alt="Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n)." />
-<img class="only-dark" src="./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more.dark.svg" alt="Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n)." />
-<figcaption>Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).</figcaption>
-</figure>
+![Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-light.svg "Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).")
+![Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-dark.svg)
 
 ## Abstract
 
@@ -241,7 +238,7 @@ The first few resources provide massive gains; subsequent ones help less. This m
 
 ### Connection to Binary Search
 
-When k = log₂(n), the jump size becomes approximately 2, and you get near-binary-search behavior.
+When `n = 2^k`, the equal-phase factor `n^(1/k)` becomes `2`, so the **ratio between phases** approaches binary-style halving. That does **not** mean the first jump is size 2; it means each phase shrinks the remaining search space by roughly a factor of 2.
 
 With unlimited resources (k → ∞), pure binary search is optimal: O(log n).
 
@@ -256,7 +253,7 @@ The K-crystal balls problem thus interpolates between:
 /**
  * K-Crystal Balls: Jump search with limited test resources
  * Time: O(k * n^(1/k)) where k = number of balls
- * Space: O(1)
+ * Space: O(n) in this slice-based teaching implementation
  */
 
 function findBreakingFloor(floors: boolean[], k: number): number {
@@ -288,6 +285,7 @@ function findBreakingFloor(floors: boolean[], k: number): number {
   // Recursively search with k-1 resources
   const segmentStart = lastSafe
   const segmentEnd = Math.min(position, n - 1)
+  // Slice keeps the recursion easy to read; an index-based version can avoid this copy.
   const segment = floors.slice(segmentStart, segmentEnd + 1)
 
   const relativeIndex = findBreakingFloor(segment, k - 1)

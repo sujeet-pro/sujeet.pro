@@ -18,10 +18,7 @@ tags:
 
 The **CSS Object Model (CSSOM)** is the browser engine's internal representation of all CSS rules—a tree structure of stylesheets, rule objects, and declaration blocks. Unlike [DOM construction](../crp-dom-construction/README.md), which is incremental, CSSOM construction must complete entirely before rendering can proceed. This render-blocking behavior exists because the CSS cascade requires the full rule set to resolve which declarations win.
 
-<figure>
-  <img src="./assets/cssom-construction.inline.svg" alt="CSSOM Construction" />
-  <figcaption>CSSOM tree structure: CSSStyleSheet objects contain ordered lists of CSSRule objects. The browser must process all rules before computing styles because later rules can override earlier ones via the cascade.</figcaption>
-</figure>
+![CSSOM Construction](./assets/cssom-construction.inline.svg "CSSOM tree structure: CSSStyleSheet objects contain ordered lists of CSSRule objects. The browser must process all rules before computing styles because later rules can override earlier ones via the cascade.")
 
 ## Abstract
 
@@ -44,10 +41,8 @@ CSSOM construction transforms CSS bytes into a queryable object model through a 
 
 ## The CSS Parsing Pipeline
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/css-parsing-pipeline-dark.svg" />
-  <img src="./diagrams/css-parsing-pipeline-light.svg" alt="CSS parsing pipeline from bytes through tokenization and parsing to CSSOM tree" />
-</picture>
+![CSS parsing pipeline from bytes through tokenization and parsing to CSSOM tree](./diagrams/css-parsing-pipeline-light.svg)
+![CSS parsing pipeline from bytes through tokenization and parsing to CSSOM tree](./diagrams/css-parsing-pipeline-dark.svg)
 
 ### Stage 1: Tokenization
 
@@ -176,10 +171,8 @@ The browser's choice: delay First Contentful Paint (FCP) until CSSOM completes r
 
 CSSOM construction creates a synchronization point between stylesheets and scripts. This happens because JavaScript can read computed styles.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./diagrams/css-js-blocking-chain-dark.svg" />
-  <img src="./diagrams/css-js-blocking-chain-light.svg" alt="Sequence diagram showing how CSS blocks JavaScript execution in the critical rendering path" />
-</picture>
+![Sequence diagram showing how CSS blocks JavaScript execution in the critical rendering path](./diagrams/css-js-blocking-chain-light.svg)
+![Sequence diagram showing how CSS blocks JavaScript execution in the critical rendering path](./diagrams/css-js-blocking-chain-dark.svg)
 
 ### Why Scripts Wait for CSSOM
 

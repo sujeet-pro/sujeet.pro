@@ -14,11 +14,8 @@ tags:
 
 Rendering large lists (1,000+ items) without virtualization creates a DOM tree so large that layout calculations alone can block the main thread for hundreds of milliseconds. Virtualization solves this by rendering only visible items plus a small buffer, keeping DOM node count constant regardless of list size. The trade-off: implementation complexity for consistent O(viewport) rendering performance.
 
-<figure>
-<img class="only-light" src="./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame.light.svg" alt="Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget." />
-<img class="only-dark" src="./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame.dark.svg" alt="Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget." />
-<figcaption>Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.</figcaption>
-</figure>
+![Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.](./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame-light.svg "Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.")
+![Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.](./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame-dark.svg)
 
 ## Abstract
 
@@ -424,10 +421,8 @@ web.dev reports a 7x rendering performance improvement on the Chrome DevRel blog
 
 ### Decision Framework
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ## Browser APIs for Virtualization
 

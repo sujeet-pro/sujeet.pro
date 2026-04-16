@@ -15,11 +15,8 @@ tags:
 
 Centralized logging infrastructure enables observability across distributed systems. This article covers log data models, collection architectures, storage engines, indexing strategies, and scaling approaches—with design trade-offs and real-world implementations from Netflix (5 PB/day), Uber, and others.
 
-<figure>
-<img class="only-light" src="./diagrams/end-to-end-distributed-logging-architecture-collection-agents-ship-logs-through-.light.svg" alt="End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries." />
-<img class="only-dark" src="./diagrams/end-to-end-distributed-logging-architecture-collection-agents-ship-logs-through-.dark.svg" alt="End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries." />
-<figcaption>End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries.</figcaption>
-</figure>
+![End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries.](./diagrams/end-to-end-distributed-logging-architecture-collection-agents-ship-logs-through--light.svg "End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries.")
+![End-to-end distributed logging architecture: collection agents ship logs through a message queue buffer, stream processors parse and route data to tiered storage, and an index service powers search queries.](./diagrams/end-to-end-distributed-logging-architecture-collection-agents-ship-logs-through--dark.svg)
 
 ## Abstract
 

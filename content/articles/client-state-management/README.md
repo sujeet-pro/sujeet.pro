@@ -15,11 +15,8 @@ tags:
 
 Choosing the right state management approach requires understanding that "state" is not monolithic—different categories have fundamentally different requirements. Server state needs caching, deduplication, and background sync. UI state needs fast updates and component isolation. Form state needs validation and dirty tracking. Conflating these categories is the root cause of most state management complexity.
 
-<figure>
-<img class="only-light" src="./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr.light.svg" alt="State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity." />
-<img class="only-dark" src="./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr.dark.svg" alt="State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity." />
-<figcaption>State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.</figcaption>
-</figure>
+![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr-light.svg "State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.")
+![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr-dark.svg)
 
 ## Abstract
 

@@ -16,11 +16,8 @@ tags:
 
 Schema-driven form generation systems that render dynamic UIs from declarative definitions. This article covers form schema architectures, validation strategies, state management patterns, and the trade-offs that shape production form builders like Typeform, Google Forms, and enterprise low-code platforms.
 
-<figure>
-<img class="only-light" src="./diagrams/form-builder-architecture-schemas-define-structure-runtime-renders-and-validates.light.svg" alt="Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions." />
-<img class="only-dark" src="./diagrams/form-builder-architecture-schemas-define-structure-runtime-renders-and-validates.dark.svg" alt="Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions." />
-<figcaption>Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions.</figcaption>
-</figure>
+![Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions.](./diagrams/form-builder-architecture-schemas-define-structure-runtime-renders-and-validates-light.svg "Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions.")
+![Form builder architecture: schemas define structure, runtime renders and validates, persistence handles drafts and submissions.](./diagrams/form-builder-architecture-schemas-define-structure-runtime-renders-and-validates-dark.svg)
 
 ## Abstract
 
@@ -73,10 +70,8 @@ Large-scale forms (tax software, insurance applications, enterprise workflows) r
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **How it works:**
 
@@ -151,10 +146,8 @@ React JSON Schema Form (RJSF) powers forms at Mozilla, Postman, and numerous ent
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **How it works:**
 
@@ -226,10 +219,8 @@ tRPC, Remix, and Next.js applications commonly use Zod for end-to-end type safet
 
 **Architecture:**
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **How it works:**
 

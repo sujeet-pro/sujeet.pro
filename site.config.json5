@@ -1,0 +1,52 @@
+{
+  name: "Sujeet Jaiswal",
+  title: "Sujeet Jaiswal - Principal Software Engineer",
+  description: "Personal blog and portfolio of Sujeet Jaiswal, a Principal Software Engineer crafting exceptional user experiences through innovative frontend architecture and scalable design systems.",
+  origin: "https://projects.sujeet.pro",
+  language: "en-US",
+  basePath: "/v5.sujeet.pro",
+  homeLink: "/v5.sujeet.pro/",
+  trailingSlash: false,
+  contentDir: "./content",
+  outDir: "./dist",
+  publicDir: "./public",
+  theme: {
+    lightColor: "#f8fafc",
+    darkColor: "#020617",
+    defaultColorScheme: "auto",
+    defaultTheme: "paper",
+  },
+  analytics: {
+    googleAnalytics: "G-1Z2TP5LG65",
+  },
+  seo: {
+    locale: "en_US",
+  },
+  maintainer: {
+    name: "Sujeet Jaiswal",
+    link: "https://sujeet.pro",
+  },
+  copyright: {
+    projectName: "Sujeet Jaiswal",
+    startYear: 2024,
+    endYear: null,
+  },
+  sidebar: {
+    collapsible: true,
+  },
+  search: {
+    enabled: true,
+    showImages: false,
+    showSubResults: true,
+  },
+  editLink: {
+    repo: "https://github.com/sujeet-pro/v5.sujeet.pro",
+    branch: "main",
+    label: "Edit this page",
+  },
+  lastUpdated: true,
+  server: {
+    devPort: 3000,
+    previewPort: 4000,
+  },
+}

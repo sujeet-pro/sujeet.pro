@@ -15,11 +15,8 @@ tags:
 
 A comprehensive system design for a web-scale crawler that discovers, downloads, and indexes billions of pages. This design addresses URL frontier management with politeness constraints, distributed crawling at scale, duplicate detection, and freshness maintenance across petabytes of web content.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-web-crawler-architecture-seeds-flow-through-a-prioritized-politeness-.light.svg" alt="High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection." />
-<img class="only-dark" src="./diagrams/high-level-web-crawler-architecture-seeds-flow-through-a-prioritized-politeness-.dark.svg" alt="High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection." />
-<figcaption>High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection.</figcaption>
-</figure>
+![High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection.](./diagrams/high-level-web-crawler-architecture-seeds-flow-through-a-prioritized-politeness--light.svg "High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection.")
+![High-level web crawler architecture: Seeds flow through a prioritized, politeness-aware frontier to distributed fetchers. Parsed content feeds storage while extracted links cycle back through duplicate detection.](./diagrams/high-level-web-crawler-architecture-seeds-flow-through-a-prioritized-politeness--dark.svg)
 
 ## Abstract
 
@@ -294,17 +291,13 @@ Prevents redundant crawling:
 
 ### Data Flow: Crawling a URL
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 ### Data Flow: Distributed URL Distribution
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 ## API Design
 
@@ -1500,10 +1493,8 @@ function URLAnalyzer() {
 
 ### AWS Reference Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 | Component       | AWS Service       | Configuration                               |
 | --------------- | ----------------- | ------------------------------------------- |

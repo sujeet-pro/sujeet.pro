@@ -17,11 +17,8 @@ tags:
 
 How HTTP/1.1's request-response model and application-layer head-of-line (HOL) blocking led to HTTP/2's binary framing, HPACK header compression, and stream multiplexing. This article covers the architectural constraints, design trade-offs, and remaining TCP-layer limitations that motivated HTTP/3.
 
-<figure>
-<img class="only-light" src="./diagrams/http-1-1-s-workarounds-multiple-connections-text-headers-replaced-by-http-2-s-si.light.svg" alt="HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3" />
-<img class="only-dark" src="./diagrams/http-1-1-s-workarounds-multiple-connections-text-headers-replaced-by-http-2-s-si.dark.svg" alt="HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3" />
-<figcaption>HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3</figcaption>
-</figure>
+![HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3](./diagrams/http-1-1-s-workarounds-multiple-connections-text-headers-replaced-by-http-2-s-si-light.svg "HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3")
+![HTTP/1.1's workarounds (multiple connections, text headers) replaced by HTTP/2's single-connection multiplexing, with TCP HOL blocking as the remaining constraint addressed by HTTP/3](./diagrams/http-1-1-s-workarounds-multiple-connections-text-headers-replaced-by-http-2-s-si-dark.svg)
 
 ## Abstract
 
@@ -128,10 +125,8 @@ HTTP/2 replaced text parsing with a fixed 9-octet frame header:
 
 Streams are independent, bidirectional sequences of frames sharing a single TCP connection:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-1.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-1.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-1-light.svg)
+![Diagram](./diagrams/diagram-1-dark.svg)
 
 **Stream identifier rules** (RFC 9113 Section 5.1.1):
 
@@ -214,10 +209,8 @@ Server push allowed servers to send responses proactively via PUSH_PROMISE frame
 
 HTTP/2 solved application-layer HOL blocking but exposed a transport-layer constraint: TCP's in-order delivery guarantee.
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-2.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-2.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-2-light.svg)
+![Diagram](./diagrams/diagram-2-dark.svg)
 
 **Impact**: A single lost packet stalls all HTTP/2 streams, even those with complete data in the receive buffer. On networks with 1-2% packet loss, HTTP/2's single connection can underperform HTTP/1.1's multiple connections (which experience independent loss).
 
@@ -231,10 +224,8 @@ This limitation directly motivated HTTP/3's use of QUIC, which provides independ
 
 Browsers require TLS for HTTP/2, using the ALPN extension (RFC 7301) during the TLS handshake:
 
-<figure>
-<img class="only-light" src="./diagrams/diagram-3.light.svg" alt="Diagram" />
-<img class="only-dark" src="./diagrams/diagram-3.dark.svg" alt="Diagram" />
-</figure>
+![Diagram](./diagrams/diagram-3-light.svg)
+![Diagram](./diagrams/diagram-3-dark.svg)
 
 **Protocol identifiers**:
 

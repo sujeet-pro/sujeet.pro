@@ -15,11 +15,8 @@ tags:
 
 Netflix serves 300+ million subscribers across 190+ countries, delivering 94 billion hours of content in H2 2024 alone. Unlike user-generated video platforms (YouTube), Netflix is a consumption-first architecture—the challenge is not upload volume but delivering pre-encoded content with sub-second playback start times while optimizing for quality-per-bit across wildly different devices and network conditions. This design covers the Open Connect CDN, per-title/shot-based encoding pipeline, adaptive bitrate delivery, and the personalization systems that drive 80% of viewing hours.
 
-<figure>
-<img class="only-light" src="./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne.light.svg" alt="High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering." />
-<img class="only-dark" src="./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne.dark.svg" alt="High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering." />
-<figcaption>High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.</figcaption>
-</figure>
+![High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-light.svg "High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.")
+![High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-dark.svg)
 
 ## Abstract
 
@@ -186,11 +183,8 @@ This article focuses on **Path B (Custom CDN)** because:
 
 ### Component Overview
 
-<figure>
-<img class="only-light" src="./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han.light.svg" alt="System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery." />
-<img class="only-dark" src="./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han.dark.svg" alt="System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery." />
-<figcaption>System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.</figcaption>
-</figure>
+![System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.](./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han-light.svg "System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.")
+![System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.](./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han-dark.svg)
 
 ### Traffic Split: AWS vs Open Connect
 
@@ -236,11 +230,8 @@ This separation allows each infrastructure to optimize for its workload. AWS han
 
 ### Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c.light.svg" alt="Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests." />
-<img class="only-dark" src="./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c.dark.svg" alt="Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests." />
-<figcaption>Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.</figcaption>
-</figure>
+![Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-light.svg "Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.")
+![Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-dark.svg)
 
 ### OCA Appliance Specifications
 
@@ -347,11 +338,8 @@ At Netflix scale, a 1% improvement in cache hit rate eliminates terabytes of dai
 
 Netflix rebuilt its encoding pipeline on Cosmos (completed September 2023), replacing the previous Reloaded system.
 
-<figure>
-<img class="only-light" src="./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf.light.svg" alt="Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate." />
-<img class="only-dark" src="./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf.dark.svg" alt="Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate." />
-<figcaption>Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.</figcaption>
-</figure>
+![Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-light.svg "Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.")
+![Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-dark.svg)
 
 **Platform components:**
 
@@ -610,11 +598,8 @@ All three use CENC (Common Encryption) for the encrypted content, so Netflix enc
 
 ### License Acquisition Flow
 
-<figure>
-<img class="only-light" src="./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license.light.svg" alt="DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys." />
-<img class="only-dark" src="./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license.dark.svg" alt="DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys." />
-<figcaption>DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.</figcaption>
-</figure>
+![DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-light.svg "DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.")
+![DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-dark.svg)
 
 **Security layers:**
 
@@ -645,11 +630,8 @@ All three use CENC (Common Encryption) for the encrypted content, so Netflix enc
 
 Netflix recommendations drive **75-80% of viewing hours**. The system is estimated to save over **$1 billion annually** by reducing subscriber churn.
 
-<figure>
-<img class="only-light" src="./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with-.light.svg" alt="Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model." />
-<img class="only-dark" src="./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with-.dark.svg" alt="Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model." />
-<figcaption>Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.</figcaption>
-</figure>
+![Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--light.svg "Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.")
+![Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--dark.svg)
 
 ### Algorithm Types
 
@@ -784,11 +766,8 @@ Systems should be resilient to failure by design. Random production failures ens
 
 ### Global Architecture
 
-<figure>
-<img class="only-light" src="./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global.light.svg" alt="Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery." />
-<img class="only-dark" src="./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global.dark.svg" alt="Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery." />
-<figcaption>Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.</figcaption>
-</figure>
+![Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-light.svg "Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.")
+![Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-dark.svg)
 
 ## Conclusion
 

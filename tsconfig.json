@@ -4,27 +4,23 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "jsxImportSource": "@pagesmith/core",
+    "jsxImportSource": "@pagesmith/site",
     "types": ["node"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "paths": {
-      "#schemas/*": ["./schemas/*"],
-      "#lib/*": ["./lib/*"]
-    }
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
   "include": [
-    "entry-server.tsx",
-    "client.ts",
-    "src/**/*.ts",
-    "scripts/**/*.ts",
-    "layouts/**/*.tsx",
-    "runtime/**/*.ts",
-    "schemas/**/*.ts",
+    "content.config.ts",
     "lib/**/*.ts",
-    "pagesmith.config.ts",
+    "schemas/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.ts",
+    "theme/**/*.ts",
+    "theme/**/*.tsx",
     "vite.config.ts",
     "playwright.config.ts",
     "tests/**/*.ts"

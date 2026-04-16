@@ -16,11 +16,8 @@ tags:
 
 V8's multi-tiered compilation pipeline—Ignition interpreter through TurboFan optimizer—achieves near-native JavaScript performance while maintaining language dynamism. This analysis covers the four-tier architecture (as of V8 12.x / Chrome 120+), the runtime's hidden class and inline caching systems that enable speculative optimization, and the Orinoco garbage collector's parallel/concurrent strategies.
 
-<figure>
-<img class="only-light" src="./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven-.light.svg" alt="V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization" />
-<img class="only-dark" src="./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven-.dark.svg" alt="V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization" />
-<figcaption>V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization</figcaption>
-</figure>
+![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven--light.svg "V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization")
+![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven--dark.svg)
 
 ## Abstract
 
@@ -79,11 +76,8 @@ The parser consumes tokens and builds an Abstract Syntax Tree (AST). V8's parser
 
 2. **Full parser (deferred)**: Builds complete AST only when a function is first called.
 
-<figure>
-<img class="only-light" src="./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation.light.svg" alt="Lazy parsing defers full AST construction until function invocation" />
-<img class="only-dark" src="./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation.dark.svg" alt="Lazy parsing defers full AST construction until function invocation" />
-<figcaption>Lazy parsing defers full AST construction until function invocation</figcaption>
-</figure>
+![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation-light.svg "Lazy parsing defers full AST construction until function invocation")
+![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation-dark.svg)
 
 **Edge case—inner functions**: When an outer function is compiled, its inner functions are pre-parsed. If the outer function references variables from an inner function's closure, the pre-parser must track this without building full AST nodes. This is a significant source of parser complexity.
 
@@ -155,11 +149,8 @@ Property access becomes:
 
 This transforms O(n) hash lookups into O(1) offset loads.
 
-<figure>
-<img class="only-light" src="./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties.light.svg" alt="Object memory layout with Map pointer and fixed-offset properties" />
-<img class="only-dark" src="./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties.dark.svg" alt="Object memory layout with Map pointer and fixed-offset properties" />
-<figcaption>Object memory layout with Map pointer and fixed-offset properties</figcaption>
-</figure>
+![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties-light.svg "Object memory layout with Map pointer and fixed-offset properties")
+![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties-dark.svg)
 
 ### Map Transitions: Shape Evolution
 
@@ -328,11 +319,8 @@ The Sea of Nodes frontend (JavaScript → IR) is being gradually replaced as wel
 
 ### Pipeline Walkthrough
 
-<figure>
-<img class="only-light" src="./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend.light.svg" alt="TurboFan compilation pipeline with Turboshaft backend" />
-<img class="only-dark" src="./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend.dark.svg" alt="TurboFan compilation pipeline with Turboshaft backend" />
-<figcaption>TurboFan compilation pipeline with Turboshaft backend</figcaption>
-</figure>
+![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend-light.svg "TurboFan compilation pipeline with Turboshaft backend")
+![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend-dark.svg)
 
 ## Deoptimization: The Safety Net
 
