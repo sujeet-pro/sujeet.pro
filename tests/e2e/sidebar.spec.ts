@@ -22,15 +22,20 @@ test.describe("Docs sidebar — Desktop", () => {
 
   test("shows the article series heading", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator(".doc-sidebar-heading").first()).toContainText(
-      "Critical Rendering Path",
-    );
+    // Pagesmith 0.9.9+ renders the literal label "Series" as the section heading
+    // and the series title as the first link inside the active/expanded item.
+    await expect(page.locator(".doc-sidebar-heading").first()).toHaveText("Series");
+    await expect(
+      page.locator(".doc-sidebar-item.active.expanded > .doc-sidebar-link").first(),
+    ).toContainText("Critical Rendering Path");
   });
 
-  test("listing pages also render the docs sidebar", async ({ page }) => {
+  test("listing pages render a sidebar (modal-only on listing pages)", async ({ page }) => {
     await page.goto(BLOG_LISTING);
-    await expect(page.locator(".doc-sidebar")).toBeVisible();
-    await expect(page.locator(".doc-sidebar-link")).not.toHaveCount(0);
+    // Listing pages no longer render the persistent desktop aside; the sidebar
+    // is available via the modal toggle on every viewport.
+    await expect(page.locator(".doc-sidebar-toggle")).toHaveCount(1);
+    await expect(page.locator(".doc-sidebar-modal .doc-sidebar-link")).not.toHaveCount(0);
   });
 
   test("clicking a sidebar link navigates to another article", async ({ page }) => {
