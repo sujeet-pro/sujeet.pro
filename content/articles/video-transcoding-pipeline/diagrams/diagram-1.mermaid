@@ -1,5 +1,6 @@
 %% Diagram: Diagram 1
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     SRC[Source Video] --> SPLIT[Split at GOPs<br/>ffmpeg -segment]
     SPLIT --> C1[Chunk 1]

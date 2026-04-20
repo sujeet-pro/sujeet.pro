@@ -4,11 +4,15 @@ Diagram rules for `sujeet.pro`.
 
 Canonical upstream references:
 
-- `node_modules/diagramkit/ai-guidelines/usage.md` (primary entry point)
+- `node_modules/diagramkit/REFERENCE.md` (read before any `diagramkit` command)
+- `node_modules/diagramkit/ai-guidelines/usage.md`
 - `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
-- `node_modules/diagramkit/ai-guidelines/llms.txt`
-- `node_modules/diagramkit/ai-guidelines/llms-full.txt`
-- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
+- `node_modules/diagramkit/llms.txt`
+- `node_modules/diagramkit/llms-full.txt`
+- `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md` (engine routing)
+- `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`, `diagramkit-excalidraw`, `diagramkit-draw-io`, `diagramkit-graphviz`
+- `node_modules/diagramkit/skills/diagramkit-review/SKILL.md` (cross-engine validate + WCAG audit)
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md` (themed-image pair embedding)
 
 This file captures the repo-specific expectations for where diagrams belong and how they should be embedded in article and blog content.
 
@@ -56,9 +60,12 @@ Rules:
 Use repo-native commands:
 
 ```bash
-npm run diagrams
-npm run diagrams:force
-npm run diagrams:watch
+npm run diagrams                 # render only changed sources
+npm run diagrams:force           # ignore manifest cache
+npm run diagrams:watch           # watch mode
+npm run diagrams:doctor          # diagramkit doctor (env + config sanity)
+npm run validate:diagrams        # diagramkit validate ./content --recursive (SVG + WCAG)
+npm run validate:diagrams:json   # JSON form for CI / programmatic post-processing
 ```
 
 `diagramkit` generates `-light.svg` and `-dark.svg` variants in the same folder as the source file.

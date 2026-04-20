@@ -1,5 +1,6 @@
 %% Diagram: Lazy Parsing Defers Full Ast Construction Until Function Invocation
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     Source[Source Code] --> PreParser[Pre-Parser]
     PreParser -->|"Function boundaries<br/>Syntax validation"| Stubs[Function Stubs]

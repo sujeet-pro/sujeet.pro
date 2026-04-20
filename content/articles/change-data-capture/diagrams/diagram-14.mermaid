@@ -1,5 +1,6 @@
 %% Diagram: Diagram 14
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     DB[(OLTP DB)] --> CDC[Debezium]
     CDC --> K[Kafka]

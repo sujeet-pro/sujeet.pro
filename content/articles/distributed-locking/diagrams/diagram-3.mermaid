@@ -1,5 +1,6 @@
 %% Diagram: Diagram 3
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     A[Need distributed lock] --> B{Correctness critical?}
     B -->|No: efficiency only| C{Fault tolerance needed?}

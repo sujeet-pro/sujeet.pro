@@ -32,7 +32,10 @@ test.describe("Home page", () => {
     await page.goto("/");
     const firstCard = page.locator(".site-home-series-card").first();
     const href = await firstCard.getAttribute("href");
-    expect(href).toMatch(/\/articles\/#/);
+    // The site is built with `trailingSlash: false`, so series anchor links
+    // are emitted as `/articles#<series-slug>` (no trailing slash before the
+    // `#`). Match either form to stay tolerant of future config changes.
+    expect(href).toMatch(/\/articles\/?#/);
   });
 
   test("shows featured articles", async ({ page }) => {
@@ -97,8 +100,14 @@ test.describe("Article page", () => {
 
   test("breadcrumbs contain link back to articles", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    const articlesLink = page.locator(`.doc-breadcrumbs a[href="${withBase("/articles")}"]`);
-    await expect(articlesLink).toBeVisible();
+    // Series articles render multiple breadcrumb links to the same
+    // `/articles` route (one for the section, one for the series). Match by
+    // accessible name so we target the section breadcrumb specifically.
+    const articlesLink = page
+      .locator(".doc-breadcrumbs a", { hasText: "Articles" })
+      .filter({ hasNot: page.locator("text=Series") });
+    await expect(articlesLink.first()).toBeVisible();
+    await expect(articlesLink.first()).toHaveAttribute("href", withBase("/articles"));
   });
 });
 
@@ -239,7 +248,9 @@ test.describe("SEO", () => {
 
   test("article page has title and description meta", async ({ page }) => {
     await page.goto(SERIES_ARTICLE);
-    await expect(page.locator("title")).toContainText(/.+/);
+    // `<title>` lives in `<head>` and Playwright's text matchers ignore
+    // non-visible nodes — use the dedicated `toHaveTitle` matcher instead.
+    await expect(page).toHaveTitle(/.+/);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /.+/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", /.+/);
   });

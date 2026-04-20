@@ -1,5 +1,6 @@
 %% Diagram: Sharded Counter Architecture Writes Distribute Across Shards To Avoid Contention
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     subgraph Writers["Write Path"]
         W1[Client 1] --> LB[Load Balancer]

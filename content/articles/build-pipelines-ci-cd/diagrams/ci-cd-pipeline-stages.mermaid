@@ -1,5 +1,6 @@
 %% Diagram: Ci Cd Pipeline Stages
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
   T[Version control event: commit or PR] --> V[Static verification: lint, format, typecheck]
   V --> F1{Pass?}

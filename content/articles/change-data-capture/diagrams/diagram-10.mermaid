@@ -1,5 +1,6 @@
 %% Diagram: Diagram 10
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     DB[(Source DB)] -->|EOS| CDC[Debezium]
     CDC -->|EOS| K[Kafka]

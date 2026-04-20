@@ -49,11 +49,18 @@ function collectMarkdownRefs(dir: string): Set<string> {
     if (extname(entry.name) !== ".md") continue;
 
     const content = readFileSync(full, "utf-8");
-    const refPattern = /(?:src|href)=["']([^"']+)["']|!\[.*?\]\(([^)]+)\)/g;
+    const refPattern = /(?:src|href)=["']([^"']+)["']|!\[.*?\]\(([^)]+)\)|\]\(([^)]+)\)/g;
     let match: RegExpExecArray | null;
     while ((match = refPattern.exec(content)) !== null) {
-      const ref = match[1] ?? match[2];
-      if (!ref || ref.startsWith("http") || ref.startsWith("#")) continue;
+      let ref = match[1] ?? match[2] ?? match[3];
+      if (!ref) continue;
+      // Strip an optional markdown link title: `./foo.png "caption"` -> `./foo.png`
+      ref = ref.trim().split(/\s+/)[0]!;
+      // Strip query string / hash fragment.
+      ref = ref.split(/[?#]/)[0]!;
+      if (!ref || ref.startsWith("http") || ref.startsWith("#") || ref.startsWith("mailto:")) {
+        continue;
+      }
       const resolved = join(join(full, ".."), ref);
       refs.add(resolved);
     }

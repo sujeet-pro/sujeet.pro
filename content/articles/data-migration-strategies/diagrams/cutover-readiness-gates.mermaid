@@ -1,5 +1,6 @@
 %% Diagram: Cutover Readiness Gates
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
   start([Cutover checklist]) --> g1{Lag under SLO?}
   g1 -->|no| h1[Throttle / widen window] --> start

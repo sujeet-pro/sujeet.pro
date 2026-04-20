@@ -18,7 +18,11 @@ alwaysApply: false
 | Unit tests | `vp test` |
 | E2E tests | `npm run test:e2e` |
 | Render diagrams | `npm run diagrams` |
-| Validate content | `npm run validate` |
+| Validate (config + cross-refs) | `npm run validate` |
+| Validate content (`@pagesmith/site` validators) | `npm run validate:content` |
+| Validate diagrams (`diagramkit validate`) | `npm run validate:diagrams` |
+| Validate everything (content + diagrams + build + cross-refs) | `npm run validate:all` / `npm run validate:full` |
+| Validate dist | `npm run validate:dist` |
 
 ## Tech Stack
 
@@ -26,10 +30,10 @@ alwaysApply: false
 - Script runner: tsx (TypeScript execution)
 - Bundler: esbuild (runtime JS)
 - Toolchain: Vite+ (`vp check`, `vp test`)
-- Content: @pagesmith/core (collections, markdown, JSX runtime)
-- Diagrams: diagramkit (Mermaid, Excalidraw, Draw.io, Graphviz)
-- JSX: `@pagesmith/core` custom runtime (no React) — `jsxImportSource: "@pagesmith/core"`
-- CSS: lightningcss via @pagesmith/core, light/dark via CSS variables
+- Content: `@pagesmith/core` (collections, markdown, validators) + `@pagesmith/site` (JSX runtime, CSS, runtime JS, SSG, build/content validators)
+- Diagrams: `diagramkit` (Mermaid, Excalidraw, Draw.io, Graphviz)
+- JSX: `@pagesmith/site` server runtime (no React) — `jsxImportSource: "@pagesmith/site"`
+- CSS: lightningcss via `@pagesmith/site`, light/dark via CSS variables
 - Testing: Vitest (unit) + Playwright (E2E)
 - CI/CD: GitHub Pages via `.github/workflows/gh-pages.yml`
 

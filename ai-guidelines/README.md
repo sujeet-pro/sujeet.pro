@@ -50,20 +50,28 @@ Treat a single content edit as incomplete until you check whether one or more of
 Use repo-native commands only:
 
 ```bash
-npm run diagrams    # Re-render changed diagrams when diagram sources change
-npm run validate    # Validate site config, diagramkit config, collections, and cross-file references
-npm run build       # Render diagrams, run Vite SSG, and write postbuild assets
-vp check            # Format, lint, and type-check code and config changes
-vp test             # Unit tests
+npm run diagrams           # Re-render changed diagrams when diagram sources change
+npm run validate           # Validate site config, diagramkit config, collections, and cross-file references
+npm run validate:content   # @pagesmith/site content validators only
+npm run validate:full      # @pagesmith/site content + build validators + project cross-refs
+npm run validate:diagrams  # diagramkit validate ./content --recursive (SVG + WCAG 2.2 AA)
+npm run validate:dist      # Repo-local dist integrity (links, sitemap, base path)
+npm run validate:all       # validate + validate:diagrams + validate:full
+npm run build              # Render diagrams, run Vite SSG, and write postbuild assets
+vp check                   # Format, lint, and type-check code and config changes
+vp test                    # Unit tests
 ```
 
-Pick the smallest relevant command set for the change. For article and blog edits, `npm run diagrams`, `npm run validate`, and `npm run build` are usually the most relevant checks. Use `vp check` when the task also changed code, schemas, config, or AI docs.
+Pick the smallest relevant command set for the change. For article and blog edits, `npm run diagrams`, `npm run validate`, and `npm run validate:diagrams` cover the common case. Run `npm run validate:full` and `npm run validate:dist` before a release. Use `vp check` when the task also changed code, schemas, config, or AI docs.
 
 ## Skill map
 
-The repo-local skills should stay thin and point here:
+The repo-local skills are folder-shaped at `.agents/skills/<name>/SKILL.md`. The `.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files are thin pointers to the canonical body — never edit them directly.
 
-- `sp-doc`: route to article, blog, or docs-refresh work
-- `sp-article`: create, update, or review `content/articles/...`
-- `sp-blog`: create, update, or review `content/blogs/...`
-- `sp-sync`: refresh `ai-guidelines/`, `AGENTS.md`, `CLAUDE.md`, rules, and the skill wrappers
+- `prj-doc`: route to the right project skill (article, blog, content, diagrams, validate, sync).
+- `prj-article`: create, update, or review `content/articles/...`.
+- `prj-blog`: create, update, or review `content/blogs/...`.
+- `prj-content`: author or revise the prose / markdown body of an existing entry (markdown features, frontmatter, code blocks, themed images, citations).
+- `prj-diagrams`: author, render, embed, and audit diagrams (delegates to the `diagramkit-*` skills under `node_modules/diagramkit/skills/`).
+- `prj-validate`: run the full validation suite (content, diagrams, build, dist).
+- `prj-sync`: refresh `ai-guidelines/`, `AGENTS.md`, `CLAUDE.md`, rules, and the skill wrappers.

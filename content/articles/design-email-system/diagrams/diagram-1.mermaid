@@ -1,5 +1,6 @@
 %% Diagram: Diagram 1
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     SMTP["SMTP<br/>(Postfix/Exim)"] --> FILTER["SpamAssassin"]
     FILTER --> STORE["Dovecot<br/>(IMAP + Storage)"]

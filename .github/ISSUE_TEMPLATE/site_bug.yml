@@ -1,0 +1,134 @@
+name: Site Bug
+description: Something on v5.sujeet.pro is not working — broken layout, broken interactive element, search broken, page won't load, etc.
+title: "[site bug]: "
+labels: ["bug", "site", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a site bug.
+
+        Before opening this issue please:
+
+        - [Search existing issues](https://github.com/sujeet-pro/v5.sujeet.pro/issues?q=is%3Aissue) to avoid duplicates.
+        - Try a hard refresh (Cmd/Ctrl+Shift+R) and an incognito window — many transient bugs are CDN cache issues.
+
+        For **content problems** (typos, missing info, wrong facts) use the Content Issue template instead.
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched the existing issues and did not find a duplicate.
+          required: true
+        - label: I tried a hard refresh and an incognito/private window.
+          required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of site bug
+      multiple: true
+      options:
+        - Page does not load (404 / 500 / blank page)
+        - Layout / styling broken
+        - Interactive element broken (search, navigation, theme toggle, copy buttons, etc.)
+        - Image / diagram does not render
+        - Performance issue (slow, janky scroll, layout shift)
+        - Accessibility issue (keyboard nav, screen reader, color contrast)
+        - SEO / meta tag / social card issue
+        - Build / deploy issue
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: page-url
+    attributes:
+      label: Affected page URL
+      description: Full URL where the bug occurs.
+      placeholder: https://v5.sujeet.pro/articles/some-article/
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + version
+      placeholder: e.g. Chrome 138, Safari 18.4, Firefox 132
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device type
+      options:
+        - Desktop
+        - Mobile
+        - Tablet
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - iOS
+        - Android
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open https://v5.sujeet.pro/…
+        2. Click on …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happens. Attach screenshots, screen recordings, or browser console errors if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console output (optional)
+      description: Open DevTools → Console and paste any errors/warnings.
+      render: text
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context (optional)
+      description: Screenshots, screen recordings, related issues, etc.

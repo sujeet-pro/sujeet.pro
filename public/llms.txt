@@ -1,0 +1,29 @@
+# Sujeet Jaiswal — Engineering Notes
+
+> Personal blog and portfolio of Sujeet Jaiswal, a Principal Software Engineer
+> writing deep technical guides on frontend architecture, web performance,
+> distributed systems, and system design.
+
+Built on `@pagesmith/core` + `@pagesmith/site`.
+
+## Sections
+
+- [Articles](https://projects.sujeet.pro/v5.sujeet.pro/articles): In-depth
+  long-form technical guides covering frontend internals, web performance,
+  JavaScript runtime details, and system design scenarios.
+- [Blogs](https://projects.sujeet.pro/v5.sujeet.pro/blogs): Shorter
+  commentary, notes, and project retrospectives.
+- [Projects](https://projects.sujeet.pro/): Cross-referenced portfolio at
+  `projects.sujeet.pro` listing open source tools and libraries.
+
+## Series highlights
+
+- Critical Rendering Path: DOM, CSSOM, layout, paint, and compositing.
+- JavaScript Runtime Internals: V8, event loops, rendering pipelines.
+- System Design Scenarios: End-to-end design exercises with trade-offs.
+- Web Performance: Measurement, optimization, and infrastructure tuning.
+
+## Contact
+
+- GitHub: https://github.com/sujeet-pro
+- LinkedIn: https://www.linkedin.com/in/sujeetkrjaiswal/

@@ -1,5 +1,6 @@
 %% Diagram: Diagram 5
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     REQ[Incoming Request] --> CHECK{Idempotency Key<br/>Exists?}
     CHECK -->|No| PROCESS[Process Request]

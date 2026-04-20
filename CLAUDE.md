@@ -7,17 +7,23 @@ This repo should stay on a core-native setup. Do not reintroduce `@pagesmith/doc
 ## Quick Commands
 
 ```bash
-npm run dev            # Vite dev server (port 3000)
-npm run build          # Render diagrams, run Vite SSG, and write postbuild assets
-npm run preview        # Preview built output (port 4000)
-npm run validate       # Validate config, collections, and cross-file references
-npm run check-orphans  # Find unreferenced assets
-vp check               # Format + lint + type-check
-vp check --fix         # Auto-fix formatting and lint issues
-vp test                # Unit tests
-npm run test:e2e       # E2E tests
-npm run diagrams       # Render changed diagrams
-npm run diagrams:force # Re-render all diagrams
+npm run dev               # Vite dev server (port 3000)
+npm run build             # Render diagrams, run Vite SSG, and write postbuild assets
+npm run preview           # Preview built output (port 4000)
+npm run validate          # Validate config, collections, and cross-file references
+npm run validate:content  # @pagesmith/site content validators only
+npm run validate:full     # @pagesmith/site content + build validators + project cross-refs
+npm run validate:diagrams # diagramkit validate (SVG structure + WCAG 2.2 AA)
+npm run validate:dist     # Repo-local dist integrity (links, sitemap, base path)
+npm run validate:all      # validate + validate:diagrams + validate:full
+npm run check-orphans     # Find unreferenced assets
+vp check                  # Format + lint + type-check
+vp check --fix            # Auto-fix formatting and lint issues
+vp test                   # Unit tests
+npm run test:e2e          # E2E tests
+npm run diagrams          # Render changed diagrams
+npm run diagrams:force    # Re-render all diagrams
+npm run diagrams:doctor   # diagramkit environment + config sanity check
 ```
 
 ## Read First
@@ -37,21 +43,42 @@ Canonical repo guidance lives in `ai-guidelines/`:
 
 ## Skills
 
-### /sp-doc
+Canonical skill bodies live in `.agents/skills/<name>/SKILL.md`. The
+`.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files
+are thin pointers to the canonical body — never edit them directly.
 
-Route article, blog, or docs-refresh work.
+### /prj-doc
 
-### /sp-article
+Route an unclear task to the right project skill (article, blog, content,
+diagrams, validate, sync).
+
+### /prj-article
 
 Create, update, or review deep technical articles under `content/articles/`.
 
-### /sp-blog
+### /prj-blog
 
 Create, update, or review technical blog posts under `content/blogs/`.
 
-### /sp-sync
+### /prj-content
 
-Refresh `ai-guidelines/`, root docs, rules, and thin skill wrappers.
+Author or revise the prose / markdown body of an existing entry — frontmatter,
+headings, code blocks, alerts, themed images, citations.
+
+### /prj-diagrams
+
+Author, render, embed, and audit diagrams. Delegates to the `diagramkit-*`
+skills shipped under `node_modules/diagramkit/skills/`.
+
+### /prj-validate
+
+Run the full validation suite — content, diagrams, build output, dist
+integrity, and project-specific cross-references.
+
+### /prj-sync
+
+Refresh `ai-guidelines/`, root docs, rules, and thin skill wrappers after a
+package upgrade or a project convention change.
 
 ## Core Config Surfaces
 
@@ -150,15 +177,39 @@ Never generate SVGs by hand.
 
 ## Package References
 
+Always read these from the locally installed `node_modules/` — they are
+version-pinned to what the project actually ships with.
+
+`@pagesmith/core`:
+
 - `node_modules/@pagesmith/core/REFERENCE.md`
-- `node_modules/@pagesmith/site/ai-guidelines/setup-site.md`
-- `node_modules/@pagesmith/site/ai-guidelines/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/migration.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-write-validator/SKILL.md`
+- `node_modules/@pagesmith/core/llms.txt`, `node_modules/@pagesmith/core/llms-full.txt`
+
+`@pagesmith/site`:
+
 - `node_modules/@pagesmith/site/REFERENCE.md`
-- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
-- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
-- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
-- `node_modules/@pagesmith/core/ai-guidelines/migration.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/SKILL.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/setup-site.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/usage.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/site-guidelines.md`
+- `node_modules/@pagesmith/site/llms.txt`, `node_modules/@pagesmith/site/llms-full.txt`
+
+`diagramkit`:
+
+- `node_modules/diagramkit/REFERENCE.md`
 - `node_modules/diagramkit/ai-guidelines/usage.md`
 - `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
-- `node_modules/diagramkit/ai-guidelines/llms.txt`
-- `node_modules/diagramkit/ai-guidelines/llms-full.txt`
+- `node_modules/diagramkit/llms.txt`, `node_modules/diagramkit/llms-full.txt`
+- `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-excalidraw/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-draw-io/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-graphviz/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`

@@ -1,6 +1,6 @@
 ---
 description: AI guidance layering for repo docs and skill wrappers
-globs: ["AGENTS.md", "CLAUDE.md", "ai-guidelines/**/*.md", ".claude/skills/*.md", ".cursor/skills/**/SKILL.md", ".agents/**/*.md"]
+globs: ["AGENTS.md", "CLAUDE.md", "ai-guidelines/**/*.md", ".claude/skills/**/SKILL.md", ".cursor/skills/**/SKILL.md", ".agents/**/*.md"]
 alwaysApply: false
 ---
 
@@ -10,10 +10,10 @@ For repo AI docs and skill wrappers:
 
 - Read `ai-guidelines/README.md` first.
 - Treat `ai-guidelines/` as the canonical source of truth.
-- Keep `.claude/`, `.cursor/`, and `.agents/` wrappers thin and pointer-based.
+- Canonical skill bodies live at `.agents/skills/<name>/SKILL.md`. The `.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files are thin pointers to the canonical body — never edit them directly.
 - Update `ai-guidelines/` before updating wrappers or root docs.
-- Use `ai-guidelines/workflows/update-docs.md` when refreshing these surfaces.
-- Keep the docs aligned with the real integration points: `site.config.json5`, `diagramkit.config.json5`, `content.config.ts`, `schemas/`, `src/entry-server.tsx`, `theme/lib/content.ts`, and `scripts/validate.ts`.
+- Use `ai-guidelines/workflows/update-docs.md` and the `prj-sync` skill when refreshing these surfaces.
+- Keep the docs aligned with the real integration points: `site.config.json5`, `diagramkit.config.json5`, `content.config.ts`, `schemas/`, `src/entry-server.tsx`, `theme/lib/content.ts`, `scripts/validate.ts`, `scripts/validate-pagesmith.ts`, and `scripts/validate-dist.ts`.
 - Keep the repo framed as an `@pagesmith/core` + `diagramkit` site, not an `@pagesmith/docs` site.
 - Keep the repo framed primarily as an articles-and-blogs site.
 - Treat `projects` as legacy unless the user explicitly asks for project-specific work.

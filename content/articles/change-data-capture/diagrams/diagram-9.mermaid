@@ -1,5 +1,6 @@
 %% Diagram: Diagram 9
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     CDC[Debezium] -->|Register schema| SR[(Schema Registry)]
     CDC -->|Avro + schema ID| K[Kafka]

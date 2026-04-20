@@ -1,5 +1,6 @@
 %% Diagram: Diagram 7
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     REQ["Request arrives"] --> GLOBAL{"Global<br/>aggregate<br/>limit?"}
     GLOBAL -->|Over| DENY["429 Deny"]

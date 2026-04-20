@@ -4,13 +4,13 @@ Local markdown rules for `sujeet.pro`.
 
 Use this file as the local entrypoint. For the full feature reference, read the installed upstream guide first:
 
-- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md`
 
 For broader Pagesmith behavior, also read:
 
 - `node_modules/@pagesmith/core/REFERENCE.md`
-- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
-- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md`
 
 This file captures the repo-specific choices layered on top of those upstream docs.
 
@@ -170,7 +170,7 @@ Common failure modes:
 
 If validation errors appear, use:
 
-- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md`
 
 ## Practical style choices
 

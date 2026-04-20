@@ -21,11 +21,15 @@ Read the full guidelines before creating or editing content:
 - `ai-guidelines/workflows/blog-workflow.md` — blog create/update/review
 - `ai-guidelines/workflows/update-docs.md` — AI doc refresh workflow
 
-Prefer repo-local skills when they match the task:
+Prefer repo-local skills when they match the task. Canonical bodies live at `.agents/skills/<name>/SKILL.md`; the `.claude/` and `.cursor/` wrappers are thin pointers.
 
-- `sp-article`
-- `sp-blog`
-- `sp-sync`
+- `prj-doc` — route an unclear task
+- `prj-article` — articles
+- `prj-blog` — blogs
+- `prj-content` — markdown body of an existing entry
+- `prj-diagrams` — diagram authoring + audit
+- `prj-validate` — full validation suite
+- `prj-sync` — refresh AI docs and skill wrappers
 
 Before editing content, identify the companion metadata that may need to change with it:
 
@@ -58,21 +62,24 @@ Do NOT set `layout` or `category` — resolved from `meta.json5`.
 
 ### Diagrams
 
-Write source files (`.mermaid`, `.excalidraw`, `.drawio`, `.dot`) in `<slug>/diagrams/`. Never generate SVG directly. Run `npm run diagrams` to render.
+Write source files (`.mermaid`, `.excalidraw`, `.drawio`, `.dot`, `.gv`) in `<slug>/diagrams/`. Never hand-author SVG. Run `npm run diagrams` to render.
 
-Preferred reference pattern:
+Preferred embed pattern — consecutive markdown images with `-light` and `-dark` filename suffixes are auto-merged by Pagesmith into a themed `<figure>`:
 
-```html
-<figure>
-  <img class="only-light" src="./diagrams/name-light.svg" alt="Description" />
-  <img class="only-dark" src="./diagrams/name-dark.svg" alt="Description" />
-</figure>
+```md
+![Description](./diagrams/name-light.svg "Optional caption")
+![Description](./diagrams/name-dark.svg)
 ```
+
+Do **not** use raw `<figure>`, `<picture>`, or `<img>` HTML for images or diagrams — `validate-pagesmith.ts` enforces `forbidHtmlImgTag: true`.
 
 ### Validation
 
 ```bash
-npm run validate         # Check schemas and cross-file references
-npm run build            # Full build verification
-vp check                 # Format + lint
+npm run validate           # Schemas + cross-file references
+npm run validate:content   # @pagesmith/site content validators
+npm run validate:diagrams  # diagramkit validate (SVG + WCAG)
+npm run validate:full      # All of the above + build validators + project cross-refs
+npm run build              # Full build
+vp check                   # Format + lint + type-check
 ```

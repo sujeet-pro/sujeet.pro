@@ -9,22 +9,28 @@
     "check": "vp check",
     "check:fix": "vp check --fix",
     "validate": "tsx scripts/validate.ts",
-    "check-orphans": "tsx scripts/check-orphans.ts",
-    "validate:orphans": "npm run check-orphans",
+    "validate:content": "tsx scripts/validate-pagesmith.ts --content",
+    "validate:build": "tsx scripts/validate-pagesmith.ts --build",
+    "validate:full": "tsx scripts/validate-pagesmith.ts",
+    "validate:diagrams": "tsx scripts/validate-diagrams.ts",
+    "validate:diagrams:json": "tsx scripts/validate-diagrams.ts --json",
     "validate:dist": "tsx scripts/validate-dist.ts",
+    "validate:orphans": "tsx scripts/check-orphans.ts",
+    "check-orphans": "tsx scripts/check-orphans.ts",
+    "validate:all": "npm run validate && npm run validate:diagrams && npm run validate:full",
     "test": "vp test",
     "test:e2e": "BASE_PATH=/v5.sujeet.pro npx playwright test",
     "test:e2e:deployed": "DEPLOYED_URL=https://projects.sujeet.pro BASE_PATH=/v5.sujeet.pro npx playwright test",
     "diagrams": "tsx scripts/diagrams.ts",
     "diagrams:watch": "tsx scripts/diagrams.ts --watch",
     "diagrams:force": "tsx scripts/diagrams.ts --force",
-    "check:ci": "npm run check && npm run validate && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
+    "diagrams:doctor": "diagramkit doctor",
+    "check:ci": "npm run check && npm run validate:all && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
   },
   "dependencies": {
-    "@pagesmith/site": "^0.9.5",
-    "diagramkit": "^0.2.5",
-    "json5": "^2.2.3",
-    "sharp": "^0.34.5"
+    "@pagesmith/site": "^0.9.8",
+    "diagramkit": "^0.3.2",
+    "json5": "^2.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

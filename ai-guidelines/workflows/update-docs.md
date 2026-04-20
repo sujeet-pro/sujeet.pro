@@ -19,26 +19,36 @@ Start with:
 - `ai-guidelines/README.md`
 - `ai-guidelines/packages.md`
 
-Then read the version-matched upstream references:
+Then read the version-matched upstream references. The Pagesmith packages no longer ship a top-level `ai-guidelines/` folder — every guideline now lives inside the matching skill's `references/` subfolder.
 
 - `node_modules/@pagesmith/core/REFERENCE.md`
-- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
-- `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md`
-- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
-- `node_modules/@pagesmith/core/ai-guidelines/recipes.md`
-- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
-- `node_modules/@pagesmith/core/ai-guidelines/migration.md`
-- `node_modules/@pagesmith/core/ai-guidelines/changelog-notes.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/setup-core.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/core-guidelines.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/recipes.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/migration.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/changelog-notes.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-write-validator/SKILL.md`
 - `node_modules/@pagesmith/site/REFERENCE.md`
-- `node_modules/@pagesmith/site/ai-guidelines/setup-site.md`
-- `node_modules/@pagesmith/site/ai-guidelines/usage.md`
-- `node_modules/@pagesmith/site/ai-guidelines/site-guidelines.md`
-- `node_modules/@pagesmith/site/ai-guidelines/recipes.md`
-- `node_modules/@pagesmith/site/ai-guidelines/migration.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/SKILL.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/setup-site.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/usage.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/site-guidelines.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/recipes.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/migration.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-customize-theme/SKILL.md`
+- `node_modules/diagramkit/REFERENCE.md`
 - `node_modules/diagramkit/ai-guidelines/usage.md`
 - `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
-- `node_modules/diagramkit/ai-guidelines/llms.txt`
-- `node_modules/diagramkit/ai-guidelines/llms-full.txt`
+- `node_modules/diagramkit/llms.txt`
+- `node_modules/diagramkit/llms-full.txt`
+- `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`, `diagramkit-excalidraw`, `diagramkit-draw-io`, `diagramkit-graphviz`
+- `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`
 
 Then read the local integration sources that define the current repo behavior:
 
@@ -56,13 +66,17 @@ Then read the local integration sources that define the current repo behavior:
 - `src/entry-server.tsx`
 - `theme/lib/content.ts`
 - `scripts/validate.ts`
+- `scripts/validate-pagesmith.ts`
+- `scripts/validate-dist.ts`
 - `scripts/postbuild.ts`
+- `package.json` (`scripts.*`)
 
 ## Update order
 
 1. Update `ai-guidelines/` first.
-2. Then update the thin wrappers in `.claude/`, `.cursor/`, and `.agents/`.
-3. Then update `AGENTS.md`, `CLAUDE.md`, and Cursor rules.
+2. Then update the canonical skill bodies in `.agents/skills/<name>/SKILL.md`.
+3. Then update / regenerate the thin wrappers in `.claude/skills/` and `.cursor/skills/` so they still match the template (frontmatter + one-line follow-link).
+4. Then update `AGENTS.md`, `CLAUDE.md`, and Cursor rules.
 
 Do not update wrappers first. They should reflect the canonical guidance, not define it.
 

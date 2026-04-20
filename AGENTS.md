@@ -10,11 +10,24 @@ This repo should stay on a core-native setup. Do not reintroduce `@pagesmith/doc
 vp install
 npm run dev
 npm run build
-npm run validate
+npm run validate           # config + collections + cross-file refs
+npm run validate:full      # @pagesmith/site content + build validators + project cross-refs
+npm run validate:diagrams  # diagramkit validate (SVG structure + WCAG 2.2 AA)
+npm run validate:dist      # repo-local dist integrity
+npm run validate:all       # validate + validate:diagrams + validate:full
 vp check
 vp test
 npm run test:e2e
 ```
+
+`scripts/validate-pagesmith.ts` (run by `npm run validate:full` and friends) is
+the canonical end-to-end validator. It composes the published validators from
+`@pagesmith/site` (`validateContent`, `validateBuildOutput`,
+`loadContentSchemaMap`, `formatContentValidationReport`) with the v5-specific
+cross-reference checks for `meta.json5` series → article slugs,
+`home.json5` featured slugs, and `redirects.json5` targets. Diagram audits go
+through the `diagramkit validate` CLI (`npm run validate:diagrams`). Prefer
+extending those scripts over forking validation logic into yet another place.
 
 ## Read First
 
@@ -33,10 +46,19 @@ Canonical guidance lives in `ai-guidelines/`:
 
 ## Repo-local Skills
 
-- `sp-doc` — route article, blog, or docs-refresh work
-- `sp-article` — create, update, or review articles
-- `sp-blog` — create, update, or review blogs
-- `sp-sync` — refresh `ai-guidelines/`, root docs, rules, and wrapper files
+Canonical skill bodies live in `.agents/skills/<name>/SKILL.md`. The
+`.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files
+are thin pointers to the canonical body — never edit them directly.
+
+| Skill          | Use for                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `prj-doc`      | Route an unclear task to the right project skill.                                                                                        |
+| `prj-article`  | Create / update / review articles under `content/articles/`.                                                                             |
+| `prj-blog`     | Create / update / review blogs under `content/blogs/`.                                                                                   |
+| `prj-content`  | Author or revise the prose / markdown body of an existing entry (markdown features, frontmatter, code blocks, themed images, citations). |
+| `prj-diagrams` | Author, render, embed, and audit diagrams (delegates to `diagramkit-*` skills).                                                          |
+| `prj-validate` | Run the full validation suite (content, diagrams, build, dist).                                                                          |
+| `prj-sync`     | Refresh `ai-guidelines/`, root docs, rules, and wrapper files after a package upgrade or convention change.                              |
 
 ## Architecture
 
@@ -51,6 +73,8 @@ Canonical guidance lives in `ai-guidelines/`:
 - `theme/lib/content.ts` composes listings, series navigation, breadcrumbs, prev/next links, homepage featured content, and redirects from the markdown-plus-metadata model.
 - `scripts/postbuild.ts` writes repo-specific post-build artifacts such as `sitemap.xml` and `rss.xml`.
 - `scripts/validate.ts` validates config, content schemas, and cross-file references.
+- `scripts/validate-pagesmith.ts` composes `@pagesmith/site` validators with the project cross-ref checks.
+- `scripts/validate-dist.ts` walks the built `dist/` for required files, link integrity, and base-path correctness.
 
 ## Code Flow
 
@@ -85,17 +109,51 @@ Preferred embed pattern (consecutive light/dark markdown images are auto-merged 
 ![Description](./diagrams/name-dark.svg)
 ```
 
-## References
+## Package References
+
+The installed package surfaces are the only source of truth — read these from
+the locally installed `node_modules/` rather than from training data or
+external docs.
+
+`@pagesmith/core`:
 
 - `node_modules/@pagesmith/core/REFERENCE.md`
-- `node_modules/@pagesmith/site/ai-guidelines/setup-site.md`
-- `node_modules/@pagesmith/site/ai-guidelines/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/setup-core.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/usage.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/recipes.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/migration.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-add-collection/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-add-loader/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-customize-markdown/SKILL.md`
+- `node_modules/@pagesmith/core/skills/pagesmith-core-write-validator/SKILL.md`
+- `node_modules/@pagesmith/core/llms.txt`, `node_modules/@pagesmith/core/llms-full.txt`
+
+`@pagesmith/site`:
+
 - `node_modules/@pagesmith/site/REFERENCE.md`
-- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
-- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
-- `node_modules/@pagesmith/core/ai-guidelines/errors.md`
-- `node_modules/@pagesmith/core/ai-guidelines/migration.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/SKILL.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/setup-site.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/usage.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/site-guidelines.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/recipes.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/migration.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-customize-theme/SKILL.md`
+- `node_modules/@pagesmith/site/skills/pagesmith-site-use-preset/SKILL.md`
+- `node_modules/@pagesmith/site/llms.txt`, `node_modules/@pagesmith/site/llms-full.txt`
+
+`diagramkit`:
+
+- `node_modules/diagramkit/REFERENCE.md`
 - `node_modules/diagramkit/ai-guidelines/usage.md`
 - `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`
-- `node_modules/diagramkit/ai-guidelines/llms.txt`
-- `node_modules/diagramkit/ai-guidelines/llms-full.txt`
+- `node_modules/diagramkit/llms.txt`, `node_modules/diagramkit/llms-full.txt`
+- `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-excalidraw/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-draw-io/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-graphviz/SKILL.md`
+- `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`

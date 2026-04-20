@@ -1,0 +1,55 @@
+# Sujeet Jaiswal — Engineering Notes (full index)
+
+> Personal blog and portfolio of Sujeet Jaiswal, a Principal Software Engineer
+> writing deep technical guides on frontend architecture, web performance,
+> distributed systems, and system design.
+
+This document enumerates the top-level content surfaces on projects.sujeet.pro/v5.sujeet.pro
+so AI assistants can locate relevant material without crawling. Individual
+article bodies are available at the corresponding HTML URLs or in the Pagefind
+index at `/v5.sujeet.pro/pagefind/`.
+
+Source of truth lives in `content/articles/*/README.md` and
+`content/blogs/*/README.md` in the sujeet-pro/v5.sujeet.pro GitHub repository.
+
+## Top-level routes
+
+- /v5.sujeet.pro/             — Home, featured articles, series overview.
+- /v5.sujeet.pro/articles     — Article index, grouped by series.
+- /v5.sujeet.pro/blogs        — Blog index, reverse-chronological.
+- /v5.sujeet.pro/articles/<slug> — Individual article (see content/articles/).
+- /v5.sujeet.pro/blogs/<slug>    — Individual blog post (see content/blogs/).
+- /v5.sujeet.pro/404.html     — Not-found fallback.
+- /v5.sujeet.pro/sitemap.xml  — Machine-readable sitemap.
+
+## Article series (190+ articles across 22 topics)
+
+- Critical Rendering Path: DOM construction, CSSOM, layout, painting,
+  compositing, and browser paint flow.
+- JavaScript Runtime Internals: V8 engine tiers, hidden classes, inline
+  caches, optimizing compilers, event loops, garbage collection.
+- System Design Scenarios: Ride hailing, social platforms, search, streaming,
+  crawlers, photo-sharing, and end-to-end architecture trade-offs.
+- Web Performance: Measurement, Core Web Vitals, image/font optimization,
+  critical-rendering-path tuning, CDN/edge strategies.
+- Consistency Models & CAP: Linearizability, causal consistency, eventual
+  consistency, PACELC, and per-operation guarantees.
+- Frontend Architecture at Scale: Domain boundaries, contract-first
+  integration, release models, governance.
+- Networking & APIs: HTTP/3, QUIC, fetch/streaming, service workers,
+  caching and compression.
+
+## Content authoring conventions
+
+- Each article lives at `content/articles/<slug>/README.md` with a Zod-validated
+  frontmatter block describing title, description, series, tags, etc.
+- Blog posts follow the same pattern under `content/blogs/<slug>/README.md`.
+- `meta.json5` files under `content/` control grouping and manual ordering.
+- `redirects.json5` at the content root declares HTML-level redirects.
+
+## Maintenance
+
+- Maintainer: Sujeet Jaiswal, https://sujeet.pro.
+- Repository: https://github.com/sujeet-pro/v5.sujeet.pro.
+- Build system: Vite + `@pagesmith/core` + `@pagesmith/site` (no `@pagesmith/docs`).
+- Diagrams are rendered via diagramkit (see `content/**/.diagramkit/`).

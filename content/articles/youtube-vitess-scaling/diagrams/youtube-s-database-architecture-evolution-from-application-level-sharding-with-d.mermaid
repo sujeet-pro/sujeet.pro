@@ -1,5 +1,6 @@
 %% Diagram: Youtube S Database Architecture Evolution From Application Level Sharding With D
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     subgraph "Before Vitess (2006)"
         A1[Application Code] -->|"Shard-aware queries<br/>routing logic embedded"| M1[MySQL Shard 1]

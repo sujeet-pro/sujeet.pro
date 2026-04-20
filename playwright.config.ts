@@ -7,7 +7,10 @@ const e2eBasePath = normalizeBasePath(process.env.BASE_PATH ?? siteConfig.basePa
 const deployed = !!process.env.DEPLOYED_URL;
 const previewPort = Number(process.env.PLAYWRIGHT_PREVIEW_PORT ?? 4173);
 const previewOrigin = `http://127.0.0.1:${previewPort}`;
-const previewUrl = `${previewOrigin}${withBasePath(e2eBasePath, "/")}`;
+// `withBasePath(bp, "/")` returns the base path without a trailing slash
+// (e.g. `/v5.sujeet.pro`). `vite preview` only serves the index at the
+// trailing-slash form, so explicitly append `/` for the health-check URL.
+const previewUrl = `${previewOrigin}${withBasePath(e2eBasePath, "/")}/`.replace(/\/+$/, "/");
 const baseURL = process.env.DEPLOYED_URL || previewOrigin;
 
 export default defineConfig({

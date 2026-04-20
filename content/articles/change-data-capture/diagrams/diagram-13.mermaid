@@ -1,5 +1,6 @@
 %% Diagram: Diagram 13
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     DB[(PostgreSQL)] --> CDC[Debezium]
     CDC --> K[Kafka]

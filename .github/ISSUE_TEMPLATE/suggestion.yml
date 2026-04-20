@@ -1,0 +1,76 @@
+name: Suggestion / New Content
+description: Suggest a new article, blog topic, project page, site feature, or general improvement
+title: "[suggestion]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion!
+
+        Use this template for:
+
+        - new article / blog post / project page ideas
+        - site features (search improvements, navigation, dark mode, RSS, etc.)
+        - structural / informational improvements that aren't tied to one page
+
+        For **bugs** use Site Bug, and for **fixes to existing content** use Content Issue.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of suggestion
+      multiple: true
+      options:
+        - New article / blog post idea
+        - New project page
+        - Site feature
+        - Navigation / information architecture
+        - Visual / theme / design
+        - Performance / accessibility / SEO improvement
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: section
+    attributes:
+      label: Related section (optional)
+      multiple: true
+      options:
+        - Articles
+        - Blogs
+        - Projects
+        - Home
+        - Site-wide / not section-specific
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What are you suggesting and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / use case (optional)
+      description: Who benefits from this and how?
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References / inspiration (optional)
+      description: Links to similar articles, sites, or features that inspired this.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to send a pull request?
+      options:
+        - "Yes — I plan to send a PR."
+        - "Yes — with guidance."
+        - "No — I am only proposing."
+    validations:
+      required: true

@@ -1,0 +1,99 @@
+name: Content Issue
+description: Report a missing, broken, outdated, or incorrect article, blog post, project page, or any other content
+title: "[content]: "
+labels: ["content", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve v5.sujeet.pro!
+
+        Use this template to report:
+
+        - typos, grammar, formatting, or clarity issues
+        - inaccurate or outdated information
+        - missing topics or undocumented details
+        - broken links, broken examples, missing images
+        - accessibility issues (color contrast, alt text, headings, etc.)
+
+        For **website bugs** (something isn't loading, a UI element doesn't work, search is broken) use the Site Bug template instead.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of content issue
+      multiple: true
+      options:
+        - Typo / grammar / formatting
+        - Inaccurate / outdated information
+        - Missing content / undocumented topic
+        - Broken link
+        - Broken example / non-working code snippet
+        - Missing or stale image / diagram
+        - Accessibility issue (color contrast, alt text, headings, etc.)
+        - Suggestion to improve clarity or structure
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: section
+    attributes:
+      label: Content section
+      multiple: true
+      options:
+        - Articles
+        - Blogs
+        - Projects
+        - Home
+        - Site-wide / not section-specific
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: page-url
+    attributes:
+      label: Page URL
+      description: Full URL of the affected page on https://v5.sujeet.pro/, or the path under `content/` if you are reporting a source-only issue.
+      placeholder: https://v5.sujeet.pro/articles/some-article/
+    validations:
+      required: true
+
+  - type: input
+    id: heading
+    attributes:
+      label: Section / heading (optional)
+      description: The specific section or heading where the issue lives.
+      placeholder: e.g. "How it works"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What is wrong?
+      description: Describe the issue. For inaccuracies, quote the page and the actual fact / desired wording side by side.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested fix (optional)
+      description: A proposed sentence, code snippet, or rewrite. Even rough wording helps.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to send a pull request?
+      options:
+        - "Yes — I plan to send a PR."
+        - "Yes — with guidance."
+        - "No — I am only reporting."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context (optional)
+      description: Screenshots, related issues, links to discussions, etc.

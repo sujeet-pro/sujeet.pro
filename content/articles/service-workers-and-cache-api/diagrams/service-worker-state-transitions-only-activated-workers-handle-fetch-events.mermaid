@@ -1,5 +1,6 @@
 %% Diagram: Service Worker State Transitions Only Activated Workers Handle Fetch Events
 %% Type: state
+%%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
     [*] --> parsed: navigator.serviceWorker.register()
     parsed --> installing: install event fires

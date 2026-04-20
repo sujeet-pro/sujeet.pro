@@ -1,5 +1,6 @@
 %% Diagram: Observer Lifecycle
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TB
   N["new IntersectionObserver(callback, options)"] --> O["observe(target)"]
   O --> U["Async intersection updates"]

@@ -1,5 +1,6 @@
 %% Diagram: Magic Pocket S Data Hierarchy Blocks Aggregate Into Buckets Buckets Into Volumes
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart TD
     subgraph "Data Hierarchy"
         B["Block (up to 4 MB)<br/>SHA-256 identified"] --> BK["Bucket (~1 GB)<br/>Aggregates blocks by time"]

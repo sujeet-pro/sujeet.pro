@@ -1,5 +1,6 @@
 %% Diagram: Diagram 2
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
     CLIENT["Client"] --> GW["API Gateway"]
     GW -->|"gRPC check"| RLS["Rate Limit<br/>Service"]

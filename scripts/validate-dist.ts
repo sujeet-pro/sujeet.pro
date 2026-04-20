@@ -6,6 +6,7 @@ import { loadSiteConfig } from "../lib/site-config.ts";
 const siteConfig = loadSiteConfig();
 const DIST = process.env.DIST_DIR || siteConfig.outDir;
 const basePath = normalizeBasePath(siteConfig.basePath);
+const trailingSlash = siteConfig.trailingSlash ?? false;
 
 type Issue = { file: string; message: string };
 const errors: Issue[] = [];
@@ -35,6 +36,18 @@ function fileExists(path: string): boolean {
 
 function isRedirect(content: string): boolean {
   return /http-equiv=["']?refresh["']?/i.test(content);
+}
+
+/**
+ * Check whether a resolved path corresponds to an existing file.
+ * Handles both trailing-slash (path/index.html) and flat (path.html) modes.
+ * Mirrors @pagesmith/site build-validator's resolvedPathExists.
+ */
+function resolvedPathExists(resolved: string): boolean {
+  if (fileExists(resolved)) return true;
+  if (fileExists(join(resolved, "index.html"))) return true;
+  if (!trailingSlash && !extname(resolved) && fileExists(`${resolved}.html`)) return true;
+  return false;
 }
 
 // ── 1. Required files ────────────────────────────────────────────────
@@ -85,7 +98,7 @@ function checkBundledAssets(): void {
     const resolved = resolveLocalHref(ref, entryHtmlPath);
     if (!resolved) continue;
 
-    if (!fileExists(resolved) && !fileExists(join(resolved, "index.html"))) {
+    if (!resolvedPathExists(resolved)) {
       errors.push({ file: "index.html", message: `Bundled asset missing: ${ref}` });
     }
   }
@@ -155,7 +168,7 @@ function checkLinks(files: Map<string, string>): void {
       const resolved = resolveLocalHref(href, path);
       if (!resolved) continue;
 
-      if (!fileExists(resolved) && !fileExists(join(resolved, "index.html"))) {
+      if (!resolvedPathExists(resolved)) {
         const basename = resolved.split("/").pop()!;
         if (fileExists(join(assetsDir, basename))) {
           warnings.push({ file: rel, message: `Asset path mismatch: ${href} (exists in assets/)` });
@@ -211,8 +224,9 @@ function checkSitemap(files: Map<string, string>): void {
   }
 
   for (const p of sitemapPaths) {
-    const htmlPath = p === "/" ? join(DIST, "index.html") : join(DIST, p, "index.html");
-    if (!fileExists(htmlPath)) {
+    const indexPath = p === "/" ? join(DIST, "index.html") : join(DIST, p, "index.html");
+    const flatPath = p === "/" ? null : join(DIST, `${p}.html`);
+    if (!fileExists(indexPath) && !(flatPath && fileExists(flatPath))) {
       errors.push({ file: "sitemap.xml", message: `No file for sitemap entry: ${p}` });
     }
   }
@@ -234,6 +248,7 @@ function checkSitemap(files: Map<string, string>): void {
 
 console.log(`Validating dist: ${DIST}`);
 if (basePath) console.log(`BasePath: ${basePath}`);
+console.log(`TrailingSlash: ${trailingSlash}`);
 
 if (!existsSync(DIST)) {
   console.error(`\nDist directory not found: ${DIST}`);

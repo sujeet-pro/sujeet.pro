@@ -1,5 +1,6 @@
 %% Diagram: Event Loop Iteration One Task Drain Microtasks Optional Rendering Idle Callbacks
 %% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
   subgraph EL["Event Loop Iteration"]
     T["Task<br/>(one per iteration)"] --> MC["Microtask<br/>Checkpoint<br/>(drain all)"]
