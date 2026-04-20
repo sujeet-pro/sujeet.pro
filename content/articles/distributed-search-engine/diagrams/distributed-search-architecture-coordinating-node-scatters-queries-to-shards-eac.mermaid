@@ -1,47 +1,19 @@
-%% Diagram: Distributed Search Architecture Coordinating Node Scatters Queries To Shards Eac
+%% Diagram: Distributed Search Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Client["Client Tier"]
-        CL[Application]
+    CL[Application]
+    QP[Query Parser]
+    AGG[Result Aggregator]
+
+    subgraph SHARD["Shard (replicated 0..N)"]
+        PRIMARY["Shard Primary"]
+        REPLICA["Shard Replica"]
+        INDEX["Index\nSegments · Inverted · FST"]
+        PRIMARY -.->|sync| REPLICA
+        PRIMARY --> INDEX
     end
 
-    subgraph Coordinator["Coordinating Node"]
-        QP[Query Parser]
-        AGG[Result Aggregator]
-    end
-
-    subgraph DataNodes["Data Nodes (Shards)"]
-        subgraph S0["Shard 0"]
-            P0[Primary]
-            R0[Replica]
-        end
-        subgraph S1["Shard 1"]
-            P1[Primary]
-            R1[Replica]
-        end
-        subgraph S2["Shard 2"]
-            P2[Primary]
-            R2[Replica]
-        end
-    end
-
-    subgraph Index["Index Structure (per Shard)"]
-        SEG["Segments (Immutable)"]
-        INV[Inverted Index]
-        FST[Term Dictionary FST]
-        POST[Posting Lists]
-    end
-
-    CL -->|search query| QP
-    QP -->|scatter| S0 & S1 & S2
-    S0 & S1 & S2 -->|local results| AGG
+    CL -->|query| QP -->|scatter| PRIMARY
+    PRIMARY -->|local results| AGG
     AGG -->|merged top-K| CL
-
-    P0 -.->|sync| R0
-    P1 -.->|sync| R1
-    P2 -.->|sync| R2
-
-    style Coordinator fill:#e1f5fe
-    style DataNodes fill:#fff3e0
-    style Index fill:#f3e5f5

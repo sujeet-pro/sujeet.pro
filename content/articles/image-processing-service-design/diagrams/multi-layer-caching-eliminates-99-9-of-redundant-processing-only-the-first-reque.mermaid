@@ -1,7 +1,7 @@
 %% Diagram: Multi Layer Caching Eliminates 99 9 Of Redundant Processing Only The First Reque
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Cache Layers"
         CDN["CDN Edge\n95% hit rate"]
         Redis["Redis\n80% of misses"]

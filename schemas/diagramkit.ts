@@ -14,6 +14,16 @@ export const DiagramkitFileOverrideSchema = z
   })
   .strict();
 
+export const MermaidLayoutModeSchema = z.enum(["off", "warn", "flip", "elk", "auto"]);
+
+export const MermaidLayoutOptionsSchema = z
+  .object({
+    mode: MermaidLayoutModeSchema.optional(),
+    targetAspectRatio: z.number().positive().optional(),
+    tolerance: z.number().gt(1).optional(),
+  })
+  .strict();
+
 export const DiagramkitConfigSchema = z
   .object({
     outputDir: z.string().min(1).default(".diagramkit"),
@@ -27,6 +37,7 @@ export const DiagramkitConfigSchema = z
     extensionMap: z.record(z.string(), DiagramTypeSchema).optional(),
     inputDirs: z.array(z.string().min(1)).optional(),
     overrides: z.record(z.string(), DiagramkitFileOverrideSchema).default({}),
+    mermaidLayout: MermaidLayoutOptionsSchema.optional(),
   })
   .strict();
 

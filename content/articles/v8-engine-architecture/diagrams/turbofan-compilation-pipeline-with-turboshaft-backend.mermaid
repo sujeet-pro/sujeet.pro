@@ -1,7 +1,7 @@
 %% Diagram: Turbofan Compilation Pipeline With Turboshaft Backend
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     Bytecode[Bytecode] --> Builder[Graph Builder]
     Feedback[FeedbackVector] --> Builder
     Builder --> Graph[Initial Graph]

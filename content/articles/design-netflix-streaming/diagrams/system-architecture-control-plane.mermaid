@@ -1,0 +1,22 @@
+%% Diagram: System Architecture — Control Plane (AWS)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Client Apps\nTVs, Mobile, Web, Consoles"]
+    GATEWAY["API Gateway\nZuul + Eureka"]
+    AUTH["Auth & Profile"]
+    PLAYBACK["Playback API\nManifests"]
+    LICENSE["License\nDRM Keys"]
+    STEERING["Steering\nOCA Selection"]
+    PERSONAL["Personalization\nRecs, Artwork, A/B"]
+    META[("Metadata\nCassandra")]
+    CACHE[("EVCache\nHot Metadata")]
+
+    CLIENTS --> GATEWAY
+    GATEWAY --> AUTH
+    GATEWAY --> PLAYBACK
+    GATEWAY --> PERSONAL
+    PLAYBACK --> LICENSE
+    PLAYBACK --> STEERING
+    PLAYBACK --> CACHE
+    META --> CACHE

@@ -6,11 +6,13 @@ flowchart TD
     B -->|Live HTMLCollection| C[Maintains References]
     B -->|Static NodeList| D[Snapshot Copy]
 
-    C --> E[Overhead: Monitor DOM]
+    C --> E["Overhead: Monitor DOM"]
     C --> F[Benefit: Auto-updates]
 
-    D --> G[Overhead: Re-query for updates]
+    D --> G["Overhead: Re-query for updates"]
     D --> H[Benefit: No maintenance cost]
 
-    style C fill:#ef4444,stroke:#dc2626,color:#fff
-    style D fill:#10b981,stroke:#059669,color:#fff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class C alert
+    class D success

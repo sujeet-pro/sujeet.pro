@@ -1,0 +1,15 @@
+%% Diagram: High Level Architecture — Routing & Delivery
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    PRIORITY["Priority Queues"]
+    ROUTER["Router Service"]
+    POLICY["Policy Layer\nPrefs + Throttle + Dedup"]
+    STATE["State Stores\nRedis · PostgreSQL · Cassandra"]
+    CHANNELS["Channel Processors\nPush · Email · SMS · In-App"]
+    EXTERNAL["External Providers\nAPNs · FCM · SMTP · Twilio · WS"]
+
+    PRIORITY --> ROUTER
+    ROUTER --> POLICY
+    POLICY --> STATE
+    ROUTER --> CHANNELS --> EXTERNAL

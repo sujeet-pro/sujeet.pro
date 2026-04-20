@@ -2,17 +2,16 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-  autonumber
   participant Domain as Domain team
   participant Contract as Contract artifact
   participant Registry as Registry
   participant Consumer as Consumer team
   participant Release as Release pipeline
 
-  Domain->>Contract: Evolve API, event, or package surface
-  Domain->>Release: Propose breaking change (RFC or ADR)
-  Release->>Contract: Apply semver bump policy
-  Contract->>Registry: Publish client, schema, or tarball
-  Registry-->>Consumer: Resolve compatible range with lockfile
-  Consumer->>Consumer: Integrate via adapter at boundary
+  Domain->>Contract: 1. Evolve API, event, or package surface
+  Domain->>Release: 2. Propose breaking change (RFC or ADR)
+  Release->>Contract: 3. Apply semver bump policy
+  Contract->>Registry: 4. Publish client, schema, or tarball
+  Registry-->>Consumer: 5. Resolve compatible range with lockfile
+  Consumer->>Consumer: 6. Integrate via adapter at boundary
   Note over Consumer,Contract: Deprecation window or release train for incompatible bumps

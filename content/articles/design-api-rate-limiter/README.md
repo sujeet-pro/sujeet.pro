@@ -323,8 +323,15 @@ This approximation smooths the boundary burst problem while maintaining O(1) mem
 
 ### Component Overview
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+**Data path** — clients → gateway → rate-limit service → Redis. Replica counts are collapsed for clarity:
+
+![Rate limiter data path — API consumers, load balancer, gateway nodes, rate-limit service, Redis cluster, and backend services](./diagrams/diagram-4-data-path-light.svg)
+![Rate limiter data path — API consumers, load balancer, gateway nodes, rate-limit service, Redis cluster, and backend services](./diagrams/diagram-4-data-path-dark.svg)
+
+**Quota management + observability** — side concerns wired to the rate-limit service:
+
+![Rate limiter quota management and observability — Postgres-backed quota API, quota cache, Prometheus, Grafana, and AlertManager](./diagrams/diagram-4-quota-and-observability-light.svg)
+![Rate limiter quota management and observability — Postgres-backed quota API, quota cache, Prometheus, Grafana, and AlertManager](./diagrams/diagram-4-quota-and-observability-dark.svg)
 
 ### Request Flow
 

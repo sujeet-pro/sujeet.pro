@@ -3,25 +3,25 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant API as API Gateway
-    participant ES as Event Service
-    participant RS as Recurrence Service
-    participant DB as PostgreSQL
-    participant Cache as Redis
+    participant API
+    participant ES as Event
+    participant RS as Recurrence
+    participant DB
+    participant Cache
 
-    C->>API: GET /calendars/{id}/events?start=...&end=...
-    API->>ES: getEvents(calendarId, range)
-    ES->>Cache: GET calendar:{id}:range:{hash}
-    alt Cache hit
-        Cache->>ES: Return cached events
-    else Cache miss
-        ES->>DB: SELECT single events in range
-        ES->>DB: SELECT materialized instances in range
-        alt Range extends beyond materialized window
-            ES->>RS: expandInstances(masters, extended range)
-            RS->>ES: Return dynamically expanded instances
+    C->>API: GET events?range
+    API->>ES: getEvents
+    ES->>Cache: lookup
+    alt Hit
+        Cache->>ES: cached
+    else Miss
+        ES->>DB: single events
+        ES->>DB: instances
+        alt Beyond window
+            ES->>RS: expand
+            RS->>ES: instances
         end
-        ES->>ES: Merge single + recurring + exceptions
-        ES->>Cache: SET calendar:{id}:range:{hash} TTL=5min
+        ES->>ES: merge
+        ES->>Cache: SET 5m
     end
-    ES->>C: Return merged events
+    ES->>C: events

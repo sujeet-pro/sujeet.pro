@@ -2,32 +2,19 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Data Fetching Lifecycle"
-        direction TB
-        REQ["Request<br/>Key + Params"]
-        DEDUPE["Deduplication<br/>Same Key = Same Promise"]
-        CACHE["Cache Layer<br/>Memory / Normalized"]
-        FETCH["Network Fetch<br/>HTTP + Headers"]
-        VALID["Validation<br/>ETag / Last-Modified"]
-        REVALID["Background Revalidate<br/>SWR Pattern"]
-    end
+    REQ["Request\nKey + Params"]
+    DEDUPE["Deduplication"]
+    CACHE["Cache Layer"]
+    FETCH["Network Fetch"]
+    VALID["Validation\nETag"]
+    REVALID["Background Revalidate"]
 
     REQ --> DEDUPE
-    DEDUPE -->|"Cache Hit<br/>(Fresh)"| CACHE
-    DEDUPE -->|"Cache Miss"| FETCH
+    DEDUPE -->|"Hit"| CACHE
+    DEDUPE -->|"Miss"| FETCH
     CACHE -->|"Stale"| REVALID
     FETCH --> VALID
-    VALID -->|"304"| CACHE
-    VALID -->|"200"| CACHE
+    VALID -->|"304 / 200"| CACHE
     REVALID --> FETCH
 
-    subgraph "Cache States"
-        FRESH["Fresh<br/>Within staleTime"]
-        STALE["Stale<br/>Past staleTime"]
-        INACTIVE["Inactive<br/>No Subscribers"]
-        GC["Garbage Collected<br/>Past gcTime"]
-    end
-
-    FRESH --> STALE
-    STALE --> INACTIVE
-    INACTIVE --> GC
+    FRESH["Fresh"] --> STALE["Stale"] --> INACTIVE["Inactive"] --> GC["GC"]

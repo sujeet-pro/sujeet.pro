@@ -1,7 +1,7 @@
 %% Diagram: The Paint Stage Within The Renderingng Pipeline Chromium M94 Paint Produces A Pa
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph MainThread["Main Thread (Renderer Process)"]
         Layout[Layout<br/>Fragment Tree] --> Prepaint[Prepaint<br/>Property Trees]
         Prepaint --> Paint[Paint<br/>Paint Artifact]

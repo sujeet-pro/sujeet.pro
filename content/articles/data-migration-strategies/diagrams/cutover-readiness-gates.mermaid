@@ -1,18 +1,19 @@
 %% Diagram: Cutover Readiness Gates
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TD
-  start([Cutover checklist]) --> g1{Lag under SLO?}
-  g1 -->|no| h1[Throttle / widen window] --> start
-  g1 -->|yes| g2{Reconciliation clean?}
-  g2 -->|no| h2[Fix pipeline] --> start
-  g2 -->|yes| g3{Shadow reads OK?}
-  g3 -->|no| h3[Fix semantics] --> start
-  g3 -->|yes| g4{Rollback rehearsed?}
-  g4 -->|no| h4[Run playbook dry-run] --> start
-  g4 -->|yes| g5{Flags + on-call ready?}
-  g5 -->|no| h5[Assign commander] --> start
-  g5 -->|yes| go[Bounded cutover]
-  go --> watch{Healthy?}
-  watch -->|yes| done([Stabilize then decommission])
-  watch -->|no| rb([Rollback]) --> start
+flowchart TB
+    start([Cutover checklist])
+    g1{Lag under SLO?}
+    g2{Reconciliation clean?}
+    g3{Shadow reads OK?}
+    g4{Rollback rehearsed?}
+    g5{Flags + on-call ready?}
+    go[Bounded cutover]
+    watch{Healthy?}
+    done([Stabilize then decommission])
+    fail["Any NO -> remediate + restart\nthrottle · fix pipeline · fix semantics\nrehearse rollback · assign commander"]
+
+    start --> g1 -->|yes| g2 -->|yes| g3 -->|yes| g4 -->|yes| g5 -->|yes| go --> watch
+    watch -->|yes| done
+    watch -->|no| fail
+    g5 -->|no| fail

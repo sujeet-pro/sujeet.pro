@@ -1,7 +1,7 @@
 %% Diagram: Exponential Backoff With Jitter Desynchronizes Retries Preventing Load Spikes
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph "Exponential Backoff + Jitter"
         T1["1s ± random(0.5s)"]
         T2["2s ± random(1s)"]
@@ -11,5 +11,5 @@ graph LR
 
     T1 --> T2 --> T3 --> T4
 
-    classDef timeClass fill:#ffcc00,stroke:#000,stroke-width:2px
+    classDef timeClass fill:#8B5E15,stroke:#000,stroke-width:2px,color:#ffffff
     class T1,T2,T3,T4 timeClass

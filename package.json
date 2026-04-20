@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@pagesmith/site": "^0.9.8",
-    "diagramkit": "^0.3.2",
+    "diagramkit": "file:../diagramkit",
     "json5": "^2.2.3"
   },
   "devDependencies": {

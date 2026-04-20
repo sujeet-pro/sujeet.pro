@@ -3,36 +3,36 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant API as Payment API
-    participant F as Fraud Engine
-    participant P as Processor (Stripe)
-    participant N as Card Network
-    participant I as Issuing Bank
+    participant API as API
+    participant F as Fraud
+    participant P as Processor
+    participant N as Network
+    participant I as Bank
     participant L as Ledger
 
-    C->>API: POST /payments (idempotency_key)
-    API->>API: Check idempotency cache
-    API->>F: Score transaction
-    F->>API: risk_score: 25, decision: allow
-    API->>P: Create PaymentIntent
-    P->>N: Authorization request
-    N->>I: Verify funds, fraud check
-    I->>N: Approved (auth_code)
-    N->>P: Authorization response
-    P->>API: PaymentIntent created (auth hold)
-    API->>L: Record authorization (debit: receivables, credit: auth_hold)
-    API->>C: 201 Created {payment_id, status: authorized}
+    C->>API: POST /payments
+    API->>API: Idempotency check
+    API->>F: Score txn
+    F->>API: allow (risk 25)
+    API->>P: PaymentIntent
+    P->>N: Authorize
+    N->>I: Verify funds
+    I->>N: Approved
+    N->>P: Auth ok
+    P->>API: Authorized
+    API->>L: Record auth
+    API->>C: 201 authorized
 
     Note over C,L: Later: Capture
 
-    C->>API: POST /payments/{id}/capture
-    API->>P: Capture PaymentIntent
-    P->>N: Capture request
+    C->>API: POST /capture
+    API->>P: Capture
+    P->>N: Capture
     N->>API: Captured
-    API->>L: Record capture (debit: auth_hold, credit: revenue)
-    API->>C: 200 OK {status: captured}
+    API->>L: Record capture
+    API->>C: 200 captured
 
-    Note over C,L: T+2 days: Settlement
+    Note over C,L: T+2: Settlement
 
-    P-->>API: Webhook: payout.created
-    API->>L: Record settlement (debit: cash, credit: receivables)
+    P-->>API: Webhook payout
+    API->>L: Record settlement

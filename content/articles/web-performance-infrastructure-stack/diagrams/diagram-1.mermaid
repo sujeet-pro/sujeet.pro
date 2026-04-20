@@ -1,7 +1,7 @@
 %% Diagram: Diagram 1
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Request Lifecycle"
         direction LR
         DNS["DNS<br/>(50-300ms)"] --> CONN["Connection<br/>(100-200ms)"] --> EDGE["Edge<br/>(5-20ms)"] --> ORIGIN["Origin<br/>(50-500ms)"]

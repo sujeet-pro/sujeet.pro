@@ -1,7 +1,7 @@
 %% Diagram: Diagram 2
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph SaleTime["During Sale"]
         WR[Waiting Room] --> RL[Rate Limiter]
         RL --> INV[Inventory Check<br/>Redis Counter]

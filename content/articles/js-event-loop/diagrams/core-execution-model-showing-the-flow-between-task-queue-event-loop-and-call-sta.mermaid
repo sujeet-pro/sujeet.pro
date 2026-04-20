@@ -1,7 +1,7 @@
 %% Diagram: Core Execution Model Showing The Flow Between Task Queue Event Loop And Call Sta
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph "Execution Model"
         A[Task Queue] --> B[Event Loop]
         B --> C[Call Stack]

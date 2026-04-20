@@ -1,7 +1,7 @@
 %% Diagram: Partitioning Enables Parallelism Consumer Group Distributes Partitions Across Me
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Topic: user-events"
         P0["Partition 0<br/>user_id % 3 == 0"]
         P1["Partition 1<br/>user_id % 3 == 1"]

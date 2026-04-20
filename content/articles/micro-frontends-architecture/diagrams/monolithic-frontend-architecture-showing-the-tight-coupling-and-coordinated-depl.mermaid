@@ -8,8 +8,9 @@ graph TB
     B --> C[Tight Coupling]
     C --> D[Coordinated Deployments]
 
-    style title fill:#ff6666,stroke:#cc0000,stroke-width:3px,color:#ffffff
-    style A fill:#ff9999
-    style B fill:#ffcccc
-    style C fill:#ffcccc
-    style D fill:#ffcccc
+    classDef header fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef primary fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef secondary fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class title header
+    class A primary
+    class B,C,D secondary

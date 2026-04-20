@@ -2,36 +2,31 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Sender as Sender MTA
-    participant DNS as DNS
-    participant MX as MX Server
-    participant Auth as Auth Service
-    participant Spam as Spam Filter
-    participant Route as Router
-    participant Store as Mailbox Service
+    participant S as Sender
+    participant DNS
+    participant MX
+    participant A as Auth
+    participant SP as Spam
+    participant R as Router
+    participant M as Mailbox
 
-    Sender->>DNS: Query MX records
-    DNS-->>Sender: mx1.example.com (priority 10)
-
-    Sender->>MX: EHLO, MAIL FROM, RCPT TO
-    MX->>MX: Rate limit check
-    MX->>Auth: Validate SPF, DKIM, DMARC
-    Auth-->>MX: Pass/Fail + alignment
-
-    MX->>Sender: 250 OK (accept DATA)
-    Sender->>MX: DATA (message content)
-
-    MX->>Spam: Analyze message
-    Spam-->>MX: Score + classification
-
-    alt Spam score > threshold
-        MX->>Sender: 250 OK (deliver to spam)
-        MX->>Route: Route to spam folder
-    else Legitimate
-        MX->>Sender: 250 OK
-        MX->>Route: Route to inbox
+    S->>DNS: MX records
+    DNS-->>S: mx1.example
+    S->>MX: EHLO/MAIL/RCPT
+    MX->>MX: rate limit
+    MX->>A: SPF/DKIM/DMARC
+    A-->>MX: pass/fail
+    MX->>S: 250 OK
+    S->>MX: DATA
+    MX->>SP: analyze
+    SP-->>MX: score
+    alt Spam
+        MX->>S: 250 OK
+        MX->>R: route spam
+    else Legit
+        MX->>S: 250 OK
+        MX->>R: route inbox
     end
-
-    Route->>Store: Store message
-    Store->>Store: Index for search
-    Store-->>Route: Stored (message_id)
+    R->>M: store
+    M->>M: index
+    M-->>R: stored

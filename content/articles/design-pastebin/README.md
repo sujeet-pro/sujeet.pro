@@ -226,8 +226,11 @@ This article focuses on **Path B (Split Storage)** with optional content-address
 
 ### Component Overview
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Pastebin (write path)](./diagrams/diagram-4-write-light.svg)
+![Pastebin (write path)](./diagrams/diagram-4-write-dark.svg)
+
+![Pastebin (read & lifecycle)](./diagrams/diagram-4-read-light.svg)
+![Pastebin (read & lifecycle)](./diagrams/diagram-4-read-dark.svg)
 
 ### Paste Write Service
 

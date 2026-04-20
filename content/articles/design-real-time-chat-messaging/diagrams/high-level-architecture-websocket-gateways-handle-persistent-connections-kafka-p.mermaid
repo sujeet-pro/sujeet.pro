@@ -1,57 +1,20 @@
-%% Diagram: High Level Architecture Websocket Gateways Handle Persistent Connections Kafka P
+%% Diagram: High Level Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Clients"]
-        M1["Mobile App"]
-        M2["Mobile App"]
-        W1["Web Client"]
-    end
+    Clients["Clients\nMobile + Web"]
+    EDGE["Edge\nCDN + Load Balancer"]
+    WS["WebSocket Gateways\n(stateful, scaled)"]
+    MSG["Message + Sync Service"]
+    PRES["Presence Service"]
+    KAFKA["Kafka Cluster"]
+    FANOUT["Fan-out + Push Service\n(APNs + FCM)"]
+    STATE["State Stores\nRedis · ScyllaDB · PostgreSQL"]
 
-    subgraph Edge["Edge Layer"]
-        CDN["CDN<br/>(Static Assets)"]
-        LB["Load Balancer"]
-    end
-
-    subgraph Gateway["Connection Layer"]
-        WS1["WebSocket Gateway 1"]
-        WS2["WebSocket Gateway 2"]
-        WSn["WebSocket Gateway N"]
-    end
-
-    subgraph Core["Core Services"]
-        MSG["Message Service"]
-        PRES["Presence Service"]
-        SYNC["Sync Service"]
-        FANOUT["Fan-out Service"]
-    end
-
-    subgraph Queue["Message Queue"]
-        KAFKA["Kafka Cluster"]
-    end
-
-    subgraph Storage["Storage Layer"]
-        REDIS["Redis Cluster<br/>(Presence, Sessions)"]
-        CASS[(ScyllaDB/Cassandra<br/>Messages)]
-        META[(PostgreSQL<br/>User, Group Metadata)]
-    end
-
-    subgraph Push["Push Notifications"]
-        PUSH["Push Service"]
-        APNS["APNs"]
-        FCM["FCM"]
-    end
-
-    M1 & M2 & W1 --> LB
-    LB --> WS1 & WS2 & WSn
-    WS1 & WS2 & WSn <--> MSG
-    WS1 & WS2 & WSn <--> PRES
-    MSG --> KAFKA
-    KAFKA --> FANOUT
-    FANOUT --> WS1 & WS2 & WSn
-    KAFKA --> PUSH
-    MSG --> CASS
-    MSG --> META
-    PRES --> REDIS
-    SYNC --> CASS
-    PUSH --> APNS & FCM
+    Clients --> EDGE --> WS
+    WS <--> MSG
+    WS <--> PRES
+    MSG --> KAFKA --> FANOUT
+    FANOUT --> WS
+    MSG --> STATE
+    PRES --> STATE

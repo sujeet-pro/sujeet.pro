@@ -1,7 +1,7 @@
 %% Diagram: Diagram 2
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     URL["Long URL"] --> HASH["MD5/SHA256"]
     HASH --> TRUNCATE["Take first 7 chars"]
     TRUNCATE --> CHECK{"Collision?"}

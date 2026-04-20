@@ -2,32 +2,20 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Host Application"
-        TM["Tenant Config Service"]
-        WR["Widget Registry"]
-        WL["Widget Loader"]
-        SDK["Host SDK"]
-        subgraph "Contribution Points"
-            CP1["Slot: Header"]
-            CP2["Slot: Sidebar"]
-            CP3["Slot: Content"]
-        end
-    end
+    TM["Tenant Config"]
+    WR["Widget Registry"]
+    WL["Widget Loader"]
+    SDK["Host SDK"]
+    SLOTS["Slots"]
+    WA["Widget A\n(iframe)"]
+    WB["Widget B\n(MF)"]
 
-    subgraph "Widget A (iframe)"
-        WA["Third-Party Code"]
-        SDA["Shadow DOM"]
-    end
-
-    subgraph "Widget B (Module Federation)"
-        WB["Trusted Code"]
-    end
-
-    TM -->|"tenant: acme"| WL
-    WL -->|"Resolve widget IDs"| WR
-    WR -->|"Return URLs + manifests"| WL
-    WL -->|"Load remote"| WA & WB
-    SDK <-->|"postMessage"| WA
-    SDK <-->|"Direct API"| WB
-    WA --> CP1
-    WB --> CP2
+    TM -->|tenant| WL
+    WL -->|resolve| WR
+    WR -->|URLs| WL
+    WL -->|load| WA
+    WL -->|load| WB
+    SDK <--> WA
+    SDK <--> WB
+    WA --> SLOTS
+    WB --> SLOTS

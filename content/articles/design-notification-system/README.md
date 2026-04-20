@@ -15,8 +15,11 @@ tags:
 
 A comprehensive system design for multi-channel notifications covering event ingestion, channel routing, delivery guarantees, user preferences, rate limiting, and failure handling. This design addresses sub-second delivery at Uber/LinkedIn scale (millions of notifications per second) with at-least-once delivery guarantees and user-centric throttling.
 
-![High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.](./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p-light.svg "High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.")
-![High-level architecture: Event producers publish to Kafka, routing layer applies preferences and throttling, channel processors deliver via external providers.](./diagrams/high-level-architecture-event-producers-publish-to-kafka-routing-layer-applies-p-dark.svg)
+![High-level architecture (ingress): Event producers publish to the notification API; validation and enrichment write into Kafka and priority queues.](./diagrams/high-level-architecture-ingress-light.svg "High-level architecture (ingress): Event producers publish to the notification API; validation and enrichment write into Kafka and priority queues.")
+![High-level architecture (ingress): Event producers publish to the notification API; validation and enrichment write into Kafka and priority queues.](./diagrams/high-level-architecture-ingress-dark.svg)
+
+![High-level architecture (routing & delivery): Router applies preferences/throttling, channel processors hand off to APNs, FCM, SMTP, and Twilio.](./diagrams/high-level-architecture-delivery-light.svg "High-level architecture (routing & delivery): Router applies preferences/throttling, channel processors hand off to APNs, FCM, SMTP, and Twilio.")
+![High-level architecture (routing & delivery): Router applies preferences/throttling, channel processors hand off to APNs, FCM, SMTP, and Twilio.](./diagrams/high-level-architecture-delivery-dark.svg)
 
 ## Abstract
 
@@ -227,8 +230,15 @@ This article focuses on **Path C (Hybrid)** because:
 
 ### Component Overview
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+**Ingress + queueing:**
+
+![Notification system ingress and queueing — producers, gateway, core services, and four priority queues](./diagrams/diagram-4-ingress-light.svg)
+![Notification system ingress and queueing — producers, gateway, core services, and four priority queues](./diagrams/diagram-4-ingress-dark.svg)
+
+**Routing + delivery + storage:**
+
+![Notification system routing and delivery — router, channel processors, external providers, and storage backends](./diagrams/diagram-4-delivery-light.svg)
+![Notification system routing and delivery — router, channel processors, external providers, and storage backends](./diagrams/diagram-4-delivery-dark.svg)
 
 ### Notification API
 

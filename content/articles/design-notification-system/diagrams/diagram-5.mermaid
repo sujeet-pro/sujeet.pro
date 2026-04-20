@@ -2,47 +2,23 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Edge
-        R53["Route 53"]
-        ALB["Application Load Balancer"]
-    end
+    R53["Route 53"]
+    ALB["ALB"]
+    NOTIF_API["Notif API"]
+    WS["WebSocket"]
+    ROUTER["Router"]
+    CHANNELS["Channel Workers"]
+    EXT["Providers"]
+    MSK["Kafka"]
+    SQS["DLQ"]
+    REDIS["Redis"]
+    RDS[(PG)]
+    KEYSPACES[(KS)]
 
-    subgraph Compute["EKS Cluster"]
-        subgraph API["API Tier"]
-            NOTIF_API["Notification API<br/>(Fargate)"]
-        end
-        subgraph Workers["Worker Tier"]
-            ROUTER["Router Workers<br/>(Fargate)"]
-            PUSH["Push Workers<br/>(Fargate)"]
-            EMAIL["Email Workers<br/>(Fargate)"]
-            SMS["SMS Workers<br/>(Fargate)"]
-        end
-        subgraph Realtime["Real-time Tier"]
-            WEBSOCKET["WebSocket Gateways<br/>(Fargate)"]
-        end
-    end
-
-    subgraph Queue["Messaging"]
-        MSK["Amazon MSK<br/>(Kafka)"]
-        SQS["SQS<br/>(DLQ)"]
-    end
-
-    subgraph Storage["Data Stores"]
-        REDIS["ElastiCache Redis<br/>(Cluster)"]
-        RDS["RDS PostgreSQL<br/>(Multi-AZ)"]
-        KEYSPACES["Amazon Keyspaces<br/>(Cassandra)"]
-    end
-
-    subgraph External["External Services"]
-        SES["Amazon SES"]
-        SNS["Amazon SNS<br/>(Mobile Push)"]
-        PINPOINT["Amazon Pinpoint<br/>(Analytics)"]
-    end
-
-    R53 --> ALB --> NOTIF_API
-    NOTIF_API --> MSK
-    MSK --> ROUTER --> PUSH & EMAIL & SMS
-    PUSH --> SNS
-    EMAIL --> SES
-    ROUTER --> REDIS & RDS & KEYSPACES
-    WEBSOCKET --> REDIS
+    R53 --> ALB --> NOTIF_API --> MSK --> ROUTER
+    ROUTER --> CHANNELS --> EXT
+    ROUTER --> REDIS
+    ROUTER --> RDS
+    ROUTER --> KEYSPACES
+    WS --> REDIS
+    ROUTER -. fail .-> SQS

@@ -1,7 +1,7 @@
 %% Diagram: Fanout On Write The Write Path Does All The Work Fanning Tweet Ids To Every Foll
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Write Path"
         U[User tweets] --> WA[Write API]
         WA --> TS[Tweet Store<br/>MySQL]

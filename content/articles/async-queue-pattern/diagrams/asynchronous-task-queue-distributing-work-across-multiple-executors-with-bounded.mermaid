@@ -1,7 +1,7 @@
 %% Diagram: Asynchronous Task Queue Distributing Work Across Multiple Executors With Bounded
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph "Task Queue"
         T1[Task 1]
         T2[Task 2]
@@ -22,8 +22,8 @@ graph LR
     T4 --> E1
     T5 --> E2
 
-    classDef taskClass fill:#ffcc00,stroke:#000,stroke-width:2px
-    classDef executorClass fill:#00ccff,stroke:#000,stroke-width:2px
+    classDef taskClass fill:#8B5E15,stroke:#000,stroke-width:2px,color:#ffffff
+    classDef executorClass fill:#1F6E68,stroke:#000,stroke-width:2px,color:#ffffff
 
     class T1,T2,T3,T4,T5 taskClass
     class E1,E2,E3 executorClass

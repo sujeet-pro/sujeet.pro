@@ -1,45 +1,21 @@
-%% Diagram: High Level Architecture Cdn Caches Immutable Paste Content At The Edge Core Serv
+%% Diagram: High Level Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Clients"]
-        WEB["Web App"]
-        API_CLIENT["API Clients"]
-        CLI["CLI Tools"]
-    end
+    Clients["Clients\nWeb, API, CLI"]
+    CDN["CDN Edge Cache\nCloudFront/Fastly"]
+    LB["Load Balancer"]
+    PASTE_SVC["Paste Service\nWrite Path"]
+    READ_SVC["Read Service\nCache-aside Read"]
+    HELPERS["Helpers\nKey Gen, Highlight, Rate Limit, Scanner"]
+    STORAGE["Storage\nRedis · PostgreSQL · S3"]
+    EXPIRY["Expiration Service"]
 
-    subgraph Edge["Edge Layer"]
-        CDN["CDN Edge Cache<br/>(CloudFront/Fastly)"]
-        LB["Load Balancer"]
-    end
-
-    subgraph Core["Core Services"]
-        PASTE_SVC["Paste Service"]
-        READ_SVC["Read Service"]
-        KGS["Key Generation<br/>Service"]
-        HIGHLIGHT["Syntax Highlight<br/>Worker"]
-        EXPIRY["Expiration<br/>Service"]
-    end
-
-    subgraph Storage["Storage Layer"]
-        REDIS["Redis Cluster<br/>(Hot Pastes, Rate Limits)"]
-        META_DB[(PostgreSQL<br/>Paste Metadata)]
-        OBJECT["Object Storage<br/>(S3 — Paste Content)"]
-    end
-
-    subgraph Security["Security Layer"]
-        RATELIMIT["Rate Limiter"]
-        SCANNER["Content Scanner"]
-    end
-
-    WEB & API_CLIENT & CLI --> CDN
+    Clients --> CDN
     CDN -->|Cache Miss| LB
-    LB --> PASTE_SVC & READ_SVC
-    PASTE_SVC --> KGS
-    PASTE_SVC --> RATELIMIT
-    PASTE_SVC --> SCANNER
-    PASTE_SVC --> REDIS & META_DB & OBJECT
-    PASTE_SVC --> HIGHLIGHT
-    READ_SVC --> REDIS
-    READ_SVC -->|Cache Miss| META_DB & OBJECT
-    EXPIRY --> META_DB & OBJECT & REDIS
+    LB --> PASTE_SVC
+    LB --> READ_SVC
+    PASTE_SVC --> HELPERS
+    PASTE_SVC --> STORAGE
+    READ_SVC --> STORAGE
+    EXPIRY --> STORAGE

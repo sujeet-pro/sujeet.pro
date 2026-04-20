@@ -183,8 +183,11 @@ This article focuses on **Path B (Custom CDN)** because:
 
 ### Component Overview
 
-![System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.](./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han-light.svg "System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.")
-![System architecture: AWS hosts control plane and personalization; Open Connect handles all video delivery.](./diagrams/system-architecture-aws-hosts-control-plane-and-personalization-open-connect-han-dark.svg)
+![System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.](./diagrams/system-architecture-control-plane-light.svg "System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.")
+![System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.](./diagrams/system-architecture-control-plane-dark.svg)
+
+![System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.](./diagrams/system-architecture-content-delivery-light.svg "System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.")
+![System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.](./diagrams/system-architecture-content-delivery-dark.svg)
 
 ### Traffic Split: AWS vs Open Connect
 

@@ -1,7 +1,7 @@
 %% Diagram: Object Memory Layout With Map Pointer And Fixed Offset Properties
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph "Object Layout"
         Obj[Object] --> MapPtr[Map Pointer]
         Obj --> Props[Properties at fixed offsets]

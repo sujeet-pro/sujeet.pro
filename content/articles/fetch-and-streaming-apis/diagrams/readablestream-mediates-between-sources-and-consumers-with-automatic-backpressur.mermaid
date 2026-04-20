@@ -1,7 +1,7 @@
 %% Diagram: Readablestream Mediates Between Sources And Consumers With Automatic Backpressur
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Source["Underlying Source"]
         PUSH["Push Source<br/>(events, WebSocket)"]
         PULL["Pull Source<br/>(file, database)"]
@@ -27,4 +27,5 @@ flowchart LR
     CTRL -.->|backpressure| PUSH
     CTRL -.->|throttle| PULL
 
-    style QUEUE fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class QUEUE primary

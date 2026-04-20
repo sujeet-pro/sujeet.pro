@@ -1,0 +1,32 @@
+%% Diagram: Detailed Event Loop — Main Iteration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    EL0([Iteration start]) --> EL1["1. oldestTask = null\n   taskStartTime = null"]
+    EL1 --> EL2{"2. Any task queue has\na runnable task?"}
+    EL2 -- "Yes" --> EL3["2.1 Choose taskQueue\n(implementation-defined)"]
+    EL3 --> EL4["2.2 taskStartTime = now"]
+    EL4 --> EL5["2.3 oldestTask = first runnable;\nremove from queue"]
+    EL5 --> EL6{"2.4 oldestTask.document != null?"}
+    EL6 -- "Yes" --> EL7["2.4 Record task start time"]
+    EL6 -- "No" --> EL9
+    EL7 --> EL9["2.5 currentlyRunningTask = oldestTask"]
+    EL9 --> EL10["2.6 Perform oldestTask.steps"]
+    EL10 --> EL11["2.7 currentlyRunningTask = null"]
+    EL11 --> MC0[[2.8 Microtask checkpoint]]
+    MC0 --> EL12["3. taskEndTime = now"]
+    EL2 -- "No" --> EL12
+    EL12 --> EL13{"4. oldestTask != null?"}
+    EL13 -- "Yes" --> EL14["4.1 Collect top-level browsing contexts"]
+    EL14 --> EL15["4.3 Report long tasks"]
+    EL15 --> EL19
+    EL13 -- "No" --> EL19
+    EL19 --> EL20{"5. Window event loop AND\nno runnable tasks?"}
+    EL20 -- "Yes" --> ID2["5. Idle period algorithm\n(requestIdleCallback, deadline = min(idle+50ms, next timer, next render))"]
+    ID2 --> WK0
+    EL20 -- "No" --> WK0
+    WK0{"6. Worker event loop?"}
+    WK0 -- "Yes" --> WK5{"6.2 No tasks AND closing flag true?"}
+    WK5 -- "Yes" --> WK6([Destroy event loop])
+    WK5 -- "No" --> EL0
+    WK0 -- "No" --> EL0

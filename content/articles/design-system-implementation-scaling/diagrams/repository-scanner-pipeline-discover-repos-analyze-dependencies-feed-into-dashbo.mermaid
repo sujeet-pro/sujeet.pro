@@ -1,7 +1,7 @@
 %% Diagram: Repository Scanner Pipeline Discover Repos Analyze Dependencies Feed Into Dashbo
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Scanner Pipeline"
         A[Repo Discovery] --> B[Clone/Fetch]
         B --> C[Parse package.json]

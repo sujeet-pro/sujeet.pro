@@ -2,61 +2,30 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Clients"]
-        M1["Mobile App"]
-        M2["Mobile App"]
-        W1["Web Client"]
-    end
+    CLIENTS["Clients\nMobile / Web"]
+    LB["LB"]
+    GW["Gateway"]
+    AGG["Aggregator"]
+    LEAF["Leaf Servers"]
+    RANK["Ranking"]
+    POST["Post"]
+    USER["User"]
+    SOCIAL["Social Graph"]
+    FANOUT["Fan-out"]
+    KAFKA["Kafka"]
+    TAO["TAO Store"]
+    REDIS["Redis"]
+    MYSQL[(MySQL)]
+    S3["S3"]
+    FEATURE["Feature Store"]
+    MODEL["Model Serving"]
 
-    subgraph Edge["Edge Layer"]
-        CDN["CDN<br/>(Static Assets)"]
-        LB["Load Balancer"]
-    end
-
-    subgraph Gateway["API Gateway"]
-        GW["API Gateway<br/>(Rate Limiting, Auth)"]
-    end
-
-    subgraph FeedGen["Feed Generation"]
-        AGG["Aggregator<br/>(Query + Rank)"]
-        LEAF["Leaf Servers<br/>(Recent Actions Index)"]
-        RANK["Ranking Service<br/>(ML Models)"]
-    end
-
-    subgraph Core["Core Services"]
-        POST["Post Service"]
-        USER["User Service"]
-        SOCIAL["Social Graph Service"]
-        FANOUT["Fan-out Service"]
-    end
-
-    subgraph Queue["Message Queue"]
-        KAFKA["Kafka Cluster"]
-    end
-
-    subgraph Storage["Storage Layer"]
-        TAO["TAO-like Graph Store<br/>(Objects + Associations)"]
-        REDIS["Redis Cluster<br/>(Feed Cache, Sessions)"]
-        MYSQL[(MySQL Shards<br/>Posts, Users)]
-        S3["S3<br/>(Media)"]
-    end
-
-    subgraph ML["ML Platform"]
-        FEATURE["Feature Store"]
-        MODEL["Model Serving"]
-    end
-
-    M1 & M2 & W1 --> LB
-    LB --> GW
-    GW --> AGG
+    CLIENTS --> LB --> GW --> AGG
     AGG --> LEAF
     AGG --> RANK
-    RANK --> MODEL
-    MODEL --> FEATURE
+    RANK --> MODEL --> FEATURE
     LEAF --> TAO
-    POST --> KAFKA
-    KAFKA --> FANOUT
-    FANOUT --> REDIS
+    POST --> KAFKA --> FANOUT --> REDIS
     SOCIAL --> TAO
     TAO --> MYSQL
     POST --> S3

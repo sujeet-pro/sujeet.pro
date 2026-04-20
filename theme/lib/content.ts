@@ -7,7 +7,12 @@ import {
   sortByManualOrder,
   withBasePath,
 } from "@pagesmith/site";
-import type { SiteBreadcrumb, SitePageLink, SiteSidebarSection } from "@pagesmith/site/components";
+import type {
+  SiteBreadcrumb,
+  SitePageLink,
+  SiteSidebarItem,
+  SiteSidebarSection,
+} from "@pagesmith/site/components";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJson5File } from "../../lib/read-json5";
@@ -193,19 +198,6 @@ export function getSiteChrome(basePath: string): {
   };
 }
 
-export function getListingSidebar(basePath: string): SiteSidebarSection[] {
-  const { navItems } = getSiteChrome(basePath);
-  return [
-    {
-      title: "Navigation",
-      items: navItems.map((item) => ({
-        title: item.label,
-        path: item.path,
-      })),
-    },
-  ];
-}
-
 export function getArticleListing(basePath: string): {
   meta: SectionMeta | undefined;
   series: SeriesGroup[];
@@ -252,45 +244,84 @@ export function getArticleContext(
 } {
   const listing = getArticleListing(basePath);
 
-  for (const group of listing.series) {
-    const index = group.articles.findIndex((entry) => entry.slug === slug);
-    if (index === -1) continue;
+  // Flat reading order across the whole section: every series in declared
+  // order, then any "Other" entries. Prev/next traverses this list so that
+  // the last article of a series links to the first article of the next
+  // series (and vice versa).
+  const flat: ListingEntry[] = [
+    ...listing.series.flatMap((group) => group.articles),
+    ...listing.other,
+  ];
+  const flatIndex = flat.findIndex((entry) => entry.slug === slug);
+  const { prev, next } =
+    flatIndex >= 0
+      ? buildPrevNext(
+          flat,
+          flatIndex,
+          (e) => e.title,
+          (e) => e.path,
+        )
+      : { prev: undefined, next: undefined };
 
-    const { prev, next } = buildPrevNext(
-      group.articles,
-      index,
-      (e) => e.title,
-      (e) => e.path,
-    );
-    return {
-      breadcrumbs: buildBreadcrumbs(basePath, [
-        { label: "Articles", path: "/articles" },
-        { label: group.displayName, path: "/articles" },
-        { label: group.articles[index]!.title },
-      ]),
-      sidebarSections: buildSidebarFromEntries(
-        group.displayName,
-        group.articles.map((e) => ({ title: e.title, path: e.path })),
-      ),
-      prev,
-      next,
-    };
+  let currentSeries: SeriesGroup | undefined;
+  let currentTitle: string | undefined;
+  for (const group of listing.series) {
+    const hit = group.articles.find((entry) => entry.slug === slug);
+    if (hit) {
+      currentSeries = group;
+      currentTitle = hit.title;
+      break;
+    }
+  }
+  if (!currentTitle) {
+    currentTitle = listing.other.find((entry) => entry.slug === slug)?.title;
   }
 
-  const fallbackEntries = [...listing.other];
-  const current = fallbackEntries.find((entry) => entry.slug === slug);
+  // Sidebar: every series renders as a top-level item that links to its first
+  // article, with its articles attached as children. Pagesmith's renderer adds
+  // an `expanded` class to the parent whose child path matches the current
+  // page; CSS hides children of non-matching parents. The result: the current
+  // series shows as an expanded accordion (with the active article highlighted
+  // beneath it), every other series stays collapsed, and there is no
+  // user-facing toggle so it cannot be collapsed away.
+  const seriesItems: SiteSidebarItem[] = listing.series.map((group) => ({
+    title: group.displayName,
+    path: group.articles[0]!.path,
+    children: group.articles.map((entry) => ({
+      title: entry.title,
+      path: entry.path,
+    })),
+  }));
+
+  const sidebarSections: SiteSidebarSection[] = [];
+  if (seriesItems.length > 0) {
+    sidebarSections.push({ title: "Series", items: seriesItems });
+  }
+  if (listing.other.length > 0) {
+    sidebarSections.push({
+      title: "Other",
+      items: listing.other.map((entry) => ({
+        title: entry.title,
+        path: entry.path,
+      })),
+    });
+  }
+
+  const breadcrumbTrail: SiteBreadcrumb[] = [{ label: "Articles", path: "/articles" }];
+  if (currentSeries) {
+    breadcrumbTrail.push(
+      { label: currentSeries.displayName, path: "/articles" },
+      { label: currentTitle ?? slug },
+    );
+  } else if (currentTitle) {
+    breadcrumbTrail.push({ label: currentTitle });
+  }
 
   return {
-    breadcrumbs: current
-      ? buildBreadcrumbs(basePath, [
-          { label: "Articles", path: "/articles" },
-          { label: current.title },
-        ])
-      : buildBreadcrumbs(basePath, [{ label: "Articles", path: "/articles" }]),
-    sidebarSections: buildSidebarFromEntries(
-      "Articles",
-      fallbackEntries.map((e) => ({ title: e.title, path: e.path })),
-    ),
+    breadcrumbs: buildBreadcrumbs(basePath, breadcrumbTrail),
+    sidebarSections,
+    prev,
+    next,
   };
 }
 

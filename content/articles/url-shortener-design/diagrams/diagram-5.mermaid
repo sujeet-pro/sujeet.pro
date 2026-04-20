@@ -1,4 +1,4 @@
-%% Diagram: Diagram 5
+%% Diagram: URL Shortener - Request Path
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
@@ -9,54 +9,27 @@ flowchart TB
     end
 
     subgraph Edge["Edge Layer"]
-        CDN["CDN<br/>(Redirect Cache)"]
-        WAF["WAF<br/>(DDoS Protection)"]
+        CDN["CDN\n(Redirect Cache)"]
+        WAF["WAF\n(DDoS)"]
         LB["Load Balancer"]
     end
 
     subgraph API["API Gateway"]
         RATE["Rate Limiter"]
-        AUTH["Auth Middleware"]
-        ROUTER["Request Router"]
+        AUTH["Auth"]
+        ROUTER["Router"]
     end
 
     subgraph Core["Core Services"]
-        SHORTEN_SVC["Shortening Service"]
-        REDIRECT_SVC["Redirect Service"]
-        KGS_SVC["Key Generation Service"]
-        USER_SVC["User Service"]
-        LINK_SVC["Link Management Service"]
+        SHORTEN_SVC["Shortening"]
+        REDIRECT_SVC["Redirect"]
+        KGS_SVC["Key Generation"]
+        USER_SVC["User"]
+        LINK_SVC["Link Mgmt"]
     end
 
-    subgraph Security["Security"]
-        URL_SCAN["URL Scanner"]
-        ABUSE["Abuse Detection"]
-        BLOCKLIST["Blocklist Service"]
-    end
-
-    subgraph Analytics["Analytics Pipeline"]
-        COLLECTOR["Click Collector"]
-        KAFKA["Kafka"]
-        PROCESSOR["Stream Processor"]
-        CLICKHOUSE[(ClickHouse)]
-    end
-
-    subgraph Storage["Storage"]
-        REDIS["Redis Cluster"]
-        CASS[(Cassandra<br/>URL Mappings)]
-        PG[(PostgreSQL<br/>Users, Config)]
-        S3["S3<br/>(Exports)"]
-    end
-
-    BROWSER & SDK --> CDN
-    CDN -->|Cache Miss| WAF --> LB
+    BROWSER & SDK & WEBHOOK --> CDN
+    CDN -->|Miss| WAF --> LB
     LB --> RATE --> AUTH --> ROUTER
     ROUTER --> SHORTEN_SVC & REDIRECT_SVC & LINK_SVC
     SHORTEN_SVC --> KGS_SVC
-    SHORTEN_SVC --> URL_SCAN --> BLOCKLIST
-    SHORTEN_SVC --> REDIS & CASS
-    REDIRECT_SVC --> REDIS
-    REDIRECT_SVC -->|Miss| CASS
-    REDIRECT_SVC --> COLLECTOR --> KAFKA --> PROCESSOR --> CLICKHOUSE
-    USER_SVC --> PG
-    ABUSE --> REDIS

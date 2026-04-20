@@ -1,57 +1,17 @@
-%% Diagram: High Level Architecture Rider And Driver Apps Connect Through A Websocket Gatewa
+%% Diagram: High Level Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Client Layer"]
-        RiderApp[Rider App]
-        DriverApp[Driver App]
-    end
+    Clients["Rider + Driver Apps"]
+    GW["API Gateway\nLB · Auth · Rate Limit"]
+    WS["WebSocket Gateway"]
+    CORE["Core Services\nRide · Matching (DISCO) · Location\nPricing · Routing & ETA · Payment"]
+    QUEUES["Kafka\nLocation + Match Queues"]
+    DATA["Data Layer\nTrip Store · Redis+H3 · Cassandra · Analytics"]
+    ML["ML Platform\nDeepETA · Surge · Fraud"]
 
-    subgraph Gateway["API Gateway"]
-        LB[Load Balancer]
-        Auth[Auth Service]
-        RL[Rate Limiter]
-    end
-
-    subgraph Core["Core Services"]
-        RideSvc[Ride Service]
-        MatchSvc[Matching Service<br/>DISCO]
-        LocationSvc[Location Service]
-        PricingSvc[Pricing Service]
-        RoutingSvc[Routing & ETA]
-        PaymentSvc[Payment Service]
-    end
-
-    subgraph Realtime["Real-Time Layer"]
-        WS[WebSocket Gateway]
-        LocationQ[Location Queue<br/>Kafka]
-        MatchQ[Match Queue]
-    end
-
-    subgraph Data["Data Layer"]
-        TripDB[(Trip Store<br/>Schemaless)]
-        LocationCache[(Location Cache<br/>Redis + H3)]
-        Cassandra[(Driver State<br/>Cassandra)]
-        Analytics[(Analytics<br/>HDFS/Hive)]
-    end
-
-    subgraph ML["ML Platform"]
-        ETA[DeepETA Model]
-        Surge[Surge Predictor]
-        Fraud[Fraud Detection]
-    end
-
-    Clients --> LB
-    LB --> Auth --> RL
-    RL --> Core
-    DriverApp <--> WS
-    RiderApp <--> WS
-    WS --> LocationQ
-    LocationQ --> LocationSvc
-    LocationSvc --> LocationCache
-    MatchSvc --> LocationCache
-    MatchSvc --> RoutingSvc
-    RoutingSvc --> ETA
-    PricingSvc --> Surge
-    Core --> Data
-    Core --> ML
+    Clients --> GW --> CORE
+    Clients <--> WS
+    WS --> QUEUES --> CORE
+    CORE --> DATA
+    CORE --> ML

@@ -1,7 +1,7 @@
 %% Diagram: K6 Execution Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph K6["k6 Process"]
         Script["JS Test Script"] --> Engine["Go Engine"]
         Engine --> Sched["Goroutine Scheduler"]

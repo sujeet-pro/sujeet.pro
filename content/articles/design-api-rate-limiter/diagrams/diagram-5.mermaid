@@ -3,19 +3,13 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant GW as API Gateway
-    participant RLS as Rate Limit Service
-    participant R as Redis Cluster
-    participant BE as Backend Service
+    participant GW as GW
+    participant RLS
+    participant R as Redis
 
-    C->>GW: GET /api/v1/users (API-Key: abc123)
-    GW->>GW: Extract identifiers (api_key, user_id, endpoint, IP)
-    GW->>RLS: ShouldRateLimit(domain, descriptors)
-    RLS->>RLS: Look up rules for descriptors
-    RLS->>R: Lua: sliding_window_check(key, limit, window)
-    R-->>RLS: {allowed: true, remaining: 47, reset_at: 1706000060}
-    RLS-->>GW: ALLOW {remaining: 47, limit: 100, reset: 60s}
-    GW->>BE: Forward request
-    BE-->>GW: 200 OK {data}
-    GW->>GW: Add rate limit headers
-    GW-->>C: 200 OK + RateLimit headers
+    C->>GW: GET /api
+    GW->>RLS: check
+    RLS->>R: sliding_window
+    R-->>RLS: ok rem
+    RLS-->>GW: ALLOW
+    GW-->>C: 200 + headers

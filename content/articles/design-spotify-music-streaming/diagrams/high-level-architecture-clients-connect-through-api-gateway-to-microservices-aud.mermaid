@@ -1,48 +1,15 @@
-%% Diagram: High Level Architecture Clients Connect Through Api Gateway To Microservices Aud
+%% Diagram: High Level Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Client Layer"
-        MOBILE[Mobile Apps<br/>iOS/Android]
-        DESKTOP[Desktop Apps<br/>Windows/macOS]
-        WEB[Web Player]
-        DEVICES[Smart Speakers<br/>Cars, Consoles]
-    end
+    CLIENTS["Clients\nMobile · Desktop · Web · Smart Speakers"]
+    GW["API Gateway\nauth + routing"]
+    CORE["Core Services\nPlayback · Catalog · Playlist · Search · Recommendation"]
+    DATA["Data Layer\nCassandra · Postgres · Bigtable · Cache"]
+    CDN["Multi-CDN\nAkamai · Fastly · AWS"]
+    ORIGIN[("GCS Audio Origin")]
+    EVENTS["Event Pipeline\nPub/Sub → Dataflow → BigQuery"]
 
-    subgraph "API Gateway"
-        GW[API Gateway<br/>Authentication, Routing]
-    end
-
-    subgraph "Core Services"
-        PLAYBACK[Playback Service<br/>Stream URLs, Licensing]
-        CATALOG[Catalog Service<br/>Tracks, Albums, Artists]
-        PLAYLIST[Playlist Service<br/>User Collections]
-        SEARCH[Search Service<br/>Elasticsearch]
-        REC[Recommendation Service<br/>ML Models]
-    end
-
-    subgraph "Data Layer"
-        CASSANDRA[(Cassandra<br/>User Data, Playlists)]
-        POSTGRES[(PostgreSQL<br/>Catalog Metadata)]
-        BIGTABLE[(Cloud Bigtable<br/>ML Features)]
-        CACHE[(Memcached/Redis<br/>Hot Data)]
-    end
-
-    subgraph "Content Delivery"
-        ORIGIN[(GCS Origin<br/>Audio Files)]
-        CDN[Multi-CDN<br/>Akamai, Fastly, AWS]
-    end
-
-    subgraph "Event Pipeline"
-        PUBSUB[Cloud Pub/Sub<br/>Event Ingestion]
-        DATAFLOW[Dataflow<br/>Stream Processing]
-        BIGQUERY[(BigQuery<br/>Analytics)]
-    end
-
-    MOBILE & DESKTOP & WEB & DEVICES --> GW
-    GW --> PLAYBACK & CATALOG & PLAYLIST & SEARCH & REC
-    PLAYBACK & CATALOG & PLAYLIST --> CASSANDRA & POSTGRES
-    REC --> BIGTABLE
-    PLAYBACK & CATALOG --> CACHE
-    PLAYBACK --> CDN --> ORIGIN
-    GW --> PUBSUB --> DATAFLOW --> BIGQUERY
+    CLIENTS --> GW --> CORE --> DATA
+    CORE --> CDN --> ORIGIN
+    GW --> EVENTS

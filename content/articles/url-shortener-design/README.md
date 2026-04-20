@@ -257,8 +257,11 @@ This article focuses on **Path D (KGS) + Snowflake hybrid** because:
 
 ### Component Overview
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Request path: clients through edge, API gateway, into core services.](./diagrams/diagram-5-light.svg)
+![Request path: clients through edge, API gateway, into core services.](./diagrams/diagram-5-dark.svg)
+
+![Backing services: security checks, async analytics pipeline, and storage tiers.](./diagrams/diagram-5-backing-light.svg)
+![Backing services: security checks, async analytics pipeline, and storage tiers.](./diagrams/diagram-5-backing-dark.svg)
 
 ### Shortening Service
 

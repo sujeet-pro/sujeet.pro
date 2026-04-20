@@ -1,0 +1,16 @@
+%% Diagram: AWS Reference Architecture (Async Pipeline)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    MX["MX Pods\nSMTP recv"]
+    SPAM["Spam Filter\nML"]
+    MSK["MSK Kafka"]
+    DELIVERY["Delivery Workers\nOutbound SMTP"]
+    INDEXER["Search Indexer"]
+    KEYSPACES[("Cassandra")]
+    OPENSEARCH[("OpenSearch")]
+
+    MX --> SPAM --> KEYSPACES
+    MX --> MSK
+    MSK --> DELIVERY
+    MSK --> INDEXER --> OPENSEARCH

@@ -1,0 +1,21 @@
+%% Diagram: Diagram 4 — Rate-limit data path
+%% Type: flowchart
+%% NOTE: Replica nodes (GW1..N, RLS1..N) are intentionally collapsed to a
+%% single representative node per tier — the diagram shows the data path,
+%% not the replica count, and N×M cross-edges blow up the SVG width.
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    API_CLIENTS["API Consumers"]
+    LB["Load Balancer"]
+    GW["Gateway Nodes\n(horizontally scaled)"]
+    RLS["Rate Limit Service\nInstances"]
+    RULE_STORE["Rule Store\n(YAML Config)"]
+    REDIS_PRIMARY["Redis Cluster (Primary)"]
+    REDIS_REPLICA["Redis Cluster (Replicas)"]
+    BACKEND["Backend Services"]
+
+    API_CLIENTS --> LB --> GW
+    GW -->|"gRPC: ShouldRateLimit"| RLS
+    RLS --> REDIS_PRIMARY --> REDIS_REPLICA
+    RLS --> RULE_STORE
+    GW -->|"Allowed"| BACKEND

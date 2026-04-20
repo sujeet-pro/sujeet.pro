@@ -1,7 +1,7 @@
 %% Diagram: End To End Transcoding Pipeline Source Ingestion Through Job Orchestration Distr
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Ingest"
         SRC[Source Upload] --> VAL[Validation<br/>Format/Duration]
         VAL --> STORE[Source Storage<br/>S3/GCS]

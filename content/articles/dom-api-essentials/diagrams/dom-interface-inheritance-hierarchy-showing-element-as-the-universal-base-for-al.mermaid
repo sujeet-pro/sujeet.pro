@@ -4,10 +4,11 @@
 flowchart TB
     ET[EventTarget] --> Node
     Node --> Element
-    Element --> HTMLElement[HTMLElement<br/>HTML-specific]
-    Element --> SVGElement[SVGElement<br/>SVG-specific]
-    Element --> MathMLElement[MathMLElement<br/>MathML-specific]
+    Element --> HTMLElement["HTMLElement\nHTML-specific"]
+    Element --> SVGElement["SVGElement\nSVG-specific"]
+    Element --> MathMLElement["MathMLElement\nMathML-specific"]
 
-    style Element fill:#3b82f6,stroke:#1e40af,color:#fff
-    style ET fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    style Node fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef secondary fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class Element primary
+    class ET,Node secondary

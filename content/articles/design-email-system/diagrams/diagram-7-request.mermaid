@@ -1,0 +1,33 @@
+%% Diagram: AWS Reference Architecture (Request Path)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge
+        R53["Route 53\nMX + A"]
+        CF["CloudFront"]
+    end
+
+    subgraph Compute["EKS Cluster"]
+        MX["MX Pods\nSMTP recv"]
+        APIGW["API Gateway"]
+        IMAP["IMAP Pods"]
+    end
+
+    subgraph Data["Storage"]
+        RDS[("RDS PG")]
+        KEYSPACES[("Cassandra")]
+        OPENSEARCH[("OpenSearch")]
+        REDIS[("Redis")]
+        S3[("S3")]
+    end
+
+    R53 --> MX
+    R53 --> CF --> APIGW
+    MX --> KEYSPACES
+    APIGW --> KEYSPACES
+    APIGW --> RDS
+    APIGW --> OPENSEARCH
+    APIGW --> REDIS
+    IMAP --> KEYSPACES
+    IMAP --> REDIS
+    KEYSPACES --> S3

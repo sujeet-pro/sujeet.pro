@@ -3,33 +3,33 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant GW as API Gateway
-    participant US as Upload Service
-    participant IMG as Image Processor
-    participant S3 as Object Storage
-    participant CDN as CDN
-    participant PS as Post Service
+    participant GW as Gateway
+    participant US as Upload
+    participant IMG as Processor
+    participant S3
+    participant CDN
+    participant PS as Post
 
-    C->>GW: POST /upload (multipart)
-    GW->>US: Forward with auth context
-    US->>US: Validate (size, format, content policy)
-    US->>S3: Store original (async)
-    US->>IMG: Process image
+    C->>GW: POST /upload
+    GW->>US: forward
+    US->>US: validate
+    US->>S3: store original
+    US->>IMG: process
 
-    par Parallel processing
-        IMG->>IMG: Generate 1080p variant
-        IMG->>IMG: Generate 640p variant
-        IMG->>IMG: Generate 320p variant
-        IMG->>IMG: Generate 150p thumbnail
-        IMG->>IMG: Apply filter (if selected)
+    par Parallel
+        IMG->>IMG: 1080p
+        IMG->>IMG: 640p
+        IMG->>IMG: 320p
+        IMG->>IMG: 150p thumb
+        IMG->>IMG: filter
     end
 
-    IMG->>S3: Store all variants
-    IMG->>CDN: Warm cache (popular regions)
-    US-->>C: 200 OK {media_id, urls}
+    IMG->>S3: variants
+    IMG->>CDN: warm cache
+    US-->>C: 200 {media_id}
 
-    Note over C: User adds caption, tags
-    C->>GW: POST /posts {media_id, caption, ...}
-    GW->>PS: Create post
-    PS->>PS: Trigger fan-out (async)
-    PS-->>C: 201 Created {post_id}
+    Note over C: caption + tags
+    C->>GW: POST /posts
+    GW->>PS: create
+    PS->>PS: fan-out
+    PS-->>C: 201 {post_id}

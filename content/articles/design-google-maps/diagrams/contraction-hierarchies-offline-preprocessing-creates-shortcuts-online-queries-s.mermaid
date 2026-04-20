@@ -1,7 +1,7 @@
 %% Diagram: Contraction Hierarchies Offline Preprocessing Creates Shortcuts Online Queries S
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Preprocessing["Preprocessing (Offline)"]
         Raw["Raw Road Graph"] --> Order["Node Ordering"]
         Order --> Contract["Contract Nodes"]

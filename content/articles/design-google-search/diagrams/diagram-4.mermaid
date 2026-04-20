@@ -3,31 +3,28 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant U as User
-    participant DNS as GeoDNS
-    participant LB as Load Balancer
-    participant QP as Query Processor
-    participant CACHE as Query Cache
-    participant SHARDS as Index Shards (1000s)
-    participant RANK as Ranking Engine
-    participant AGG as Aggregator
+    participant DNS
+    participant LB
+    participant QP as Query
+    participant C as Cache
+    participant S as Shards
+    participant R as Rank
+    participant A as Agg
 
-    U->>DNS: search query
-    DNS->>LB: Route to nearest DC
-    LB->>QP: Forward query
+    U->>DNS: query
+    DNS->>LB: route
+    LB->>QP: forward
 
-    QP->>QP: Spell correction (<2ms)
-    QP->>QP: Intent understanding
-    QP->>QP: Query expansion
+    QP->>QP: spell / intent / expand
 
-    QP->>CACHE: Check cache
+    QP->>C: lookup
     alt Cache hit
-        CACHE->>U: Return cached results
-    else Cache miss
-        QP->>SHARDS: Fan out to all shards (parallel)
-        SHARDS->>AGG: Return top-K per shard
-        AGG->>RANK: Merge candidates
-        RANK->>RANK: Apply PageRank, BERT, RankBrain
-        RANK->>RANK: Personalization
-        RANK->>CACHE: Store result
-        RANK->>U: Return ranked results
+        C->>U: cached
+    else Miss
+        QP->>S: fan out
+        S->>A: top-K each
+        A->>R: merge
+        R->>R: PageRank / BERT
+        R->>C: store
+        R->>U: results
     end

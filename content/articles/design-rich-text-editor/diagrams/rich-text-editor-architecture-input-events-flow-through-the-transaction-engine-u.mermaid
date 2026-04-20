@@ -2,46 +2,24 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Input["Input Layer"]
-        KB[Keyboard Events]
-        Mouse[Mouse/Touch]
-        IME[IME Composition]
-        Clipboard[Paste/Drop]
-    end
+    INPUT["Input\nKeyboard / Mouse / IME / Paste"]
+    Schema["Schema"]
+    State["Editor State"]
+    Trans["Transaction Engine"]
+    History["Undo/Redo"]
+    DOM["DOM Reconciler"]
+    Cursor["Selection"]
+    Decorations["Marks"]
+    Local["Local Ops"]
+    Sync["Sync"]
+    Remote["Remote Ops"]
 
-    subgraph Core["Editor Core"]
-        direction TB
-        Schema[Schema Definition]
-        State[Editor State]
-        Trans[Transaction Engine]
-        History[Undo/Redo Stack]
-    end
-
-    subgraph Rendering["Rendering Layer"]
-        DOM[DOM Reconciler]
-        Cursor[Selection/Cursor]
-        Decorations[Marks & Decorations]
-    end
-
-    subgraph Collab["Collaboration Layer"]
-        Local[Local Operations]
-        Sync[Sync Protocol]
-        Remote[Remote Operations]
-    end
-
-    KB --> Trans
-    Mouse --> Trans
-    IME --> Trans
-    Clipboard --> Trans
-
+    INPUT --> Trans
     Trans --> State
     State --> History
     Schema --> State
-
     State --> DOM
     DOM --> Cursor
     DOM --> Decorations
-
-    Local --> Sync
-    Sync --> Remote
+    Local --> Sync --> Remote
     Trans <--> Local

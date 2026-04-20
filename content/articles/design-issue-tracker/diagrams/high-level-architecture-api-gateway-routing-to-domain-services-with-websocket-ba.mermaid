@@ -2,46 +2,32 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Clients"]
-        WEB["Web App"]
-        MOBILE["Mobile App"]
-        API_CLIENT["API Clients"]
-    end
+    CLIENTS["Clients\nWeb / Mobile / API"]
+    CDN["CDN"]
+    LB["Load Balancer"]
+    GATEWAY["API Gateway"]
+    WS["WebSocket"]
+    PUBSUB["Redis Pub/Sub"]
 
-    subgraph Edge["Edge Layer"]
-        CDN["CDN<br/>(Static Assets)"]
-        LB["Load Balancer"]
-        GATEWAY["API Gateway"]
-    end
+    ISSUE_SVC["Issue"]
+    PROJECT_SVC["Project"]
+    WORKFLOW_SVC["Workflow"]
+    SEARCH_SVC["Search"]
+    SYNC_SVC["Sync"]
 
-    subgraph Services["Application Services"]
-        ISSUE_SVC["Issue Service"]
-        PROJECT_SVC["Project Service"]
-        WORKFLOW_SVC["Workflow Service"]
-        SEARCH_SVC["Search Service"]
-        SYNC_SVC["Sync Service"]
-    end
+    POSTGRES[(PostgreSQL)]
+    REDIS["Redis"]
+    ES[(Elasticsearch)]
+    S3["S3"]
 
-    subgraph Realtime["Real-time Layer"]
-        WS["WebSocket Gateway"]
-        PUBSUB["Redis Pub/Sub"]
-    end
-
-    subgraph Persistence["Data Layer"]
-        POSTGRES[(PostgreSQL<br/>Primary Store)]
-        REDIS["Redis Cache<br/>(Board State)"]
-        ES[(Elasticsearch<br/>Full-text Search)]
-        S3["S3<br/>(Attachments)"]
-    end
-
-    WEB & MOBILE & API_CLIENT --> CDN
-    WEB & MOBILE & API_CLIENT --> LB
-    LB --> GATEWAY
+    CLIENTS --> CDN
+    CLIENTS --> LB --> GATEWAY
     GATEWAY --> ISSUE_SVC & PROJECT_SVC & WORKFLOW_SVC & SEARCH_SVC
-    WEB & MOBILE --> WS
+    CLIENTS --> WS
     WS <--> SYNC_SVC
     SYNC_SVC --> PUBSUB
-    ISSUE_SVC & PROJECT_SVC --> POSTGRES
+    ISSUE_SVC --> POSTGRES
+    PROJECT_SVC --> POSTGRES
     ISSUE_SVC --> REDIS
     SEARCH_SVC --> ES
     ISSUE_SVC --> S3

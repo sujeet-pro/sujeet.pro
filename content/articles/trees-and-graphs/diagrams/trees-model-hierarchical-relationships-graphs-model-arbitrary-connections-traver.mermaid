@@ -3,24 +3,21 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Trees["Trees (Hierarchical)"]
-        direction TB
-        BST["BST<br/>O(log n) avg"]
-        AVL["AVL<br/>Strict balance"]
-        RB["Red-Black<br/>Looser balance"]
-        BTree["B-Tree<br/>Disk-optimized"]
-        Trie["Trie<br/>Prefix search"]
+        BST["BST\nO(log n)"]
+        AVL["AVL"]
+        RB["Red-Black"]
+        BTree["B-Tree"]
+        Trie["Trie"]
     end
 
-    subgraph Graphs["Graphs (Networked)"]
-        direction TB
-        AdjMatrix["Adjacency Matrix<br/>O(V²) space<br/>O(1) edge lookup"]
-        AdjList["Adjacency List<br/>O(V+E) space<br/>O(deg) edge lookup"]
+    subgraph Graphs["Graphs"]
+        AdjMatrix["Adjacency Matrix"]
+        AdjList["Adjacency List"]
     end
 
-    subgraph Traversals["Traversal Algorithms"]
-        direction TB
-        DFS["DFS<br/>Stack-based<br/>Cycle detection"]
-        BFS["BFS<br/>Queue-based<br/>Shortest path"]
+    subgraph Traversals["Traversals"]
+        DFS["DFS"]
+        BFS["BFS"]
     end
 
     Trees --> Traversals

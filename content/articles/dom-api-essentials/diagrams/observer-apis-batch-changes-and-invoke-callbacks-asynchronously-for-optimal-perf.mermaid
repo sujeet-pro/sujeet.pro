@@ -1,7 +1,7 @@
 %% Diagram: Observer Apis Batch Changes And Invoke Callbacks Asynchronously For Optimal Perf
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     A[DOM Changes] --> B[Observer APIs]
     B --> C[IntersectionObserver]
     B --> D[MutationObserver]
@@ -15,7 +15,9 @@ flowchart LR
     G --> I
     H --> I
 
-    I --> J[Your code runs once<br/>for multiple changes]
+    I --> J["Your code runs once\nfor multiple changes"]
 
-    style B fill:#3b82f6,stroke:#1e40af,color:#fff
-    style I fill:#10b981,stroke:#059669,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class B primary
+    class I success

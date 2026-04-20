@@ -1,7 +1,7 @@
 %% Diagram: Diagram 2
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Producer
         P[App] --> IP[Idempotent Producer]
         IP -->|"PID + SeqNum"| B

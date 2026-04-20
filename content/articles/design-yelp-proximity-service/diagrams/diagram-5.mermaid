@@ -2,31 +2,13 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant User
-    participant API as Review API
-    participant DB as PostgreSQL
-    participant Queue as Kafka
-    participant Moderator as Moderation Worker
-    participant ML as Spam Detection
-    participant Index as Elasticsearch
-    participant Notify as Notification Service
+    participant U as User
+    participant API as API
+    participant M as Moderation
 
-    User->>API: POST /reviews (rating, text, photos)
-    API->>API: Validate input
-    API->>DB: Insert review (status: pending)
-    API->>Queue: Publish ReviewCreated event
-    API-->>User: 201 Created (status: pending)
-
-    Queue->>Moderator: Consume event
-    Moderator->>ML: Analyze text
-    ML-->>Moderator: Spam score, toxicity score
-
-    alt Auto-approve (scores < threshold)
-        Moderator->>DB: Update status: approved
-        Moderator->>Index: Index review
-        Moderator->>DB: Update business rating_avg, review_count
-        Moderator->>Notify: Notify business owner
-    else Manual review needed
-        Moderator->>DB: Update status: manual_review
-        Moderator->>Queue: Publish to human review queue
-    end
+    U->>API: POST /reviews
+    API->>API: insert (pending)
+    API->>M: ReviewCreated (via Kafka)
+    API-->>U: 201 Created
+    M->>M: spam + toxicity
+    M->>API: approved or manual_review

@@ -3,51 +3,48 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant F as Frontier
-    participant R as robots.txt Cache
-    participant D as DNS Cache
-    participant H as HTTP Fetcher
+    participant R as robots
+    participant D as DNS
+    participant H as Fetcher
     participant P as Parser
-    participant DD as Dedup Service
+    participant DD as Dedup
     participant S as Storage
 
-    F->>F: Select URL (priority + politeness)
-    F->>D: Resolve hostname
-    D-->>F: IP address (cached or resolved)
-    F->>R: Check robots.txt
-    R-->>F: Allowed / Disallowed
+    F->>F: select URL
+    F->>D: resolve
+    D-->>F: IP
+    F->>R: robots check
+    R-->>F: ok/deny
 
     alt Disallowed
-        F->>S: Mark URL as blocked
+        F->>S: blocked
     else Allowed
-        F->>H: Fetch URL
-        H-->>F: HTTP Response (status, headers, body)
-
-        alt Success (2xx)
-            F->>P: Parse content
-            P->>P: Extract links, content
-            P->>DD: Check content fingerprint
-            DD-->>P: New / Duplicate
-
-            alt New content
-                P->>S: Store content
-                P->>DD: Store fingerprint
-                loop For each extracted link
-                    P->>DD: Check URL seen
-                    DD-->>P: Seen / New
+        F->>H: fetch
+        H-->>F: response
+        alt 2xx
+            F->>P: parse
+            P->>P: extract
+            P->>DD: fingerprint
+            DD-->>P: new/dup
+            alt New
+                P->>S: store
+                P->>DD: save fp
+                loop links
+                    P->>DD: seen?
+                    DD-->>P: yes/no
                     alt New URL
-                        P->>F: Add to frontier (with priority)
-                        P->>DD: Mark URL seen
+                        P->>F: enqueue
+                        P->>DD: mark seen
                     end
                 end
-            else Duplicate content
-                P->>S: Store as duplicate (reference only)
+            else Duplicate
+                P->>S: ref only
             end
-        else Redirect (3xx)
-            F->>DD: Check redirect URL
-            F->>F: Add redirect target to frontier
-        else Error (4xx/5xx)
-            F->>S: Log error, schedule retry (with backoff)
+        else 3xx
+            F->>DD: check
+            F->>F: enqueue target
+        else 4xx/5xx
+            F->>S: retry
         end
     end
-
-    F->>F: Update politeness timer for host
+    F->>F: politeness timer

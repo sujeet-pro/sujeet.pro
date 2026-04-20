@@ -2,23 +2,30 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Build Time"
-        SSG[Static Site Generation<br/>Pre-rendered HTML]
-    end
+    BT["Build Time"]
+    SSG["SSG\nPre-rendered"]
 
-    subgraph "Request Time"
-        SSR[Server-Side Rendering<br/>On-demand HTML]
-        ISR[Incremental Static Regeneration<br/>Cached + Background Refresh]
-        Stream[Streaming SSR<br/>Progressive HTML]
-    end
+    RT["Request Time"]
+    SSR["SSR"]
+    ISR["ISR"]
+    Stream["Streaming SSR"]
 
-    subgraph "Client Time"
-        CSR[Client-Side Rendering<br/>JavaScript builds DOM]
-        Hydration[Hydration<br/>Attach interactivity]
-        Islands[Islands<br/>Selective hydration]
-    end
+    CT["Client Time"]
+    CSR["CSR"]
+    Hydration["Hydration"]
+    Islands["Islands"]
 
-    SSG --> CDN[CDN Cache]
+    CDN["CDN"]
+    Browser["Browser"]
+
+    BT --- SSG
+    RT --- SSR
+    RT --- ISR
+    RT --- Stream
+    CT --- CSR
+    CT --- Hydration
+    CT --- Islands
+    SSG --> CDN
     SSR --> Browser
     ISR --> CDN
     Stream --> Browser
@@ -26,9 +33,3 @@ flowchart TB
     Browser --> Hydration
     Browser --> Islands
     CSR --> Browser
-
-    style SSG fill:#e8f5e9
-    style SSR fill:#e3f2fd
-    style ISR fill:#fff3e0
-    style Stream fill:#f3e5f5
-    style Islands fill:#fce4ec

@@ -1,7 +1,7 @@
 %% Diagram: Phase Order Annotated With The Post Callback Drain Points For Process Nexttick A
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
   T[timers] -->|nextTick + microtasks| P[pending callbacks]
   P -->|nextTick + microtasks| I[idle/prepare]
   I -->|nextTick + microtasks| PO[poll]

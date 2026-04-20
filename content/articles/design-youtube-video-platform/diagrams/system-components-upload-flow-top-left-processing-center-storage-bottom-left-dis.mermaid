@@ -2,49 +2,27 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Client Layer"
-        WEB[Web Player]
-        MOB[Mobile Apps]
-        TV[Smart TV/OTT]
-    end
+    CLIENTS["Clients\nWeb / Mobile / TV"]
+    GW["API Gateway"]
+    UPLOAD["Upload Svc"]
+    CHUNK["Chunk Manager"]
+    QUEUE["Job Queue"]
+    TRANSCODE["Transcoder Pool"]
+    QC["QC"]
+    RAW[(Raw)]
+    ENCODED[(Encoded)]
+    META[(Metadata)]
+    CACHE[(Cache)]
+    SEARCH["Search"]
+    REC["Recs"]
+    MANIFEST["Manifest"]
+    ORIGIN["Origin"]
+    CDN["CDN"]
 
-    subgraph "API Gateway"
-        GW[API Gateway<br/>Auth, Rate Limiting]
-    end
-
-    subgraph "Upload Services"
-        UPLOAD[Upload Service<br/>Resumable Protocol]
-        CHUNK[Chunk Manager<br/>Segment Tracking]
-    end
-
-    subgraph "Processing Pipeline"
-        QUEUE[Job Queue<br/>Priority Scheduling]
-        TRANSCODE[Transcoder Pool<br/>CPU/GPU/ASIC Workers]
-        QC[Quality Control<br/>VMAF Validation]
-    end
-
-    subgraph "Storage"
-        RAW[(Raw Storage<br/>Original + Chunks)]
-        ENCODED[(Encoded Storage<br/>All Variants)]
-        META[(Metadata DB<br/>PostgreSQL)]
-        CACHE[(Redis Cache<br/>Hot Metadata)]
-    end
-
-    subgraph "Discovery"
-        SEARCH[Search Service<br/>Elasticsearch]
-        REC[Recommendation<br/>ML Service]
-    end
-
-    subgraph "Delivery"
-        MANIFEST[Manifest Generator<br/>HLS/DASH]
-        ORIGIN[Origin Server<br/>Shield + Routing]
-        CDN[CDN Edge<br/>Multi-provider]
-    end
-
-    WEB & MOB & TV --> GW
-    GW --> UPLOAD --> CHUNK --> RAW
+    CLIENTS --> GW --> UPLOAD --> CHUNK --> RAW
     CHUNK --> QUEUE --> TRANSCODE --> QC --> ENCODED
     UPLOAD --> META --> CACHE
-    META --> SEARCH & REC
+    META --> SEARCH
+    META --> REC
     ENCODED --> MANIFEST --> ORIGIN --> CDN
-    CDN --> WEB & MOB & TV
+    CDN --> CLIENTS

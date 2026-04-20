@@ -1,7 +1,7 @@
 %% Diagram: Evolution From Naive Retries To Exponential Backoff With Jitter For Preventing T
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Retry Strategy Evolution"
         NAIVE["Naive Retry<br/>Immediate, fixed"]
         EXP["Exponential Backoff<br/>2^attempt × base"]

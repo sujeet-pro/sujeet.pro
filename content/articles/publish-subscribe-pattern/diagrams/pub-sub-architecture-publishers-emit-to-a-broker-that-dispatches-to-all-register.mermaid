@@ -1,7 +1,7 @@
 %% Diagram: Pub Sub Architecture Publishers Emit To A Broker That Dispatches To All Register
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     N1[Publisher 1] -->|emit| PS[Event Bus / Broker]
     N2[Publisher 2] -->|emit| PS
     PS -->|dispatch| S1[Subscriber 1]

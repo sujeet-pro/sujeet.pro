@@ -4,4 +4,8 @@
   defaultTheme: "both",
   sameFolder: true,
   useManifest: true,
+  // Mermaid aspect-ratio rebalance — auto mode tries direction-flip / ELK to
+  // keep flowcharts inside [1:1.9, 3.3:1] of a 4:3 target. Skill-driven escalation
+  // (split / engine-swap) handles residuals that the renderer cannot fix.
+  mermaidLayout: { mode: "auto", targetAspectRatio: 1.3333333333333333, tolerance: 2.5 },
 }

@@ -1,22 +1,12 @@
 %% Diagram: Diagram 5
-%% Type: er
+%% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-erDiagram
-    OBJECT {
-        bigint id PK
-        string type
-        blob data
-        timestamp created_at
-        timestamp updated_at
-    }
+flowchart TB
+    OBJECT["OBJECT\n---\nbigint id (PK)\nstring type\nblob data\ntimestamp created_at\ntimestamp updated_at"]
+    ASSOCIATION["ASSOCIATION\n---\nbigint id1 (PK)\nstring assoc_type (PK)\nbigint id2 (PK)\ntimestamp time\nblob data"]
 
-    ASSOCIATION {
-        bigint id1 PK
-        string assoc_type PK
-        bigint id2 PK
-        timestamp time
-        blob data
-    }
+    OBJECT -->|"source (id1)"| ASSOCIATION
+    OBJECT -->|"target (id2)"| ASSOCIATION
 
-    OBJECT ||--o{ ASSOCIATION : "source (id1)"
-    OBJECT ||--o{ ASSOCIATION : "target (id2)"
+    classDef entity fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class OBJECT,ASSOCIATION entity

@@ -1533,8 +1533,11 @@ class OfflineMailbox {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![AWS reference architecture (request path)](./diagrams/diagram-7-request-light.svg)
+![AWS reference architecture (request path)](./diagrams/diagram-7-request-dark.svg)
+
+![AWS reference architecture (async pipeline)](./diagrams/diagram-7-async-light.svg)
+![AWS reference architecture (async pipeline)](./diagrams/diagram-7-async-dark.svg)
 
 **Service configurations:**
 

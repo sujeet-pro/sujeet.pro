@@ -1,30 +1,37 @@
 %% Diagram: End To End Video Playback Pipeline From Source Encoding Through Cdn Delivery To
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Content Preparation"
-        SRC[Source Video] --> ENC[Encoding<br/>H.264/H.265/AV1]
-        ENC --> PKG[Packaging<br/>fMP4/CMAF]
-        PKG --> DRM[DRM Encryption<br/>CENC]
+        direction TB
+        SRC[Source Video] --> ENC["Encoding\nH.264/H.265/AV1"]
+        ENC --> PKG["Packaging\nfMP4/CMAF"]
+        PKG --> DRM["DRM Encryption\nCENC"]
     end
 
     subgraph "Delivery"
-        DRM --> CDN[CDN Edge<br/>Global PoPs]
-        CDN --> MAN[Manifest<br/>HLS/DASH]
+        direction TB
+        CDN["CDN Edge\nGlobal PoPs"]
+        MAN["Manifest\nHLS/DASH"]
+        CDN --> MAN
     end
 
     subgraph "Playback"
-        MAN --> ABR[ABR Selection]
-        ABR --> DEC[Decryption<br/>+ Decoding]
-        DEC --> PLAY[Playback]
+        direction TB
+        ABR[ABR Selection]
+        DEC["Decryption\n+ Decoding"]
+        PLAY[Playback]
+        ABR --> DEC --> PLAY
     end
 
-    style SRC fill:#e1d5e7,stroke:#9673a6
-    style ENC fill:#dae8fc,stroke:#6c8ebf
-    style PKG fill:#dae8fc,stroke:#6c8ebf
-    style DRM fill:#f8cecc,stroke:#b85450
-    style CDN fill:#fff2cc,stroke:#d6b656
-    style MAN fill:#fff2cc,stroke:#d6b656
-    style ABR fill:#d5e8d4,stroke:#82b366
-    style DEC fill:#d5e8d4,stroke:#82b366
-    style PLAY fill:#d5e8d4,stroke:#82b366
+    DRM --> CDN
+    MAN --> ABR
+
+    classDef prep fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef secure fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef deliver fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef play fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class SRC,ENC,PKG prep
+    class DRM,DEC secure
+    class CDN,MAN deliver
+    class ABR,PLAY play

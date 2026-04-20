@@ -2,17 +2,10 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    A[Need exactly-once?] --> B{Using message broker?}
-    B -->|Yes| C{Which broker?}
-    B -->|No| D{Exposing HTTP API?}
-
-    C -->|Kafka| E[Use idempotent producer<br/>+ transactional consumer]
-    C -->|AWS SQS| F[Use FIFO queue<br/>+ idempotent handler]
-    C -->|RabbitMQ| G[Consumer-side dedup<br/>with database]
-    C -->|Pub/Sub| H[Enable exactly-once<br/>+ idempotent handler]
-    C -->|Azure Service Bus| I[Enable duplicate detection<br/>+ idempotent handler]
-    C -->|NATS JetStream| J[Use Nats-Msg-Id header<br/>+ idempotent handler]
-    C -->|Pulsar| K[Use Transaction API<br/>for cross-topic atomicity]
-
-    D -->|Yes| L[Implement idempotency keys<br/>à la Stripe]
-    D -->|No| M[Design idempotent operations<br/>+ version vectors]
+    A[Need exactly-once?] --> B{Broker?}
+    B -->|"HTTP API"| L["Idempotency keys"]
+    B -->|"Internal ops"| M["Idempotent ops\n+ versions"]
+    B -->|Yes| C{Broker family?}
+    C -->|"Kafka, Pulsar"| E["Idempotent producer\n+ txn consumer"]
+    C -->|"SQS FIFO, Pub/Sub"| F["Built-in dedup\n+ handler"]
+    C -->|"RabbitMQ, NATS"| G["Consumer-side dedup"]

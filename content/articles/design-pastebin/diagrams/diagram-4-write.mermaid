@@ -1,0 +1,29 @@
+%% Diagram: Pastebin (Write Path)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients\nBrowser, CLI, SDK"]
+    CDN["CDN"]
+    WAF["WAF"]
+    LB["Load Balancer"]
+
+    subgraph API["API Gateway"]
+        RATE["Rate Limiter"]
+        AUTH["Auth"]
+        ROUTER["Router"]
+    end
+
+    PASTE["Paste Write Service"]
+    KGS["Key Gen"]
+    SCAN["Content Scanner"]
+
+    STORAGE["Storage\nRedis · PG · S3"]
+    QUEUE["Queue\nSQS / Kafka"]
+    WORKERS["Highlight + Workers"]
+
+    CLIENTS --> CDN -->|miss| WAF --> LB
+    LB --> RATE --> AUTH --> ROUTER --> PASTE
+    PASTE --> KGS
+    PASTE --> SCAN
+    PASTE --> STORAGE
+    PASTE --> QUEUE --> WORKERS

@@ -1,7 +1,7 @@
 %% Diagram: Diagram 2
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph PostgreSQL
         W[Write] --> WAL[(WAL)]
         WAL --> LD[Logical Decoding]

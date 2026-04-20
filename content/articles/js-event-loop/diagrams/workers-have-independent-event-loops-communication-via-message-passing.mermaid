@@ -1,25 +1,15 @@
-%% Diagram: Workers Have Independent Event Loops Communication Via Message Passing
+%% Diagram: Workers Have Independent Event Loops
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 graph TB
-    subgraph "Main Thread"
-        A[Main Event Loop] --> B[UI Thread]
-        C[postMessage] --> D[Message Channel]
-    end
+    MAIN["Main Thread\nMain Event Loop + UI"]
+    POST["postMessage"]
+    CH["Message Channel"]
+    TRANSFER["Transfer Modes\nClone (copy)\nTransferable (zero-copy)\nSharedArrayBuffer (shared)"]
+    WORKER["Worker Thread\nWorker Event Loop + bg"]
+    ONMSG["onmessage Handler"]
 
-    subgraph "Worker Thread"
-        E[Worker Event Loop] --> F[Background Thread]
-        G[onmessage] --> H[Message Handler]
-    end
-
-    subgraph "Communication"
-        I[Structured Clone] --> J[Copy by Default]
-        K[Transferable Objects] --> L[Zero-Copy Transfer]
-        M[SharedArrayBuffer] --> N[Shared Memory]
-    end
-
-    D --> E
-    H --> C
-    I --> D
-    K --> D
-    M --> D
+    MAIN --> POST --> CH
+    TRANSFER --> CH
+    CH --> WORKER --> ONMSG
+    ONMSG --> POST

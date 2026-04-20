@@ -1,7 +1,7 @@
 %% Diagram: Transactional Outbox Events Written To Outbox Table In Same Transaction As State
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Transaction
         S[Service] -->|1. Write| DB[(Database)]
         S -->|2. Write| OB[Outbox Table]

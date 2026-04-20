@@ -1,7 +1,7 @@
 %% Diagram: Diagram 5
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     MY[(MySQL)] -->|Binlog| MX[Maxwell]
     MX -->|JSON| K[Kafka]
     MX -->|JSON| KS[Kinesis]

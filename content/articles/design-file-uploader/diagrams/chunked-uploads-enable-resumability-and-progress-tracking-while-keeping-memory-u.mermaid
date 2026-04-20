@@ -1,12 +1,13 @@
 %% Diagram: Chunked Uploads Enable Resumability And Progress Tracking While Keeping Memory U
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph "Client"
+flowchart TB
+    subgraph Client["Client"]
+        direction TB
         A[File Selection] --> B[Validation]
         B --> C{Size Check}
-        C -->|Small < 5MB| D[Single Upload]
-        C -->|Large ≥ 5MB| E[Chunked Upload]
+        C -->|"Small < 5MB"| D[Single Upload]
+        C -->|"Large ≥ 5MB"| E[Chunked Upload]
         E --> F[Per-Chunk Progress]
         F --> G{Failure?}
         G -->|Yes| H[Resume from Offset]
@@ -15,7 +16,8 @@ flowchart LR
         D --> I
     end
 
-    subgraph "Server"
+    subgraph Server["Server"]
+        direction TB
         J[Receive Chunk] --> K[Store Chunk]
         K --> L{All Chunks?}
         L -->|No| M[Return Offset]

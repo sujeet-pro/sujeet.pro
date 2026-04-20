@@ -1,30 +1,23 @@
-%% Diagram: High Level Architecture Clients Query The Master For Chunk Locations Then Read W
+%% Diagram: High Level Architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Clients"]
-        C1["Client 1<br/>(Reader)"]
-        C2["Client 2<br/>(Writer)"]
-        C3["Client 3<br/>(Appender)"]
-    end
+    CLIENTS["Clients\nReader · Writer · Appender"]
 
     subgraph MetadataLayer["Metadata Layer"]
-        MASTER["Master Server<br/>(NameNode)"]
-        SHADOW["Shadow Master<br/>(Hot Standby)"]
-        OPLOG[(Operation Log<br/>+ Checkpoints)]
+        MASTER["Master Server\nNameNode"]
+        SHADOW["Shadow Master\nHot Standby"]
+        OPLOG[("Operation Log\n+ Checkpoints")]
     end
 
     subgraph StorageLayer["Storage Layer"]
-        CS1["Chunk Server 1<br/>(DataNode)"]
-        CS2["Chunk Server 2<br/>(DataNode)"]
-        CS3["Chunk Server 3<br/>(DataNode)"]
-        CS4["Chunk Server 4<br/>(DataNode)"]
+        PRIMARY["Primary Chunk Server\nDataNode"]
+        REPLICAS["Replica Chunk Servers\nDataNodes"]
     end
 
-    C1 & C2 & C3 -->|"1. Metadata Request"| MASTER
-    MASTER -->|"2. Chunk Locations"| C1 & C2 & C3
-    C1 -->|"3. Read Data"| CS1 & CS2
-    C2 -->|"3. Write Data"| CS1
-    CS1 -->|"4. Pipeline Replication"| CS2 & CS3
+    CLIENTS -->|"1. Metadata Request"| MASTER
+    MASTER -->|"2. Chunk Locations"| CLIENTS
+    CLIENTS -->|"3. Read / Write Data"| PRIMARY
+    PRIMARY -->|"4. Pipeline Replication"| REPLICAS
     MASTER <--> SHADOW
     MASTER --> OPLOG

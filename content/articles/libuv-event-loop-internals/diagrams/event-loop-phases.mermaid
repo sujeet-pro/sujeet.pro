@@ -1,13 +1,29 @@
 %% Diagram: Event Loop Phases
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TD
-    Start["Update Loop Time"] --> P1["1. Timers<br/>Execute expired timer callbacks"]
-    P1 --> P2["2. Pending Callbacks<br/>Deferred I/O callbacks"]
-    P2 --> P3["3. Idle / Prepare<br/>Internal housekeeping"]
-    P3 --> P4["4. Poll for I/O<br/>Block for events via<br/>epoll / kqueue / IOCP"]
-    P4 --> P5["5. Check Callbacks<br/>setImmediate in Node.js"]
-    P5 --> P6["6. Close Callbacks<br/>Handle cleanup via uv_close"]
-    P6 --> Alive{"Active handles<br/>or requests?"}
+graph TB
+    subgraph PhasesTop["Phases 1-3"]
+        direction TB
+        Start["Update Loop Time"] --> P1["1. Timers\nExecute expired timer callbacks"]
+        P1 --> P2["2. Pending Callbacks\nDeferred I/O callbacks"]
+        P2 --> P3["3. Idle / Prepare\nInternal housekeeping"]
+    end
+
+    subgraph PhasesBottom["Phases 4-6"]
+        direction TB
+        P4["4. Poll for I/O\nBlock for events via\nepoll / kqueue / IOCP"]
+        P5["5. Check Callbacks\nsetImmediate in Node.js"]
+        P6["6. Close Callbacks\nHandle cleanup via uv_close"]
+        P4 --> P5 --> P6
+    end
+
+    subgraph LoopExit["Loop continuation"]
+        direction TB
+        Alive{"Active handles\nor requests?"}
+        Exit["Exit Loop"]
+        Alive -->|No| Exit
+    end
+
+    P3 --> P4
+    P6 --> Alive
     Alive -->|Yes| Start
-    Alive -->|No| Exit["Exit Loop"]

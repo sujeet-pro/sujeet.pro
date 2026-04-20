@@ -1,7 +1,7 @@
 %% Diagram: Diagram 12
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     DB[(PostgreSQL)] --> CDC[Debezium]
     CDC --> K[Kafka]
     K --> CI[Cache Invalidator]

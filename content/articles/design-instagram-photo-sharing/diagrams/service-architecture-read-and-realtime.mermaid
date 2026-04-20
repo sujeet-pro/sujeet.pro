@@ -1,0 +1,22 @@
+%% Diagram: Service Architecture — Read, Discovery & Realtime
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Client Apps\niOS, Android, Web"]
+    GW["API Gateway\nAuth + Rate Limit"]
+    FEEDS["Feed & Stories\nTimeline + Ephemeral"]
+    DISCOVER["Search & Explore\nDiscovery + Recs"]
+    REALTIME["DM & Notifications\nChat + Push"]
+    RANK["Ranking\nML Models"]
+    REDIS[("Redis\nTimeline Cache")]
+    ES[("Elasticsearch\nSearch Index")]
+    MQTT["MQTT Broker\nReal-time Push"]
+
+    CLIENTS --> GW
+    GW --> FEEDS
+    GW --> DISCOVER
+    GW --> REALTIME
+    FEEDS --> RANK --> REDIS
+    DISCOVER --> RANK
+    DISCOVER --> ES
+    REALTIME --> MQTT --> CLIENTS

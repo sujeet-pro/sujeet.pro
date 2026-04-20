@@ -2,35 +2,32 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Upload Pipeline"
-        U[User Upload] --> US[Upload Service<br/>Image Validation]
-        US --> RAW[(Raw Storage<br/>Original Files)]
-        US --> IP[Image Processing<br/>Resize + Filter]
-        IP --> CDN[(CDN Storage<br/>Multiple Resolutions)]
-    end
+    U["Upload"]
+    US["Upload Svc"]
+    RAW[(Raw)]
+    IP["Image Processing"]
+    CDN[(CDN)]
+    POST["Post Svc"]
+    FO["Fan-out"]
+    TC[(Timeline)]
+    STORY["Stories Svc"]
+    SC[(Stories Cache)]
+    SEARCH["Search"]
+    REC["Explore"]
+    NOTIFY["Notif"]
+    DM["DMs"]
+    META[(PG)]
+    SOCIAL[(Cassandra)]
+    CACHE[(Redis)]
 
-    subgraph "Feed & Stories"
-        POST[Post Service] --> FO[Fan-out Service<br/>Push/Pull Hybrid]
-        FO --> TC[(Timeline Cache<br/>Redis)]
-        STORY[Stories Service] --> SC[(Stories Cache<br/>24h TTL)]
-    end
-
-    subgraph "Discovery"
-        CDN --> SEARCH[Search Index<br/>Hashtags/Users]
-        CDN --> REC[Explore<br/>1000+ ML Models]
-    end
-
-    subgraph "Engagement"
-        TC --> NOTIFY[Notification Service<br/>MQTT Push]
-        TC --> DM[Direct Messages<br/>Real-time Chat]
-    end
-
-    subgraph "Data Layer"
-        META[(PostgreSQL<br/>User/Post Metadata)]
-        SOCIAL[(Cassandra<br/>Social Graph)]
-        CACHE[(Redis Cluster<br/>Hot Data)]
-    end
-
+    U --> US --> RAW
+    US --> IP --> CDN
+    POST --> FO --> TC
+    STORY --> SC
+    CDN --> SEARCH
+    CDN --> REC
+    TC --> NOTIFY
+    TC --> DM
     US --> META
     POST --> META
     POST --> SOCIAL

@@ -1,30 +1,19 @@
 %% Diagram: The Six Phase Framework For Design System Programs From Proving The Business Cas
-%% Type: mindmap
+%% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-mindmap
-  root((Design System Program))
-    Phase 1: Foundation
-      Executive Buy-in
-      ROI Analysis
-      Sponsorship
-    Phase 2: Structure
-      Team Building
-      Governance
-      Processes
-    Phase 3: Implementation
-      React Components
-      Design Tokens
-      Storybook Docs
-      NPM Publishing
-    Phase 4: Adoption
-      Champion Program
-      Training
-      Support Channels
-    Phase 5: Measurement
-      Metrics & KPIs
-      Feedback Loops
-      Usage Analytics
-    Phase 6: Technical Enablement
-      Codemods
-      Repo Scanning
-      Data-Driven Decisions
+flowchart TB
+    Root["Design System\nProgram"]
+
+    p1["Phase 1: Foundation\n---\nExecutive Buy-in\nROI Analysis\nSponsorship"]
+    p2["Phase 2: Structure\n---\nTeam Building\nGovernance\nProcesses"]
+    p3["Phase 3: Implementation\n---\nReact Components\nDesign Tokens\nStorybook Docs\nNPM Publishing"]
+    p4["Phase 4: Adoption\n---\nChampion Program\nTraining\nSupport Channels"]
+    p5["Phase 5: Measurement\n---\nMetrics & KPIs\nFeedback Loops\nUsage Analytics"]
+    p6["Phase 6: Technical Enablement\n---\nCodemods\nRepo Scanning\nData-Driven Decisions"]
+
+    Root --> p1 --> p2 --> p3 --> p4 --> p5 --> p6
+
+    classDef root fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef phase fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class Root root
+    class p1,p2,p3,p4,p5,p6 phase

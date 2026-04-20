@@ -9,7 +9,6 @@ import homePage from "virtual:content/homePage";
 import { loadSiteConfig } from "../lib/site-config";
 import {
   getSiteChrome,
-  getListingSidebar,
   getArticleContext,
   getBlogContext,
   loadHomeData,
@@ -200,7 +199,6 @@ export function render(url: string, config: SsgRenderConfig): string {
         headings={articleIndexEntry?.headings ?? []}
         slug={pageSlug}
         site={site}
-        sidebarSections={getListingSidebar(site.basePath ?? "")}
         editUrl={buildEditUrl("content/articles/README.md")}
         editLabel={siteConfig.editLink?.label}
         lastUpdated={
@@ -221,7 +219,6 @@ export function render(url: string, config: SsgRenderConfig): string {
         headings={blogIndexEntry?.headings ?? []}
         slug={pageSlug}
         site={site}
-        sidebarSections={getListingSidebar(site.basePath ?? "")}
         editUrl={buildEditUrl("content/blogs/README.md")}
         editLabel={siteConfig.editLink?.label}
         lastUpdated={

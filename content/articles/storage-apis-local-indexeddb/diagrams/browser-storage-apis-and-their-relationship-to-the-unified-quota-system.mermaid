@@ -4,16 +4,16 @@
 flowchart TB
     subgraph "Browser Storage APIs"
         direction LR
-        LS["localStorage<br/>Sync KV · ~5 MiB"]
-        SS["sessionStorage<br/>Sync KV · Tab-scoped"]
-        IDB["IndexedDB<br/>Async structured store · GBs"]
-        CACHE["Cache API<br/>Request/Response pairs"]
-        OPFS["OPFS<br/>File system · Sync in workers"]
+        LS["localStorage\nSync KV · ~5 MiB"]
+        SS["sessionStorage\nSync KV · Tab-scoped"]
+        IDB["IndexedDB\nAsync structured store · GBs"]
+        CACHE["Cache API\nRequest/Response pairs"]
+        OPFS["OPFS\nFile system · Sync in workers"]
     end
 
     subgraph "Storage Standard"
-        QUOTA["Quota Manager<br/>Per-origin budget"]
-        BUCKET["Storage Buckets<br/>best-effort vs persistent"]
+        QUOTA["Quota Manager\nPer-origin budget"]
+        BUCKET["Storage Buckets\nbest-effort vs persistent"]
     end
 
     IDB --> QUOTA
@@ -21,5 +21,7 @@ flowchart TB
     OPFS --> QUOTA
     LS -.->|"separate limit"| QUOTA
 
-    style IDB fill:#3b82f6,stroke:#1e40af,color:#fff
-    style QUOTA fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef secondary fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class IDB primary
+    class QUOTA secondary

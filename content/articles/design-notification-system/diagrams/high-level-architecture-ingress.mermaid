@@ -1,0 +1,12 @@
+%% Diagram: High Level Architecture — Ingress
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    PRODUCERS["Event Producers\n(Service A, B, … N)"]
+    API["Notification API"]
+    VALID["Validator"]
+    ENRICH["Enrichment"]
+    KAFKA["Kafka Cluster\nPartitioned by User"]
+    PRIORITY["Priority Queues\nCritical / High / Normal / Low"]
+
+    PRODUCERS --> API --> VALID --> ENRICH --> KAFKA --> PRIORITY

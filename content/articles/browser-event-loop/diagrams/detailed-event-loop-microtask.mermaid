@@ -1,0 +1,19 @@
+%% Diagram: Detailed Event Loop — Microtask Checkpoint
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    MC0[[2.8 Perform microtask checkpoint]] --> MC1{"Already performing\na microtask checkpoint?"}
+    MC1 -- "Yes" --> MC13[[Return]]
+    MC1 -- "No" --> MC2["performingMicrotaskCheckpoint = true"]
+    MC2 --> MC3{"Microtask queue empty?"}
+    MC3 -- "No" --> MC4["Dequeue oldestMicrotask"]
+    MC4 --> MC5["currentlyRunningTask = oldestMicrotask"]
+    MC5 --> MC6["Run oldestMicrotask"]
+    MC6 --> MC7["currentlyRunningTask = null"]
+    MC7 --> MC3
+    MC3 -- "Yes" --> MC8["Notify rejected promises"]
+    MC8 --> MC9["Cleanup IndexedDB transactions"]
+    MC9 --> MC10["ClearKeptObjects()"]
+    MC10 --> MC11["performingMicrotaskCheckpoint = false"]
+    MC11 --> MC12["Record timing info"]
+    MC12 --> MC13[[Return]]

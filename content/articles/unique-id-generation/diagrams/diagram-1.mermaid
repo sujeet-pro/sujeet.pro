@@ -2,28 +2,18 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    START([Need Unique IDs]) --> Q1{Need time<br/>ordering?}
-    Q1 -->|No| Q2{Public-facing<br/>IDs?}
-    Q2 -->|Yes| UUID4[UUID v4<br/>No information leak]
-    Q2 -->|No| Q3{Single database?}
-    Q3 -->|Yes| SEQ[Database Sequences<br/>Simplest option]
+    START([Unique IDs]) --> Q1{Time\nordered?}
+    Q1 -->|No| Q2{Public IDs?}
+    Q2 -->|Yes| UUID4["UUID v4"]
+    Q2 -->|No| Q3{One DB?}
+    Q3 -->|Yes| SEQ["DB Sequences"]
     Q3 -->|No| UUID4
-
-    Q1 -->|Yes| Q4{Can coordinate<br/>machine IDs?}
-    Q4 -->|Yes| Q5{Need 64-bit<br/>compact IDs?}
-    Q5 -->|Yes| SNOW[Snowflake<br/>Highest throughput]
-    Q5 -->|No| UUID7B[UUID v7<br/>Standard + ordered]
-
-    Q4 -->|No| Q6{Need RFC<br/>standard?}
-    Q6 -->|Yes| UUID7A[UUID v7<br/>Broad support]
-    Q6 -->|No| Q7{Compact strings<br/>important?}
-    Q7 -->|Yes| ULID_K[ULID<br/>26 chars, monotonic]
-    Q7 -->|No| UUID7C[UUID v7<br/>Default choice]
-
-    style UUID4 fill:#f8cecc
-    style UUID7A fill:#d5e8d4
-    style UUID7B fill:#d5e8d4
-    style UUID7C fill:#d5e8d4
-    style SNOW fill:#dae8fc
-    style ULID_K fill:#fff2cc
-    style SEQ fill:#e1d5e7
+    Q1 -->|Yes| Q4{Coord IDs?}
+    Q4 -->|Yes| Q5{64-bit?}
+    Q5 -->|Yes| SNOW["Snowflake"]
+    Q5 -->|No| UUID7["UUID v7"]
+    Q4 -->|No| Q6{RFC?}
+    Q6 -->|Yes| UUID7
+    Q6 -->|No| Q7{Compact str?}
+    Q7 -->|Yes| ULID_K["ULID"]
+    Q7 -->|No| UUID7

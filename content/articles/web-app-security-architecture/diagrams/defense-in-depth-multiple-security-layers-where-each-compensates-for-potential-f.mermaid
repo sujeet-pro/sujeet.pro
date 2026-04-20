@@ -3,6 +3,7 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Threats["Attack Surface"]
+        direction TB
         XSS["XSS"]
         CSRF["CSRF"]
         Injection["Injection"]
@@ -20,6 +21,7 @@ flowchart TB
     end
 
     subgraph Controls["Control Types"]
+        direction TB
         Prevent["Preventive"]
         Detect["Detective"]
         Correct["Corrective"]

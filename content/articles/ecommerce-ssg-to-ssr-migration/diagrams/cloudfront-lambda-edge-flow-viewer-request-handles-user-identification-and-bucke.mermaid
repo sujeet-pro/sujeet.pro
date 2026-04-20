@@ -2,28 +2,28 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant User
-    participant CF as CloudFront
-    participant VR as Viewer Request
-    participant OR as Origin Request
-    participant VResp as Viewer Response
-    participant SSG as SSG Origin
-    participant SSR as SSR Origin
+    participant U as User
+    participant CF
+    participant VR as ViewerReq
+    participant OR as OriginReq
+    participant VRs as ViewerResp
+    participant SSG
+    participant SSR
 
-    User->>CF: Request with cookies
-    CF->>VR: Trigger viewer-request
-    VR->>VR: Read userId cookie (or generate)
-    VR->>VR: Bucket user via Math.random + config
-    VR->>CF: Add x-platform-bucket header
-    CF->>OR: Trigger origin-request
-    OR->>OR: Read x-platform-bucket header
-    alt bucket = "ssr"
-        OR->>SSR: Override origin to SSR
-        SSR-->>CF: Response
-    else bucket = "ssg"
-        OR->>SSG: Override origin to SSG
-        SSG-->>CF: Response
+    U->>CF: req + cookies
+    CF->>VR: trigger
+    VR->>VR: read userId
+    VR->>VR: bucket
+    VR->>CF: add header
+    CF->>OR: trigger
+    OR->>OR: read header
+    alt ssr
+        OR->>SSR: override
+        SSR-->>CF: resp
+    else ssg
+        OR->>SSG: override
+        SSG-->>CF: resp
     end
-    CF->>VResp: Trigger viewer-response
-    VResp->>VResp: Set userId & platform-ab cookies
-    VResp-->>User: Response with Set-Cookie headers
+    CF->>VRs: trigger
+    VRs->>VRs: set cookies
+    VRs-->>U: response

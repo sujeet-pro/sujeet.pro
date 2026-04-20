@@ -2,15 +2,16 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    DB["Database<br/>(name + version)"] --> OS1["Object Store: users"]
+    DB["Database\n(name + version)"] --> OS1["Object Store: users"]
     DB --> OS2["Object Store: orders"]
 
-    OS1 --> IDX1["Index: by-email<br/>(unique)"]
+    OS1 --> IDX1["Index: by-email\n(unique)"]
     OS1 --> IDX2["Index: by-role"]
 
     OS2 --> IDX3["Index: by-date"]
     OS2 --> IDX4["Index: by-user-id"]
 
-    style DB fill:#3b82f6,stroke:#1e40af,color:#fff
-    style OS1 fill:#10b981,stroke:#059669,color:#fff
-    style OS2 fill:#10b981,stroke:#059669,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class DB primary
+    class OS1,OS2 success

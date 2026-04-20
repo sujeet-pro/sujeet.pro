@@ -1,7 +1,7 @@
 %% Diagram: Cqrs Separates Write Command And Read Query Paths Events Synchronize Them Asynch
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Commands
         C[Command] --> WM[Write Model]
         WM --> DB[(Primary DB)]

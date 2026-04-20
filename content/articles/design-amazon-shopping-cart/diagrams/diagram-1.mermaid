@@ -2,69 +2,22 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Client"
-        Browser[Browser/Mobile]
-    end
-
-    subgraph "Gateway Layer"
-        GW[API Gateway]
-        Auth[Auth Service]
-    end
-
-    subgraph "Cart Domain"
-        CS[Cart Service]
-        Cache[(Redis Cart Cache)]
-        CartDB[(Cart Database)]
-    end
-
-    subgraph "Pricing Domain"
-        PS[Pricing Service]
-        PromoEngine[Promotion Engine]
-        PriceCache[(Price Cache)]
-    end
-
-    subgraph "Inventory Domain"
-        IS[Inventory Service]
-        ResCache[(Reservation Cache)]
-        InvDB[(Inventory Database)]
-    end
-
-    subgraph "Checkout Domain"
-        COS[Checkout Orchestrator]
-        PayS[Payment Service]
-        OrderS[Order Service]
-        OrderDB[(Order Database)]
-    end
-
-    subgraph "Async"
-        Queue[Message Queue]
-        CartWorker[Cart Expiry Worker]
-        NotifyWorker[Notification Worker]
-    end
+    Browser["Browser/Mobile"]
+    GW["API Gateway + Auth"]
+    CS["Cart Service"]
+    CartStore[("Cart Store\nRedis + DB")]
+    DOMAIN["Pricing + Inventory\nServices, Promo Engine, caches, stores"]
+    COS["Checkout Orchestrator"]
+    ORDERPAY["Payment + Order Service\n+ Order DB"]
+    ASYNC["Queue + Workers\nCart Expiry · Notifications"]
 
     Browser --> GW
-    GW --> Auth
     GW --> CS
     GW --> COS
-
-    CS --> Cache
-    CS --> CartDB
-    CS --> PS
-    CS --> IS
-
-    PS --> PromoEngine
-    PS --> PriceCache
-
-    IS --> ResCache
-    IS --> InvDB
-
-    COS --> PayS
-    COS --> IS
-    COS --> OrderS
-    OrderS --> OrderDB
-
-    CS --> Queue
-    Queue --> CartWorker
-    Queue --> NotifyWorker
-    CartWorker --> CartDB
-    CartWorker --> IS
+    CS --> CartStore
+    CS --> DOMAIN
+    CS --> ASYNC
+    COS --> ORDERPAY
+    COS --> DOMAIN
+    ASYNC --> CartStore
+    ASYNC --> DOMAIN

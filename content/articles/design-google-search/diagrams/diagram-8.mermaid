@@ -2,25 +2,9 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Signals["Ranking Signals (200+)"]
-        QUERY[Query Signals<br/>terms, intent, freshness need]
-        DOC[Document Signals<br/>PageRank, content quality, freshness]
-        USER[User Signals<br/>location, language, history]
-        CONTEXT[Context Signals<br/>device, time of day]
-    end
+    SIGNALS["Ranking Signals (200+)\nQuery · Document · User · Context"]
+    RANKERS["Ranking Systems\nPageRank · TF-IDF · BERT\nRankBrain · Freshness"]
+    WEIGHTS["Learned Weights"]
+    FINAL["Final Score"]
 
-    subgraph Rankers["Ranking Systems"]
-        PR[PageRank<br/>Link authority]
-        TF[TF-IDF<br/>Term relevance]
-        BERT_R[BERT<br/>Semantic matching]
-        RB[RankBrain<br/>Query-doc vectors]
-        FRESH[Freshness<br/>Time decay]
-    end
-
-    subgraph Combination["Score Combination"]
-        WEIGHTS[Learned Weights]
-        FINAL[Final Score]
-    end
-
-    QUERY & DOC & USER & CONTEXT --> PR & TF & BERT_R & RB & FRESH
-    PR & TF & BERT_R & RB & FRESH --> WEIGHTS --> FINAL
+    SIGNALS --> RANKERS --> WEIGHTS --> FINAL

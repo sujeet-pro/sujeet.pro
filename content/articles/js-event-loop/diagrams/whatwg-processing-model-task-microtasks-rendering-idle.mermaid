@@ -1,20 +1,42 @@
 %% Diagram: Whatwg Processing Model Task Microtasks Rendering Idle
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TD
-    A[Event Loop Iteration] --> B[Select Task from Queue]
-    B --> C[Execute Task]
-    C --> D[Call Stack Empty?]
-    D -->|No| C
-    D -->|Yes| E[Microtask Checkpoint]
-    E --> F[Drain Microtask Queue]
-    F --> G[Update Rendering?]
-    G -->|Yes| H[Run rAF Callbacks]
-    H --> I[Style Recalculation]
-    I --> J["Layout/Reflow"]
-    J --> K[Paint]
-    K --> L[Composite]
-    G -->|No| M[Idle Period]
+graph TB
+    subgraph TaskPhase["Task phase"]
+        direction TB
+        A[Event Loop Iteration] --> B[Select Task from Queue]
+        B --> C[Execute Task]
+        C --> D[Call Stack Empty?]
+        D -->|No| C
+    end
+
+    subgraph MicrotaskPhase["Microtask checkpoint"]
+        direction TB
+        E[Microtask Checkpoint]
+        F[Drain Microtask Queue]
+        E --> F
+    end
+
+    subgraph RenderPhase["Render phase"]
+        direction TB
+        G[Update Rendering?]
+        H[Run rAF Callbacks]
+        I[Style Recalculation]
+        J["Layout/Reflow"]
+        K[Paint]
+        L[Composite]
+        G -->|Yes| H --> I --> J --> K --> L
+    end
+
+    subgraph IdlePhase["Idle phase"]
+        direction TB
+        M[Idle Period]
+        N[requestIdleCallback]
+        M --> N
+    end
+
+    D -->|Yes| E
+    F --> G
+    G -->|No| M
     L --> M
-    M --> N[requestIdleCallback]
     N --> A

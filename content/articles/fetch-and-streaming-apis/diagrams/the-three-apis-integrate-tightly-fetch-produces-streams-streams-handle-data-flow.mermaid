@@ -1,7 +1,7 @@
 %% Diagram: The Three Apis Integrate Tightly Fetch Produces Streams Streams Handle Data Flow
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Fetch["Fetch API"]
         REQ[Request] --> RESP[Response]
         RESP --> BODY["body: ReadableStream"]

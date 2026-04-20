@@ -1,7 +1,7 @@
 %% Diagram: Diagram 10
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     DB[(Source DB)] -->|EOS| CDC[Debezium]
     CDC -->|EOS| K[Kafka]
     K -->|At-least-once| C[Consumer]

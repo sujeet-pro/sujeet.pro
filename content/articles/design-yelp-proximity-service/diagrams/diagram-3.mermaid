@@ -1,7 +1,7 @@
 %% Diagram: Diagram 3
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph ES["Elasticsearch"]
         Query["geo_distance query"]
         Query --> BKD["BKD Tree Index"]

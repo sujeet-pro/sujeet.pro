@@ -2,59 +2,17 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Client
-    participant CDN as Edge Cache
-    participant Gateway
-    participant Transform as Transform Engine
-    participant Cache as Redis
-    participant Registry as Registry DB
-    participant Storage as Object Store
-    participant Lock as Distributed Lock
+    participant C as Client
+    participant E as CDN
+    participant G as Gateway+Transform
 
-    Client->>CDN: GET /v1/pub/.../w_800-h_600.webp
-    CDN->>Gateway: Cache miss - forward
-
-    Gateway->>Gateway: Parse & canonicalize ops
-    Gateway->>Gateway: Validate against policies
-
-    Gateway->>Cache: Check transform cache
-    Cache-->>Gateway: MISS
-
-    Gateway->>Registry: Query derived asset
-    Registry-->>Gateway: NOT FOUND
-
-    Note over Gateway,Transform: First transform - must process inline
-
-    Gateway->>Lock: Acquire lock (asset_id + ops_hash)
-    Lock-->>Gateway: ACQUIRED
-
-    Gateway->>Registry: Double-check after lock
-    alt Another Request Already Created It
-        Registry-->>Gateway: Derived asset found
-        Gateway->>Lock: Release lock
-    else Still Not Found
-        Gateway->>Transform: Process inline
-
-        Transform->>Registry: Get asset metadata
-        Registry-->>Transform: Asset info
-
-        Transform->>Storage: Fetch original
-        Storage-->>Transform: Original bytes
-
-        Transform->>Transform: Apply transformations
-        Note over Transform: libvips/Sharp processing
-
-        Transform->>Storage: Store derived asset
-        Storage-->>Transform: Storage key
-
-        Transform->>Registry: Save derived metadata
-        Transform->>Cache: Cache result
-
-        Transform-->>Gateway: Processed image bytes
-
-        Gateway->>Lock: Release lock
+    C->>E: GET /v1/.../w_800.webp
+    E->>G: cache miss
+    G->>G: parse + validate + lock
+    alt cache MISS
+        G->>G: fetch + libvips + store
+    else derived found
+        G->>G: serve cached
     end
-
-    Gateway-->>CDN: 200 OK + Cache-Control headers
-    CDN->>CDN: Cache for 1 year
-    CDN-->>Client: 200 OK (< 800ms)
+    G-->>E: 200 + Cache-Control
+    E-->>C: 200 (< 800ms)

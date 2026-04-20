@@ -1,7 +1,7 @@
 %% Diagram: Drm Pipeline Content Encryption With Cenc Key Management Through License Servers
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph "Content Preparation"
         SRC[Source Video] --> ENC[Encode<br/>H.264/HEVC/AV1]
         ENC --> PKG[Package<br/>fMP4/CMAF]

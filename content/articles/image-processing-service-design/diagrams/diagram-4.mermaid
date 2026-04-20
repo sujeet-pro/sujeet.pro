@@ -2,44 +2,37 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Client
-    participant Gateway
-    participant Upload as Asset Ingestion
-    participant Registry as Registry DB
-    participant Storage as Object Store
-    participant Queue as Message Queue
-    participant Worker as Transform Worker
+    participant C as Client
+    participant GW as Gateway
+    participant U as Upload
+    participant R as Registry
+    participant S as Storage
+    participant Q as Queue
+    participant W as Worker
 
-    Client->>Gateway: POST /v1/assets (multipart)
-    Gateway->>Gateway: Authenticate & authorize
-    Gateway->>Upload: Forward upload
-
-    Upload->>Upload: Validate file (type, size)
-    Upload->>Upload: Compute SHA-256 hash
-
-    Upload->>Registry: Check for duplicate hash
-    alt Duplicate Found
-        Registry-->>Upload: Existing asset ID
-        Upload-->>Client: 200 OK (deduplicated)
-    else New Asset
-        Upload->>Storage: Store original
-        Storage-->>Upload: Storage key
-
-        Upload->>Registry: Create asset record
-        Registry-->>Upload: Asset ID
-
-        Upload->>Registry: Query applicable presets
-        Registry-->>Upload: List of presets
-
-        loop For each preset
-            Upload->>Queue: Enqueue transform job
+    C->>GW: POST /v1/assets
+    GW->>GW: authn
+    GW->>U: forward
+    U->>U: validate
+    U->>U: SHA-256
+    U->>R: dedupe check
+    alt Duplicate
+        R-->>U: asset id
+        U-->>C: 200 deduped
+    else New
+        U->>S: store
+        S-->>U: key
+        U->>R: create
+        R-->>U: id
+        U->>R: presets
+        R-->>U: list
+        loop preset
+            U->>Q: enqueue
         end
-
-        Upload-->>Client: 201 Created + URLs
-
-        Queue->>Worker: Dequeue transform job
-        Worker->>Worker: Process transformation
-        Worker->>Storage: Store derived asset
-        Worker->>Registry: Save derived metadata
-        Worker->>Registry: Update transform cache
+        U-->>C: 201 + URLs
+        Q->>W: dequeue
+        W->>W: transform
+        W->>S: store derived
+        W->>R: save meta
+        W->>R: cache
     end

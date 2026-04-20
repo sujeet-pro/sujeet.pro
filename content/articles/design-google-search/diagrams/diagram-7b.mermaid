@@ -1,0 +1,21 @@
+%% Diagram: Diagram 7b - Query Pipeline (Stages 4-5)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Retrieval["Index Retrieval"]
+        direction TB
+        FANOUT[Fan out to Shards]
+        INTERSECT[Posting List Intersection]
+        TOPK[Top-K per Shard]
+    end
+
+    subgraph Ranking["Ranking"]
+        direction TB
+        MERGE[Merge Candidates]
+        FEATURES[Feature Extraction]
+        ML[ML Ranking]
+        PERSONALIZE[Personalization]
+    end
+
+    FANOUT --> INTERSECT --> TOPK
+    TOPK --> MERGE --> FEATURES --> ML --> PERSONALIZE

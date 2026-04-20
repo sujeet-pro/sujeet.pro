@@ -1,0 +1,26 @@
+%% Diagram: System Architecture — Content Pipeline & Open Connect Delivery
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Content Pipeline"
+        INGEST[Ingest Service]
+        ENCODE["Encoding Pipeline\nCosmos Platform"]
+        QC["Quality Control\nVMAF Validation"]
+    end
+
+    subgraph "Origin Storage"
+        ORIGIN[("S3 Origin\nAll Variants")]
+    end
+
+    subgraph "Open Connect CDN"
+        FILL["Fill Pipeline\nProactive Distribution"]
+        OCA["OCA Edge Clusters\nper ISP / IXP"]
+    end
+
+    subgraph "Steering"
+        STEERING["Steering Service\nOCA Selection"]
+    end
+
+    INGEST --> ENCODE --> QC --> ORIGIN
+    ORIGIN --> FILL --> OCA
+    STEERING --> OCA

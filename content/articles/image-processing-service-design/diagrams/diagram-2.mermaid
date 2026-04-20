@@ -2,49 +2,46 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Client
-    participant CDN as Edge Cache
-    participant Gateway as Image Gateway
-    participant Cache as Redis
-    participant Registry as Registry DB
-    participant Transform as Transform Engine
-    participant Storage as Object Store
+    participant Cl as Client
+    participant CDN
+    participant GW as Gateway
+    participant R as Redis
+    participant DB as Registry
+    participant T as Transform
+    participant S as Storage
 
-    Client->>CDN: GET /pub/org/space/img/id/w_800-h_600.webp
-
-    alt CDN Cache Hit
-        CDN-->>Client: 200 OK (< 50ms)
-    else CDN Cache Miss
-        CDN->>Gateway: Forward request
-        Gateway->>Gateway: Parse & validate URL
-
-        alt Redis Cache Hit
-            Gateway->>Cache: Check transform cache
-            Cache-->>Gateway: Cached metadata
-            Gateway->>Storage: Fetch derived asset
-            Storage-->>Gateway: Image bytes
-            Gateway-->>CDN: 200 OK + Cache headers
-            CDN-->>Client: 200 OK (< 200ms)
-        else Transform Exists in DB
-            Gateway->>Registry: Query derived asset
-            Registry-->>Gateway: Storage key
-            Gateway->>Storage: Fetch derived asset
-            Storage-->>Gateway: Image bytes
-            Gateway->>Cache: Update cache
-            Gateway-->>CDN: 200 OK + Cache headers
-            CDN-->>Client: 200 OK (< 300ms)
+    Cl->>CDN: GET /img w_800
+    alt CDN Hit
+        CDN-->>Cl: 200 (<50ms)
+    else CDN Miss
+        CDN->>GW: forward
+        GW->>GW: parse URL
+        alt Redis Hit
+            GW->>R: lookup
+            R-->>GW: meta
+            GW->>S: fetch derived
+            S-->>GW: bytes
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<200ms)
+        else In DB
+            GW->>DB: query
+            DB-->>GW: key
+            GW->>S: fetch derived
+            S-->>GW: bytes
+            GW->>R: cache
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<300ms)
         else First Transform
-            Gateway->>Registry: Get asset metadata
-            Registry-->>Gateway: Asset info
-            Gateway->>Storage: Fetch original
-            Storage-->>Gateway: Original bytes
-            Gateway->>Transform: Process inline
-            Transform->>Transform: Apply transformations
-            Transform-->>Gateway: Processed bytes
-            Gateway->>Storage: Store derived asset
-            Gateway->>Registry: Save metadata
-            Gateway->>Cache: Cache result
-            Gateway-->>CDN: 200 OK + Cache headers
-            CDN-->>Client: 200 OK (< 800ms)
+            GW->>DB: meta
+            DB-->>GW: info
+            GW->>S: fetch orig
+            S-->>GW: bytes
+            GW->>T: process
+            T-->>GW: bytes
+            GW->>S: store
+            GW->>DB: save meta
+            GW->>R: cache
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<800ms)
         end
     end

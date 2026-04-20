@@ -1,7 +1,7 @@
 %% Diagram: Diagram 6
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     MSG["Incoming<br/>Message"] --> BL["Blocklist<br/>Check"]
     BL -->|Listed| SPAM["Spam"]
     BL -->|Clean| AUTH["Auth<br/>Check"]

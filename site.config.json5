@@ -32,7 +32,11 @@
     endYear: null,
   },
   sidebar: {
-    collapsible: true,
+    // Render section headings as static labels. The article sidebar relies on
+    // per-item expansion (the current series locks open via the `.expanded`
+    // class on its parent item) and a clickable section-level <details> would
+    // let users collapse the entire series tree away.
+    collapsible: false,
   },
   search: {
     enabled: true,

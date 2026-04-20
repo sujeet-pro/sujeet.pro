@@ -2,45 +2,28 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Clients["Client Layer"]
-        Web[Web App]
-        Mobile[Mobile Apps]
-        Desktop[Desktop Clients]
-        Email[Email Integration]
-    end
+    CLIENTS["Clients\nWeb / Mobile / Desktop / Email"]
+    LB["LB"]
+    Auth["Auth"]
+    RL["Rate Limiter"]
+    EventSvc["Event"]
+    RecurrenceSvc["Recurrence"]
+    SchedulingSvc["Scheduling"]
+    NotifSvc["Notif"]
+    SyncSvc["Sync"]
+    PG[(Postgres)]
+    Redis[(Redis)]
+    ES[(ES)]
+    S3[(S3)]
+    Queue["Queue"]
+    Workers["Workers"]
+    Scheduler["Scheduler"]
 
-    subgraph Gateway["API Gateway"]
-        LB[Load Balancer]
-        Auth[Auth Service]
-        RL[Rate Limiter]
-    end
-
-    subgraph Core["Core Services"]
-        EventSvc[Event Service]
-        RecurrenceSvc[Recurrence Service]
-        SchedulingSvc[Scheduling Service]
-        NotifSvc[Notification Service]
-        SyncSvc[Sync Service]
-    end
-
-    subgraph Data["Data Layer"]
-        PG[(PostgreSQL<br/>Events, Users)]
-        Redis[(Redis<br/>Free/Busy Cache)]
-        ES[(Elasticsearch<br/>Search)]
-        S3[(Object Storage<br/>Attachments)]
-    end
-
-    subgraph Async["Async Processing"]
-        Queue[Message Queue]
-        Workers[Background Workers]
-        Scheduler[Job Scheduler]
-    end
-
-    Clients --> LB
-    LB --> Auth --> RL
-    RL --> Core
-    Core --> Data
-    Core --> Queue
-    Queue --> Workers
+    CLIENTS --> LB --> Auth --> RL
+    RL --> EventSvc & RecurrenceSvc & SchedulingSvc & NotifSvc & SyncSvc
+    EventSvc --> PG
+    SchedulingSvc --> Redis
+    EventSvc --> ES
+    EventSvc --> S3
+    NotifSvc --> Queue --> Workers
     Scheduler --> Workers
-    Workers --> NotifSvc

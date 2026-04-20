@@ -2,67 +2,23 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph ClientLayer["Client Layer"]
-        APP["Mobile/Web App"]
-        WS_CLIENT["WebSocket Client"]
-        LOCAL_DB["SQLite/IndexedDB<br/>(Local Cache)"]
-        SYNC_ENGINE["Sync Engine"]
-    end
+    CLIENT["Client\nWS Client + Local Cache"]
+    EDGE["Edge\nGeoDNS · NLB"]
+    WS_GW["WebSocket Gateway\nstateful conns"]
+    MSG_SVC["Message Service"]
+    PRES_SVC["Presence Service"]
+    OTHER_SVC["Other Services\nUser · Group · Sync · Push"]
+    KAFKA["Kafka\nfanout topics"]
+    STATE["State Stores\nRedis · ScyllaDB · PG · S3"]
 
-    subgraph EdgeLayer["Edge Layer"]
-        DNS["Route 53<br/>(GeoDNS)"]
-        LB["NLB<br/>(Layer 4)"]
-    end
-
-    subgraph GatewayLayer["Gateway Layer"]
-        WS_GW["WebSocket Gateway<br/>(Stateful)"]
-        CONN_MGR["Connection Manager"]
-        HEARTBEAT["Heartbeat Handler"]
-    end
-
-    subgraph ServiceLayer["Core Services"]
-        MSG_SVC["Message Service"]
-        USER_SVC["User Service"]
-        GROUP_SVC["Group Service"]
-        PRES_SVC["Presence Service"]
-        SYNC_SVC["Sync Service"]
-        PUSH_SVC["Push Notification Service"]
-    end
-
-    subgraph QueueLayer["Message Queue"]
-        KAFKA["Kafka Cluster"]
-        FANOUT_TOPIC["fanout.messages"]
-        PUSH_TOPIC["push.notifications"]
-    end
-
-    subgraph StorageLayer["Storage Layer"]
-        REDIS["Redis Cluster<br/>(Sessions, Presence)"]
-        SCYLLA[(ScyllaDB<br/>Messages)]
-        POSTGRES[(PostgreSQL<br/>Users, Groups)]
-        S3["S3<br/>(Media)"]
-    end
-
-    APP <--> WS_CLIENT
-    WS_CLIENT <--> SYNC_ENGINE
-    SYNC_ENGINE <--> LOCAL_DB
-
-    WS_CLIENT --> DNS --> LB --> WS_GW
-    WS_GW --> CONN_MGR
-    WS_GW --> HEARTBEAT
+    CLIENT --> EDGE --> WS_GW
     WS_GW <--> MSG_SVC
     WS_GW <--> PRES_SVC
-
     MSG_SVC --> KAFKA
-    MSG_SVC --> SCYLLA
-    MSG_SVC --> USER_SVC
-    MSG_SVC --> GROUP_SVC
-
-    KAFKA --> FANOUT_TOPIC
-    KAFKA --> PUSH_TOPIC
-    FANOUT_TOPIC --> WS_GW
-    PUSH_TOPIC --> PUSH_SVC
-
-    PRES_SVC --> REDIS
-    CONN_MGR --> REDIS
-    USER_SVC --> POSTGRES
-    GROUP_SVC --> POSTGRES
+    MSG_SVC --> OTHER_SVC
+    KAFKA --> WS_GW
+    KAFKA --> OTHER_SVC
+    MSG_SVC --> STATE
+    PRES_SVC --> STATE
+    OTHER_SVC --> STATE
+    WS_GW --> STATE

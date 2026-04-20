@@ -1,7 +1,7 @@
 %% Diagram: Diagram 3
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     CLIENT["Client"] --> GW["API Gateway<br/>(Local Counters)"]
     GW --> SVC["Backend"]
     GW -.->|"Periodic sync"| REDIS["Redis<br/>(Global Counters)"]

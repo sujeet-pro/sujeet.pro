@@ -567,8 +567,11 @@ Google uses a hybrid: the main index updates incrementally, while a separate "fr
 
 ### Query Processing Pipeline
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![Query pipeline stages 1-3: input, preprocessing, query understanding](./diagrams/diagram-7-light.svg)
+![Query pipeline stages 1-3: input, preprocessing, query understanding](./diagrams/diagram-7-dark.svg)
+
+![Query pipeline stages 4-5: index retrieval and ranking](./diagrams/diagram-7b-light.svg)
+![Query pipeline stages 4-5: index retrieval and ranking](./diagrams/diagram-7b-dark.svg)
 
 **Spell Correction Implementation:**
 

@@ -2,58 +2,45 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Users["User Layer"]
-        WEB[Web Browser]
-        MOBILE[Mobile App]
-        API[Search API]
+    USERS["Users\nWeb / Mobile / API"]
+
+    subgraph QP["Query Processing"]
+        SPELL["Spell"]
+        INTENT["Intent"]
+        EXPAND["Expansion"]
     end
 
-    subgraph QueryProcessing["Query Processing"]
-        SPELL[Spell Correction<br/>680M params, <2ms]
-        INTENT[Intent Understanding<br/>NLP + Entity Recognition]
-        EXPAND[Query Expansion<br/>Synonyms + Related]
+    subgraph Serving["Serving"]
+        ROUTER["Query Router"]
+        CACHE[(Query Cache)]
+        AGG["Aggregator"]
     end
 
-    subgraph Serving["Serving Layer"]
-        ROUTER[Query Router]
-        CACHE[(Query Cache<br/>Frequent Results)]
-        AGG[Result Aggregator]
+    SHARDS[(Index Shards\nInverted)]
+
+    subgraph Ranking["Ranking"]
+        PAGERANK["PageRank"]
+        BERT["BERT"]
+        RANKBRAIN["RankBrain"]
     end
 
-    subgraph Index["Distributed Index"]
-        SHARD1[(Shard 1<br/>Inverted Index)]
-        SHARD2[(Shard 2<br/>Inverted Index)]
-        SHARDN[(Shard N<br/>Inverted Index)]
+    subgraph Crawl["Crawl"]
+        FRONTIER["Frontier"]
+        CRAWLER["Crawler"]
+        PARSER["Parser"]
     end
 
-    subgraph Ranking["Ranking Systems"]
-        PAGERANK[PageRank<br/>Link Analysis]
-        BERT[BERT<br/>Semantic Understanding]
-        RANKBRAIN[RankBrain<br/>Query-Result Matching]
-    end
+    BIGTABLE[(Bigtable)]
+    COLOSSUS[(Colossus)]
 
-    subgraph Crawling["Crawl Infrastructure"]
-        FRONTIER[URL Frontier<br/>Prioritized Queue]
-        CRAWLER[Distributed Crawler<br/>Googlebot]
-        PARSER[Content Parser<br/>+ Deduplication]
-    end
-
-    subgraph Storage["Storage Layer"]
-        BIGTABLE[(Bigtable<br/>Page Content)]
-        COLOSSUS[(Colossus<br/>Distributed FS)]
-    end
-
-    WEB & MOBILE & API --> SPELL
-    SPELL --> INTENT --> EXPAND
-    EXPAND --> ROUTER
+    USERS --> SPELL --> INTENT --> EXPAND --> ROUTER
     ROUTER --> CACHE
-    ROUTER --> SHARD1 & SHARD2 & SHARDN
-    SHARD1 & SHARD2 & SHARDN --> AGG
+    ROUTER --> SHARDS
+    SHARDS --> AGG
     AGG --> PAGERANK & BERT & RANKBRAIN
-    PAGERANK & BERT & RANKBRAIN --> Users
+    PAGERANK --> USERS
+    BERT --> USERS
+    RANKBRAIN --> USERS
 
-    FRONTIER --> CRAWLER
-    CRAWLER --> PARSER
-    PARSER --> BIGTABLE
-    BIGTABLE --> COLOSSUS
-    PARSER --> Index
+    FRONTIER --> CRAWLER --> PARSER --> BIGTABLE --> COLOSSUS
+    PARSER --> SHARDS

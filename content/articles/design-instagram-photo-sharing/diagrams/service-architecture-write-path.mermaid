@@ -1,0 +1,25 @@
+%% Diagram: Service Architecture — Write & Media Path
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Client Apps\niOS, Android, Web"]
+    GW["API Gateway\nAuth + Rate Limit"]
+    UPLOAD["Upload Service"]
+    POST["Post Service\nCRUD"]
+    SOCIAL["Social Service\nFollow Graph"]
+    IMG["Image Processor\nResize + Filter"]
+    FANOUT["Fan-out Workers\nTimeline Population"]
+    PG[("PostgreSQL\nPosts")]
+    CASS[("Cassandra\nSocial Graph")]
+    REDIS[("Redis\nTimeline Cache")]
+    S3[("Object Store\nMedia")]
+    CDN["CDN Edge\nMedia Delivery"]
+
+    CLIENTS --> GW
+    GW --> UPLOAD
+    GW --> POST
+    GW --> SOCIAL
+    UPLOAD --> IMG --> S3 --> CDN
+    POST --> PG
+    POST --> FANOUT --> REDIS
+    SOCIAL --> CASS

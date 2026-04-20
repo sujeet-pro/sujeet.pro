@@ -1,0 +1,24 @@
+%% Diagram: Diagram 4 — Quota management + observability
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph RateLimitSvc["Rate Limit Service\n(see data-path diagram)"]
+        RLS["RLS Instances"]
+    end
+
+    subgraph QuotaMgmt["Quota Management"]
+        direction TB
+        QUOTA_API["Quota API"]
+        QUOTA_DB[(PostgreSQL\nTenant Quotas)]
+        QUOTA_CACHE["Quota Cache"]
+    end
+
+    subgraph Observability["Observability"]
+        direction TB
+        PROM["Prometheus"]
+        GRAFANA["Grafana\nDashboard"]
+        ALERT["AlertManager"]
+    end
+
+    QUOTA_API --> QUOTA_DB --> QUOTA_CACHE --> RLS
+    RLS --> PROM --> GRAFANA & ALERT

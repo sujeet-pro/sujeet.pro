@@ -205,8 +205,11 @@ This article focuses on **Path C (Hybrid Fan-out)** because:
 
 ### Component Overview
 
-![Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.](./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul-light.svg "Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.")
-![Service architecture: API Gateway routes to domain services. Fan-out workers populate timeline caches. Ranking service applies ML models to feed generation. MQTT enables real-time push.](./diagrams/service-architecture-api-gateway-routes-to-domain-services-fan-out-workers-popul-dark.svg)
+![Service architecture (write & media path): API Gateway routes uploads and posts; image processor and fan-out workers populate timeline caches and CDN.](./diagrams/service-architecture-write-path-light.svg "Service architecture (write & media path): API Gateway routes uploads and posts; image processor and fan-out workers populate timeline caches and CDN.")
+![Service architecture (write & media path): API Gateway routes uploads and posts; image processor and fan-out workers populate timeline caches and CDN.](./diagrams/service-architecture-write-path-dark.svg)
+
+![Service architecture (read, discovery & realtime): feed, search, explore, DM, and notification services backed by ranking, caches, and MQTT push.](./diagrams/service-architecture-read-and-realtime-light.svg "Service architecture (read, discovery & realtime): feed, search, explore, DM, and notification services backed by ranking, caches, and MQTT push.")
+![Service architecture (read, discovery & realtime): feed, search, explore, DM, and notification services backed by ranking, caches, and MQTT push.](./diagrams/service-architecture-read-and-realtime-dark.svg)
 
 ### Service Responsibilities
 

@@ -1,7 +1,7 @@
 %% Diagram: Frame Budget Allocation At 60fps Exceeding 16 7ms Drops Frames
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph LR
+graph TB
     subgraph "Frame Budget ~16.7ms"
         A[JS Execution] --> B[rAF Callbacks]
         B --> C[Style Calculation]
