@@ -2,34 +2,25 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant C as Coordinator
     participant P1 as Participant 1
     participant P2 as Participant 2
 
-    rect rgb(232, 244, 253)
-    note over C,P2: Phase 1 — Prepare (voting)
+    note over C,P2: Phase 1 — Prepare (vote)
     C->>P1: PREPARE
     C->>P2: PREPARE
-    P1->>P1: write redo/undo,\nacquire locks
-    P2->>P2: write redo/undo,\nacquire locks
+    P1->>P1: log, lock
+    P2->>P2: log, lock
     P1-->>C: VOTE-YES
     P2-->>C: VOTE-YES
-    end
 
-    rect rgb(220, 240, 220)
-    note over C,P2: Phase 2 — Commit (decision)
-    C->>C: write COMMIT to log
+    note over C,P2: Phase 2 — Commit (decide)
+    C->>C: log COMMIT
     C->>P1: COMMIT
     C->>P2: COMMIT
-    P1->>P1: commit, release locks
-    P2->>P2: commit, release locks
     P1-->>C: ACK
     P2-->>C: ACK
-    end
 
-    rect rgb(255, 232, 232)
-    note over C,P2: Failure mode — coordinator crash after PREPARE
+    note over C,P2: Failure: coordinator crash after PREPARE
     C-xC: crash
-    note over P1,P2: P1 and P2 voted YES, hold locks,\ncannot commit (no decision),\ncannot abort (might have committed).\nThey block until coordinator recovers.
-    end
+    note over P1,P2: YES-voters hold locks.\nNo decision: cannot commit.\nMight have committed: cannot abort.\nBlock until recovery.

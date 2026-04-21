@@ -111,9 +111,9 @@ The two AWS edge compute primitives look interchangeable on a slide. They are no
 | Trigger points         | Viewer request and viewer response | All four (viewer + origin, request + response) |
 | Max execution time     | < 1 ms                             | 5 s viewer / 30 s origin                       |
 | Per-request peak scale | Millions/sec                       | Thousands/sec/region                           |
-| Memory                 | 2 MB                               | 128 MB – 10,240 MB                             |
-| Code package           | 10 KB                              | 50 MB                                          |
-| Languages              | JavaScript (ECMAScript 5.1 subset) | Node.js, Python                                |
+| Memory                 | 2 MB                               | 128 MB viewer / 128 MB – 10,240 MB origin[^lambda-edge-quotas] |
+| Code package           | 10 KB                              | 1 MB viewer / 50 MB origin[^lambda-edge-quotas] |
+| Languages              | JavaScript (`cloudfront-js-2.0`: ES 5.1 + selected ES6–ES12; `1.0`: ES 5.1)[^cff-runtime] | Node.js, Python                                |
 | Network access         | No                                 | Yes                                            |
 | Body manipulation      | No                                 | Yes                                            |
 | Pricing                | $0.10 / 1M invocations             | $0.60 / 1M + $0.00005001 / GB-second           |
@@ -133,7 +133,7 @@ Other watchouts:
 
 - **CloudWatch logs land in the executing region**, not in `us-east-1`. Centralize log aggregation up front or you'll hunt logs across 15 regions during incident triage.
 - **Cold starts are real** for Lambda@Edge but bounded — replicas warm quickly under steady traffic. Build the cold-start latency into your p99 budget, not just p50.
-- **CloudFront Functions runs ECMAScript 5.1**: no `async/await`, no `let`/`const` in older runtimes, no `Promise` outside specific globals. Lint against the documented subset.
+- **CloudFront Functions runs a restricted JavaScript runtime.** `cloudfront-js-2.0` adds `let`, `const`, arrow functions, template literals, `async`/`await` (inside `async` functions), `Object.assign`, `globalThis`, `atob`/`btoa`, and the `Buffer` module on top of ES 5.1; `cloudfront-js-1.0` is ES 5.1 plus a small ES6–ES9 sliver and lacks all of the above. Pin the runtime in your function metadata and lint against the documented feature list — there is no network access, no file system, and no `setTimeout`/`setInterval` in either version[^cff-runtime].
 
 ### Build-version routing example
 
@@ -493,3 +493,5 @@ Decisions worth making once and revisiting only on signal:
 [^s3-rules]: [AWS docs — Configuring a webpage redirect](https://docs.aws.amazon.com/AmazonS3/latest/userguide/how-to-page-redirect.html). 50 routing rules per bucket; beyond that you need per-object `x-amz-website-redirect-location` metadata.
 [^oac-website]: [Stack Overflow — Missing functionality of AWS OAC when hosting a static website from S3](https://stackoverflow.com/questions/76068611/missing-functionality-of-aws-oac-when-hosting-a-static-web-site-from-s3) cross-references the AWS docs on OAC and confirms loss of S3 website features (default index resolution, routing rules) when switching from the website endpoint to the REST endpoint with OAC.
 [^header-caching]: [AWS docs — Cache content based on request headers](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/header-caching.html). Use `CloudFront-Is-*-Viewer` headers in the cache policy; never the raw `User-Agent` (it shreds the hit ratio).
+[^cff-runtime]: [AWS docs — JavaScript runtime 2.0 features for CloudFront Functions](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-javascript-runtime-20.html) and [JavaScript runtime 1.0 features](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-javascript-runtime-10.html). The `cloudfront-js-2.0` runtime is ES 5.1-compliant with selected ES6–ES12 features (notably `let`/`const`, arrow functions, template literals, `async`/`await`, `Object.assign`, numeric separators, `Buffer`); the `1.0` runtime is ES 5.1 with only a narrow ES6–ES9 sliver. Neither runtime exposes the network, file system, environment variables, or `setTimeout`/`setInterval`.
+[^lambda-edge-quotas]: [AWS docs — Quotas on Lambda@Edge](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html#limits-lambda-at-edge). Viewer-triggered functions are capped at 128 MB memory and a 1 MB compressed package; origin-triggered functions allow standard Lambda memory (128 MB – 10,240 MB) and a 50 MB compressed package.

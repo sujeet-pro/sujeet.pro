@@ -30,7 +30,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 | Decision         | Choice                         | Rationale                                           |
 | ---------------- | ------------------------------ | --------------------------------------------------- |
 | Inbound protocol | SMTP (RFC 5321)                | Universal standard, store-and-forward resilience    |
-| Client access    | IMAP + JMAP + REST             | IMAP for legacy clients, JMAP for new ones, REST for web/mobile |
+| Message format   | MIME (RFC 2045–2049)           | Multipart bodies, 7-bit-safe encoding, attachments  |
+| Client access    | IMAP + JMAP + REST + POP3      | JMAP for new clients, IMAP for desktop, REST for web/mobile, POP3 as a compat shim |
 | Authentication   | SPF + DKIM + DMARC             | Defense in depth: server auth, content auth, policy |
 | Spam filtering   | ML (Naive Bayes) + rules       | 99.9%+ detection with low false positives           |
 | Message storage  | Wide-column DB (Cassandra)     | Time-series access pattern, horizontal scaling      |
@@ -347,6 +348,13 @@ interface AttachmentRef {
 }
 ```
 
+### MIME Body Model
+
+Every non-trivial message is a [MIME](https://datatracker.ietf.org/doc/html/rfc2045) tree, not a flat string. The receive pipeline parses headers per [RFC 5322](https://datatracker.ietf.org/doc/html/rfc5322), then walks the body per RFC 2045–2049: `multipart/alternative` (text + HTML siblings), `multipart/mixed` (body + attachments), `multipart/related` (HTML + inline `cid:` references), and `multipart/signed` / `multipart/encrypted` for S/MIME. Header values that hold non-ASCII text (e.g. a Japanese display name in `From:`) use [RFC 2047](https://datatracker.ietf.org/doc/html/rfc2047) encoded-word form (`=?UTF-8?B?...?=`); decode at parse time and store the canonical UTF-8 form, never the raw header. Two operational rules fall out of the MIME model:
+
+- **Pick the renderable part on read, not on write.** Store the full MIME tree (or the raw RFC 822 stream plus a parsed index); let the client decide between `text/plain` and `text/html`. Lossy normalization at write time breaks reply quoting and signature verification.
+- **Re-derive Content-Length and Content-Transfer-Encoding from canonical bytes.** Many spam variants exploit ambiguous boundaries or `quoted-printable` ↔ `base64` round-trip differences; canonicalize before scoring.
+
 ### Search Service
 
 Full-text search across all message content:
@@ -609,6 +617,8 @@ interface Thread {
 
 For legacy desktop client compatibility, expose standard IMAP ([RFC 3501](https://datatracker.ietf.org/doc/html/rfc3501); IMAP4rev2 is [RFC 9051](https://datatracker.ietf.org/doc/html/rfc9051)). For new clients, [JMAP](https://jmap.io) ([RFC 8620](https://datatracker.ietf.org/doc/html/rfc8620) core, [RFC 8621](https://datatracker.ietf.org/doc/html/rfc8621) for mail) is the modern HTTP/JSON alternative — batched requests, push over WebSocket, no persistent IMAP connection — and is what new mailbox APIs should target alongside (or instead of) IMAP. Fastmail and Apache James run production JMAP servers today.
 
+[POP3](https://datatracker.ietf.org/doc/html/rfc1939) is the third client-access protocol still in the wild. It is a download-and-(optionally-)delete protocol with no folder model, no server-side flags, and no concurrent-session semantics — fine for single-device download workflows but unable to express anything modern clients expect. Every major provider keeps a POP3 endpoint listening on port 995 (POP3S) for long-tail clients but routes new clients to IMAP or JMAP. Treat POP3 as a compatibility shim: same auth backend, same mailbox store, much smaller command surface (`USER`, `PASS`, `STAT`, `LIST`, `RETR`, `DELE`, `QUIT`).
+
 **Supported commands:**
 
 | Command   | Description                                  |
@@ -816,6 +826,10 @@ CREATE TABLE attachments (
 - Shard by mailbox_id for query isolation
 - Typical sizing: 1 shard per 10M messages
 - Heavy users: Dedicated index with multiple shards
+
+**Inverted index mechanics (Lucene/Elastic).** Elasticsearch is a distributed wrapper around [Apache Lucene](https://lucene.apache.org/core/) — every "shard" is a Lucene index made of immutable [segments](https://lucene.apache.org/core/9_0_0/core/org/apache/lucene/codecs/lucene90/package-summary.html). Writes append to an in-memory buffer and a translog; a [`refresh`](https://www.elastic.co/guide/en/elasticsearch/reference/current/near-real-time.html) (default 1 s) flushes the buffer to a new segment that becomes searchable; periodic merges compact small segments and physically delete soft-deleted documents. The operational consequences for a mailbox workload: (a) "near-real-time" search lag is bounded by `refresh_interval`, not write throughput — set it to `5s` or `30s` on the mailbox index to halve segment count and CPU; (b) deletes only reclaim space at merge time, so heavy spam-purge churn needs `force_merge` windows; (c) per-field analyzers (lowercase, ASCII-folding, language stemmer, edge-n-grams for autocomplete) are applied at index time, so changing them requires a reindex.
+
+**Gmail-scale precedent: Caribou.** Gmail's first generation of search used the underlying Bigtable row scan; it was rebuilt on a sharded inverted-index service called [Caribou](https://research.google/pubs/large-scale-incremental-processing-using-distributed-transactions-and-notifications/), introduced for real-time indexing of new mail and built on the [Percolator](https://research.google/pubs/large-scale-incremental-processing-using-distributed-transactions-and-notifications/) incremental-processing framework (OSDI 2010). The takeaway for any Gmail-scale design: a separate, asynchronously fed index tier — Lucene/Elastic, Tantivy, or a custom Caribou-style service — beats trying to extend the OLTP store with secondary indexes, because mailbox writes are append-heavy and search is the only read pattern that is not a point lookup by `(mailbox_id, label_id, time)`.
 
 ### Database Selection Matrix
 
@@ -1743,9 +1757,10 @@ This design provides a scalable email system with:
 - [RFC 6409](https://datatracker.ietf.org/doc/html/rfc6409) — Message submission for mail (port 587).
 - [RFC 3501](https://datatracker.ietf.org/doc/html/rfc3501) — IMAP4rev1; superseded by [RFC 9051](https://datatracker.ietf.org/doc/html/rfc9051) (IMAP4rev2).
 - [RFC 2177](https://datatracker.ietf.org/doc/html/rfc2177) — IMAP `IDLE` extension.
+- [RFC 1939](https://datatracker.ietf.org/doc/html/rfc1939) — Post Office Protocol v3 (POP3); legacy retrieve-and-delete client protocol.
 - [RFC 8620](https://datatracker.ietf.org/doc/html/rfc8620) / [RFC 8621](https://datatracker.ietf.org/doc/html/rfc8621) — JMAP core and JMAP for Mail.
 - [RFC 5322](https://datatracker.ietf.org/doc/html/rfc5322) — Internet Message Format (headers, threading).
-- [RFC 2045–2049](https://datatracker.ietf.org/doc/html/rfc2045) — MIME.
+- [RFC 2045](https://datatracker.ietf.org/doc/html/rfc2045) / [RFC 2046](https://datatracker.ietf.org/doc/html/rfc2046) / [RFC 2047](https://datatracker.ietf.org/doc/html/rfc2047) / [RFC 2049](https://datatracker.ietf.org/doc/html/rfc2049) — MIME (format, media types, encoded-word headers, conformance).
 - [RFC 8058](https://datatracker.ietf.org/doc/html/rfc8058) — One-click `List-Unsubscribe`.
 
 **Authentication standards:**
@@ -1773,6 +1788,8 @@ This design provides a scalable email system with:
 **Industry implementations and operations:**
 
 - [Spanner is the engine behind Google services — Google Cloud Blog](https://cloud.google.com/blog/products/databases/how-spanner-is-the-engine-behind-google-services) — Gmail's migration off Bigtable onto Spanner.
+- [Large-scale Incremental Processing Using Distributed Transactions and Notifications (Percolator) — Peng & Dabek, OSDI 2010](https://research.google/pubs/large-scale-incremental-processing-using-distributed-transactions-and-notifications/) — the framework Gmail's Caribou real-time index was built on.
+- [Apache Lucene — Index file formats](https://lucene.apache.org/core/9_0_0/core/org/apache/lucene/codecs/lucene90/package-summary.html) — segment layout that backs every Elasticsearch shard.
 - [Fastmail storage architecture](https://www.fastmail.help/hc/en-us/articles/1500000278242-The-Fastmail-storage-architecture).
 - [Email sender guidelines (Gmail / Google Workspace)](https://support.google.com/a/answer/81126) — 2024 bulk-sender requirements (≥5,000/day, DMARC, one-click unsubscribe, <0.3% spam rate).
 - [Cloudflare — DMARC, DKIM, SPF explained](https://www.cloudflare.com/learning/email-security/dmarc-dkim-spf/).

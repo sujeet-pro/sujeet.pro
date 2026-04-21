@@ -19,8 +19,8 @@ tags:
 
 The K-crystal balls problem — better known in the algorithms canon as the **egg-drop problem** — asks for the worst-case-optimal number of test drops needed to find a breaking-floor threshold when each broken test resource is permanently consumed. The two-egg case has a clean closed form $T = \lceil (\sqrt{8N+1}-1)/2 \rceil$, and the general case has a sharp dynamic-programming solution built on the recurrence $f(k, m) = f(k-1, m-1) + f(k, m-1) + 1$, where $f(k, m)$ is the maximum number of floors a budget of $k$ eggs and $m$ drops can resolve. This article derives both, walks the DP table, gives an $O(k \log N)$ algorithm, and shows where the model genuinely applies in production systems.
 
-![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-light.svg "Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.")
-![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-dark.svg)
+![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/egg-budget-overview-light.svg "Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.")
+![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/egg-budget-overview-dark.svg)
 
 ## Problem Definition
 
@@ -81,7 +81,7 @@ Solving the quadratic:
 
 $$T \ge \frac{-1 + \sqrt{1 + 8N}}{2}, \qquad T = \left\lceil \frac{-1 + \sqrt{8N+1}}{2} \right\rceil.$$
 
-For $N=100$: $\sqrt{801} \approx 28.30$, so $T = \lceil 27.30 / 2 \rceil = 14$. And indeed $14 \cdot 15 / 2 = 105 \ge 100$.
+For $N=100$: $\sqrt{8 \cdot 100 + 1} = \sqrt{801} \approx 28.30$, so $T = \lceil (28.30 - 1)/2 \rceil = \lceil 13.65 \rceil = 14$. And indeed $14 \cdot 15 / 2 = 105 \ge 100$.
 
 ### Why a fixed jump is not optimal
 
@@ -181,8 +181,17 @@ For $k=2$ this collapses to $f(2, m) = m + \binom{m}{2} = m(m+1)/2$, recovering 
 
 ### Floors-covered growth
 
-![Floors covered by m drops as the egg budget k grows from 1 to 4.](./diagrams/floors-covered-light.svg "Floors covered by m drops, plotted for k = 1, 2, 3, 4. Each added egg accelerates coverage; k = 4 already covers more than 1000 floors at m = 13.")
-![Floors covered by m drops as the egg budget k grows from 1 to 4.](./diagrams/floors-covered-dark.svg)
+Each added egg unlocks a new binomial term and accelerates coverage. The numbers below are $f(k, m) = \sum_{i=1}^{k} \binom{m}{i}$ for $m \in \{4, 7, 10, 13, 14\}$:
+
+| $m$ drops | $k = 1$ | $k = 2$ | $k = 3$ | $k = 4$ |
+| --------: | ------: | ------: | ------: | ------: |
+| 4         | 4       | 10      | 14      | 15      |
+| 7         | 7       | 28      | 63      | 98      |
+| 10        | 10      | 55      | 175     | 385     |
+| 13        | 13      | 91      | 377     | 1092    |
+| 14        | 14      | 105     | 469     | 1470    |
+
+By $m = 13$, four eggs already cover more than a thousand floors, while two eggs are still under 100. The $k=4$ row is dominated by $\binom{m}{4}$, the $k=3$ row by $\binom{m}{3}$ — a polynomial-degree explosion per added egg until the binary-search ceiling at $k = \lceil \log_2(N+1) \rceil$ kicks in.
 
 ## Algorithms and Complexity
 

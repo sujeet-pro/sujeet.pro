@@ -19,8 +19,8 @@ flowchart TD
 
     Implicit[Implicit grant]
     ROPC[Resource Owner Password]
-    Implicit -. Removed in OAuth 2.1 .-> AC
-    ROPC -. Removed in OAuth 2.1 .-> AC
+    Implicit -.->|Removed in OAuth 2_1| AC
+    ROPC -.->|Removed in OAuth 2_1| AC
 
     classDef removed stroke:#c33,stroke-width:2px,stroke-dasharray: 4 2
     class Implicit,ROPC removed

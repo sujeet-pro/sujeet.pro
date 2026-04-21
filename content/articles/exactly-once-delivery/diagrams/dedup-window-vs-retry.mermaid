@@ -2,7 +2,6 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant Client
     participant Broker as Broker (5 min dedup window)
     participant Consumer
@@ -20,4 +19,4 @@ sequenceDiagram
     Client->>Broker: send(msg, id=X)
     Broker->>Broker: id=X is now "new"
     Broker->>Consumer: deliver msg again
-    Note right of Consumer: Duplicate processing despite\n"exactly-once" guarantee
+    Note right of Consumer: Duplicate processing despite "exactly-once" guarantee

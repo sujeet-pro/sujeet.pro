@@ -2,31 +2,19 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Server["Server Component (no JS, no hooks, no Context)"]
-        ServerOK["OK at server render:\n- Tailwind / UnoCSS classes\n- CSS Modules\n- vanilla-extract\n- StyleX\n- Pigment CSS\n- Plain stylesheets / @layer"]
-        ServerLimited["Limited (v6.3 plus):\nstyled-components inline injection\nwithout ThemeProvider Context"]
-    end
+    ServerOK["Server Component\n(no JS, no hooks, no Context)\nOK: Tailwind / UnoCSS, CSS Modules,\nvanilla-extract, StyleX, Pigment CSS,\nplain stylesheets / @layer"]:::server
+    ServerLimited["Limited at server render\nstyled-components 6.3+ inline injection\nno ThemeProvider Context"]:::server
+    Boundary["'use client' boundary\nReact Context, hooks, effects available"]:::boundary
+    ClientOK["Client Component\nOK at hydration:\nruntime CSS-in-JS\n(styled-components, Emotion),\nThemeProvider, useInsertionEffect,\ndynamic per-render styles"]:::client
+    Vars["CSS custom properties\nset on html or layout root\nread by both trees"]:::theme
 
-    Boundary{{"\"use client\" boundary\nReact Context, hooks, effects available"}}
-
-    subgraph Client["Client Component"]
-        ClientOK["OK at hydration:\n- Runtime CSS-in-JS\n  (styled-components, Emotion)\n- ThemeProvider Context\n- useInsertionEffect-driven\n  style injection\n- Dynamic per-render styles"]
-    end
-
-    subgraph Theming["Theming bridge that crosses freely"]
-        Vars["CSS custom properties\nset on html or layout root\nread by server and client trees"]
-    end
-
-    Server --> Boundary --> Client
-    Vars -. "consumed by both" .-> Server
-    Vars -. "consumed by both" .-> Client
+    ServerOK --> Boundary
+    ServerLimited --> Boundary
+    Boundary --> ClientOK
+    Vars -. "consumed by both" .-> ServerOK
+    Vars -. "consumed by both" .-> ClientOK
 
     classDef server fill:#1F6E68,stroke:#155752,color:#ffffff
     classDef client fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef boundary fill:#B43A3A,stroke:#8E2828,color:#ffffff
     classDef theme fill:#5A4A8A,stroke:#3D3163,color:#ffffff
-
-    class ServerOK,ServerLimited server
-    class ClientOK client
-    class Boundary boundary
-    class Vars theme

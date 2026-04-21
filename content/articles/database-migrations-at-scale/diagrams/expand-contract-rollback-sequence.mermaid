@@ -1,0 +1,28 @@
+%% Diagram: Expand-Contract rollback sequence (reverse-order recovery)
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Op as Operator
+    participant App as Application
+    participant DB as Database
+
+    Note over Op,DB: Rollback rule<br/>reverse the most recent forward step
+
+    Note over Op,DB: 1. Mid-Expand rollback (cheapest)
+    Op->>App: Revert to v1 (single-write old column)
+    Op->>DB: ALTER TABLE ... DROP COLUMN new_column
+
+    Note over Op,DB: 2. Mid-Migrate rollback
+    Op->>App: Revert reads to old column (back to v2)
+    Op->>App: Keep dual-write running
+    Note over App,DB: Backfill paused<br/>Resume forward later or DROP new column
+
+    Note over Op,DB: 3. Mid-Contract rollback (window-bound)
+    Op->>App: Re-deploy v3 (read old, dual-write)
+    alt Old columns still present (within 24-48 h)
+        Note over Op,DB: Restore writes<br/>Resync from kept legacy data
+    else Old columns dropped, no backup
+        Op->>DB: PITR or snapshot restore<br/>Cost: minutes to hours of data loss
+    end
+
+    Note over Op,DB: Invariant<br/>every forward step must keep its inverse step deployable

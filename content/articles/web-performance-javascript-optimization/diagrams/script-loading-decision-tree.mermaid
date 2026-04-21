@@ -1,0 +1,17 @@
+%% Diagram: Decision tree for picking script loading attributes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Script to load] --> B{Depends on the DOM<br/>or other scripts?}
+    B -->|Yes| C{Order across<br/>scripts matters?}
+    B -->|No| D{Modern ESM<br/>entry?}
+
+    C -->|Yes| E[defer]
+    C -->|No| F[type=module]
+
+    D -->|Yes| F
+    D -->|No| G[async]
+
+    style E fill:#c8e6c9,stroke:#2e7d32
+    style F fill:#c8e6c9,stroke:#2e7d32
+    style G fill:#bbdefb,stroke:#1565c0

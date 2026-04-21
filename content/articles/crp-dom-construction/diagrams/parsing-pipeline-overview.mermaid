@@ -1,0 +1,12 @@
+%% Diagram: HTML parsing pipeline — bytes through tokenizer + tree construction to DOM, with preload scanner running in parallel
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Bytes["HTML bytes\n(stream)"]
+    Tok["Tokenizer\n80+ states\n6 token types"]
+    Tree["Tree construction\n23 insertion modes\n+ error recovery"]
+    DOM["DOM tree"]
+    PS["Preload scanner\n(off-thread)"]
+
+    Bytes --> Tok --> Tree --> DOM
+    Bytes -. "scan ahead\nlink/script/img" .-> PS

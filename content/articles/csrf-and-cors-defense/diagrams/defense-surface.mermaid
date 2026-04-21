@@ -1,0 +1,31 @@
+%% Diagram: CSRF / CORS Defense Surface
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph AS["Attack Surface"]
+        direction TB
+        CSRF["CSRF<br/>Ambient authority"]
+        XSOrigin["Cross-Origin Reads<br/>Violate SOP"]
+    end
+
+    subgraph BD["Browser Defenses"]
+        direction TB
+        SOP["Same-Origin Policy<br/>Default isolation"]
+        SameSite["SameSite Cookies<br/>Cookie scoping"]
+        FetchMeta["Fetch Metadata<br/>Sec-Fetch-*"]
+        CORS["CORS Protocol<br/>Controlled relaxation"]
+    end
+
+    subgraph SD["Server Defenses"]
+        direction TB
+        Tokens["CSRF Tokens<br/>Synchronizer /<br/>Double-Submit"]
+        OriginCheck["Origin Allowlist<br/>Origin / Referer"]
+        CustomHeaders["Custom Headers<br/>X-CSRF-Token"]
+    end
+
+    CSRF --> SameSite
+    CSRF --> Tokens
+    CSRF --> OriginCheck
+    XSOrigin --> SOP
+    XSOrigin --> CORS
+    FetchMeta --> Tokens

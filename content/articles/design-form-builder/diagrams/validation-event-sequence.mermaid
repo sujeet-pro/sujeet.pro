@@ -1,0 +1,44 @@
+%% Diagram: Validation event sequence per field
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant I as Input
+    participant S as Form state
+    participant V as Validator
+    participant API as Server
+
+    U->>I: focus
+    I->>S: visited = true
+    Note over S: error UI stays quiet
+
+    loop typing
+        U->>I: keystroke
+        I->>S: value update
+        S->>V: debounced onChange (async fields only)
+        V-->>S: pending or valid or invalid
+    end
+
+    U->>I: blur
+    I->>S: touched = true
+    S->>V: run sync and async validators
+    V-->>S: errors
+    S-->>U: render error when touched and error
+
+    U->>S: submit
+    S->>S: increment submitCount and set isSubmitting
+    S->>V: validate all fields
+    alt client invalid
+        V-->>S: errors
+        S-->>U: focus first invalid and switch to onChange mode
+    else client valid
+        S->>API: POST with Idempotency-Key
+        alt 422 application slash problem plus json
+            API-->>S: errors with pointer and detail
+            S->>S: setError per field path
+            S-->>U: focus first server error
+        else 2xx
+            API-->>S: receipt
+            S-->>U: success state
+        end
+    end

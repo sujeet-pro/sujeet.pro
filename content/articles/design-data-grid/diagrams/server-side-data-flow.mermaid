@@ -2,7 +2,6 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     actor User
     participant Grid as Grid (viewport)
     participant DS as ServerSide Datasource
@@ -11,11 +10,11 @@ sequenceDiagram
 
     User->>Grid: scroll / sort / filter / expand group
     Grid->>DS: getRows({ startRow, endRow, sortModel, filterModel, groupKeys })
-    DS->>API: POST /rows (request)
-    API->>DB: SELECT … ORDER BY … WHERE … GROUP BY …
-    DB-->>API: page slice + lastRow / aggregates
-    API-->>DS: { rowData, rowCount }
+    DS->>API: POST /rows (request body)
+    API->>DB: SELECT ... ORDER BY ... WHERE ... GROUP BY ...
+    DB-->>API: page slice + lastRow + aggregates
+    API-->>DS: rowData + rowCount
     DS-->>Grid: success(rowData, rowCount)
-    Grid-->>User: render block; update aria-rowcount / aria-rowindex
+    Grid-->>User: render block, update aria-rowcount and aria-rowindex
 
-    Note over Grid,DB: Block cache keyed on (sortModel, filterModel, groupKeys)
+    Note over Grid,DB: Block cache keyed on sortModel + filterModel + groupKeys

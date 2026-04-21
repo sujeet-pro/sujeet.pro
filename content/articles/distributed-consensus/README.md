@@ -711,8 +711,9 @@ machinery breaks read-your-writes. Either:
 - Use ReadIndex / lease-based reads, **or**
 - Explicitly opt into bounded staleness with a stale-read API
   (`AS OF SYSTEM TIME` in CockroachDB,
-  [`SELECT ... LINEARIZABLE = false`](https://etcd.io/docs/v3.5/learning/api_guarantees/#linearizability)
-  in etcd, follower reads in TiKV).
+  [`WithSerializable()`](https://etcd.io/docs/v3.5/learning/api_guarantees/#linearizability)
+  on the etcd v3 client (or `etcdctl get --consistency=s`),
+  follower reads in TiKV).
 
 The wrong fix — pushing reads to followers without changing the
 consistency contract — is the single most common cause of

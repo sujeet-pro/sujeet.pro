@@ -108,12 +108,15 @@ onINP((metric) => {
   console.log("INP:", metric.value)
   console.log("Rating:", metric.rating)
 
-  const { eventTarget, eventType, loadState } = metric.attribution
-  console.log("Element:", eventTarget)
-  console.log("Event:", eventType)
+  const { interactionTarget, interactionType, loadState } = metric.attribution
+  console.log("Target selector:", interactionTarget) // CSS-selector string, "" if element was removed
+  console.log("Interaction type:", interactionType) // 'pointer' | 'keyboard'
   console.log("Load state:", loadState) // 'loading' | 'dom-interactive' | 'dom-content-loaded' | 'complete'
 })
 ```
+
+> [!NOTE]
+> As of `web-vitals` v4, the INP attribution shape uses `interactionTarget` (selector string) and `interactionType` (`'pointer' | 'keyboard'`); the legacy `eventTarget` / `eventType` fields were renamed[^web-vitals-inp-attr]. Earlier v3 collectors that destructure `eventTarget` will silently get `undefined`.
 
 **Thresholds[^inp]:**
 
@@ -575,16 +578,15 @@ import { onLCP, onINP, onCLS } from "web-vitals/attribution"
 
 function collectWithAttribution(): void {
   onLCP((metric) => {
-    const { element, url, timeToFirstByte, resourceLoadDelay, resourceLoadDuration, elementRenderDelay } =
+    const { target, url, timeToFirstByte, resourceLoadDelay, resourceLoadDuration, elementRenderDelay } =
       metric.attribution
 
     sendMetric({
       name: "LCP",
       value: metric.value,
       attribution: {
-        element: element?.tagName,
-        elementId: element?.id,
-        url,
+        target, // CSS selector string for the LCP element
+        url, // resource URL when the LCP is an image, undefined for text LCPs
         ttfb: timeToFirstByte,
         resourceLoadDelay,
         resourceLoadDuration,
@@ -594,18 +596,16 @@ function collectWithAttribution(): void {
   })
 
   onINP((metric) => {
-    const { eventTarget, eventType, loadState, interactionTargetElement, longAnimationFrameEntries } =
-      metric.attribution
+    const { interactionTarget, interactionType, loadState, longAnimationFrameEntries } = metric.attribution
 
     sendMetric({
       name: "INP",
       value: metric.value,
       attribution: {
-        eventTarget,
-        eventType,
+        interactionTarget,
+        interactionType,
         loadState,
-        element: interactionTargetElement?.tagName,
-        longFrames: longAnimationFrameEntries?.length,
+        longFrames: longAnimationFrameEntries.length,
       },
     })
   })
@@ -617,7 +617,7 @@ function collectWithAttribution(): void {
       name: "CLS",
       value: metric.value,
       attribution: {
-        shiftTarget: largestShiftTarget?.tagName,
+        shiftTarget: largestShiftTarget, // selector string for the first shifted element
         shiftTime: largestShiftTime,
         shiftValue: largestShiftValue,
         loadState,
@@ -881,7 +881,7 @@ import { onLCP, onINP, onCLS } from "web-vitals/attribution"
 
 onLCP((metric) => {
   console.log("LCP value:", metric.value)
-  console.log("LCP element:", metric.attribution.element)
+  console.log("LCP target selector:", metric.attribution.target)
   console.log("Resource URL:", metric.attribution.url)
   console.log("TTFB:", metric.attribution.timeToFirstByte)
   console.log("Resource load delay:", metric.attribution.resourceLoadDelay)
@@ -890,8 +890,8 @@ onLCP((metric) => {
 
 onINP((metric) => {
   console.log("INP value:", metric.value)
-  console.log("Event type:", metric.attribution.eventType)
-  console.log("Event target:", metric.attribution.eventTarget)
+  console.log("Interaction type:", metric.attribution.interactionType) // 'pointer' | 'keyboard'
+  console.log("Interaction target:", metric.attribution.interactionTarget) // selector string
   console.log("Load state:", metric.attribution.loadState)
   console.log("Long frames:", metric.attribution.longAnimationFrameEntries)
 })
@@ -1008,3 +1008,4 @@ onCLS((metric) => {
 [^sendbeacon-limit]: [Fetch standard — `keepalive` and the 64 KiB in-flight ceiling](https://fetch.spec.whatwg.org/#http-network-or-cache-fetch) — WHATWG.
 [^huli-sendbeacon]: [The 64 KiB limitation of `navigator.sendBeacon` and its implementation](https://blog.huli.tw/2025/01/06/en/navigator-sendbeacon-64kib-and-source-code/) — engineering deep dive cross-validating browser source.
 [^web-vitals-readme]: [`GoogleChrome/web-vitals` — README, "Bundle size"](https://github.com/GoogleChrome/web-vitals#bundle-size).
+[^web-vitals-inp-attr]: [`GoogleChrome/web-vitals` — `INPAttribution` type definition](https://github.com/GoogleChrome/web-vitals/blob/main/src/types/inp.ts) — current source for the `interactionTarget` / `interactionType` / `inputDelay` / `processingDuration` / `presentationDelay` field set.

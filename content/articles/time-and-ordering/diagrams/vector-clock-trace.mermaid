@@ -2,19 +2,18 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant P1 as P1
-    participant P2 as P2
-    participant P3 as P3
+    participant P1
+    participant P2
+    participant P3
 
     Note over P1: [1,0,0]
-    P1->>P2: msg ([1,0,0])
+    P1->>P2: [1,0,0]
     Note over P2: [1,1,0]
     Note over P3: [0,0,1]
     Note over P3: [0,0,2]
-    P2->>P3: msg ([1,1,0])
-    Note over P3: merge → [1,1,3]
-    P1->>P2: msg ([2,0,0])
-    Note over P2: merge → [2,2,0]
+    P2->>P3: [1,1,0]
+    Note over P3: merge [1,1,3]
+    P1->>P2: [2,0,0]
+    Note over P2: merge [2,2,0]
 
-    Note right of P3: P2 [2,2,0] vs P3 [1,1,3] are concurrent — 2>1 but 0<3. Vector clocks detect this. Lamport cannot.
+    Note right of P3: P2 [2,2,0] and P3 [1,1,3] are concurrent: 2>1 but 0<3.

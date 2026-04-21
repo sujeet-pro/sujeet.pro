@@ -18,8 +18,8 @@ tags:
 
 Capacity planning is the cheapest way to invalidate a design. Two hours of multiplication on a whiteboard catches order-of-magnitude mistakes that would otherwise burn weeks of engineering and a six-figure cloud bill. This article codifies the reference numbers, calculation patterns, and reality adjustments that turn "we need to handle millions of users" into a defensible plan for QPS, storage, bandwidth, server count, and headroom.
 
-![Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.](./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re-light.svg "Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.")
-![Capacity estimation flows from user-level assumptions through calculations to reality-adjusted numbers. Every estimate requires explicit assumptions about peak traffic, replication, and safety margins.](./diagrams/capacity-estimation-flows-from-user-level-assumptions-through-calculations-to-re-dark.svg)
+![Capacity estimation pipeline: user-level inputs flow into core calculations, then reality adjustments produce the final estimates.](./diagrams/capacity-estimation-overview-light.svg "Capacity estimation pipeline: user-level inputs flow into core calculations, then reality adjustments — peak factor, replication, and headroom — produce the final QPS, storage, bandwidth, and server numbers.")
+![Capacity estimation pipeline: user-level inputs flow into core calculations, then reality adjustments produce the final estimates.](./diagrams/capacity-estimation-overview-dark.svg)
 
 ## Mental Model
 

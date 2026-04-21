@@ -751,7 +751,7 @@ The six paths above can be selected with a small set of questions about who cont
 - Only the **latest acknowledgement ID** can acknowledge a message; older IDs fail with `INVALID_ARGUMENT`.
 - Default ack deadline is 60 seconds if unspecified.
 
-[^pubsub-eos]: All Pub/Sub-specific behaviour in this section is from [Cloud Pub/Sub exactly-once delivery](https://docs.cloud.google.com/pubsub/docs/exactly-once-delivery) and the [GA announcement (1 December 2022)](https://cloud.google.com/blog/products/data-analytics/cloud-pub-sub-exactly-once-delivery-feature-is-now-ga).
+[^pubsub-eos]: All Pub/Sub-specific behaviour in this section is from [Cloud Pub/Sub exactly-once delivery](https://cloud.google.com/pubsub/docs/exactly-once-delivery) and the [GA announcement (1 December 2022)](https://cloud.google.com/blog/products/data-analytics/cloud-pub-sub-exactly-once-delivery-feature-is-now-ga).
 
 **Supported configurations:**
 

@@ -1,19 +1,33 @@
-%% Diagram: The Six Phase Framework For Design System Programs From Proving The Business Cas
+%% Diagram: Six-phase framework for design-system programs
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    Root["Design System\nProgram"]
+flowchart LR
+    subgraph Org["Organizational foundation"]
+        direction TB
+        p1["Phase 1\nBusiness case\n+ sponsorship"]
+        p2["Phase 2\nTeam\n+ governance"]
+        p1 --> p2
+    end
 
-    p1["Phase 1: Foundation\n---\nExecutive Buy-in\nROI Analysis\nSponsorship"]
-    p2["Phase 2: Structure\n---\nTeam Building\nGovernance\nProcesses"]
-    p3["Phase 3: Implementation\n---\nReact Components\nDesign Tokens\nStorybook Docs\nNPM Publishing"]
-    p4["Phase 4: Adoption\n---\nChampion Program\nTraining\nSupport Channels"]
-    p5["Phase 5: Measurement\n---\nMetrics & KPIs\nFeedback Loops\nUsage Analytics"]
-    p6["Phase 6: Technical Enablement\n---\nCodemods\nRepo Scanning\nData-Driven Decisions"]
+    subgraph Tech["Technical foundation"]
+        direction TB
+        p3["Phase 3\nTokens-first\nfoundation"]
+        p4["Phase 4\nAccessibility\nbaseline"]
+        p3 --> p4
+    end
 
-    Root --> p1 --> p2 --> p3 --> p4 --> p5 --> p6
+    subgraph Scale["Adoption + lifecycle"]
+        direction TB
+        p5["Phase 5\nAdoption: codify,\nchampion, measure"]
+        p6["Phase 6\nDeprecation\n+ versioning"]
+        p5 --> p6
+    end
 
-    classDef root fill:#2E5A88,stroke:#1F4870,color:#ffffff
-    classDef phase fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
-    class Root root
-    class p1,p2,p3,p4,p5,p6 phase
+    Org --> Tech --> Scale
+
+    classDef phaseOrg fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef phaseTech fill:#2E7D5A,stroke:#1F5C42,color:#ffffff
+    classDef phaseScale fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class p1,p2 phaseOrg
+    class p3,p4 phaseTech
+    class p5,p6 phaseScale

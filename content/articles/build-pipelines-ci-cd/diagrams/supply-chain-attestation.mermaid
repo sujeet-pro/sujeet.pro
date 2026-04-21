@@ -2,23 +2,22 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-  autonumber
   participant CI as CI runner
   participant OIDC as CI OIDC issuer
   participant Fulcio
   participant Rekor
   participant Reg as OCI registry
   participant Adm as Admission controller
-  CI->>OIDC: Request workflow id token
-  OIDC-->>CI: Signed JWT (workflow identity)
-  CI->>Fulcio: Exchange JWT for short-lived cert
-  Fulcio-->>CI: X.509 cert bound to identity
-  CI->>CI: Build image, compute digest
-  CI->>CI: Generate SLSA provenance and SBOM
-  CI->>Rekor: Log signature and attestation
-  Rekor-->>CI: Inclusion proof
-  CI->>Reg: Push image + signature + in-toto attestations
+  CI->>OIDC: 1. Request workflow id token
+  OIDC-->>CI: 2. Signed JWT (workflow identity)
+  CI->>Fulcio: 3. Exchange JWT for short-lived cert
+  Fulcio-->>CI: 4. X.509 cert bound to identity
+  CI->>CI: 5. Build image, compute digest
+  CI->>CI: 6. Generate SLSA provenance and SBOM
+  CI->>Rekor: 7. Log signature and attestation
+  Rekor-->>CI: 8. Inclusion proof
+  CI->>Reg: 9. Push image + signature + in-toto attestations
   Note over Reg: Image addressed by digest, not tag
-  Adm->>Reg: Pull image and attestations at deploy
-  Adm->>Adm: cosign verify (identity + issuer + predicate)
-  Adm-->>Reg: Admit only if policy passes
+  Adm->>Reg: 10. Pull image and attestations at deploy
+  Adm->>Adm: 11. cosign verify (identity + issuer + predicate)
+  Adm-->>Reg: 12. Admit only if policy passes

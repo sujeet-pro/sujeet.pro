@@ -1,37 +1,36 @@
 %% Diagram: Theming token pipeline from design source of truth to platform outputs
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph Source["Source of truth"]
-        FIGMA[Figma variables<br/>via Tokens Studio / variables export]
-    end
-
-    subgraph Spec["Interchange format"]
-        DTCG["DTCG JSON (W3C 2025.10)<br/>$value / $type / $description"]
-    end
+flowchart TB
+    FIGMA["Figma variables\n(Tokens Studio export)"]
+    DTCG["DTCG JSON (W3C 2025.10)\n$value / $type / $description"]
 
     subgraph Build["Build engines"]
+        direction LR
         SD[Style Dictionary v4]
         TZ[Terrazzo]
     end
 
     subgraph Outputs["Platform outputs"]
-        CSS["CSS variables<br/>+ @layer ordering"]
-        JS["ESM tokens.mjs<br/>(typed)"]
-        IOS["iOS Swift / SwiftUI"]
-        ANDROID["Android XML / Compose"]
+        direction TB
+        WEB["Web: CSS variables, ESM tokens"]
+        MOBILE["Mobile: iOS Swift, Android XML"]
         TW["Tailwind preset"]
     end
 
     FIGMA --> DTCG
     DTCG --> SD
     DTCG --> TZ
-    SD --> CSS & JS & IOS & ANDROID
-    TZ --> CSS & JS & TW
+    SD --> WEB
+    SD --> MOBILE
+    TZ --> WEB
+    TZ --> TW
 
-    classDef src fill:#fef3c7,stroke:#92400e,color:#1f2937
-    classDef spec fill:#dbeafe,stroke:#1e40af,color:#1f2937
-    classDef out fill:#dcfce7,stroke:#166534,color:#1f2937
+    classDef src fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
+    classDef spec fill:#2E5A88,stroke:#1F3F60,color:#ffffff
+    classDef build fill:#1F6E68,stroke:#134743,color:#ffffff
+    classDef out fill:#2D7A2D,stroke:#1B4D1B,color:#ffffff
     class FIGMA src
     class DTCG spec
-    class CSS,JS,IOS,ANDROID,TW out
+    class SD,TZ build
+    class WEB,MOBILE,TW out

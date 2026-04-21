@@ -1,33 +1,10 @@
-%% Diagram: Uber S Three Architectural Phases Each Transition Was Triggered By The Previous
+%% Diagram: Uber's three architectural phases
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph phase1["Phase 1: Monolith (2009-2013)"]
-        direction TB
-        M1[API Monolith<br/>Python/Flask]
-        M2[Dispatch Monolith<br/>Node.js]
-        DB[(Single PostgreSQL)]
-        M1 --> DB
-        M2 --> DB
-    end
+    P1["Phase 1: Monolith (2009-2013)<br/>2 services · 1 PostgreSQL · ~100 engineers · 1 city"]
+    P2["Phase 2: Microservices (2013-2018)<br/>1,000+ services · 8,000+ repos · ~2,000 engineers"]
+    P3["Phase 3: DOMA (2018-2020)<br/>2,200 critical services · 70 domains · 5 layers · gateways"]
 
-    subgraph phase2["Phase 2: Microservices (2013-2018)"]
-        direction TB
-        S1[1,000+ Services]
-        S2[8,000+ Git Repos]
-        S3[Multiple Languages]
-        S1 --- S2
-        S2 --- S3
-    end
-
-    subgraph phase3["Phase 3: DOMA (2018-2020)"]
-        direction TB
-        D1[70 Domains]
-        D2[5 Layers]
-        D3[Domain Gateways]
-        D1 --- D2
-        D2 --- D3
-    end
-
-    phase1 -->|"Scale limits<br/>65 → 400 cities"| phase2
-    phase2 -->|"Complexity crisis<br/>'Death Star' graph"| phase3
+    P1 -->|"DB saturation,<br/>deploy queue,<br/>org scaling"| P2
+    P2 -->|"'death star' graph,<br/>cascading failures,<br/>cognitive overload"| P3

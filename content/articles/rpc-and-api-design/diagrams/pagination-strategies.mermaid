@@ -2,33 +2,22 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Index["B-tree index on created_at, id"]
-        n1[r1]
-        n2[r2]
-        n3[...]
-        n4[r10000]
-        n5[r10001]
-        n6[r10002]
-        n7[r10020]
-    end
+    Index[("B-tree index on\n(created_at, id)\nrows r1 ... r10020")]
 
     subgraph Offset["Offset: LIMIT 20 OFFSET 10000"]
-        oScan[Scan and discard 10,000 rows]
-        oReturn[Return rows 10001 to 10020]
-        oScan --> oReturn
+        direction TB
+        oScan[Scan and discard\n10,000 rows] --> oReturn[Return rows\n10001 to 10020]
     end
 
     subgraph Cursor["Cursor: opaque token after last row"]
-        cDecode[Decode token to ts and id of last row]
-        cSeek[Index seek where ts,id is greater than previous]
-        cReturn[Return next 20 rows]
-        cDecode --> cSeek --> cReturn
+        direction TB
+        cDecode[Decode token to\nts, id of last row] --> cSeek[Index seek\nWHERE ts,id > prev]
+        cSeek --> cReturn[Return next 20]
     end
 
-    subgraph Keyset["Keyset: explicit ts,id greater than previous"]
-        kPredicate[WHERE created_at,id is greater than previous<br/>ORDER BY created_at, id LIMIT 20]
-        kReturn[Return next 20 rows]
-        kPredicate --> kReturn
+    subgraph Keyset["Keyset: explicit ts,id > prev"]
+        direction TB
+        kPredicate[WHERE created_at,id > prev\nORDER BY created_at, id\nLIMIT 20] --> kReturn[Return next 20]
     end
 
     Index --> Offset

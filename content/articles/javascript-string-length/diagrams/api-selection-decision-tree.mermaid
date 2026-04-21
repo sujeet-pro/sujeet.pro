@@ -2,18 +2,18 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    Start["What are you measuring,\niterating, or slicing?"]
+    Start["What are you\nmeasuring or slicing?"]
 
-    Q1{"User-perceived\ncharacter\n(what the reader sees)?"}
-    Q2{"Unicode code point\n(abstract character)?"}
-    Q3{"UTF-8 byte length\n(wire / storage)?"}
-    Q4{"Native UTF-16 unit\n(legacy API,\nwasm/buffer index)?"}
+    Q1{"User-perceived\ncharacter?"}
+    Q2{"Unicode\ncode point?"}
+    Q3{"UTF-8 byte\nlength?"}
+    Q4{"UTF-16 unit\n(legacy / wasm)?"}
 
-    A1["Intl.Segmenter\ngranularity: 'grapheme'\n(construct once, reuse)"]
-    A2["[...str] or for...of\ncodePointAt(i)\nregex /u or /v flag"]
-    A3["new TextEncoder()\n  .encode(s).byteLength\n(or Buffer.byteLength)"]
-    A4["string.length\ncharCodeAt(i), charAt(i)\n(UTF-16 code units)"]
-    A5["Default to Intl.Segmenter:\nuser-facing length, truncation,\ncursor positioning"]
+    A1["Intl.Segmenter\n granularity 'grapheme' \n(reuse instance)"]
+    A2["[...str] / for...of\ncodePointAt(i)\nregex /u or /v"]
+    A3["TextEncoder\n.encode(s).byteLength\nor Buffer.byteLength"]
+    A4["string.length\ncharCodeAt(i)\ncharAt(i)"]
+    A5["Default to\nIntl.Segmenter"]
 
     Start --> Q1
     Q1 -- yes --> A1

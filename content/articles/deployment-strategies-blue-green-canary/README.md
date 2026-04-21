@@ -20,8 +20,8 @@ tags:
 
 Production deployment strategies for balancing release velocity against blast radius. Covers the architectural trade-offs between blue-green, canary, and rolling deployments—with specific focus on traffic shifting mechanics, database migration coordination, automated rollback criteria, and operational failure modes that senior engineers encounter during incident response.
 
-![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-light.svg "Each deployment strategy meets the user through traffic management and is constrained by data-layer compatibility. Blue-green and canary require explicit schema-migration coordination; rolling updates assume backward compatibility from day one.")
-![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-dark.svg)
+![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-light.svg "Each deployment strategy meets the user through traffic management and is constrained by data-layer compatibility. Blue-green and canary require explicit schema-migration coordination; rolling updates assume backward compatibility from day one.")
+![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-dark.svg)
 
 ## Strategy taxonomy
 
@@ -55,9 +55,6 @@ Strategy selection reduces to three variables: **blast radius** (percentage of u
 | **Shadow / dark**       | None (no user impact)    | N/A (no user surface)     | Variable (replay overhead)   | High       |
 | **Feature-flagged**     | Bounded by flag rule     | Milliseconds (toggle)     | Minimal                      | Moderate   |
 
-![Strategy positioning by rollback speed against infrastructure cost; feature flags and shadow launches occupy the cheap-and-fast quadrant by paying complexity instead of compute.](./diagrams/strategy-positioning-matrix-light.svg "Each strategy occupies a different point on the rollback-speed vs infrastructure-cost plane. Feature flags trade engineering complexity for the cheap-and-fast quadrant; blue-green pays for instant rollback with a parallel environment; recreate is cheap, slow, and disruptive.")
-![Strategy positioning by rollback speed against infrastructure cost; feature flags and shadow launches occupy the cheap-and-fast quadrant by paying complexity instead of compute.](./diagrams/strategy-positioning-matrix-dark.svg)
-
 **Key architectural insight**: The choice isn't which strategy is "best" — it's which failure mode is acceptable. Blue-green trades cost for instant rollback. Canary trades complexity for controlled exposure. Rolling trades rollback speed for simplicity. Recreate trades availability for everything else.
 
 ## Deployment vs release
@@ -89,8 +86,8 @@ The core requirement: a routing layer that can instantly redirect 100% of traffi
 
 **Why atomic switching matters**: Partial deployments create version skew—users might receive HTML from v2 but JavaScript from v1. Blue-green eliminates this by ensuring all requests hit one environment or the other, never both simultaneously.
 
-![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-light.svg "Blue-green sequence: green is fully provisioned and validated before the load balancer flips target groups. Blue stays warm so rollback is the same atomic operation in reverse.")
-![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-dark.svg)
+![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-light.svg "Blue-green sequence: green is fully provisioned and validated before the load balancer flips target groups. Blue stays warm so rollback is the same atomic operation in reverse.")
+![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-dark.svg)
 
 ### AWS Implementation
 
@@ -181,8 +178,8 @@ Traffic progression follows predefined stages with metric evaluation at each gat
 
 From [Google SRE Workbook Chapter 16](https://sre.google/workbook/canarying-releases/): manual graph inspection is insufficient for detecting canary issues. Automated analysis comparing canary metrics against baseline is required for reliable detection.
 
-![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-light.svg "Canary progression with metric gates: every stage waits long enough to accumulate statistically meaningful samples, then either promotes or rolls the canary back to stable.")
-![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-dark.svg)
+![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-gates-light.svg "Canary progression with metric gates: every stage waits long enough to accumulate statistically meaningful samples, then either promotes or rolls the canary back to stable.")
+![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-gates-dark.svg)
 
 ### Metrics-Driven Release Gates
 
@@ -515,8 +512,8 @@ ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT false;
 
 The expand-contract pattern (also called parallel change) from [Martin Fowler](https://martinfowler.com/bliki/ParallelChange.html) solves this by splitting migrations into backward-compatible phases:
 
-![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-light.svg "Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after the expand phase has been confirmed under real production load.")
-![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-dark.svg)
+![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-light.svg "Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after the expand phase has been confirmed under real production load.")
+![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-dark.svg)
 
 **Phase 1 - Expand**:
 

@@ -259,7 +259,7 @@ A block's redundancy scheme is not static. New blocks land as full replicas opti
 ![A block's redundancy lifecycle: new uploads land as 4x intra-zone replicas plus a second-zone copy, get aggregated into closed volumes, are erasure-coded to 1.33-1.5x as they cool, and finally migrate to the cold tier as XOR fragments striped across regions.](./diagrams/block-lifecycle-light.svg "A block's redundancy lifecycle: new uploads land as 4x intra-zone replicas plus a second-zone copy, get aggregated into closed volumes, are erasure-coded to 1.33-1.5x as they cool, and finally migrate to the cold tier as XOR fragments striped across regions.")
 ![A block's redundancy lifecycle: new uploads land as 4x intra-zone replicas plus a second-zone copy, get aggregated into closed volumes, are erasure-coded to 1.33-1.5x as they cool, and finally migrate to the cold tier as XOR fragments striped across regions.](./diagrams/block-lifecycle-dark.svg)
 
-Magic Pocket uses a variant of Reed-Solomon erasure coding [similar to Local Reconstruction Codes (LRC)](https://dropbox.tech/infrastructure/pocket-watch):
+Magic Pocket uses two erasure-coding schemes — classical Reed-Solomon and a [Local Reconstruction Codes (LRC) variant](https://dropbox.tech/infrastructure/pocket-watch) that trades a small overhead penalty for cheaper single-shard repair:
 
 | Scheme           | Configuration                              | Intra-zone overhead | Use case                                    |
 | ---------------- | ------------------------------------------ | ------------------- | ------------------------------------------- |

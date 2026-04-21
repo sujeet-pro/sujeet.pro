@@ -2,12 +2,23 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    LIN["Linearizable\nReal-time order across keys\netcd, Spanner read-write"]
-    SER["Serializable\nEquivalent serial order\nPostgres SERIALIZABLE"]
-    SI["Snapshot isolation\nReads from a snapshot\nMVCC default in many DBs"]
-    RC["Read committed\nNo dirty reads\nPostgres / MySQL default"]
-    BCS["Bounded staleness\nReads <= X ms behind\nSpanner stale, Cosmos DB BCS"]
-    EV["Eventual\nConverges over time\nDynamoDB default, Cassandra ONE"]
+    subgraph row1["Strong"]
+        direction LR
+        LIN["Linearizable\nReal-time order\netcd, Spanner RW"]
+        SER["Serializable\nEquivalent serial order\nPostgres SERIALIZABLE"]
+    end
+
+    subgraph row2["Snapshot family"]
+        direction LR
+        SI["Snapshot isolation\nReads from a snapshot\nMVCC default"]
+        RC["Read committed\nNo dirty reads\nPostgres / MySQL default"]
+    end
+
+    subgraph row3["Weaker"]
+        direction LR
+        BCS["Bounded staleness\nReads <= X ms behind\nSpanner stale, Cosmos BCS"]
+        EV["Eventual\nConverges over time\nDynamoDB default, Cassandra ONE"]
+    end
 
     LIN -->|cheaper| SER
     SER -->|cheaper| SI

@@ -1,35 +1,16 @@
 %% Diagram: React Server Components vs Client Components — state boundary
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph SERVER["Server (Node / Edge runtime)"]
-        direction TB
-        RSC["Server Component<br/>fetch + render only<br/>no useState, no effects"]
-        QC["new QueryClient()<br/>per request"]
-        PF["queryClient.prefetchQuery"]
-        DEHY["dehydrate(queryClient)"]
-        RSC --> QC --> PF --> DEHY
-    end
+flowchart LR
+    SERVER["Server Component (Node / Edge)<br/>fetch + render, no hooks<br/>new QueryClient() per request<br/>prefetchQuery → dehydrate"]
+    PAYLOAD["RSC tree + dehydrated cache<br/>streamed to the client"]
+    CLIENT["Browser (Client Components)<br/>HydrationBoundary + useSuspenseQuery<br/>useState / Zustand / Jotai<br/>localStorage / IndexedDB"]
 
-    subgraph WIRE["RSC payload + serialized cache"]
-        PAYLOAD["RSC tree + dehydrated state<br/>streamed to the client"]
-    end
-
-    subgraph CLIENT["Browser (Client Components)"]
-        direction TB
-        HB["HydrationBoundary<br/>'use client'"]
-        USQ["useSuspenseQuery<br/>(reads warm cache)"]
-        UI["Interactive UI<br/>useState, useReducer,<br/>Zustand, Jotai"]
-        STORAGE["Persistent state<br/>localStorage / IndexedDB"]
-        HB --> USQ --> UI
-        UI --> STORAGE
-    end
-
-    DEHY --> PAYLOAD --> HB
+    SERVER --> PAYLOAD --> CLIENT
 
     classDef server fill:#1f4e79,stroke:#0d2b45,color:#ffffff
     classDef wire fill:#37474f,stroke:#1c313a,color:#ffffff
     classDef client fill:#2e7d32,stroke:#1b5e20,color:#ffffff
-    class RSC,QC,PF,DEHY server
+    class SERVER server
     class PAYLOAD wire
-    class HB,USQ,UI,STORAGE client
+    class CLIENT client

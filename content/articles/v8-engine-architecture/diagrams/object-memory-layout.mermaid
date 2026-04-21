@@ -1,0 +1,18 @@
+%% Diagram: Object memory layout — Map pointer + fixed-offset properties, plus DescriptorArray and TransitionArray
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TB
+    subgraph Object["Object Layout"]
+        Obj[Object] --> MapPtr[Map Pointer]
+        Obj --> Props[Properties at fixed offsets]
+    end
+
+    subgraph MapStruct["Map Structure"]
+        MapPtr --> Map
+        Map --> Desc[DescriptorArray]
+        Map --> Trans[TransitionArray]
+        Desc --> P1["x: offset 0, writable"]
+        Desc --> P2["y: offset 8, writable"]
+    end
+
+    style Map fill:#e8f5e8

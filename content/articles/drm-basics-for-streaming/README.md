@@ -18,8 +18,8 @@ tags:
 
 Digital Rights Management (DRM) for streaming media combines encryption, license management, and platform-specific security to control content playback. This article covers the encryption architecture ([CENC](https://www.iso.org/standard/84637.html), AES modes), the three dominant DRM systems (Widevine, FairPlay, PlayReady), license server design, client integration via [EME (Encrypted Media Extensions)](https://www.w3.org/TR/encrypted-media-2/), and operational considerations including key rotation, security levels, and the threat model that DRM addresses.
 
-![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers-light.svg "DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs.")
-![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-content-encryption-with-cenc-key-management-through-license-servers-dark.svg)
+![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-overview-light.svg "DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs.")
+![DRM pipeline: content encryption with CENC, key management through license servers, and client-side decryption via platform CDMs](./diagrams/drm-pipeline-overview-dark.svg)
 
 ## Abstract
 

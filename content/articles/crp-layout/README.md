@@ -19,8 +19,8 @@ tags:
 
 Layout is the rendering pipeline stage that turns styled elements into physical geometry — exact pixel positions and sizes for every visible box. In Chromium's LayoutNG architecture (enabled by default in [Chrome 77, September 2019](https://www.chromium.org/blink/layoutng/), with the legacy engine fully retired by [Chrome 108](https://developer.chrome.com/docs/chromium/renderingng-fragmentation)), this stage produces the **Fragment Tree**: an immutable data structure describing how each element is broken into one or more fragments with resolved coordinates.
 
-![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation-light.svg "Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.")
-![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-receives-the-layoutobject-tree-and-computedstyle-from-style-recalculation-dark.svg)
+![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-pipeline-overview-light.svg "Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.")
+![Layout receives the LayoutObject Tree and ComputedStyle from Style Recalculation, applies box model rules and formatting contexts, and emits an immutable Fragment Tree consumed by Prepaint.](./diagrams/layout-pipeline-overview-dark.svg)
 
 ## The mental model
 

@@ -2,36 +2,30 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-  spec["import specifier\nor require(esm)"]
+  spec["import / require(esm)"]
 
-  subgraph Resolve["resolve hook chain (LIFO)"]
-    direction TB
-    r1["user resolve hook"]
-    r2["...nextResolve()"]
-    rdef["default resolve\npackage.json exports,\nimport maps, conditions"]
-    r1 --> r2 --> rdef
+  subgraph Hooks["customization hooks (LIFO chains)"]
+    direction LR
+    res["resolve hook(s)\n→ default resolve\n(exports, conditions)"]
+    load["load hook(s)\n→ default load\n(read bytes, format)"]
+    res --> load
   end
 
-  url["resolved URL\n(file: / node: / data: / https:)"]
-
-  subgraph Load["load hook chain (LIFO)"]
-    direction TB
-    l1["user load hook"]
-    l2["...nextLoad()"]
-    ldef["default load\nread bytes, pick format\n(esm / commonjs / json / wasm)"]
-    l1 --> l2 --> ldef
+  subgraph V8["V8 module pipeline"]
+    direction LR
+    parse["parse → ModuleRecord"]
+    link["link imports"]
+    eval["evaluate (top-level await)"]
+    parse --> link --> eval
   end
 
-  parse["V8 parse → ModuleRecord"]
-  link["link: resolve every imported spec"]
-  eval["evaluate top-level\n(handles top-level await)"]
   cache["module cache by URL"]
 
-  spec --> Resolve --> url --> Load --> parse --> link --> eval --> cache
+  spec --> Hooks --> V8 --> cache
 
   classDef io fill:#2E5A88,stroke:#1F4870,color:#ffffff
   classDef hook fill:#8B5E15,stroke:#6E4810,color:#ffffff
-  classDef v8 fill:#1F6E68,stroke:#155752,color:#ffffff
-  class spec,url io
-  class r1,r2,rdef,l1,l2,ldef hook
-  class parse,link,eval,cache v8
+  classDef v8s fill:#1F6E68,stroke:#155752,color:#ffffff
+  class spec,cache io
+  class res,load hook
+  class parse,link,eval v8s

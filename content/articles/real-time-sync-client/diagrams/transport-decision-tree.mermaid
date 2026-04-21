@@ -3,22 +3,22 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
     A[Need real-time sync] --> B{Bidirectional?}
-    B -->|"server -> client only"| D{HTTP/2 or HTTP/3 available?}
+
+    B -->|server to client only| D{HTTP/2 or HTTP/3?}
     D -->|Yes| E[SSE]
-    D -->|"No / restricted proxy"| F[SSE with HTTP/1.1 fallback]
-    E --> EU{Client also uplinks?}
+    D -->|No / restricted proxy| F[SSE + HTTP/1.1 fallback]
+    E --> EU{Client uplink?}
     F --> EU
-    EU -->|Yes, infrequent| G[SSE plus HTTP POST]
+    EU -->|Yes, infrequent| G[SSE + HTTP POST]
     EU -->|No| H[SSE only]
 
-    B -->|"both directions"| I{Greenfield, Chromium-leading OK?}
-    I -->|Yes| J[WebTransport over HTTP/3]
-    I -->|"No, need cross-browser parity"| K[WebSocket]
+    B -->|both directions| I{Greenfield, Chromium-leading OK?}
+    I -->|Yes| J[WebTransport / HTTP/3]
+    I -->|No, need parity| K[WebSocket]
 
-    J --> L{Offline support needed?}
+    J --> L{Offline support?}
     K --> L
-    L -->|Yes| M[Add IndexedDB queue plus reconnect with replay]
-    L -->|No| N[Connection manager plus heartbeats]
+    L -->|Yes| M[Add IndexedDB queue + reconnect with replay]
+    L -->|No| N[Connection manager + heartbeats]
 
-    O{Restricted enterprise proxy blocks WS and SSE?} -.fallback.-> P[Long polling]
-    K -.fallback when blocked.-> O
+    K -.->|blocked by enterprise proxy| P[Long polling fallback]

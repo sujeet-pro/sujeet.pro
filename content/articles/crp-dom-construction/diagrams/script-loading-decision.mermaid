@@ -2,19 +2,19 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Start([Need to load a script?]) --> Q1{"ES module<br/>import / export?"}
-    Q1 -- Yes --> Q2{"Independent<br/>of app state?"}
-    Q2 -- Yes --> ModAsync["type=module async"]
-    Q2 -- No --> Module["type=module<br/>deferred by default"]
-    Q1 -- No --> Q3{"Order matters<br/>vs other scripts?"}
-    Q3 -- Yes --> Defer["defer"]
-    Q3 -- No --> Q4{"Independent 3rd-party<br/>analytics, ads?"}
-    Q4 -- Yes --> Async["async"]
-    Q4 -- No --> Q5{"Truly legacy<br/>needs document.write?"}
-    Q5 -- Yes --> Sync["default<br/>parser-blocking"]
-    Q5 -- No --> Defer
+    Start(["Need to load a script?"]) --> Q1{"ES module?\n(import / export)"}
+    Q1 -- "Yes" --> Q2{"Independent\nof app state?"}
+    Q2 -- "Yes" --> ModAsync["type=module async"]
+    Q2 -- "No" --> Module["type=module\n(deferred by default)"]
+    Q1 -- "No" --> Q3{"Order matters\nvs other scripts?"}
+    Q3 -- "Yes" --> Defer["defer"]
+    Q3 -- "No" --> Q4{"Independent third-party\n(analytics, ads)?"}
+    Q4 -- "Yes" --> Async["async"]
+    Q4 -- "No" --> Q5{"Truly legacy:\nneeds document.write?"}
+    Q5 -- "Yes" --> Sync["default\nparser-blocking"]
+    Q5 -- "No" --> Defer
 
-    classDef good fill:#e8f5e9,stroke:#2e7d32
-    classDef bad fill:#ffebee,stroke:#c62828
+    classDef good fill:#1f6f3a,stroke:#0b3d20,color:#ffffff
+    classDef bad  fill:#8a1c1c,stroke:#3d0b0b,color:#ffffff
     class Defer,Module,ModAsync,Async good
     class Sync bad

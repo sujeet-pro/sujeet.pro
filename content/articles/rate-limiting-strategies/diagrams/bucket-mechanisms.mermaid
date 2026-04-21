@@ -4,20 +4,21 @@
 flowchart TB
     subgraph TB_box["Token Bucket — burst-friendly"]
         direction TB
-        TB_refill["Refill\nrate r tokens/s"] -->|"add up to capacity"| TB_bucket[("Bucket\ncapacity = burst size")]
-        TB_req(["Request"]) --> TB_check{"tokens\n>= 1?"}
+        TB_refill["Refill r tok/s"] -->|"≤ capacity"| TB_bucket[("Bucket = burst")]
+        TB_req(["Request"]) --> TB_check{"tokens ≥ 1?"}
         TB_bucket --> TB_check
-        TB_check -->|"Yes"| TB_pass["Forward\n(consume 1)"]
+        TB_check -->|"Yes"| TB_pass["Forward (−1)"]
         TB_check -->|"No"| TB_drop["Reject 429"]
     end
 
     subgraph LB_box["Leaky Bucket — smooth output"]
         direction TB
-        LB_req(["Request"]) --> LB_admit{"Bucket\nfull?"}
-        LB_admit -->|"No"| LB_queue[("Queue\ncapacity = max backlog")]
+        LB_req(["Request"]) --> LB_admit{"Bucket full?"}
+        LB_admit -->|"No"| LB_queue[("Queue = backlog")]
         LB_admit -->|"Yes"| LB_drop["Reject 429"]
-        LB_queue -->|"Drain at\nleak rate r req/s"| LB_pass["Forward"]
+        LB_queue -->|"Drain r req/s"| LB_pass["Forward"]
     end
+
 
     classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff

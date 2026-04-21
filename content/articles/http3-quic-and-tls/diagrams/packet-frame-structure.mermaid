@@ -2,43 +2,23 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    UDP["UDP datagram (IP + UDP header — what middleboxes see)"]
-
-    subgraph Coalesced["One or more coalesced QUIC packets"]
-        direction TB
-        Long["Long-header packet — Initial / 0-RTT / Handshake / Retry"]
-        Short["Short-header packet — 1-RTT (post-handshake)"]
-    end
-
+    UDP["UDP datagram\n(what middleboxes see)"]
     UDP --> Coalesced
 
-    subgraph LongHdr["Long header (cleartext prefix)"]
-        L1["Header form bit + Fixed bit + Type"]
-        L2["Version (4 bytes)"]
-        L3["DCID len + DCID"]
-        L4["SCID len + SCID"]
-        L5["Token (Initial only) + Length"]
-        L6["Packet Number (header-protected)"]
+    subgraph Coalesced["Coalesced QUIC packets (one or more)"]
+        direction LR
+        Long["Long header\nInitial / 0-RTT / Handshake / Retry"]
+        Short["Short header\n1-RTT (post-handshake)"]
     end
 
-    subgraph ShortHdr["Short header (cleartext prefix)"]
-        S1["Header form bit + Spin bit + reserved + key phase"]
-        S2["DCID (length out-of-band)"]
-        S3["Packet Number (header-protected)"]
+    Coalesced --> Headers
+
+    subgraph Headers["Cleartext header prefix"]
+        direction TB
+        LongHdr["Long: Form + Type + Version\n+ DCID + SCID + Token + Length\n+ Packet Number (header-protected)"]
+        ShortHdr["Short: Form + Spin + key phase\n+ DCID + Packet Number (header-protected)"]
     end
 
-    Long --> LongHdr
-    Short --> ShortHdr
+    Headers --> Payload
 
-    subgraph Payload["AEAD-encrypted payload — one or more frames"]
-        F1["STREAM (0x08-0x0f) — application bytes"]
-        F2["ACK (0x02 / 0x03 with ECN counts)"]
-        F3["CRYPTO (0x06) — TLS 1.3 records"]
-        F4["PATH_CHALLENGE / PATH_RESPONSE — migration probe"]
-        F5["NEW_CONNECTION_ID / RETIRE_CONNECTION_ID"]
-        F6["MAX_DATA / MAX_STREAM_DATA / MAX_STREAMS"]
-        F7["CONNECTION_CLOSE"]
-    end
-
-    LongHdr --> Payload
-    ShortHdr --> Payload
+    Payload["AEAD-encrypted payload\nSTREAM / ACK / CRYPTO / PATH_*\nNEW_CONNECTION_ID / MAX_*\nCONNECTION_CLOSE"]

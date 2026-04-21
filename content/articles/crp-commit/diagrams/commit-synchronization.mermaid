@@ -2,24 +2,24 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant MT as Main Thread<br/>(ProxyMain)
-    participant CT as Compositor Thread<br/>(ProxyImpl)
+    participant MT as ProxyMain<br/>(Main)
+    participant CT as ProxyImpl<br/>(Compositor)
     participant PT as Pending Tree
     participant AT as Active Tree
 
-    Note over MT: Paint complete<br/>(property trees + paint records ready)
-    MT->>CT: NotifyReadyToCommit (forwards mutex)
+    Note over MT: Paint complete<br/>(trees + paint records)
+    MT->>CT: NotifyReadyToCommit<br/>(forwards mutex)
     activate MT
     Note over MT: Blocked on mutex
     activate CT
-    CT->>PT: Push layer properties,<br/>property trees, paint records<br/>(by layer id)
+    CT->>PT: Push properties,<br/>trees, paint records<br/>(by layer id)
     CT-->>MT: Release mutex
     deactivate MT
-    Note over MT: Free for frame N+1<br/>(style, layout, paint)
+    Note over MT: Free for frame N+1
 
     Note over CT: Schedule raster
-    CT->>PT: Raster required tiles
+    CT->>PT: Raster tiles
     Note over PT: Required tiles ready
     CT->>AT: Activate (pending → active)
     deactivate CT
-    Note over AT: Ready for ScheduledActionDraw
+    Note over AT: Ready for Draw

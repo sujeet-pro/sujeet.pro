@@ -15,7 +15,7 @@ tags:
 
 A playbook-style entry point to the Web Performance series. The goal is a small set of mental models (a CWV scorecard, a layered dependency stack, and a "which metric is failing → which layer to fix" decision tree) so you can pick the right deep-dive article instead of optimising blindly.
 
-![Web performance optimization layers and their impact on Core Web Vitals](./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals-light.svg "Each layer of the stack drives one or more Core Web Vitals; you cannot fix a downstream metric by polishing an upstream one.")
+![Web performance optimization layers and their impact on Core Web Vitals](./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals-light.svg "Each layer drives one or more Core Web Vitals; a weak upstream layer caps what every downstream optimisation can deliver.")
 ![Web performance optimization layers and their impact on Core Web Vitals](./diagrams/web-performance-optimization-layers-and-their-impact-on-core-web-vitals-dark.svg)
 
 ## Abstract
@@ -58,7 +58,7 @@ TTFB is excluded from the Core Web Vitals because fast server response does not 
 Google's [threshold methodology](https://web.dev/articles/defining-core-web-vitals-thresholds) targets p75 with two competing constraints: achievability (a meaningful fraction of sites can reach "good" with focused effort) and meaningfulness (users perceive the difference). 2.5 s LCP corresponds to lab and field research on perceived load; 200 ms INP is at the upper end of the 100–200 ms window where interactions still feel instant; 0.1 CLS is the largest shift a typical user does not consciously notice.
 
 > [!IMPORTANT]
-> **INP is harder than FID was.** [First Input Delay](https://web.dev/articles/fid) measured only the _input delay_ of the _first_ interaction — the time before the handler started. INP measures the _full_ input → processing → presentation duration of the [worst interaction in the session](https://web.dev/articles/inp#how_to_measure_inp) (with a small allowance for outliers on long sessions). Most sites that comfortably passed FID failed INP at first because FID ignored both subsequent interactions and processing time entirely.
+> **INP is harder than FID was.** [First Input Delay](https://web.dev/articles/fid) measured only the _input delay_ of the _first_ interaction — the time before the handler started. INP measures the _full_ input → processing → presentation duration of every click, tap, and keyboard interaction, then [reports the longest one](https://web.dev/articles/inp#how-to-measure-inp) — except on pages with 50 or more interactions, where the 98th-percentile interaction is reported instead (one outlier dropped per 50 interactions). Most sites that comfortably passed FID failed INP at first because FID ignored both subsequent interactions and processing time entirely.
 
 ### Which metric is failing? Start with the bottleneck
 
@@ -184,7 +184,7 @@ Continuous monitoring keeps the optimisations effective and catches regressions 
 - **Core Web Vitals (field).** LCP, INP, CLS via the [`web-vitals`](https://github.com/GoogleChrome/web-vitals) library or `PerformanceObserver`, sliced by device class and route. Field data — not Lighthouse — is what Search uses.
 - **TTFB and origin health.** Server response time and cache hit ratio at the edge and origin.
 - **Bundle sizes.** Track JS/CSS bytes per route in CI; fail the build on regression with `size-limit` or your bundler's stats.
-- **Resource budgets.** Use [Lighthouse CI budgets](https://github.com/GoogleChrome/budget.json) or your CDN's analytics to enforce per-page byte counts.
+- **Resource budgets.** Use [Lighthouse performance budgets](https://web.dev/articles/use-lighthouse-for-performance-budgets) (`budget.json`) or your CDN's analytics to enforce per-page byte counts.
 
 ### Monitoring tools
 

@@ -1,35 +1,42 @@
 %% Diagram: Three-stage accessibility CI/CD funnel
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph S1["Stage 1 — pre-commit (sub-second)"]
         direction TB
-        S1A["eslint-plugin-jsx-a11y<br/>(static AST)"]
+        S1A["eslint-plugin-jsx-a11y\n(static AST)"]:::dev
     end
 
     subgraph S2["Stage 2 — pull request (seconds–minutes)"]
         direction TB
-        S2A["jest-axe / vitest-axe<br/>(component)"]
-        S2B["Playwright + @axe-core/playwright<br/>(E2E)"]
-        S2A --- S2B
+        S2A["jest-axe / vitest-axe\n(component)"]:::ci
+        S2B["Playwright + @axe-core/playwright\n(E2E)"]:::ci
+        S2A --> S2B
     end
 
     subgraph S3["Stage 3 — pre-deploy (minutes)"]
         direction TB
-        S3A["Pa11y-CI<br/>axe + HTMLCS"]
-        S3B["Lighthouse CI<br/>category score floor"]
-        S3A --- S3B
+        S3A["Pa11y-CI\naxe + HTMLCS"]:::deploy
+        S3B["Lighthouse CI\ncategory score floor"]:::deploy
+        S3A --> S3B
     end
 
     subgraph OUT["Outputs"]
         direction TB
-        VIO["violations<br/>→ fail build"]
-        INC["incomplete<br/>→ tracker / digest"]
-        TRI["manual triage queue"]
-        VIO --- INC
-        INC --- TRI
+        VIO["violations\n→ fail build"]:::fail
+        INC["incomplete\n→ tracker / digest"]:::warn
+        TRI["manual triage queue"]:::neutral
+        VIO --> INC
+        INC --> TRI
     end
 
     S1 --> S2
     S2 --> S3
     S3 --> OUT
+
+    classDef dev fill:#1F6E68,stroke:#155752,color:#fff
+    classDef ci fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef deploy fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef fail fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

@@ -1,23 +1,14 @@
 %% Diagram: Browser protocol selection
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    A["Resolve origin"] --> B{"DNS HTTPS record?"}
-    B -->|alpn includes h3| C["Race QUIC vs TCP+TLS"]
-    B -->|h2 only| D["TCP+TLS"]
-    B -->|none| E{"Alt-Svc cached?"}
-    E -->|Yes| C
-    E -->|No| D
+flowchart TB
+    A["Resolve origin"] --> B{"h3 advertised?\n(DNS HTTPS or cached Alt-Svc)"}
+    B -->|Yes| C["Race QUIC vs TCP+TLS"]
+    B -->|No| D["TCP+TLS\nALPN: h2 / http/1.1"]
 
-    C --> F{"QUIC wins?"}
+    C --> F{"QUIC wins race?"}
     F -->|Yes| G["HTTP/3"]
-    F -->|No| H["HTTP/2"]
+    F -->|No| H["HTTP/2 or 1.1"]
+    D --> H
 
-    D --> I["TLS ALPN"]
-    I --> J{"h2?"}
-    J -->|Yes| H
-    J -->|No| K["HTTP/1.1"]
-
-    H --> L{"Alt-Svc in response?"}
-    L -->|Yes| M["Cache for next request"]
-    L -->|No| N["Stay on HTTP/2"]
+    H --> L["Cache any Alt-Svc\nfor next request"]

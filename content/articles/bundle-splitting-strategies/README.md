@@ -902,7 +902,7 @@ import(userPath) // Bundler cannot analyze at build time
 
 **Webpack behavior with template literals:**
 
-When using `import(\`./pages/${name}.tsx\`)`, Webpack creates a chunk for every file matching `./pages/\*.tsx`. This is called a "context module."
+When using ``import(`./pages/${name}.tsx`)``, Webpack creates a chunk for every file matching `./pages/*.tsx`. This is called a [context module](https://webpack.js.org/guides/dependency-management/#requirecontext) — the bundler statically enumerates the matching files at build time.
 
 ### Circular Dependencies
 

@@ -1,7 +1,7 @@
 %% Diagram: V8 OrderedHashTable layout (used by Map / Set)
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph HashTable["Hash table (numBuckets, power of 2)"]
         direction TB
         B0["bucket[0] -> 2"]
@@ -12,15 +12,15 @@ flowchart LR
 
     subgraph DataTable["Data table (insertion order, capacity = 2 * numBuckets)"]
         direction TB
-        E0["[0] key='first'<br/>val=1, chain=-1"]
-        E1["[1] key='second'<br/>val=2, chain=-1"]
-        E2["[2] key='third'<br/>val=3, chain=-1"]
-        E3["[3] tombstone<br/>(deleted)"]
+        E0["[0] key='first'\nval=1, chain=-1"]
+        E1["[1] key='second'\nval=2, chain=-1"]
+        E2["[2] key='third'\nval=3, chain=-1"]
+        E3["[3] tombstone (deleted)"]
     end
 
     B0 --> E2
     B1 --> E0
     B2 --> E1
 
-    note["Lookup: hash key, mask to bucket, follow head index, walk chain.<br/>Iteration: walk data table 0..N+deleted, skip tombstones."]
+    note["Lookup: hash key, mask to bucket, follow head index, walk chain.\nIteration: walk data table 0..N+deleted, skip tombstones."]
     DataTable -.-> note

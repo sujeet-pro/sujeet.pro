@@ -32,7 +32,7 @@ Three loops:
 
 The core invariant is a deterministic left fold:
 
-```
+```ts
 currentState = events.reduce(applyEvent, initialState)
 ```
 

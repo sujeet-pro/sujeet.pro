@@ -1,0 +1,23 @@
+%% Diagram: CSS and typography optimization pipeline — delivery, parsing, rendering, font loading
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CSS["CSS pipeline"]
+        direction LR
+        LOAD["Load<br/>delivery"] --> PARSE["Parse<br/>CSSOM"] --> RENDER["Render<br/>layout & paint"] --> ANIMATE["Animate<br/>composite"]
+    end
+
+    subgraph FONT["Font pipeline"]
+        direction LR
+        SUBSET["Subset<br/>drop glyphs"] --> FORMAT["WOFF2"] --> LOADF["Load<br/>preload + swap"] --> MATCH["Match<br/>size-adjust"]
+    end
+
+    subgraph CWV["Core Web Vitals impact"]
+        direction LR
+        FCP["FCP"]
+        LCP["LCP"]
+        CLS["CLS"]
+    end
+
+    CSS --> CWV
+    FONT --> CWV

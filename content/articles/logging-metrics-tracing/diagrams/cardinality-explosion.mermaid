@@ -15,7 +15,7 @@ flowchart LR
         U1["http_requests_total"]
         U2["{user_id, request_id,<br/>endpoint}"]
         U3["1M users × 50 routes<br/>= 50M series"]
-        U4["~375 GB RAM<br/>(at 7.5 KiB / series)"]
+        U4["~150 GB+ RAM\n(at 3 KiB+ / series)"]
         U1 --> U2 --> U3 --> U4
     end
 

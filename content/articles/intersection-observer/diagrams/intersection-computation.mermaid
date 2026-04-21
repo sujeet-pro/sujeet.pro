@@ -2,23 +2,19 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-  root["root<br/>(viewport or Element)"]
-  rmargin["+ rootMargin<br/>(grow/shrink)"]
-  smargin["+ scrollMargin<br/>(per nested scrollport)"]
-  target["target.getBoundingClientRect()<br/>(post-transform)"]
+  root["root<br/>(viewport or Element)<br/>+ rootMargin"]
+  target["target<br/>getBoundingClientRect()"]
 
-  rir["Root intersection<br/>rectangle"]
-  walk["Walk containing-block chain;<br/>clip by overflow / clip-path"]
-  inter["Intersect with root<br/>intersection rectangle"]
-  ratio["intersectionRatio =<br/>intersectionRect.area /<br/>boundingClientRect.area"]
+  rir["Root intersection rect"]
+  walk["Walk containing-block;<br/>clip by overflow / clip-path;<br/>+ scrollMargin per scrollport"]
+  inter["Intersect"]
+  ratio["intersectionRatio"]
   idx["thresholdIndex"]
   cmp{"thresholdIndex or<br/>isIntersecting changed?"}
   queue["Queue<br/>IntersectionObserverEntry"]
   skip["No notification"]
 
   root --> rir
-  rmargin --> rir
-  smargin --> walk
   target --> walk
   rir --> inter
   walk --> inter

@@ -1,21 +1,21 @@
 %% Diagram: Sorting Algorithm Selection Decision Tree
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TD
+flowchart TB
     START["Need to sort"] --> Q1{"Data type?"}
 
-    Q1 -->|"Integers, small range k ≤ n"| COUNTING["Counting Sort<br/>O(n + k)"]
-    Q1 -->|"Fixed-width integers / strings"| RADIX["Radix Sort<br/>O(d × n)"]
-    Q1 -->|"Uniform floats in [0,1)"| BUCKET["Bucket Sort<br/>O(n) expected"]
-    Q1 -->|"General comparable"| Q2{"Stability needed?"}
+    Q1 -->|"Integers, k ≤ n"| COUNTING["Counting Sort<br/>O(n + k)"]
+    Q1 -->|"Fixed-width<br/>ints / strings"| RADIX["Radix Sort<br/>O(d × n)"]
+    Q1 -->|"Uniform floats<br/>in [0,1)"| BUCKET["Bucket Sort<br/>O(n) expected"]
+    Q1 -->|"General<br/>comparable"| Q2{"Stability<br/>needed?"}
 
     Q2 -->|"Yes"| Q3{"Container?"}
-    Q2 -->|"No"| Q4{"Worst-case O(n log n) required?"}
+    Q2 -->|"No"| Q4{"O(n log n)<br/>worst case<br/>required?"}
 
-    Q3 -->|"Linked list"| MERGE["Merge Sort<br/>O(1) extra space for lists"]
+    Q3 -->|"Linked list"| MERGE["Merge Sort<br/>O(1) extra for lists"]
     Q3 -->|"Array, n ≤ 32"| INSERT["Insertion Sort"]
-    Q3 -->|"Array, n > 32"| TIM["Tim Sort / Powersort<br/>(your runtime's stable default)"]
+    Q3 -->|"Array, n > 32"| TIM["Tim Sort / Powersort<br/>(stable default)"]
 
     Q4 -->|"Yes, O(1) space"| HEAP["Heap Sort"]
-    Q4 -->|"Yes, O(n) space OK"| MERGE
-    Q4 -->|"No, fastest average"| PDQ["pdqsort / ipnsort<br/>(your runtime's unstable default)"]
+    Q4 -->|"Yes, O(n) ok"| MERGE
+    Q4 -->|"No, fastest avg"| PDQ["pdqsort / ipnsort<br/>(unstable default)"]

@@ -2,29 +2,23 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant CA as Client A (Wasm)
-    participant WS as Node.js<br/>WebSocket layer
-    participant RP as Per-document<br/>Rust process
-    participant CB as Client B (Wasm)
-    participant CC as Client C (Wasm)
+    participant CA as Client A
+    participant MP as Multiplayer<br/>(Node.js + Rust)
+    participant Other as Clients B...N
 
-    Note over CA: User edits property P on object O
-    CA->>CA: Apply optimistically<br/>mark unacked
-    CA->>WS: Batched delta (~33ms / 30 FPS)
-    WS->>RP: forward over stdin
+    Note over CA: User edits O.P
+    CA->>CA: apply optimistically,<br/>mark unacked
+    CA->>MP: batched delta (~33ms)
 
-    Note over RP: Server is the source of truth.<br/>Apply in arrival order, assign sequence #.
-    RP->>RP: Update Map<ObjectID, Map<Property, Value>>
-    RP->>RP: Append to in-memory journal buffer
+    Note over MP: Apply in arrival order,<br/>assign seq #
+    MP->>MP: update authoritative state
+    MP->>MP: append to journal buffer
 
-    par Fan-out broadcast
-        RP-->>WS: delta + seq
-        WS-->>CA: ack(O, P, seq)
-        WS-->>CB: broadcast(O, P, seq)
-        WS-->>CC: broadcast(O, P, seq)
-    and Async durability
-        RP->>RP: Flush journal batch (~0.5s)
+    par Fan-out
+        MP-->>CA: ack(O, P, seq)
+        MP-->>Other: broadcast(O, P, seq)
+    and Durability
+        MP->>MP: flush journal (~0.5s)
     end
 
-    Note over CB,CC: Apply remote delta unless<br/>it conflicts with an unacked local change<br/>on the same property.
+    Note over Other: Discard if conflicts with<br/>unacked local edit on same prop

@@ -44,6 +44,7 @@ describe("project config files", () => {
       "blogMeta",
       "homeData",
       "redirects",
+      "tags",
     ]);
   });
 });

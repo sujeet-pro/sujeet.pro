@@ -2,7 +2,6 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant F1 as Follower 1 (originator)
     participant L as Leader
     participant F2 as Follower 2 (other tier)
@@ -22,4 +21,4 @@ sequenceDiagram
         Note over F2: no-op
     end
 
-    Note over F1,F2: Association lists use 'refill' instead of invalidate<br/>so followers query the leader for the updated prefix.
+    Note over F1,F2: Association lists use 'refill' instead of invalidate\nso followers query the leader for the updated prefix.

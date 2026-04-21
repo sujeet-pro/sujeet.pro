@@ -19,4 +19,4 @@ sequenceDiagram
     C1->>DB: DROP TABLE _orders_old
     C1->>DB: UNLOCK TABLES
     DB-->>C2: RENAME proceeds atomically
-    Note over App,DB: Replicas see a single RENAME event;<br/>queued DML resumes against the new orders
+    Note over App,DB: Replicas see a single RENAME event<br/>Queued DML resumes against the new orders

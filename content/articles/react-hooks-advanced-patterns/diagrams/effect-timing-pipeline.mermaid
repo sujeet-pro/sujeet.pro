@@ -2,11 +2,11 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 flowchart LR
-    render["Render phase\n(function bodies run)"] --> commit["Commit phase\n(DOM mutated)"]
-    commit --> insertion["useInsertionEffect\nInject style sheets\nbefore any layout reads"]
-    insertion --> layout["useLayoutEffect\nSynchronous DOM measurement\nstate updates re-enter render"]
-    layout --> paint["Browser paint\n(pixels on screen)"]
-    paint --> effect["useEffect\nAsync; runs after paint\nschedule fetches, subs, logging"]
+    render["Render"] --> commit["Commit (DOM mutated)"]
+    commit --> insertion["useInsertionEffect"]
+    insertion --> layout["useLayoutEffect"]
+    layout --> paint["Browser paint"]
+    paint --> effect["useEffect"]
 
     classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
     class render,commit,paint phase

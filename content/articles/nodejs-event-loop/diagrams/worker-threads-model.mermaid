@@ -1,34 +1,40 @@
 %% Diagram: Node.js worker_threads execution model
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
   subgraph Process[Node.js process]
     direction TB
-    subgraph Main[Main thread]
-      MainJS["V8 isolate (main)\nJS code + microtask queue"]
-      MainLoop["libuv event loop (main)\nphases: timers / poll / check / ..."]
-      MainJS --- MainLoop
-    end
-    subgraph W1[Worker thread #1]
-      W1JS["V8 isolate (worker)\nJS code + microtask queue"]
-      W1Loop["libuv event loop (worker)\nsame phase order"]
-      W1JS --- W1Loop
-    end
-    subgraph W2[Worker thread #2]
-      W2JS["V8 isolate (worker)\nJS code + microtask queue"]
-      W2Loop["libuv event loop (worker)\nsame phase order"]
-      W2JS --- W2Loop
+    subgraph Threads[Threads]
+      direction TB
+      subgraph Main[Main thread]
+        direction TB
+        MainJS["V8 isolate (main)\nJS + microtasks"]
+        MainLoop["libuv event loop (main)\ntimers / poll / check / ..."]
+        MainJS --- MainLoop
+      end
+      subgraph W1[Worker #1]
+        direction TB
+        W1JS["V8 isolate\nJS + microtasks"]
+        W1Loop["libuv event loop\nsame phase order"]
+        W1JS --- W1Loop
+      end
+      subgraph W2[Worker #2]
+        direction TB
+        W2JS["V8 isolate\nJS + microtasks"]
+        W2Loop["libuv event loop\nsame phase order"]
+        W2JS --- W2Loop
+      end
     end
     Pool[("Process-global libuv thread pool\nUV_THREADPOOL_SIZE (default 4)\nfs / dns.lookup / async crypto / async zlib")]
+    Shared[("SharedArrayBuffer + Atomics\n(optional shared memory)")]:::shared
   end
-  MainLoop <-->|"MessagePort\n(structured clone +\nuv_async wakeup)"| W1Loop
+  MainLoop <-->|"MessagePort\n(structured clone + uv_async)"| W1Loop
   MainLoop <-->|"MessagePort"| W2Loop
-  W1Loop <-->|"MessageChannel\n(workers can talk\ndirectly)"| W2Loop
-  MainLoop <-->|queue work / wake| Pool
-  W1Loop <-->|queue work / wake| Pool
-  W2Loop <-->|queue work / wake| Pool
-  Shared[("SharedArrayBuffer\n+ Atomics")]:::shared
-  MainJS -.->|optional shared memory| Shared
+  W1Loop <-->|"MessageChannel\n(workers talk directly)"| W2Loop
+  MainLoop <-->|queue work| Pool
+  W1Loop <-->|queue work| Pool
+  W2Loop <-->|queue work| Pool
+  MainJS -.-> Shared
   W1JS -.-> Shared
   W2JS -.-> Shared
   classDef shared stroke-dasharray: 4 4

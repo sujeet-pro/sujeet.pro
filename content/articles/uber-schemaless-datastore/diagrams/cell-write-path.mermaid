@@ -3,17 +3,17 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant W as Worker (stateless HTTP)
-    participant S as Secondary master (random shard)
-    participant P as Primary master (shard N)
-    participant R as Primary minions (DC2, DC3)
+    participant W as Worker
+    participant S as Sec master
+    participant P as Pri master
+    participant R as Pri minions
 
-    C->>W: PUT cell (row_key, column, ref_key, body)
-    W->>W: hash(row_key) % 4096 -> shard N
-    W->>S: insert into buffer table
+    C->>W: PUT cell
+    W->>W: hash % 4096
+    W->>S: insert buffer
     S-->>W: ack
-    W->>P: insert into entity table (added_id auto-increments)
+    W->>P: insert entity
     P-->>W: ack
-    W-->>C: 200 OK (only after BOTH succeed)
-    P-)R: async MySQL replication
-    Note over S,R: A background reaper polls a primary minion. Once the cell appears it deletes the buffer row on S.
+    W-->>C: 200 OK
+    P-)R: async repl
+    R--)S: reaper deletes buffer row

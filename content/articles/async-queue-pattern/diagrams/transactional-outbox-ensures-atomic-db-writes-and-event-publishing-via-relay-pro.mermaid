@@ -1,24 +1,26 @@
 %% Diagram: Transactional Outbox Ensures Atomic Db Writes And Event Publishing Via Relay Pro
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TD
-    subgraph "Application"
-        A[Service] -->|1. Single Transaction| DB[(Database)]
-        DB -->|Write| BT[Business Table]
-        DB -->|Write| OT[Outbox Table]
+graph TB
+    A[Service]
+    subgraph TX["Single DB Transaction"]
+        direction TB
+        BT[Business Table]
+        OT[Outbox Table]
     end
+    MR[Message Relay]
+    MB[Message Broker]
 
-    subgraph "Relay Process"
-        MR[Message Relay]
-        MR -->|2. Poll| OT
-        MR -->|3. Publish| MB[Message Broker]
-        MR -->|4. Mark sent| OT
-    end
+    A -->|1. write| BT
+    A -->|1. write| OT
+    MR -->|2. poll| OT
+    MR -->|3. publish| MB
+    MR -->|4. mark sent| OT
 
     classDef appClass fill:#8B5E15,stroke:#000,stroke-width:2px,color:#ffffff
     classDef dbClass fill:#5A5A5A,stroke:#000,stroke-width:2px,color:#ffffff
     classDef relayClass fill:#1F6E68,stroke:#000,stroke-width:2px,color:#ffffff
 
     class A appClass
-    class DB,BT,OT dbClass
+    class BT,OT dbClass
     class MR,MB relayClass

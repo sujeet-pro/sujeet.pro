@@ -2,14 +2,12 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant App as Caller
-    participant Svc as Read States service
+    participant Svc as Read States
     participant LRU as LRU cache
-    participant Q as Deferred-write queue
+    participant Q as Defer queue
     participant DB as Cassandra
 
-    rect rgb(238, 246, 255)
     Note over App,DB: Read path — microsecond cache hits, fall back to Cassandra on miss
     App->>Svc: Get(user_id, channel_id)
     Svc->>LRU: lookup
@@ -18,22 +16,17 @@ sequenceDiagram
     else miss
         Svc->>DB: SELECT
         DB-->>Svc: Read State
-        Svc->>LRU: insert (may evict LRU tail)
+        Svc->>LRU: insert (may evict tail)
     end
     Svc-->>App: Read State
-    end
 
-    rect rgb(238, 255, 238)
     Note over App,DB: Write path — atomic in-cache update, defer Cassandra write by 30s
     App->>Svc: Update(user_id, channel_id, Δ)
     Svc->>LRU: atomic update
     Svc->>Q: schedule commit at now + 30s
     Svc-->>App: ack (microseconds)
     Q->>DB: batched write (when timer fires)
-    end
 
-    rect rgb(255, 244, 232)
     Note over LRU,DB: Eviction path — flush before freeing memory
     LRU->>DB: write evicted entry
-    LRU->>LRU: free entry<br/>(Go: GC later · Rust: Drop now)
-    end
+    LRU->>LRU: free entry (Go: GC later · Rust: Drop now)

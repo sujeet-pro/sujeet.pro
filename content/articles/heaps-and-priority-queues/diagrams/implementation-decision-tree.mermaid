@@ -3,21 +3,22 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
   Q["Need a priority queue"]
-  Q --> Merge{"Need O(1) merge<br/>of two heaps?"}
-  Merge -- "Yes" --> MergeYes{"Mergeable<br/>+ decrease-key heavy?"}
-  MergeYes -- "Yes" --> Pair["Pairing heap<br/>Best practical<br/>decrease-key + meld"]
-  MergeYes -- "No, just merge" --> Leftist["Leftist / skew heap<br/>O(log n) merge,<br/>simpler than pairing"]
-  Merge -- "No" --> DK{"Decrease-key<br/>on the hot path?"}
-  DK -- "Yes, with stable indexing" --> IdxBin["Binary heap +<br/>index map<br/>O(log n) decrease-key"]
-  DK -- "Yes, simpler is fine" --> Dup["Binary heap +<br/>duplicate-node strategy<br/>(insert + skip stale)"]
-  DK -- "No" --> Cache{"Heap exceeds<br/>L2 cache?"}
-  Cache -- "Yes, extract-heavy" --> Dary["4-ary heap<br/>shorter tree, fewer<br/>cache misses"]
-  Cache -- "No / small n" --> Bin["Binary heap<br/>default — simple,<br/>cache-friendly"]
+  Q --> Merge{"Need O(1) merge\nof two heaps?"}
+  Merge -- "Yes" --> MergeYes{"Mergeable\n+ decrease-key heavy?"}
+  MergeYes -- "Yes" --> Pair["Pairing heap\nbest practical\ndecrease-key + meld"]
+  MergeYes -- "No, just merge" --> Leftist["Leftist / skew heap\nO(log n) merge,\nsimpler than pairing"]
+  Merge -- "No" --> DK{"Decrease-key\non the hot path?"}
+  DK -- "Yes, with stable indexing" --> IdxBin["Binary heap\n+ index map\nO(log n) decrease-key"]
+  DK -- "Yes, simpler is fine" --> Dup["Binary heap\n+ duplicate-node\n(insert + skip stale)"]
+  DK -- "No" --> Cache{"Heap exceeds\nL2 cache?"}
+  Cache -- "Yes, extract-heavy" --> Dary["4-ary heap\nshorter tree,\nfewer cache misses"]
+  Cache -- "No / small n" --> Bin["Binary heap\ndefault — simple,\ncache-friendly"]
 
-  Theory["Need proven worst-case bounds<br/>(theory paper, real-time)?"] --> TheoryQ{"Worst-case<br/>or amortized?"}
-  TheoryQ -- "Worst-case O(1) insert/merge/dec-key" --> Brodal["Brodal queue<br/>matches Fibonacci<br/>worst-case, complex"]
-  TheoryQ -- "Amortized O(1) insert/dec-key" --> Fib["Fibonacci heap<br/>tight amortized bounds,<br/>slow constants"]
+  Theory["Need proven worst-case bounds\n(theory paper, real-time)?"] --> TheoryQ{"Worst-case\nor amortized?"}
+  TheoryQ -- "Worst-case O(1) insert/merge/dec-key" --> Brodal["Brodal queue\nmatches Fibonacci\nworst-case, complex"]
+  TheoryQ -- "Amortized O(1) insert/dec-key" --> Fib["Fibonacci heap\ntight amortized bounds,\nslow constants"]
 
-  classDef default fill:#e8f5e9,stroke:#2e7d32
-  classDef warn fill:#fff3e0,stroke:#ef6c00
+  classDef impl fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+  classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+  class Pair,Leftist,IdxBin,Dup,Dary,Bin impl
   class Fib,Brodal warn

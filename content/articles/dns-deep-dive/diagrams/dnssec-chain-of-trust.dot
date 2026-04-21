@@ -1,0 +1,52 @@
+// Diagram: DNSSEC chain of trust (root → TLD → leaf zone)
+// Type: digraph
+digraph dnssec_chain {
+    graph [rankdir=TB, fontname="Helvetica", fontsize=14,
+           bgcolor="transparent", ratio="0.85", nodesep=0.3, ranksep=0.45];
+    node [shape=box, style="rounded,filled", fontname="Helvetica",
+          fontsize=11, fontcolor="#ffffff", margin="0.12,0.06"];
+    edge [fontname="Helvetica", fontsize=10, color="#5A5A5A", fontcolor="#ffffff"];
+
+    anchor [label="Trust anchor\n(root KSK preconfigured)",
+            fillcolor="#5A5A5A", color="#3D3D3D"];
+
+    subgraph cluster_root {
+        label="Root zone (.)";
+        labelloc="t";
+        fontsize=12;
+        color="#888888";
+        style="rounded";
+        bgcolor="transparent";
+        root_key [label="DNSKEY\n(KSK+ZSK)", fillcolor="#2E5A88", color="#1F4870"];
+        root_ds  [label="DS for .com\n(signed)", fillcolor="#1F6E68", color="#155752"];
+        root_key -> root_ds [label="signs"];
+    }
+
+    subgraph cluster_tld {
+        label=".com zone";
+        labelloc="t";
+        fontsize=12;
+        color="#888888";
+        style="rounded";
+        bgcolor="transparent";
+        tld_key [label="DNSKEY\n(KSK+ZSK)", fillcolor="#2E5A88", color="#1F4870"];
+        tld_ds  [label="DS for example.com\n(signed)", fillcolor="#1F6E68", color="#155752"];
+        tld_key -> tld_ds [label="signs"];
+    }
+
+    subgraph cluster_leaf {
+        label="example.com zone";
+        labelloc="t";
+        fontsize=12;
+        color="#888888";
+        style="rounded";
+        bgcolor="transparent";
+        leaf_key [label="DNSKEY\n(KSK+ZSK)", fillcolor="#2E5A88", color="#1F4870"];
+        rrsig    [label="RRSIG over\nA / MX / TXT", fillcolor="#8B5E15", color="#6E4810"];
+        leaf_key -> rrsig [label="signs"];
+    }
+
+    anchor   -> root_key;
+    root_ds  -> tld_key  [label="hash matches"];
+    tld_ds   -> leaf_key [label="hash matches"];
+}

@@ -129,7 +129,7 @@ These are the planning assumptions for a single, plausible Yelp-shaped tenant �
 - Variable-radius search needs queries at multiple precisions, which inflates work and complicates caching.
 - Cell-boundary expansion (the "+8 neighbours" trick) is mandatory and easy to forget.
 
-**Real-world echo.** Uber's [H3 hexagonal hierarchical spatial index](https://www.uber.com/blog/h3/) was developed in part to escape the rectangular distortion and density problems of geohash, but kept the prefix-lookup ergonomics that make geohash so easy to operate. H3 has 16 resolutions, edge lengths roughly halve each level, and uniform hexagons make distance and neighbour math much cleaner than geohash rectangles — which is also why H3 is the default choice for **heat-map aggregation** of demand, supply, or visit data.
+**Real-world echo.** Uber's [H3 hexagonal hierarchical spatial index](https://www.uber.com/blog/h3/) was developed in part to escape the rectangular distortion and density problems of geohash, but kept the prefix-lookup ergonomics that make geohash so easy to operate. H3 has 16 resolutions and uses an aperture-7 subdivision: each finer resolution has cells with roughly one-seventh the area of the coarser one (edge length scales by $1/\sqrt{7} \approx 0.378$), per the [official H3 cell-statistics table](https://h3geo.org/docs/core-library/restable/). Uniform hexagons make distance and neighbour math much cleaner than geohash rectangles — which is also why H3 is the default choice for **heat-map aggregation** of demand, supply, or visit data.
 
 ### Path B: Quadtree / S2 geometry
 

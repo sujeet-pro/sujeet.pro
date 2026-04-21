@@ -2,32 +2,32 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph SIMPLE["Simple sorts — O(n²)"]
+    subgraph SIMPLE["Quadratic comparison sorts — O(n²)"]
         direction LR
-        BUB["Bubble Sort<br/>Pedagogical only"]
-        SEL["Selection Sort<br/>Minimises writes"]
-        INS["Insertion Sort<br/>Adaptive, fast on small n"]
+        BUB["Bubble Sort"]
+        SEL["Selection Sort"]
+        INS["Insertion Sort"]
     end
 
-    subgraph COMP["Comparison sorts — Θ(n log n)"]
+    subgraph COMP["Optimal comparison sorts — Θ(n log n)"]
         direction LR
-        QS["Quick Sort<br/>In-place, cache-friendly"]
-        MS["Merge Sort<br/>Stable, sequential I/O"]
-        HS["Heap Sort<br/>Guaranteed worst-case"]
+        QS["Quick Sort"]
+        MS["Merge Sort"]
+        HS["Heap Sort"]
     end
 
     subgraph LIN["Non-comparison sorts — O(n+k) or O(d·n)"]
         direction LR
-        CS["Counting Sort<br/>Small integer range"]
-        RS["Radix Sort<br/>Fixed-width keys"]
-        BUC["Bucket Sort<br/>Uniform distribution"]
+        CS["Counting Sort"]
+        RS["Radix Sort"]
+        BUC["Bucket Sort"]
     end
 
     subgraph HYB["Production hybrids"]
         direction LR
-        TIM["Tim Sort + Powersort<br/>Stable: Python, Java objects, V8"]
-        INTRO["Introsort<br/>Unstable: C++ std::sort"]
-        PDQ["pdqsort / ipnsort<br/>Unstable: Go, Rust ≥1.81"]
+        TIM["Tim Sort + Powersort<br/>(Python, Java obj, V8)"]
+        INTRO["Introsort<br/>(C++ std::sort)"]
+        PDQ["pdqsort / ipnsort<br/>(Go, Rust ≥1.81)"]
     end
 
     SIMPLE -. "switch below ~32 elements" .-> HYB

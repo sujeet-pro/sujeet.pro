@@ -1,0 +1,50 @@
+%% Diagram: Failure Chain — overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Trigger["Trigger: backbone maintenance command"]
+        CMD["Maintenance command\nto assess backbone capacity"]
+        AUDIT["Audit tool (bug):\nfails to block the command"]
+        CMD --> AUDIT
+    end
+
+    subgraph Backbone["Backbone network failure"]
+        DISC["All inter-DC backbone\nlinks severed"]
+        EDGE["Edge facilities detect:\ncannot reach data centers"]
+        DISC --> EDGE
+    end
+
+    subgraph BGP_DNS["BGP + DNS cascade"]
+        BGP["Edge routers withdraw\nBGP routes for the\nDNS-bearing prefixes"]
+        DNS["a–d.ns.facebook.com\nunreachable (still running)"]
+        RESOLVE["Recursive resolvers:\nSERVFAIL for all Meta domains"]
+        BGP --> DNS --> RESOLVE
+    end
+
+    subgraph Impact["Global impact (~6 hours)"]
+        USERS["~3.5B users across FB,\nInstagram, WhatsApp, Messenger"]
+        THIRD["3rd-party sites using\nFacebook Login / SDK"]
+        TOOLS["Internal tools, wikis,\nWorkplace down"]
+        REMOTE["Remote + OOB management\ninaccessible"]
+        PHYSICAL["Physical access delayed by\nnetwork-dependent security"]
+    end
+
+    subgraph Recovery["Recovery"]
+        DISPATCH["Engineers dispatched\nphysically to data centers"]
+        MANUAL["Manual backbone router\nreconfiguration on-site"]
+        STAGED["Staged service restoration\nto avoid traffic surge"]
+        DISPATCH --> MANUAL --> STAGED
+    end
+
+    AUDIT --> Backbone
+    Backbone --> BGP_DNS
+    BGP_DNS --> Impact
+    Impact --> Recovery
+
+    AUDIT:::alert
+    DISC:::alert
+    PHYSICAL:::warn
+    REMOTE:::warn
+
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff

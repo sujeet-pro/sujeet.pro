@@ -2,33 +2,35 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph H1["HTTP/1.1 (RFC 9112)"]
-        H1C["6 TCP connections per origin"]
-        H1HOL["App-layer HOL blocking"]
-        H1H["Plain-text headers per request"]
+    subgraph H1["HTTP/1.1 — RFC 9112"]
+        direction TB
+        H1A["6 TCP conns per origin"]
+        H1B["App-layer HOL"]
+        H1C["Plain-text headers"]
     end
 
-    subgraph H2["HTTP/2 (RFC 9113, 2022)"]
-        H2C["1 TCP + TLS connection"]
-        H2MUX["Multiplexed binary streams"]
-        H2H["HPACK header compression"]
+    H1 -.->|"frames + HPACK"| H2
+
+    subgraph H2["HTTP/2 — RFC 9113"]
+        direction TB
+        H2A["1 TCP + TLS conn"]
+        H2B["Multiplexed streams"]
+        H2C["HPACK compression"]
     end
 
-    subgraph H3["HTTP/3 (RFC 9114, 2022)"]
-        H3Q["QUIC over UDP"]
-        H3IS["Independent streams"]
-        H3HOL["No transport-layer HOL"]
-    end
+    H2 -.->|"TCP HOL on loss"| H3
 
-    H1C -.->|"replaced by"| H2C
-    H1HOL -.->|"solved by"| H2MUX
-    H1H -.->|"compressed by"| H2H
-    H2C -.->|"TCP HOL still bites on loss"| H3Q
+    subgraph H3["HTTP/3 — RFC 9114"]
+        direction TB
+        H3A["QUIC over UDP"]
+        H3B["Per-stream recovery"]
+        H3C["No transport HOL"]
+    end
 
     classDef legacy fill:#8B5E15,stroke:#6E4810,color:#ffffff
     classDef current fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef next fill:#1F6E68,stroke:#155752,color:#ffffff
 
-    class H1C,H1HOL,H1H legacy
-    class H2C,H2MUX,H2H current
-    class H3Q,H3IS,H3HOL next
+    class H1A,H1B,H1C legacy
+    class H2A,H2B,H2C current
+    class H3A,H3B,H3C next

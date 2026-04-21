@@ -1,0 +1,39 @@
+%% Diagram: B+ tree page-aware fanout - internal routing keys, leaf values, leaf chain
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    root["Root page\nkeys: [40, 80]"]:::internal
+
+    inA["Internal page\nkeys: [10, 20, 30]"]:::internal
+    inB["Internal page\nkeys: [50, 60, 70]"]:::internal
+    inC["Internal page\nkeys: [90, 100]"]:::internal
+
+    leaf1["Leaf\n(1..10) -> rows"]:::leaf
+    leaf2["Leaf\n(11..20) -> rows"]:::leaf
+    leaf3["Leaf\n(21..30) -> rows"]:::leaf
+    leaf4["Leaf\n(31..40) -> rows"]:::leaf
+    leaf5["Leaf\n(41..60) -> rows"]:::leaf
+    leaf6["Leaf\n(61..80) -> rows"]:::leaf
+    leaf7["Leaf\n(81..100) -> rows"]:::leaf
+
+    root --> inA
+    root --> inB
+    root --> inC
+
+    inA --> leaf1
+    inA --> leaf2
+    inA --> leaf3
+    inA --> leaf4
+    inB --> leaf5
+    inB --> leaf6
+    inC --> leaf7
+
+    leaf1 -. "next" .-> leaf2
+    leaf2 -. "next" .-> leaf3
+    leaf3 -. "next" .-> leaf4
+    leaf4 -. "next" .-> leaf5
+    leaf5 -. "next" .-> leaf6
+    leaf6 -. "next" .-> leaf7
+
+    classDef internal fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef leaf fill:#1F6E68,stroke:#155752,color:#fff

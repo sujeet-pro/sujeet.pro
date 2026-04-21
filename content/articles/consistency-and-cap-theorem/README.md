@@ -32,7 +32,7 @@ A working mental model of consistency for senior engineers: the CAP theorem as i
 
 ### Brewer's Conjecture to Formal Theorem
 
-Eric Brewer presented the CAP principle at PODC 2000, conjecturing that a distributed system cannot simultaneously provide Consistency, Availability, and Partition Tolerance. In 2002, Seth Gilbert and Nancy Lynch [formally proved this conjecture](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf), establishing it as a theorem.
+Eric Brewer introduced the CAP principle in his PODC 2000 keynote, ["Towards Robust Distributed Systems"](https://people.eecs.berkeley.edu/~brewer/cs262b-2004/PODC-keynote.pdf), conjecturing that a distributed system cannot simultaneously provide Consistency, Availability, and Partition Tolerance. In 2002, Seth Gilbert and Nancy Lynch [formally proved this conjecture](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf), establishing it as a theorem.
 
 The proof uses a simple construction: consider two nodes that cannot communicate (partitioned). If a client writes to one node and reads from the other, the system must either:
 
@@ -131,8 +131,8 @@ Consistency isn't binary—it's a hierarchy of models with different guarantees 
 
 **Definition (formal):** Defined by [Herlihy and Wing in TOPLAS 1990](https://dl.acm.org/doi/10.1145/78969.78972). Each operation appears to take effect atomically at a single point — its **linearization point** — between its invocation and its response, and that point order respects real time across all clients. If `op_a` returned before `op_b` started, no execution may order `op_b` before `op_a`.
 
-![Gantt-style timeline of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-light.svg "Linearizability: each operation collapses to a single point in real time; later operations must observe earlier ones.")
-![Gantt-style timeline of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-dark.svg)
+![Sequence diagram of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-light.svg "Linearizability: each operation collapses to a single linearization point in real time; later operations must observe earlier ones.")
+![Sequence diagram of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-dark.svg)
 
 **Mechanism:** Typically requires single-leader architecture or consensus protocols (Paxos, Raft) for coordination.
 
@@ -573,6 +573,7 @@ Understanding this spectrum—from the theoretical foundations of CAP through th
 
 #### Foundational Papers
 
+- [Towards Robust Distributed Systems](https://people.eecs.berkeley.edu/~brewer/cs262b-2004/PODC-keynote.pdf) — Brewer, PODC 2000 keynote. The original statement of the CAP conjecture.
 - [Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf) — Gilbert and Lynch, 2002. The formal proof of the CAP theorem.
 - [CAP Twelve Years Later: How the "Rules" Have Changed](https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/) — Brewer, 2012. Author's retrospective on CAP.
 - [Consistency Tradeoffs in Modern Distributed Database System Design](https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf) — Abadi, 2012. The PACELC theorem.

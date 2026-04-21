@@ -2,13 +2,13 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart LR
-    V1["v3.4.0<br/>Card shipped"] --> V2["v3.7.0<br/>Mark deprecated<br/>+ console warn<br/>+ migration doc"]
-    V2 --> V3["v3.8.0 - v3.10.0<br/>Codemod published<br/>Champions migrate"]
-    V3 --> V4["v4.0.0<br/>Card removed<br/>(major bump)"]
+    V1["v3.4 — Card ships"] --> V2["v3.7 — deprecate\nconsole.warn + docs"]
+    V2 --> V3["v3.8–3.10 — codemod\nchampions migrate"]
+    V3 --> V4["v4.0 — Card removed"]
 
-    classDef live fill:#1f6feb20,stroke:#1f6feb,color:#1f6feb
-    classDef warn fill:#fb950020,stroke:#fb9500,color:#b96c00
-    classDef removed fill:#cf222e20,stroke:#cf222e,color:#cf222e
+    classDef live fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef removed fill:#B43A3A,stroke:#8E2828,color:#ffffff
 
     class V1 live
     class V2,V3 warn

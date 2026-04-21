@@ -1488,11 +1488,18 @@ CREATE TABLE project_roles (
 );
 
 CREATE TABLE project_role_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role_id UUID NOT NULL REFERENCES project_roles(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id),
     group_id UUID REFERENCES groups(id),
-    PRIMARY KEY (role_id, COALESCE(user_id, group_id))
+    -- Exactly one of user_id / group_id must be set
+    CHECK ((user_id IS NULL) <> (group_id IS NULL))
 );
+-- Partial unique indexes guarantee no duplicate user / group per role
+CREATE UNIQUE INDEX idx_role_members_user
+    ON project_role_members (role_id, user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_role_members_group
+    ON project_role_members (role_id, group_id) WHERE group_id IS NOT NULL;
 
 CREATE TABLE permission_scheme_grants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1512,11 +1519,19 @@ CREATE TABLE issue_security_levels (
 );
 
 CREATE TABLE issue_security_level_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     level_id UUID NOT NULL REFERENCES issue_security_levels(id) ON DELETE CASCADE,
     role_id UUID REFERENCES project_roles(id) ON DELETE CASCADE,
     group_id UUID REFERENCES groups(id),
-    user_id UUID REFERENCES users(id)
+    user_id UUID REFERENCES users(id),
+    -- Exactly one of role_id / group_id / user_id must be set
+    CHECK (
+        (role_id IS NOT NULL)::int
+      + (group_id IS NOT NULL)::int
+      + (user_id IS NOT NULL)::int = 1
+    )
 );
+CREATE INDEX idx_isl_members_level ON issue_security_level_members(level_id);
 
 ALTER TABLE issues
     ADD COLUMN security_level_id UUID REFERENCES issue_security_levels(id);

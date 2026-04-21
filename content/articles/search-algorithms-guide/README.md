@@ -13,17 +13,17 @@ tags:
 
 # Search Algorithms: Linear, Binary, and Graph Traversal
 
-A comprehensive guide to search algorithms covering fundamental concepts, implementation details, performance characteristics, and real-world applications. Learn when to use each algorithm and understand the engineering trade-offs behind production search implementations.
+Pick the right search algorithm by reading two cues — how the data is organised, and what the search must return. This guide walks every common option (linear, binary, jump, interpolation, exponential, BFS, DFS, bidirectional BFS, Dijkstra, A\*) with TypeScript implementations, complexity bounds, and the trade-off that decides each one.
 
-![Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics](./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c-light.svg "Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics")
-![Search algorithm taxonomy showing array and graph search strategies with their complexity characteristics](./diagrams/search-algorithm-taxonomy-showing-array-and-graph-search-strategies-with-their-c-dark.svg)
+![Search algorithm taxonomy: array families on the left, graph families on the right, with the typical evolution paths between them](./diagrams/search-algorithm-taxonomy-light.svg "Two families of search: array algorithms move from linear to binary by sorting first; graph algorithms layer weights and heuristics on top of BFS to reach Dijkstra and A*.")
+![Search algorithm taxonomy: array families on the left, graph families on the right, with the typical evolution paths between them](./diagrams/search-algorithm-taxonomy-dark.svg)
 
-## Abstract
+## Mental model
 
-Search algorithms answer a fundamental question: _how do I find what I'm looking for?_ The answer depends on two factors: **data organization** and **search goal**.
+Two factors determine which search algorithm wins on a given problem: how the **data is organised** and what the **search goal** is. Everything below is a specialisation of those two axes.
 
-![The core mental model: data structure and goal determine algorithm choice](./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice-light.svg "The core mental model: data structure and goal determine algorithm choice")
-![The core mental model: data structure and goal determine algorithm choice](./diagrams/the-core-mental-model-data-structure-and-goal-determine-algorithm-choice-dark.svg)
+![Mental model: branch first on data structure (array vs graph), then on goal (sorted? edge weights? heuristic?), to land on a single algorithm](./diagrams/core-mental-model-light.svg "Mental model: data structure first (array vs graph), goal second (sortedness, edge weights, heuristic) — those two questions choose the algorithm.")
+![Mental model: branch first on data structure (array vs graph), then on goal (sorted? edge weights? heuristic?), to land on a single algorithm](./diagrams/core-mental-model-dark.svg)
 
 **Core trade-offs to internalize:**
 

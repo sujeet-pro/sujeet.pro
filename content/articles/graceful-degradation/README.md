@@ -792,6 +792,7 @@ Distributed-systems fundamentals (network partitions, CAP), service-oriented arc
 - **Bulkhead** — an isolation boundary that prevents failures from spreading.
 - **Circuit breaker** — a pattern that stops calling a failing dependency once a failure threshold is exceeded.
 - **Degradation hierarchy** — the ordered list of fallback behaviors between fully healthy and fully failed.
+- **Graceful degradation (frontend sense)** — the older web-design usage popularised in the progressive-enhancement debate is the *opposite* directionality: build the rich experience first, then make sure older browsers still render *something*. Jeremy Keith's *Resilient Web Design* and his "Hijax" / progressive-enhancement writing on adactio.com are the canonical references. [^keith-pe] This article uses the *systems* sense: a running service that gives up capability to preserve availability under failure.
 - **Goodput** — the fraction of work that produces useful results (vs. retries / dead requests).
 - **Jitter** — random variation added to timing to prevent synchronized client behavior.
 - **Load shedding** — rejecting excess requests early to maintain latency for admitted requests.
@@ -841,3 +842,4 @@ Distributed-systems fundamentals (network partitions, CAP), service-oriented arc
 [^netflix-acl]: Eran Landau, William Thurston, Tim Bozarth. "Performance Under Load — Adaptive Concurrency Limits @ Netflix," Netflix Tech Blog, 2018. <https://netflixtechblog.medium.com/performance-under-load-3e6fa9a60581>
 [^envoy-acl]: Envoy Proxy. "Adaptive Concurrency HTTP filter — Gradient Controller." <https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/adaptive_concurrency_filter>
 [^go-singleflight]: Go authors. "`golang.org/x/sync/singleflight`." <https://pkg.go.dev/golang.org/x/sync/singleflight>
+[^keith-pe]: Jeremy Keith. *Resilient Web Design*. <https://resilientwebdesign.com/> — and "Be progressive," adactio.com, 2014. <https://adactio.com/journal/7706>

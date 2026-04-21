@@ -1,0 +1,45 @@
+%% Diagram: Broker Selection Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start([Primary use case?]):::start
+
+    work{"Work distribution\n(task queue)"}:::decision
+    bcast{"Event broadcasting"}:::decision
+    src["Event sourcing /\naudit log"]:::leaf
+    rt["Real-time\n(sub-ms latency)"]:::leaf
+    mt["Multi-tenant platform"]:::leaf
+
+    routing{"Complex routing?"}:::decision
+    replay{"Need event replay?"}:::decision
+
+    rmq["RabbitMQ"]:::option
+    sqs["SQS or\nKafka consumer groups"]:::option
+    kp["Kafka or Pulsar"]:::option
+    sns["SNS or\nCloud Pub/Sub"]:::option
+    kafka["Kafka\n(log-based, long retention)"]:::option
+    nats["NATS or RabbitMQ"]:::option
+    pulsar["Pulsar\n(native multi-tenancy)"]:::option
+
+    start --> work
+    start --> bcast
+    start --> src
+    start --> rt
+    start --> mt
+
+    work --> routing
+    routing -- yes --> rmq
+    routing -- no --> sqs
+
+    bcast --> replay
+    replay -- yes --> kp
+    replay -- no --> sns
+
+    src --> kafka
+    rt --> nats
+    mt --> pulsar
+
+    classDef start fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef decision fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef leaf fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef option fill:#1F6E68,stroke:#155752,color:#fff

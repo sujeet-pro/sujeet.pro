@@ -3,7 +3,7 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Coordination["Coordination"]
-        direction LR
+        direction TB
         C1[Client 1] -->|"Acquire"| L((Lock Service))
         C2[Client 2] -->|"Acquire"| L
         L -->|"Granted"| C1

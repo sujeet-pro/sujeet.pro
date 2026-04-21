@@ -1,0 +1,28 @@
+%% Diagram: DataAdapter single-writer / many-reader topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CDN[(Statsig CDN<br/>download_config_specs)]
+
+    subgraph Writer["Single writer (cron or dedicated service)"]
+        direction TB
+        W[Writer SDK instance<br/>implements get + set]
+    end
+
+    Store[(Shared store<br/>Redis / Edge Config / DB)]
+
+    subgraph Readers["Webserver fleet (read-only DataAdapter)"]
+        direction TB
+        R1[Server SDK A<br/>set = no-op]
+        R2[Server SDK B<br/>set = no-op]
+        R3[Server SDK C<br/>set = no-op]
+    end
+
+    CDN -- "poll every 30 to 60s" --> W
+    W -- "set(key, spec)" --> Store
+    Store -- "get(key)" --> R1
+    Store -- "get(key)" --> R2
+    Store -- "get(key)" --> R3
+
+    Note1["Key format:<br/>statsig|{path}|{format}|{djb2(sdkKey)}"]
+    Store -.- Note1

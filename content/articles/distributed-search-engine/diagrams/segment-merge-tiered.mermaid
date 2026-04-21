@@ -1,11 +1,12 @@
 %% Diagram: Tiered Segment Merge Lifecycle
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
+flowchart LR
     BUF["In-memory buffer\nrefresh every 1s"]
     BUF -->|flush| T0
 
     subgraph T0["Tier 0 - small segments (~1-10 MB)"]
+        direction TB
         S0a["seg-1"]
         S0b["seg-2"]
         S0c["seg-3"]
@@ -14,12 +15,14 @@ flowchart TB
     end
 
     subgraph T1["Tier 1 - medium segments (~10-500 MB)"]
+        direction TB
         S1a["seg-A"]
         S1b["seg-B"]
         S1c["seg-C"]
     end
 
     subgraph T2["Tier 2 - large segments (~500 MB - 5 GB)"]
+        direction TB
         S2a["seg-X"]
         S2b["seg-Y"]
     end

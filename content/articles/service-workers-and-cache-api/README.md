@@ -19,15 +19,15 @@ tags:
 
 A senior-engineer reference for offline-first web architecture: how the [Service Worker API](https://www.w3.org/TR/service-workers/) (W3C Candidate Recommendation Draft, [9 April 2026 publication](https://www.w3.org/standards/history/service-workers/)) intercepts network requests and runs background work, how the [Cache API](https://www.w3.org/TR/service-workers/#cache-interface) stores `Request` → `Response` pairs durably, and how the lifecycle model lets you ship updates without two tabs running incompatible code. These APIs are the substrate of Progressive Web Apps (PWAs): the worker decides where each response comes from, the Cache API persists those responses across browser restarts, and the activation rules guarantee a single controlling version per scope at any moment.
 
-![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-light.svg "Service workers intercept requests and decide whether to serve from cache, network, or both")
-![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-dark.svg)
+![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/fetch-interception-overview-light.svg "Service workers intercept requests and decide whether to serve from cache, network, or both.")
+![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/fetch-interception-overview-dark.svg)
 
 ## Abstract
 
 Service workers represent a fundamental shift from traditional web architecture: instead of the browser directly fetching resources, an intermediary script can intercept every network request and programmatically decide how to respond.
 
-![Core design principles and their operational trade-offs](./diagrams/core-design-principles-and-their-operational-trade-offs-light.svg "Core design principles and their operational trade-offs")
-![Core design principles and their operational trade-offs](./diagrams/core-design-principles-and-their-operational-trade-offs-dark.svg)
+![Core design principles and their operational trade-offs](./diagrams/design-principles-tradeoffs-light.svg "Core design principles and their operational trade-offs.")
+![Core design principles and their operational trade-offs](./diagrams/design-principles-tradeoffs-dark.svg)
 
 **Mental model:**
 
@@ -51,8 +51,8 @@ The lifecycle is the most complex part of service workers—and the most importa
 
 ### State Machine
 
-![Service worker state transitions—only ](./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events-light.svg "Service worker state transitions—only \"activated\" workers handle fetch events")
-![Service worker state transitions—only ](./diagrams/service-worker-state-transitions-only-activated-workers-handle-fetch-events-dark.svg)
+![Service worker state transitions: only activated workers handle fetch events](./diagrams/lifecycle-state-machine-light.svg "Service worker state transitions: only activated workers handle fetch events.")
+![Service worker state transitions: only activated workers handle fetch events](./diagrams/lifecycle-state-machine-dark.svg)
 
 | State        | Can Handle Fetches? | Trigger to Next State                                     |
 | ------------ | ------------------- | --------------------------------------------------------- |
@@ -176,7 +176,9 @@ self.addEventListener("activate", (event) => {
 
 **When to avoid it:** The spec warns that with `skipWaiting()`, "new service worker is likely controlling pages that were loaded with an older version." If your JavaScript expects cached assets that changed, you'll get broken pages.
 
-**`clients.claim()` use case:** First-time installations where pages loaded before registration should immediately get service worker control. Jake Archibald notes: "I rarely do so myself. It only really matters on the very first load."
+**`clients.claim()` use case:** First-time installations where pages loaded before registration should immediately get service worker control. Jake Archibald notes that he rarely uses it himself because "it only really matters on the very first load"[^claim].
+
+[^claim]: [The service worker lifecycle — `clients.claim`](https://web.dev/articles/service-worker-lifecycle#clientsclaim), web.dev (Jake Archibald).
 
 ### Update Mechanism
 
@@ -447,8 +449,8 @@ Navigation preload solves a performance problem: when a user navigates, the brow
 
 Navigation preload starts the network request in parallel with worker startup:
 
-![Navigation preload eliminates serial worker startup + fetch delay](./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay-light.svg "Navigation preload eliminates serial worker startup + fetch delay")
-![Navigation preload eliminates serial worker startup + fetch delay](./diagrams/navigation-preload-eliminates-serial-worker-startup-fetch-delay-dark.svg)
+![Navigation preload eliminates serial worker startup and fetch delay](./diagrams/navigation-preload-sequence-light.svg "Navigation preload eliminates the serial worker-startup + fetch delay by issuing the request in parallel.")
+![Navigation preload eliminates serial worker startup and fetch delay](./diagrams/navigation-preload-sequence-dark.svg)
 
 ### Enabling Navigation Preload
 

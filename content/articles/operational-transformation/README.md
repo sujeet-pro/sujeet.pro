@@ -90,7 +90,7 @@ A worked example makes the position-shift concrete. Both sites start at `abc`. S
 ![Transform pair: a concurrent insert and delete on 'abc' converge to 'xab' after IT.](./diagrams/transform-pair-example-light.svg "Concrete transform-pair example: Ins(0,'x') and Del(2) on 'abc' converge to 'xab' after IT(Ins, Del) and IT(Del, Ins).")
 ![Transform pair: a concurrent insert and delete on 'abc' converge to 'xab' after IT.](./diagrams/transform-pair-example-dark.svg)
 
-The site-id tie-break in the insert/insert case is the canonical fix for the *dOPT puzzle* — the original Ellis & Gibbs (1989) algorithm did not specify a deterministic tie-break, and concurrent inserts at the same position produced divergent state at different replicas. Ressel et al. (1996) named the puzzle and the convergence properties it exposed.[^dopt]
+The site-id tie-break in the insert/insert case is the canonical fix for the *dOPT puzzle* — Ellis & Gibbs's (1989) original algorithm relied on a priority scheme rather than a deterministic site-id tie-break, and Cormack (1995) showed by counterexample that no priority assignment fixes dOPT for general broadcast communication. Sun & Ellis (CSCW'98) later named the scenario the *dOPT puzzle*; Ressel et al. (1996) had independently introduced the convergence properties (TP1/TP2) that any fix has to satisfy.[^dopt]
 
 ### Convergence properties (TP1 and TP2)
 
@@ -199,7 +199,7 @@ Raph Levien sums it up in his [_Towards a unified theory of Operational Transfor
 
 | Algorithm | Year | TP2 claim                | Status                                                                  |
 | --------- | ---- | ------------------------ | ----------------------------------------------------------------------- |
-| dOPT      | 1989 | Implied                  | Counterexample by Sun et al. (1995). [^sun-counter]                     |
+| dOPT      | 1989 | Implied                  | Counterexample by Cormack (1995). [^cormack-counter]                    |
 | adOPTed   | 1996 | Asserted                 | Counterexample by Imine et al. (2003).                                  |
 | SOCT2     | 1998 | Hand-written proof       | Counterexample via SPIKE theorem prover (Oster et al. 2005).            |
 | SDT       | 2002 | Claimed                  | Counterexample via SPIKE.                                               |
@@ -334,7 +334,7 @@ Joseph Gentle's [_I was wrong. CRDTs are the future_](https://josephg.com/blog/c
 
 ### Kleppmann's OT critique vs production wins
 
-Kleppmann's argument against OT — articulated in the [_Local-First Software_](https://www.inkandswitch.com/essay/local-first/) essay and the 2022 CACM article [_Making CRDTs byzantine fault tolerant_](https://martin.kleppmann.com/papers/convergence-cacm.pdf) — is not that OT is wrong, but that it has architectural costs that disqualify it for a class of products:
+Kleppmann's argument against OT — articulated in the [_Local-First Software_](https://www.inkandswitch.com/essay/local-first/) essay and the 2022 CACM "Research for Practice" column [_Convergence_](https://martin.kleppmann.com/papers/convergence-cacm.pdf) — is not that OT is wrong, but that it has architectural costs that disqualify it for a class of products:
 
 - **Central server is mandatory in practice.** TP1-only OT works because the server linearises operations. There is no known production-quality OT that does without a sequencer.
 - **Implementations are notoriously bug-prone.** Decades of published P2P OT algorithms have been refuted; even server-mediated implementations have to ship rich-text and tree extensions that academia has barely covered.
@@ -505,7 +505,7 @@ The dominance of Jupiter-style OT is not because the algorithm is elegant — it
 ### References
 
 - Ellis, C.A. & Gibbs, S.J. (1989). [_Concurrency Control in Groupware Systems_](https://dl.acm.org/doi/10.1145/67544.66963). ACM SIGMOD'89. Original dOPT (note: the canonical "GROVE" multi-user editor lineage cited in many OT histories begins here).
-- Sun, C. et al. (1995). [_A Counterexample to the Distributed Operational Transformation_](https://cs.uwaterloo.ca/research/tr/1995/08/dopt.pdf). UWaterloo TR. First refutation of dOPT.
+- Cormack, G.V. (1995). [_A Counterexample to the Distributed Operational Transform and a Corrected Algorithm for Point-to-point Communication_](https://cs.uwaterloo.ca/research/tr/1995/08/dopt.pdf). University of Waterloo Technical Report CS-95-08. First published refutation of dOPT.
 - Nichols, D.A. et al. (1995). [_High-latency, low-bandwidth windowing in the Jupiter collaboration system_](https://dl.acm.org/doi/10.1145/215585.215706). ACM UIST'95. Foundation for client-server OT.
 - Ressel, M. et al. (1996). [_An Integrating, Transformation-Oriented Approach to Concurrency Control and Undo in Group Editors_](https://dl.acm.org/doi/10.1145/240080.240305). ACM CSCW'96. Defined TP1/TP2 (then C1/C2).
 - Sun, C. & Ellis, C. (1998). [_Operational transformation in real-time group editors: issues, algorithms, and achievements_](https://dl.acm.org/doi/10.1145/289444.289469). ACM CSCW'98. GOT/GOTO; named the dOPT puzzle.
@@ -521,7 +521,7 @@ The dominance of Jupiter-style OT is not because the algorithm is elegant — it
 - Gentle, J. (2017). [_I was wrong. CRDTs are the future_](https://josephg.com/blog/crdts-are-the-future/). Ex-Wave / ShareJS author's retrospective.
 - Kleppmann, M. et al. (2019). [_Local-first software_](https://www.inkandswitch.com/essay/local-first/). Ink & Switch. The OT-vs-CRDT framing through the lens of user data ownership.
 - Kleppmann, M. (2020). [_CRDTs: The Hard Parts_](https://martin.kleppmann.com/2020/07/06/crdt-hard-parts-hydra.html). The CRDT counterweight.
-- Kleppmann, M. (2022). [_Making CRDTs byzantine fault tolerant_](https://martin.kleppmann.com/papers/convergence-cacm.pdf). CACM. Survey of OT/CRDT trade-offs.
+- Kleppmann, M. (2022). [_Research for Practice: Convergence_](https://martin.kleppmann.com/papers/convergence-cacm.pdf). Communications of the ACM 65(11). Curated survey of CRDTs, OT, mergeable replicated data types, and CALM/invariant confluence.
 - Microsoft Research. [_Recent Progress in Group Editors and Operational Transformation Algorithms_](https://www.microsoft.com/en-us/research/video/recent-progress-in-group-editors-and-operational-transformation-algorithms/). Background on OT inside Microsoft.
 - [Apache Wave OT Whitepaper](https://svn.apache.org/repos/asf/incubator/wave/whitepapers/operational-transform/operational-transform.html).
 - [Google Drive Blog (2010): _Making collaboration fast_](https://drive.googleblog.com/2010/09/whats-different-about-new-google-docs.html) and [_Conflict resolution_](https://drive.googleblog.com/2010/09/whats-different-about-new-google-docs_22.html).
@@ -529,11 +529,11 @@ The dominance of Jupiter-style OT is not because the algorithm is elegant — it
 - [CKEditor: _How collaborative editing drove CKEditor 5's architecture_](https://ckeditor.com/blog/lessons-learned-from-creating-a-rich-text-editor-with-real-time-collaboration/).
 - [ShareDB on GitHub](https://github.com/share/sharedb), [Yjs on GitHub](https://github.com/yjs/yjs), [ot.js documentation](https://ot.js.org/).
 
-[^dopt]: Ellis & Gibbs (1989) introduced dOPT but did not specify a deterministic tie-break for concurrent inserts at the same position. Sun et al. (UWaterloo TR, 1995) gave the first published counterexample; the scenario became known as the *dOPT puzzle* in Sun & Ellis's CSCW'98 paper.
+[^dopt]: Ellis & Gibbs (1989) parameterised dOPT on per-update *priorities* instead of a deterministic site-id tie-break. Cormack (UWaterloo TR CS-95-08, 1995) gave the first published two-site counterexample showing that no priority scheme fixes dOPT for general broadcast; the scenario was later named the *dOPT puzzle* in Sun & Ellis's CSCW'98 paper. Modern OT implementations replace the priority scheme with a deterministic tie-break (typically lexicographic site IDs).
 
 [^randolph]: Randolph et al. proved the impossibility for *classical signatures* — operations parameterised only by position and inserted character. Algorithms with extended signatures (tombstone IDs in TTF, context vectors in COT) are not refuted by this result; they pay for correctness with extra metadata per operation.
 
-[^sun-counter]: The Sun et al. UWaterloo technical report ([cs.uwaterloo.ca/research/tr/1995/08/dopt.pdf](https://cs.uwaterloo.ca/research/tr/1995/08/dopt.pdf)) presents the first formal counterexample; the puzzle gets a name in Sun & Ellis (CSCW'98).
+[^cormack-counter]: Gordon V. Cormack, *A Counterexample to the Distributed Operational Transform and a Corrected Algorithm for Point-to-point Communication*, University of Waterloo Technical Report CS-95-08 ([PDF](https://cs.uwaterloo.ca/research/tr/1995/08/dopt.pdf)), gives the first published two-site counterexample to dOPT for any priority scheme. The puzzle was later named the *dOPT puzzle* in Sun & Ellis (CSCW'98).
 
 [^gentle-hn]: Joseph Gentle, [Hacker News comment on Collaborative Editing in ProseMirror, 2015-08-04](https://news.ycombinator.com/item?id=10003918).
 

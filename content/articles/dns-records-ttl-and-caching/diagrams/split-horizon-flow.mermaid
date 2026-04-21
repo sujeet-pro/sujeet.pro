@@ -1,14 +1,14 @@
 %% Diagram: Split-horizon DNS — view selection by source IP
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    InternalClient["Internal client<br/>10.x.y.z"]
-    ExternalClient["External client<br/>public IP"]
-    AuthServer{"Authoritative server<br/>view selection by<br/>source ACL / EDNS-CS"}
-    InternalView[("Internal zone<br/>example.com<br/>api → 10.0.1.50<br/>db → 10.0.1.60")]
-    ExternalView[("External zone<br/>example.com<br/>www → 203.0.113.10<br/>api → NXDOMAIN")]
-    InternalAnswer["Returns 10.0.1.50<br/>(private RFC 1918)"]
-    ExternalAnswer["Returns 203.0.113.10<br/>or NXDOMAIN for<br/>internal-only names"]
+flowchart TB
+    InternalClient["Internal client\n10.x.y.z"]
+    ExternalClient["External client\npublic IP"]
+    AuthServer{"Authoritative server\nview selection by\nsource ACL / EDNS-CS"}
+    InternalView[("Internal zone\nexample.com\napi → 10.0.1.50\ndb → 10.0.1.60")]
+    ExternalView[("External zone\nexample.com\nwww → 203.0.113.10\napi → NXDOMAIN")]
+    InternalAnswer["Returns 10.0.1.50\n(private RFC 1918)"]
+    ExternalAnswer["Returns 203.0.113.10\nor NXDOMAIN for\ninternal-only names"]
 
     InternalClient -->|"query api.example.com"| AuthServer
     ExternalClient -->|"query api.example.com"| AuthServer
@@ -19,9 +19,9 @@ flowchart LR
     InternalAnswer --> InternalClient
     ExternalAnswer --> ExternalClient
 
-    classDef internal fill:#15803d,stroke:#14532d,color:#ffffff
-    classDef external fill:#b45309,stroke:#78350f,color:#ffffff
-    classDef pivot fill:#1e40af,stroke:#1e3a8a,color:#ffffff
+    classDef internal fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef external fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef pivot fill:#2E5A88,stroke:#1F4870,color:#ffffff
 
     class InternalClient,InternalView,InternalAnswer internal
     class ExternalClient,ExternalView,ExternalAnswer external

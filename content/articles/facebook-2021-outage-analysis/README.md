@@ -21,8 +21,8 @@ How a routine backbone-maintenance command at Facebook (now Meta) — meant to a
 
 [^kentik-3-5b]: ["Facebook's historic outage, explained" — Doug Madory, Kentik, 5 Oct 2021](https://www.kentik.com/blog/facebooks-historic-outage-explained/) cites the 3.5B combined-user figure and computes the corresponding "1.2 tera-lapse" of unavailability.
 
-![The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.](./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering-light.svg "The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.")
-![The failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers—itself delayed because security systems depended on the network.](./diagrams/the-failure-chain-a-maintenance-command-severed-backbone-connectivity-triggering-dark.svg)
+![Failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers — itself delayed because security systems depended on the network.](./diagrams/failure-chain-light.svg "Failure chain: a maintenance command severed the backbone, BGP withdrew the DNS-bearing prefixes, recursive resolvers SERVFAILed, and every recovery path shared fate with the failed backbone.")
+![Failure chain: a maintenance command severed backbone connectivity, triggering automated BGP route withdrawal. With no routes, DNS resolution failed globally. Recovery required physical access to data centers — itself delayed because security systems depended on the network.](./diagrams/failure-chain-dark.svg)
 
 ## Abstract
 
@@ -106,7 +106,7 @@ All times in UTC. External observatories (Cloudflare 1.1.1.1, RIPE NCC RIS, Kent
 | ~21:05 | Catchpoint observes Meta services "gradually return to normality"[^cp-503] | HTTP-level recovery begins |
 | ~21:11 | Brief reannouncement instability visible in BGPlay[^ripe-bgplay] | Minor hiccup as routes propagate |
 | ~21:20 | `facebook.com` resolves again on Cloudflare's 1.1.1.1[^cf-blog] | Public DNS recovers |
-| ~21:30 | BGP stable; full network-layer stabilization[^ripe-bgplay][^cf-blog] | ~5h 50m total outage |
+| ~21:28 | Cloudflare reports Facebook "appears to be reconnected to the global Internet"[^cf-blog]; BGP stable[^ripe-bgplay] | ~5h 50m total outage |
 
 [^ripe-bgplay]: ["Facebook Down and Out in BGPlay" — RIPE Labs, 5 Oct 2021](https://labs.ripe.net/author/alun_davies/facebook-down-and-out-in-bgplay/).
 [^cp-ttl]: Catchpoint observed the DNS records expiring in cache "five minutes later" — see ["Incident Review for the Facebook Outage" — Catchpoint, 4 Oct 2021](https://www.catchpoint.com/blog/incident-review-for-the-facebook-outage-when-social-networks-go-anti-social).

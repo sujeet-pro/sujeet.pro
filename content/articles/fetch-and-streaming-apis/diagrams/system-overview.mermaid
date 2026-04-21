@@ -3,9 +3,9 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Fetch["Fetch API"]
-        REQ["Request"] --> NET["network<br/>(HTTP/1.1, /2, /3)"]
+        REQ["Request"] --> NET["network\n(HTTP/1.1, /2, /3)"]
         NET --> RESP["Response"]
-        RESP --> BODY["response.body<br/>(ReadableStream)"]
+        RESP --> BODY["response.body\n(ReadableStream)"]
     end
 
     subgraph Streams["Streams API"]
@@ -24,9 +24,9 @@ flowchart TB
 
     BODY --> RS
 
-    classDef fetchBox fill:#1e40af,stroke:#1e3a8a,color:#ffffff
-    classDef streamsBox fill:#047857,stroke:#065f46,color:#ffffff
-    classDef abortBox fill:#b45309,stroke:#92400e,color:#ffffff
+    classDef fetchBox fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef streamsBox fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef abortBox fill:#8B5E15,stroke:#6E4810,color:#ffffff
     class REQ,NET,RESP,BODY fetchBox
     class RS,TS,WS streamsBox
     class AC,SIG abortBox

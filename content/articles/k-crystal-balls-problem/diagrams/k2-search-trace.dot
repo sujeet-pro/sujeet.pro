@@ -1,0 +1,17 @@
+// Diagram: Optimal k=2 trace for N=100, threshold=37 using the T=14 decreasing-step plan
+// Type: graphviz dependency chain
+digraph k2_search_trace {
+    graph [rankdir=LR, ratio="0.55", fontname="Helvetica", fontsize=14, bgcolor="transparent", nodesep="0.35", ranksep="0.45"];
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12,
+          fillcolor="#dae8fc", color="#6c8ebf", fontcolor="#1a1a1a"];
+    edge [fontname="Helvetica", fontsize=10, color="#888888", fontcolor="#1a1a1a"];
+
+    Start [label="Start\n2 eggs, T = 14", fillcolor="#f5f5f5", color="#666666"];
+    P14 [label="Egg #1 @ 14\nsafe (step 14)"];
+    P27 [label="Egg #1 @ 27\nsafe (step 13)"];
+    P39 [label="Egg #1 @ 39\nBREAK (step 12)", fillcolor="#f8cecc", color="#b85450"];
+    Scan [label="Egg #2 walks 28..38\n10 drops, breaks at 37", fillcolor="#fff2cc", color="#d6b656"];
+    Result [label="Threshold = 37\n3 + 10 = 13 drops\nbound = 14", fillcolor="#d5e8d4", color="#82b366"];
+
+    Start -> P14 -> P27 -> P39 -> Scan -> Result;
+}

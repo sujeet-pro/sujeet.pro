@@ -2,19 +2,19 @@
 %% Type: sequence
 sequenceDiagram
     participant App as User code
-    participant Loop as Event loop thread
-    participant Kern as Linux kernel (epoll)
+    participant EL as Event loop thread
+    participant Kern as Linux kernel epoll
     participant Sock as Non-blocking socket fd
 
-    App->>Loop: uv_read_start(stream, alloc_cb, read_cb)
-    Loop->>Kern: epoll_ctl(ADD, fd, EPOLLIN, level-triggered)
-    Note over Loop,Kern: Registration may be batched via io_uring<br/>(always-on as of v1.50.0)
-    Loop->>Kern: epoll_pwait(timeout = next_due_timer_ms)
-    Note over Kern: Loop thread blocks; CPU is yielded
+    App->>EL: uv_read_start(stream, alloc_cb, read_cb)
+    EL->>Kern: epoll_ctl(ADD, fd, EPOLLIN, level-triggered)
+    Note over EL,Kern: Registration may be batched via io_uring (always-on as of v1.50.0)
+    EL->>Kern: epoll_pwait(timeout = next_due_timer_ms)
+    Note over Kern: Event loop thread blocks and CPU is yielded
     Sock-->>Kern: TCP segments arrive, fd readable
-    Kern-->>Loop: epoll_pwait returns: fd EPOLLIN
-    Loop->>App: alloc_cb(handle, suggested_size, &buf)
-    Loop->>Sock: read(fd, buf.base, buf.len) — non-blocking
-    Sock-->>Loop: bytes (or EAGAIN, or 0 = EOF)
-    Loop->>App: read_cb(stream, nread, &buf)
-    Note over Loop,App: User sees a completion-style callback,<br/>even though Linux only signalled readiness.
+    Kern-->>EL: epoll_pwait returns: fd EPOLLIN
+    EL->>App: alloc_cb(handle, suggested_size, &buf)
+    EL->>Sock: read(fd, buf.base, buf.len) — non-blocking
+    Sock-->>EL: bytes (or EAGAIN, or 0 = EOF)
+    EL->>App: read_cb(stream, nread, &buf)
+    Note over EL,App: User sees a completion-style callback, even though Linux only signalled readiness.

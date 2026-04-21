@@ -1,15 +1,15 @@
 %% Diagram: Stylo / Quantum CSS parallel style recalc with work stealing
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     root["DOM root\npre-order traversal"] --> split["Split children into work units\nrayon work-stealing scheduler"]
 
     subgraph workers["Worker pool (one per core)"]
-        direction TB
+        direction LR
         w1["Worker 1\nsubtree A"]
         w2["Worker 2\nsubtree B"]
         w3["Worker 3\nsubtree C"]
-        w4["Worker 4\nidle - steals from queue"]
+        w4["Worker 4\nidle - steals"]
     end
 
     split --> w1

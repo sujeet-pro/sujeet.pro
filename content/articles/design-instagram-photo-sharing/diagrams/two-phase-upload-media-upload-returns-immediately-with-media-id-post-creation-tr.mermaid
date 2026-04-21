@@ -1,35 +1,26 @@
-%% Diagram: Two Phase Upload Media Upload Returns Immediately With Media Id Post Creation Tr
+%% Diagram: Two-phase upload — safety/EXIF + variants, then post creation triggers fan-out
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant C as Client
-    participant GW as Gateway
-    participant US as Upload
+    participant US as Upload Svc
+    participant SAFE as Safety + EXIF
     participant IMG as Processor
-    participant S3
-    participant CDN
-    participant PS as Post
+    participant S3 as Object + CDN
+    participant PS as Post Svc
 
-    C->>GW: POST /upload
-    GW->>US: forward
-    US->>US: validate
+    C->>US: POST /upload
+    US->>US: validate size + format
     US->>S3: store original
+    US->>SAFE: PhotoDNA / PDQ + classifiers
+    SAFE-->>US: allow / block / review
+    SAFE->>SAFE: strip GPS + serial EXIF
     US->>IMG: process
-
-    par Parallel
-        IMG->>IMG: 1080p
-        IMG->>IMG: 640p
-        IMG->>IMG: 320p
-        IMG->>IMG: 150p thumb
-        IMG->>IMG: filter
-    end
-
-    IMG->>S3: variants
-    IMG->>CDN: warm cache
+    IMG->>IMG: resize ladder 1080/640/320/150 + filter
+    IMG->>S3: write variants + warm edge
     US-->>C: 200 {media_id}
 
     Note over C: caption + tags
-    C->>GW: POST /posts
-    GW->>PS: create
-    PS->>PS: fan-out
+    C->>PS: POST /posts
+    PS->>PS: hybrid fan-out
     PS-->>C: 201 {post_id}

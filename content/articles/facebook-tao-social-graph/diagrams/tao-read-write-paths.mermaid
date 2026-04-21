@@ -2,33 +2,32 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant Client
-    participant F as Follower (slave region)
-    participant LB as Leader (slave region)
-    participant LA as Leader (master region)
+    participant C as Client
+    participant F as Follower\n(slave region)
+    participant LB as Leader\n(slave region)
+    participant LA as Leader\n(master region)
     participant DB as MySQL master
 
-    Note over Client,DB: Read — cache hit
-    Client->>F: assoc_range(id1, atype, 0, 50)
-    F-->>Client: cached prefix
+    Note over C,DB: Read — cache hit
+    C->>F: assoc_range(...)
+    F-->>C: cached prefix
 
-    Note over Client,DB: Read — cache miss
-    Client->>F: assoc_get(id1, atype, id2)
+    Note over C,DB: Read — cache miss
+    C->>F: assoc_get(...)
     F->>LB: forward miss
-    LB->>DB: SELECT (via local slave DB if present)
+    LB->>DB: SELECT (local slave DB)
     DB-->>LB: row(s)
     LB-->>F: data + version
-    F-->>Client: data
+    F-->>C: data
 
-    Note over Client,DB: Write (slave region)
-    Client->>F: assoc_add(id1, atype, id2, time, data)
+    Note over C,DB: Write (slave region)
+    C->>F: assoc_add(...)
     F->>LB: forward write
-    LB->>LA: cross-region forward to master leader
-    LA->>DB: INSERT (synchronous write-through)
+    LB->>LA: cross-region forward
+    LA->>DB: INSERT (write-through)
     DB-->>LA: ack
-    LA-->>LB: changeset (incl. inverse for id2's shard)
-    LB-->>F: changeset (read-after-write within tier)
-    F-->>Client: ack
-    LA--)LB: async invalidate/refill via replication stream
-    LB--)F: async invalidate/refill (other followers in tier)
+    LA-->>LB: changeset (+ inverse)
+    LB-->>F: changeset (read-after-write)
+    F-->>C: ack
+    LA--)LB: async invalidate/refill
+    LB--)F: async invalidate/refill

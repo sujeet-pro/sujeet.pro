@@ -93,7 +93,7 @@ When a domain doesn't exist (NXDOMAIN) or has no records of the requested type (
 
 Without this rule, an attacker could flood resolvers with queries for nonexistent names and force them to walk the hierarchy on every miss. The trade-off is operational: setting SOA `MINIMUM` to 86400 s (1 day) means a typo in a record name persists in caches for a day; setting it too low increases authoritative load. A 300–3600 s window is a common middle ground.
 
-[RFC 9520](https://datatracker.ietf.org/doc/rfc9520/) (2023) tightens the rules for the related but distinct case of *resolution failures* (timeouts, broken zones, validation failures): resolvers must cache failures for at least 1 second and at most 5 minutes, preventing the "retry storm against a broken authoritative" failure mode that previously had no normative bound. Modern terminology for both cases is consolidated in [RFC 9499](https://datatracker.ietf.org/doc/html/rfc9499) (2023), which obsoletes RFC 8499.
+[RFC 9520](https://datatracker.ietf.org/doc/rfc9520/) (2023) tightens the rules for the related but distinct case of *resolution failures* (timeouts, broken zones, validation failures): resolvers must cache failures for at least 1 second and at most 5 minutes, preventing the "retry storm against a broken authoritative" failure mode that previously had no normative bound. Modern terminology for both cases is consolidated in [RFC 9499](https://datatracker.ietf.org/doc/html/rfc9499) (March 2024), which obsoletes RFC 8499.
 
 ```bind title="example SOA record"
 example.com.  IN SOA ns1.example.com. admin.example.com. (

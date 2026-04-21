@@ -1,0 +1,24 @@
+%% Diagram: Orinoco heap structure — young generation (nursery + intermediate, semi-space copy) and old generation (concurrent mark-sweep-compact)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Young["Young Gen (1-16 MB)<br/>Parallel Scavenger"]
+        direction TB
+        Nursery["Nursery<br/>new allocations"]
+        Intermediate["Intermediate<br/>survived 1 scavenge"]
+        Nursery -->|"survives 1st"| Intermediate
+    end
+
+    subgraph Old["Old Gen<br/>Concurrent Mark-Sweep-Compact"]
+        direction TB
+        Mark["Mark<br/>concurrent (background)"]
+        Sweep["Sweep<br/>concurrent (background)"]
+        Compact["Compact<br/>parallel, full pause"]
+        Mark --> Sweep --> Compact
+    end
+
+    Intermediate -->|"survives 2nd<br/>promoted (black)"| Old
+
+    style Nursery fill:#e3f2fd
+    style Intermediate fill:#fff3e0
+    style Old fill:#e8f5e8

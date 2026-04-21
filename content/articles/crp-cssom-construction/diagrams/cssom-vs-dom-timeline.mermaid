@@ -10,7 +10,7 @@ sequenceDiagram
     Net-->>HP: HTML chunk 1
     HP-->>R: Partial DOM exposed (incremental)
     Net-->>CP: CSS bytes (chunk 1)
-    Note over CP: Buffered; partial CSSOM not exposed
+    Note over CP: Buffered, partial CSSOM not exposed
     Net-->>HP: HTML chunk 2
     HP-->>R: More DOM nodes (still incremental)
     Net-->>CP: CSS bytes (last chunk)

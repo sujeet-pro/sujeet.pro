@@ -2,25 +2,21 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     actor App
     participant Ctrl as AbortController
-    participant Fetch as fetch
-    participant Net as Network
+    participant Fetch as fetch + network
     participant RS as response.body
-    participant Pipe as pipeTo
-    participant Sink as WritableStream
+    participant Pipe as pipe + sink
 
     App->>Ctrl: new AbortController
     App->>Fetch: fetch with signal
-    Fetch->>Net: open connection
     App->>Pipe: pipeThrough then pipeTo with signal
 
-    Note over Net,Sink: Data flows. User clicks cancel.
+    Note over Fetch,Pipe: Data flows. User clicks cancel.
     App->>Ctrl: controller abort with reason
-    Ctrl-->>Fetch: signal aborted = true
-    Fetch-->>Net: terminate fetch and close socket
+    Ctrl-->>Fetch: signal aborted true
+    Fetch-->>Fetch: terminate fetch and close socket
     Ctrl-->>RS: reader cancel with reason
     RS-->>Pipe: cancel propagates downstream
-    Pipe-->>Sink: writer abort with reason
+    Pipe-->>Pipe: writer abort with reason
     Fetch-->>App: rejects with AbortError

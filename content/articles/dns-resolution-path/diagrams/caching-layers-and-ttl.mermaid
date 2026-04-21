@@ -4,7 +4,7 @@
 flowchart TB
     subgraph Path["Resolution path (forward)"]
         direction LR
-        App["Application"] --> Stub["Stub<br/>OS cache<br/>seconds–minutes"]
+        App["Application"] --> Stub["Stub<br/>OS cache<br/>seconds-minutes"]
         Stub --> Rec["Recursive<br/>honors TTL<br/>+ neg + failure"]
         Rec --> Auth["Authoritative<br/>sets TTL<br/>source of truth"]
     end

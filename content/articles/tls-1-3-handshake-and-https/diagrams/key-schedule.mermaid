@@ -9,12 +9,12 @@ flowchart TD
     HS["Handshake Secret<br/>HKDF-Extract(derived, ECDHE)"]
     MS["Master Secret<br/>HKDF-Extract(derived, 0s)"]
 
-    ETS["Early Traffic Secret<br/>(for 0-RTT)"]
-    HTS_C["Client Handshake Traffic Secret"]
-    HTS_S["Server Handshake Traffic Secret"]
-    ATS_C["Client Application Traffic Secret"]
-    ATS_S["Server Application Traffic Secret"]
-    EXP["Exporter / Resumption Master Secret"]
+    ETS["Early Traffic<br/>Secret (0-RTT)"]
+    HTS_C["Client Handshake<br/>Traffic Secret"]
+    HTS_S["Server Handshake<br/>Traffic Secret"]
+    ATS_C["Client App<br/>Traffic Secret"]
+    ATS_S["Server App<br/>Traffic Secret"]
+    EXP["Exporter /<br/>Resumption Secret"]
 
     PSK --> ES
     ES --> ETS

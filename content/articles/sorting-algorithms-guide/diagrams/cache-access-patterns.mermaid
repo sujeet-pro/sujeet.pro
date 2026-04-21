@@ -1,0 +1,21 @@
+%% Diagram: Cache access patterns — Quick Sort vs Heap Sort
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph QS["Quick Sort partition — sequential L1/L2-friendly access"]
+        direction TB
+        QSCells["[ a0 | a1 | a2 | a3 | a4 | a5 | a6 | a7 ]"]
+        QSScan["i and j scan inward, one cache line at a time"]
+        QSCells --> QSScan
+    end
+
+    subgraph HS["Heap Sort heapify — parent ↔ children jumps (2i+1, 2i+2)"]
+        direction TB
+        HSCells["[ i=0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 ]"]
+        HSJump1["root i=0 → children 1, 2"]
+        HSJump2["i=k near n/2 → children near n — span ≈ n/2"]
+        HSCells --> HSJump1
+        HSJump1 --> HSJump2
+    end
+
+    QS -. "Adjacent in memory: ≥1 hit per cache line" .-> HS

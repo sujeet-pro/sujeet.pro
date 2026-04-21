@@ -416,11 +416,6 @@ Two properties of the log made this safe to do incrementally:
 | **November 2024**       | [Tiered storage (KIP-405)](https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage) reaches GA in Kafka 3.9 — old segments offload to object storage |
 | **March 2025**          | Kafka 4.0 ships KRaft-only; ZooKeeper support fully removed |
 
-### Scale Progression
-
-![LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.](./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability-light.svg "LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.")
-![LinkedIn's Kafka throughput grew 7,000× in 13 years, demonstrating the scalability of the log-based architecture.](./diagrams/linkedin-s-kafka-throughput-grew-7-000-in-13-years-demonstrating-the-scalability-dark.svg)
-
 ### Unexpected Benefits
 
 **Stream processing foundation**: Kafka's ordered, durable log became the foundation for [Apache Samza](https://en.wikipedia.org/wiki/Apache_Samza) — donated to Apache in 2013, first 0.7.0 release in mid-2014 — and later for Kafka Streams, KSQL/ksqlDB, and the Kafka-on-Flink integrations, all of which treat the log as a database changelog.

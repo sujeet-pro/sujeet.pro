@@ -2,15 +2,16 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    App["Application / browser request"] --> BC{"Browser HTTP / Host cache?"}
-    BC -- "hit" --> Done["Connect using cached IP"]
-    BC -- "miss" --> Sys["OS resolver API (getaddrinfo)"]
-    Sys --> Hosts{"hosts file / NSS first?"}
+    App["Application / browser"] --> BC{"Browser HTTP /<br/>host cache"}
+    BC -- "miss" --> Sys["OS resolver API<br/>getaddrinfo"]
+    Sys --> Hosts{"hosts file /<br/>NSS first"}
+    Hosts -- "no match" --> mDNS{"name ends<br/>in .local"}
+    mDNS -- "no" --> OSCache{"OS / system<br/>resolver cache"}
+    OSCache -- "miss" --> Stub["Stub resolver<br/>queries recursive"]
+    Stub --> Recursive["Recursive resolver<br/>1.1.1.1 / 8.8.8.8"]
+    Recursive --> Iter["Iterative walk:<br/>root, TLD, authoritative"]
+
+    BC -- "hit" --> Done(["Connect using<br/>cached IP"])
     Hosts -- "match" --> Done
-    Hosts -- "no match" --> mDNS{"name ends in .local?"}
-    mDNS -- "yes" --> Multicast["mDNS multicast (224.0.0.251 / FF02::FB)"]
-    mDNS -- "no" --> OSCache{"OS / system cache?"}
     OSCache -- "hit" --> Done
-    OSCache -- "miss" --> Stub["Stub resolver: query configured recursive"]
-    Stub --> Recursive["Recursive resolver (ISP / 1.1.1.1 / 8.8.8.8)"]
-    Recursive --> Iter["Iterative walk: root, TLD, authoritative"]
+    mDNS -- "yes" --> Multicast["mDNS multicast<br/>224.0.0.251 / FF02::FB"]

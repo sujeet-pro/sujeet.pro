@@ -17,15 +17,15 @@ tags:
 
 CSS and typography sit on the critical rendering path: until the browser builds the CSSOM and resolves the font stack, it cannot paint a single pixel of meaningful content. This article is the CSS-and-fonts chapter of the [Web Performance Optimization series](../web-performance-overview/README.md), sitting between [JavaScript optimization](../web-performance-javascript-optimization/README.md) and [image optimization](../web-performance-image-optimization/README.md). It covers what render-blocking actually means, how to reduce it, how containment scopes layout work, and how to make font loading invisible to Cumulative Layout Shift (CLS).
 
-![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-light.svg "CSS and typography optimization stages: delivery, parsing, rendering, and font loading")
-![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-dark.svg)
+![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/optimization-pipeline-light.svg "CSS and typography optimization stages: delivery, parsing, rendering, and font loading")
+![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/optimization-pipeline-dark.svg)
 
 ## Abstract
 
 CSS and typography performance follows a layered optimization model:
 
-![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-light.svg "Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts")
-![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-dark.svg)
+![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/optimization-layers-light.svg "Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts")
+![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/optimization-layers-dark.svg)
 
 **Core mental model**: CSS is render-blocking by design — the browser must build the CSSOM before the first paint, otherwise it would risk a flash of unstyled content ([MDN: render-blocking CSS](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Critical_rendering_path#render_blocking_css)). Every optimization either reduces blocking time (critical CSS, compression), narrows the layout scope (containment), or prevents reflows (compositor animations, font metric overrides).
 
@@ -172,15 +172,13 @@ A hint for upcoming property transitions, letting the engine pre-promote a layer
 
 **Recommended pattern**: Toggle via JavaScript, not static CSS:
 
-```javascript title="will-change-toggle.js" collapse={1-2, 10-15}
+```javascript title="will-change-toggle.js"
 const modal = document.querySelector(".modal")
 
-// Apply before animation starts
 modal.addEventListener("mouseenter", () => {
   modal.style.willChange = "transform, opacity"
 })
 
-// Remove after animation completes
 modal.addEventListener("animationend", () => {
   modal.style.willChange = "auto"
 })
@@ -222,14 +220,17 @@ Animate only **opacity** and **transform** to keep the work on the compositor th
 
 Paint Worklets allow JavaScript-generated backgrounds executed off-main-thread. The CSS Paint API enables custom rendering without DOM overhead.
 
-```javascript title="checkerboard.js" collapse={1-2}
-// checkerboard.js - Paint Worklet module
+```javascript title="checkerboard.js"
 registerPaint(
   "checker",
   class {
     paint(ctx, geom) {
       const s = 16
-      for (let y = 0; y < geom.height; y += s) for (let x = 0; x < geom.width; x += s) ctx.fillRect(x, y, s, s)
+      for (let y = 0; y < geom.height; y += s) {
+        for (let x = 0; x < geom.width; x += s) {
+          ctx.fillRect(x, y, s, s)
+        }
+      }
     }
   },
 )
@@ -460,12 +461,12 @@ The [`font-display` descriptor](https://developer.mozilla.org/en-US/docs/Web/CSS
 ![font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods](./diagrams/font-display-strategies-light.svg "font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods")
 ![font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods](./diagrams/font-display-strategies-dark.svg)
 
-| Value      | Block period              | Swap period | Behavior          | CWV impact         | Use case                      |
-| ---------- | ------------------------- | ----------- | ----------------- | ------------------ | ----------------------------- |
-| `block`    | Short (~3s recommended)   | Infinite    | FOIT              | Bad FCP/LCP        | Icon fonts only               |
-| `swap`     | Extremely small (~0)      | Infinite    | FOUT              | Good FCP, risk CLS | Headlines with metric overrides |
-| `fallback` | Extremely small (~100ms)  | ~3s         | Compromise        | Balanced           | Body text                     |
-| `optional` | Extremely small (~100ms)  | None        | Performance-first | Excellent CLS      | Non-critical text             |
+| Value      | Block period             | Swap period | Behavior          | CWV impact         | Use case                        |
+| ---------- | ------------------------ | ----------- | ----------------- | ------------------ | ------------------------------- |
+| `block`    | Short (~3s recommended)  | Infinite    | FOIT              | Bad FCP/LCP        | Icon fonts only                 |
+| `swap`     | Extremely small (≤100ms) | Infinite    | FOUT              | Good FCP, risk CLS | Headlines with metric overrides |
+| `fallback` | Extremely small (≤100ms) | ~3s         | Compromise        | Balanced           | Body text                       |
+| `optional` | Extremely small (≤100ms) | None        | Performance-first | Excellent CLS      | Non-critical text               |
 
 **The exact timings are recommendations, not normative.** [CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/#font-display-desc) defines relative concepts ("extremely small", "short") rather than exact milliseconds. Implementations vary — Firefox exposes the threshold as `gfx.downloadable_fonts.fallback_delay`, and Chrome's `optional` may skip the network request entirely on slow connections.
 
@@ -642,7 +643,7 @@ These compile to static CSS at build time, achieving the same performance as han
 
 ### 7.3 Custom Metrics
 
-```javascript title="performance-monitoring.js" collapse={1-2, 12-13}
+```javascript title="performance-monitoring.js"
 // Monitor font loading with PerformanceObserver
 const fontObserver = new PerformanceObserver((list) => {
   list.getEntries().forEach((entry) => {

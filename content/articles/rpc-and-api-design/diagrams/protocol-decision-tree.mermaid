@@ -3,20 +3,20 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
     Start([New API surface])
-    Start --> Q1{Browser is a<br/>first-class client?}
+    Start --> Q1{"Browser is a\nfirst-class client?"}
 
-    Q1 -- Yes --> Q2{Clients fetch<br/>varying field shapes?}
-    Q1 -- No --> Q3{Need streaming<br/>or sub-ms RPC?}
+    Q1 -- Yes --> Q2{"Clients fetch\nvarying field shapes?"}
+    Q1 -- No --> Q3{"Need streaming\nor sub-ms RPC?"}
 
-    Q2 -- Yes --> GQL[Use GraphQL<br/>add depth/complexity limits<br/>+ persisted operations]
-    Q2 -- No --> Q4{Public / third-party<br/>integrators?}
+    Q2 -- Yes --> GQL["Use GraphQL\n+ depth limits\n+ persisted ops"]
+    Q2 -- No --> Q4{"Public / third-party\nintegrators?"}
 
-    Q4 -- Yes --> REST[Use REST<br/>cacheable, debuggable,<br/>tooling-rich]
-    Q4 -- No --> Q5{Server-to-server<br/>but browser-reachable?}
-    Q5 -- Yes --> gRPCWeb[Use gRPC-Web<br/>via Envoy or Connect]
+    Q4 -- Yes --> REST["Use REST\ncacheable, debuggable,\ntooling-rich"]
+    Q4 -- No --> Q5{"Server-to-server\nbut browser-reachable?"}
+    Q5 -- Yes --> gRPCWeb["Use gRPC-Web\nvia Envoy or Connect"]
     Q5 -- No --> REST
 
-    Q3 -- Yes --> gRPC[Use gRPC<br/>HTTP/2 streams, protobuf,<br/>code-gen contracts]
-    Q3 -- No --> Q6{Multilingual fleet<br/>with strict contracts?}
+    Q3 -- Yes --> gRPC["Use gRPC\nHTTP/2, protobuf,\ncode-gen"]
+    Q3 -- No --> Q6{"Multilingual fleet,\nstrict contracts?"}
     Q6 -- Yes --> gRPC
     Q6 -- No --> REST

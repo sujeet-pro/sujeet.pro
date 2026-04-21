@@ -2,16 +2,16 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    A["10M concurrent users<br/>(headline forecast)"] --> B[CDN waiting room: HTML + queue cookie]
-    B -->|edge absorbs polling| C["~1M unique arrivals/min<br/>(humans + bots)"]
-    C -->|WAF + bot scoring| D["~600K eligible humans"]
-    D -->|admission gate metered<br/>to backend capacity| E["~50K admitted users<br/>(over sale window)"]
-    E -->|reservation TTL holds stock| F["~12K start payment"]
-    F -->|payment success| G["~10K confirmed orders<br/>(= inventory)"]
+    A["10M users (forecast)"] --> B["CDN waiting room"]
+    B -->|edge absorbs polls| C["~1M arrivals/min"]
+    C -->|WAF + bot scoring| D["~600K humans"]
+    D -->|admission gate| E["~50K admitted"]
+    E -->|reservation TTL| F["~12K start payment"]
+    F -->|payment OK| G["~10K orders = inventory"]
 
-    classDef edge fill:#e3f2fd,stroke:#1565c0;
-    classDef gate fill:#fff3e0,stroke:#e65100;
-    classDef terminal fill:#e8f5e9,stroke:#2e7d32;
+    classDef edge fill:#2E5A88,stroke:#1F4870,color:#fff;
+    classDef gate fill:#8B5E15,stroke:#6E4810,color:#fff;
+    classDef terminal fill:#2D7A2D,stroke:#1F5A1F,color:#fff;
     class A,B,C edge;
     class D,E gate;
     class F,G terminal;

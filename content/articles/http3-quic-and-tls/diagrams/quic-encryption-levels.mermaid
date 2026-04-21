@@ -3,23 +3,26 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
     subgraph Public["Publicly derivable"]
-        DCID["Destination Connection ID + version-specific salt"]
-        DCID --> InitKey["Initial keys (HKDF-Expand)"]
-        InitKey --> Initial["Initial packets — integrity only"]
+        direction TB
+        DCID["DCID + version salt"]
+        DCID --> InitKey["Initial keys\n(HKDF-Expand)"]
+        InitKey --> Initial["Initial packets\nintegrity only"]
     end
 
     subgraph PSK["From cached session ticket"]
+        direction TB
         Resume["Pre-Shared Key (PSK)"]
-        Resume --> EarlyKey["0-RTT (early data) keys"]
-        EarlyKey --> Zero["0-RTT packets — replayable, no PFS"]
+        Resume --> EarlyKey["0-RTT keys\n(early data)"]
+        EarlyKey --> Zero["0-RTT packets\nreplayable, no PFS"]
     end
 
     subgraph Hand["From TLS 1.3 ECDHE"]
+        direction TB
         ECDHE["ECDHE shared secret"]
         ECDHE --> HSKey["Handshake keys"]
         HSKey --> Handshake["Handshake packets"]
-        ECDHE --> AppKey["1-RTT (application) keys"]
-        AppKey --> OneRTT["1-RTT packets — confidentiality + PFS"]
+        ECDHE --> AppKey["1-RTT keys\n(application)"]
+        AppKey --> OneRTT["1-RTT packets\nconfidentiality + PFS"]
     end
 
     Initial --> Handshake

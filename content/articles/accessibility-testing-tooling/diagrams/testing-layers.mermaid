@@ -4,36 +4,28 @@
 flowchart TB
     subgraph DEV["Dev time"]
         direction TB
-        Lint["jsx-a11y<br/>36 lint rules"]
+        Lint["jsx-a11y\n36 lint rules"]:::dev
     end
 
     subgraph CI["CI gate"]
         direction TB
-        Comp["jest-axe<br/>component"]
-        E2E["Playwright<br/>+ axe-core"]
-        Pa["Pa11y-CI<br/>axe + HTMLCS"]
-        LH["Lighthouse CI<br/>~57 audits"]
-        Comp --- E2E
-        E2E --- Pa
-        Pa --- LH
+        Comp["jest-axe\ncomponent"]:::ci
+        E2E["Playwright\n+ axe-core"]:::ci
+        Pa["Pa11y-CI\naxe + HTMLCS"]:::ci
+        LH["Lighthouse CI\n~57 audits"]:::ci
+        Comp --> E2E --> Pa --> LH
     end
 
     subgraph MAN["Manual"]
         direction TB
-        KB["Keyboard pass<br/>tab, focus, SPA"]
-        SR["Screen readers<br/>NVDA / JAWS / VO"]
-        EXT["WAVE / axe IGT"]
-        KB --- SR
-        SR --- EXT
+        KB["Keyboard pass\ntab, focus, SPA"]:::manual
+        SR["Screen readers\nNVDA / JAWS / VO"]:::manual
+        EXT["WAVE / axe IGT"]:::manual
+        KB --> SR --> EXT
     end
 
-    subgraph COV["Coverage signals (different metrics)"]
-        direction TB
-        VOL["~57% issues by volume<br/>(Deque corpus)"]
-        CRIT["~13 / 45 / 42% criteria<br/>(reliable / partial / none)"]
-        VOL --- CRIT
-    end
+    DEV --> CI --> MAN
 
-    DEV --> CI
-    CI --> MAN
-    MAN --> COV
+    classDef dev fill:#1F6E68,stroke:#155752,color:#fff
+    classDef ci fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef manual fill:#8B5E15,stroke:#6E4810,color:#fff

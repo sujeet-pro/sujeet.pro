@@ -124,6 +124,12 @@ The same trap appears with `for...of` on a live collection if the body adds or r
 > [!TIP]
 > Default to `querySelectorAll` for one-shot processing and `getElementsByClassName`/`children` only when you actually want a live view. The live collections amortize their cost over many mutations, but the overhead of maintaining them is real and the mental model they impose on code is heavier than the snapshot.
 
+### `getElementById` vs `querySelector('#id')`
+
+Both work; their cost models differ. Every `Document` maintains an internal map from `id` attribute values to elements, kept in sync as the tree mutates — `getElementById` is a hash lookup against that map and is the spec-defined fast path for "find the element with this id".[^getbyid] `querySelector` walks a parsed selector against the scope's tree using the standard scope-match algorithm; in modern engines, simple `#id` selectors are pattern-matched into the same id-map lookup, but anything more complex (`'#id .child'`, `'main #id'`) drops out of that fast path and traverses normally.[^selectorperf]
+
+Practically: prefer `getElementById` when you actually have an `id` and you want the cheapest possible lookup; reach for `querySelector` when the predicate is anything richer than "this exact id". The difference is usually invisible at single-call scale but compounds inside hot loops or framework reconciliation paths that resolve thousands of nodes per render.
+
 ## Traversal and structural mutation
 
 The DOM gives you four traversal surfaces. They overlap in capability but differ in what they include and how programmable they are.
@@ -578,3 +584,5 @@ A short list of the patterns that consistently show up in profiles:
 [^cssch]: W3C, [CSS Custom Highlight API Module Level 1](https://drafts.csswg.org/css-highlight-api-1/); MDN, [CSS Custom Highlight API](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API) — Baseline June 2025.
 [^perfobs]: W3C, [Performance Timeline](https://w3c.github.io/performance-timeline/#dom-performanceobserver); MDN, [PerformanceObserver](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver).
 [^editcontext]: W3C, [EditContext API](https://w3c.github.io/edit-context/); MDN, [EditContext API](https://developer.mozilla.org/en-US/docs/Web/API/EditContext_API) — currently experimental, behind flags in non-Chromium engines.
+[^getbyid]: WHATWG DOM Standard, [`Document.getElementById()`](https://dom.spec.whatwg.org/#dom-nonelementparentnode-getelementbyid) (on the `NonElementParentNode` mixin) — returns the first element in tree order whose ID is `elementId`, using the document's id-to-element map.
+[^selectorperf]: Chromium documentation, [Selector matching and the simple-selector fast path](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/core/css/README.md); WebKit, [CSS Selector JIT compiler](https://webkit.org/blog/3271/webkit-css-selector-jit-compiler/) — engines pattern-match trivial selectors (a single `#id`, `.class`, or `tag`) into direct map / sibling-bucket lookups; anything richer falls back to the general selector matcher.

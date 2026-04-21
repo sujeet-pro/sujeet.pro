@@ -53,7 +53,10 @@ Shopify is a multi-tenant e-commerce platform built on Ruby on Rails. The monoli
 | Deploys per day                   | ~40                 | ~40                             |
 | Production services               | ~100                | 400+                            |
 
-**Tech stack**: Ruby on Rails (monolith), MySQL (primary datastore, petabyte-scale), Redis, Memcached, Apache Kafka, Elasticsearch, Kubernetes on Google Kubernetes Engine (GKE), nginx + OpenResty (load balancing), Go and Lua (infrastructure tooling) ([Shopify Engineering, 2018](https://shopify.engineering/e-commerce-at-scale-inside-shopifys-tech-stack)).
+**Tech stack**: Ruby on Rails (monolith), MySQL (primary datastore, petabyte-scale), Redis, Memcached, Apache Kafka, Elasticsearch, Kubernetes on Google Kubernetes Engine (GKE), nginx + OpenResty (internal load balancing), Go and Lua (infrastructure tooling) ([Shopify Engineering, 2018](https://shopify.engineering/e-commerce-at-scale-inside-shopifys-tech-stack)). The public edge — DNS, TLS termination, CDN, DDoS — sits on Cloudflare ([Cloudflare customer story](https://www.cloudflare.com/case-studies/shopify/)); pod routing happens behind that edge on Shopify-operated nginx/OpenResty.
+
+> [!NOTE]
+> Two different "edges" coexist at Shopify and are easy to confuse. The public edge that absorbs the BFCM request firehose is Cloudflare. **Pod routing** happens one layer in, on Shopify-operated nginx + OpenResty load balancers — that is where the Sorting Hat lives. Separately, the [Oxygen runtime](https://shopify.dev/docs/storefronts/headless/hydrogen/deployments/oxygen-runtime) for Hydrogen headless storefronts is a Cloudflare Workers–based platform; it is a sibling product to the pod-based monolith, not part of it ([Shopify Engineering, 2022](https://shopify.engineering/how-we-built-oxygen)).
 
 ### The trigger
 
@@ -269,7 +272,7 @@ This pipeline is **read-only and eventually consistent**. There are no cross-pod
 
 **Scale.** Hundreds of thousands of shops are moved between pods every year for rebalancing ([Shopify Engineering, 2021](https://shopify.engineering/mysql-database-shard-balancing-terabyte-scale)).
 
-**Correctness.** The central migration algorithm is specified in **TLA+** (Temporal Logic of Actions). The TLA+ specification lives in the [`tlaplus/` directory of the Ghostferry repo](https://github.com/Shopify/ghostferry) and was used to surface concurrency edge cases — particularly around `UPDATE → INSERT → DELETE` sequences whose ordering can be violated when routes flip mid-migration — that integration testing alone would not have caught.
+**Correctness.** The central migration algorithm is specified in **TLA+** (Temporal Logic of Actions). The TLA+ specification lives in the [`tlaplus/` directory of the Ghostferry repo](https://github.com/Shopify/ghostferry) and is used to make the high-level design and its invariants reviewable — particularly the interleaving of batch copy, binlog tailing, and cutover, where event ordering at the boundary is easy to get wrong. The README itself flags that the spec is a design tool, not a machine-checked proof of the implementation; integration tests still carry that load.
 
 ### Pod balancer: automated rebalancing
 
@@ -431,7 +434,7 @@ These tests run against the actual production pod infrastructure. Each pod is in
 
 #### 4. Formal verification catches what testing misses
 
-**The insight.** Shopify used TLA+ to specify Ghostferry's migration algorithm. During the later [Vitess migration for the Shop app](https://shopify.engineering/horizontally-scaling-the-rails-backend-of-shop-app-with-vitess), the team encountered roughly 25 bugs (six or so in Vitess itself), including race conditions where `UPDATE row → INSERT row_2 → DELETE row` sequences could land on different shards. Formal verification is particularly valuable for stateful operations where ordering and concurrency bugs cause silent data loss.
+**The insight.** Shopify used TLA+ to specify Ghostferry's migration algorithm; the spec lives in `tlaplus/` in the public repo and was used to surface concurrency invariants the test suite could not enumerate ([Ghostferry README](https://github.com/Shopify/ghostferry)). Independently, the later [Vitess migration for the Shop app](https://shopify.engineering/horizontally-scaling-the-rails-backend-of-shop-app-with-vitess) hit roughly 25 bugs — about six in Vitess itself — including a cross-shard ordering race where an `UPDATE row_1 → INSERT row_2 → DELETE row_1` sequence relied on a unique constraint that no longer held once the rows lived on different shards. Both stories point the same direction: ordering and concurrency failures in stateful migrations cause silent data loss, and informal review is not enough to catch them.
 
 **How it applies elsewhere.**
 

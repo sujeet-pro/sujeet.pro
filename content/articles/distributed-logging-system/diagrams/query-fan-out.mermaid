@@ -1,21 +1,17 @@
 %% Diagram: Query fan-out across tiers and shards
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     Client[Query client] --> QF["Query frontend\nauth, tenant scope,\ncache, split by time"]
     QF --> Sched["Scheduler\nplan + fan-out"]
 
-    Sched -->|recent| H1["Hot shard 0"]
-    Sched -->|recent| H2["Hot shard 1"]
-    Sched -->|7-90d| W1["Warm shard 0"]
-    Sched -->|7-90d| W2["Warm shard 1"]
-    Sched -->|>90d| C1["Cold reader\nfetch from S3"]
+    Sched -->|recent| H["Hot shards\n(NVMe, full index)"]
+    Sched -->|7-90d| W["Warm shards\n(SSD/HDD, merged)"]
+    Sched -->|>90d| C["Cold reader\nfetch from S3"]
 
-    H1 --> M["Merge + sort\ndedupe by id"]
-    H2 --> M
-    W1 --> M
-    W2 --> M
-    C1 --> M
+    H --> M["Merge + sort\ndedupe by id"]
+    W --> M
+    C --> M
 
     M --> Cache[("Result cache")]
     Cache --> Client
@@ -27,7 +23,7 @@ flowchart LR
     classDef io fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
 
     class Client,QF,Sched ctl
-    class H1,H2 hot
-    class W1,W2 warm
-    class C1 cold
+    class H hot
+    class W warm
+    class C cold
     class M,Cache io

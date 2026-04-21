@@ -1,23 +1,23 @@
 %% Diagram: Flannel edge cache — boot path and pub/sub freshness
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph CL["Clients (same workspace)"]
+        direction TB
         C1["Client 1"]
         C2["Client 2"]
         C3["Client 3"]
     end
 
-    subgraph EdgePoP["Edge PoP"]
-        FlannelHost["Flannel host<br/>workspace-pinned via consistent hash"]
-    end
+    FlannelHost["Flannel host\nworkspace-pinned via consistent hash"]
 
     subgraph Backend["Backend (origin)"]
+        direction TB
         Webapp["Webapp / APIs"]
-        WS["Backend WebSocket<br/>real-time event stream"]
+        WS["Backend WebSocket\nreal-time event stream"]
     end
 
-    C1 -- "boot: slim payload (7–44x smaller)" --> FlannelHost
+    C1 -- "boot: slim payload (7-44x smaller)" --> FlannelHost
     C2 -- "lazy: profile, channel detail" --> FlannelHost
     C3 -- "presence (filtered)" --> FlannelHost
 
@@ -25,6 +25,6 @@ flowchart LR
     WS -- "subscribe: members, channels, presence" --> FlannelHost
     FlannelHost -- "proactive prefetch on @mention" --> C1
 
-    style FlannelHost fill:#818cf8,stroke:#4338ca,color:#ffffff
-    style Webapp fill:#34d399,stroke:#1E5A1E,color:#ffffff
-    style WS fill:#fb923c,stroke:#c2410c,color:#ffffff
+    style FlannelHost fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    style Webapp fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    style WS fill:#8B5E15,stroke:#6E4810,color:#ffffff

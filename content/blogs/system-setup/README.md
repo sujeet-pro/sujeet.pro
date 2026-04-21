@@ -276,7 +276,7 @@ I use **Zed** as the daily editor (and as `$EDITOR`), **Cursor** for AI-heavy re
 ~/Library/Application Support/Code/User/settings.json      → configs/vscode/settings.json
 ```
 
-The terminal is **Ghostty** (with **cmux** as a Ghostty-based multiplexer for split panes and persistent sessions). One Ghostty config powers both:
+The terminal is **Ghostty** (with **[cmux](https://github.com/manaflow-ai/cmux)** as a `libghostty`-based macOS terminal with vertical tabs, native split panes, and workspace restore — useful when juggling several AI agents at once). One Ghostty config powers both:
 
 ```ini title="configs/ghostty/config"
 font-family = JetBrainsMono Nerd Font

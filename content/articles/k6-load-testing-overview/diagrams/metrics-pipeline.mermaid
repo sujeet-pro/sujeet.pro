@@ -1,25 +1,26 @@
 %% Diagram: k6 metrics → thresholds pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph VU["Per-VU runtime"]
-        Iter["Iteration<br/>http.get / check"] --> Sample["Sample<br/>name + value + tags"]
+        direction TB
+        Iter["Iteration\nhttp.get / check"] --> Sample["Sample\nname + value + tags"]
     end
 
-    Sample --> Bus["Metrics bus<br/>(Go channel)"]
-    Bus --> Sink["Output sink<br/>stdout / JSON / Prom / xk6-output"]
-    Bus --> Agg["Aggregator<br/>per-metric type"]
+    Sample --> Bus["Metrics bus\n(Go channel)"]
+    Bus --> Sink["Output sink\nstdout / JSON / Prom / xk6-output"]
+    Bus --> Agg["Aggregator\nper-metric type"]
 
-    Agg --> Counter["Counter<br/>monotonic sum"]
-    Agg --> Gauge["Gauge<br/>last value"]
-    Agg --> Rate["Rate<br/>% non-zero"]
-    Agg --> Trend["Trend<br/>min/avg/p95/p99"]
+    Agg --> Counter["Counter\nmonotonic sum"]
+    Agg --> Gauge["Gauge\nlast value"]
+    Agg --> Rate["Rate\n% non-zero"]
+    Agg --> Trend["Trend\nmin/avg/p95/p99"]
 
-    Counter --> Eval["Threshold evaluator<br/>per options.thresholds"]
+    Counter --> Eval["Threshold evaluator\nper options.thresholds"]
     Gauge --> Eval
     Rate --> Eval
     Trend --> Eval
 
-    Eval --> Result{"All thresholds<br/>satisfied?"}
-    Result -- yes --> Pass["exit 0<br/>CI gate passes"]
-    Result -- no --> Fail["exit 99<br/>CI gate fails"]
+    Eval --> Result{"All thresholds\nsatisfied?"}
+    Result -- yes --> Pass["exit 0\nCI gate passes"]
+    Result -- no --> Fail["exit 99\nCI gate fails"]

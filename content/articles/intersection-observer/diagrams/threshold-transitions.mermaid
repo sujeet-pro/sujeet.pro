@@ -2,7 +2,7 @@
 %% Type: stateDiagram
 %%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
-  direction LR
+  direction TB
   [*] --> Outside: first observation<br/>previousThresholdIndex = -1<br/>previousIsIntersecting = false
   Outside --> Partial: any pixel intersects<br/>thresholdIndex = 1<br/>isIntersecting = true
   Partial --> HalfPlus: ratio crosses 0.5<br/>thresholdIndex = 2

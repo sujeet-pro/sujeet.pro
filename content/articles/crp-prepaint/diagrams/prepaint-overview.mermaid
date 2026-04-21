@@ -17,23 +17,18 @@ flowchart TD
 
     subgraph Outputs["Outputs (consumed by Paint)"]
         direction TB
-        TT["Transform Tree"]
-        CT["Clip Tree"]
-        ET["Effect Tree"]
-        ST["Scroll Tree"]
+        Trees["4 property trees:<br/>transform / clip / effect / scroll"]
         PTS["PropertyTreeState per FragmentData<br/>(transform, clip, effect, scroll)"]
         DIC["Dirty DisplayItemClients"]
     end
 
     LO --> Walk
     FT -.geometry.-> PI
-    PTB --> TT
-    PTB --> CT
-    PTB --> ET
-    PTB --> ST
-    TT & CT & ET & ST --> PTS
+    PTB --> Trees
+    Trees --> PTS
     PI --> DIC
 
     style Walk fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style PTB fill:#e8f5e9,stroke:#2e7d32
     style PI fill:#ffebee,stroke:#c62828
+    style Trees fill:#e8f5e9,stroke:#2e7d32

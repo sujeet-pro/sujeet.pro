@@ -326,8 +326,11 @@ self.addEventListener("activate", (event: ExtendableEvent) => {
 
 Jake Archibald's [Offline Cookbook](https://web.dev/articles/offline-cookbook) defines the canonical caching strategies. Each has distinct trade-offs.
 
-![Four Service Worker cache strategies side by side: cache-first returns the cached copy and only goes to network on miss, network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes in the background, cache-only never touches the network.](./diagrams/cache-strategies-light.svg "Cache-first, network-first, stale-while-revalidate, and cache-only — the four canonical Service Worker cache strategies and where the network fits in each.")
-![Four Service Worker cache strategies side by side: cache-first returns the cached copy and only goes to network on miss, network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes in the background, cache-only never touches the network.](./diagrams/cache-strategies-dark.svg)
+![Cache-priority Service Worker strategies: cache-first returns the cached copy and only goes to network on miss, cache-only returns cached or an offline page and never touches the network.](./diagrams/cache-strategies-passive-light.svg "Cache-priority strategies — cache-first and cache-only. Both consult the cache first; only cache-first falls back to the network on miss.")
+![Cache-priority Service Worker strategies: cache-first returns the cached copy and only goes to network on miss, cache-only returns cached or an offline page and never touches the network.](./diagrams/cache-strategies-passive-dark.svg)
+
+![Network-aware Service Worker strategies: network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes the cache in the background.](./diagrams/cache-strategies-network-light.svg "Network-aware strategies — network-first and stale-while-revalidate. Both touch the network on every request; SWR returns the cached copy first while it refreshes.")
+![Network-aware Service Worker strategies: network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes the cache in the background.](./diagrams/cache-strategies-network-dark.svg)
 
 **Cache-First**: Serve from cache, fall back to network. Best for static assets that rarely change.
 
@@ -753,8 +756,8 @@ Browser → Service Worker → Cache API → (Network when available)
 
 **Architecture**: Changes stored in IndexedDB queue, processed when online. Server is source of truth.
 
-![Sequence diagram for the sync queue pattern: user edits, app appends to IndexedDB queue and renders an optimistic update, Service Worker drains the queue when connectivity returns, server returns success or conflict, Service Worker posts a message back to the page to confirm or surface the conflict.](./diagrams/sync-strategy-sequence-light.svg "Sync queue happy path with optimistic UI, Service Worker draining the queue, and three terminal outcomes: ack, permanent error, transient retry.")
-![Sequence diagram for the sync queue pattern: user edits, app appends to IndexedDB queue and renders an optimistic update, Service Worker drains the queue when connectivity returns, server returns success or conflict, Service Worker posts a message back to the page to confirm or surface the conflict.](./diagrams/sync-strategy-sequence-dark.svg)
+![Sequence diagram for the sync queue pattern: user edits, the client (app + Service Worker + IndexedDB) queues the change and renders an optimistic update, then drains the queue to the server when connectivity returns, with three terminal outcomes — ack, permanent error, transient retry.](./diagrams/sync-strategy-sequence-light.svg "Sync queue happy path: optimistic UI, queued mutation, then three terminal outcomes — 2xx ack, 4xx conflict, 5xx retry on the next sync event.")
+![Sequence diagram for the sync queue pattern: user edits, the client (app + Service Worker + IndexedDB) queues the change and renders an optimistic update, then drains the queue to the server when connectivity returns, with three terminal outcomes — ack, permanent error, transient retry.](./diagrams/sync-strategy-sequence-dark.svg)
 
 **Best for**:
 

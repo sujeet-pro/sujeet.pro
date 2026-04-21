@@ -2,31 +2,30 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant H as Heap (row 'A')
-    participant T1 as T1 (writer)
-    participant T2 as T2 (Read Committed)
-    participant T3 as T3 (Repeatable Read)
+    participant H as Heap
+    participant T1 as T1 writer
+    participant T2 as T2 (RC)
+    participant T3 as T3 (RR)
 
-    note over H: v1 {xmin=100, xmax=0}\nbalance=100 (committed)
+    note over H: v1: xmin=100 xmax=0\nbalance=100
 
-    T1->>H: BEGIN (xid=200)
-    T2->>H: BEGIN, snapshot xmin>=200 in-progress
-    T3->>H: BEGIN, snapshot xmin>=200 in-progress
+    T1->>H: BEGIN xid=200
+    T2->>H: BEGIN, snapshot
+    T3->>H: BEGIN, snapshot
 
-    T2->>H: SELECT balance
-    H-->>T2: sees v1 = 100 (xmin=100 committed,\nxmax=0)
+    T2->>H: SELECT
+    H-->>T2: v1 = 100
 
-    T1->>H: UPDATE balance = 150
-    note over H: v1 {xmin=100, xmax=200}\nv2 {xmin=200, xmax=0}\n(xid=200 still in-progress)
+    T1->>H: UPDATE balance=150
+    note over H: v1: xmin=100 xmax=200\nv2: xmin=200 xmax=0\n(xid 200 still in-progress)
 
-    T3->>H: SELECT balance
-    H-->>T3: sees v1 = 100 (xmin=200\nnot in T3 snapshot)
+    T3->>H: SELECT
+    H-->>T3: v1 = 100\n(xmin=200 not in snapshot)
 
     T1->>H: COMMIT
 
-    T2->>H: SELECT balance again
-    H-->>T2: sees v2 = 150 (fresh snapshot\nper statement at RC)
+    T2->>H: SELECT (re-read)
+    H-->>T2: v2 = 150\n(fresh snapshot at RC)
 
-    T3->>H: SELECT balance again
-    H-->>T3: still sees v1 = 100\n(snapshot frozen at BEGIN — no\nphantoms, no non-repeatable reads)
+    T3->>H: SELECT (re-read)
+    H-->>T3: v1 = 100\n(snapshot frozen at BEGIN)

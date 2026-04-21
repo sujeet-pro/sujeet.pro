@@ -1,22 +1,21 @@
 %% Diagram: useSyncExternalStore tearing prevention
 %% Type: sequence
 sequenceDiagram
-    autonumber
-    participant Store as "External store"
-    participant React as "React (concurrent renderer)"
-    participant Comp1 as "Component A"
-    participant Comp2 as "Component B"
+    participant S as Store
+    participant R as React
+    participant A as Comp A
+    participant B as Comp B
 
-    Note over React: Concurrent render begins (interruptible)
-    React->>Comp1: Render
-    Comp1->>Store: getSnapshot() returns v1
-    Note over Store: External mutation: v1 -> v2
-    React->>Comp2: Render (paused tasks resume)
-    Comp2->>Store: getSnapshot() returns v2
-    Note over React: Pre-commit consistency check<br/>useSyncExternalStore re-reads snapshot
-    React->>Store: getSnapshot() returns v2
-    Note over React: v2 != snapshot read by Comp1<br/>Tearing detected
-    React->>React: Restart render synchronously with v2
-    React->>Comp1: Re-render with v2
-    React->>Comp2: Re-render with v2
-    React->>React: Commit (all components see v2)
+    Note over R: Concurrent render begins (interruptible)
+    R->>A: Render
+    A->>S: getSnapshot() -> v1
+    Note over S: External mutation: v1 -> v2
+    R->>B: Render (paused tasks resume)
+    B->>S: getSnapshot() -> v2
+    Note over R: Pre-commit consistency check<br/>re-read snapshot
+    R->>S: getSnapshot() -> v2
+    Note over R: v2 != snapshot read by A<br/>Tearing detected
+    R->>R: Restart render synchronously with v2
+    R->>A: Re-render with v2
+    R->>B: Re-render with v2
+    R->>R: Commit (all components see v2)

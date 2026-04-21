@@ -1,0 +1,28 @@
+%% Diagram: Chromium multi-process architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BP["Browser Process (privileged kernel)"]
+        direction TB
+        UI["UI · tab management"]
+        Nav["Navigation controller"]
+        PolicyEnf["Policy enforcement"]
+    end
+
+    NP["Network Service<br/>(utility process)<br/>DNS · HTTP · disk cache"]
+    GPU["GPU / Viz Process<br/>raster · display compositor"]
+
+    subgraph Renderers["Site-locked renderer processes"]
+        direction LR
+        RP1["Renderer A — site A<br/>Blink · V8 · CC thread"]
+        RP2["Renderer B — site B<br/>Blink · V8 · CC thread"]
+    end
+
+    Ext["Extension Process<br/>background SW · content scripts"]
+
+    BP <-->|Mojo IPC| NP
+    BP <-->|Mojo IPC| GPU
+    BP <-->|Mojo IPC| Renderers
+    BP <-->|Mojo IPC| Ext
+
+    Renderers -- "compositor frames" --> GPU

@@ -129,7 +129,7 @@ GitHub runs continuous migration tests on all production tables (including table
 
 **Problem**: The previous failover mechanism used DNS and VIPs (Virtual IP Addresses), which suffered from DNS TTL (Time to Live) propagation delays, split-brain scenarios, and required the dead primary to cooperate in the failover process.
 
-**Solution**: GitHub adopted and became the primary upstream maintainer of **orchestrator**, a MySQL replication topology management and high-availability tool. The architecture:
+**Solution**: GitHub adopted and became the primary upstream maintainer of **orchestrator**, a MySQL replication topology management and high-availability tool authored by Shlomi Noach (originally at Outbrain in 2014, then Booking.com, then GitHub from 2016 to 2020). The architecture:
 
 1. **orchestrator/raft**: Multiple orchestrator nodes across data centers communicate via Raft consensus. No single data center constitutes a majority, preventing isolated-DC split-brain
 2. **Consul**: Per-datacenter key-value store maintaining primary node identities (Fully Qualified Domain Name, port, IP addresses)
@@ -472,6 +472,6 @@ The deeper lesson is about sequencing. GitHub built operational safety (tooling 
 - [Introduction to Vitess and Real-World Usage](https://kccnceu2023.sched.com/event/1Hzda/) — Arthur Schreiber (GitHub) and Florent Poinsard (PlanetScale), KubeCon EU 2023
 - [GitHub Upgrades its MySQL Infrastructure from v5.7 to 8.0](https://www.infoq.com/news/2024/02/github-mysql-upgrade-v8/) — InfoQ, February 2024
 - [github/gh-ost](https://github.com/github/gh-ost) — GitHub repository (MIT License, 13,000+ stars)
-- [openark/orchestrator](https://github.com/openark/orchestrator) — GitHub repository
+- [openark/orchestrator](https://github.com/openark/orchestrator) — GitHub repository (archived February 2025; active development continues at [percona/orchestrator](https://github.com/percona/orchestrator))
 - [github/freno](https://github.com/github/freno) — GitHub repository (MIT License)
 - [trilogy-libraries/trilogy](https://github.com/trilogy-libraries/trilogy) — GitHub repository (MIT License)

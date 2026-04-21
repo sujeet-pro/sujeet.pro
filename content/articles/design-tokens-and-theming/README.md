@@ -353,7 +353,7 @@ Density is the most under-modelled dimension in most design systems. A density m
 
 Implementation rules learned the hard way:
 
-- **Touch targets are non-negotiable.** Even in compact mode keep an interactive bounding box of at least 44×44 CSS pixels for primary controls (per [WCAG 2.2 SC 2.5.8 Target Size (Minimum)](https://www.w3.org/TR/WCAG22/#target-size-minimum)). Visual padding can shrink; the hit area cannot.
+- **Touch targets are non-negotiable.** Even in compact mode keep an interactive hit area of at least 24×24 CSS pixels — the floor set by [WCAG 2.2 SC 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) (AA). Material's own [density guidance](https://m3.material.io/blog/material-density-web) keeps the touchable area at 48 dp (≈48 CSS px) regardless of the visible component, which also clears the AAA 44×44 bar in [SC 2.5.5 Target Size (Enhanced)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html). Visual padding can shrink; the hit area cannot.
 - **Density belongs at the application root.** Mixing densities on the same screen breaks rhythm and confuses users. Carbon is the exception: per-component sizing exists because Carbon serves dense data UIs where a 24 px input next to a 48 px button is the desired affordance.
 - **Density is a spacing problem first, not a font problem.** Resist scaling typography along with density unless you are also adjusting line height — text becomes illegible faster than UI feels cramped.
 

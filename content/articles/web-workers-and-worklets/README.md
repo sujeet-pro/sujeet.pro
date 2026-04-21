@@ -103,7 +103,7 @@ Differences from a Dedicated Worker:
 - State persists across page navigations within the same origin via the spec's [between-loads shared worker timeout](https://html.spec.whatwg.org/multipage/workers.html#dom-sharedworker), which lets a same-origin reload reattach without losing state.
 
 > [!NOTE]
-> Browser support for Shared Workers has been uneven. Safari shipped them in version 16, but they remain unavailable on iOS WebKit-derived browsers. Treat them as an enhancement layer when designing cross-tab features; fall back to [`BroadcastChannel`](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) plus per-tab Dedicated Workers when you need a portable baseline.
+> Browser support for Shared Workers was uneven for years. Safari shipped them on macOS in version 16 (2022) and on iOS in [Safari 16.4](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/) (March 2023), so every iOS WebKit-derived browser inherits support automatically. Older iOS baselines still ship in production, so for cross-tab features that have to work on the long tail, fall back to [`BroadcastChannel`](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) plus per-tab Dedicated Workers.
 
 ### Service Workers
 
@@ -144,7 +144,7 @@ The behavioural contract differs sharply from Dedicated and Shared Workers:
 | DOM access    | None                                     | None (talks to clients via `Client.postMessage`)  |
 | Start trigger | Explicit construction                    | `fetch`, `push`, `sync`, `notificationclick`, etc. |
 
-Event handlers must complete quickly. Long-running work belongs inside [`event.waitUntil(promise)`](https://w3c.github.io/ServiceWorker/#dom-extendableevent-waituntil), which keeps the worker alive until the promise settles. Even with `waitUntil`, the browser will eventually evict an idle worker — Chromium [terminates after roughly 30 seconds of inactivity](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), and a single in-flight event capped at 5 minutes. Treat Service Worker memory as ephemeral and persist anything you need in `caches`, `IndexedDB`, or the [`FileSystemHandle`](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) APIs.
+Event handlers must complete quickly. Long-running work belongs inside [`event.waitUntil(promise)`](https://w3c.github.io/ServiceWorker/#dom-extendableevent-waituntil), which keeps the worker alive until the promise settles. Even with `waitUntil`, the browser will eventually evict an idle worker — Chromium terminates after roughly 30 seconds of inactivity and caps a single in-flight event at about 5 minutes (the heuristics are documented for [extension service workers](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), and the same Blink scheduler runs page service workers). Treat Service Worker memory as ephemeral and persist anything you need in `caches`, `IndexedDB`, or the [Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
 
 > [!IMPORTANT]
 > Service Workers register against an HTTPS origin (or `localhost` for development). The script's URL determines the maximum scope. A worker at `/scripts/sw.js` cannot control `/`; either move the script to the root or set the `Service-Worker-Allowed` response header to widen its scope.
@@ -321,6 +321,26 @@ self.onerror = (message, filename, lineno, colno, error) => {
 ```
 
 `messageerror` fires when the receiving side cannot deserialize a message — typically because a transferable was already detached or a serialized class no longer matches the expected shape. Unhandled promise rejections inside the worker fire `unhandledrejection` on the worker global scope, mirroring the main-thread API.
+
+### Higher-level abstractions
+
+Hand-rolling request/response IDs on top of `postMessage` is repetitive and easy to get wrong. [Comlink](https://github.com/GoogleChromeLabs/comlink) wraps both ends in a `Proxy` so the worker exports look like ordinary async methods on the main thread:
+
+```js title="Comlink-wrapped worker" collapse={1-2,11-15}
+import * as Comlink from "comlink"
+
+const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" })
+const api = Comlink.wrap(worker)
+const result = await api.factorial(1_000_000n)
+
+// worker.js
+import * as Comlink from "comlink"
+Comlink.expose({
+  factorial(n) { /* ... */ },
+})
+```
+
+Comlink uses the same structured clone + transferable rules under the hood, so the cost model is identical — it removes boilerplate, not overhead. For zero-copy paths, pass transferables explicitly via `Comlink.transfer(value, [arrayBuffer])`.
 
 ## SharedArrayBuffer and Atomics
 

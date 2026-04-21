@@ -43,7 +43,8 @@ Write explicit invariants, for example:
 3. **Idempotency:** Replaying the same event or batch twice does not corrupt final state (see [RFC 9110: safe and idempotent methods](https://www.rfc-editor.org/rfc/rfc9110.html#name-common-method-properties) for the HTTP analogy; the same discipline applies to consumers).
 4. **Rollback boundary:** You can revert reads to the old store without data loss **or** you accept forward-only loss and document it.
 
-> **NOTE:** If you cannot state rollback in one sentence, you are not ready for a production cutover—only for a rehearsal.
+> [!NOTE]
+> If you cannot state rollback in one sentence, you are not ready for a production cutover—only for a rehearsal.
 
 ## Schema evolution: expand and contract
 
@@ -59,7 +60,8 @@ For large tables, the **expand** step is the one that breaks naive `ALTER TABLE`
 
 Postgres does not need an external tool for most schema changes — recent versions ship transactional DDL, `CREATE INDEX CONCURRENTLY`, and lock-light `ALTER TABLE` variants — but the same expand/contract sequencing applies, especially across logical replication boundaries where the publisher and subscriber must agree on the wire schema ([PostgreSQL documentation: Logical replication](https://www.postgresql.org/docs/current/logical-replication.html)).
 
-> **TIP:** Expand-only DDL is the only kind of DDL safe to ship under a flag-gated rollout. If a deploy contains a `DROP COLUMN`, `RENAME`, or `NOT NULL` tightening, it is by definition not a rollout — it is a cutover, with all the gates that implies.
+> [!TIP]
+> Expand-only DDL is the only kind of DDL safe to ship under a flag-gated rollout. If a deploy contains a `DROP COLUMN`, `RENAME`, or `NOT NULL` tightening, it is by definition not a rollout — it is a cutover, with all the gates that implies.
 
 ## Dual writes versus single commit plus fan-out
 

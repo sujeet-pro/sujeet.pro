@@ -31,8 +31,8 @@ into a foot-gun. The target reader is a senior engineer who needs to design or
 audit cookie attributes, CSRF tokens, and CORS headers for a production SPA +
 JSON API.
 
-![Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.](./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or-light.svg "Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.")
-![Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.](./diagrams/csrf-exploits-ambient-authority-cookies-sent-automatically-cors-controls-same-or-dark.svg)
+![Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.](./diagrams/defense-surface-light.svg "Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.")
+![Browser-side defenses (SameSite, Fetch Metadata, CORS) and server-side defenses (CSRF tokens, origin verification, custom headers) compose to block CSRF and police cross-origin reads.](./diagrams/defense-surface-dark.svg)
 
 ## Mental model
 
@@ -291,10 +291,10 @@ class SynchronizerTokenManager {
 
   verifyToken(session, submittedToken) {
     if (!session.csrfToken || !submittedToken) return false
-    return crypto.timingSafeEqual(
-      Buffer.from(session.csrfToken),
-      Buffer.from(submittedToken),
-    )
+    const expected = Buffer.from(session.csrfToken)
+    const submitted = Buffer.from(submittedToken)
+    if (expected.length !== submitted.length) return false
+    return crypto.timingSafeEqual(expected, submitted)
   }
 }
 
@@ -308,7 +308,9 @@ app.use((req, res, next) => {
 ```
 
 Use [`crypto.timingSafeEqual`](https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b)
-to defeat timing oracles on the comparison.
+to defeat timing oracles on the comparison. Always length-check first —
+`timingSafeEqual` throws `RangeError` when the buffers differ in length,
+which would otherwise leak a partial oracle through the exception path.
 
 | Advantage | Disadvantage |
 | --- | --- |

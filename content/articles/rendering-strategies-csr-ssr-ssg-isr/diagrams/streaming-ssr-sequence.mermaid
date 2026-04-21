@@ -2,22 +2,22 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Browser
-    participant Server as SSR Server
-    participant Fast as Fast Data
-    participant Slow as Slow Data
+    participant B as Browser
+    participant S as SSR Server
+    participant F as Fast data
+    participant L as Slow data
 
-    Browser->>Server: GET /product/42
-    Server-->>Browser: HTML shell + nav + Suspense fallbacks (TTFB)
-    Note over Browser: Browser parses, renders shell\nFCP / LCP can already happen
+    B->>S: GET /product/42
+    S-->>B: shell + Suspense fallbacks (TTFB)
+    Note over B: Renders shell\nFCP / LCP can fire
     par Resolve in parallel
-        Server->>Fast: query product info
-        Fast-->>Server: 30 ms response
-        Server-->>Browser: <script>$RC swaps fallback A
+        S->>F: query product
+        F-->>S: 30 ms
+        S-->>B: $RC swaps fallback A
     and
-        Server->>Slow: query recommendations
-        Slow-->>Server: 400 ms response
-        Server-->>Browser: <script>$RC swaps fallback B
+        S->>L: query recommendations
+        L-->>S: 400 ms
+        S-->>B: $RC swaps fallback B
     end
-    Server-->>Browser: closes connection
-    Note over Browser: Selective hydration\nattaches handlers per Suspense
+    S-->>B: close connection
+    Note over B: Selective hydration\nper Suspense boundary

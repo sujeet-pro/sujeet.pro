@@ -2,36 +2,15 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph LIFE["Task Lifecycle"]
-        SUBMIT["Submit task"] --> STORE["Persist in queue / DB"]
-        STORE --> SCHEDULE["Scheduler claims work"]
-        SCHEDULE --> ASSIGN["Assign to worker"]
-        ASSIGN --> EXECUTE["Worker executes"]
-        EXECUTE --> SUCCESS["Success"]
-        EXECUTE --> FAIL["Failure"]
-        FAIL --> RETRY{"Retry budget left?"}
-        RETRY -->|Yes, with backoff| STORE
-        RETRY -->|No| DLQ["Dead letter queue"]
-    end
-
-    subgraph COORD["Coordination layer"]
-        LEADER["DB row locks<br/>or leader election"]
-        PARTITION["Task partitioning<br/>or work stealing"]
-        HEARTBEAT["Heartbeat<br/>monitoring"]
-    end
-
-    subgraph STORAGE["Storage options"]
-        DB[(Relational DB)]
-        BROKER[Message broker<br/>Redis / RabbitMQ / Kafka]
-        HYBRID["Hybrid: DB + broker"]
-    end
-
-    SCHEDULE -.->|claim| LEADER
-    ASSIGN -.->|route| PARTITION
-    EXECUTE -.->|liveness| HEARTBEAT
-    STORE -.-> DB
-    STORE -.-> BROKER
-    STORE -.-> HYBRID
+    SUBMIT["Submit task"] --> STORE["Persist (DB or broker)"]
+    STORE --> CLAIM["Scheduler claims work<br/>(row lock / leader / hash)"]
+    CLAIM --> ASSIGN["Assign to worker"]
+    ASSIGN --> EXEC["Worker executes<br/>(emits heartbeats)"]
+    EXEC --> SUCCESS["Success → ack"]
+    EXEC --> FAIL["Failure / timeout"]
+    FAIL --> RETRY{"Retry budget<br/>left?"}
+    RETRY -->|Yes, with backoff| STORE
+    RETRY -->|No| DLQ["Dead-letter queue"]
 
     classDef good fill:#d5e8d4,stroke:#82b366,color:#000
     classDef bad fill:#f8cecc,stroke:#b85450,color:#000

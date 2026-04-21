@@ -270,7 +270,10 @@ http_requests_total{user_id="u123", endpoint="/api/orders"}
 # 1,000,000 × 50 = 50,000,000 time series
 ```
 
-Prometheus holds the active head block in memory; sizing guidance is [7–9 KiB per active series, with 7.5 KiB as a safe planning baseline](https://prometheus-alert-generator.com/blog/sizing-prometheus-deployment/). At 7.5 KiB per series, 50 M series alone needs ~375 GB of head RAM — well past what a single Prometheus pod can hold. In practice you hit OOMs, scrape timeouts, and rule-evaluation failures long before that.
+Prometheus holds the active "head" block — every currently-scraped series plus its in-flight chunks — entirely in memory, secured by the WAL.[^prom-storage] Operational write-ups put per-series cost in the **~3 KiB low end to ~7 KiB upper end** range, depending on label fan-out, chunk fill, and churn; head-chunk memory mapping (added in v2.19) trims another 20–40% off resident size for stable workloads.[^prom-mmap] Even at the 3 KiB floor, 50 M active series needs roughly 150 GB of head RAM — well past what a single Prometheus pod can hold. In practice you hit OOMs, scrape timeouts, and rule-evaluation failures long before that.
+
+[^prom-storage]: [Prometheus — Storage (local TSDB / head block / WAL)](https://prometheus.io/docs/prometheus/latest/storage/).
+[^prom-mmap]: [Grafana Labs — *New in Prometheus v2.19.0: Memory-mapping of full chunks of the head block reduces memory usage by as much as 40%*](https://grafana.com/blog/2020/06/04/new-in-prometheus-v2.19.0-memory-mapping-of-full-chunks-of-the-head-block-reduces-memory-usage-by-as-much-as-40/).
 
 ![Cardinality explosion: bounded labels stay within ~50 series; an unbounded label like user ID multiplies into tens of millions and exhausts head RAM.](./diagrams/cardinality-explosion-light.svg "Cardinality explosion: bounded labels stay within ~50 series; an unbounded label like user ID multiplies into tens of millions and exhausts head RAM.")
 ![Cardinality explosion: bounded labels stay within ~50 series; an unbounded label like user ID multiplies into tens of millions and exhausts head RAM.](./diagrams/cardinality-explosion-dark.svg)

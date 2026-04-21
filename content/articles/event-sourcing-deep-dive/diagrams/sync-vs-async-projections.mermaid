@@ -9,22 +9,18 @@ sequenceDiagram
     participant Bus as Subscription / CDC
     participant Async as Async projection
     participant Read as Read model
-    rect rgba(120,180,255,0.15)
-        Note over Client,Read: Inline (strong consistency)
-        Client->>CmdH: send command
-        CmdH->>ES: append events (txn open)
-        ES->>Inline: apply event
-        Inline->>Read: update read model (same txn)
-        ES-->>CmdH: txn commit
-        CmdH-->>Client: ack (read model already current)
-    end
-    rect rgba(120,200,140,0.15)
-        Note over Client,Read: Async (eventual consistency)
-        Client->>CmdH: send command
-        CmdH->>ES: append events (txn commit)
-        CmdH-->>Client: ack
-        ES-->>Bus: publish via subscription / CDC
-        Bus->>Async: deliver (with possible duplicates / out-of-order)
-        Async->>Read: idempotent upsert
-        Async->>Bus: checkpoint(position)
-    end
+    Note over Client,Read: Inline (strong consistency)
+    Client->>CmdH: send command
+    CmdH->>ES: append events (txn open)
+    ES->>Inline: apply event
+    Inline->>Read: update read model (same txn)
+    ES-->>CmdH: txn commit
+    CmdH-->>Client: ack (read model already current)
+    Note over Client,Read: Async (eventual consistency)
+    Client->>CmdH: send command
+    CmdH->>ES: append events (txn commit)
+    CmdH-->>Client: ack
+    ES-->>Bus: publish via subscription / CDC
+    Bus->>Async: deliver (with possible duplicates / out-of-order)
+    Async->>Read: idempotent upsert
+    Async->>Bus: checkpoint(position)

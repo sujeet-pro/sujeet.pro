@@ -1,26 +1,45 @@
 %% Diagram: LCP image waterfall with vs. without preload + fetchpriority.
-%% Compares two timelines: in the baseline the LCP image is discovered
-%% by the preload scanner only after the parser reaches a deep <img>,
-%% so the GET fires late; with <link rel=preload as=image
-%% fetchpriority=high> in <head> the request kicks off during the
-%% initial HTML parse and lands well before first contentful paint.
+%% Compares two timelines as horizontal bars on a shared time axis.
+%% In the baseline the LCP image is discovered by the preload scanner
+%% only after the parser reaches a deep <img>, so the GET fires late.
+%% With <link rel=preload as=image fetchpriority=high> in <head> the
+%% request kicks off during initial HTML parse and lands well before
+%% first contentful paint.
 %%{init: {'htmlLabels': false}}%%
-gantt
-    title LCP image waterfall: baseline vs. preload + fetchpriority=high
-    dateFormat  X
-    axisFormat  %Lms
-    section Baseline (no preload)
-    HTML download           :done,    h1, 0, 200
-    HTML parse              :active,  p1, 200, 600
-    CSS download + parse    :done,    c1, 250, 550
-    LCP <img> discovered    :milestone, m1, 600, 0
-    Hero image GET          :crit,    i1, 600, 1200
-    LCP paint               :milestone, lcp1, 1200, 0
+flowchart TB
+    subgraph baseline["Baseline (no preload) — LCP at ~1200 ms"]
+        direction LR
+        b_html["HTML download\n0–200 ms"]
+        b_parse["HTML parse\n200–600 ms"]
+        b_css["CSS dl + parse\n250–550 ms"]
+        b_img["Hero image GET\n600–1200 ms (late discovery)"]
+        b_lcp["LCP paint\n1200 ms"]
+        b_html --> b_parse --> b_img --> b_lcp
+        b_html --> b_css
+    end
 
-    section Preload + fetchpriority=high
-    HTML download           :done,    h2, 0, 200
-    HTML parse              :active,  p2, 200, 600
-    CSS download + parse    :done,    c2, 250, 550
-    Preload scanner picks <link>  :milestone, m2, 220, 0
-    Hero image GET (high prio)    :crit,    i2, 220, 700
-    LCP paint               :milestone, lcp2, 700, 0
+    subgraph preload["Preload + fetchpriority=high — LCP at ~700 ms"]
+        direction LR
+        p_html["HTML download\n0–200 ms"]
+        p_parse["HTML parse\n200–600 ms"]
+        p_css["CSS dl + parse\n250–550 ms"]
+        p_img["Hero image GET (high prio)\n220–700 ms (preload scanner)"]
+        p_lcp["LCP paint\n700 ms"]
+        p_html --> p_parse
+        p_html --> p_css
+        p_html --> p_img --> p_lcp
+    end
+
+    classDef base fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef parse fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef css fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef latecrit fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef earlycrit fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef paint fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class b_html,p_html base
+    class b_parse,p_parse parse
+    class b_css,p_css css
+    class b_img latecrit
+    class p_img earlycrit
+    class b_lcp,p_lcp paint

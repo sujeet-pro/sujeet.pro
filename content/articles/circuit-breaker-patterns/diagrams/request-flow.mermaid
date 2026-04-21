@@ -5,7 +5,7 @@ flowchart LR
     request([Caller]) --> admit{Admit?}
     admit -- yes --> invoke[Call dependency] --> record[Record outcome]
     admit -- no --> fb[Fallback]
-    record --> eval{Threshold\nbreached?}
+    record --> eval{Threshold breached?}
     eval -- yes --> trip[Trip to Open]
     eval -- no --> done([Return])
     fb --> done

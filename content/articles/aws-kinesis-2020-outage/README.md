@@ -18,8 +18,8 @@ tags:
 
 How a routine capacity addition to Amazon Kinesis Data Streams in US-EAST-1 exceeded an OS thread limit on every front-end server, triggering a 17-hour cascading failure that took down CloudWatch, Lambda, Cognito, and dozens of other AWS services on November 25, 2020—the day before Thanksgiving. Every timeline, root cause, and corrective action below is grounded in [AWS's official post-event summary](https://aws.amazon.com/message/11201/); this article reconstructs the failure chain, draws out the structural patterns (O(N²) thread fan-out, untested failsafes, monitoring that shares fate with the services it monitors), and translates them into checks you can run against your own systems.
 
-![The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.](./diagrams/the-failure-chain-a-capacity-addition-pushed-per-server-thread-counts-past-the-o-light.svg "The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.")
-![The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.](./diagrams/the-failure-chain-a-capacity-addition-pushed-per-server-thread-counts-past-the-o-dark.svg)
+![The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.](./diagrams/failure-chain-light.svg "The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.")
+![The failure chain: a capacity addition pushed per-server thread counts past the OS limit, collapsing the entire monolithic front-end fleet. Recovery was throttled to avoid thundering herd effects, extending the outage to 17 hours.](./diagrams/failure-chain-dark.svg)
 
 ## Abstract
 
@@ -164,8 +164,8 @@ The recovery was constrained by a fundamental resource contention problem. On ea
 5. Unhealthy servers are **removed from the fleet**
 6. This resets recovery progress—a classic thundering herd loop
 
-![The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.](./diagrams/the-thundering-herd-loop-that-constrained-recovery-speed-restarting-too-many-ser-light.svg "The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.")
-![The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.](./diagrams/the-thundering-herd-loop-that-constrained-recovery-speed-restarting-too-many-ser-dark.svg)
+![The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.](./diagrams/thundering-herd-loop-light.svg "The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.")
+![The thundering herd loop that constrained recovery speed. Restarting too many servers at once caused health check failures, removing servers faster than they could rejoin.](./diagrams/thundering-herd-loop-dark.svg)
 
 ### Recovery Strategy
 

@@ -15,7 +15,7 @@ tags:
 
 # OAuth 2.0 and OIDC Flows: Authorization Code to PKCE
 
-A comprehensive technical analysis of OAuth 2.0 authorization flows, OpenID Connect (OIDC) identity layer, PKCE security mechanism, and token lifecycle management for secure authentication and authorization implementations.
+OAuth 2.0 is an authorization-delegation framework; OpenID Connect (OIDC) layers identity on top. This article walks the canonical OAuth 2.1 flow set — Authorization Code + PKCE, Device Authorization Grant, Client Credentials — explains how OIDC ID tokens, refresh-token rotation, DPoP, and the BFF pattern fit on top, and pins each design choice to the specific RFC or attack it answers, so a senior engineer can pick a flow, validate a token, and harden a deployment without re-deriving the threat model.
 
 ![Authorization Code flow with PKCE and OIDC sequence across user, client, authorization server, and resource server](./diagrams/auth-code-pkce-oidc-overview-light.svg "End-to-end Authorization Code + PKCE + OIDC flow: the client generates state/nonce/PKCE, the user authenticates and consents at the authorization server, and the client exchanges the code for access, refresh, and ID tokens before calling the resource server.")
 ![Authorization Code flow with PKCE and OIDC sequence across user, client, authorization server, and resource server](./diagrams/auth-code-pkce-oidc-overview-dark.svg)
@@ -66,7 +66,7 @@ Clients are classified by their ability to maintain credential confidentiality:
 | **Confidential** | Yes                | Server-side web apps    | Client secret + PKCE  |
 | **Public**       | No                 | SPAs, mobile apps, CLIs | PKCE only (no secret) |
 
-> **OAuth 2.1 (draft-14)**: The distinction matters less now—PKCE is mandatory for all clients. Confidential clients still use secrets for additional security, but secrets alone are insufficient.
+> **OAuth 2.1 (draft-15)**: The distinction matters less now — PKCE is mandatory for all clients ([§7.5](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15#section-7.5)). Confidential clients still use secrets (or, preferably, `private_key_jwt` / mTLS) for client authentication, but secrets alone are insufficient as a defence against authorization-code interception.
 
 ### Protocol Endpoints
 
@@ -877,14 +877,16 @@ OAuth 2.1 (currently [draft-15](https://datatracker.ietf.org/doc/html/draft-ietf
 
 ### Mandatory Requirements
 
-| Requirement                                 | OAuth 2.0     | OAuth 2.1              |
-| ------------------------------------------- | ------------- | ---------------------- |
-| PKCE for public clients                     | RECOMMENDED   | MUST                   |
-| PKCE for confidential clients               | Not mentioned | SHOULD                 |
-| Exact redirect URI matching                 | SHOULD        | MUST                   |
-| Bearer tokens in query strings              | Allowed       | MUST NOT               |
-| Refresh token sender-constraint or rotation | Not specified | MUST (public clients)  |
-| HTTPS for all endpoints                     | SHOULD        | MUST (except loopback) |
+| Requirement                                 | OAuth 2.0     | OAuth 2.1                                        |
+| ------------------------------------------- | ------------- | ------------------------------------------------ |
+| PKCE for public clients                     | RECOMMENDED   | MUST ([§7.5][oauth21-pkce])                      |
+| PKCE for confidential clients               | Not mentioned | MUST ([§7.5][oauth21-pkce]; RECOMMENDED in §7.5.1 exceptions) |
+| Exact redirect URI matching                 | SHOULD        | MUST                                             |
+| Bearer tokens in query strings              | Allowed       | MUST NOT                                         |
+| Refresh token sender-constraint or rotation | Not specified | MUST (public clients)                            |
+| HTTPS for all endpoints                     | SHOULD        | MUST (except loopback)                           |
+
+[oauth21-pkce]: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15#section-7.5
 
 ### Migration Checklist
 

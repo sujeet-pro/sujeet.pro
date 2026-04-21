@@ -3,17 +3,20 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     start([Cutover checklist])
-    g1{Lag under SLO?}
-    g2{Reconciliation clean?}
-    g3{Shadow reads OK?}
-    g4{Rollback rehearsed?}
-    g5{Flags + on-call ready?}
+    subgraph GATES["Gates · all yes to advance"]
+        direction TB
+        g1{Lag under SLO?} --> g2{Reconciliation clean?}
+        g2 --> g3{Shadow reads OK?}
+        g3 --> g4{Rollback rehearsed?}
+        g4 --> g5{Flags + on-call ready?}
+    end
     go[Bounded cutover]
     watch{Healthy?}
     done([Stabilize then decommission])
-    fail["Any NO → remediate + restart<br/>throttle · fix pipeline · fix semantics<br/>rehearse rollback · assign commander"]
+    fail["Any NO → remediate<br/>then restart checks"]
 
-    start --> g1 -->|yes| g2 -->|yes| g3 -->|yes| g4 -->|yes| g5 -->|yes| go --> watch
+    start --> GATES --> go --> watch
     watch -->|yes| done
     watch -->|no| fail
-    g5 -->|no| fail
+    GATES -->|any no| fail
+    fail --> start

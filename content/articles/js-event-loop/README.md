@@ -211,7 +211,7 @@ function macroTask(fn: () => void) {
 Each `postMessage` queues a task on the message task source, bypassing the timer clamp. React's scheduler and many microbenchmark harnesses use this pattern for exactly this reason[^macarthur].
 
 > [!TIP]
-> Prefer `scheduler.postTask({ priority: "user-blocking" | "user-visible" | "background" })` (Prioritized Task Scheduling, baseline in Chromium and Firefox) when available — it's the standard API and exposes priority. Fall back to `MessageChannel`. Use `setTimeout(fn, 0)` only when you actually want the timer-source semantics.
+> Prefer `scheduler.postTask({ priority: "user-blocking" | "user-visible" | "background" })` (Prioritized Task Scheduling, available in Chromium since 94 and Firefox since 142; not yet in Safari[^scheduler-posttask]) when available — it's the standard API and exposes priority. Fall back to `MessageChannel`. Use `setTimeout(fn, 0)` only when you actually want the timer-source semantics.
 
 ### `process.nextTick` is legacy in modern Node
 
@@ -314,3 +314,4 @@ The host-specific detail this overview deliberately omits lives in the sibling a
 [^macarthur]: [Alex MacArthur — Picking the Right Tool for Maneuvering JavaScript's Event Loop](https://macarthur.me/posts/navigating-the-event-loop) (cross-validates the `MessageChannel` macrotask pattern documented by the WHATWG and used in React's scheduler).
 [^waitasync]: [MDN — `Atomics.waitAsync()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Atomics/waitAsync); standardized in ECMAScript 2024.
 [^cf-finreg]: [Cloudflare — We shipped FinalizationRegistry in Workers; why you should never use it](https://blog.cloudflare.com/we-shipped-finalizationregistry-in-workers-why-you-should-never-use-it/).
+[^scheduler-posttask]: [MDN — `Scheduler.postTask()` (Prioritized Task Scheduling API)](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/postTask) and [Can I use — Scheduler API: postTask](https://caniuse.com/mdn-api_scheduler_posttask). Chromium since 94 (2021); Firefox since 142 (2025); not yet shipped in Safari.

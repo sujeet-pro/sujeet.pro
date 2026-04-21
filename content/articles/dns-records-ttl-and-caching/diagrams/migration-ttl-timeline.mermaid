@@ -1,20 +1,43 @@
 %% Diagram: Migration TTL lowering timeline — phased TTL changes with safe-cutover window
-%% Type: gantt
-gantt
-    dateFormat  YYYY-MM-DD
-    axisFormat  D
-    title TTL Lowering Timeline (calendar days)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Auth["Authoritative state"]
+        direction TB
+        A1["Day 0\nold value @ TTL 3600 s"]
+        A2["Day 1\nlower TTL to 300 s"]
+        A3["Day 2\nold value, TTL = 300 s"]
+        A4["Day 3\nchange record, TTL 300 s"]
+        A5["Day 4\nverify on resolvers"]
+        A6["Day 5\nrestore TTL to 3600 s"]
+        A1 --> A2 --> A3 --> A4 --> A5 --> A6
+    end
+    subgraph Cache["Resolver cache state"]
+        direction TB
+        R1["old value cached"]
+        R2["still old value\nuntil 3600 s expires"]
+        R3["mix: old + new\nTTL refreshes"]
+        R4["new value within 300 s"]
+        R5["stable on new value"]
+        R6["stable, longer TTL\nresumes amortising"]
+        R1 --> R2 --> R3 --> R4 --> R5 --> R6
+    end
 
-    section Authoritative
-    Old TTL of 3600s active           :done, p1, 2026-04-21, 1d
-    Lower TTL to 300s                 :crit, p2, 2026-04-22, 1d
-    Drain old TTL                     :active, p3, 2026-04-23, 1d
-    Make record change                :crit, p4, 2026-04-24, 1d
-    Verify at multiple resolvers      :p5, 2026-04-25, 1d
-    Restore TTL to 3600s              :p6, 2026-04-26, 1d
+    A1 -.-> R1
+    A2 -.-> R2
+    A3 -.-> R3
+    A4 -.-> R4
+    A5 -.-> R5
+    A6 -.-> R6
 
-    section Resolver caches
-    Old value cached                  :done, r1, 2026-04-21, 2d
-    Mixed cache, old draining         :active, r2, 2026-04-23, 1d
-    New value visible                 :crit, r3, 2026-04-24, 1d
-    Stable on new value               :r4, 2026-04-25, 2d
+    classDef baseline fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef change fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef drain fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef stable fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+
+    class A1,R1 baseline
+    class A2,R2 change
+    class A3,R3 drain
+    class A4,R4 change
+    class A5,R5 stable
+    class A6,R6 stable

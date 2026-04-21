@@ -1,8 +1,9 @@
-%% Diagram: Convex Hull Bitrate Ladder Construction
+%% Diagram: Convex hull bitrate ladder construction
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    subgraph "Exhaustive Encoding"
+flowchart LR
+    subgraph Encode["Exhaustive Encoding"]
+        direction TB
         E1[1080p @ 8M]
         E2[1080p @ 5M]
         E3[1080p @ 3M]
@@ -11,13 +12,8 @@ graph TB
         E6[480p @ 1M]
     end
 
-    subgraph "Quality Measurement"
-        M[VMAF scoring per encode]
-    end
-
-    subgraph "Convex Hull"
-        H1[Select Pareto-optimal points]
-    end
+    M[VMAF scoring<br/>per encode]
+    H[Pareto-optimal<br/>convex hull]
 
     E1 --> M
     E2 --> M
@@ -25,4 +21,4 @@ graph TB
     E4 --> M
     E5 --> M
     E6 --> M
-    M --> H1
+    M --> H

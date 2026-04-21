@@ -1,20 +1,16 @@
----
-config:
-  flowchart:
-    htmlLabels: false
----
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 flowchart TD
-  Req[Incoming consent request] --> Geo[Geo lookup MaxMind / cf-ipcountry]
-  Geo --> GPC{Sec-GPC: 1?}
-  GPC -->|yes| OptOut[Pre-set opt-out for sale/share categories]
-  GPC -->|no| Country{ISO country code}
+  Req["Incoming consent request"] --> Geo["Geo lookup\nMaxMind / cf-ipcountry"]
+  Geo --> GPC{"Sec-GPC: 1?"}
+  GPC -->|yes| OptOut["Pre-set opt-out for\nsale/share categories"]
+  GPC -->|no| Country{"ISO country code"}
   OptOut --> Country
-  Country -->|EU/EEA + UK| GDPR[GDPR / UK-GDPR<br>opt-in, deny by default]
-  Country -->|US-CA + similar| CCPA[CCPA / CPRA<br>opt-out, allow until signal]
-  Country -->|BR| LGPD[LGPD<br>opt-in, deny by default]
-  Country -->|other| Default[Tenant default policy]
-  GDPR --> Tenant[Tenant overrides per market]
+  Country -->|"EU/EEA + UK"| GDPR["GDPR / UK-GDPR\nopt-in, deny by default"]
+  Country -->|"US-CA + similar"| CCPA["CCPA / CPRA\nopt-out, allow until signal"]
+  Country -->|BR| LGPD["LGPD\nopt-in, deny by default"]
+  Country -->|other| Default["Tenant default policy"]
+  GDPR --> Tenant["Tenant overrides per market"]
   CCPA --> Tenant
   LGPD --> Tenant
   Default --> Tenant
-  Tenant --> Decision[Effective consent policy + Google CMP signals + TCF string]
+  Tenant --> Decision["Effective consent policy\n+ Google CMP signals\n+ TCF string"]

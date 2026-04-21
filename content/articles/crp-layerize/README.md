@@ -20,7 +20,7 @@ tags:
 The Layerize stage walks the [paint artifact](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/README.md#paint-artifact) and decides which paint chunks become independent compositor layers (`cc::Layer` objects) and which get baked into shared layers. It is the bookkeeping layer between [Paint](../crp-paint/README.md) and [Commit](../crp-commit/README.md), and it is the single largest determinant of how much GPU memory a page consumes and which animations can run on the compositor thread without re-raster.
 
 > [!NOTE]
-> Series — Critical Rendering Path. Previous: [Commit](../crp-commit/README.md). Next: [Rasterization](../crp-raster/README.md). Stage map: [Pipeline overview](../crp-rendering-pipeline-overview/README.md).
+> Series — Critical Rendering Path. Previous: [Paint](../crp-paint/README.md). Next: [Commit](../crp-commit/README.md). Stage map: [Pipeline overview](../crp-rendering-pipeline-overview/README.md).
 
 ![Layerization sits between Paint and Commit on the main thread; the resulting cc::Layer list and cc property trees are committed to the compositor thread for raster.](./diagrams/layerize-pipeline-overview-light.svg "Layerization sits between Paint and Commit on the main thread; the resulting cc::Layer list and cc property trees are committed to the compositor thread for raster.")
 ![Layerization sits between Paint and Commit on the main thread; the resulting cc::Layer list and cc property trees are committed to the compositor thread for raster.](./diagrams/layerize-pipeline-overview-dark.svg)
@@ -67,7 +67,7 @@ Layerization needs the paint artifact, which lives on the main thread. The compo
 
 ### Layer list, not layer tree
 
-Pre-2018 Blink shipped a tree of `GraphicsLayer` objects, roughly one per "composited" `RenderLayer` (which itself was at most one per CSS stacking context). The compositor thread received a hierarchy that mirrored the DOM's stacking topology, and every transform / clip / effect was inferred by walking ancestors of each layer. [BlinkGenPropertyTrees](https://groups.google.com/a/chromium.org/g/blink-dev/c/Gb_yg5MDD0s) (M75, 2019) inverted that contract: Blink started shipping a **flat list of layers plus four flat property trees** (transform, clip, effect, scroll), and the compositor began looking up visual context by node ID instead of tree walk. CompositeAfterPaint (M94, 2021) then moved the layerization decision itself to *after* paint, so the layer list is computed from paint chunks plus property tree state, not from DOM identity.[^renderingng-data]
+Pre-M75 (2019) Blink shipped a tree of `GraphicsLayer` objects, roughly one per "composited" `RenderLayer` (which itself was at most one per CSS stacking context). The compositor thread received a hierarchy that mirrored the DOM's stacking topology, and every transform / clip / effect was inferred by walking ancestors of each layer. [BlinkGenPropertyTrees](https://groups.google.com/a/chromium.org/g/blink-dev/c/Gb_yg5MDD0s) (M75, 2019) inverted that contract: Blink started shipping a **flat list of layers plus four flat property trees** (transform, clip, effect, scroll), and the compositor began looking up visual context by node ID instead of tree walk. CompositeAfterPaint (M94, 2021) then moved the layerization decision itself to *after* paint, so the layer list is computed from paint chunks plus property tree state, not from DOM identity.[^renderingng-data]
 
 [^renderingng-data]: See [Key data structures in RenderingNG](https://developer.chrome.com/docs/chromium/renderingng-data-structures) for the canonical description of paint chunks, property trees, and composited layers, and [RenderingNG architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture) for how the stages compose.
 
@@ -421,8 +421,8 @@ These reduce to a small number of rules; each one maps directly to a step in the
 
 ### Series navigation
 
-- Previous: [Commit](../crp-commit/README.md) — how the layer list crosses to the compositor thread.
-- Next: [Rasterization](../crp-raster/README.md) — how `cc::Layer` content becomes GPU textures.
+- Previous: [Paint](../crp-paint/README.md) — how display items and paint chunks are produced before layerization sees them.
+- Next: [Commit](../crp-commit/README.md) — how the layer list and property trees cross to the compositor thread.
 - Stage map: [Critical Rendering Path overview](../crp-rendering-pipeline-overview/README.md).
 
 ### Prerequisites and adjacent reading

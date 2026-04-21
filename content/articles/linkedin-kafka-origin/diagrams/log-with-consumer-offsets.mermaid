@@ -1,17 +1,17 @@
 %% Diagram: A single partition is an append-only log; consumers track independent offsets
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     P[Producer] -- append --> Log
 
     subgraph Log["Topic partition (append-only log)"]
         direction LR
-        R0["offset 0"] --> R1["offset 1"] --> R2["offset 2"] --> R3["offset 3"] --> R4["offset 4"] --> R5["offset 5"] --> R6["offset 6"] --> R7["offset 7"] --> Tail["..."]
+        R0["offset 0"] --> R1["offset 1"] --> R2["offset 2"] --> R3["offset 3"] --> R4["offset 4"] --> Tail["..."]
     end
 
-    R3 -. position 3 .-> CA["Consumer group A<br/>(real-time alerts)"]
-    R5 -. position 5 .-> CB["Consumer group B<br/>(stream processor)"]
-    R1 -. position 1 .-> CC["Consumer group C<br/>(Hadoop batch)"]
+    Log --> CA["Group A: real-time alerts\nposition 4"]
+    Log --> CB["Group B: stream processor\nposition 2"]
+    Log --> CC["Group C: Hadoop batch\nposition 0"]
 
     classDef rec fill:#e6f0ff,stroke:#1f3a8a,color:#0b1d4d
-    class R0,R1,R2,R3,R4,R5,R6,R7 rec
+    class R0,R1,R2,R3,R4 rec

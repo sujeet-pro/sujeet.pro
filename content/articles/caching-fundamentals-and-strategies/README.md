@@ -19,8 +19,8 @@ tags:
 
 Caching is how engineers paper over the speed gap between a consumer of data and its source — CPU vs. DRAM (nanoseconds), application vs. database (milliseconds), client vs. origin (hundreds of milliseconds). The mechanism is always the same: insert a smaller, faster store closer to the consumer that exploits **locality of reference**. This article walks through the five design axes that decide whether a cache helps or hurts — read pattern, write policy, invalidation strategy, replacement algorithm, and topology — and grounds each one in production behavior at Netflix, Salesforce, and Facebook scale.
 
-![The caching hierarchy from CPU registers to origin server, showing typical access latency at each layer](./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each--light.svg "Same pattern at every layer: smaller, faster storage closer to the consumer.")
-![The caching hierarchy from CPU registers to origin server, showing typical access latency at each layer](./diagrams/the-caching-hierarchy-from-cpu-to-origin-server-showing-typical-latency-at-each--dark.svg)
+![The caching hierarchy from CPU registers to origin server, showing typical access latency at each layer](./diagrams/caching-hierarchy-light.svg "Same pattern at every layer: smaller, faster storage closer to the consumer.")
+![The caching hierarchy from CPU registers to origin server, showing typical access latency at each layer](./diagrams/caching-hierarchy-dark.svg)
 
 ## Mental model
 

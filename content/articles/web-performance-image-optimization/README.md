@@ -99,7 +99,8 @@ generation.
 
 **Container and codec:**
 
-- Container: ISOBMFF / HEIF box layout (ISO/IEC 14496-12), specified by
+- Container: HEIF (ISO/IEC 23008-12), itself built on the ISO Base Media
+  File Format (ISO/IEC 14496-12), specified by
   the [Alliance for Open Media's AVIF v1.2.0 (2025)](https://aomedia.org/docs/AV1%20Image%20File%20Format%20(AVIF)%20v1.2.0.pdf).
 - Codec: AV1 intra-frame coding from the
   [AV1 Bitstream & Decoding Process Specification](https://aomediacodec.github.io/av1-spec/).
@@ -143,8 +144,10 @@ on photos but encodes fast, decodes fast on weak hardware, and has had
 
 - Lossy mode: VP8 codec with 16×16 macroblocks, intra-frame prediction,
   and DCT residual coding (RFC 6386).
-- Lossless mode: VP8L with 5 transform types and Huffman entropy coding
-  ([WebP container spec](https://developers.google.com/speed/webp/docs/riff_container)).
+- Lossless mode: VP8L with four transform types — predictor (spatial),
+  color, subtract-green, and color-indexing — plus Huffman entropy
+  coding ([WebP lossless bitstream spec](https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification),
+  [RFC 9649](https://datatracker.ietf.org/doc/html/rfc9649)).
 - Animation via frame differencing in a single container — drop GIF
   ASAP if you still ship it, WebP animation is typically an order of
   magnitude smaller.

@@ -1,7 +1,7 @@
 %% Diagram: Central-server OT architecture — Jupiter shape
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph A_Side["Client A"]
         A_DOC["local document<br/>(rev N + buffered ops)"]
         A_PEND["pending op<br/>(awaiting ack)"]

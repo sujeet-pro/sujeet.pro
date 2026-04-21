@@ -2,26 +2,26 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    PO["Product owner\n(roadmap, prioritization)"]
-    DS["Designers (1-2)"]
-    EN["Engineers (1-2)"]
-    QA["Shared QA / a11y"]
+    subgraph Core["Core team"]
+        direction LR
+        PO["Product owner"]
+        DS["Designers (1-2)"]
+        EN["Engineers (1-2)"]
+        QA["Shared QA / a11y"]
+    end
 
-    PO --> DS
-    PO --> EN
-    PO --> QA
+    SYS[("Design system\ntokens, components,\ndocs, releases")]
 
-    DS --> SYS[("Design system\n(tokens, components,\ndocs, releases)")]
-    EN --> SYS
-    QA --> SYS
+    subgraph Consumers["Product teams (consumers)"]
+        direction LR
+        T1["Team A"]
+        T2["Team B"]
+        T3["Team C"]
+    end
 
-    SYS ==>|consumed by| T1["Product team A"]
-    SYS ==>|consumed by| T2["Product team B"]
-    SYS ==>|consumed by| T3["Product team C"]
-
-    T1 -.requests / bugs.-> PO
-    T2 -.requests / bugs.-> PO
-    T3 -.requests / bugs.-> PO
+    Core ==> SYS
+    SYS ==> Consumers
+    Consumers -.requests / bugs.-> Core
 
     classDef core fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef team fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff

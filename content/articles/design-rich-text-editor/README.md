@@ -20,8 +20,8 @@ tags:
 
 A web rich text editor is the place where browser quirks, IME composition, accessibility, and distributed systems all collide inside a single `<div contenteditable>`. This article unpacks the four design axes that decide everything else — document model, rendering surface, input pipeline, and collaboration architecture — and grounds them in how Google Docs, Figma, Notion, Linear, and Meta's own editors actually work today.
 
-![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u-light.svg "Anatomy of a modern editor: input events fan into a transaction engine, the engine produces immutable state, the reconciler syncs the DOM, and the collaboration layer rides on the same transaction stream.")
-![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/rich-text-editor-architecture-input-events-flow-through-the-transaction-engine-u-dark.svg)
+![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/editor-architecture-light.svg "Anatomy of a modern editor: input events fan into a transaction engine, the engine produces immutable state, the reconciler syncs the DOM, and the collaboration layer rides on the same transaction stream.")
+![Rich text editor architecture: input events flow through the transaction engine, updating immutable state that the DOM reconciler renders. Collaboration layers intercept transactions for sync.](./diagrams/editor-architecture-dark.svg)
 
 ## Mental model
 

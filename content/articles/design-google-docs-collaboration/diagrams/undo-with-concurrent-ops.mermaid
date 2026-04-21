@@ -23,9 +23,9 @@ sequenceDiagram
 
     Note over U: User hits Ctrl-Z at rev 13
     U->>L: pop inverse(opA)
-    U->>U: transform inverse(opA) against opR1, opR2<br/>→ inverse(opA)' = delete(101..104)
-    U->>S: send inverse(opA)' (baseRev 13)
+    U->>U: transform inverse(opA) against opR1, opR2<br/>→ inv_opA_prime = delete(101..104)
+    U->>S: send inv_opA_prime (baseRev 13)
     S->>S: apply, rev 14
     S->>U: ack (rev 14)
-    S->>R: broadcast inverse(opA)' (rev 14)
-    Note over U,R: All clients converge; "foo" gone, opR1/opR2 preserved
+    S->>R: broadcast inv_opA_prime (rev 14)
+    Note over U,R: Converged: foo removed and opR1 opR2 preserved

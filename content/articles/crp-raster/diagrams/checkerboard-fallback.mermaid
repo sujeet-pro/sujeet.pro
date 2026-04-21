@@ -1,24 +1,13 @@
 %% Diagram: Checkerboard fallback decision and recovery
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    Scroll["Scroll / viewport change<br/>new tiles enter NOW"]
-    Check{"NOW tile<br/>rasterized?"}
-    Draw["Display compositor<br/>draws fresh tile"]
-    LowRes{"Low-resolution<br/>tiling available?"}
-    DrawLow["Draw low-res tile<br/>(transient blur)"]
-    DrawCheck["Draw checkerboard<br/>(empty quad)"]
-    Schedule["TileManager raises priority<br/>schedules raster on worker pool"]
-    Raster["Raster worker<br/>fills high-res tile"]
-    Replace["Next BeginFrame<br/>swaps in fresh tile"]
-
-    Scroll --> Check
-    Check -- "yes" --> Draw
-    Check -- "no" --> LowRes
-    LowRes -- "yes" --> DrawLow
-    LowRes -- "no" --> DrawCheck
-    DrawLow --> Schedule
+flowchart LR
+    Scroll["Scroll:<br/>new tiles<br/>enter NOW"] --> Check{"NOW tile<br/>rasterized?"}
+    Check -- "yes" --> Draw["Display compositor<br/>draws fresh tile"]
+    Check -- "no" --> LowRes{"Low-res<br/>tiling?"}
+    LowRes -- "yes" --> DrawLow["Draw low-res tile<br/>(transient blur)"]
+    LowRes -- "no" --> DrawCheck["Draw checkerboard<br/>(empty quad)"]
+    DrawLow --> Schedule["TileManager raises priority<br/>+ schedules raster"]
     DrawCheck --> Schedule
-    Schedule --> Raster
-    Raster --> Replace
-    Replace --> Draw
+    Schedule --> Raster["Raster worker<br/>fills high-res tile"]
+    Raster --> Replace["Next BeginFrame swaps<br/>in fresh tile (drawn)"]

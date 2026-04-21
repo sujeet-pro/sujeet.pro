@@ -2,7 +2,6 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant U as User (admitted)
     participant API as Checkout API
     participant R as Redis (Lua single-flight)
@@ -12,7 +11,7 @@ sequenceDiagram
 
     U->>API: POST /checkout/start (checkout_token)
     API->>R: EVAL reserve_inventory.lua (sku, qty, ttl)
-    R-->>R: GET stock; if stock >= qty: DECRBY + HSET reservation
+    R-->>R: GET stock, if stock gte qty then DECRBY and HSET reservation
     R-->>API: ok = true, reservation_id, remaining
     API-->>U: 201 reserved_until = now + TTL
 

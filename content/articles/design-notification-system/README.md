@@ -144,7 +144,7 @@ Best when sub-second in-app latency is the primary constraint and your platform 
 - Connection management is non-trivial — load-balancing sticky-session traffic, recovering after gateway restarts, and coalescing reconnect storms ([Uber RAMEN gRPC migration](https://www.uber.com/us/en/blog/ubers-next-gen-push-platform-on-grpc/)).
 - Higher infrastructure cost from carrying persistent connections.
 
-**Reference implementation:** Uber's RAMEN platform sustains roughly **1.5M concurrent connections** and processes hundreds of thousands of messages per second over **gRPC bidirectional streaming** after migrating from SSE ([Uber engineering: next-gen push platform on gRPC](https://www.uber.com/us/en/blog/ubers-next-gen-push-platform-on-grpc/)). The earlier SSE implementation handled 600K connections and ~250K messages/sec ([Uber: real-time push platform](https://www.uber.com/blog/real-time-push-platform/)).
+**Reference implementation:** Uber's RAMEN (Real-time Asynchronous MEssaging Network) reached **1.5M+ concurrent connections** and **250K+ messages per second** on its SSE-based architecture before migrating to **gRPC bidirectional streaming** for real-time acknowledgments and head-of-line-blocking-free heartbeats ([Uber: real-time push platform](https://www.uber.com/blog/real-time-push-platform/), [Uber: next-gen push platform on gRPC](https://www.uber.com/us/en/blog/ubers-next-gen-push-platform-on-grpc/)).
 
 ### Path B: Queue-based (reliability first)
 

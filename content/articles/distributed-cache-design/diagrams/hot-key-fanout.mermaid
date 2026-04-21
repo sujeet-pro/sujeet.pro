@@ -1,39 +1,26 @@
 %% Diagram: Hot-key fan-out problem and four mitigation strategies
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph problem["Problem: hot key concentrates load on one shard"]
-        direction TB
-        H1["100K req/s\nfor key 'celeb:123'"]
-        H1 --> Shard["Shard 7\nCPU saturated"]
-    end
+flowchart TB
+    H1["100K req/s for 'celeb:123'"] --> Shard["Shard 7 CPU saturated"]
 
-    subgraph s1["Solution 1: L1 in front of L2"]
-        L1["Per-instance L1 cache\nshort TTL or pub/sub invalidate"]
-        L1 -.->|"miss only"| L2["L2 cluster"]
-    end
+    Shard --> Mitigations["Mitigations"]
 
-    subgraph s2["Solution 2: request coalescing"]
-        Many["10K concurrent waiters"]
-        Many -->|"single-flight"| One["1 DB query"]
-    end
+    Mitigations --> S1["L1 in front of L2"]
+    Mitigations --> S2["Request coalescing"]
+    Mitigations --> S3["Hot-key replication"]
+    Mitigations --> S4["Key splitting"]
 
-    subgraph s3["Solution 3: hot-key replication"]
-        Hot["celeb:123 -> N replicas"]
-        Hot -->|"random replica"| Sa["Shard 7"]
-        Hot -->|"random replica"| Sb["Shard 11"]
-        Hot -->|"random replica"| Sc["Shard 14"]
-    end
-
-    subgraph s4["Solution 4: key splitting"]
-        Logical["celeb:123"] -->|"client picks suffix"| Split0["celeb:123:0"]
-        Logical --> Split1["celeb:123:1"]
-        Logical --> SplitN["celeb:123:N"]
-    end
+    S1 --> S1d["Per-instance L1, miss falls through to L2 cluster"]
+    S2 --> S2d["10K waiters collapse to 1 DB query via single-flight"]
+    S3 --> S3d["celeb:123 mirrored on N shards, client picks one at random"]
+    S4 --> S4d["celeb:123 split into celeb:123:0..N, client picks suffix"]
 
     classDef hot fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef hub fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
     classDef good fill:#1F6E68,stroke:#155752,color:#ffffff
     classDef neutral fill:#2E5A88,stroke:#1F4870,color:#ffffff
     class H1,Shard hot
-    class L1,L2,One good
-    class Many,Hot,Sa,Sb,Sc,Logical,Split0,Split1,SplitN neutral
+    class Mitigations hub
+    class S1,S2,S3,S4 good
+    class S1d,S2d,S3d,S4d neutral

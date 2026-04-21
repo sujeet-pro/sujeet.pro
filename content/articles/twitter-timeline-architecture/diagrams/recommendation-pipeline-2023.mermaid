@@ -1,0 +1,33 @@
+%% Diagram: 2023 recommendation pipeline — four stages from candidate sourcing through mixing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph "Stage 1: Candidate Sourcing (~1,500 tweets)"
+        direction TB
+        subgraph "In-Network (~50%)"
+            RG[RealGraph<br/>Edge Scores] --> EB[EarlyBird<br/>Search Index]
+            EB --> IN[~750 in-network<br/>candidates]
+        end
+        subgraph "Out-of-Network (~50%)"
+            SC[SimClusters<br/>~145K communities] --> CRM[CR-Mixer]
+            GJ[GraphJet / UTEG<br/>Real-time graph] --> CRM
+            TH[TwHIN<br/>Dense embeddings] --> CRM
+            FRS[Follow Rec<br/>Service] --> CRM
+            CRM --> ON[~750 out-of-network<br/>candidates]
+        end
+    end
+
+    subgraph "Stage 2: Ranking"
+        IN --> LR[Light Ranker<br/>Logistic Regression<br/>inside EarlyBird]
+        ON --> LR
+        LR -->|~1,500 candidates| HR[Heavy Ranker<br/>48M param MaskNet<br/>~6,000 features]
+    end
+
+    subgraph "Stage 3: Heuristics & Filtering"
+        HR --> HF[Author Diversity<br/>Content Balance<br/>Feedback Fatigue<br/>Deduplication<br/>Visibility Filtering]
+    end
+
+    subgraph "Stage 4: Mixing"
+        HF --> MX[Home Mixer<br/>Ads + WTF + Prompts]
+        MX --> FY["For You" Timeline]
+    end

@@ -53,7 +53,7 @@ The flat namespace and immutable objects are not a limitation — they are the d
 An object has four moving parts:
 
 1. **Key** — a unique string within a bucket, e.g. `photos/2024/vacation.jpg`.
-2. **Data** — opaque bytes from a few B up to 50 TiB on S3 since December 2025[^s3-50tb].
+2. **Data** — opaque bytes from a few B up to 48.8 TiB ("50 TB") on S3 since December 2025[^s3-50tb].
 3. **Metadata** — system-generated (size, ETag, timestamps, storage class) plus user key-value pairs.
 4. **Version ID** — optional, populated on versioned buckets.
 
@@ -273,8 +273,8 @@ Single-stream uploads of large objects fail catastrophically: a network blip res
 
 The S3 contract is the de facto industry standard[^s3-multipart]:
 
-- **Parts**: 5 MiB minimum (the last part is exempt), 5 GiB maximum, 10,000 parts maximum per upload.
-- **Object cap**: a single `PUT` is capped at 5 GiB; multipart uploads support objects up to 50 TiB (raised from 5 TiB on 2025-12-02)[^s3-50tb]. At 10,000 parts the implied minimum part size for a 50 TiB object is ~5 GiB.
+- **Parts**: 5 MiB minimum (the last part is exempt), 5 GiB maximum, 10,000 parts maximum per upload[^s3-multipart-limits].
+- **Object cap**: a single `PUT` is capped at 5 GiB; multipart uploads support objects up to 48.8 TiB — marketed as "50 TB", raised from 5 TB on 2025-12-02[^s3-50tb]. At the 5 GiB part-size cap and 10,000 parts that ceiling is exactly `10,000 × 5 GiB = 48.83 TiB`; AWS rounds to 50 TB in the announcement and 48.8 TiB in the technical limits page.
 - **Per-part integrity**: each `UploadPart` returns an `ETag` (the MD5 of the part). `CompleteMultipartUpload` requires the full ordered list of `(PartNumber, ETag)` pairs — the client proves it received an acknowledgement for every part.
 - **Final ETag**: the completed object's ETag is `"<MD5-of-concatenated-part-MD5s>-<part-count>"`, not the MD5 of the object. If you want a content hash, use the `Checksum*` headers (SHA-256, CRC32C, etc.) instead.
 - **Failure containment**: a failed part is retried in isolation; an abandoned upload leaves parts on disk that you pay for until lifecycle policy reaps them.
@@ -409,7 +409,8 @@ The best object store is the one whose architecture makes the bill obvious, the 
 [^s3-50tb]: AWS What's New — [Amazon S3 increases the maximum object size to 50 TB (2025-12-02)](https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-s3-maximum-object-size-50-tb/).
 [^s3-strong]: AWS News Blog — [Amazon S3 Update – Strong Read-After-Write Consistency (2020-12-01)](https://aws.amazon.com/blogs/aws/amazon-s3-update-strong-read-after-write-consistency/) and [Amazon S3 Strong Consistency](https://aws.amazon.com/s3/consistency/).
 [^s3-durability]: AWS S3 docs — [Amazon S3 data durability](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html).
-[^s3-multipart]: AWS S3 docs — [Multipart upload limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html) and [Uploading and copying objects using multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html).
+[^s3-multipart]: AWS S3 docs — [Uploading and copying objects using multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html).
+[^s3-multipart-limits]: AWS S3 docs — [Amazon S3 multipart upload limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html). Maximum object size is documented as 48.8 TiB; part size 5 MiB to 5 GiB; 10,000 parts per upload.
 [^s3-it]: AWS S3 docs — [How S3 Intelligent-Tiering works](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html).
 [^shardstore]: AWS — [Using lightweight formal methods to validate a key-value storage node in Amazon S3 (SOSP 2021)](https://www.amazon.science/publications/using-lightweight-formal-methods-to-validate-a-key-value-storage-node-in-amazon-s3) introduces the ShardStore design.
 [^azure-was]: Calder et al. — [Windows Azure Storage: A Highly Available Cloud Storage Service with Strong Consistency, SOSP 2011](https://www.cs.purdue.edu/homes/csjgwang/CloudNativeDB/AzureStorageSOSP11.pdf).

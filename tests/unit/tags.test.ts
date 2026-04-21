@@ -11,9 +11,6 @@ describe("blog listing helpers", () => {
 
   it("sorts blogs by date and title for stable listing order", () => {
     const { entries } = getBlogListing("/v5.sujeet.pro");
-    expect(entries.map((entry) => entry.slug)).toEqual([
-      "system-setup",
-      "chrome-developer-setup",
-    ]);
+    expect(entries.map((entry) => entry.slug)).toEqual(["system-setup", "chrome-developer-setup"]);
   });
 });

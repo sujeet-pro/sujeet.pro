@@ -3,7 +3,6 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph models["Data model"]
-        direction LR
         REL["Relational\nTables + joins\nStrong schema"]
         DOC["Document\nNested JSON/BSON\nFlexible schema"]
         KV["Key-value\nOpaque value\nNo schema"]
@@ -12,12 +11,14 @@ flowchart TB
     end
 
     subgraph consistency["Default consistency"]
+        direction LR
         ACID["ACID\nSerializable / strong\nSingle-node default"]
         TUNABLE["Tunable\nPer-operation\nStrong or eventual"]
         BASE["BASE\nEventual\nDistributed default"]
     end
 
     subgraph scale["Scale axis"]
+        direction LR
         VERT["Vertical\nSingle-node ceiling\nReplicas for reads"]
         HORIZ["Horizontal\nSharded by key\nMulti-leader writes"]
     end

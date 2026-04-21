@@ -2,24 +2,20 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Chain["Separate chaining - OrderedHashTable (Map / Set)"]
-        direction LR
-        CB0["bucket[0]"] --> CE0["entry A<br/>chain -> 1"]
-        CE0 --> CE1["entry B<br/>chain -> 2"]
-        CE1 --> CE2["entry C<br/>chain = -1"]
-        CB1["bucket[1]"] --> CD0["entry D<br/>chain = -1"]
+    subgraph Chain["Separate chaining (OrderedHashTable: Map / Set)"]
+        direction TB
+        CB0["bucket[0]"] --> CE0["entry A\nchain -> 1"]
+        CE0 --> CE1["entry B\nchain -> 2"]
+        CE1 --> CE2["entry C\nchain = -1"]
+        CB1["bucket[1]"] --> CD0["entry D\nchain = -1"]
     end
 
-    subgraph Open["Open addressing + quadratic probing - string table, NameDictionary"]
-        direction LR
-        OS0["slot 0: A"]
-        OS1["slot 1: B (probe +1)"]
-        OS2["slot 2: empty"]
-        OS3["slot 3: C (probe +1+2)"]
-        OS4["slot 4: empty"]
-        OS0 --> OS1 --> OS3
+    subgraph Open["Open addressing + quadratic probing (string table, NameDictionary)"]
+        direction TB
+        OS0["slot 0: A"] --> OS1["slot 1: B (probe +1)"]
+        OS1 --> OS3["slot 3: C (probe +1+2)"]
     end
 
-    note["Adversarial keys collapse both:<br/>chain length grows to N (chaining),<br/>probe sequence becomes a linear walk (open addressing)."]
+    note["Adversarial keys collapse both:\nchain length grows to N (chaining),\nprobe sequence becomes a linear walk (open addressing)."]
     Chain -.-> note
     Open -.-> note

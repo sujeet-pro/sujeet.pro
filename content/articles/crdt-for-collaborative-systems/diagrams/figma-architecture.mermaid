@@ -2,11 +2,12 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    C1[Client 1<br/>local doc] -->|"WebSocket: ops"| S[Multiplayer server<br/>per-document worker]
-    C2[Client 2<br/>local doc] -->|"WebSocket: ops"| S
-    C3[Client 3<br/>local doc] -->|"WebSocket: ops"| S
-    S -->|"server-ordered ops"| C1
-    S -->|"server-ordered ops"| C2
-    S -->|"server-ordered ops"| C3
+    subgraph Clients["Clients (browser)"]
+        direction TB
+        C1[Client 1<br/>local doc]
+        C2[Client 2<br/>local doc]
+        C3[Client 3<br/>local doc]
+    end
+    Clients <-->|"WebSocket:<br/>ops in / ordered ops out"| S[Multiplayer server<br/>per-document worker]
     S -->|"transaction log"| L[(DynamoDB)]
     S -->|"checkpoint every 30-60s"| B[(S3)]

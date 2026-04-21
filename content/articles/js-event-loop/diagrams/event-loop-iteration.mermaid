@@ -1,21 +1,21 @@
 %% Diagram: One event-loop iteration — universal across browser and Node.js
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    start(["Iteration start"]):::start
-    pick["Pick one Task / phase callback\n(host policy)"]:::task
-    run["Run synchronous JS\nto completion"]:::engine
-    empty{"Execution context\nstack empty?"}:::decision
-    drain["Drain microtask queue\nPromise reactions, queueMicrotask\nplus process.nextTick in Node\nincluding microtasks queued during drain"]:::microtask
-    render{"Browser only:\nrendering opportunity?"}:::decision
-    paint["Update the rendering\nrAF then style then layout then paint"]:::host
-    next(["Iteration end"]):::start
+flowchart LR
+    start(["Iteration\nstart"]):::start
+    pick["Pick one task /\nphase callback"]:::task
+    run["Run sync JS\nto completion"]:::engine
+    empty{"Stack\nempty?"}:::decision
+    drain["Drain microtasks\nPromise reactions +\nqueueMicrotask\n+ nextTick in Node"]:::microtask
+    render{"Browser:\nrender?"}:::decision
+    paint["Update rendering\nrAF, style, layout, paint"]:::host
+    next(["Iteration\nend"]):::start
 
     start --> pick --> run --> empty
     empty -->|No| run
     empty -->|Yes| drain --> render
     render -->|Yes| paint --> next
-    render -->|No / Node.js| next
+    render -->|No / Node| next
     next --> start
 
     classDef start fill:#1F6E68,stroke:#155752,color:#fff

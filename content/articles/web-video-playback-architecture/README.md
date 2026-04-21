@@ -674,6 +674,28 @@ sourceBuffer.changeType('video/mp4; codecs="hev1.1.6.L93.B0"')
 | **Gap in timeline**    | Audio/video desync | Discontinuity not handled                  |
 | **Infinite buffering** | Never starts       | Init segment missing or codec string wrong |
 
+### Player Libraries: hls.js, dash.js, shaka-player
+
+In practice, almost no production team writes the MSE / EME glue from scratch. Three open-source players cover the field:
+
+| Library | Maintainer | Protocols | Engine model |
+| :------ | :--------- | :-------- | :----------- |
+| [hls.js](https://github.com/video-dev/hls.js) | video-dev community | HLS only (RFC 8216 + LL-HLS) | Dedicated, optimized for the HLS playlist tree; piped through MSE on every browser except Safari, which uses native HLS. |
+| [dash.js](https://github.com/Dash-Industry-Forum/dash.js) | DASH Industry Forum | MPEG-DASH only (incl. LL-DASH) | Reference player for the DASH-IF Implementation Guidelines; tracks the spec edits closely. |
+| [shaka-player](https://github.com/shaka-project/shaka-player) | Google | DASH, HLS (incl. LL variants), MSS | Single engine that normalizes manifests into an internal model and re-emits MSE segment requests per protocol. |
+
+All three share the same architectural shape behind their public surface:
+
+1. **Manifest parser** — turns the playlist or MPD into an in-memory representation with periods, representations, and segment timelines.
+2. **ABR controller** — owns rung selection, throughput estimation, and switch-down recovery (see the ABR section below).
+3. **Stream controller / scheduler** — decides what to fetch next based on the current buffer goal and ABR rung.
+4. **Loader / fetch layer** — issues the actual network requests, with retry, backoff, and CMSD parsing.
+5. **Buffer controller** — owns one `SourceBuffer` per track, schedules `appendBuffer` and eviction, and reacts to `QuotaExceededError`.
+6. **DRM controller** — wraps the EME handshake described above and routes license challenges to the configured server.
+7. **Text / caption renderer** — for WebVTT, IMSC, or CEA-608/708 tracks the platform does not render natively.
+
+**Selection heuristic.** If the catalog is HLS-only, hls.js is the smallest and fastest dependency. If it is DASH-only and the team needs to track new spec features as they land, dash.js. If both protocols are in scope, or if Cast / smart-TV reach matters, shaka-player; its single-engine model avoids two parallel ABR implementations diverging in production.
+
 ## Architecting a Resilient Video Pipeline
 
 Building a production-grade video streaming service requires robust system design. A modern video pipeline should be viewed as a high-throughput, real-time data pipeline with strict latency and availability requirements.
@@ -787,6 +809,48 @@ Poor ladder design causes:
 - Implement periodic re-sync (every 30 seconds) with allowed drift tolerance
 - Consider server-side time signaling (CMSD in DASH)
 
+## Platform Integration: Picture-in-Picture and Remote Playback
+
+The pipeline above stops at the `<video>` element. Two W3C APIs extend playback off that surface — to a floating window and to an external display — and both are part of the playback contract a production player owns.
+
+### Picture-in-Picture
+
+The [W3C Picture-in-Picture API](https://www.w3.org/TR/picture-in-picture/) (Working Draft, Media Working Group) extends `HTMLVideoElement` with `requestPictureInPicture()`, `enterpictureinpicture` / `leavepictureinpicture` events, and the boolean `disablePictureInPicture` attribute. The site asks for PiP; the user agent decides whether and how to grant a floating, always-on-top window.
+
+```javascript
+video.addEventListener("enterpictureinpicture", (event) => {
+  // event.pictureInPictureWindow exposes width/height for resizing
+})
+
+document.pictureInPictureEnabled &&
+  await video.requestPictureInPicture()
+```
+
+Rules that bite in production:
+
+- The call must originate from a **user gesture** — a click handler, not a background timer.
+- Only one PiP window per document. Calling `requestPictureInPicture()` again returns the same window.
+- Setting `disablePictureInPicture` is the right way to suppress the system PiP affordance for live ad creatives or DRM content where PiP would break the policy.
+
+### Remote Playback API
+
+The [W3C Remote Playback API](https://www.w3.org/TR/remote-playback/) (Candidate Recommendation Draft, Second Screen Working Group) extends `HTMLMediaElement` with a `remote` attribute (a `RemotePlayback` object) and a `disableRemotePlayback` attribute. It abstracts AirPlay, Chromecast (when surfaced through this API), and other vendor-specific cast affordances under a single observable surface:
+
+```javascript
+video.remote.watchAvailability((available) => {
+  castButton.hidden = !available
+})
+
+castButton.addEventListener("click", () => {
+  video.remote.prompt() // user agent picks the device
+})
+```
+
+Two interactions matter for the rest of the pipeline:
+
+- `ManagedMediaSource` (the eviction-aware MSE variant Safari shipped in 2023) only enters the `open` state if the page either provides an HLS AirPlay alternative **or** sets `video.disableRemotePlayback = true`. Players that rely on `ManagedMediaSource` must make this choice explicitly.[^mms]
+- DRM policy travels with the stream, not the surface. A license issued for the local CDM is not automatically valid on the remote receiver; production players either re-acquire on remote start or disable remote playback for protected content via `disableRemotePlayback`.
+
 ## Conclusion
 
 Video streaming architecture is a study in layered abstractions, each solving a specific problem:
@@ -838,7 +902,7 @@ The future is hybrid: AV1 for bandwidth efficiency where hardware supports it, H
 
 ### Summary
 
-- **Codecs trade compression efficiency vs. hardware support.** H.264 is universal; AV1 offers 30% better compression but requires modern hardware (10% smartphone coverage as of 2024).
+- **Codecs trade compression efficiency vs. hardware support.** H.264 is universal; AV1 offers ~30% better compression than HEVC but historically depended on hardware decode (Apple A17 Pro / M3 in 2023; ~88% of large-screen Netflix-certified devices since 2021), with software AV1 decode now rolled out to mobile devices that lack it.
 - **CMAF unifies HLS and DASH delivery.** Single encoded segments, different manifests. Reduces storage and improves CDN cache efficiency.
 - **HLS dominates due to Apple ecosystem.** Safari/iOS require HLS; most services support both HLS and DASH.
 - **DRM is platform-fragmented.** Widevine (Google), FairPlay (Apple), PlayReady (Microsoft). CENC enables single encryption for all three.
@@ -860,6 +924,9 @@ The future is hybrid: AV1 for bandwidth efficiency where hardware supports it, H
 - [W3C Media Source Extensions](https://www.w3.org/TR/media-source-2/) - MSE API specification
 - [W3C Encrypted Media Extensions](https://www.w3.org/TR/encrypted-media/) - EME API specification
 - [W3C WebRTC](https://www.w3.org/TR/webrtc/) - WebRTC API specification
+- [W3C Picture-in-Picture](https://www.w3.org/TR/picture-in-picture/) - Picture-in-Picture API for `HTMLVideoElement`
+- [W3C Remote Playback API](https://www.w3.org/TR/remote-playback/) - Remote Playback API for `HTMLMediaElement`
+- [WHATWG HTML — The `video` element](https://html.spec.whatwg.org/multipage/media.html#the-video-element) - HTML media element specification
 
 **Official Documentation:**
 

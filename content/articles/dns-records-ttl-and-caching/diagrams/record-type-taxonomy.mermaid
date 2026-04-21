@@ -3,7 +3,6 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     Root["DNS record types"]
-    style Root fill:#1f2937,stroke:#0f172a,color:#ffffff
 
     Addr["Address resolution"]
     Del["Zone delegation"]
@@ -29,17 +28,17 @@ flowchart TB
     Sec --> TXT["TXT — SPF, DKIM, DMARC + domain verification"]
     Sec --> CAA["CAA — restrict CAs (RFC 8659; mandatory since 2017-09)"]
 
-    classDef root fill:#1f2937,stroke:#0f172a,color:#ffffff,font-weight:bold
-    classDef cat_addr fill:#1e40af,stroke:#1e3a8a,color:#ffffff,font-weight:bold
-    classDef cat_del fill:#15803d,stroke:#14532d,color:#ffffff,font-weight:bold
-    classDef cat_svc fill:#b45309,stroke:#78350f,color:#ffffff,font-weight:bold
-    classDef cat_sec fill:#7c2d12,stroke:#581c0c,color:#ffffff,font-weight:bold
-    classDef leaf_addr fill:#dbeafe,stroke:#1e40af,color:#0c1f5e
-    classDef leaf_del fill:#dcfce7,stroke:#15803d,color:#052e16
-    classDef leaf_svc fill:#fef3c7,stroke:#b45309,color:#451a03
-    classDef leaf_sec fill:#fee2e2,stroke:#7c2d12,color:#450a0a
+    classDef rootCat fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff,font-weight:bold
+    classDef cat_addr fill:#2E5A88,stroke:#1F4870,color:#ffffff,font-weight:bold
+    classDef cat_del fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff,font-weight:bold
+    classDef cat_svc fill:#8B5E15,stroke:#6E4810,color:#ffffff,font-weight:bold
+    classDef cat_sec fill:#B43A3A,stroke:#8E2828,color:#ffffff,font-weight:bold
+    classDef leaf_addr fill:#dbeafe,stroke:#1F4870,color:#0c1f5e
+    classDef leaf_del fill:#dcfce7,stroke:#1E5A1E,color:#0a3a0a
+    classDef leaf_svc fill:#fef3c7,stroke:#6E4810,color:#3a1604
+    classDef leaf_sec fill:#fee2e2,stroke:#8E2828,color:#450a0a
 
-    class Root root
+    class Root rootCat
     class Addr cat_addr
     class Del cat_del
     class Svc cat_svc

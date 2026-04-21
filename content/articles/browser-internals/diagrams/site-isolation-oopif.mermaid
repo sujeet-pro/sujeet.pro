@@ -3,37 +3,25 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Browser["Browser Process (privileged)"]
-        RFHTop["RenderFrameHost (top frame)"]
-        RFHIframe["RenderFrameHost (OOPIF)"]
-        Policy["ChildProcessSecurityPolicy (site lock check)"]
+        direction TB
+        RFHTop["RenderFrameHost<br/>(top frame)"]
+        RFHIframe["RenderFrameHost<br/>(OOPIF)"]
+        Policy["ChildProcessSecurityPolicy<br/>(site-lock check)"]
     end
 
-    subgraph RA["Renderer A — locked to https://shop.example"]
-        FrameA["Top frame: shop.example/checkout"]
-        DOMa["Blink DOM + V8 isolate"]
-    end
+    RA["Renderer A<br/>locked: https://shop.example<br/>top frame · Blink · V8"]
+    RB["Renderer B<br/>locked: https://pay.thirdparty<br/>iframe · Blink · V8"]
 
-    subgraph RB["Renderer B — locked to https://pay.thirdparty"]
-        FrameB["iframe: pay.thirdparty/widget"]
-        DOMb["Blink DOM + V8 isolate"]
-    end
+    Viz["GPU / Viz Process<br/>display compositor"]
+    Screen["Stitched frame to screen"]
 
-    subgraph Viz["GPU / Viz Process"]
-        DC["Display Compositor"]
-    end
+    RFHTop -- Mojo --> RA
+    RFHIframe -- Mojo --> RB
+    RA <-- "postMessage only<br/>(no synchronous DOM)" --> RB
 
-    RFHTop -- Mojo --> FrameA
-    RFHIframe -- Mojo --> FrameB
-    FrameA <-- "postMessage only (no sync DOM)" --> FrameB
-
-    FrameA -- "compositor frame" --> DC
-    FrameB -- "compositor frame" --> DC
-    DC --> Stitched["Single stitched frame to screen"]
+    RA -- "compositor frame" --> Viz
+    RB -- "compositor frame" --> Viz
+    Viz --> Screen
 
     Policy -. "rejects cross-site IPC" .-> RA
     Policy -. "rejects cross-site IPC" .-> RB
-
-    style Browser fill:#e3f2fd
-    style RA fill:#e8f5e8
-    style RB fill:#fce4ec
-    style Viz fill:#f3e5f5

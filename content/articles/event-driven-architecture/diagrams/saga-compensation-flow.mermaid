@@ -2,33 +2,28 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant Client
-    participant Orchestrator
-    participant Inventory
-    participant Payment
-    participant Shipping
+    participant Orch as Orchestrator
+    participant Inv as Inventory
+    participant Pay as Payment
+    participant Ship as Shipping
 
-    rect rgba(173, 216, 230, 0.25)
-    Note over Client,Shipping: Happy path
-    Client->>Orchestrator: PlaceOrder
-    Orchestrator->>Inventory: ReserveItems
-    Inventory-->>Orchestrator: Reserved
-    Orchestrator->>Payment: ChargeCard
-    Payment-->>Orchestrator: Charged (pivot)
-    Orchestrator->>Shipping: CreateShipment
-    Shipping-->>Orchestrator: Shipped
-    Orchestrator-->>Client: OrderConfirmed
-    end
+    Note over Client,Ship: Happy path
+    Client->>Orch: PlaceOrder
+    Orch->>Inv: ReserveItems
+    Inv-->>Orch: Reserved
+    Orch->>Pay: ChargeCard
+    Pay-->>Orch: Charged (pivot)
+    Orch->>Ship: CreateShipment
+    Ship-->>Orch: Shipped
+    Orch-->>Client: OrderConfirmed
 
-    rect rgba(255, 200, 200, 0.35)
-    Note over Client,Shipping: Failure: payment declined → backward recovery
-    Client->>Orchestrator: PlaceOrder
-    Orchestrator->>Inventory: ReserveItems
-    Inventory-->>Orchestrator: Reserved
-    Orchestrator->>Payment: ChargeCard
-    Payment-->>Orchestrator: Declined
-    Orchestrator->>Inventory: ReleaseReservation (compensate)
-    Inventory-->>Orchestrator: Released
-    Orchestrator-->>Client: OrderRejected
-    end
+    Note over Client,Ship: Failure: payment declined → backward recovery
+    Client->>Orch: PlaceOrder
+    Orch->>Inv: ReserveItems
+    Inv-->>Orch: Reserved
+    Orch->>Pay: ChargeCard
+    Pay-->>Orch: Declined
+    Orch->>Inv: ReleaseReservation (compensate)
+    Inv-->>Orch: Released
+    Orch-->>Client: OrderRejected

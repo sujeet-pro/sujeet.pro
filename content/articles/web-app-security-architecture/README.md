@@ -301,14 +301,23 @@ gives the current canonical choices:
 
 | Use case                     | Algorithm    | Configuration                                                    |
 | :--------------------------- | :----------- | :--------------------------------------------------------------- |
-| Password hashing             | Argon2id     | `m=47104` (46 MiB), `t=1`, `p=1` *or* `m=19456` (19 MiB), `t=2`, `p=1` |
-| Password hashing (legacy)    | bcrypt       | Cost ≥ 10; max 72-byte input (Blowfish P-array limit)           |
+| Password hashing             | Argon2id     | One of five equivalent OWASP profiles (see below); all `p=1`     |
+| Password hashing (legacy)    | bcrypt       | Cost ≥ 10; max 72-byte input (Blowfish P-array limit)            |
 | Symmetric encryption         | AES-256-GCM  | 256-bit key, **random 96-bit IV per operation** (NIST SP 800-38D)|
 | Asymmetric encryption        | RSA-OAEP     | 3072-bit minimum, 4096-bit preferred                             |
 | Digital signatures           | Ed25519      | 256-bit keys, deterministic signatures                           |
 
-Argon2id's two equivalent OWASP profiles trade memory for time: pick the
-memory profile your hardware supports, never lower both.[^owasp-passwords]
+OWASP publishes five equivalent Argon2id profiles that trade memory for
+time; pick the highest-memory profile the host can sustain, then bump
+`timeCost` instead of dropping memory further.[^owasp-passwords]
+
+| `memoryCost` (`m`)  | `timeCost` (`t`) | `parallelism` (`p`) | Notes                                  |
+| :------------------ | :--------------- | :------------------ | :------------------------------------- |
+| 47104 (46 MiB)      | 1                | 1                   | Argon2id only; not safe for Argon2i    |
+| 19456 (19 MiB)      | 2                | 1                   | Argon2id only; not safe for Argon2i    |
+| 12288 (12 MiB)      | 3                | 1                   | Safe for Argon2id and Argon2i          |
+| 9216 (9 MiB)        | 4                | 1                   | Safe for Argon2id and Argon2i          |
+| 7168 (7 MiB)        | 5                | 1                   | Safe for Argon2id and Argon2i          |
 
 ```javascript title="argon2id.js"
 import { hash, verify } from "@node-rs/argon2"
@@ -390,7 +399,7 @@ classes of bug that application-side fixes miss.
 ### Content Security Policy (CSP)
 
 [CSP Level 3](https://www.w3.org/TR/CSP3/) is a W3C **Working Draft** (most
-recently published 2026-04-01) that restricts where a page may load and
+recently published 2026-04-21) that restricts where a page may load and
 execute scripts, styles, and other resources.[^csp3]
 
 **Why allowlists fail.** The seminal Google study analyzed ~26,000 distinct
@@ -861,7 +870,7 @@ session/auth surface of the SSR backend.
 [^owasp-a01]: [OWASP Top 10:2025 — A01: Broken Access Control](https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/) — incidence rate 3.73%, 40 mapped CWEs.
 [^owasp-passwords]: [OWASP Password Storage Cheat Sheet — Argon2id](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id) — five equivalent OWASP Argon2id profiles, all with `p=1`.
 [^csp-dead]: Weichselbaum et al., [CSP Is Dead, Long Live CSP! On the Insecurity of Whitelists and the Future of Content Security Policy](https://research.google/pubs/csp-is-dead-long-live-csp-on-the-insecurity-of-whitelists-and-the-future-of-content-security-policy/), ACM CCS 2016.
-[^csp3]: [W3C Content Security Policy Level 3, Working Draft 2026-04-01](https://www.w3.org/TR/CSP3/).
+[^csp3]: [W3C Content Security Policy Level 3, Working Draft 2026-04-21](https://www.w3.org/TR/CSP3/).
 [^trusted-types-caniuse]: [caniuse — Trusted Types for DOM manipulation](https://caniuse.com/trusted-types) and [Web Platform DX — Trusted Types Baseline (2026-02-24)](https://github.com/web-platform-dx/developer-signals/issues/118).
 [^trusted-types-google]: Google, [Trusted Types — mid-2021 report](https://storage.googleapis.com/gweb-research2023-media/pubtools/6259.pdf) — analysis of DOM XSS reports to Google's VRP.
 [^webauthn3]: [W3C WebAuthn Level 3, Candidate Recommendation Snapshot 2026-01-13](https://www.w3.org/TR/webauthn-3/).

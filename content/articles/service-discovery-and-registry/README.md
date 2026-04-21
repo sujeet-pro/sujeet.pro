@@ -16,8 +16,8 @@ tags:
 
 In a system where instances scale, fail, and migrate continuously, "where is service B right now?" is a real-time question with a stale answer. This article is for senior engineers picking a discovery pattern, choosing a registry, designing health checks, and reasoning about the failure modes that show up when the registry, the network, or the workload misbehaves at the same time.
 
-![Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.](./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist-light.svg "Service discovery routes traffic from clients to healthy backend instances through a registry; client-side discovery queries the registry directly, server-side discovery routes through an intermediary, service mesh delegates to a sidecar.")
-![Service discovery connects clients to healthy backend instances through a registry. Client-side discovery queries the registry directly; server-side discovery routes through an intermediary.](./diagrams/service-discovery-connects-clients-to-healthy-backend-instances-through-a-regist-dark.svg)
+![Service discovery overview: clients reach backends either directly via a registry lookup or through an intermediary load balancer that does the lookup for them.](./diagrams/discovery-overview-light.svg "Service discovery routes traffic from clients to healthy backend instances through a registry; client-side discovery queries the registry directly, server-side discovery routes through an intermediary, service mesh delegates to a sidecar.")
+![Service discovery overview: clients reach backends either directly via a registry lookup or through an intermediary load balancer that does the lookup for them.](./diagrams/discovery-overview-dark.svg)
 
 ## Mental Model
 

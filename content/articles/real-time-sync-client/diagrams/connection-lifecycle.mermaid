@@ -1,0 +1,25 @@
+%% Diagram: Connection lifecycle — connect, heartbeat, reconnect with backoff
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Connecting: open()
+    Connecting --> Open: handshake ok
+    Connecting --> Backoff: handshake error
+    Open --> HeartbeatSent: ping interval elapsed
+    HeartbeatSent --> Open: pong received
+    HeartbeatSent --> Closing: pong timeout
+    Open --> Closing: close frame / network drop
+    Closing --> Backoff: not auth or rate-limit error
+    Closing --> [*]: 401 / explicit shutdown
+    Backoff --> Connecting: delay = min(base * mult^n + jitter, cap)
+    Backoff --> [*]: max attempts reached
+    note right of Backoff
+        Exponential backoff with jitter.
+        Reset attempts on first successful Open.
+        Honor Retry-After on 429.
+    end note
+    note left of Open
+        On reconnect: replay pending mutations
+        and request missed messages by lastSeq
+        or Last-Event-ID.
+    end note

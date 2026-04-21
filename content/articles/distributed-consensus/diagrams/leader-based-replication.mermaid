@@ -19,11 +19,11 @@ sequenceDiagram
     end
     F1-->>L: ack(term, idx)
     F2-->>L: ack(term, idx)
-    Note over L: Majority (3/5: L + F1 + F2) -> commit
+    Note over L: Majority reached on L, F1, F2 — commit
     L->>L: advance commitIndex
     L-->>C: ok
     L->>F1: heartbeat(commitIndex)
     L->>F2: heartbeat(commitIndex)
     L->>F3: heartbeat(commitIndex)
     L->>F4: heartbeat(commitIndex)
-    Note over F3,F4: Late acks accepted; followers learn commitIndex on next heartbeat
+    Note right of F4: Late acks accepted — followers learn commitIndex on next heartbeat

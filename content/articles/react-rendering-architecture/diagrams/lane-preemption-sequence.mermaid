@@ -2,20 +2,19 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant U as User
     participant S as Scheduler
-    participant T as Transition Render\n(Low priority)
-    participant C as Sync Render\n(Click handler)
+    participant T as Transition\n(Low priority)
+    participant C as Sync\n(Click handler)
     participant D as DOM
 
-    U->>S: startTransition(filterList)
-    S->>T: Begin work loop\n(TransitionLane)
-    T-->>S: yields after 5 ms\n(MessageChannel)
-    U->>S: click event
-    S->>S: Schedule SyncLane\n(higher priority bit)
-    S->>T: Discard WIP tree
-    S->>C: Begin sync render
-    C->>D: Commit input feedback
-    S->>T: Restart transition\n(from updated state)
-    T->>D: Commit filtered list
+    U->>S: 1. startTransition(filter)
+    S->>T: 2. Begin work loop\n(TransitionLane)
+    T-->>S: 3. Yield after 5 ms\n(MessageChannel)
+    U->>S: 4. Click event
+    S->>S: 5. Schedule SyncLane
+    S->>T: 6. Discard WIP tree
+    S->>C: 7. Begin sync render
+    C->>D: 8. Commit feedback
+    S->>T: 9. Restart transition
+    T->>D: 10. Commit filtered list

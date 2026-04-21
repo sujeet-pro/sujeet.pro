@@ -15,8 +15,8 @@ tags:
 
 Trees and graphs are the connective tissue of working systems — file systems and B-tree indexes, build DAGs and package managers, schedulers and routers, virtual DOMs and union-find connectivity. This article is the senior-engineer mental model: which tree variant fits which workload, when adjacency lists beat matrices, why three colours are needed for directed cycle detection, what Kahn's algorithm actually does in a build pipeline, when Dijkstra silently lies (negative weights), and why path-compressed union-find behaves like O(1) in practice. Each section pairs the mechanism with a diagram, a complexity row, and the production system that depends on it.
 
-![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-light.svg "Trees model hierarchy, graphs model arbitrary connections; traversal choice follows from the question being asked.")
-![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-dark.svg)
+![Trees enforce a single parent and forbid cycles; graphs allow arbitrary edges. Representation choice (adjacency list vs matrix) is a density bet; traversal choice (DFS vs BFS) follows the question being asked.](./diagrams/trees-vs-graphs-overview-light.svg "Trees model hierarchy, graphs model arbitrary connections; representation is a density bet, and traversal shape follows the question.")
+![Trees enforce a single parent and forbid cycles; graphs allow arbitrary edges. Representation choice (adjacency list vs matrix) is a density bet; traversal choice (DFS vs BFS) follows the question being asked.](./diagrams/trees-vs-graphs-overview-dark.svg)
 
 ## Mental model
 
@@ -106,6 +106,9 @@ A **B+ tree** is the variant most production databases ship[^pg-nbtree][^mysql-i
 - All values live in the leaf level.
 - Leaves are linked into a doubly-linked list for cheap range scans.
 
+![B+ tree fanout: internal pages hold separator keys; values live only at the leaf level; leaves form a linked list for range scans.](./diagrams/btree-fanout-structure-light.svg "B+ tree shape: internal pages route by separator keys, values sit at the leaf level, and leaves are linked left-to-right so range scans walk a single chain instead of re-traversing the tree.")
+![B+ tree fanout: internal pages hold separator keys; values live only at the leaf level; leaves form a linked list for range scans.](./diagrams/btree-fanout-structure-dark.svg)
+
 Production footprint:
 
 - **PostgreSQL** uses Lehman & Yao's high-concurrency B+ tree variant, which adds a right-link per page so readers traverse without blocking on splits[^pg-nbtree].
@@ -141,6 +144,9 @@ Tries (aka prefix trees) replace per-key comparison with per-character descent. 
 Application footprint: autocomplete, spell checking, IP routing (LC-trie / Patricia), genomic suffix structures.
 
 ## Graph representations
+
+![The same 4-vertex graph stored as an adjacency list (O(V + E)) and an adjacency matrix (O(V²)).](./diagrams/adjacency-representations-light.svg "The same graph two ways: an adjacency list keeps only the edges that exist (O(V + E), wins on sparse graphs) while an adjacency matrix reserves a cell per vertex pair (O(V²), wins only on dense graphs and Floyd-Warshall-style algorithms).")
+![The same 4-vertex graph stored as an adjacency list (O(V + E)) and an adjacency matrix (O(V²)).](./diagrams/adjacency-representations-dark.svg)
 
 ### Adjacency matrix
 

@@ -1,30 +1,32 @@
-%% Diagram: Which search algorithm to pick — decision tree
+%% Diagram: Decision tree — pick a search algorithm from data shape and constraints
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Q{What are you searching?}
+    Q{What are you<br/>searching?}
     Q -->|Array or list| A{Sorted?}
     Q -->|Graph| G{Edge weights?}
 
-    A -->|No| LIN["Linear search — O n"]
-    A -->|Yes| AS{n &lt; 100 or single query?}
-    AS -->|Yes| LIN2["Linear search — sort cost not worth it"]
-    AS -->|No| AD{Random access cheap?}
-    AD -->|No| JMP["Jump search — O sqrt n"]
-    AD -->|Yes| AU{Uniform value distribution?}
-    AU -->|Yes| INTP["Interpolation — O log log n avg"]
+    A -->|No| LIN["Linear · O(n)"]
+    A -->|Yes| AS{n &lt; 100<br/>or single query?}
+    AS -->|Yes| LIN
+    AS -->|No| AD{Random access<br/>cheap?}
+    AD -->|No| JMP["Jump · O(√n)"]
+    AD -->|Yes| AU{Uniform values?}
+    AU -->|Yes| INTP["Interpolation<br/>O(log log n) avg"]
     AU -->|No| BSZ{Bounded?}
-    BSZ -->|No| EXP["Exponential — O log i"]
-    BSZ -->|Yes| BIN["Binary search — O log n"]
+    BSZ -->|No| EXP["Exponential · O(log i)"]
+    BSZ -->|Yes| BIN["Binary · O(log n)"]
 
-    G -->|None — both ends known| BIBFS["Bidirectional BFS — O b^d/2"]
-    G -->|None — shortest path| BFS["BFS — O V plus E"]
-    G -->|None — any path| DFS["DFS — O V plus E"]
-    G -->|Non-negative + heuristic| ASTAR["A star — focused expansion"]
-    G -->|Non-negative| DIJ["Dijkstra — O V plus E log V"]
-    G -->|Negative edges| BF["Bellman-Ford — O V·E"]
+    G -->|No weights — both ends known| BIBFS["Bidirectional BFS<br/>O(b^d/2)"]
+    G -->|No weights — shortest path| BFS["BFS · O(V+E)"]
+    G -->|No weights — any path| DFS["DFS · O(V+E)"]
+    G -->|Non-negative + heuristic| ASTAR["A* · focused"]
+    G -->|Non-negative| DIJ["Dijkstra<br/>O((V+E) log V)"]
+    G -->|Negative edges| BF["Bellman-Ford<br/>O(V·E)"]
 
-    classDef question fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
-    classDef leaf fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef question fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef arrayLeaf fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff
+    classDef graphLeaf fill:#7e22ce,stroke:#581c87,color:#ffffff
     class Q,A,AS,AD,AU,BSZ,G question
-    class LIN,LIN2,JMP,INTP,EXP,BIN,BIBFS,BFS,DFS,ASTAR,DIJ,BF leaf
+    class LIN,JMP,INTP,EXP,BIN arrayLeaf
+    class BIBFS,BFS,DFS,ASTAR,DIJ,BF graphLeaf

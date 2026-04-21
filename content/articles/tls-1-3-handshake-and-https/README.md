@@ -325,17 +325,17 @@ CT (RFC 9162, replacing RFC 6962) makes all certificate issuance publicly audita
 2. **SCTs** (Signed Certificate Timestamps): Promises to include certificate within Maximum Merge Delay (24 hours)
 3. **Monitors**: Watch logs for certificates issued to specific domains
 
-**Browser enforcement** (Chrome CT policy, current as of 2026-Q2):
+**Browser enforcement** ([Chrome CT policy](https://googlechrome.github.io/CertificateTransparency/ct_policy.html), current as of 2026-Q2):
 
 - Embedded SCTs: 2 from distinct logs for certificates ≤180 days, 3 for longer-lived certificates.
 - Across that set, at least 2 must come from distinct CT log _operators_ — so a single operator running multiple logs cannot satisfy the requirement.
 - SCTs can be delivered via:
   - X.509 extension (embedded by the CA at issuance)
   - TLS extension (`signed_certificate_timestamp`)
-  - OCSP response (deprecated path; Chrome stops counting these in May 2026)
+  - OCSP response (deprecated path; [Chrome 148 stops counting these on 2026-05-05](https://groups.google.com/a/chromium.org/g/ct-policy/c/6ewCgspeyZE))
 
 > [!NOTE]
-> The "≥1 SCT from an RFC 6962 log" requirement was removed in Chrome 144 (April 2026). SCTs from `static-ct-api` logs now count on their own.
+> The "≥1 SCT from an RFC 6962 log" requirement is being retired: [Chrome 144](https://groups.google.com/a/chromium.org/g/ct-policy/c/IXPT4r1CPdE) (released January 2026) no longer enforces it locally, and from **2026-04-15** all Chrome clients are expected to accept SCTs sourced exclusively from `static-ct-api` logs.
 
 ### What CT Doesn't Do
 
@@ -449,6 +449,30 @@ If a domain publishes DNSSEC and validation fails (`SERVFAIL`, `BOGUS`), the CA 
 > [!IMPORTANT]
 > DNSSEC remains opt-in for domain owners. The ballot only affects domains that already publish DNSSEC records. Unsigned domains see no change in CAA processing.
 
+## Encrypted ClientHello (ECH): Closing the SNI Leak
+
+### What still leaks in TLS 1.3
+
+The handshake encrypts certificates and EncryptedExtensions, but **the ClientHello itself is plaintext** — including the `server_name` (SNI) extension, the ALPN list, and the offered `key_share` curves. A passive observer sitting between client and server learns the hostname being visited even though the rest of the session is private. This is the residual privacy gap that ESNI (Encrypted SNI) tried, and failed, to close cleanly.
+
+### How ECH works
+
+[Encrypted ClientHello](https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni) (draft-ietf-tls-esni, currently at draft-25 in 2026) replaces ESNI with a two-part design:
+
+- The server publishes an `HTTPS` resource record in DNS containing an **ECHConfig**: an HPKE public key ([RFC 9180](https://datatracker.ietf.org/doc/html/rfc9180)) and a public name (a non-sensitive "outer" hostname for the front-end).
+- The client builds an **inner ClientHello** with the real SNI and sensitive extensions, encrypts it with HPKE under the published key, and embeds the ciphertext in an **outer ClientHello** that advertises only the public name.
+- The server decrypts the inner ClientHello and completes the handshake against the real backend. A network observer sees only the public name.
+
+### Trust assumptions and operational reality
+
+- **DNS confidentiality is required.** ECH only hides SNI from on-path observers if the `HTTPS`/`SVCB` record is fetched over [DNS-over-HTTPS](https://datatracker.ietf.org/doc/html/rfc8484) or [DNS-over-TLS](https://datatracker.ietf.org/doc/html/rfc7858). A plaintext DNS lookup leaks the hostname before the handshake even starts.
+- **Anonymity-set size matters.** ECH's privacy benefit collapses if the public name fronts a single tenant. CDN-scale deployments (Cloudflare, Fastly) provide meaningful cover; a one-tenant origin does not.
+- **Key rotation must be online.** Servers rotate ECHConfigs and serve a `retry_configs` extension when a client uses a stale key, so the client can silently retry with the fresh config.
+- **Deployment status (2026-Q2).** Cloudflare has shipped ECH as a switchable setting since 2023; Firefox and Chrome enable ECH when DoH is on and a usable `HTTPS` record is published. Middleboxes that perform SNI inspection break: enterprise networks frequently strip the `encrypted_client_hello` extension, falling back to plaintext SNI.
+
+> [!CAUTION]
+> ECH is still an IETF draft and the wire format has shifted across revisions. Only deploy via a managed CDN or a TLS library that explicitly tracks the same draft version your clients negotiate; mismatched drafts cause hard handshake failures, not silent fallback.
+
 ## Operational Hardening Checklist
 
 ### TLS Configuration
@@ -468,6 +492,7 @@ If a domain publishes DNSSEC and validation fails (`SERVFAIL`, `BOGUS`), the CA 
 - [ ] Configure CAA records authorizing only your CAs
 - [ ] Monitor CT logs for unexpected certificates (crt.sh, Cert Spotter)
 - [ ] Use short-lived certificates (90 days or less)
+- [ ] Publish DNS `HTTPS` records and enable ECH on CDN-fronted hostnames (with DoH/DoT in clients)
 
 ### 0-RTT Policy
 
@@ -493,6 +518,7 @@ HTTPS hardening beyond TLS requires understanding what each mechanism actually p
 - **Certificate Transparency** enables detection but not prevention of misissued certificates
 - **OCSP stapling** improves privacy and performance but browsers soft-fail anyway
 - **CAA** prevents unauthorized issuance but doesn't revoke existing certificates
+- **ECH** closes the SNI leak only when DNS is also encrypted and the public name fronts a sufficiently large anonymity set
 
 The uncomfortable truth: revocation checking has largely failed. Short-lived certificates and CT monitoring provide more practical security than OCSP ever did.
 
@@ -528,6 +554,7 @@ The uncomfortable truth: revocation checking has largely failed. Short-lived cer
 - Certificate Transparency detects misissued certificates post-facto; doesn't prevent use
 - Browser OCSP soft-fail means revocation checking provides no security against active attackers
 - Short-lived certificates are the industry's practical answer to revocation's failure
+- ECH (draft) hides SNI from on-path observers, but only when DNS is encrypted and the public name fronts a meaningful anonymity set
 
 ### References
 
@@ -538,6 +565,9 @@ The uncomfortable truth: revocation checking has largely failed. Short-lived cer
 - [RFC 8659 - DNS Certification Authority Authorization (CAA) Resource Record](https://datatracker.ietf.org/doc/html/rfc8659) — CAA record specification
 - [RFC 6066 - Transport Layer Security (TLS) Extensions](https://datatracker.ietf.org/doc/html/rfc6066) — OCSP stapling (status_request extension)
 - [RFC 6961 - TLS Multiple Certificate Status Request Extension](https://datatracker.ietf.org/doc/html/rfc6961) — status_request_v2 for multiple OCSP responses
+- [RFC 8740 - Using TLS 1.3 with HTTP/2](https://datatracker.ietf.org/doc/html/rfc8740) — Forbids `KeyUpdate`-driven renegotiation patterns inside HTTP/2 connections
+- [RFC 9180 - Hybrid Public Key Encryption (HPKE)](https://datatracker.ietf.org/doc/html/rfc9180) — Construction ECH uses to encrypt the inner ClientHello
+- [draft-ietf-tls-esni - TLS Encrypted Client Hello](https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni) — Current ECH draft
 - [HSTS Preload Submission](https://hstspreload.org/) — Browser preload list submission portal
 - [Cloudflare: A Detailed Look at RFC 8446](https://blog.cloudflare.com/rfc-8446-aka-tls-1-3/) — Practical TLS 1.3 deployment insights
 - [Cloudflare: Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/) — 0-RTT implementation and replay protection

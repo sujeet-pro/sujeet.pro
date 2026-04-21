@@ -2,26 +2,26 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant Server
-    participant Network
-    participant Client
+    participant S as Server
+    participant N as Network
+    participant C as Client
 
-    Server->>Network: Segment 1 — stream 1 (CSS)
-    Server->>Network: Segment 2 — stream 3 (JS)
-    Server->>Network: Segment 3 — stream 5 (image)
+    S->>N: Seg 1 (stream 1, CSS)
+    S->>N: Seg 2 (stream 3, JS)
+    S->>N: Seg 3 (stream 5, img)
 
-    Note over Network: Segment 1 is dropped
+    Note over N: Seg 1 dropped
 
-    Network->>Client: Segment 2 arrives — buffered by TCP
-    Network->>Client: Segment 3 arrives — buffered by TCP
+    N->>C: Seg 2 arrives, buffered
+    N->>C: Seg 3 arrives, buffered
 
-    Note over Client: TCP delivers in order, app sees nothing yet
+    Note over C: App sees nothing<br/>(TCP in-order)
 
-    Note over Server,Client: ~1 RTT later (RTO or fast retransmit)
+    Note over S,C: ~1 RTT later<br/>(retransmit timeout)
 
-    Server->>Network: Segment 1 (retransmit)
-    Network->>Client: Segment 1 arrives
+    S->>N: Seg 1 (retransmit)
+    N->>C: Seg 1 arrives
 
-    Client-->>Client: TCP releases segments 1, 2, 3 to HTTP/2 layer
+    C-->>C: TCP releases 1,2,3<br/>to HTTP/2
 
-    Note over Client: All three streams stalled by one lost segment
+    Note over C: 3 streams stalled<br/>by 1 lost segment

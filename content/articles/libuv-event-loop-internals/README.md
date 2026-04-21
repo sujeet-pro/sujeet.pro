@@ -24,6 +24,8 @@ Explore libuv's event loop architecture, asynchronous I/O capabilities, thread p
 
 ## Abstract
 
+This article is the **C-level libuv view** of the event loop — kernel polling backends, the worker thread pool, handle/request lifecycles, the `uv_run` phase machine, and the io_uring path. For the Node-runtime view of the same loop (the JavaScript-side phase order, `process.nextTick`, microtask drain points, `setImmediate` vs timers, process exit) see [Node.js Event Loop](../nodejs-event-loop/README.md). For the WHATWG-spec browser model (task sources, the HTML rendering pipeline) see [Browser Event Loop](../browser-event-loop/README.md).
+
 **libuv** (current stable: [v1.52.1, March 2026](https://github.com/libuv/libuv/releases/tag/v1.52.1)) is the cross-platform asynchronous I/O library that gives Node.js — and Luvit, Julia, uvloop, Neovim, and others — their event-driven, non-blocking architecture. The mental model centers on a **fundamental architectural dichotomy**:
 
 | I/O Type     | Mechanism                          | Scalability                                             | Bottleneck            |
@@ -138,7 +140,8 @@ As established previously, the thread pool is libuv's solution for emulating asy
 
 **Performance Tuning:** Adjusting the thread pool size is a key performance tuning lever for applications that are heavily dependent on blocking operations. Increasing the number of threads can improve throughput by allowing more blocking tasks to execute in parallel. However, setting the size too high can be counterproductive, leading to excessive memory consumption (as each thread has its own stack, which [defaults to 8 MB as of v1.45.0](https://docs.libuv.org/en/latest/threadpool.html)) and increased CPU overhead from frequent context switching between a large number of threads. A common heuristic is to set the thread pool size to match the number of available CPU cores, which can be a good starting point for balancing concurrency and overhead.
 
-> **Note on dynamic resizing:** A proposal for runtime thread pool resizing ([LEP-004](https://github.com/libuv/leps/blob/master/004-threadpool-handle.md)) was rejected in 2016. The libuv team determined that a pluggable API for threaded operations would better serve diverse use cases than exposing internal pool management. As of v1.51.0, the pool size remains fixed at startup.
+> [!NOTE]
+> **Dynamic resizing was rejected.** A proposal for runtime thread pool resizing ([LEP-004](https://github.com/libuv/leps/blob/master/004-threadpool-handle.md)) was rejected in 2016. The libuv team determined that a pluggable API for threaded operations would better serve diverse use cases than exposing internal pool management. As of v1.51.0, the pool size remains fixed at startup.
 
 #### The uv_queue_work Lifecycle: Task Delegation and Result Passing
 
@@ -152,7 +155,7 @@ The primary API for submitting custom, user-defined tasks to the thread pool is 
 
 **Execution:** An available worker thread from the pool dequeues the uv_work_t request and executes the work_cb function. This callback runs entirely on the worker thread, completely separate from the main event loop thread. It is within this work_cb that the blocking or CPU-intensive computation is performed. The worker thread may block for as long as necessary without affecting the responsiveness of the event loop.
 
-**Completion and Result Passing:** Once the work_cb function completes and returns, the worker thread signals to the event loop that the task is finished. libuv then schedules the after_work_cb function to be executed back on the main event loop thread in a future iteration of the loop. The uv_work_t request structure serves as the critical context carrier between the two threads. Its void\* data member can be used to store a pointer to any custom data structure, allowing the work_cb to attach its results, which can then be safely accessed by the after_work_cb in the main thread.
+**Completion and Result Passing:** Once the `work_cb` function completes and returns, the worker thread signals to the event loop that the task is finished. libuv then schedules the `after_work_cb` function to be executed back on the main event loop thread in a future iteration of the loop. The `uv_work_t` request structure serves as the critical context carrier between the two threads. Its `void* data` member can be used to store a pointer to any custom data structure, allowing the `work_cb` to attach its results, which can then be safely accessed by the `after_work_cb` in the main thread.
 
 **Cancellation:** libuv also provides the uv_cancel() function, which can be used to attempt to cancel a work request that has been queued but has not yet been started by a worker thread. If cancellation is successful, the after_work_cb is invoked with a status code of UV_ECANCELED, allowing the application to perform necessary cleanup for the cancelled task.
 
@@ -160,7 +163,7 @@ The primary API for submitting custom, user-defined tasks to the thread pool is 
 
 The thread pool is specifically reserved for operations that are known to be blocking or computationally expensive. libuv internally uses the pool for the following categories of tasks:
 
-**All Filesystem Operations:** Every function in the uv*fs*\* family, from uv_fs_open to uv_fs_read and uv_fs_stat, is executed on the thread pool. This is the cornerstone of libuv's asynchronous file I/O capabilities.
+**All Filesystem Operations:** Every function in the `uv_fs_*` family — `uv_fs_open`, `uv_fs_read`, `uv_fs_stat`, etc. — is executed on the thread pool. This is the cornerstone of libuv's asynchronous file I/O capabilities.
 
 **DNS Functions:** The standard C library functions for DNS resolution, getaddrinfo and getnameinfo, can perform blocking network I/O. libuv therefore wraps these calls and executes them on the thread pool to avoid stalling the event loop.
 
@@ -227,7 +230,7 @@ This phase executes the callbacks for any handles that were requested to be clos
 After close callbacks complete, the [design doc](https://docs.libuv.org/en/v1.x/design.html#the-i-o-loop) prescribes two final substeps before the iteration ends: the loop's concept of "now" is updated, and a **second** due-timer pass runs. The "now" timestamp is then frozen for the duration of that timer pass, so a timer that becomes due *while* its sibling timer callbacks are executing does not fire until the next full iteration.
 
 > [!NOTE]
-> **libuv has no microtask phase.** The Promise job queue and `process.nextTick` queue belong to the *embedder*, not to libuv. In Node.js, the libuv host drains `process.nextTick` and then V8's microtask checkpoint (`isolate->PerformMicrotaskCheckpoint`) **after every individual libuv callback** in every phase, not as a separate phase of its own ([Node.js event-loop guide](https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick), [`MicrotaskPolicy::kExplicit`](https://v8.github.io/api/head/classv8_1_1Isolate.html)). Treat libuv's six phases as the *outer* loop and the embedder's microtask drain as an inner loop that runs at every callback boundary. A pure-C libuv program has no microtasks at all.
+> **libuv has no microtask phase.** The Promise job queue and `process.nextTick` queue belong to the *embedder*, not to libuv. In Node.js, the libuv host drains `process.nextTick` and then V8's microtask checkpoint (`isolate->PerformMicrotaskCheckpoint`) **after every individual libuv callback** in every phase, not as a separate phase of its own ([Node.js event-loop guide](https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick), [`MicrotaskPolicy::kExplicit`](https://v8.github.io/api/head/classv8_1_1Isolate.html)). Treat libuv's six phases as the *outer* loop and the embedder's microtask drain as an inner loop that runs at every callback boundary. A pure-C libuv program has no microtasks at all. The full Node-side ordering rules — and how `setImmediate` interleaves with `setTimeout(fn, 0)` — are covered in [Node.js Event Loop](../nodejs-event-loop/README.md).
 
 ### Loop Lifecycle and State: Reference Counting and uv_run Modes
 
@@ -390,13 +393,13 @@ The start function begins monitoring the specified path. When a change occurs, t
 
 The uv_req_t structure is the base type for all request objects in libuv. Requests are fundamentally different from handles: they represent a single, discrete, and typically short-lived operation.
 
-Unlike handles, which represent persistent resources, requests are often allocated on the stack for a one-off asynchronous call, or embedded within a larger application-defined object. Their primary role is to carry the context of an operation from the point of its initiation to the point where its completion callback is executed. The req->data field is a void\* provided specifically for the user to attach arbitrary data, which is then accessible within the callback.
+Unlike handles, which represent persistent resources, requests are often allocated on the stack for a one-off asynchronous call, or embedded within a larger application-defined object. Their primary role is to carry the context of an operation from the point of its initiation to the point where its completion callback is executed. The `req->data` field is a `void*` provided specifically for the user to attach arbitrary data, which is then accessible within the callback.
 
 ### Detailed Examination of Key Request Types
 
 #### uv_fs_t: The Asynchronous Façade for Blocking Filesystem Calls
 
-All asynchronous filesystem functions in libuv (the uv*fs*\* family) use a uv_fs_t request object to manage their state.
+All asynchronous filesystem functions in libuv (the `uv_fs_*` family) use a `uv_fs_t` request object to manage their state.
 
 **Lifecycle:**
 

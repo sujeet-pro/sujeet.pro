@@ -1,0 +1,24 @@
+%% Diagram: JavaScript performance optimization levers and their CWV impact
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph TECHNIQUES["JavaScript Performance Optimization"]
+        direction TB
+        LOAD["Script Loading<br/>async / defer / module"]
+        SPLIT["Code Splitting<br/>route + component"]
+        TASK["Task Management<br/>scheduler.yield()"]
+        WORKER["Web Workers<br/>off-main-thread"]
+    end
+
+    subgraph CWV["Core Web Vitals Impact"]
+        direction TB
+        INP["INP — responsive interactions"]
+        LCP["LCP — faster initial load"]
+        TTI["TTI — interactive sooner"]
+    end
+
+    LOAD --> LCP
+    SPLIT --> LCP
+    SPLIT --> TTI
+    TASK --> INP
+    WORKER --> INP

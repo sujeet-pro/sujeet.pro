@@ -23,15 +23,15 @@ Architectural principles, implementation trade-offs, and production patterns for
 > [!NOTE]
 > This article is the **in-process JavaScript** view of the pattern — building, embedding, and operating an event bus inside a single Node.js or browser runtime. For the **distributed messaging** view (Kafka, RabbitMQ, Redis Streams, delivery semantics, partitioning), see [Queues and Pub/Sub: Decoupling and Backpressure](../queues-and-pubsub/README.md). For the **work-queue** view (concurrency caps, retries, DLQs with `p-queue`, `fastq`, and BullMQ), see [Async Queue Pattern in JavaScript](../async-queue-pattern/README.md).
 
-![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-light.svg "Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers")
-![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-dark.svg)
+![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-light.svg "Publishers emit events into a broker that fans them out to every registered subscriber. Neither side knows the other.")
+![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-dark.svg)
 
 ## Abstract
 
 **Mental Model:** Pub/Sub trades explicit control flow for decoupling. Publishers fire events into a broker without knowing who (if anyone) receives them. Subscribers register interest without knowing who produces events. The broker is the single point of coupling.
 
-![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic-light.svg "Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow")
-![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/pub-sub-provides-space-time-and-synchronization-decoupling-at-the-cost-of-implic-dark.svg)
+![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/decoupling-dimensions-light.svg "Pub/Sub removes coupling on all three Eugster axes; RPC keeps all three. The cost is that control flow now lives in event metadata, not program text.")
+![Pub/Sub provides space, time, and synchronization decoupling—at the cost of implicit control flow](./diagrams/decoupling-dimensions-dark.svg)
 
 **Core Trade-off:** Loose coupling enables independent component evolution and many-to-many communication. The cost is implicit control flow—debugging requires tracing events across the system rather than following function calls.
 
@@ -60,6 +60,20 @@ Eugster et al.'s foundational paper ["The Many Faces of Publish/Subscribe"](http
 2. **Time Decoupling**: Publishers and subscribers need not be active simultaneously. In distributed systems (MQTT, AMQP), a subscriber can receive messages published while it was offline. In-process implementations typically lack this—events are lost if no subscriber exists at publish time.
 
 3. **Synchronization Decoupling**: Publishing is non-blocking. The publisher hands the event to the broker and continues immediately. This contrasts with RPC, which the paper notes has "synchronous nature... [which] introduces a strong time, synchronization, and also space coupling."
+
+### Subscription Schemes
+
+Eugster et al. classify pub/sub variants by **how subscribers express interest**, not by transport. The three schemes are not mutually exclusive — production systems usually pick one as the primary model and layer the others on top.
+
+| Scheme            | Subscriber declares                                | Routing cost                              | Examples                                                         |
+| ----------------- | -------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| **Topic-based**   | A topic / channel name (string)                    | O(1) hash lookup                          | Redis Pub/Sub, Kafka topics, NATS subjects, Node `EventEmitter`  |
+| **Content-based** | A predicate over event payload (`price > 100`)     | O(N) match unless an index exists         | RabbitMQ headers exchange, Solace, Siena, Gryphon                |
+| **Type-based**    | A class / schema; matches by structural inheritance | O(depth of type hierarchy)                | CORBA Notification, Scala Akka typed channels, distributed-OO RT |
+
+Topic-based is the dominant production model because the broker can route a publish in constant time — every other scheme either evaluates a predicate per subscriber (content-based) or walks a type lattice (type-based). The broker compares strings; that is the whole reason the model scales[^eugster-classification].
+
+The implementation in this article is topic-based. Most of what you build in JavaScript — `EventEmitter`, `mitt`, the production class below — is topic-based with optional wildcard matching layered on top. Reach for content-based filtering only when subscribers genuinely need server-side selection (e.g., "trades > $1M from US exchanges") and the broker supports an index for the predicate; otherwise filter on the consumer.
 
 ### Pub/Sub vs Observer Pattern
 
@@ -370,15 +384,43 @@ function topicMatches(pattern: string, topic: string): boolean {
 
 ### Backpressure Considerations
 
-Standard pub/sub has **no built-in backpressure**. Publishers emit as fast as they can regardless of subscriber capacity.
+Standard pub/sub has **no built-in backpressure**. Publishers emit as fast as they can regardless of subscriber capacity. The naïve in-process broker has no upper bound on queue depth, no consumer credit, and no signal back to the publisher when subscribers are slow.
 
-**Strategies:**
+In-process strategies, in increasing order of safety:
 
-- **Debounce/throttle at publish** — lossy but prevents flooding
-- **Buffer with limits** — accumulate events, drop oldest when full
-- **Async iterator with highWater** — libraries like [event-iterator](https://github.com/rolftimmermans/event-iterator) provide backpressure signals
+- **Debounce / throttle at the publisher** — lossy but bounds publish rate. Use when individual events are fungible (mouse-move, scroll position, dirty-marker).
+- **Bounded buffer with drop policy** — wrap the broker in a ring buffer; on overflow drop oldest, drop newest, or drop random. Match the policy to the consumer (`drop-oldest` for telemetry, `drop-newest` for command-like signals you must not reorder).
+- **`Promise.allSettled` with a concurrency cap** — gate `publishAsync` behind a semaphore (e.g. `p-limit`) so the publisher actually waits when subscribers stall. This converts implicit unbounded fan-out into explicit cooperative backpressure.
+- **Pull-based async iterators** — switch the contract: subscribers `for await` events, the broker only computes the next event on demand. Libraries like [`event-iterator`](https://github.com/rolftimmermans/event-iterator) wrap a callback API with a `highWaterMark`; once the buffer fills, the broker stops calling the source until the consumer drains. This is the pattern Node uses for [readable streams in object mode](https://nodejs.org/api/stream.html#buffering).
 
-For high-throughput systems, consider message queues (RabbitMQ, Redis Streams) with explicit acknowledgment.
+When in-process broker usage moves beyond UI events into work that must not be lost, escalate out of pub/sub to a real broker with acknowledgments and durable storage — see the [Async Queue Pattern](../async-queue-pattern/README.md) and the [Queues and Pub/Sub](../queues-and-pubsub/README.md) articles for the operational model.
+
+### Broker vs Brokerless
+
+The classical pub/sub model puts a **broker** in the middle: every publish lands at the broker, which owns subscription state and dispatch. This is what every example in this article assumes, what `EventEmitter` does in-process, and what Kafka, RabbitMQ, NATS, and Redis Pub/Sub do over the network.
+
+A **brokerless** model removes the dispatcher: publishers send directly to known subscribers, often via multicast, gossip, or a distributed routing table. ZeroMQ's `PUB`/`SUB` sockets are the canonical example — there is no central process; the library lets each peer maintain its own subscription table and the publisher writes once per subscriber socket. The trade-off is operational simplicity (no broker to deploy, scale, or operate) for weaker guarantees (no durability, no replay, no central observability) and a heavier client[^zmq-pubsub].
+
+In practice, choose brokerless only when you control all participants, the network is trusted, and persistence is genuinely not needed. Everything else benefits from the broker — even if it is only a single-node Redis or NATS server.
+
+### Broker Comparison: Redis Pub/Sub vs Kafka vs NATS Core
+
+When the in-process broker is no longer enough, pick the **distributed** broker that matches your delivery model. The three most common topic-based defaults differ in exactly the dimensions that bite in production:
+
+| Property                | Redis Pub/Sub                           | Kafka                                  | NATS Core                                |
+| ----------------------- | --------------------------------------- | -------------------------------------- | ---------------------------------------- |
+| Persistence             | None (fire-and-forget)                  | Durable, replicated commit log         | None in core; JetStream adds durability  |
+| Delivery semantics      | At-most-once                            | At-least-once (with offsets / commits) | At-most-once core; at-least-once via JS  |
+| Replay / time-travel    | No                                      | Yes (offset seek, retention.ms)        | JetStream only                           |
+| Slow-consumer behavior  | Drops messages above `client-output-buffer-limit pubsub` | Reader lags, log retains data | Disconnects slow client (`max_pending`) |
+| Ordering                | Per-channel, best-effort                | Per-partition, strict                  | Per-subject, best-effort                 |
+| Routing model           | Topic + glob patterns                   | Topic + partition key                  | Subject + token wildcards (`*`, `>`)     |
+| Throughput target       | Low-mid (single-node memory)            | High (sequential disk IO, batches)     | Very high (in-memory, no ack default)    |
+
+Pick **Redis Pub/Sub** for ephemeral notifications inside a system that already runs Redis (cache invalidation, websocket fan-out) and where loss on restart is fine[^redis-pubsub]. Pick **Kafka** when consumers need replay, exactly-once semantics, or independent scaling on a durable log — the [Kafka docs](https://kafka.apache.org/documentation/#design) describe it as "a distributed, replicated commit log", which is exactly what changes the operational model. Pick **NATS Core** for the lowest-latency fan-out path; add JetStream when you need persistence on top, accepting the extra ops cost[^nats-jetstream].
+
+> [!CAUTION]
+> Redis Pub/Sub and NATS Core both **drop** messages for slow consumers — Redis disconnects the subscriber once `client-output-buffer-limit pubsub` is exceeded; NATS disconnects when `max_pending` is hit. If your system cannot tolerate loss, you need Redis Streams, Kafka, NATS JetStream, or an MQTT broker with QoS ≥ 1, not bare pub/sub.
 
 ## When NOT to Use Pub/Sub (Antipatterns)
 
@@ -414,7 +456,7 @@ In-process pub/sub doesn't guarantee delivery. If no subscriber exists when an e
 
 ### Debugging Challenges
 
-Martin Fowler: "It can become problematic if there really is a logical flow that runs over various event notifications. The problem is that it can be hard to see such a flow as it's not explicit in any program text."
+Martin Fowler in [What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html) names this directly: "It can become problematic if there really is a logical flow that runs over various event notifications. The problem is that it can be hard to see such a flow as it's not explicit in any program text."
 
 The implicit control flow that provides loose coupling also makes debugging harder. Distributed tracing and careful logging are essential for production pub/sub systems.
 
@@ -557,5 +599,14 @@ Implementation is straightforward: `Map<string, Set<Function>>`, return unsubscr
 
 **Architectural Guidance:**
 
-- [Enterprise Integration Patterns: Publish-Subscribe Channel](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PublishSubscribeChannel.html) - Messaging patterns reference.
-- [CodeOpinion: Antipatterns in Event-Driven Architecture](https://codeopinion.com/beware-anti-patterns-in-event-driven-architecture/) - When not to use pub/sub.
+- [Enterprise Integration Patterns: Publish-Subscribe Channel](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PublishSubscribeChannel.html) - Hohpe & Woolf, the standard messaging-patterns reference.
+- [Martin Fowler — What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html) - On event notification, event-carried state transfer, event sourcing, CQRS, and the implicit-flow trade-off.
+- [CodeOpinion: Antipatterns in Event-Driven Architecture](https://codeopinion.com/beware-anti-patterns-in-event-driven-architecture/) - Practitioner walkthrough of when not to use pub/sub.
+
+[^eugster-classification]: Eugster, Felber, Guerraoui, Kermarrec — "The Many Faces of Publish/Subscribe", ACM Computing Surveys 35(2), §2.3 ("Subscription schemes"). The paper formalises the three schemes and the routing-cost argument.
+
+[^zmq-pubsub]: ZeroMQ Guide — [Chapter 5: Advanced Pub-Sub Patterns](https://zguide.zeromq.org/docs/chapter5/) describes the brokerless `PUB`/`SUB` model, the slow-subscriber problem, and the lack of persistence.
+
+[^redis-pubsub]: Redis docs — [Pub/Sub](https://redis.io/docs/latest/develop/pubsub/) explicitly state Redis Pub/Sub is fire-and-forget and that "messages that were published while the client was disconnected are lost". The slow-consumer behavior is governed by the `client-output-buffer-limit pubsub` directive in [redis.conf](https://raw.githubusercontent.com/redis/redis/unstable/redis.conf).
+
+[^nats-jetstream]: NATS docs — [Core NATS](https://docs.nats.io/nats-concepts/core-nats) covers at-most-once semantics and slow-consumer disconnects; [JetStream](https://docs.nats.io/nats-concepts/jetstream) layers durable streams, replay, and at-least-once on top.

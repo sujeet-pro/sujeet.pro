@@ -1,14 +1,18 @@
 %% Diagram: LCP subparts timeline
-%% Type: gantt
-gantt
-    title LCP decomposed into four subparts
-    dateFormat  X
-    axisFormat  %L ms
-    section Network
-    TTFB (server response)              :ttfb,    0, 600
-    section Discovery
-    Resource load delay (preload scanner) :delay, after ttfb, 1290
-    section Transfer
-    Resource load time (download LCP image) :load, after delay, 400
-    section Render
-    Element render delay (paint LCP)    :render,  after load, 210
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    NAV(("Navigation start")):::stage
+    TTFB["TTFB\n(server response)\n~600 ms"]:::network
+    DELAY["Resource load delay\n(LCP image not yet discovered)\n~1290 ms — typical poor-LCP origin"]:::delay
+    LOAD["Resource load time\n(download LCP image)\n~400 ms"]:::transfer
+    RENDER["Element render delay\n(style + layout + paint)\n~210 ms"]:::render
+    LCP(("LCP fired")):::stage
+
+    NAV --> TTFB --> DELAY --> LOAD --> RENDER --> LCP
+
+    classDef stage fill:#5A5A5A,stroke:#3A3A3A,color:#fff
+    classDef network fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef delay fill:#B43A3A,stroke:#8A2B2B,color:#fff
+    classDef transfer fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef render fill:#2D7A2D,stroke:#1F5A1F,color:#fff

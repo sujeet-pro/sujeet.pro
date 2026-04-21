@@ -1,31 +1,22 @@
 %% Diagram: Tile texture lifecycle from raster to display
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Renderer["Renderer process"]
-        DL["Display list<br/>(paint chunks)"]
-        TM["TileManager<br/>NOW / SOON / EVENTUALLY"]
-        RW["Raster workers<br/>(GPU raster: OOPR-Canvas →<br/>SkiaRenderer commands)"]
-        TP["Tile pool<br/>GpuMemoryBuffer /<br/>SharedImage handles"]
-        BUILD["Build CompositorFrame<br/>(TextureDrawQuad references<br/>SharedImage by mailbox)"]
+        DL["Display list"] --> TM["TileManager<br/>NOW / SOON / EVENTUALLY"]
+        TM --> RW["Raster workers<br/>GPU raster (OOPR)"]
+        RW --> TP["Tile pool<br/>SharedImage handles"]
+        TP --> BUILD["CompositorFrame<br/>TextureDrawQuads"]
     end
 
-    subgraph IPC["Mojo IPC"]
-        CFS["CompositorFrameSink<br/>SubmitCompositorFrame"]
-    end
+    BUILD -- "SubmitCompositorFrame (Mojo)" --> Viz
 
     subgraph Viz["Viz / GPU process"]
-        SM["SurfaceManager"]
-        SA["SurfaceAggregator<br/>resolves SurfaceDrawQuads"]
-        DR["DirectRenderer<br/>(SkiaRenderer)"]
-        GPU["GPU command buffer<br/>Vulkan / Metal / D3D / GL"]
-        OV["HW overlays / scanout planes"]
+        SM["SurfaceManager"] --> SA["SurfaceAggregator"]
+        SA --> DR["SkiaRenderer"]
+        DR --> GPU["GPU command buffer"]
+        GPU -. "overlay-eligible quads" .-> OV["HW overlay planes"]
     end
 
-    Display["Physical display"]
-
-    DL --> TM --> RW --> TP
-    TP -- "shared GPU memory<br/>(zero-copy texture)" --> BUILD
-    BUILD --> CFS --> SM --> SA --> DR --> GPU
-    GPU --> Display
-    GPU -. "promote eligible quads" .-> OV --> Display
+    GPU --> Display["Physical display"]
+    OV --> Display

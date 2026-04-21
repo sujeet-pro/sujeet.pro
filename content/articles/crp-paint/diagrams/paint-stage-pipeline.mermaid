@@ -1,15 +1,19 @@
 %% Diagram: Paint Stage Pipeline Position
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph Main["Main Thread"]
-        direction LR
-        Layout[Layout] --> Prepaint[Prepaint] --> Paint[Paint] --> Commit[Commit]
-    end
-    subgraph GPU["Compositor / GPU Process"]
-        direction LR
-        Layerize[Layerize] --> Raster[Rasterize] --> Composite[Composite] --> Draw[Draw]
-    end
-    Commit --> Layerize
+flowchart LR
+    Style[Style] --> Layout[Layout] --> Prepaint[Prepaint] --> Paint[Paint] --> Commit[Commit]
+    Commit --> Layerize[Layerize]
+    Layerize --> Raster[Rasterize] --> Composite[Composite] --> Draw[Draw]
+
+    Paint -.- MainNote(("Main thread"))
+    Layerize -.- GpuNote(("Compositor / GPU"))
 
     style Paint fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Commit fill:#fff8e1,stroke:#ef6c00
+    style Layerize fill:#e3f2fd,stroke:#1565c0
+    style Raster fill:#e3f2fd,stroke:#1565c0
+    style Composite fill:#e3f2fd,stroke:#1565c0
+    style Draw fill:#e3f2fd,stroke:#1565c0
+    style MainNote fill:#ffffff,stroke:#888888
+    style GpuNote fill:#ffffff,stroke:#888888

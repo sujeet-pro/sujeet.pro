@@ -1,0 +1,28 @@
+%% Diagram: Expand-contract migration phases — each phase is independently deployable and rollback-safe
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Expand["Phase 1: Expand"]
+        direction TB
+        E1[Add new column NULLABLE]
+        E2[Deploy dual-write code]
+        E3[Backfill existing rows]
+        E1 --> E2 --> E3
+    end
+
+    subgraph Migrate["Phase 2: Migrate"]
+        direction TB
+        M1[Verify new column populated]
+        M2[Confirm data consistency]
+        M1 --> M2
+    end
+
+    subgraph Contract["Phase 3: Contract"]
+        direction TB
+        C1[Deploy read-from-new-only code]
+        C2[Add NOT NULL constraint]
+        C3[Drop old column]
+        C1 --> C2 --> C3
+    end
+
+    Expand --> Migrate --> Contract

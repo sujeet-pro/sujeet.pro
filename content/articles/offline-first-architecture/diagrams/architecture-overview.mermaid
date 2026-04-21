@@ -2,24 +2,17 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Client["Client (Browser)"]
-        direction TB
-        App[Application UI]
-        SW[Service Worker]
-        IDB[(IndexedDB)]
-        OPFS[(OPFS)]
-        Cache[(Cache API)]
-    end
+    App[Application UI]
+    SW[Service Worker]
+    IDB[(IndexedDB)]
+    OPFS[(OPFS)]
+    Cache[(Cache API)]
+    API[API Server]
+    DB[(Database)]
 
-    subgraph Server["Server"]
-        API[API Server]
-        DB[(Database)]
-    end
-
-    App -->|"1. Read/write locally"| IDB
-    App -->|"2. Render immediately"| App
-    App -.->|"Binary blobs"| OPFS
-    SW -->|"3. Intercept fetch"| Cache
-    SW <-->|"4. Background sync"| API
-    IDB <-->|"5. Reconcile / merge"| API
+    App -->|"1. read/write"| IDB
+    App -.->|"binary blobs"| OPFS
+    SW -->|"2. intercept fetch"| Cache
+    SW <-->|"3. bg sync"| API
+    IDB <-->|"4. reconcile"| API
     API <--> DB

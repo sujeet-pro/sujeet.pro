@@ -13,7 +13,7 @@ flowchart LR
         KEY -->|content key by KID| GEN
     end
 
-    GEN -->|signed license<br/>(Widevine / PlayReady) or CKC (FairPlay)| PLAY
+    GEN -->|"signed license<br/>Widevine / PlayReady or FairPlay CKC"| PLAY
     GEN -. usage / secure-stop .-> ANALYTICS[Concurrency + audit log]
 
     classDef edge fill:#dae8fc,stroke:#6c8ebf,color:#000

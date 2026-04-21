@@ -1,0 +1,10 @@
+%% Diagram: Hash-based shortening
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    URL["Long URL"] --> HASH["MD5/SHA256"]
+    HASH --> TRUNCATE["Take first 7 chars"]
+    TRUNCATE --> CHECK{"Collision?"}
+    CHECK -->|No| STORE["Store mapping"]
+    CHECK -->|Yes| REHASH["Append salt, rehash"]
+    REHASH --> TRUNCATE

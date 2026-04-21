@@ -1,0 +1,20 @@
+%% Diagram: Fanout-on-write pipeline (write path fans tweet IDs to follower Redis lists; read path is a key lookup)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Write Path"
+        U[User tweets] --> WA[Write API]
+        WA --> TS[Tweet Store<br/>MySQL]
+        WA --> FS[Fanout Service]
+        FS --> SG[Social Graph<br/>FlockDB]
+        SG -->|Follower list| FS
+        FS -->|Insert tweet_id| R1[Redis<br/>Timeline Cache<br/>Follower 1]
+        FS -->|Insert tweet_id| R2[Redis<br/>Timeline Cache<br/>Follower 2]
+        FS -->|Insert tweet_id| RN[Redis<br/>Timeline Cache<br/>Follower N]
+    end
+
+    subgraph "Read Path"
+        RP[User opens app] --> RL[Read from Redis]
+        RL -->|List of tweet_ids| HY[Hydrate with<br/>tweet content]
+        HY --> TL[Rendered Timeline]
+    end

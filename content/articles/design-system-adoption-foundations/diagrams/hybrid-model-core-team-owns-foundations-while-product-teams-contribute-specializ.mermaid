@@ -2,28 +2,25 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Core["Core team\n---\nFoundations: tokens,\nprimitives, a11y baseline,\nreview gates"]
+    Core["Core team\nfoundations + review gates"]
 
-    Foundations[("Foundations\n(immutable to consumers)")]
-    Standards[("Shared standards\n(API patterns,\ntests, a11y, docs)")]
+    subgraph Shared["Shared layer"]
+        direction TB
+        Foundations[("Foundations\ntokens, primitives,\na11y baseline")]
+        Standards[("Shared standards\nAPI patterns, tests,\na11y, docs")]
+    end
 
-    PA["Product team A\n(domain components)"]
-    PB["Product team B\n(domain components)"]
-    PC["Product team C\n(recipes / one-offs)"]
+    subgraph Teams["Product teams"]
+        direction TB
+        PA["Team A\ndomain components"]
+        PB["Team B\ndomain components"]
+        PC["Team C\nrecipes / one-offs"]
+    end
 
-    Core ==> Foundations
-    Core --> Standards
-
-    Foundations --> PA
-    Foundations --> PB
-    Foundations --> PC
-
-    Standards -.gates.-> PA
-    Standards -.gates.-> PB
-    Standards -.gates.-> PC
-
-    PA -.promote upstream.-> Core
-    PB -.promote upstream.-> Core
+    Core ==> Shared
+    Shared ==> Teams
+    Standards -.gates.-> Teams
+    Teams -.promote upstream.-> Core
 
     classDef core fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef shared fill:#2E7D5A,stroke:#1F5C42,color:#ffffff

@@ -2,10 +2,9 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-  autonumber
   participant Algo as Dijkstra loop
-  participant Dist as dist[] array
-  participant Heap as Min-heap (PQ)
+  participant Dist as dist[]
+  participant Heap as Min-heap PQ
   participant Visited as visited set
 
   Algo->>Dist: dist[source] = 0
@@ -23,7 +22,7 @@ sequenceDiagram
         alt d + w < dist[u]
           Algo->>Dist: dist[u] = d + w
           Algo->>Heap: push(u, d + w)
-          Note over Heap: duplicate-node:<br/>old entries skipped on pop
+          Note over Heap: duplicate-node:\nold entries skipped on pop
         end
       end
     end

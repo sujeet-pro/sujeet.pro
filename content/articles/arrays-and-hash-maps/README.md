@@ -225,7 +225,7 @@ V8 computes hash codes differently by key type:
 | Symbols               | Random per-symbol value                                                                      | Cached in the symbol's hash field                        |
 | Objects               | Random per-object value, generated on first use                                              | Hidden in the properties backing store (see below)[^hidehash] |
 
-The per-object value is just a random number, independent of the object's contents — V8 cannot recompute it later, so it must store it[^hidehash]. Random per-object hashes prevent attackers from predicting which object keys will collide (with the caveat that string-keyed maps remain exposed via the string-table CVEs above).
+The per-object value is just a random number, independent of the object's contents — V8 cannot recompute it later, so it must store it[^hidehash]. Random per-object hashes prevent attackers from predicting which object keys will collide; string-keyed maps remain exposed via the string-table CVEs covered in the next section.
 
 ### Memory Optimization: Hash Code Hiding
 

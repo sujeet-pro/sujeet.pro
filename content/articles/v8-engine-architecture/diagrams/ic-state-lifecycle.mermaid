@@ -1,0 +1,19 @@
+%% Diagram: Inline cache state lifecycle — uninitialized to mono, poly, megamorphic with access cost and TurboFan implication
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    U["Uninitialized<br/>0 shapes<br/>no feedback"]
+    M["Monomorphic<br/>1 shape<br/>~3 cycles<br/>TurboFan: aggressive specialization"]
+    P["Polymorphic<br/>2 to 4 shapes<br/>~10 to 20 cycles<br/>TurboFan: limited specialization"]
+    G["Megamorphic<br/>more than 4 shapes<br/>~100+ cycles, global stub cache<br/>TurboFan: typically refuses"]
+
+    U -->|"first shape observed"| M
+    M -->|"second different shape"| P
+    P -->|"shapes 3 and 4"| P
+    P -->|"shape 5 or more"| G
+    G -->|"any further shape"| G
+
+    style U fill:#e3f2fd
+    style M fill:#e8f5e8
+    style P fill:#fff3e0
+    style G fill:#ffebee

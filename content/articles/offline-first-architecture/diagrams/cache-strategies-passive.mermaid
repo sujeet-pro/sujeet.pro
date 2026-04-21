@@ -1,0 +1,12 @@
+%% Diagram: Cache-priority Service Worker strategies (cache-first, cache-only)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CF1["Cache-First: fetch"] --> CF2{cached?}
+    CF2 -->|hit| CF3[return cached]
+    CF2 -->|miss| CF4[network + cache + return]
+    CF3 ~~~ CO1
+    CF4 ~~~ CO1
+    CO1["Cache-Only: fetch"] --> CO2{cached?}
+    CO2 -->|hit| CO3[return cached]
+    CO2 -->|miss| CO4[offline page]

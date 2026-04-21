@@ -2,21 +2,21 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Start(["Outbound URL from user input"]) --> Parse{"Parse URL"}
+    Start(["Outbound URL"]) --> Parse{"Parse URL"}
     Parse -- "fail" --> Reject["Reject"]
-    Parse -- "ok" --> Scheme{"scheme in {http, https}?"}
+    Parse -- "ok" --> Scheme{"http or https?"}
     Scheme -- "no" --> Reject
-    Scheme -- "yes" --> HostList{"hostname in deny list?"}
+    Scheme -- "yes" --> HostList{"hostname denied?"}
     HostList -- "yes" --> Reject
-    HostList -- "no" --> Resolve["DNS resolve A/AAAA records"]
-    Resolve --> AllResolved{"every resolved IP<br/>outside RFC 1918, link-local,<br/>cloud metadata, loopback?"}
+    HostList -- "no" --> Resolve["Resolve A / AAAA"]
+    Resolve --> AllResolved{"all IPs public?\n(no RFC 1918,\nlink-local, metadata,\nloopback)"}
     AllResolved -- "no" --> Reject
-    AllResolved -- "yes" --> Connect["Open TCP socket<br/>(pin to resolved IP, not hostname)"]
-    Connect --> Recheck{"Re-resolve before reconnect?<br/>(DNS rebinding defense)"}
+    AllResolved -- "yes" --> Connect["Open TCP socket\npin to resolved IP"]
+    Connect --> Recheck{"Re-resolve before\nreconnect?"}
     Recheck -- "drift" --> Reject
     Recheck -- "stable" --> Allow["Allow request"]
 
-    classDef reject fill:#fee,stroke:#a00,color:#600
-    classDef allow fill:#efe,stroke:#070,color:#040
+    classDef reject fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef allow fill:#2D7A2D,stroke:#1E5A1E,color:#fff
     class Reject reject
     class Allow allow

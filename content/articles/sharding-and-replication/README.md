@@ -17,8 +17,8 @@ tags:
 
 Scaling data stores beyond a single machine requires two complementary strategies: **sharding** (horizontal partitioning) distributes data across nodes to scale writes and storage capacity; **replication** copies data across nodes to improve read throughput and availability. These mechanisms are orthogonal—you choose a sharding strategy independently from a replication model—but their interaction determines your system's consistency, availability, and operational complexity. This article covers design choices, trade-offs, and production patterns from systems handling millions of queries per second.
 
-![Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.](./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to-light.svg "Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.")
-![Sharding partitions data horizontally; replication copies each shard for fault tolerance. Router directs traffic based on shard key.](./diagrams/sharding-partitions-data-horizontally-replication-copies-each-shard-for-fault-to-dark.svg)
+![Sharding partitions data horizontally; replication copies each shard for fault tolerance. A router directs traffic based on the shard key.](./diagrams/sharding-replication-overview-light.svg "Sharding partitions data horizontally; replication copies each shard for fault tolerance. A router directs traffic based on the shard key.")
+![Sharding partitions data horizontally; replication copies each shard for fault tolerance. A router directs traffic based on the shard key.](./diagrams/sharding-replication-overview-dark.svg)
 
 ## Abstract
 
@@ -109,7 +109,8 @@ Hash both keys and nodes onto a virtual ring. Keys route to the next node clockw
 
 Cassandra historically shipped with `num_tokens: 256`. The 4.0 release [changed the default to 16](https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html) (per CASSANDRA-13701) because the high-token configuration amplified repair, streaming, and availability problems on large clusters. More vnodes reduce variance but increase metadata overhead and repair complexity.
 
-> **Note**: Martin Kleppmann observes that consistent hashing "doesn't work very well for databases" because resharding costs remain high even with minimal key movement—the data still needs to physically move. For availability, replication beats resharding.
+> [!NOTE]
+> Kleppmann notes in DDIA ch. 6 that "consistent hashing" in Karger's original sense is rarely used unmodified in databases — the math minimizes the _number_ of keys that change owner, but every one of those keys still has to be physically moved, and the routing-table churn is its own operational cost. Production systems lean on the broader consistent-hashing _family_ (rings, vnodes, tablets) plus replication for availability rather than on resharding alone.
 
 **ScyllaDB Tablets (2024)**: ScyllaDB's new replication architecture replaces legacy vnodes with "tablets"—dynamically redistributed data units. This achieves **30x faster** scaling operations and **50% reduction** in network costs compared to traditional vnode-based consistent hashing.
 
@@ -540,7 +541,7 @@ When a database has thousands of shards, each shard being an independent Raft gr
 
 **CockroachDB's solution**: Coalesce heartbeats across all Raft groups between two nodes into a single request/response. Result: **3 goroutines per node** regardless of range count, instead of 1 goroutine per range.
 
-**TiDB/TiKV**: One of few open-source implementations of Multi-Raft. Regions split automatically at 96MB threshold; each Region maintains its own Raft state machine.
+**TiDB/TiKV**: One of few open-source implementations of Multi-Raft. Regions split automatically once they exceed `region-split-size` — historically 96 MiB, raised to 256 MiB from v8.4.0 onward ([TiDB region-size tuning guide](https://docs.pingcap.com/tidb/stable/tune-region-performance)). Each Region maintains its own Raft state machine.
 
 ### Paxos (Google Spanner)
 
@@ -560,7 +561,7 @@ Node failures, network partitions, and split-brain scenarios require careful han
 
 **Timeouts**: How long to wait before declaring failure? Too short = false positives (network hiccup). Too long = slow failover.
 
-**Phi Accrual Failure Detector**: Used by Cassandra. Calculates probability of failure based on heartbeat arrival times. Adapts to network conditions.
+**Phi Accrual Failure Detector**: Used by Cassandra. Outputs a continuously varying suspicion level (`φ`) computed from the distribution of heartbeat inter-arrival times rather than a hard up/down verdict, so the threshold can be tuned to network conditions ([Hayashibara et al., SRDS 2004](https://doi.org/10.1109/RELDIS.2004.1353004)).
 
 ### Leader Failover (Single-Leader Systems)
 
@@ -731,7 +732,7 @@ Sharding and replication are independent design axes with distinct trade-offs:
 **Production patterns (2024)**:
 
 - **Slack** (Vitess, 2.3M QPS): Directory-based sharding + single-leader MySQL
-- **Discord** (ScyllaDB): Consistent hashing with tablets + leaderless replication
+- **Discord** (ScyllaDB, 2023 migration): Consistent hashing on legacy vnodes + leaderless replication; ScyllaDB has since launched a tablet-based architecture ([ScyllaDB tablets, 2024](https://www.scylladb.com/2024/12/03/enterprise-tablets/)) that replaces vnodes for new clusters.
 - **Stripe** (DocDB, 5M QPS): Directory-based sharding + custom replication
 - **Uber** (Docstore, 40M+ reads/sec): Partitioned + Raft consensus
 

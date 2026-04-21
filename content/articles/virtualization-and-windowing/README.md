@@ -511,22 +511,35 @@ function useFocusManagement(visibleRange: { start: number; end: number }) {
 
 ### Screen-reader semantics
 
-Screen readers navigate the DOM. Virtualized items are not in the DOM until they enter the viewport. Mitigate with explicit ARIA scaffolding[^aria-apg]:
+Screen readers navigate the DOM. Virtualized items are not in the DOM until they enter the viewport, so a virtualized list looks much shorter to assistive tech than it actually is. The fix is two separate ARIA pieces, used for different things.
+
+**1. List semantics — make the visible items advertise the full set.** When the complete set of items is not all present in the DOM, every rendered item must carry `aria-setsize` (the full count) and `aria-posinset` (its position within that count) so the screen reader can announce "item 42 of 10,000"[^aria-listbox]:
 
 ```html title="aria-positioning.html"
-<div role="list" aria-label="Messages" aria-live="polite" aria-relevant="additions">
+<div role="list" aria-label="Messages">
   <div role="listitem" aria-setsize="10000" aria-posinset="42">Item 42 of 10,000</div>
+  <!-- one element per visible (rendered) item -->
 </div>
 ```
 
-| Attribute                   | Purpose                                       |
-| --------------------------- | --------------------------------------------- |
-| `role="list"`               | Identifies the container as a list.           |
-| `aria-live="polite"`        | Announces changes when the user is idle.      |
-| `aria-relevant="additions"` | Announce new items, not removals.             |
-| `aria-busy="true"`          | Loading state.                                |
-| `aria-setsize`              | Total count, including virtualized items.     |
-| `aria-posinset`             | Position of each visible item in the full set.|
+**2. Live-region announcements — only for genuinely new content.** Wrapping the list itself in `aria-live` is the most common mistake: every item that mounts during scroll gets announced, drowning the user in noise. Use a separate, visually hidden live region for events the user actually wants narrated (a new chat message arriving, a new search result loading at the top), and leave the list semantics alone[^aria-live]:
+
+```html title="aria-live-region.html"
+<!-- separate region, lives outside the virtualized list -->
+<div aria-live="polite" aria-relevant="additions" class="visually-hidden">
+  <!-- write a one-line summary here when a new message arrives -->
+</div>
+```
+
+| Attribute       | Where it goes                            | Purpose                                                 |
+| --------------- | ---------------------------------------- | ------------------------------------------------------- |
+| `role="list"`   | Container                                | Identifies the container as a list.                     |
+| `aria-setsize`  | Each rendered item                       | Total count, including off-screen virtualized items.    |
+| `aria-posinset` | Each rendered item                       | Position of the item in the full set.                   |
+| `aria-busy`     | Container, while loading                 | Suppresses announcements during a batch update.         |
+| `aria-live`     | **Separate region**, never on the list   | Announce only genuinely new items.                      |
+
+Focus management goes alongside this: use a roving `tabindex` (one item is `tabindex="0"`, the rest are `-1`) so the keyboard user lands on the active item, not the container, and so virtualization can swap nodes without losing the tab order.
 
 > [!NOTE]
 > The WICG `<virtual-scroller>` proposal that aimed to provide a native, accessible virtualization primitive was [archived in October 2021](https://github.com/WICG/virtual-scroller); the working group pivoted to lower-level primitives (display-locking), which is what eventually shipped as `content-visibility`. There is no near-term native replacement — accessibility remains the application's problem.
@@ -802,5 +815,6 @@ Best for teams who need virtualization across multiple frameworks or want fine-g
 [^cis-mdn]: [MDN — `contain-intrinsic-size`](https://developer.mozilla.org/en-US/docs/Web/CSS/contain-intrinsic-size). Placeholder size for size-contained elements.
 [^cv-baseline]: [web.dev — `content-visibility` is now Baseline Newly available](https://web.dev/blog/css-content-visibility-baseline). Baseline status and final browser-version table.
 [^cv-webdev]: [web.dev — `content-visibility`: the new CSS property that boosts your rendering performance](https://web.dev/articles/content-visibility). Source of the 232 ms → 30 ms (7×) initial-render measurement on the chunked travel-blog demo.
-[^aria-apg]: [W3C — ARIA Authoring Practices Guide: Listbox / Grid patterns](https://www.w3.org/WAI/ARIA/apg/). Authoritative guidance on `aria-setsize`, `aria-posinset`, and roving tabindex.
+[^aria-listbox]: [W3C — ARIA Authoring Practices Guide: Listbox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/listbox/) and [Grid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/). Authoritative guidance on `aria-setsize`, `aria-posinset`, and roving tabindex when the full set isn't in the DOM.
+[^aria-live]: [MDN — `aria-live`](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-live) and [W3C WAI — Live regions](https://www.w3.org/WAI/ARIA/apg/practices/live-regions/). Live regions are designed for occasional, user-relevant updates; placing them on a continuously changing list creates announcement floods.
 [^vscode-variable-line-heights]: [microsoft/vscode — Test: variable line heights (#246822)](https://github.com/microsoft/vscode/issues/246822). Documents the per-decoration variable-line-height support added to the editor.

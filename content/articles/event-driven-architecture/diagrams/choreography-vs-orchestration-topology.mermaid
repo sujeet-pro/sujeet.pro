@@ -1,3 +1,6 @@
+%% Diagram: Topology comparison — choreography mesh vs orchestration hub-and-spoke
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
 flowchart LR
   subgraph Choreo["Choreography: broker-centric mesh"]
     direction LR
@@ -17,7 +20,7 @@ flowchart LR
   end
   subgraph Orch["Orchestration: hub and spoke"]
     direction LR
-    O((Orchestrator<br/>state machine))
+    O(("Orchestrator\nstate machine"))
     SB1[Order]
     SB2[Inventory]
     SB3[Payment]

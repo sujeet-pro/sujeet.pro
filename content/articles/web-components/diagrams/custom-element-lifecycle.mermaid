@@ -2,6 +2,7 @@
 %% Type: state
 %%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
+  direction TB
   [*] --> Constructed: new or upgrade
   Constructed --> Connected: connectedCallback
   Connected --> AttributeChanged: attributeChangedCallback
@@ -12,8 +13,3 @@ stateDiagram-v2
   Connected --> Disconnected: disconnectedCallback
   Disconnected --> Connected: re-inserted
   Disconnected --> [*]: GC when unreachable
-
-  note right of Constructed
-    constructor: call super only;
-    defer DOM work to connectedCallback
-  end note

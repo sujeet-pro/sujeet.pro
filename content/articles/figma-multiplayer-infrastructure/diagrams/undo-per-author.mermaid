@@ -2,34 +2,29 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant CA as Client A
     participant MP as Server (Rust)
     participant CB as Client B
 
-    Note over CA: A1 — change fill = red on object O
-    CA->>MP: delta(O.fill = red, seq 10)
-    MP-->>CB: broadcast(O.fill = red)
+    Note over CA: A1: set fill = red
+    CA->>MP: delta(O.fill=red, seq 10)
+    MP-->>CB: broadcast
 
-    Note over CB: B1 — change stroke = blue on object O
-    CB->>MP: delta(O.stroke = blue, seq 11)
-    MP-->>CA: broadcast(O.stroke = blue)
+    Note over CB: B1: set stroke = blue
+    CB->>MP: delta(O.stroke=blue, seq 11)
+    MP-->>CA: broadcast
 
-    Note over CA: A pushes A1 onto its local undo stack.<br/>B's edit lives on B's stack only.
+    Note over CA: A1 pushed to A's undo stack.<br/>B1 lives on B's stack only.
 
     Note over CA: A presses Undo
-    CA->>CA: Pop A1 from undo stack
-    CA->>CA: Inverse op: O.fill = previous (gray)
-    CA->>MP: delta(O.fill = gray, seq 12)
-
-    Note over CA: Rewrite A's redo stack at undo time<br/>so a later Redo "puts back" red — but only<br/>over A's own subsequent edits, never over B's.
-
-    MP-->>CB: broadcast(O.fill = gray)
+    CA->>CA: pop A1, inverse fill=gray
+    CA->>MP: delta(O.fill=gray, seq 12)
+    Note over CA: Rewrite A's redo stack at undo time:<br/>later Redo only re-asserts A's edits.
+    MP-->>CB: broadcast
 
     Note over CA: A presses Redo
-    CA->>CA: Pop redo entry (red)
-    CA->>CA: Rewrite A's undo stack at redo time
-    CA->>MP: delta(O.fill = red, seq 13)
-    MP-->>CB: broadcast(O.fill = red)
+    CA->>CA: pop redo (red), rewrite undo stack
+    CA->>MP: delta(O.fill=red, seq 13)
+    MP-->>CB: broadcast
 
-    Note over CA,CB: Invariant — undo many → copy → redo<br/>back to present must leave the document<br/>identical to the present state.
+    Note over CA,CB: Invariant: undo → copy → redo<br/>leaves the document unchanged.

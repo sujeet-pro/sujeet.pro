@@ -2,31 +2,18 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant CA as Client A (sender)
-    participant ENV as Envoy edge
-    participant WA as Webapp (PHP/Hack)
-    participant DB as Vitess (MySQL)
+    participant WA as Webapp + Vitess
     participant AS as Admin Server
     participant CS as Channel Server (owner)
-    participant GR1 as Gateway (region R1)
-    participant GR2 as Gateway (region R2)
-    participant CB as Client B (R1)
-    participant CC as Client C (R2)
+    participant GS as Gateway Servers (R1, R2)
+    participant CB as Subscribers (R1, R2)
 
-    CA->>ENV: POST /chat.postMessage
-    ENV->>WA: route to webapp
-    WA->>DB: persist message
-    DB-->>WA: ack
+    CA->>WA: POST /chat.postMessage (via Envoy)
+    WA->>WA: persist to Vitess
     WA->>AS: forward event (channel_id)
     AS->>AS: hash(channel_id) → owner CS
     AS->>CS: deliver event
-    par broadcast to subscribed Gateways
-        CS->>GR1: event for channel
-        CS->>GR2: event for channel
-    end
-    par push to clients
-        GR1->>CB: WebSocket push
-        GR2->>CC: WebSocket push
-    end
-    Note over CA,CC: Target end-to-end: <500 ms globally
+    CS->>GS: broadcast to subscribed Gateways
+    GS->>CB: WebSocket push to clients
+    Note over CA,CB: Target end-to-end: <500 ms globally

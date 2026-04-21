@@ -110,7 +110,7 @@ Open-source CalDAV servers (Radicale, DAViCal) lean here because storage cost do
 - Range queries become a single B-tree scan.
 
 **Pros**: O(1)-shaped range queries, simple free/busy aggregation, exception is just a row with overrides.
-**Cons**: storage explosion (a daily event for 10 years = 3,650 rows), expensive series updates, no natural infinite recurrence. Microsoft Exchange historically takes this path because corporate scheduling latency dominates.
+**Cons**: storage explosion (a daily event for 10 years = 3,650 rows), expensive series updates, no natural infinite recurrence. Best fit for enterprise scheduling backends where read latency dominates and series are rarely "infinite" — though most real systems (Exchange included) actually keep the recurrence pattern alongside materialized occurrences and live in Path C.
 
 ### Path C — hybrid (chosen)
 
@@ -572,16 +572,29 @@ const instances = expandRecurrence({
 
 Per the spec, a `DATE-TIME` whose local representation falls in the gap is interpreted using the UTC offset that was in effect *immediately before* the gap. So `TZID=America/New_York:20260308T023000` is interpreted at -05:00 (EST), which is `07:30 UTC` — the same UTC instant as `03:30` -04:00 (EDT). The visible local time the user sees post-transition is 03:30, not 02:30.
 
-```typescript title="adjust-for-dst.ts" collapse={1-5}
-function adjustForDST(localTime: Date, timezone: string): Date {
-  const { DateTime } = require("luxon")
-  const dt = DateTime.fromJSDate(localTime, { zone: timezone })
+```typescript title="resolve-local-datetime.ts" collapse={1-5}
+import { DateTime } from "luxon"
 
-  if (!dt.isValid && dt.invalidReason === "time zone offset transition") {
-    // RFC 5545 §3.3.5: interpret as if the pre-transition offset still applied.
-    return dt.plus({ hours: 1 }).toJSDate()
-  }
-  return localTime
+interface LocalComponents {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+}
+
+// Resolve a TZID-bearing local time to a UTC instant per RFC 5545 §3.3.5.
+// Construct from local components, NOT from a JS Date (which is already a
+// UTC instant and therefore never ambiguous).
+function resolveLocalDateTime(local: LocalComponents, timezone: string): DateTime {
+  // Luxon's default disambiguation matches RFC 5545 in both directions:
+  // - Spring-forward gap (e.g. America/New_York 2026-03-08T02:30): the wall
+  //   clock is advanced into the post-transition offset (-04:00 EDT), so
+  //   the resolved UTC instant is the same one the spec prescribes via the
+  //   pre-gap offset interpretation (07:30 UTC).
+  // - Fall-back overlap (e.g. America/New_York 2026-11-01T01:30): the
+  //   earlier (pre-transition, -04:00 EDT) occurrence is selected.
+  return DateTime.fromObject(local, { zone: timezone })
 }
 ```
 

@@ -1,21 +1,18 @@
 %% Diagram: Agent Topology — DaemonSet vs Sidecar
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph DS["DaemonSet — one agent per node"]
+flowchart TB
+    subgraph DS["DaemonSet — one shared agent per node"]
         direction TB
-        subgraph N1["Node 1"]
-            P1[Pod A] --> A1
+        subgraph N["Node"]
+            direction TB
+            P1[Pod A] --> A1["Agent\nshared by all pods"]
             P2[Pod B] --> A1
-            P3[Pod C] --> A1[Agent\nshared]
-        end
-        subgraph N2["Node 2"]
-            P4[Pod D] --> A2
-            P5[Pod E] --> A2[Agent\nshared]
+            P3[Pod C] --> A1
         end
     end
 
-    subgraph SC["Sidecar — one agent per pod"]
+    subgraph SC["Sidecar — one dedicated agent per pod"]
         direction TB
         subgraph PA["Pod A"]
             APP1[App] --> SA1[Agent]
@@ -23,21 +20,16 @@ flowchart LR
         subgraph PB["Pod B"]
             APP2[App] --> SA2[Agent]
         end
-        subgraph PC["Pod C"]
-            APP3[App] --> SA3[Agent]
-        end
     end
 
     A1 --> Q[("Buffer")]
-    A2 --> Q
     SA1 --> Q
     SA2 --> Q
-    SA3 --> Q
 
     classDef pod fill:#2E5A88,stroke:#1F4870,color:#ffffff
     classDef agent fill:#1F6E68,stroke:#155752,color:#ffffff
     classDef queue fill:#8B5E15,stroke:#6E4810,color:#ffffff
 
-    class P1,P2,P3,P4,P5,APP1,APP2,APP3 pod
-    class A1,A2,SA1,SA2,SA3 agent
+    class P1,P2,P3,APP1,APP2 pod
+    class A1,SA1,SA2 agent
     class Q queue

@@ -3,19 +3,15 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant U as User
-    participant S as Scroll handler
     participant V as Virtualizer
-    participant C as Height cache
-    participant D as DOM
-    participant R as ResizeObserver
+    participant C as Cache
+    participant D as DOM+RO
 
-    U->>S: scroll event (rAF batched)
-    S->>V: scrollTop changed
-    V->>C: lookup heights for range
-    C-->>V: measured + estimated mix
-    V->>D: render visible window<br/>(transform: translateY)
-    D->>R: items mounted
-    R-->>V: actual heights via callback
-    V->>C: write measured heights
-    V->>V: recompute total height,<br/>adjust scroll if anchored
-    Note over V,D: If estimates were wrong,<br/>visible jump can occur —<br/>buffer + anchoring mitigates.
+    U->>V: scroll (rAF)
+    V->>C: lookup heights
+    C-->>V: measured + est.
+    V->>D: render window
+    D-->>V: RO: actual heights
+    V->>C: write measured
+    V->>V: recompute total
+    Note over V,D: Wrong est. → jump.<br/>Overscan + anchor mitigate.

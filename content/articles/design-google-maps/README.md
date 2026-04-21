@@ -246,6 +246,9 @@ Real-time traffic is applied as edge weight multipliers without recomputing the 
 
 This hybrid approach preserves sub-millisecond queries while incorporating live traffic.
 
+![Routing query data flow: API snaps endpoints to graph nodes, then the routing service runs bidirectional upward Dijkstra over the CH graph in parallel with a traffic-multiplier fetch.](./diagrams/routing-data-flow-light.svg "Routing query data flow: bidirectional upward Dijkstra over the CH graph with live traffic applied as a per-edge multiplier — the topology is never recomputed at query time.")
+![Routing query data flow: API snaps endpoints to graph nodes, then the routing service runs bidirectional upward Dijkstra over the CH graph in parallel with a traffic-multiplier fetch.](./diagrams/routing-data-flow-dark.svg)
+
 ### Traffic Service
 
 Collects, processes, and serves real-time traffic data.
@@ -346,6 +349,9 @@ Trade-offs that actually drive the choice:
 ![S2 covers the sphere with quadrilateral cells on six cube faces, recursively subdivided 4-way (quadtree) up to level 30. H3 covers the icosahedron with hexagons that have uniform neighbor distance but only approximate containment.](./diagrams/spatial-cell-hierarchy-dark.svg)
 
 Google Maps standardized on S2 internally — it gives them strict hierarchy + Hilbert-curve locality, which is what makes prefix-bound `BETWEEN` scans behave like spatial range scans on standard storage engines.
+
+![Geo-index decision tree: pick R-tree for heterogeneous geometry windows, quadtree for tile-aligned lookups, geohash for plain key/value prefix scans, S2 for strict-hierarchy + locality, H3 for hexagon aggregations.](./diagrams/geo-index-decision-light.svg "Geo-index decision tree by query shape: R-tree (windows), quadtree (tile-aligned), geohash (KV prefix), S2 (strict hierarchy + Hilbert-curve locality), H3 (hex aggregations).")
+![Geo-index decision tree: pick R-tree for heterogeneous geometry windows, quadtree for tile-aligned lookups, geohash for plain key/value prefix scans, S2 for strict-hierarchy + locality, H3 for hexagon aggregations.](./diagrams/geo-index-decision-dark.svg)
 
 ### Search Service (POI and Autocomplete)
 

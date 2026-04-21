@@ -2,23 +2,18 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Run["axe.run() result"]
-    Run --> V["violations<br/>definite failures"]
-    Run --> P["passes<br/>definite passes"]
-    Run --> I["incomplete<br/>heuristics fired,<br/>needs human review"]
-    Run --> N["inapplicable<br/>rule did not match<br/>anything on page"]
+    Run["axe.run() result"]:::neutral
+    Run --> V["violations\ndefinite failures"]:::fail
+    Run --> P["passes\ndefinite passes"]:::pass
+    Run --> I["incomplete\nheuristics fired,\nneeds human review"]:::warn
+    Run --> N["inapplicable\nrule did not match\nanything on page"]:::neutral
 
-    V --> VA["Fail build<br/>(CI gate)"]
-    P --> PA["Coverage telemetry<br/>(no action)"]
-    I --> IA["Annotate PR /<br/>queue for next<br/>manual pass"]
-    N --> NA["Wiring telemetry<br/>(no action)"]
+    V --> VA["Fail build\n(CI gate)"]:::fail
+    P --> PA["Coverage telemetry\n(no action)"]:::pass
+    I --> IA["Annotate PR /\nqueue for next\nmanual pass"]:::warn
+    N --> NA["Wiring telemetry\n(no action)"]:::neutral
 
-    classDef fail fill:#fee,stroke:#c33
-    classDef pass fill:#efe,stroke:#3a3
-    classDef warn fill:#fff5e0,stroke:#c80
-    classDef neutral fill:#eef,stroke:#669
-
-    class V,VA fail
-    class P,PA pass
-    class I,IA warn
-    class N,NA neutral
+    classDef fail fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef pass fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

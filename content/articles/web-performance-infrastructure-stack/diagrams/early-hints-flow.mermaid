@@ -1,0 +1,29 @@
+%% Diagram: 103 Early Hints overlap server think-time with browser preload
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant B as Browser
+    participant E as CDN edge
+    participant O as Origin
+    participant S as Asset host
+
+    Note over B,S: Without Early Hints — browser idles during origin think-time
+    B->>E: GET /page (HTML)
+    E->>O: forward
+    Note right of O: ~300 ms render
+    O-->>E: 200 OK + HTML
+    E-->>B: 200 OK + HTML
+    B->>S: GET /critical.css (after HTML parse)
+    S-->>B: 200 OK
+
+    Note over B,S: With 103 Early Hints — preload runs in parallel with render
+    B->>E: GET /page (HTML)
+    E-->>B: 103 + Link preload critical.css
+    par Browser preloads
+        B->>S: GET /critical.css
+        S-->>B: 200 OK
+    and Origin still rendering
+        E->>O: forward
+        O-->>E: 200 OK + HTML
+        E-->>B: 200 OK + HTML
+    end

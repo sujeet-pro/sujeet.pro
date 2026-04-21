@@ -3,7 +3,7 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Fiber["Fiber Reconciler"]
-        direction LR
+        direction TB
         Render["Render Phase\n(Interruptible, 5 ms slices)"]
         Commit["Commit Phase\n(Synchronous)"]
         Render --> Commit

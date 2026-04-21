@@ -1,8 +1,20 @@
-%% Diagram: Component deprecation timeline — from "stable" to "removed" with explicit windows
-%% Type: timeline
-timeline
-    title Component lifecycle stages with concrete signals
-    Stable      : @stable in docs : No console warnings : Codemods not yet relevant
-    Deprecated  : @deprecated JSDoc : Runtime console.warn (dev only) : Docs page lists replacement : Codemod published with the deprecation
-    Sunset      : 2 minor versions of warning runway : Usage analytics show < 5% adoption of replacement is a blocker : Outreach to lagging teams
-    Removed     : Next major release : Source deleted : Codemod still installable for late upgraders : Figma component renamed to "[removed]"
+%% Diagram: Component deprecation lifecycle from "stable" to "removed"
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    STABLE["Stable\n@stable in docs"]
+    DEPRECATED["Deprecated\n@deprecated JSDoc\nDev console.warn\nCodemod ships now"]
+    SUNSET["Sunset\n2 minor versions runway\nOutreach to laggards"]
+    REMOVED["Removed\nNext major\nCodemod still installable"]
+
+    STABLE --> DEPRECATED --> SUNSET --> REMOVED
+
+    classDef stable fill:#2E5A88,stroke:#1F3F60,color:#ffffff
+    classDef deprecated fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
+    classDef sunset fill:#B43A3A,stroke:#7E2828,color:#ffffff
+    classDef removed fill:#5A5A5A,stroke:#333333,color:#ffffff
+
+    class STABLE stable
+    class DEPRECATED deprecated
+    class SUNSET sunset
+    class REMOVED removed

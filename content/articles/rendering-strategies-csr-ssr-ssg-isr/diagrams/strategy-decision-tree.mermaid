@@ -2,27 +2,27 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    start{"Does this route\nneed SEO or fast LCP?"}
-    auth{"Personalized per user\non every request?"}
-    fresh{"How fresh must\nthe content be?"}
-    catalog{"Page count and\nbuild-time data size"}
-    mixed{"Mostly static with a few\nuser-specific holes?"}
+    start{"SEO or fast LCP\nrequired?"}
+    auth{"Personalized\nper request?"}
+    fresh{"Freshness\nbudget?"}
+    catalog{"Catalog size\nand churn?"}
+    mixed{"Static page with\na few dynamic holes?"}
 
-    csr["CSR\nDashboards, internal tools"]
-    ssr["SSR\n+ streaming, edge runtime"]
-    ssg["SSG\nStatic build, deploy to CDN"]
+    csr["CSR\ndashboards, tools"]
+    ssr["SSR\n+ streaming / edge"]
+    ssg["SSG\nbuild + CDN"]
     isr["ISR\nSSG + revalidate"]
-    ppr["PPR or RSC\nStatic shell + dynamic stream"]
+    ppr["PPR / RSC\nshell + streamed holes"]
 
     start -->|"No"| csr
     start -->|"Yes"| auth
     auth -->|"Yes"| ssr
     auth -->|"No"| fresh
-    fresh -->|"Real time"| ssr
-    fresh -->|"Minutes to hours"| isr
-    fresh -->|"Build to release"| catalog
-    catalog -->|"Small, infrequent updates"| ssg
-    catalog -->|"Large or churn-heavy"| isr
+    fresh -->|"Real-time"| ssr
+    fresh -->|"Min to hours"| isr
+    fresh -->|"Release-only"| catalog
+    catalog -->|"Small, stable"| ssg
+    catalog -->|"Large or churning"| isr
     fresh -->|"Mixed"| mixed
     mixed -->|"Yes"| ppr
     mixed -->|"No"| isr

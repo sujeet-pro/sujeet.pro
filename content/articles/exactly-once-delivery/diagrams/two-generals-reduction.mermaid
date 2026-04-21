@@ -2,21 +2,20 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant A as General A (sender)
     participant N as Unreliable channel
     participant B as General B (receiver)
 
     A->>N: "Attack at dawn"
     N->>B: deliver (or drop)
-    Note right of B: Did A's message arrive?\nIf dropped, B never attacks.
+    Note right of B: Did A's message arrive? If dropped, B never attacks.
 
     B->>N: ack #1
     N->>A: deliver (or drop)
-    Note left of A: Did B receive the order?\nIf ack dropped, A cannot be sure.
+    Note left of A: Did B receive the order? If ack dropped, A cannot be sure.
 
     A->>N: ack of ack
     N->>B: deliver (or drop)
-    Note right of B: Did A receive my ack?\nUncertainty regresses forever.
+    Note right of B: Did A receive my ack? Uncertainty regresses forever.
 
-    Note over A,B: Each side needs the other's last\nmessage to be confirmed - impossible\nover a lossy channel in finite rounds.\nReduction: an "exactly-once delivery"\nprotocol would solve Two Generals.
+    Note over A,B: Each side needs the other's last message confirmed - impossible over a lossy channel in finite rounds. Reduction: an "exactly-once delivery" protocol would solve Two Generals.

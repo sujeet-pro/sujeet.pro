@@ -402,12 +402,12 @@ When consumers can't keep up:
 
 **Example configuration**:
 
-```
+```yaml
 initial_delay: 100ms
 backoff_multiplier: 2
 max_delay: 30s
 max_attempts: 10
-jitter: full (random between 0 and calculated delay)
+jitter: full # random between 0 and calculated delay
 ```
 
 This gives delays: ~50ms, ~100ms, ~200ms, ~400ms... up to ~15s average, max 10 attempts over ~1-2 minutes.
@@ -518,19 +518,20 @@ Without idempotency, duplicates cause:
 
 **Pattern**: Atomic check-and-process
 
-```
-BEGIN TRANSACTION
+```sql
+BEGIN TRANSACTION;
   -- Check for duplicate
-  IF EXISTS (SELECT 1 FROM processed_messages WHERE id = message_id)
-    ROLLBACK
-    RETURN -- Already processed
+  IF EXISTS (SELECT 1 FROM processed_messages WHERE id = message_id) THEN
+    ROLLBACK;
+    RETURN; -- Already processed
+  END IF;
 
   -- Process message
-  ... business logic ...
+  -- ... business logic ...
 
   -- Record processed
-  INSERT INTO processed_messages (id, processed_at) VALUES (message_id, NOW())
-COMMIT
+  INSERT INTO processed_messages (id, processed_at) VALUES (message_id, NOW());
+COMMIT;
 ```
 
 **Key**: The duplicate check and business logic must be in the same transaction. Otherwise, a crash between processing and recording creates inconsistency.
@@ -615,7 +616,7 @@ Time lag is more useful for alerting—a lag of 10,000 messages means different 
 
 **Monitoring**:
 
-```
+```text
 Alert: consumer_lag_seconds > 60 for 5 minutes
 Action: Investigate consumer health, consider scaling
 ```
@@ -639,7 +640,7 @@ Action: Investigate consumer health, consider scaling
 | Factor                     | Kafka                              | RabbitMQ                                | SQS / SNS                          | Cloud Pub/Sub                              | Pulsar                                  |
 | -------------------------- | ---------------------------------- | --------------------------------------- | ---------------------------------- | ------------------------------------------ | --------------------------------------- |
 | **Primary model**          | Partitioned log + consumer groups  | AMQP exchange + queues                  | Queue (SQS) + fan-out topic (SNS)  | Topic (push or pull subscriptions)         | Partitioned log on BookKeeper           |
-| **Per-cluster throughput** | Millions of msg/s (LinkedIn 7T/day) | Tens of K to ~100K msg/s per node[^rmq] | 100K+ msg/s standard; 70K TPS FIFO HT | Millions of msg/s, autoscaled              | Validated ~1.5M msg/s on 3 nodes[^pulsar-bench] |
+| **Per-cluster throughput** | Millions of msg/s (LinkedIn 7T/day) | Tens of K to ~100K msg/s per node[^rmq] | Std: nearly unlimited (auto-scaled);[^sqs-throughput] FIFO HT: 70K TPS | Millions of msg/s, autoscaled              | Validated ~1.5M msg/s on 3 nodes[^pulsar-bench] |
 | **Latency p99**            | Single-digit ms                    | Sub-ms to low ms                        | 50-200 ms                          | 10-100 ms                                  | Single-digit ms                         |
 | **Ordering**               | Per-partition FIFO (key-routed)    | Per-queue FIFO                          | Best-effort std; FIFO per group   | Unordered by default; per-key with ordering keys[^pubsub-ordering] | Per-partition FIFO         |
 | **Retention**              | Hours → forever (config)           | Until consumed (or DLQ)                 | 1 min – 14 days[^sqs-retention]    | Up to 31 days[^pubsub-retention]           | Hours → forever, tiered to object store |
@@ -647,6 +648,7 @@ Action: Investigate consumer health, consider scaling
 | **Operational complexity** | High (KRaft / partitions / tooling) | Medium                                   | Zero (managed)                     | Zero (managed)                             | High (broker + BookKeeper + ZK)         |
 
 [^rmq]: [RabbitMQ Best Practice for High Performance](https://www.cloudamqp.com/blog/part2-rabbitmq-best-practice-for-high-performance.html) — CloudAMQP. Single queue ~50K msg/s; multi-queue tuning + dedicated hardware reaches 100K+.
+[^sqs-throughput]: [Amazon SQS message quotas](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html) — standard queues "support a very high, nearly unlimited number of API calls per second"; quotas listed are for FIFO queues only.
 [^pulsar-bench]: [Benchmarking and Latency Optimization of Apache Pulsar at Enterprise Scale](https://arxiv.org/abs/2603.29113) — 1,499,947 msg/s sustained on 3 bare-metal nodes.
 [^sqs-retention]: [Configuring queue parameters using the Amazon SQS console](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-queue-parameters.html) — `MessageRetentionPeriod` ranges from 60 s to 14 days; default 4 days.
 [^pubsub-retention]: [Manage message retention — Pub/Sub](https://cloud.google.com/pubsub/docs/handling-failures#message_retention_duration) — `messageRetentionDuration` up to 31 days when retention is enabled on the subscription/topic.
@@ -675,7 +677,7 @@ Action: Investigate consumer health, consider scaling
 
 ### RabbitMQ
 
-**Architecture**: AMQP broker with exchanges and queues. Exchanges route messages to queues based on bindings and routing keys.
+**Architecture**: AMQP 0-9-1 broker with exchanges and queues. Producers publish to an exchange; the exchange routes messages to bound queues using a routing key. The exchange types (`direct`, `fanout`, `topic`, `headers`) and the producer/consumer message flow are defined in the [AMQP 0-9-1 specification](https://www.rabbitmq.com/resources/specs/amqp0-9-1.pdf).[^amqp-spec]
 
 **Strengths**:
 
@@ -693,6 +695,8 @@ Action: Investigate consumer health, consider scaling
 - Memory-bound (large queues require disk overflow)
 
 **Best for**: Task queues, complex routing rules, RPC patterns, lower-scale messaging.
+
+[^amqp-spec]: [AMQP 0-9-1 Specification (PDF)](https://www.rabbitmq.com/resources/specs/amqp0-9-1.pdf) and [AMQP 0-9-1 Model Explained](https://www.rabbitmq.com/tutorials/amqp-concepts) — RabbitMQ docs. AMQP 1.0 is a different protocol with a flat addressing model rather than exchange + binding routing.
 
 ### AWS SQS/SNS
 
@@ -765,9 +769,11 @@ Action: Investigate consumer health, consider scaling
 
 - JetStream less mature than Kafka
 - Smaller ecosystem
-- Limited exactly-once support
+- Exactly-once requires the `Nats-Msg-Id` header on publish (default 2-minute dedup window) and `AckSync` "double-ack" on the consumer; weaker than Kafka's transactional read-process-write[^nats-eos]
 
 **Best for**: Real-time communication, IoT, microservices internal messaging, edge computing.
+
+[^nats-eos]: [JetStream Model Deep Dive — Exactly Once Semantics](https://docs.nats.io/using-nats/developer/develop_jetstream/model_deep_dive#exactly-once-semantics) — NATS docs.
 
 ## How to Choose
 
@@ -812,28 +818,8 @@ Action: Investigate consumer health, consider scaling
 
 ### Decision Tree
 
-```
-Start: What's your primary use case?
-
-├── Work distribution (task queue)
-│   └── Do you need complex routing?
-│       ├── Yes → RabbitMQ
-│       └── No → SQS or Kafka consumer groups
-│
-├── Event broadcasting
-│   └── Do you need event replay?
-│       ├── Yes → Kafka or Pulsar
-│       └── No → SNS, Cloud Pub/Sub
-│
-├── Event sourcing / audit log
-│   └── Kafka (log-based, long retention)
-│
-├── Real-time (sub-ms latency)
-│   └── NATS or RabbitMQ
-│
-└── Multi-tenant platform
-    └── Pulsar (native multi-tenancy)
-```
+![Broker selection decision tree from primary use case to recommended system.](./diagrams/broker-decision-tree-light.svg "Broker selection by primary use case: work distribution, broadcast, event sourcing, real-time, multi-tenant.")
+![Broker selection decision tree from primary use case to recommended system.](./diagrams/broker-decision-tree-dark.svg)
 
 ## Real-World Examples
 

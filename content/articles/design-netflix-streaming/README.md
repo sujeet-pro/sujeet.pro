@@ -360,10 +360,7 @@ PSNR is a decent signal-to-noise metric, but it correlates poorly with what huma
 | HLS       | Safari, iOS, Apple TV     | [RFC 8216](https://www.rfc-editor.org/rfc/rfc8216) (Informational, 2017); [`draft-pantos-hls-rfc8216bis`](https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/) is the active 2nd-edition draft (rev 21, March 2026) |
 | CMAF      | Underlying packaging      | [ISO/IEC 23000-19](https://www.iso.org/standard/85623.html); single fMP4 serves both HLS and DASH            |
 
-Netflix [uses CMAF](https://netflixtechblog.com/packaging-award-winning-shows-with-award-winning-technology-c1010594ba39) (Common Media Application Format) so a single set of fragmented MP4 segments serves both HLS and DASH manifests; the per-protocol manifest just changes how the same byte ranges are described. CMAF also defines the *chunk* unit inside a segment, which is what enables low-latency variants — HLS Low-Latency (`#EXT-X-PART`) and DASH-LL both publish chunks as soon as the encoder closes them, instead of waiting for the full segment to land.
-
-![CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.](./diagrams/cmaf-chunk-timeline-light.svg "CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.")
-![CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.](./diagrams/cmaf-chunk-timeline-dark.svg)
+Netflix [uses CMAF](https://netflixtechblog.com/packaging-award-winning-shows-with-award-winning-technology-c1010594ba39) (Common Media Application Format) so a single set of fragmented MP4 segments serves both HLS and DASH manifests; the per-protocol manifest just changes how the same byte ranges are described. CMAF also defines the *chunk* unit inside a segment — typically ~200 ms inside a ~4 s segment — which is what enables low-latency variants. HLS Low-Latency (`#EXT-X-PART` partial segments) and DASH-LL both publish those chunks as soon as the encoder closes them, instead of waiting for the full segment to land.
 
 ### Manifest generation
 
@@ -534,9 +531,6 @@ Netflix's TV, mobile, and web clients share the same skeleton:
 ### Playback start optimisation
 
 The published target is *first frame in under 2 seconds*. The startup budget breaks down roughly as:
-
-![Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.](./diagrams/playback-startup-timeline-light.svg "Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.")
-![Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.](./diagrams/playback-startup-timeline-dark.svg)
 
 | Phase           | Typical budget | Levers used to hit it                          |
 | --------------- | -------------- | ---------------------------------------------- |

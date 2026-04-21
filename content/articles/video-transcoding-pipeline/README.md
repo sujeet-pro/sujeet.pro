@@ -16,8 +16,8 @@ tags:
 
 Building scalable video transcoding pipelines requires orchestrating CPU/GPU-intensive encoding jobs across distributed infrastructure while optimizing for quality, cost, and throughput. This article covers pipeline architecture patterns, codec selection, rate control strategies, job orchestration with chunked parallel processing, quality validation, and failure handling for production video platforms.
 
-![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr-light.svg "End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery")
-![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/end-to-end-transcoding-pipeline-source-ingestion-through-job-orchestration-distr-dark.svg)
+![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/pipeline-overview-light.svg "End-to-end transcoding pipeline: source ingestion → orchestration → chunked encoding → quality check → packaging → CDN.")
+![End-to-end transcoding pipeline: source ingestion through job orchestration, distributed encoding with chunked parallelization, quality validation, and CDN delivery](./diagrams/pipeline-overview-dark.svg)
 
 ## Abstract
 

@@ -2,14 +2,13 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant App as Source DB
     participant Log as Transaction Log
     participant CDC as CDC Connector
     participant WM as Watermark Table
     participant Sink as Downstream Sink
 
-    Note over CDC,Sink: Streaming is already running.<br/>A chunk of historical rows is needed.
+    Note over CDC,Sink: Streaming is already running.\nA chunk of historical rows is needed.
 
     CDC->>Log: Pause emitting chunk-conflicting log events
     CDC->>WM: UPDATE watermark SET id = uuid_low (LOW)
@@ -19,8 +18,8 @@ sequenceDiagram
     CDC->>WM: UPDATE watermark SET id = uuid_high (HIGH)
     Log-->>CDC: Replays HIGH marker
 
-    Note over CDC: Reconcile: drop chunk rows whose key<br/>was modified between LOW and HIGH;<br/>those events arrive on the live stream.
+    Note over CDC: Reconcile - drop chunk rows whose key\nwas modified between LOW and HIGH.\nThose events arrive on the live stream.
 
     CDC->>Sink: Emit surviving chunk rows (snapshot events)
     CDC->>Sink: Continue forwarding live log events
-    Note over CDC: Repeat per chunk;<br/>snapshot is resumable, no table locks.
+    Note over CDC: Repeat per chunk.\nSnapshot is resumable, no table locks.

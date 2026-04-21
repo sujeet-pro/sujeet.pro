@@ -877,7 +877,7 @@ class WidgetRegistry {
 
 **Registry API design:**
 
-```
+```http
 GET /widgets                    # List all widgets (paginated)
 GET /widgets/{id}               # Get widget metadata
 GET /widgets/{id}/versions      # List versions
@@ -1344,7 +1344,7 @@ Widget loading competes with the host application for main thread time. Poor loa
 
 **Loading waterfall (problematic):**
 
-```
+```text
 [Host init]--[Fetch config]--[Fetch widget A]--[Parse A]--[Fetch widget B]--[Parse B]
                                                                               |
                                                                          [First paint]
@@ -1352,7 +1352,7 @@ Widget loading competes with the host application for main thread time. Poor loa
 
 **Optimized loading:**
 
-```
+```text
 [Host init]--[Fetch config]--[Render host skeleton]
                     |
                     ├──[Fetch A]──[Parse A]
@@ -1557,7 +1557,7 @@ class WidgetStorageManager {
 
 ### VS Code Extensions
 
-**Context:** Desktop code editor with 40,000+ extensions.
+**Context:** Desktop code editor with tens of thousands of extensions on the marketplace (~55k as of early 2026[^vscode-count]).
 
 **Architecture:**
 
@@ -1609,7 +1609,7 @@ class WidgetStorageManager {
 
 **Two-process model:**
 
-```
+```text
 Plugin UI (iframe) ←→ postMessage ←→ Plugin Logic (WASM) ←→ Figma API ←→ Document
 ```
 
@@ -1620,7 +1620,7 @@ Plugin UI (iframe) ←→ postMessage ←→ Plugin Logic (WASM) ←→ Figma AP
 - All document operations go through audited API
 - Plugin code runs in capability-constrained sandbox
 
-**Trade-off accepted:** QuickJS is ~10-30x slower than V8. Acceptable because document operations are the bottleneck, not JavaScript execution.
+**Trade-off accepted:** QuickJS is interpreter-only — roughly 20-100× slower than V8 with JIT for compute-heavy code, ~2-3× slower than V8 with the JIT disabled.[^quickjs-perf] Acceptable here because document API calls dominate, not raw JavaScript execution.
 
 **Source:** [How Figma Built the Plugin System](https://www.figma.com/blog/how-we-built-the-figma-plugin-system/)
 
@@ -1679,7 +1679,7 @@ In React, the [`useAppBridge`](https://shopify.dev/docs/api/app-bridge-library/r
 
 **Lightning Web Security:**
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │            Salesforce Page              │
 ├─────────────────────────────────────────┤
@@ -1778,7 +1778,7 @@ window.addEventListener("message", (event) => {
 
 ### 3. Shared Dependency Version Conflicts
 
-**The mistake:** Host uses React 18, widget bunled with React 17, both load.
+**The mistake:** Host uses React 18, widget bundled with React 17, both load.
 
 **Impact:** Two React instances cause context mismatches, hooks fail mysteriously.
 

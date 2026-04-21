@@ -2,24 +2,19 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     actor Page
     participant SW as Service Worker
-    participant Cache as Cache Storage
-    participant Net as fetch (network)
+    participant BE as Cache + Net
     participant TX as TransformStream
 
-    Page->>SW: GET /article (FetchEvent)
-    SW->>SW: event.respondWith(new Response(readable))
-    Note over SW,TX: SW returns immediately;<br/>response is alive but empty.
-    SW->>Cache: match(/shell.html)
-    Cache-->>SW: cached shell ReadableStream
-    SW->>TX: shell.body.pipeTo(writable, { preventClose: true })
-
-    par
-        SW->>Net: fetch(/api/article-body)
-    end
-    Net-->>SW: Response (body stream)
+    Page->>SW: GET /article
+    SW->>SW: respondWith(Response(readable))
+    Note over SW,TX: Empty response is alive
+    SW->>BE: cache.match(/shell.html)
+    BE-->>SW: shell stream
+    SW->>TX: shell.pipeTo(writable)
+    SW->>BE: fetch(/api/article-body)
+    BE-->>SW: body stream
     SW->>TX: body.pipeTo(writable)
-    TX-->>Page: chunks delivered as they arrive
-    Note over Page: First paint is the cached shell;<br/>article body streams in below.
+    TX-->>Page: chunks streamed
+    Note over Page: Shell first, body after

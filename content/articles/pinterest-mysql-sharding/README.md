@@ -2,7 +2,7 @@
 title: 'Pinterest: MySQL Sharding from Zero to Billions of Objects'
 linkTitle: 'Pinterest Sharding'
 description: >-
-  How Pinterest replaced five failing NoSQL systems with sharded MySQL — a
+  How Pinterest replaced three failing NoSQL stores with sharded MySQL — a
   64-bit ID scheme that embeds routing, virtual shards for painless growth,
   and a "boring technology" philosophy still running a decade later.
 publishedDate: 2026-02-08T00:00:00.000Z
@@ -17,9 +17,9 @@ tags:
 
 # Pinterest: MySQL Sharding from Zero to Billions of Objects
 
-In late 2011, Pinterest was doubling its user base every 45 days, ran on three engineers, and had five different NoSQL systems failing on rotation every night. Their fix: throw out every NoSQL store, shard MySQL into thousands of independent databases, and embed the shard location of every object directly inside its 64-bit ID so that no lookup service ever has to know where data lives. This article unpacks the design — the bit layout, the virtual-shard topology, the JSON-blob schema, the colocation rules, and the migration — and pulls out the engineering principles that explain why the same architecture is still in production more than a decade later.
+In late 2011, Pinterest was doubling its user base every 45 days, ran on three engineers, and operated six storage technologies — three of which (Cassandra, Membase, MongoDB) were failing on rotation every night. Their fix: rip out the failing NoSQL stores, keep the two stable caches (Redis, Memcache), shard MySQL into thousands of independent databases, and embed the shard location of every object directly inside its 64-bit ID so that no lookup service ever has to know where data lives. This article unpacks the design — the bit layout, the virtual-shard topology, the JSON-blob schema, the colocation rules, and the migration — and pulls out the engineering principles that explain why the same architecture is still in production more than a decade later.
 
-![Pinterest's storage stack before and after the 2012 MySQL sharding migration. Five NoSQL technologies removed; only Redis and Memcache survived alongside the new sharded MySQL fleet.](./diagrams/before-after-stack-light.svg "Pinterest's storage stack before and after the 2012 MySQL sharding migration. Five NoSQL technologies removed; only Redis and Memcache survived alongside the new sharded MySQL fleet.")
+![Pinterest's storage stack before and after the 2012 MySQL sharding migration. Three failing NoSQL technologies removed (Cassandra, Membase, MongoDB); MySQL became the sharded primary store; Redis and Memcache survived as caches.](./diagrams/before-after-stack-light.svg "Pinterest's storage stack before and after the 2012 MySQL sharding migration. Three failing NoSQL technologies removed (Cassandra, Membase, MongoDB); MySQL became the sharded primary store; Redis and Memcache survived as caches.")
 ![Pinterest's storage stack before and after the 2012 MySQL sharding migration.](./diagrams/before-after-stack-dark.svg)
 
 ## Abstract
@@ -63,16 +63,19 @@ Source: Marty Weiner's QCon and GOTO scaling talks, summarised by [High Scalabil
 
 By September 2011, Pinterest's storage layer was a patchwork of six technologies deployed in rapid succession to keep up with growth[^highscalability]:
 
-| Technology    | Use case                          | Instances               | Status                          |
-| ------------- | --------------------------------- | ----------------------- | ------------------------------- |
-| **MySQL**     | Primary data (manually sharded)   | 5 DBs + 9 read slaves   | Stable but hitting shard limits |
-| **Cassandra** | Distributed object storage        | 4 nodes                 | Repeated data corruption        |
-| **Membase**   | Key-value cache                   | 15 nodes (3 clusters)   | Unreliable cluster management   |
-| **MongoDB**   | Counters                          | 3 clusters              | Operational complexity          |
-| **Redis**     | Caching, queues                   | 10 instances            | Stable                          |
-| **Memcache**  | Object cache                      | 8 instances             | Stable                          |
+| Technology    | Use case                                | Instances             | Status                          |
+| ------------- | --------------------------------------- | --------------------- | ------------------------------- |
+| **MySQL**     | Primary data (functionally sharded)     | 5 DBs + 9 read slaves | Stable but hitting shard limits |
+| **Cassandra** | Distributed object storage              | 4 nodes               | Repeated data corruption        |
+| **Membase**   | Key-value cache                         | 15 nodes (3 clusters) | Unreliable cluster management   |
+| **MongoDB**   | Counters                                | 3 clusters            | Operational complexity          |
+| **Redis**     | Caching, queues                         | 10 instances          | Stable                          |
+| **Memcache**  | Object cache                            | 8 instances           | Stable                          |
 
-Each technology brought its own operational model, failure modes, monitoring, backup procedure, and on-call playbook. Three engineers could not stay current across all six.
+Each technology brought its own operational model, failure modes, monitoring, backup procedure, and on-call playbook. Three engineers could not stay current across all six. (A separate Elasticsearch cluster — later Solr — handled search and is outside the scope of this article, which is about the primary write path.[^highscalability])
+
+> [!NOTE]
+> The "MySQL" row above was **functionally sharded** — different *kinds* of data (users, pins, boards, follows) lived in different MySQL instances. Pinterest had already outgrown that model: a hot table forced an entire functional shard to be split, and adding a new feature meant adding a new functional shard. The 2012 redesign moved from functional sharding to **key-based sharding**, where every shard holds the same schema and a 64-bit object ID picks the shard. Functional and key-based sharding are the two canonical sharding strategies; Pinterest's story is the transition from one to the other.
 
 ### How each technology failed
 
@@ -495,16 +498,17 @@ The sharding architecture designed in late 2011 remains the system of record for
 
 The original MySQL sharding layer remained stable while Pinterest evolved the layers around it:
 
-| Year       | Change                                           | Purpose                                                                             |
-| ---------- | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| 2013–2014  | Built **Zen** graph service (HBase + MySQL)      | Social graph and feed storage                                                       |
-| 2016–2017  | Built and open-sourced **[Rocksplicator](https://github.com/pinterest/rocksplicator)** | RocksDB-based real-time data replication and cluster management                     |
-| 2017       | Custom MySQL column compression upstreamed to Percona | Pin-blob compression ratio improved from ~3:1 to ~3.47:1 with tuned dictionary      |
-| 2019       | Open-sourced **[mysql_utils](https://github.com/pinterest/mysql_utils)** (archived June 2019) | MySQL lifecycle management tooling                                                  |
-| 2020       | Built **KVStore** (unified key-value service)    | Consolidated 500+ use cases, 4+ PB, 100M+ QPS onto a single RocksDB-backed service  |
-| 2020–2024  | Adopted **TiDB** for the graph service (PinGraph) | Replaced HBase-backed Zen: ~10x P99 latency reduction, ~50% infra cost savings      |
+| Year       | Change                                                                                        | Purpose                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 2013–2014  | Built **Zen** graph service (HBase + MySQL)                                                   | Social graph and feed storage                                                      |
+| ~2014      | Built **Terrapin** — read-only, batch-loaded key-value store on HDFS                          | Bulk-served ML and offline-computed datasets that did not fit the OLTP shard model |
+| 2016–2017  | Built and open-sourced **[Rocksplicator](https://github.com/pinterest/rocksplicator)**        | RocksDB-based real-time data replication and cluster management                    |
+| 2017       | Custom MySQL column compression upstreamed to Percona                                         | Pin-blob compression ratio improved from ~3:1 to ~3.47:1 with tuned dictionary     |
+| 2019       | Open-sourced **[mysql_utils](https://github.com/pinterest/mysql_utils)** (archived June 2019) | MySQL lifecycle management tooling                                                 |
+| 2020       | Built **KVStore** (unified key-value service)                                                 | Consolidated 500+ use cases, 4+ PB, 100M+ QPS onto a single RocksDB-backed service |
+| 2020–2024  | Adopted **TiDB** for the graph service (PinGraph)                                             | Replaced HBase-backed Zen: ~10x P99 latency reduction, ~50% infra cost savings     |
 
-The HBase layer added in 2013 was eventually deprecated — [at its peak roughly 50 clusters, 9,000 EC2 instances, and 6+ PB of data](https://medium.com/pinterest-engineering/hbase-deprecation-at-pinterest-8a99e6c8e6b7). Pinterest selected TiDB after evaluating 15+ database solutions. The MySQL sharding layer, by contrast, required no equivalent migration.
+The HBase layer added in 2013 was eventually deprecated — [at its peak roughly 50 clusters, 9,000 EC2 instances, and 6+ PB of data](https://medium.com/pinterest-engineering/hbase-deprecation-at-pinterest-8a99e6c8e6b7). Terrapin's API leaked HDFS internals into application code and was [retired in favour of KVStore in 2020](https://medium.com/@Pinterest_Engineering/3-innovations-while-unifying-pinterests-key-value-storage-8cdcdf8cf6aa). Pinterest selected TiDB after evaluating 15+ database solutions. The MySQL sharding layer, by contrast, required no equivalent migration — it has carried the OLTP write path uninterrupted while every adjacent system has been replaced at least once.
 
 ### MySQL tooling
 

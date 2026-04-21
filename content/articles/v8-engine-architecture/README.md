@@ -17,8 +17,8 @@ tags:
 
 V8's multi-tiered compilation pipeline—Ignition interpreter through TurboFan optimizer—achieves near-native JavaScript performance while maintaining language dynamism. This analysis covers the four-tier architecture (as of V8 12.x / Chrome 120+), the runtime's hidden class and inline caching systems that enable speculative optimization, and the Orinoco garbage collector's parallel/concurrent strategies.
 
-![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven--light.svg "V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization")
-![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/v8-s-four-tier-compilation-pipeline-with-tier-up-thresholds-and-feedback-driven--dark.svg)
+![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/four-tier-pipeline-light.svg "V8's four-tier compilation pipeline: Ignition feeds Sparkplug, Maglev, and TurboFan; deopts return execution to Ignition.")
+![V8's four-tier compilation pipeline with tier-up thresholds and feedback-driven optimization](./diagrams/four-tier-pipeline-dark.svg)
 
 ## Abstract
 
@@ -79,8 +79,8 @@ The parser consumes tokens and builds an Abstract Syntax Tree (AST). V8's parser
 
 2. **Full parser (deferred)**: Builds complete AST only when a function is first called.
 
-![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation-light.svg "Lazy parsing defers full AST construction until function invocation")
-![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-defers-full-ast-construction-until-function-invocation-dark.svg)
+![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-light.svg "Lazy parsing defers full AST construction until the first invocation; the pre-parser only validates syntax and records function boundaries.")
+![Lazy parsing defers full AST construction until function invocation](./diagrams/lazy-parsing-dark.svg)
 
 **Edge case—inner functions**: When an outer function is compiled, its inner functions are pre-parsed. If the outer function references variables from an inner function's closure, the pre-parser must track this without building full AST nodes. This is a significant source of parser complexity.
 
@@ -152,8 +152,8 @@ Property access becomes:
 
 This transforms O(n) hash lookups into O(1) offset loads.
 
-![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties-light.svg "Object memory layout with Map pointer and fixed-offset properties")
-![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-with-map-pointer-and-fixed-offset-properties-dark.svg)
+![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-light.svg "Each object stores a Map pointer plus its property slots at fixed offsets; the Map carries the DescriptorArray and the TransitionArray.")
+![Object memory layout with Map pointer and fixed-offset properties](./diagrams/object-memory-layout-dark.svg)
 
 ### Map Transitions: Shape Evolution
 
@@ -198,6 +198,9 @@ As Ignition executes, it populates FeedbackVector slots with observed Maps. This
 | **Polymorphic**   | 2-4         | ~10-20 cycles | Linear chain of map checks                     |
 | **Megamorphic**   | >4          | ~100+ cycles  | Global stub cache; often prevents optimization |
 
+![Inline cache state lifecycle from uninitialized through monomorphic, polymorphic, and megamorphic](./diagrams/ic-state-lifecycle-light.svg "Each IC site progresses one-way through the state lattice; once it reaches megamorphic, TurboFan typically refuses to optimize the containing function.")
+![Inline cache state lifecycle from uninitialized through monomorphic, polymorphic, and megamorphic](./diagrams/ic-state-lifecycle-dark.svg)
+
 **The megamorphic cliff**: When an IC exceeds 4 shapes, V8 abandons local caching and falls back to a global hashtable. Performance degrades 10-50x, and TurboFan typically refuses to optimize the containing function.
 
 **Real-world example**: A function processing heterogeneous API responses where each endpoint returns differently-shaped objects will quickly go megamorphic. Solutions include normalizing shapes early or splitting into shape-specific functions.
@@ -226,8 +229,7 @@ Sparkplug optimizes for **compilation speed**, not execution speed. The V8 team 
 
 ### Performance Characteristics
 
-Compilation: ~10μs per function (orders of magnitude faster than TurboFan's ~1ms)
-Execution: ~30-50% faster than Ignition interpretation
+Compilation: ~10μs per function (orders of magnitude faster than TurboFan's ~1ms). On benchmarks the V8 team reported ~5–15% improvement on real-world page workloads when Sparkplug shipped — see [Sparkplug — a non-optimizing JavaScript compiler](https://v8.dev/blog/sparkplug). On microbenchmarks the gap is larger (Speedometer ~5–10%, JetStream ~15%); per the [Maglev launch post](https://v8.dev/blog/maglev) Sparkplug ends up roughly 41% faster than Ignition on Speedometer in isolation.
 
 Sparkplug's value is in eliminating interpreter dispatch overhead. The generated code still performs all the same runtime checks—it's just native code doing it instead of bytecode handlers.
 
@@ -319,7 +321,7 @@ The remaining JavaScript frontend will be replaced by the **Turbolev** project, 
 
 **Representation selection**: Choose optimal numeric representations:
 
-- **Smi** (tagged small integer) for values in the Smi range (see Smi note below)
+- **Smi** (tagged small integer) for values in the Smi range (see the note below for exact bounds)
 - **HeapNumber** for larger integers or floats
 - Raw Int32/Float64 in registers when unboxing is profitable
 
@@ -328,8 +330,8 @@ The remaining JavaScript frontend will be replaced by the **Turbolev** project, 
 
 ### Pipeline Walkthrough
 
-![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend-light.svg "TurboFan compilation pipeline with Turboshaft backend")
-![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-compilation-pipeline-with-turboshaft-backend-dark.svg)
+![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-pipeline-light.svg "TurboFan pipeline: bytecode and feedback flow into the graph builder; scheduling, register allocation, and code generation now run on Turboshaft.")
+![TurboFan compilation pipeline with Turboshaft backend](./diagrams/turbofan-pipeline-dark.svg)
 
 ## Deoptimization: The Safety Net
 
@@ -350,7 +352,7 @@ Deoptimization is designed into V8's architecture, not a bug. It enables aggress
 | `kWrongMap`                 | Object shape changed                    | Function optimized for `{x}` receives `{y, x}` |
 | `kNotASmi`                  | Expected small integer, got heap number | `x + 1` where `x` becomes a float              |
 | `kOutOfBounds`              | Array access beyond length              | `arr[i]` where `i >= arr.length`               |
-| `kOverflow`                 | Integer arithmetic overflow             | Addition exceeds the Smi range (see Smi note below) |
+| `kOverflow`                 | Integer arithmetic overflow             | Addition exceeds the Smi range (see Smi note above) |
 | `kHole`                     | Sparse array access                     | Accessing uninitialized array element          |
 | `kInsufficientTypeFeedback` | Optimized before feedback stabilized    | Polymorphic site went megamorphic              |
 
@@ -403,6 +405,9 @@ Young generation is further divided:
 - **Nursery**: Brand-new allocations
 - **Intermediate**: Survived one scavenge
 
+![Orinoco heap structure: young generation (nursery + intermediate) feeds into the old generation; old gen runs concurrent mark-sweep with optional parallel compact](./diagrams/orinoco-heap-structure-light.svg "Orinoco heap: surviving objects pass nursery → intermediate before promotion; old gen marking and sweeping run on background threads, with compaction the only full-pause phase.")
+![Orinoco heap structure: young generation (nursery + intermediate) feeds into the old generation; old gen runs concurrent mark-sweep with optional parallel compact](./diagrams/orinoco-heap-structure-dark.svg)
+
 ### Young Generation: Parallel Scavenger
 
 **Algorithm**: Semi-space copying. The young generation has two equal-sized spaces (From-Space and To-Space). Live objects are copied from From to To; dead objects are implicitly reclaimed.
@@ -438,6 +443,9 @@ Young generation is further divided:
 **Remembered sets**: Track old→young pointers so young generation scavenges don't scan the entire old generation. Orinoco uses per-page granularity for parallel-friendly processing.
 
 **Idle-time GC**: Chrome signals idle periods to V8, which performs opportunistic GC work (incremental marking, deferred sweeping). On a memory-heavy app like Gmail, [V8's measurements](https://v8.dev/blog/free-garbage-collection) show idle-time collection can reclaim up to ~45% of the JavaScript heap with no user-visible jank.
+
+> [!NOTE]
+> **Direction of travel — Minor Mark-Sweep.** V8 has been working on a non-moving young-generation collector ([MinorMS](https://wingolog.org/archives/2023/12/07/the-last-5-years-of-v8s-garbage-collector)) to support conservative stack scanning and to reduce copying overhead at higher young-gen sizes. Parallel Scavenge remains the production default at the time of writing; treat MinorMS as the trajectory, not the current code path.
 
 ### Performance Characteristics
 
@@ -490,7 +498,7 @@ V8's performance emerges from the interplay between its components:
 - **Deoptimization** makes aggressive speculation safe
 - **Orinoco GC** minimizes pause times through parallelism and concurrency
 
-The architecture's evolution—from performance cliffs to smooth gradients, from Sea of Nodes to CFG—demonstrates pragmatic engineering over dogma. Each change addressed real performance gaps measured in production.
+The architecture's evolution—from performance cliffs to smooth gradients, from Sea of Nodes to CFG—tracks measured production pain rather than aesthetic preference. Each tier and each backend swap landed because the previous shape underperformed on real workloads, not because it was theoretically appealing.
 
 ## Appendix
 

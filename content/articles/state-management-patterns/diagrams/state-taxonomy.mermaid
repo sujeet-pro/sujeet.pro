@@ -2,34 +2,14 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Local["Local / UI state"]
-        L0["URL and routing params when the address bar is the source of truth"]
-        L1["Short-lived interaction and ephemeral UI"]
-        L2["Forms, panels, focus, layout toggles"]
-        L3["Owned by one subtree; avoid accidental sharing"]
-    end
+    Local["Local / UI state<br/><br/>forms, focus, layout toggles<br/>URL when address bar is truth"]
+    Global["Coordinating client state<br/><br/>session shell, theme, flags<br/>narrow write APIs"]
+    Server["Server-backed cache<br/><br/>truth on origin; client caches<br/>staleness + invalidation rules"]
+    Derived["Derived state<br/><br/>pure projection of inputs<br/>select / memoize, never write"]
 
-    subgraph Global["Coordinating / client-wide state"]
-        G1["Cross-cutting concerns many routes need"]
-        G2["Session shell, theme, feature flags, wizard context"]
-        G3["Prefer stores or context with narrow write APIs"]
-    end
-
-    subgraph Server["Server / remote authoritative state"]
-        S1["Truth lives on origin; client holds a cache"]
-        S2["Profiles, permissions, domain aggregates"]
-        S3["Staleness policy plus invalidation plus concurrency rules"]
-        S4["Treat mutations as async workflows, not synchronous writes"]
-    end
-
-    subgraph Derived["Derived state"]
-        D1["Computed from local plus global plus server inputs"]
-        D2["Select or memoize; do not duplicate as a second writable source"]
-    end
-
-    Local -->|"Many consumers need the same write path"| Global
-    Local -->|"Needs authoritative data"| Server
-    Server -->|"Hydrates the client cache"| Global
-    Local -.->|read models| Derived
-    Global -.->|read models| Derived
-    Server -.->|read models| Derived
+    Local -->|"shared write path"| Global
+    Local -->|"needs authority"| Server
+    Server -->|"hydrates cache"| Global
+    Local -.->|read model| Derived
+    Global -.->|read model| Derived
+    Server -.->|read model| Derived

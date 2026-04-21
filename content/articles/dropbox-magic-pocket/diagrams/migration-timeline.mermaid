@@ -1,20 +1,22 @@
 %% Diagram: S3 to Magic Pocket migration timeline
-%% Type: gantt
+%% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-gantt
-    title S3 -> Magic Pocket migration (2013-2017)
-    dateFormat YYYY-MM-DD
-    axisFormat %Y-%b
-    section Build
-    Prototype + design (<6 engineers)        :a1, 2013-06-01, 2014-07-31
-    Production code + automation             :a2, after a1, 180d
-    section Mirror
-    Dark launch: dual-write to MP + S3       :b1, 2014-08-01, 2015-02-26
-    section Cutover
-    D-day: serve user data exclusively from MP   :milestone, 2015-02-27, 1d
-    BASE Jump: rack/install rush, ~0.5 Tbps peak :c1, 2015-04-30, 160d
-    90% of user data on MP                       :milestone, 2015-10-07, 1d
-    section Wind-down
-    Extra S3 backups retained                :d1, 2015-02-27, 180d
-    Public announcement + blog series        :milestone, 2016-03-14, 1d
-    Net $74.6M opex savings (S-1)            :e1, 2016-01-01, 730d
+flowchart TB
+    classDef build fill:#2E5A88,stroke:#1B3A5C,color:#ffffff
+    classDef mirror fill:#1F6E68,stroke:#114540,color:#ffffff
+    classDef cutover fill:#B43A3A,stroke:#7C2424,color:#ffffff
+    classDef wind fill:#5A5A5A,stroke:#333333,color:#ffffff
+    classDef milestone fill:#8B5E15,stroke:#553A0D,color:#ffffff
+
+    A1["Summer 2013\nPrototype + design begins\n(<6 engineers)"]:::build
+    A2["Aug 2014 - Feb 2015\nProduction code, automation,\nrack provisioning"]:::build
+    B1["Aug 2014 - Feb 2015\nDark launch:\ndual-write to MP and S3"]:::mirror
+    C1(["27 Feb 2015\nD-day: serve user data\nexclusively from MP"]):::milestone
+    C2["Apr 30 2015 - Oct 7 2015\nBASE Jump rack rush\n(>0.5 Tbps internal peak)"]:::cutover
+    C3(["7 Oct 2015\n90% of user data on MP\n(~3 weeks ahead of plan)"]):::milestone
+    D1["Feb 2015 - Aug 2015\nExtra S3 backups retained\nas safety net"]:::wind
+    D2(["14 Mar 2016\nPublic announcement\n+ engineering blog series"]):::milestone
+    D3["2016 - 2017\n$74.6M net opex savings\nrecognised in S-1"]:::wind
+
+    A1 --> A2 --> B1 --> C1 --> C2 --> C3 --> D2 --> D3
+    C1 -.-> D1

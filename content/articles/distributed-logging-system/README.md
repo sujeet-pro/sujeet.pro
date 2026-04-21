@@ -89,7 +89,7 @@ Three properties of this model matter for design:
 - **Resource is the natural multi-tenant key.** `service.namespace`, `k8s.namespace.name`, or `cloud.account.id` map cleanly onto tenant boundaries downstream.
 
 > [!IMPORTANT]
-> Whatever schema you pick, cap individual entries. [Datadog recommends each log entry stay under 25 KB and rejects anything larger than 1 MB at the API](https://docs.datadoghq.com/logs/log_collection/); the [Datadog Agent splits any record above ~900 KB into multiple lines](https://docs.datadoghq.com/agent/logs/log_transport/). Even if your stack does not enforce a hard limit, large logs (full request bodies, multi-megabyte stack traces) ruin compression ratios and cripple list-page rendering. Truncate or sample them at the source.
+> Whatever schema you pick, cap individual entries. [Datadog recommends each log entry stay under 25 KB and silently truncates anything larger than 1 MB at the API](https://docs.datadoghq.com/logs/log_collection/); the [Datadog Agent splits any record above ~900 KB into multiple lines before transport](https://docs.datadoghq.com/agent/logs/log_transport/). Even if your stack does not enforce a hard limit, large logs (full request bodies, multi-megabyte stack traces) ruin compression ratios and cripple list-page rendering. Truncate or sample them at the source.
 
 ## Collection architecture
 

@@ -20,8 +20,8 @@ tags:
 
 WCAG 2.2 is the current W3C accessibility recommendation and the standard that every modern accessibility law in the US and EU resolves to. It is also the version that finally takes cognitive disabilities, touch input, and focus visibility seriously. This guide explains the nine new success criteria added in 2.2 and the one obsolete criterion removed, the implementation patterns that satisfy them in production code, the realistic split between what automated testing catches and what only manual testing can find, and the 2026–2030 enforcement timeline under ADA Title II and the European Accessibility Act.
 
-![WCAG 2.2 structure: POUR principles map to three cumulative compliance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-light.svg "WCAG 2.2 organises 86 success criteria under the POUR principles across three cumulative conformance levels (A, AA, AAA).")
-![WCAG 2.2 structure: POUR principles map to three cumulative compliance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-dark.svg)
+![WCAG 2.2 structure: POUR principles map to three cumulative conformance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-light.svg "WCAG 2.2 organises 86 success criteria under the POUR principles across three cumulative conformance levels (A, AA, AAA).")
+![WCAG 2.2 structure: POUR principles map to three cumulative conformance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-dark.svg)
 
 ## Abstract
 
@@ -503,7 +503,7 @@ Accessibility law in the US and EU has moved from guidance to enforcement, with 
 | Public entities < 50,000 + special district govts. | 26 April 2027     | **26 April 2028**                   |
 
 > [!IMPORTANT]
-> The DOJ extension is one year only. The 2 April 2026 IFR added a transition; it did not change the technical standard (still WCAG 2.1 AA) or the long-term direction.
+> The DOJ extension is one year only. The 20 April 2026 IFR added a transition; it did not change the technical standard (still WCAG 2.1 AA) or the long-term direction.
 
 **ADA Title III (private sector).** No version-specific WCAG citation exists in regulation. Federal courts consistently apply WCAG 2.1 AA as the de facto standard. [Robles v. Domino's Pizza, 913 F.3d 898 (9th Cir. 2019)](https://cdn.ca9.uscourts.gov/datastore/opinions/2019/01/15/17-55504.pdf) held that Title III applies to a business's website and mobile app when they have a *nexus* to a physical place of public accommodation; the Supreme Court [denied cert](https://www.scotusblog.com/cases/case-files/dominos-pizza-llc-v-robles/) on 7 October 2019, leaving the Ninth Circuit's reading in place.
 

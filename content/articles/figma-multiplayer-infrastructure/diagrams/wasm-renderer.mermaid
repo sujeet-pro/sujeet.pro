@@ -2,26 +2,20 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Source["Shared C++ source"]
-        Engine["Figma rendering engine<br/>+ scene graph<br/>(C++)"]
-        Shaders["Shaders authored in WebGL 1<br/>GLSL; auto-translated to WGSL<br/>via custom processor + naga"]
-    end
+    Engine["Rendering engine\n+ scene graph (C++)"]
+    Shaders["Shaders (GLSL)\n→ WGSL via naga"]
 
-    subgraph Web["Browser build"]
-        direction TB
-        Emcc["Emscripten compiler"]
-        Wasm["WebAssembly module<br/>(loaded once, cached translation)"]
-        JSI["JS interop layer<br/>(WebGPU C++ API → JS bindings,<br/>moving to emdawnwebgpu)"]
-        WGPU["WebGPU<br/>(Chromium 2023+; Dawn-backed)"]
-        WGL["WebGL fallback<br/>(legacy 2D path)"]
-        Fallback{"Device test +<br/>mid-session<br/>device-loss handler"}
-    end
+    Emcc["Emscripten"]
+    Wasm["WebAssembly\nmodule"]
+    JSI["JS interop\n(emdawnwebgpu)"]
+    Fallback{"Device test +\nloss handler"}
+    WGPU["WebGPU\n(Dawn-backed)"]
+    WGL["WebGL fallback"]
 
-    subgraph Native["Native build"]
-        direction TB
-        Bin["x64 / arm64 binary<br/>(server-side rendering,<br/>tests, debugging)"]
-        DawnNative["Dawn native →<br/>D3D12 / Metal / Vulkan"]
-    end
+    Bin["Native binary\n(SSR, tests)"]
+    DawnNative["Dawn native →\nD3D12/Metal/Vulkan"]
+
+    GPU["GPU\n(tile-based 2D)"]
 
     Engine --> Emcc --> Wasm --> JSI
     Engine --> Bin --> DawnNative
@@ -30,7 +24,7 @@ flowchart TB
 
     JSI --> Fallback
     Fallback -->|"WebGPU OK"| WGPU
-    Fallback -->|"WebGPU lost /<br/>blocklisted device"| WGL
-    WGPU --> GPU["GPU<br/>(tile-based 2D compositing,<br/>blend modes, masks, blurs)"]
+    Fallback -->|"WebGPU lost /\nblocklisted device"| WGL
+    WGPU --> GPU
     WGL --> GPU
     DawnNative --> GPU

@@ -1,7 +1,7 @@
 %% Diagram: Content-addressed asset lifecycle — fingerprinted URLs make new versions cache misses by definition; old versions age out
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Build["Build"]
         Src[Source CSS/JS] --> Hash["Hash content<br/>main.[hash].js"]
         Hash --> NewURL[New immutable URL]

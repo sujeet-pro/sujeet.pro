@@ -416,7 +416,7 @@ WhatsApp's key architectural decisions involved explicit trade-offs. Understandi
 - Per-connection memory overhead significantly higher than BEAM processes
 - Thread-per-connection model doesn't scale to millions without complex async frameworks
 
-**Why not chosen**: JVM's global GC was the dealbreaker. Discord's later experience with Cassandra's JVM GC pauses (covered in a separate case study) validates this concern.
+**Why not chosen**: JVM's global GC was the dealbreaker. Instagram's later move from Cassandra to RocksDB-backed Rocksandra to escape JVM GC tail latency is the same pattern in a different shape — see [Instagram + Cassandra: the Rocksandra migration](../instagram-cassandra-migration/README.md).
 
 #### Option 3: Erlang (Chosen)
 
@@ -458,7 +458,7 @@ WhatsApp deliberately avoided the microservices pattern:
 | ---------------------- | ------------------------ | ----------- | ---- | ------------------- |
 | Monthly active users   | 465M                     | 600M+       | 1B   | 3B+                 |
 | Messages/day (in+out)  | ~50B                     | 64B+        | —    | 100B+               |
-| Servers                | ~550                     | ~800        | —    | tens of thousands of nodes |
+| Servers                | ~550                     | ~800        | —    | tens of thousands  |
 | Engineers (total)      | ~32                      | ~35         | ~50  | 1,000+              |
 | Concurrent connections | 147M                     | —           | —    | billions            |
 | Users per engineer     | ~15M                     | ~17M        | ~20M | —                   |

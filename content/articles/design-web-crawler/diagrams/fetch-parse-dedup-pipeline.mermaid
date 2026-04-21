@@ -1,7 +1,7 @@
 %% Diagram: Fetch -> parse -> dedup pipeline with two-tier deduplication
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph In["Input"]
         Q[Frontier pop<br/>URL + host context]
     end

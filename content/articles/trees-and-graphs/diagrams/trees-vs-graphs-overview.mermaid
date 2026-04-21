@@ -1,0 +1,25 @@
+%% Diagram: Trees vs graphs overview - structure, representation, traversal
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    treesHead["Trees\nsingle parent, no cycles"]:::treeHead
+    graphsHead["Graphs\narbitrary edges, may cycle"]:::graphHead
+
+    treeKinds["BST / AVL / RB · B+ tree · Trie\n(variant = access pattern)"]:::tree
+    graphReps["Adjacency list (sparse)\nAdjacency matrix (dense)"]:::gnode
+
+    travHead["Traversal shape = question shape"]:::travHead
+    dfs["DFS (stack)\ncycles, topo sort"]:::trav
+    bfs["BFS (queue)\nshortest path (unweighted)"]:::trav
+
+    treesHead --> treeKinds --> travHead
+    graphsHead --> graphReps --> travHead
+    travHead --> dfs
+    travHead --> bfs
+
+    classDef treeHead fill:#155752,stroke:#0D3F3B,color:#fff
+    classDef graphHead fill:#1F4870,stroke:#152F4A,color:#fff
+    classDef travHead fill:#6E4810,stroke:#4A300B,color:#fff
+    classDef tree fill:#1F6E68,stroke:#155752,color:#fff
+    classDef gnode fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef trav fill:#8B5E15,stroke:#6E4810,color:#fff

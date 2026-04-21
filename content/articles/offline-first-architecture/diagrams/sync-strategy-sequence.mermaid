@@ -1,30 +1,21 @@
 %% Diagram: Sync queue happy path with optimistic UI
 %% Type: sequenceDiagram
 sequenceDiagram
-    autonumber
     participant U as User
-    participant App as App (UI thread)
-    participant IDB as IndexedDB queue
-    participant SW as Service Worker
-    participant API as Server API
+    participant Client as App + SW + IDB
+    participant API as API
 
-    U->>App: edit record
-    App->>IDB: append SyncQueueItem
-    App-->>U: optimistic UI update
-    App->>SW: registration.sync.register("pending")
-
-    Note over SW: connectivity returns
-    SW->>IDB: read pending items (FIFO)
-    SW->>API: POST /sync (idempotency-key)
+    U->>Client: edit
+    Client->>Client: queue + optimistic UI
+    Client-->>U: render
+    Note over Client: online
+    Client->>API: POST /sync (idempotent)
     alt 2xx
-        API-->>SW: ack + canonical record
-        SW->>IDB: mark item synced
-        SW->>App: postMessage("synced", id)
-        App->>U: dismiss "saving..." badge
-    else permanent 4xx
-        API-->>SW: error code
-        SW->>IDB: mark failed
-        SW->>App: postMessage("conflict", id)
-    else transient 5xx / offline
-        SW-->>SW: throw -> browser retries on next sync event
+        API-->>Client: ack
+        Client->>U: dismiss "saving"
+    else 4xx
+        API-->>Client: error
+        Client->>U: surface conflict
+    else 5xx
+        Client-->>Client: retry on next sync
     end

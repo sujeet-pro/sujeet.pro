@@ -1,25 +1,17 @@
 %% Diagram: Design tokens as the system spine — DTCG JSON to multi-platform outputs
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph Source["Source of truth (designer + engineer co-owned)"]
-        DTCG["W3C DTCG\nDesign Tokens Format Module 2025.10\ntokens.json"]
-        Figma["Figma variables\nTokens Studio plugin"]
-        Figma -- "export" --> DTCG
-    end
+flowchart TB
+    Figma["Figma variables\nTokens Studio plugin"]:::source
+    DTCG["W3C DTCG\nDesign Tokens Format Module 2025.10\ntokens.json"]:::source
+    Pipeline["Style Dictionary / Cobalt\nresolves aliases, themes,\ncomposite tokens"]:::build
+    CSSVars["CSS custom properties\n--color-brand-primary\nruntime-themable"]:::out
+    TWTheme["Tailwind v4 @theme\n--color-* generates utilities"]:::out
+    StyleXVars["StyleX vars\nstylex.defineVars"]:::out
+    VEContract["vanilla-extract\ncreateThemeContract"]:::out
+    Native["iOS / Android tokens\nDart, Swift, XML"]:::out
 
-    subgraph Build["Build-time transform"]
-        Pipeline["Style Dictionary / Cobalt\nresolves aliases, themes,\ncomposite tokens"]
-    end
-
-    subgraph Outputs["Platform outputs"]
-        CSSVars["CSS custom properties\n--color-brand-primary\n(runtime-themable)"]
-        TWTheme["Tailwind v4 @theme\n--color-* generates utilities"]
-        StyleXVars["StyleX vars\nstylex.defineVars()"]
-        VEContract["vanilla-extract\ncreateThemeContract()"]
-        Native["iOS / Android tokens\nDart, Swift, XML"]
-    end
-
+    Figma -- "export" --> DTCG
     DTCG --> Pipeline
     Pipeline --> CSSVars
     Pipeline --> TWTheme
@@ -30,7 +22,3 @@ flowchart LR
     classDef source fill:#B43A3A,stroke:#8E2828,color:#ffffff
     classDef build fill:#5A4A8A,stroke:#3D3163,color:#ffffff
     classDef out fill:#1F6E68,stroke:#155752,color:#ffffff
-
-    class DTCG,Figma source
-    class Pipeline build
-    class CSSVars,TWTheme,StyleXVars,VEContract,Native out

@@ -1,32 +1,32 @@
 %% Diagram: Cache Stampede Mechanism and Mitigations
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph stampede["Problem: stampede without mitigation"]
+flowchart LR
+    subgraph stampede["Problem (no mitigation)"]
         direction TB
-        s_exp["Hot key TTL expires"] --> s_burst["N concurrent requests<br/>see miss simultaneously"]
-        s_burst --> s_thunder["All N hit the origin"]
-        s_thunder --> s_overload["Origin saturates;<br/>latency cascades, cache stays cold"]
+        s_exp["Hot key TTL expires"] --> s_burst["N concurrent requests miss"]
+        s_burst --> s_thunder["All N hit origin"]
+        s_thunder --> s_overload["Origin saturates;<br/>cache stays cold"]
     end
 
     subgraph mitigations["Three independent mitigations (combine freely)"]
-        direction LR
-        subgraph m_single["Single-flight / request coalescing"]
+        direction TB
+        subgraph m_single["Single-flight / coalescing"]
             direction TB
-            sf_miss["Miss for key K"] --> sf_dedup["In-process map keyed by K:<br/>only first fetch runs"]
-            sf_dedup --> sf_share["All waiters receive the<br/>same Promise / Future"]
+            sf_miss["Miss for K"] --> sf_dedup["Local map keyed by K:<br/>only first fetch runs"]
+            sf_dedup --> sf_share["All waiters share<br/>the same Promise"]
         end
-        subgraph m_lock["Distributed lock (cross-process)"]
+        subgraph m_lock["Distributed lock"]
             direction TB
-            l_miss["Miss"] --> l_acquire["One node acquires lock<br/>on K (Redis SETNX, etc.)"]
-            l_acquire --> l_fetch["Fetches from origin,<br/>writes back"]
-            l_fetch --> l_others["Other nodes serve stale<br/>or short-poll the cache"]
+            l_miss["Miss"] --> l_acquire["One node acquires<br/>lock on K (SETNX)"]
+            l_acquire --> l_fetch["Fetch + write back"]
+            l_fetch --> l_others["Others serve stale<br/>or short-poll"]
         end
-        subgraph m_xfetch["Probabilistic early refresh (XFetch)"]
+        subgraph m_xfetch["Probabilistic refresh (XFetch)"]
             direction TB
-            x_check["On every read, evaluate:<br/>now - delta * beta * ln(rand) >= expiry"] --> x_decide{"Triggered?"}
-            x_decide -- yes --> x_async["Refresh in background,<br/>still serve current value"]
-            x_decide -- no --> x_serve["Serve cached value"]
+            x_check["On read, evaluate:<br/>now − δ·β·ln(rand) ≥ expiry"] --> x_decide{"Triggered?"}
+            x_decide -- yes --> x_async["Async refresh,<br/>serve current"]
+            x_decide -- no --> x_serve["Serve cached"]
         end
     end
 

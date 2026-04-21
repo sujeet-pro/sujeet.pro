@@ -1,0 +1,23 @@
+%% Diagram: Core mental model — data structure plus goal determine the algorithm
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q["What are you searching?"]
+    Q --> A["Array"]
+    Q --> G["Graph"]
+
+    A --> AS{"Sorted?"}
+    AS -->|No| LS["Linear<br/>O(n)"]
+    AS -->|Yes| BS["Binary<br/>O(log n)"]
+
+    G --> GW{"Edge weights?"}
+    GW -->|None — shortest path| BFS["BFS"]
+    GW -->|None — any path| DFS["DFS"]
+    GW -->|Non-negative| D["Dijkstra"]
+    GW -->|Non-negative + heuristic| ASTAR["A*"]
+    GW -->|Negative edges| BF["Bellman-Ford"]
+
+    classDef question fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef leaf fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff
+    class Q,A,G,AS,GW question
+    class LS,BS,BFS,DFS,D,ASTAR,BF leaf

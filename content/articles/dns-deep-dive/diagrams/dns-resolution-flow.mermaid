@@ -1,26 +1,22 @@
 %% Diagram: DNS resolution flow (high-level)
 %% Type: sequenceDiagram
-%%{init: {'htmlLabels': false}}%%
+%%{init: {'htmlLabels': false, 'sequence': {'actorMargin': 12, 'messageMargin': 16, 'boxMargin': 5}}}%%
 sequenceDiagram
-    autonumber
-    participant App as Application
-    participant Stub as Stub resolver (OS)
-    participant Rec as Recursive resolver (cache)
-    participant Root as Root server
-    participant TLD as TLD server (.com)
-    participant Auth as Authoritative server
+    participant Stub
+    participant Rec
+    participant Root
+    participant TLD
+    participant Auth
 
-    App->>Stub: getaddrinfo("www.example.com")
-    Stub->>Rec: Query A www.example.com (RD=1)
+    Stub->>Rec: A?
     alt Cache hit
-        Rec-->>Stub: Cached answer (TTL remaining)
+        Rec-->>Stub: Cached
     else Cache miss
-        Rec->>Root: Query .com NS
-        Root-->>Rec: Referral + glue
-        Rec->>TLD: Query example.com NS
-        TLD-->>Rec: Referral + glue
-        Rec->>Auth: Query A www.example.com
-        Auth-->>Rec: A record (TTL=N)
-        Rec-->>Stub: Answer (caches each step per its TTL)
+        Rec->>Root: NS?
+        Root-->>Rec: Refer .com
+        Rec->>TLD: NS?
+        TLD-->>Rec: Refer apex
+        Rec->>Auth: A?
+        Auth-->>Rec: A (TTL)
+        Rec-->>Stub: Answer
     end
-    Stub-->>App: IP address(es)

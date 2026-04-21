@@ -19,8 +19,8 @@ tags:
 
 The Draw stage is the final phase of the browser's rendering pipeline. After every renderer's compositor has produced a `CompositorFrame` of render passes and draw quads (see the [Compositing Stage](../crp-composit/README.md)), the **Viz** service in the GPU process aggregates those frames, records GPU draw commands via Skia, requests a swap, and hands the result to the OS compositor for **presentation** at the next VBlank[^life-of-a-frame].
 
-![The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra-light.svg "The Viz architecture: aggregating CompositorFrames from every renderer process and the browser UI, then producing a single GPU-drawn frame on the display.")
-![The Viz architecture: Aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/the-viz-architecture-aggregating-frames-from-multiple-renderer-processes-and-tra-dark.svg)
+![Viz architecture overview: aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/viz-architecture-overview-light.svg "Viz architecture overview: aggregating CompositorFrames from every renderer process and the browser UI, then producing a single GPU-drawn frame on the display.")
+![Viz architecture overview: aggregating frames from multiple renderer processes and translating them into hardware-accelerated drawing commands.](./diagrams/viz-architecture-overview-dark.svg)
 
 ## Abstract
 

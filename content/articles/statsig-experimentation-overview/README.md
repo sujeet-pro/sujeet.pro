@@ -16,8 +16,8 @@ tags:
 
 Statsig is one of the few feature-flagging vendors whose product surface — flags, experiments, product analytics, session replay — sits on a single ingestion and assignment pipeline. For a senior engineer integrating it, the interesting questions are mechanical rather than marketing: how a user is bucketed, where evaluation runs, what the SDK does on a cold start, how to keep evaluation alive when the Statsig API is unreachable, and how the deployment model (cloud vs. warehouse-native) shapes the rest of the system. This article walks through those mechanics with citations to the official docs and SDK source.
 
-![Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally, while client SDKs receive pre-evaluated payloads from /initialize](./diagrams/statsig-architecture-overview-server-sdks-perform-local-evaluation-from-cdn-deli-light.svg "Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally; client SDKs receive pre-evaluated payloads from /initialize.")
-![Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally, while client SDKs receive pre-evaluated payloads from /initialize](./diagrams/statsig-architecture-overview-server-sdks-perform-local-evaluation-from-cdn-deli-dark.svg)
+![Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally, while client SDKs receive pre-evaluated payloads from /initialize](./diagrams/architecture-overview-light.svg "Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally; client SDKs receive pre-evaluated payloads from /initialize.")
+![Statsig high-level architecture: server SDKs pull config specs from the CDN and evaluate locally, while client SDKs receive pre-evaluated payloads from /initialize](./diagrams/architecture-overview-dark.svg)
 
 ## TL;DR
 
@@ -40,8 +40,8 @@ Three concepts cover most of what follows; everything else is mechanics.
 
 ## Unified pipeline, in practice
 
-![Unified pipeline: feature flags, experiments, analytics, and session replay all share one ingestion and assignment path](./diagrams/figure-2-unified-platform-architecture-all-components-share-a-single-data-pipeli-light.svg "Unified pipeline: flags, experiments, product analytics, and session replay all flow through one ingestion path, so an exposure and the conversion event it caused share an identity model.")
-![Unified pipeline: feature flags, experiments, analytics, and session replay all share one ingestion and assignment path](./diagrams/figure-2-unified-platform-architecture-all-components-share-a-single-data-pipeli-dark.svg)
+![Unified pipeline: feature flags, experiments, analytics, and session replay all share one ingestion and assignment path](./diagrams/unified-pipeline-light.svg "Unified pipeline: flags, experiments, product analytics, and session replay all flow through one ingestion path, so an exposure and the conversion event it caused share an identity model.")
+![Unified pipeline: feature flags, experiments, analytics, and session replay all share one ingestion and assignment path](./diagrams/unified-pipeline-dark.svg)
 
 The advantage of routing flags, experiments, and analytics through the same pipeline is not aesthetic. When the exposure that bucketed a user into variant `B` and the conversion event the user generated five minutes later are processed by the same identity model and the same metric definitions, you don't need to reconcile two pipelines to claim causality. That removes a class of integration bugs that show up as "the feature flag platform says +5% but the analytics dashboard says -2%."
 
@@ -56,12 +56,29 @@ Statsig's architecture decomposes into the usual pieces:
 
 The split matters for failure mode discussion later: a problem in the metrics pipeline shows up as bad analytics, while a problem in the configuration service shows up as stale flags — and the SDK's behavior in each case is different.
 
+### What the Stats Engine actually does
+
+The SDK's job ends once an exposure is logged; the Stats Engine takes over from there. A senior reader picking the platform should know what surface area the engine covers, even when the deep methodology is out of scope for this article:
+
+| Capability | What it does | Source |
+| :--- | :--- | :--- |
+| Frequentist + Bayesian results | Both engines run by default; pick per-experiment based on the team's decision protocol. | [Statistical methods overview](https://docs.statsig.com/experiments/statistical-methods) |
+| CUPED variance reduction | Uses a 7-day pre-experiment baseline as a covariate to shrink confidence intervals on topline metrics. The technique is from Microsoft's WSDM 2013 paper by Deng, Xu, Kohavi, and Walker[^cuped]. | [Variance reduction docs](https://docs.statsig.com/experiments/statistical-methods/variance-reduction), [CUPED docs](https://docs.statsig.com/experiments/statistical-methods/methodologies/cuped) |
+| Sequential testing | Always-valid p-values and confidence sequences so peeking does not inflate false positives. Mandatory if anyone reads results before the planned end date. | [Sequential testing docs](https://docs.statsig.com/experiments/statistical-methods/sequential-testing) |
+| SRM (sample ratio mismatch) checks | Chi-squared test against the planned allocation, run automatically on every experiment; flags assignment-pipeline bugs that silently bias results. | [SRM checks](https://docs.statsig.com/stats-engine/methodologies/srm-checks), [Statsig SRM primer](https://www.statsig.com/blog/sample-ratio-mismatch) |
+| Guardrail metrics | Always-on metrics (latency, errors, retention) that the engine watches alongside the success metric so a launch never wins on the topline while degrading a guardrail. | [Guardrail metrics docs](https://docs.statsig.com/metrics/guardrail-metrics) |
+
+The two operational implications worth internalising up front:
+
+- **SRM is a stop-the-experiment signal, not a warning.** A 50/50 split that arrives as 51/49 with significance is almost always a bug in your assignment plumbing — sticky session caches, downstream filtering, or a bot population landing in only one arm. CUPED will not fix it.
+- **Sequential testing is opt-in for a reason.** It costs statistical power (wider intervals) in exchange for the freedom to peek. If your team genuinely commits to fixed-horizon analysis, frequentist with a power calc remains tighter; in practice most teams peek, and sequential is the honest default.
+
 ## Deterministic assignment
 
 This is the most cited claim in the article and the one that makes cross-platform consistency possible at all.
 
-![Deterministic assignment: salt + unitID is hashed with SHA-256, the leading bytes of the digest are reduced modulo 10,000 (experiments) or 1,000 (layers), and the resulting bucket determines the variant](./diagrams/figure-6-deterministic-assignment-algorithm-sha-256-hashing-with-salt-ensures-co-light.svg "Deterministic assignment: SHA-256(salt + unitID) → leading bytes → modulo 10,000 (experiments) or 1,000 (layers) → bucket → variant.")
-![Deterministic assignment: salt + unitID is hashed with SHA-256, the leading bytes of the digest are reduced modulo 10,000 (experiments) or 1,000 (layers), and the resulting bucket determines the variant](./diagrams/figure-6-deterministic-assignment-algorithm-sha-256-hashing-with-salt-ensures-co-dark.svg)
+![Deterministic assignment: salt + unitID is hashed with SHA-256, the leading bytes of the digest are reduced modulo 10,000 (experiments) or 1,000 (layers), and the resulting bucket determines the variant](./diagrams/deterministic-assignment-light.svg "Deterministic assignment: SHA-256(salt + unitID) → leading bytes → modulo 10,000 (experiments) or 1,000 (layers) → bucket → variant.")
+![Deterministic assignment: salt + unitID is hashed with SHA-256, the leading bytes of the digest are reduced modulo 10,000 (experiments) or 1,000 (layers), and the resulting bucket determines the variant](./diagrams/deterministic-assignment-dark.svg)
 
 Per the [How Evaluation Works](https://docs.statsig.com/sdks/how-evaluation-works) doc:
 
@@ -95,8 +112,8 @@ The consequences of the algorithm are worth stating explicitly:
 
 ## Server SDK: download and evaluate locally
 
-![Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs every 10s by default](./diagrams/figure-3a-server-sdk-architecture-downloads-full-config-and-evaluates-locally-light.svg "Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs on a configurable interval (10s default).")
-![Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs every 10s by default](./diagrams/figure-3a-server-sdk-architecture-downloads-full-config-and-evaluates-locally-dark.svg)
+![Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs every 10s by default](./diagrams/server-sdk-lifecycle-light.svg "Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs on a configurable interval (10s default).")
+![Server SDK lifecycle: at boot the SDK downloads the full config spec from the CDN, then evaluates everything in-memory; a background poller refreshes specs every 10s by default](./diagrams/server-sdk-lifecycle-dark.svg)
 
 The server-side model is the simpler one to reason about: keep the project's specs in memory, evaluate locally on every check, refresh the specs in the background.
 
@@ -152,8 +169,8 @@ Once the spec is in memory, `checkGate` / `getExperiment` / `getDynamicConfig` a
 
 ## Client SDK: pre-computed values
 
-![Client SDK lifecycle: at boot the SDK posts the user object to /initialize and receives a tailored JSON payload of pre-evaluated values, which it caches in localStorage for subsequent sessions](./diagrams/figure-3b-client-sdk-architecture-receives-pre-computed-values-and-caches-them-light.svg "Client SDK lifecycle: at boot the SDK sends the user to /initialize and receives a JSON payload of pre-evaluated values; subsequent checks are local, and a localStorage copy survives reloads.")
-![Client SDK lifecycle: at boot the SDK posts the user object to /initialize and receives a tailored JSON payload of pre-evaluated values, which it caches in localStorage for subsequent sessions](./diagrams/figure-3b-client-sdk-architecture-receives-pre-computed-values-and-caches-them-dark.svg)
+![Client SDK lifecycle: at boot the SDK posts the user object to /initialize and receives a tailored JSON payload of pre-evaluated values, which it caches in localStorage for subsequent sessions](./diagrams/client-sdk-lifecycle-light.svg "Client SDK lifecycle: at boot the SDK sends the user to /initialize and receives a JSON payload of pre-evaluated values; subsequent checks are local, and a localStorage copy survives reloads.")
+![Client SDK lifecycle: at boot the SDK posts the user object to /initialize and receives a tailored JSON payload of pre-evaluated values, which it caches in localStorage for subsequent sessions](./diagrams/client-sdk-lifecycle-dark.svg)
 
 The browser SDK does not download the full ruleset. Two reasons:
 
@@ -226,8 +243,8 @@ export function bootstrapFor(user: StatsigUser) {
 
 When Statsig's API is reachable, the SDKs work; when it's not, behavior depends entirely on whether you supplied a `DataAdapter`.
 
-![DataAdapter pattern: a single writer service or cron pulls fresh specs from the Statsig CDN into a shared store (Redis / Edge Config / a database table); every webserver instance reads from the store on cold start](./diagrams/figure-11-microservices-integration-shared-redis-cache-ensures-consistent-config-light.svg "DataAdapter pattern: one writer keeps a shared store fresh; every webserver reads on cold start. This is the only way to keep new instances functioning during a Statsig API outage.")
-![DataAdapter pattern: a single writer service or cron pulls fresh specs from the Statsig CDN into a shared store (Redis / Edge Config / a database table); every webserver instance reads from the store on cold start](./diagrams/figure-11-microservices-integration-shared-redis-cache-ensures-consistent-config-dark.svg)
+![DataAdapter pattern: a single writer service or cron pulls fresh specs from the Statsig CDN into a shared store (Redis / Edge Config / a database table); every webserver instance reads from the store on cold start](./diagrams/data-adapter-topology-light.svg "DataAdapter pattern: one writer keeps a shared store fresh; every webserver reads on cold start. This is the only way to keep new instances functioning during a Statsig API outage.")
+![DataAdapter pattern: a single writer service or cron pulls fresh specs from the Statsig CDN into a shared store (Redis / Edge Config / a database table); every webserver instance reads from the store on cold start](./diagrams/data-adapter-topology-dark.svg)
 
 ### The interface
 
@@ -305,8 +322,8 @@ For the historical context on the engine: Statsig's own internal experiment pipe
 
 Putting Server Core, the bootstrap pattern, and the modern client SDK together for an SSR app:
 
-![Bootstrap initialization flow: getServerSideProps calls getClientInitializeResponse, the JSON payload is serialized into the HTML, and the client SDK calls dataAdapter.setData + initializeSync with no network call](./diagrams/figure-9-bootstrap-initialization-flow-server-pre-computes-values-for-instant-cl-light.svg "Bootstrap initialization flow: server pre-computes per-user values, ships them in the HTML, and the client SDK initializes synchronously with no network round-trip.")
-![Bootstrap initialization flow: getServerSideProps calls getClientInitializeResponse, the JSON payload is serialized into the HTML, and the client SDK calls dataAdapter.setData + initializeSync with no network call](./diagrams/figure-9-bootstrap-initialization-flow-server-pre-computes-values-for-instant-cl-dark.svg)
+![Bootstrap initialization flow: getServerSideProps calls getClientInitializeResponse, the JSON payload is serialized into the HTML, and the client SDK calls dataAdapter.setData + initializeSync with no network call](./diagrams/bootstrap-initialization-light.svg "Bootstrap initialization flow: server pre-computes per-user values, ships them in the HTML, and the client SDK initializes synchronously with no network round-trip.")
+![Bootstrap initialization flow: getServerSideProps calls getClientInitializeResponse, the JSON payload is serialized into the HTML, and the client SDK calls dataAdapter.setData + initializeSync with no network call](./diagrams/bootstrap-initialization-dark.svg)
 
 ```ts title="lib/statsig-server.ts" collapse={1-2}
 import { Statsig, StatsigUser } from "@statsig/statsig-node-core"
@@ -382,6 +399,7 @@ await statsig.initialize()
 - **Client browser offline.** `initializeSync` reads from `localStorage` and the SDK keeps serving the cached values. Reasons surface as `Cache:Recognized` so you can detect it; brand-new sessions with no cache return `NoValues` and fall to your code-defined defaults ([Client SDK docs](https://docs.statsig.com/client/javascript-sdk)).
 - **Stale rule deploy.** Because evaluation is deterministic, the same user keeps the same bucket across rule changes that don't touch the salt. A genuinely new rule (or a salt change) re-rolls the population — desirable for a fresh experiment, dangerous if you didn't intend to.
 - **Bootstrap drift.** If your SSR `getClientInitializeResponse` runs against a different `STATSIG_SECRET_KEY` (or a stale snapshot) than the client's `client-xyz` key targets, the client SDK will quietly re-evaluate against the network and you'll see flicker. Match the keys to the same project and the same environment tier.
+- **Sample ratio mismatch (SRM).** If the engine's chi-squared check flags an experiment whose realised allocation diverges from its planned split, treat it as a hard stop, not a curiosity ([SRM checks](https://docs.statsig.com/stats-engine/methodologies/srm-checks)). Common upstream causes are bot traffic landing in only one arm, asymmetric pre-bucketing filters, sticky session layers that cache one variant, and crash rates that prune one side. Variance reduction does not fix SRM — the assignment data is biased before any analysis runs.
 
 ## Operational guidance
 
@@ -406,3 +424,6 @@ A short list of opinionated defaults from running this in production:
 - [Statsig Warehouse Native vs. Cloud](https://docs.statsig.com/statsig-warehouse-native/native-vs-cloud) — the deployment-model trade-off matrix.
 - [WHN Pipeline Overview](https://docs.statsig.com/statsig-warehouse-native/analysis-tools/pipeline-overview) — what the warehouse-native pipeline actually computes.
 - [How Statsig migrated to BigQuery from Spark](https://cloud.google.com/blog/products/data-analytics/how-statsig-migrated-to-bigquery-from-spark/) — primary-source engineering postmortem on the analysis backend.
+- [Statistical methods overview](https://docs.statsig.com/experiments/statistical-methods) — the Stats Engine surface area: frequentist + Bayesian, CUPED, sequential testing, SRM checks, guardrail metrics.
+
+[^cuped]: Alex Deng, Ya Xu, Ron Kohavi, Toby Walker. ["Improving the Sensitivity of Online Controlled Experiments by Utilizing Pre-Experiment Data"](https://www.microsoft.com/en-us/research/publication/improving-the-sensitivity-of-online-controlled-experiments-by-utilizing-pre-experiment-data/), WSDM 2013 (Microsoft Research). The foundational paper for CUPED, the variance-reduction technique Statsig and most modern experimentation platforms apply by default.

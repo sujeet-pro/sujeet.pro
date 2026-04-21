@@ -1,20 +1,20 @@
 %% Diagram: TAO data model
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    Alice["Object 'user'<br/>id=101"]
-    Bob["Object 'user'<br/>id=102"]
-    Checkin["Object 'checkin'<br/>id=632"]
-    GG["Object 'location'<br/>id=534"]
-    Comment["Object 'comment'<br/>id=771"]
+flowchart TB
+    Alice["Object 'user'\nid=101"]
+    Bob["Object 'user'\nid=102"]
+    Checkin["Object 'checkin'\nid=632"]
+    GG["Object 'location'\nid=534"]
+    Comment["Object 'comment'\nid=771"]
 
-    Alice -- "atype=AUTHORED<br/>time=t0" --> Checkin
-    Checkin -- "atype=AUTHORED_BY<br/>time=t0 (inverse)" --> Alice
+    Alice -- "atype=AUTHORED\ntime=t0" --> Checkin
+    Checkin -- "atype=AUTHORED_BY\ntime=t0 (inverse)" --> Alice
 
-    Checkin -- "atype=TAGGED<br/>time=t0" --> Bob
-    Bob -- "atype=TAGGED_AT<br/>time=t0 (inverse)" --> Checkin
+    Checkin -- "atype=TAGGED\ntime=t0" --> Bob
+    Bob -- "atype=TAGGED_AT\ntime=t0 (inverse)" --> Checkin
 
-    Checkin -- "atype=AT_LOCATION<br/>time=t0" --> GG
+    Checkin -- "atype=AT_LOCATION\ntime=t0" --> GG
 
-    Checkin -- "atype=COMMENT<br/>time=t1" --> Comment
-    Comment -- "atype=COMMENT_OF<br/>time=t1 (inverse)" --> Checkin
+    Checkin -- "atype=COMMENT\ntime=t1" --> Comment
+    Comment -- "atype=COMMENT_OF\ntime=t1 (inverse)" --> Checkin

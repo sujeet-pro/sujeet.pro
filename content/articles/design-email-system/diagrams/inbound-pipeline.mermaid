@@ -1,7 +1,7 @@
 %% Diagram: Inbound mail pipeline (block flow)
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     CONN["TCP :25<br/>STARTTLS<br/>(MTA-STS<br/>RFC 8461)"] --> ENV["Envelope phase<br/>EHLO / MAIL FROM<br/>/ RCPT TO"]
     ENV -->|reject early| EARLY["5xx at<br/>RCPT TO"]
     ENV --> RATE["Rate / reputation<br/>per IP, ASN, domain"]

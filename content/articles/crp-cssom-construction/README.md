@@ -87,7 +87,7 @@ The parser transforms tokens into CSS structures following the grammar:
 
 This design choice ensures forward compatibility—new CSS features are invalid syntax to older parsers, but the stylesheet continues functioning:
 
-```css collapse={1-3,9-11}
+```css
 /* Modern browser: uses container query */
 /* Older browser: ignores @container, uses .card default */
 @container (min-width: 400px) {
@@ -161,7 +161,7 @@ If the browser rendered with only Rule 1 present, the button would flash red bef
 
 Without the complete rule set, none of steps 1–7 can be evaluated correctly — which is why CSSOM construction must complete before style recalc.
 
-![Cascade sort order from origin and importance through scope proximity to order of appearance](./diagrams/cascade-sort-order-light.svg "The seven-step cascade sort order. Steps 1–5 are CSS Cascade Level 5; step 6 (Scope Proximity) is added by CSS Cascade Level 6. Each step is a tie-breaker for the previous one — the engine never falls through to specificity if origin already chose a winner.")
+![Cascade sort order from origin and importance through scope proximity to order of appearance](./diagrams/cascade-sort-order-light.svg "The seven-step cascade sort order. Steps 1–5 and 7 are normative in CSS Cascade Level 5; step 6 (Scope Proximity) is added by CSS Cascade Level 6. Each step is a tie-breaker for the previous one — the engine never falls through to specificity if origin already chose a winner.")
 ![Cascade sort order from origin and importance through scope proximity to order of appearance](./diagrams/cascade-sort-order-dark.svg)
 
 ### Layout Stability Concerns
@@ -231,7 +231,7 @@ CSSOM construction creates a synchronization point between stylesheets and scrip
 
 Scripts frequently query style information:
 
-```javascript collapse={1-2,8-10}
+```javascript
 // These all require resolved styles
 const element = document.querySelector(".sidebar")
 const width = element.offsetWidth // Layout property
@@ -295,7 +295,7 @@ Not all stylesheets block rendering. The browser evaluates media queries at pars
 
 A common optimization loads non-critical CSS without blocking rendering:
 
-```html collapse={1}
+```html
 <head>
   <!-- Critical CSS inlined for immediate rendering -->
   <style>
@@ -395,7 +395,7 @@ Because the fetch for the child sheet is gated on the parent's bytes arriving, e
 
 Extract CSS required for above-the-fold content and inline it in the HTML:
 
-```html collapse={1-2,14-16}
+```html
 <!DOCTYPE html>
 <html>
   <head>
@@ -457,7 +457,7 @@ Extract CSS required for above-the-fold content and inline it in the HTML:
 
 Modern browsers support creating stylesheets programmatically without DOM manipulation:
 
-```javascript collapse={1-2,10-14}
+```javascript
 // Create and populate stylesheet
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(`

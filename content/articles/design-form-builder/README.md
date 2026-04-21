@@ -359,6 +359,11 @@ The classic UX guideline — *don't show field errors until the user has had a c
 
 ## Validation architecture
 
+Validation is not a single check on submit — it is a sequence of events spread across focus, typing, blur, submit, and the server response. The form library's job is to decide when each kind of validator runs, when its result becomes visible, and how server-side rejections re-enter the same flow:
+
+![Validation event sequence: focus marks the field visited; typing fires debounced async validation only; blur marks touched and runs sync + async validators; submit increments submitCount, validates everything, focuses the first invalid field, then POSTs with an Idempotency-Key; a 422 maps server pointers back to fields and a 2xx surfaces success.](./diagrams/validation-event-sequence-light.svg "Validation event sequence: focus → typing (debounced) → blur (touched) → submit (validate-all + Idempotency-Key) → server 422 maps pointers back to fields.")
+![Validation event sequence: focus marks the field visited; typing fires debounced async validation only; blur marks touched and runs sync + async validators; submit increments submitCount, validates everything, focuses the first invalid field, then POSTs with an Idempotency-Key; a 422 maps server pointers back to fields and a 2xx surfaces success.](./diagrams/validation-event-sequence-dark.svg)
+
 ### Validation timing
 
 | Timing             | UX                         | Performance                 | Use case          |

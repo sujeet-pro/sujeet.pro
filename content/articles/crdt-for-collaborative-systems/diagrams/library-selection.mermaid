@@ -1,14 +1,10 @@
 %% Diagram: CRDT library selection
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TD
+flowchart TB
     A[Need collaborative<br/>data structure] --> B{Existing library<br/>fits the data shape?}
+    B -->|Yes| C["Pick by runtime:<br/>JS/TS → Yjs or Automerge<br/>Rust+JS → Loro or Diamond Types<br/>JVM → Akka Distributed Data<br/>Erlang → riak_dt"]
     B -->|No| D{Team has<br/>CRDT depth?}
-    B -->|Yes| C[Pick by runtime]
-    C --> CJS[JS / TS:<br/>Yjs or Automerge]
-    C --> CRust[Rust + JS:<br/>Loro or Diamond Types]
-    C --> CJVM[JVM:<br/>Akka Distributed Data]
-    C --> CErl[Erlang:<br/>riak_dt]
     D -->|No| I[Use a library anyway —<br/>CRDTs are subtle]
     D -->|Yes| J{Performance<br/>critical?}
     J -->|No| I

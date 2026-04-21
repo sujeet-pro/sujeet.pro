@@ -7,6 +7,7 @@ flowchart TD
     end
 
     subgraph CompositorThread [Compositor thread cc]
+        direction TB
         Commit["Commit<br/>main → pending tree"]
         Tiling["Tiling<br/>PictureLayerImpl"]
         Schedule["TileManager<br/>priority + budget"]
@@ -14,11 +15,13 @@ flowchart TD
     end
 
     subgraph RasterPool [Raster worker pool]
+        direction TB
         Software["Software raster<br/>Skia CPU bitmap"]
         GPU["GPU raster (OOP-R)<br/>serialize commands"]
     end
 
     subgraph VizProcess [Viz / GPU process]
+        direction TB
         SkiaGPU["Skia replays commands<br/>Ganesh / Graphite"]
         Textures["GPU textures<br/>shared via mailbox"]
         Display["Display compositor<br/>draws quads"]

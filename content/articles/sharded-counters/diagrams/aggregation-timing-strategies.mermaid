@@ -1,7 +1,7 @@
 %% Diagram: Aggregation Timing Strategies
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph SYNC["Synchronous fan-in"]
         direction TB
         SR[Read request] --> SF["Fan-in: read all N shards"]

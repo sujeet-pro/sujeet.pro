@@ -29,8 +29,8 @@ Browser-generated [Content Security Policy](https://www.w3.org/TR/CSP3/) violati
 
 Five conceptual stages, in order, decide every other choice in the design:
 
-![Mental model: bursty browser traffic feeds a fire-and-forget API, then a Kafka buffer, then a dedup window, then OLAP storage and dashboards](./diagrams/pipeline-mental-model-light.svg "Bursty browser traffic feeds a fire-and-forget API, a Kafka buffer, a short dedup window, and OLAP storage — the order matters more than the implementations.")
-![Mental model: bursty browser traffic feeds a fire-and-forget API, then a Kafka buffer, then a dedup window, then OLAP storage and dashboards](./diagrams/pipeline-mental-model-dark.svg)
+![Mental model: five numbered stages — bursty browser traffic feeds a fire-and-forget 204 API, a Kafka buffer, a short dedup window, and OLAP storage](./diagrams/pipeline-mental-model-light.svg "Bursty browser traffic feeds a fire-and-forget API, a Kafka buffer, a short dedup window, and OLAP storage — the order matters more than the implementations.")
+![Mental model: five numbered stages — bursty browser traffic feeds a fire-and-forget 204 API, a Kafka buffer, a short dedup window, and OLAP storage](./diagrams/pipeline-mental-model-dark.svg)
 
 Three principles fall out of this shape:
 

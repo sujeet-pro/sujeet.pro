@@ -133,7 +133,7 @@ The storage engine is an **LSM-style block store**. Writes hit a Write-Ahead Log
 - Cold-tier query latency is higher
 - Background compaction adds CPU and write amplification
 
-**Real-world example:** Prometheus uses 2-hour head blocks and compacts upward to 31 days[^prom-storage]. InfluxDB's TSM engine groups data into shards with a default 7-day duration[^influx-tsm].
+**Real-world example:** Prometheus uses 2-hour head blocks and compacts upward to 31 days[^prom-storage]. InfluxDB's TSM engine groups data into shards whose duration scales with retention — 7 days for the default infinite-retention `autogen` policy, smaller for shorter retentions[^influx-tsm].
 
 ### Path C: Distributed LSM with global index (M3 / Cortex / Mimir)
 
@@ -310,7 +310,7 @@ GET /api/v1/query_range?query=rate(http_requests_total{status="500"}[5m])&start=
 
 **Response:**
 
-```json collapse={1-3, 25-30}
+```json collapse={1-4, 18-21}
 {
   "status": "success",
   "data": {
@@ -387,7 +387,7 @@ Labels are sorted alphabetically before hashing. This ensures the same logical s
 
 A block stores a contiguous, immutable time window (2 hours by default in Prometheus[^prom-storage]):
 
-```
+```text
 block-<ulid>/
 ├── meta.json           # Block metadata
 ├── index               # Inverted index (labels → series)
@@ -400,7 +400,7 @@ block-<ulid>/
 
 **meta.json:**
 
-```json collapse={1-3, 20-25}
+```json collapse={10-14}
 {
   "ulid": "01HQGJ5P1XXXXXXXXX",
   "minTime": 1704067200000,
@@ -422,7 +422,7 @@ block-<ulid>/
 
 The on-disk index is an [inverted index](https://github.com/prometheus/prometheus/blob/main/tsdb/docs/format/index.md) keyed by `(label name, label value)`:
 
-```
+```text
 Label → Series IDs
 ──────────────────
 method=GET    → [1, 3, 5, 7, 9, ...]
@@ -438,7 +438,7 @@ Series ID → Chunk Refs
 
 **Posting list intersection for queries:**
 
-```
+```text
 http_requests{method="GET",status="500"}
 
 1. Lookup method=GET → [1, 3, 5, 7, 9]
@@ -1177,5 +1177,5 @@ Key architectural decisions:
 
 [^gorilla-paper]: Pelkonen et al., [Gorilla: A Fast, Scalable, In-Memory Time Series Database](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf), VLDB 2015. Reports ~1.37 bytes/sample after delta-of-delta + XOR compression, ~96% of timestamps as a single bit, and a 26-hour in-memory window in production at Facebook.
 [^prom-storage]: Prometheus project, [Storage documentation](https://prometheus.io/docs/prometheus/latest/storage/). Defines 2-hour head blocks, 128 MB WAL segments, and the "31 days or 10% of retention, whichever is smaller" compaction cap.
-[^influx-tsm]: InfluxData, [InfluxDB v1 Storage Engine documentation](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/). Default shard group duration is 7 days for retention policies without an explicit override.
+[^influx-tsm]: InfluxData, [InfluxDB v1 Storage Engine documentation](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/) and [Database management — shard group duration](https://docs.influxdata.com/influxdb/v1/query_language/manage-database/#shard-group-duration-management). Shard-group duration defaults vary with retention: ≤2 days → 1 hour, >2 days and <6 months → 1 day, ≥6 months (and the default `autogen` infinite-retention policy) → 7 days.
 [^uber-billion]: Uber Engineering, [The Billion Data Point Challenge](https://www.uber.com/blog/billion-data-point-challenge/). Reports an internal M3 query engine handling ~8.5 billion data points per second as of 2018.

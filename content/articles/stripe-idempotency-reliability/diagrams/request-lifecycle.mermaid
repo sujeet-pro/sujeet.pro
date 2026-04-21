@@ -7,8 +7,7 @@ flowchart TD
     B --> C{Key exists\nfor this account?}
     C -->|No| D[Insert idempotency_keys row\nrecovery_point=started\nlocked_at=now]
     C -->|Yes, finished| E[Return cached response\nIdempotent-Replayed: true]
-    C -->|Yes, locked| F[HTTP 409 Conflict\nidempotency_error]
-    C -->|Yes, params differ| G[HTTP 409 Conflict\nidempotency_error]
+    C -->|Yes, locked or\nparams differ| F[HTTP 409 Conflict\nidempotency_error]
 
     D --> H[Run atomic phases]
     H --> I[Persist response_code\nresponse_body, recovery_point=finished]
@@ -24,5 +23,5 @@ flowchart TD
     class A,B,L api
     class D,I store
     class E,J ok
-    class F,G err
+    class F err
     class H,K,C api

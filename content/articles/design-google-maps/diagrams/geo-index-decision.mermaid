@@ -1,0 +1,21 @@
+%% Diagram: Choosing a geo-index by query shape and constraints
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["What is the dominant query?"]) --> Q1{"Range / window query<br/>over heterogeneous geometries<br/>(polygons, lines, points)?"}
+    Q1 -- yes --> Rtree["R-tree<br/>(PostGIS GIST)<br/>bounding-box index;<br/>handles arbitrary shapes."]
+    Q1 -- no --> Q2{"Tile-aligned lookup<br/>or 4-way subdivision<br/>tied to map tiles?"}
+
+    Q2 -- yes --> Quad["Quadtree<br/>same scheme as the<br/>rendering tile pyramid;<br/>cheap (x, y, z) keys."]
+    Q2 -- no --> Q3{"Need a strict hierarchy<br/>(child fully inside parent)<br/>and locality on a B-tree?"}
+
+    Q3 -- yes --> Q3a{"Plain key/value store<br/>only (Redis, ES, etc.)<br/>and accept latitude<br/>area distortion?"}
+    Q3a -- yes --> Geohash["Geohash<br/>base-32 prefix string,<br/>Z-order curve;<br/>supported almost everywhere."]
+    Q3a -- no --> S2["S2<br/>quadrilateral cells on cube,<br/>Hilbert curve, 64-bit ID;<br/>used by Google Maps,<br/>MongoDB 2dsphere, CockroachDB."]
+
+    Q3 -- no --> Q4{"Aggregations / heatmaps<br/>where uniform neighbor<br/>distance matters more than<br/>strict containment?"}
+    Q4 -- yes --> H3["H3<br/>hexagons on icosahedron,<br/>uniform neighbor distance;<br/>Uber default."]
+    Q4 -- no --> S2
+
+    classDef pick fill:#0d47a1,stroke:#0d47a1,color:#ffffff
+    class Rtree,Quad,Geohash,S2,H3 pick

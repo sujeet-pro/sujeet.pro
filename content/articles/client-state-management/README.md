@@ -18,8 +18,8 @@ tags:
 
 "State" is not one thing. Server state needs caching, deduplication, and background sync. UI state needs fast updates and component isolation. Form state needs validation and dirty tracking. URL state needs to be shareable and SSR-able. Conflating these categories — putting API data in Redux, lifting modal flags into Zustand, or making React Hook Form responsible for filter chips — is the root cause of most "our state management is a mess" complaints. This article catalogues the categories, the tools that match them, the trade-offs that show up in production, and the patterns four well-documented engineering teams (Figma, Notion, Linear, Discord) settled on after they outgrew off-the-shelf libraries.
 
-![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr-light.svg "State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.")
-![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-map-to-specialized-tools-using-the-wrong-tool-for-a-category-cr-dark.svg)
+![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-overview-light.svg "State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.")
+![State categories map to specialized tools—using the wrong tool for a category creates unnecessary complexity.](./diagrams/state-categories-overview-dark.svg)
 
 ## Abstract
 

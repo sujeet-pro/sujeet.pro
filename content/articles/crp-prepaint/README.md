@@ -128,7 +128,7 @@ Crucially, the scroll **offset** is not stored directly in the scroll node — i
 
 After Prepaint, every `FragmentData` carries a `PropertyTreeState`:
 
-```
+```text
 PropertyTreeState = (transform_node, clip_node, effect_node, scroll_node)
 ```
 
@@ -304,7 +304,7 @@ Practical levers:
 ### Next in the series
 
 - [Critical Rendering Path: Paint](../crp-paint/README.md) — display-item recording and paint chunks (the consumer of Prepaint's outputs).
-- [Critical Rendering Path: Composit](../crp-composit/README.md) — how `cc` mutates the property trees off the main thread to scroll and animate.
+- [Critical Rendering Path: Compositing](../crp-composit/README.md) — how `cc` mutates the property trees off the main thread to scroll and animate.
 
 ### Terminology
 

@@ -191,6 +191,9 @@ ALTER TABLE orders ADD COLUMN shipping_estimate DATETIME, ALGORITHM=INSTANT;
 
 PostgreSQL has supported `ADD COLUMN` without rewriting the table since 9.x for nullable columns, and since [Postgres 11](https://www.postgresql.org/docs/release/11.0/) for columns with non-volatile defaults — the default is stored as table metadata and materialised lazily as rows are updated. `ADD COLUMN ... DEFAULT volatile_function()`, `ALTER COLUMN TYPE` (to a non-binary-compatible type), and changes that require a constraint check still trigger a full table rewrite under `AccessExclusiveLock`. For everything else, prefer expand-contract or [pgroll](https://github.com/xataio/pgroll).
 
+> [!TIP]
+> When the goal is to reorganise a bloated table or rebuild an index without an `ACCESS EXCLUSIVE` lock, [pg_repack](https://reorg.github.io/pg_repack/) is Postgres's equivalent of pt-osc / gh-ost: it builds a copy via triggers and `INSERT INTO ... SELECT`, replays accumulated changes from a log table, then briefly takes an `ACCESS EXCLUSIVE` lock to swap. Unlike `VACUUM FULL` or `CLUSTER`, the original table stays readable and writable throughout. It does **not** perform schema changes — pair it with expand-contract for column-level work.
+
 ### Path 4: Expand-Contract for data transformations
 
 When the change is not just a schema change but also a data transformation (combining columns, splitting a column, populating a new computed value), the [expand-contract / parallel-change](https://martinfowler.com/bliki/ParallelChange.html) pattern decouples it into independently deployable stages.
@@ -351,6 +354,7 @@ What was hard: Scientist runs control and candidate sequentially, so data can ch
 | **Spirit**      | MySQL 8.0+, want a maintained gh-ost successor          | MySQL 5.7 or earlier; need foreign-key support            |
 | **Vitess (incl. Online DDL)** | Already on Vitess; want declarative cut-over          | Single-keyspace deployments where the operator overhead is not justified |
 | **pgroll**      | PostgreSQL 14+, reversible expand-contract              | Older Postgres; cases where view-based abstraction breaks ORM tooling |
+| **pg_repack**   | Postgres bloat / index reorganisation without `ACCESS EXCLUSIVE` | Schema changes (does not run `ALTER`); tables without a primary key or unique not-null constraint |
 
 ### Backfill rules
 
@@ -433,6 +437,9 @@ After:
 
 **Mitigation.** Keep old columns/tables for 24–48 h after cut-over. Design for bidirectional compatibility during the expand phase (the dual-write should be reversible). Rehearse the rollback in staging before starting the real migration.
 
+![Expand-contract rollback paths in reverse order, with cost rising as the migration progresses past the contract window.](./diagrams/expand-contract-rollback-sequence-light.svg "Expand-contract rollback paths in reverse order, with cost rising as the migration progresses past the contract window.")
+![Expand-contract rollback paths in reverse order, with cost rising as the migration progresses past the contract window.](./diagrams/expand-contract-rollback-sequence-dark.svg)
+
 ### 5. The 64-version INSTANT DDL limit
 
 **Failure mode.** Several routine `ADD COLUMN`/`DROP COLUMN` operations have happened over a year. The next instant operation fails with `ERROR 4092`, and an engineer running a normal-looking `ALTER … ALGORITHM=INSTANT` instead gets a multi-hour `COPY` rebuild.
@@ -486,6 +493,7 @@ The common thread: plan for rollback at every stage, verify before trusting, and
 - [MySQL 8.0 INSTANT ADD and DROP Column(s)](https://dev.mysql.com/blog-archive/mysql-8-0-instant-add-and-drop-columns/) — release notes for the 8.0.29 generalisation.
 - [PostgreSQL `ALTER TABLE` documentation](https://www.postgresql.org/docs/current/sql-altertable.html).
 - [pgroll — zero-downtime migrations for PostgreSQL](https://github.com/xataio/pgroll).
+- [pg_repack — reorganize Postgres tables without `ACCESS EXCLUSIVE` locks](https://reorg.github.io/pg_repack/).
 - [Vitess Online DDL](https://vitess.io/docs/22.0/user-guides/schema-changes/managed-online-ddl/) and [VReplication reference](https://vitess.io/docs/22.0/reference/vreplication/).
 - [Stripe engineering — Online migrations at scale](https://stripe.com/blog/online-migrations).
 - [GitHub Scientist](https://github.com/github/scientist).

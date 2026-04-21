@@ -13,9 +13,9 @@ sequenceDiagram
     Main-->>CC: Commit (property trees + display lists)
     Note over CC: Wait for raster, then Activate
     CC-->>Viz: SubmitCompositorFrame (or DidNotProduce)
-    Note over Viz: SurfaceAggregator merges<br/>frames from every FrameSink
+    Note over Viz: SurfaceAggregator merges frames from every FrameSink
     Viz->>GPU: Draw Frame — record DDLs / GPU commands
     GPU->>GPU: Replay commands on GPU
     GPU->>OS: SwapBuffers / overlay scanout
     OS-->>OS: Display controller scans out at next VBlank
-    Note over Viz,OS: If DisplayScheduler hits its deadline,<br/>Viz draws what has been submitted; missing<br/>clients fall back to their previous surface.
+    Note over Viz,OS: If DisplayScheduler hits its deadline, Viz draws what has been submitted. Missing clients fall back to their previous surface.

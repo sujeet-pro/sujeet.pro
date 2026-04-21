@@ -19,7 +19,7 @@ flowchart TB
     Log -->|tail| OldProj
     Log -->|catch-up scan, then tail| NewProj
 
-    NewRead --> Lag{lag(v2) &lt; SLO?}
+    NewRead --> Lag{"lag(v2) &lt; SLO?"}
     Lag -->|No, keep folding| NewProj
     Lag -->|Yes| Swap[Atomically swap reader pointer to v2]
     Swap --> Drain[Let v1 drain in-flight reads]

@@ -1,0 +1,21 @@
+%% Diagram: The Caching Hierarchy — CPU registers to origin server
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph local["Inside the process / box"]
+        direction LR
+        CPU["CPU L1/L2/L3<br/>~1–40 ns"] --> DRAM["DRAM<br/>~50–100 ns"] --> APP["In-process<br/>(Caffeine) ~µs"]
+    end
+    subgraph remote["Across the network"]
+        direction LR
+        DIST["Distributed<br/>(Redis/Memcached)<br/>~0.5–1 ms"] --> CDN["CDN edge<br/>~10–50 ms"] --> ORIGIN["Origin DB / API<br/>~50–500 ms"]
+    end
+    APP -->|"network hop"| DIST
+
+    classDef fast fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef mid  fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef slow fill:#B43A3A,stroke:#8E2828,color:#ffffff
+
+    class CPU,DRAM fast
+    class APP,DIST mid
+    class CDN,ORIGIN slow

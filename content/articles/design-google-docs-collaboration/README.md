@@ -637,7 +637,7 @@ Per-row schema:
 **Capacity planning:**
 
 - Write capacity: 300M ops/sec globally → naturally partitioned across documents.
-- Single document: capped at ~100 ops/sec (50 active editors × 2 ops/sec).
+- Single document: capped at ~200 ops/sec (100 active editors × 2 ops/sec — matching the published 100-tab Google Docs ceiling).
 - Read capacity: bursts on document load, otherwise minimal.
 
 ### Snapshots (S3)

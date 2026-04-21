@@ -1,0 +1,33 @@
+%% Diagram: The Spectrum of Time Solutions Mapped to Ordering Guarantees
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph TIME["Time Solutions"]
+        direction TB
+        PHYSICAL["Physical clocks\nNTP, PTP, TrueTime\nWall-clock + bounds"]
+        LOGICAL["Logical clocks\nLamport, Vector\nCausality only"]
+        HYBRID["Hybrid Logical Clocks\nHLC\nWall-clock + causal"]
+    end
+
+    subgraph ORDER["Ordering Guarantees"]
+        direction TB
+        TOTAL["Total order\nAll events ordered"]
+        CAUSAL["Causal order\nCause precedes effect"]
+        PARTIAL["Partial order\nMinimal coordination"]
+    end
+
+    PHYSICAL --> TOTAL
+    LOGICAL --> CAUSAL
+    HYBRID --> CAUSAL
+    HYBRID -.->|"with bounded uncertainty"| TOTAL
+    LOGICAL -.-> PARTIAL
+
+    classDef physical fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef logical fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef hybrid fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef order fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class PHYSICAL physical
+    class LOGICAL logical
+    class HYBRID hybrid
+    class TOTAL,CAUSAL,PARTIAL order

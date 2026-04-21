@@ -1,24 +1,28 @@
-%% Diagram: Discord S Read States Service Before And After The Rust Rewrite The Go Gc Had To
+%% Diagram: Discord Read States — before and after the Rust rewrite
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Go["Go Implementation (~2017-2019)"]
-        GoLRU["LRU Cache<br/>(HashMap, tens of millions of entries)"]
-        GoGC["Go GC<br/>(tri-color mark-and-sweep)"]
-        GoCass["Cassandra"]
+        direction TB
+        GoLRU["LRU Cache\n(HashMap, tens of millions of entries)"]:::neutral
+        GoGC["Go GC\ntri-color mark-and-sweep"]:::alert
+        GoCass[("Cassandra")]:::storage
         GoLRU --> GoCass
-        GoGC -.->|"scans entire cache<br/>every ~2 min"| GoLRU
+        GoGC -.->|"scans entire cache\nevery ~2 min"| GoLRU
     end
 
     subgraph Rust["Rust Implementation (2019+)"]
-        RustLRU["LRU Cache<br/>(BTreeMap, 8M entries)"]
-        RustDrop["Ownership + Drop<br/>(deterministic deallocation)"]
-        RustCass["Cassandra"]
+        direction TB
+        RustLRU["LRU Cache\n(BTreeMap, 8M entries)"]:::neutral
+        RustDrop["Ownership + Drop\ndeterministic deallocation"]:::success
+        RustCass[("Cassandra")]:::storage
         RustLRU --> RustCass
-        RustDrop -.->|"freed immediately<br/>on eviction"| RustLRU
+        RustDrop -.->|"freed immediately\non eviction"| RustLRU
     end
 
-    Go -->|"Rewrite<br/>~May 2019"| Rust
+    Go ==>|"Rewrite ~May 2019"| Rust
 
-    style GoGC fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style RustDrop fill:#4ade80,stroke:#166534,color:#ffffff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff

@@ -9,10 +9,10 @@ sequenceDiagram
     participant Store as sessionStorage
     participant API as Backend
 
-    Note over Feed: history.scrollRestoration = "manual"
-    User->>Feed: scrolls; opens an item
-    Feed->>Store: save { pageCount, scrollY,<br/>anchorItemId, timestamp }
-    Feed->>Router: navigate("/post/123")
+    Note over Feed: history.scrollRestoration = manual
+    User->>Feed: scrolls and opens an item
+    Feed->>Store: save pageCount, scrollY,<br/>anchorItemId, timestamp
+    Feed->>Router: navigate to detail route
     Router-->>User: detail view rendered
 
     User->>Router: browser Back

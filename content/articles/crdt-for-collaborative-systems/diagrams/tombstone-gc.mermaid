@@ -5,15 +5,15 @@ sequenceDiagram
     participant A as Replica A
     participant B as Replica B
     participant C as Replica C
-    Note over A,B,C: x is removed; tombstone t(x) created
-    A->>A: remove(x) → t(x)
-    A-->>B: sync t(x)
-    A-->>C: sync t(x) (delayed)
-    Note over A,B,C: Stability check: A waits until<br/>every replica acks t(x)
-    B-->>A: ack t(x)
-    C-->>A: ack t(x) (after recovery)
-    Note over A,B,C: Now safe to drop t(x) everywhere
-    A->>A: GC t(x)
-    B->>B: GC t(x)
-    C->>C: GC t(x)
-    Note over A,B,C: Time-based shortcut (Cassandra-style)<br/>drop after gc_grace_seconds<br/>RISK: a node returning after the<br/>grace window can resurrect x
+    Note over A,C: x is removed and tombstone t_x is created
+    A->>A: remove x produces t_x
+    A-->>B: sync t_x
+    A-->>C: sync t_x (delayed)
+    Note over A,C: Stability check: A waits until<br/>every replica acks t_x
+    B-->>A: ack t_x
+    C-->>A: ack t_x (after recovery)
+    Note over A,C: Now safe to drop t_x everywhere
+    A->>A: GC t_x
+    B->>B: GC t_x
+    C->>C: GC t_x
+    Note over A,C: Time-based shortcut (Cassandra-style)<br/>drop after gc_grace_seconds<br/>RISK: a node returning after the<br/>grace window can resurrect x

@@ -2,19 +2,19 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Trigger["Trigger: Consul agent rolling upgrade (~25%)"]
-    Cache["memcached deregistered → replaced cold"]
-    Scatter["Group-DM membership scatter query<br/>fans out across all user-id shards"]
-    DBLoad["Vitess replicas overloaded; cache cannot refill"]
-    Throttle["Mitigation: throttle client boots"]
-    Rewrite["Rewrite query to channel-sharded co-located table"]
-    Recovery["Cache warms → boots resume"]
+    Trigger["Trigger\nConsul agent rolling upgrade (~25%)"]
+    Cache["Cold caches\nmemcached deregistered, replaced empty"]
+    Scatter["Scatter query amplification\ngroup-DM membership fans out\nacross every user-id shard"]
+    DBLoad["Vitess overload\nreplicas saturated; cache cannot refill"]
+    Throttle["Mitigation\nthrottle client boots"]
+    Rewrite["Schema fix\nrewrite query to channel-sharded\nco-located table"]
+    Recovery["Recovery\ncache warms, boots resume"]
 
     Trigger --> Cache --> Scatter --> DBLoad
-    DBLoad -->|self-reinforcing loop| DBLoad
+    DBLoad -- "self-reinforcing loop" --> DBLoad
     DBLoad --> Throttle --> Rewrite --> Recovery
 
-    style Trigger fill:#fca5a5,stroke:#991b1b,color:#7f1d1d
-    style DBLoad fill:#fbbf24,stroke:#b45309,color:#451a03
-    style Throttle fill:#818cf8,stroke:#4338ca,color:#ffffff
-    style Recovery fill:#34d399,stroke:#1E5A1E,color:#ffffff
+    style Trigger fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    style DBLoad fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style Throttle fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    style Recovery fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff

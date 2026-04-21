@@ -1,0 +1,30 @@
+%% Diagram: Capacity estimation overview — user-level inputs to core calculations to reality adjustments to final numbers.
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Inputs["Estimation Inputs"]
+        direction TB
+        DAU[Daily Active Users]
+        Actions[Actions per User]
+        Size[Data Size per Action]
+        Retention[Retention Period]
+    end
+
+    subgraph Calculations["Core Calculations"]
+        direction TB
+        QPS["QPS<br/>= traffic / 86,400"]
+        Storage["Storage<br/>= rate × size × days"]
+        Bandwidth["Bandwidth<br/>= QPS × payload"]
+        Servers["Servers<br/>= QPS / per-host QPS"]
+    end
+
+    subgraph Adjustments["Reality Adjustments"]
+        direction TB
+        Peak["Peak Multiplier (2-3×)"]
+        Replication["Replication Factor (3×)"]
+        Headroom["Capacity Headroom (2×)"]
+    end
+
+    Inputs --> Calculations
+    Calculations --> Adjustments
+    Adjustments --> Final[Final Estimates]

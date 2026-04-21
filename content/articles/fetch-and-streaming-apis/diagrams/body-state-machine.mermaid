@@ -2,16 +2,16 @@
 %% Type: state
 %%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
-    [*] --> Unread: Response constructed<br/>body.stream available
-    Unread --> Locked: getReader() / pipeTo() / for await
-    Unread --> Cloned: response.clone()<br/>internal tee()
+    [*] --> Unread: Response constructed\nbody.stream available
+    Unread --> Locked: getReader / pipeTo / for await
+    Unread --> Cloned: response.clone\ninternal tee
     Cloned --> Unread: each branch is its own body
-    Locked --> Disturbed: read to EOF<br/>or reader.cancel()
-    Locked --> Unread: reader.releaseLock()<br/>(if not yet disturbed)
-    Disturbed --> [*]: body.json() / clone() now throws<br/>TypeError "body already used"
+    Locked --> Disturbed: read to EOF\nor reader.cancel
+    Locked --> Unread: reader.releaseLock\n(if not yet disturbed)
+    Disturbed --> [*]: body.json / clone now throws\nTypeError "body already used"
 
     note right of Cloned
-        tee() buffers chunks for the
+        tee buffers chunks for the
         slower branch -- can grow
         unboundedly if rates differ.
     end note

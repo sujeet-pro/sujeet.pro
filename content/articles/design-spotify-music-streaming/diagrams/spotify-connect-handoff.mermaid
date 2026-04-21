@@ -2,26 +2,23 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant Phone as Phone (active)
-    participant ZC as Local network (mDNS / ZeroConf)
     participant Speaker as Smart speaker (Connect SDK)
-    participant API as Spotify Web API
-    participant Backend as Player state service
+    participant Backend as Spotify backend (Web API + player state)
     participant CDN as Audio CDN
 
-    Phone->>ZC: Browse for _spotify-connect._tcp services
-    Speaker-->>ZC: Advertise device + capabilities
-    ZC-->>Phone: Discovered speaker
+    Note over Phone,Speaker: Local discovery via mDNS / ZeroConf (_spotify-connect._tcp)
     Phone->>Speaker: ZeroConf addUser (credentials, blob)
     Speaker->>Backend: Register device, fetch player state
     Backend-->>Speaker: Current track, position, queue, volume
-    Phone->>API: PUT /me/player {device_ids:[speaker]}
-    API->>Backend: Transfer active device
+
+    Phone->>Backend: PUT /me/player {device_ids:[speaker]}
     Backend-->>Phone: kSpPlaybackNotifyBecameInactive
     Backend-->>Speaker: kSpPlaybackNotifyBecameActive
-    Speaker->>CDN: GET signed audio segment URL
+
+    Speaker->>CDN: GET signed audio URL (HTTP Range)
     CDN-->>Speaker: Audio bytes
     Speaker->>Backend: Heartbeat (position, buffer health)
-    Phone->>API: PUT /me/player/volume?volume_percent=N
-    API-->>Speaker: SpCallbackPlaybackApplyVolume
+
+    Phone->>Backend: PUT /me/player/volume?volume_percent=N
+    Backend-->>Speaker: SpCallbackPlaybackApplyVolume

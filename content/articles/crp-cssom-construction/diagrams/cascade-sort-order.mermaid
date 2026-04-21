@@ -2,12 +2,21 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    decl["Declared values for property P on element E"]
-    decl --> s1["1. Origin and Importance (UA / user / author, !important inverts)"]
-    s1 --> s2["2. Encapsulation Context (shadow tree nesting)"]
-    s2 --> s3["3. Element-attached styles (style= attribute)"]
-    s3 --> s4["4. Cascade Layers (@layer order; !important reverses)"]
-    s4 --> s5["5. Specificity (Selectors L4 a,b,c)"]
-    s5 --> s6["6. Scope Proximity (@scope, Cascade L6)"]
-    s6 --> s7["7. Order of Appearance (last in source wins)"]
-    s7 --> out["Cascaded value (single winner per property)"]
+    subgraph row1[" "]
+        direction LR
+        decl["Declared values"]
+        s1["1. Origin & Importance"]
+        s2["2. Encapsulation Context"]
+        s3["3. Element-attached styles"]
+        decl --> s1 --> s2 --> s3
+    end
+    subgraph row2[" "]
+        direction LR
+        s4["4. Cascade Layers"]
+        s5["5. Specificity"]
+        s6["6. Scope Proximity"]
+        s7["7. Order of Appearance"]
+        out["Cascaded value"]
+        s4 --> s5 --> s6 --> s7 --> out
+    end
+    s3 --> s4

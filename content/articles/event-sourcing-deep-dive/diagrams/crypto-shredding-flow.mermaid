@@ -9,12 +9,12 @@ sequenceDiagram
     Note over App,Proj: Write path
     App->>Keys: getOrCreateKey(subjectId)
     Keys-->>App: subjectKey
-    App->>App: encrypt(PII, subjectKey) -> ciphertext
+    App->>App: encrypt PII with subjectKey to ciphertext
     App->>ES: append(event with ciphertext, subjectId)
     Note over App,Proj: Erasure (right-to-be-forgotten)
     App->>Keys: deleteKey(subjectId)
     Keys-->>App: ok
-    Note over ES: Events untouched; ciphertext now unreadable
+    Note over ES: Events untouched, ciphertext now unreadable
     Note over App,Proj: Read after erasure
     Proj->>ES: readStream(subjectId)
     ES-->>Proj: events with ciphertext

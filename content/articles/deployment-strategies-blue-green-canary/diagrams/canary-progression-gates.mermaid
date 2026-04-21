@@ -1,0 +1,19 @@
+%% Diagram: Canary progression with metric gates between weight steps
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    D[Deploy canary] --> W1[1% traffic]
+    W1 --> E1{Metrics OK?}
+    E1 -->|Yes| W2[5% traffic]
+    E1 -->|No| RB[Rollback]
+    W2 --> E2{Metrics OK?}
+    E2 -->|Yes| W3[25% traffic]
+    E2 -->|No| RB
+    W3 --> E3{Metrics OK?}
+    E3 -->|Yes| W4[50% traffic]
+    E3 -->|No| RB
+    W4 --> E4{Metrics OK?}
+    E4 -->|Yes| FULL[100% traffic]
+    E4 -->|No| RB
+    FULL --> DONE[Promote]
+    RB --> STABLE[Stable version]

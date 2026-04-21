@@ -2,15 +2,15 @@
 %% Type: state
 %%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
-    [*] --> Built: build time prerender
+    [*] --> Built: build prerender
     Built --> Fresh: deploy to CDN
-    Fresh --> Fresh: request within revalidate window
-    Fresh --> Stale: revalidate window expires
-    Stale --> Regenerating: first request after expiry\n(returns stale to caller)
-    Regenerating --> Fresh: regenerated HTML\nreplaces cache
-    Regenerating --> Stale: regeneration error\n(serve stale, retry next request)
+    Fresh --> Fresh: hit within\nrevalidate window
+    Fresh --> Stale: window expires
+    Stale --> Regenerating: first request\nafter expiry
+    Regenerating --> Fresh: new HTML\nreplaces cache
+    Regenerating --> Stale: regen error\n(retry next request)
 
-    Fresh --> Regenerating: revalidatePath / revalidateTag\n(on-demand)
+    Fresh --> Regenerating: revalidatePath /\nrevalidateTag
     note right of Stale
         Caller still gets a fast
         cached response while a

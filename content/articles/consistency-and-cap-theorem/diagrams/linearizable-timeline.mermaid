@@ -1,18 +1,22 @@
 %% Diagram: Linearizable timeline — operations as wall-clock intervals with linearization points
-%% Type: gantt
+%% Type: sequence
 %%{init: {'htmlLabels': false}}%%
-gantt
-    title Linearization points must respect real-time order across clients
-    dateFormat  X
-    axisFormat  %S
+sequenceDiagram
+    participant A as Client A
+    participant K as Key x (linearization)
+    participant B as Client B
+    participant C as Client C
 
-    section Client A
-    write(x=1)        :done,    a1, 0, 4
-    read(x) -> 1      :active,  a2, 6, 9
-
-    section Client B
-    read(x) -> 1      :active,  b1, 5, 8
-    write(x=2)        :done,    b2, 9, 13
-
-    section Client C
-    read(x) -> 2      :active,  c1, 14, 17
+    A->>K: write(x=1) start
+    Note over K: lin point: x = 1
+    K-->>A: ack
+    B->>K: read(x) start
+    K-->>B: returns 1
+    A->>K: read(x) start
+    K-->>A: returns 1
+    B->>K: write(x=2) start
+    Note over K: lin point: x = 2
+    K-->>B: ack
+    C->>K: read(x) start
+    K-->>C: returns 2
+    Note over A,C: Real-time order: A:write(1) < B:read(1) < B:write(2) < C:read(2)

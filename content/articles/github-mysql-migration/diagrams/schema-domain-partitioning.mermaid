@@ -1,12 +1,14 @@
 %% Diagram: Schema Domains - Logical to Physical Partitioning
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph BEFORE["Before: mysql1 monolith (~950K QPS)"]
-        M1["mysql1\n~130 hot tables\n(users, repos, issues,\nPRs, gists, ...)"]
+        direction TB
+        M1["mysql1\n~130 hot tables\n(users, repos, issues, PRs, gists, ...)"]
     end
 
     subgraph LINT["Logical partition (in code)"]
+        direction TB
         SD["schema-domains.yml"]
         QL["Query linter:\nblock cross-domain JOIN"]
         TL["Transaction linter:\nsampled in prod"]
@@ -15,6 +17,7 @@ flowchart LR
     end
 
     subgraph AFTER["After: 50+ domain clusters"]
+        direction TB
         C1["users cluster"]
         C2["repositories cluster"]
         C3["gists cluster"]

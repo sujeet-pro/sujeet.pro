@@ -437,4 +437,4 @@ The reference implementation lives at [`brandur/rocket-rides-atomic`](https://gi
 [^13]: Stripe, "[Rate limits](https://docs.stripe.com/rate-limits)" — global limits, the `Stripe-Rate-Limited-Reason` header values, and lock-timeout semantics.
 [^14]: Stripe, "[Webhooks](https://docs.stripe.com/webhooks)" — three-day retry window, signature verification with HMAC-SHA256, 5-minute tolerance default, duplicate-event guidance.
 [^15]: J. Jena & S. Dalal, "[The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/)" — IETF draft, currently `-07`, last revised 2025-10-15. Adopter list in §4 ("Implementation Status").
-[^16]: PayPal Developer, "[Idempotency](https://developer.paypal.com/api/rest/reference/idempotency/)" — `PayPal-Request-Id` header with 45-day retention.
+[^16]: PayPal Developer, "[Idempotency](https://developer.paypal.com/api/rest/reference/idempotency/)" — `PayPal-Request-Id` header semantics. The 45-day retention window is documented on the [API requests](https://developer.paypal.com/api/rest/requests/) page.

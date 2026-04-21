@@ -2,19 +2,17 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant E as Encoder
-    participant ES as Encoder stream (uni 0x02)
-    participant RS as Request stream
-    participant D as Decoder
-    participant DS as Decoder stream (uni 0x03)
+    participant Enc as Encoder
+    participant Req as Request stream
+    participant Dec as Decoder
 
-    E->>ES: Insert "x-custom: value" → dynamic table index 62
-    E->>RS: Header block, Required Insert Count = 63
+    Enc->>Dec: Insert "x-custom" (encoder stream) → table[62]
+    Enc->>Req: Header block, RIC = 63
 
-    Note over D: Request stream arrives first
-    Note over D: Required Insert Count (63) > current (62) → block this stream only
+    Note over Req,Dec: Request arrives before insert
+    Note over Dec: RIC 63 > current 62 → block this stream only
 
-    ES->>D: Dynamic table update arrives
-    Note over D: Insert count now 63 — unblock the request stream
+    Note over Enc,Dec: Encoder-stream insert reaches Dec
+    Note over Dec: count = 63 → unblock request stream
 
-    D->>DS: Section Acknowledgment (frees encoder buffer)
+    Dec-->>Enc: Section Acknowledgment (decoder stream)

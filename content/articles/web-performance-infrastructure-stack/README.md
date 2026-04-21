@@ -71,7 +71,7 @@ The interesting service parameters:
 - `ipv4hint`, `ipv6hint` — short-circuit the second `A` / `AAAA` lookup when the resolver returns the HTTPS record.
 - `ech` — Encrypted Client Hello configuration; lets the client send the SNI under encryption.
 
-**Adoption**. As of mid-2023 the [first large-scale measurement study](https://arxiv.org/abs/2309.10344) (IMC 2023) found ~10.5 M HTTPS records and ~4 K SVCB records on the open internet, with Cloudflare hosting the overwhelming majority — its automatic deployment for customer zones is what lit up the long tail. Independent operators outside the major CDNs are still rare. Browser support: Chrome 96+, Firefox 78+ (DNS-over-HTTPS only), Safari 14+ (most aggressive consumer of the record).
+**Adoption**. As of mid-2023 the [first large-scale measurement study](https://arxiv.org/abs/2309.10344) (IMC 2023) found ~10.5 M HTTPS records and ~4 K SVCB records on the open internet, with Cloudflare hosting the overwhelming majority — its automatic deployment for customer zones is what lit up the long tail. Independent operators outside the major CDNs are still rare. Browser support: Chrome 96+, Safari 14+ (the most aggressive consumer of the record), and Firefox 92+ when DNS-over-HTTPS is enabled (Firefox 129+ also supports the system resolver on Windows, Linux, and Android, per [Mozilla's HTTPS RR caniuse summary](https://www.netmeister.org/blog/https-caniuse.html)).
 
 > [!TIP]
 > If you front your zone with Cloudflare, the HTTPS record is free. If you run your own authoritative DNS, deploying it is a one-time zone edit and immediately saves the Alt-Svc round trip on the first HTTP/3 connection.
@@ -126,7 +126,7 @@ The mechanism: TLS 1.2 negotiated cipher suites, exchanged certificates, and ran
 **0-RTT resumption** lets a returning client send encrypted application data inside its first flight, using a pre-shared key from the previous session. Latency win: an entire round trip.
 
 > [!WARNING]
-> 0-RTT data is replayable. An attacker who captures the first flight can replay it; the server cannot distinguish the replay from the original. Use 0-RTT only for **idempotent** operations (`GET`, conditional `HEAD`); never for anything that mutates state. Cloudflare keeps 0-RTT off by default for Business and Enterprise zones for this reason ([Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/)).
+> 0-RTT data is replayable. An attacker who captures the first flight can replay it; the server cannot distinguish the replay from the original. Use 0-RTT only for **idempotent** operations (`GET`, `HEAD`, `OPTIONS`); never for anything that mutates state. Cloudflare ships 0-RTT as an opt-in setting on every plan for this reason and restricts replay to idempotent methods at the edge ([0-RTT Connection Resumption docs](https://developers.cloudflare.com/speed/optimization/protocol/0-rtt-connection-resumption/), [Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/)).
 
 **Adoption**. TLS 1.3 is now the default on the modern web. Cloudflare reports ~93% of its connections negotiate TLS 1.3 ([SSLreminder check-in, April 2025](https://blog.sslreminder.pro/posts/ssl-tls-world-in-2025-quick-check-in/)); F5 Labs' top-million sweep finds ~75% of websites support it ([F5 Labs: State of PQC on the Web, 2025](https://www.f5.com/labs/articles/the-state-of-pqc-on-the-web)). Qualys SSL Labs caps the grade at A- for any server that doesn't.
 
@@ -243,6 +243,32 @@ async function handleRequest(request) {
 > [!CAUTION]
 > Edge runtimes are a different platform, not "Node.js with a CDN in front". Anything that touches `fs`, raw TCP, native modules, or `eval` belongs in a regular origin service or a [BFF](#backend-for-frontend-bff). Plan the boundary before you start porting routes.
 
+### 103 Early Hints and resource hints
+
+Most HTML responses spend most of their TTFB inside the origin "thinking" — querying a database, rendering React, calling downstream services. The browser sits idle during that window because it does not yet know which subresources to fetch. Two complementary mechanisms close that gap.
+
+**[103 Early Hints](https://datatracker.ietf.org/doc/html/rfc8297) (RFC 8297)** lets the server (or the CDN, on its behalf) return an interim response that carries `Link` headers — usually `preload` and `preconnect` — before the final 200 is ready. The browser starts opening connections and pulling critical assets in parallel with the origin's render time. The mechanism only works over HTTP/2 and HTTP/3 because HTTP/1.1 cannot interleave a 1xx response with a later 200 on the same connection ([MDN: 103 Early Hints](https://developer.mozilla.org/docs/Web/HTTP/Reference/Status/103)).
+
+![103 Early Hints sequence — interim response carries preload Link headers while origin still renders](./diagrams/early-hints-flow-light.svg "103 Early Hints — the CDN emits an interim response carrying preload Link headers while the origin keeps rendering, so the browser fetches critical CSS/JS in parallel with origin think-time.")
+![103 Early Hints sequence — interim response carries preload Link headers while origin still renders](./diagrams/early-hints-flow-dark.svg)
+
+Cloudflare runs the most pragmatic deployment: the edge sniffs `Link: rel=preload` / `rel=preconnect` headers from cached origin responses and replays them as 103 hints on subsequent requests, so origins that cannot emit 1xx themselves still benefit ([Cloudflare: Early Hints](https://blog.cloudflare.com/early-hints/) reports a typical median LCP improvement of ~30%). Browser support: Chrome 103+, Edge 103+, and Firefox 120+. Safari currently honors only `preconnect` hints ([DebugBear: 103 Early Hints](https://www.debugbear.com/blog/103-early-hints)).
+
+**Resource hints in the HTML response** cover what 103 cannot — they are markup the page can carry without server cooperation:
+
+| Hint                         | What it does                                                          | Use when                                                  |
+| ---------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| `<link rel="dns-prefetch">`  | Resolve a hostname only                                               | Cross-origin asset hosts you may use later                |
+| `<link rel="preconnect">`    | DNS + TCP/QUIC + TLS handshake                                        | Critical third-party origins (fonts, analytics, image CDN)|
+| `<link rel="preload">`       | Fetch and cache a specific subresource at high priority               | Above-the-fold CSS, hero image, primary font             |
+| `<link rel="modulepreload">` | Preload an ES module and its declared static dependencies            | Critical entry-point modules in an ESM-shipped app        |
+| `<link rel="prefetch">`      | Low-priority fetch for a future navigation                            | Likely next pages (e.g., article in a list)              |
+
+The [MDN resource hints reference](https://developer.mozilla.org/docs/Web/HTML/Attributes/rel) is the canonical list. Treat hints as performance hypotheses, not configuration: a `preload` for a font that the browser would have discovered 50 ms later is harmless; a `preload` for the wrong file pays full bandwidth cost without a win, and over-using `preconnect` can exhaust the per-origin connection budget on mobile networks. Validate with WebPageTest's "no-cache" filmstrip before shipping.
+
+> [!TIP]
+> Pair 103 Early Hints with `preload` for **render-blocking** subresources (critical CSS, fonts, hero LCP image) and `preconnect` for cross-origin handshakes. Hint only the things on the critical path — the browser already discovers same-origin scripts and stylesheets quickly once the HTML starts streaming.
+
 ## Payload optimization
 
 Bytes you didn't send are the cheapest bytes. Compression sits between the application and the wire and is one of the highest-leverage configuration changes in the stack.
@@ -299,6 +325,15 @@ http {
 > Pre-compress at build time and let the server pick. `gzip_static on` + `brotli_static on` mean Nginx will serve `app.js.br` to a Brotli-capable client, `app.js.gz` to a gzip-only client, and the raw `app.js` if neither is acceptable — without re-encoding on the request path.
 
 Safari is the awkward case for Zstandard: until iOS 26.3 it does not advertise `zstd` in `Accept-Encoding`, so falling back to Brotli for Safari clients is automatic and lossless ([WebKit standards-positions #168](https://github.com/WebKit/standards-positions/issues/168)).
+
+### Compression dictionaries
+
+The next compression lever is **shared dictionaries**: instead of compressing each response from a cold dictionary, the server compresses against a previously-fetched response (typically a prior version of the same JS bundle). [Compression Dictionary Transport](https://datatracker.ietf.org/doc/draft-ietf-httpbis-compression-dictionary/11/) (IETF draft, on track to RFC) negotiates this with two new content encodings — `dcb` (Brotli with a dictionary) and `dcz` (Zstandard with a dictionary) — and three headers: `Use-As-Dictionary` (server advertises a resource as a dictionary), `Available-Dictionary` (client sends the SHA-256 of a dictionary it already has), and `Dictionary-ID` (server-side selector).
+
+The wins are dramatic for **frequent small updates**: a delta between two builds of a large JS bundle compresses to a few percent of the full size. The Chrome team measured 99% byte savings on a same-origin `app.js` update against the previous build ([Chrome for Developers: Shared dictionary compression](https://developer.chrome.com/blog/shared-dictionary-compression)). Status as of April 2026: standardized in Chrome 130+ and Edge 130+, Firefox in progress; Cloudflare has an "open beta" passthrough mode where origins manage the dictionary lifecycle and the edge serves the dictionary-encoded responses ([Cloudflare: Shared Dictionaries](https://blog.cloudflare.com/shared-dictionaries/)).
+
+> [!NOTE]
+> Dictionary scope is **same-origin only** — that is the BREACH/CRIME mitigation. Treat it as an optimization for your own asset bundles, not as a way to share dictionaries across third parties.
 
 ## Origin infrastructure
 
@@ -584,6 +619,8 @@ A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [
 - [ ] Track origin offload **by bytes** in CDN dashboards, not just hit ratio.
 - [ ] Move latency-sensitive logic (auth, geo, A/B, simple rewrites) to edge functions.
 - [ ] Document the edge runtime constraint set so teams don't ship code that won't run there.
+- [ ] Emit (or let the CDN replay) `103 Early Hints` with `preload`/`preconnect` for above-the-fold assets.
+- [ ] Audit `<link rel="preload|preconnect|modulepreload">` markup against the actual critical path; remove unused hints.
 
 ### Compression
 
@@ -591,6 +628,7 @@ A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [
 - [ ] Configure dynamic compression at Brotli 4-5 (or Zstandard 3-12 where supported).
 - [ ] Verify `Content-Encoding: br` (or `zstd`) in production responses.
 - [ ] Confirm Safari fallback to Brotli when serving Zstandard.
+- [ ] Evaluate Compression Dictionary Transport for large frequently-updated bundles (Chrome/Edge today; Firefox in progress).
 
 ### Origin infrastructure
 
@@ -647,6 +685,8 @@ A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [
 - [RFC 7932 — Brotli](https://datatracker.ietf.org/doc/html/rfc7932)
 - [RFC 8878 — Zstandard](https://datatracker.ietf.org/doc/html/rfc8878)
 - [RFC 9111 — HTTP caching](https://datatracker.ietf.org/doc/html/rfc9111)
+- [RFC 8297 — 103 Early Hints](https://datatracker.ietf.org/doc/html/rfc8297)
+- [Compression Dictionary Transport (IETF draft)](https://datatracker.ietf.org/doc/draft-ietf-httpbis-compression-dictionary/11/)
 
 **Official documentation**
 
@@ -657,6 +697,9 @@ A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [
 - [Qwik resumability](https://qwik.dev/docs/concepts/resumable/)
 - [Redis docs](https://redis.io/docs/)
 - [Workbox](https://developer.chrome.com/docs/workbox)
+- [MDN: 103 Early Hints](https://developer.mozilla.org/docs/Web/HTTP/Reference/Status/103)
+- [MDN: Resource hints (`rel` attribute)](https://developer.mozilla.org/docs/Web/HTML/Attributes/rel)
+- [Chrome for Developers: Shared dictionary compression](https://developer.chrome.com/blog/shared-dictionary-compression)
 
 **Primary-source maintainer content**
 
@@ -665,6 +708,8 @@ A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [
 - [Cloudflare: Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/)
 - [Cloudflare: State of the post-quantum Internet 2025](https://blog.cloudflare.com/pq-2025/)
 - [Cloudflare 2025 Year in Review](https://blog.cloudflare.com/radar-2025-year-in-review/)
+- [Cloudflare: Early Hints](https://blog.cloudflare.com/early-hints/)
+- [Cloudflare: Shared Dictionaries](https://blog.cloudflare.com/shared-dictionaries/)
 
 **Industry references and benchmarks**
 

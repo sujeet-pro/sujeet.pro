@@ -3,16 +3,16 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart LR
     caller([Caller]) --> bh{Bulkhead\npermit?}
-    bh -- no --> rejB[Reject:\nBulkheadFull]
-    bh -- yes --> cb{Breaker\nClosed or\nHalf-Open?}
-    cb -- no --> rejC[Fast-fail:\nCallNotPermitted]
-    cb -- yes --> rt[Retry policy\nmaxAttempts, full jitter]
+    bh -- no --> rejB[Reject\nBulkheadFull]
+    bh -- yes --> cb{Breaker\nClosed/HO?}
+    cb -- no --> rejC[Fast-fail\nNotPermitted]
+    cb -- yes --> rt[Retry\nmaxAttempts]
     rt --> to[Per-attempt\ntimeout]
     to --> dep[(Dependency)]
 
-    dep -- success --> recOK[Record success]
-    dep -- timeout / 5xx --> rt
-    rt -- attempts exhausted --> recFail[Record failure]
+    dep -- success --> recOK[Record\nsuccess]
+    dep -- timeout/5xx --> rt
+    rt -- exhausted --> recFail[Record\nfailure]
 
     recOK --> rel[Release\npermit]
     recFail --> rel

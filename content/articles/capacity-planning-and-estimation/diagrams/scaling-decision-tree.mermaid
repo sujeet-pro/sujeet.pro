@@ -2,17 +2,14 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart LR
-    Start([Capacity<br/>estimate]) --> Q1{Peak QPS<br/>&gt; 10k?}
-    Q1 -- "no" --> Q2{Egress &gt; 1 Gbps<br/>or global users?}
-    Q1 -- "yes" --> Replicas[Add read replicas<br/>or stateless fleet]
-    Replicas --> Q3{Write QPS &gt; 5k<br/>or DB &gt; 1 TB?}
-    Q3 -- "no" --> Cache[Cache hot 20%<br/>target &gt;=80% hit rate]
-    Q3 -- "yes" --> Shard[Shard by tenant<br/>or hash key]
-    Cache --> Q2
+    Start([Estimate]) --> Q1{Peak QPS<br/>&gt; 10k?}
+    Q1 -- "yes" --> Replicas[Replicas /<br/>stateless fleet] --> Q3
+    Q1 -- "no" --> Q3
+    Q3{Writes &gt; 5k<br/>or DB &gt; 1 TB?} -- "yes" --> Shard[Shard +<br/>cache hot 20%]
+    Q3 -- "no" --> Cache[Cache hot 20%<br/>≥ 80% hit rate]
     Shard --> Q2
-    Q2 -- "no" --> Done([Single-region<br/>plan complete])
-    Q2 -- "yes" --> CDN[Push static + media<br/>to CDN]
-    CDN --> Q4{Global latency<br/>&lt; 100 ms?}
+    Cache --> Q2
+    Q2{Egress &gt; 1 Gbps<br/>or global users?} -- "no" --> Done([Single-region])
+    Q2 -- "yes" --> CDN[CDN edge] --> Q4{Global p99<br/>&lt; 100 ms?}
     Q4 -- "no" --> Done
-    Q4 -- "yes" --> MultiRegion[Multi-region<br/>active-active]
-    MultiRegion --> Done
+    Q4 -- "yes" --> MR[Multi-region<br/>active-active] --> Done

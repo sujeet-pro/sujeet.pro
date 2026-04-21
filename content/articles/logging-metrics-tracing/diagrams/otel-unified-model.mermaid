@@ -2,35 +2,23 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph App["Application process"]
-        OTelSDK["OpenTelemetry SDK"]
-    end
+    OTelSDK["OpenTelemetry SDK\n(in application process)"]
 
-    subgraph Signals["Three pillars"]
-        direction LR
-        Logs["Logs<br/>events plus context"]
-        Metrics["Metrics<br/>aggregated measurements"]
-        Traces["Traces<br/>request flow"]
-    end
+    Logs["Logs\nevents + context"]
+    Metrics["Metrics\naggregated measurements"]
+    Traces["Traces\nrequest flow"]
 
-    subgraph Export["Export layer"]
-        OTLP["OTLP protocol<br/>gRPC or HTTP"]
-    end
+    OTLP["OTLP\ngRPC or HTTP"]
 
-    subgraph Backends["Storage backends"]
-        direction LR
-        LogStore["Log store<br/>Loki, Elasticsearch"]
-        MetricStore["Metric store<br/>Prometheus, Mimir"]
-        TraceStore["Trace store<br/>Tempo, Jaeger"]
-    end
+    Backends["Storage backends\nLoki / Prometheus / Tempo"]
 
-    OTelSDK --> Signals
+    OTelSDK --> Logs
+    OTelSDK --> Metrics
+    OTelSDK --> Traces
     Logs --> OTLP
     Metrics --> OTLP
     Traces --> OTLP
-    OTLP --> LogStore
-    OTLP --> MetricStore
-    OTLP --> TraceStore
+    OTLP --> Backends
 
-    Traces -.->|"TraceId, SpanId<br/>(auto correlation)"| Logs
-    Traces -.->|"Exemplars<br/>(metric to trace)"| Metrics
+    Traces -.->|"TraceId, SpanId\n(auto correlation)"| Logs
+    Traces -.->|"Exemplars\n(metric to trace)"| Metrics

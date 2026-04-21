@@ -3,21 +3,23 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart LR
     subgraph Few["Few layers (merge by default)"]
-        F1["Lower GPU memory<br/>(one backing store)"]
-        F2["Larger raster surface<br/>(repaint = whole layer)"]
-        F3["Coarser invalidation<br/>(any change dirties all chunks)"]
-        F4["Property changes need<br/>re-raster + commit"]
+        direction TB
+        F1["Lower GPU memory"]
+        F2["Larger raster surface"]
+        F3["Coarser invalidation"]
+        F4["Property change<br/>= re-raster"]
     end
 
     subgraph Many["Many layers (aggressive promotion)"]
-        M1["Higher GPU memory<br/>(N backing stores)"]
-        M2["Smaller raster surfaces<br/>(parallel raster)"]
-        M3["Per-layer invalidation<br/>(targeted repaint)"]
-        M4["Compositor-only updates<br/>(transform/opacity skip raster)"]
+        direction TB
+        M1["Higher GPU memory"]
+        M2["Smaller raster<br/>surfaces (parallel)"]
+        M3["Per-layer<br/>invalidation"]
+        M4["Compositor-only<br/>updates skip raster"]
     end
 
-    Few -. "tip too far -> raster cost,<br/>jank during repaints" .-> Many
-    Many -. "tip too far -> GPU OOM,<br/>checkerboarding, fallback to SW raster" .-> Few
+    Few -. "too few:<br/>raster jank" .-> Many
+    Many -. "too many: GPU OOM,<br/>checkerboarding" .-> Few
 
     style Few fill:#c8e6c9,stroke:#1b5e20
     style Many fill:#ffe0b2,stroke:#e65100

@@ -1,0 +1,33 @@
+%% Diagram: Three eras of Twitter's timeline — Redis fanout, ML pipeline, Grok-based Phoenix/Thunder
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph "Era 1: Fanout-on-Write (2009-2016)"
+        T1[Tweet Published] --> FO[Fanout Service]
+        FO --> SG[Social Graph<br/>FlockDB]
+        FO --> RC1[Redis Timeline<br/>Follower 1]
+        FO --> RC2[Redis Timeline<br/>Follower N]
+        RC1 --> R1[Read: Pre-materialized]
+    end
+
+    subgraph "Era 2: Algorithmic Timeline (2016-2025)"
+        T2[Tweet Published] --> EB[EarlyBird<br/>Search Index]
+        T2 --> GJ[GraphJet<br/>Real-time Graph]
+        EB --> HM[Home Mixer]
+        GJ --> CR[CR-Mixer]
+        CR --> HM
+        SC[SimClusters<br/>145K communities] --> CR
+        TW[TwHIN<br/>Embeddings] --> CR
+        HM --> LR[Light Ranker<br/>Logistic Regression]
+        LR --> HR[Heavy Ranker<br/>48M param MaskNet]
+        HR --> FI[Heuristics &<br/>Filtering]
+        FI --> FY["For You" Feed]
+    end
+
+    subgraph "Era 3: Grok-Based (2026+)"
+        T3[Tweet Published] --> TH[Thunder<br/>In-Memory Store]
+        T3 --> PH[Phoenix<br/>Two-Tower + Transformer]
+        TH --> HM2[Home Mixer]
+        PH --> HM2
+        HM2 --> FY2["For You" Feed<br/>15 engagement signals]
+    end

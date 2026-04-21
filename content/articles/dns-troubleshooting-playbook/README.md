@@ -518,16 +518,16 @@ dig @ns1.example.com example.com DNSKEY +dnssec
 
 The DS is a hash of one of your DNSKEYs (typically the KSK). After a key rollover the parent must publish a DS that matches the new key **before** the old one is removed.
 
-**Algorithm mismatch.** Per the [IANA DNS Security Algorithm Numbers registry](https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml), the algorithms recommended for both signing and validation today are:
+**Algorithm mismatch.** Per [RFC 8624 §3.1](https://www.rfc-editor.org/rfc/rfc8624#section-3.1) and the [IANA DNS Security Algorithm Numbers registry](https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml), the implementation requirements for the actively-deployed algorithms are:
 
-| ID  | Name            | Status                                       |
-| --- | --------------- | -------------------------------------------- |
-| 8   | RSASHA256       | RECOMMENDED for signing and validation       |
-| 13  | ECDSAP256SHA256 | RECOMMENDED for signing and validation       |
-| 14  | ECDSAP384SHA384 | MAY for signing, RECOMMENDED for validation  |
-| 15  | Ed25519         | RECOMMENDED for signing and validation       |
+| ID  | Name            | RFC 8624 status                                       |
+| --- | --------------- | ----------------------------------------------------- |
+| 8   | RSASHA256       | MUST sign, MUST validate                              |
+| 13  | ECDSAP256SHA256 | MUST sign, MUST validate                              |
+| 14  | ECDSAP384SHA384 | MAY sign, RECOMMENDED validate                        |
+| 15  | Ed25519         | RECOMMENDED sign, RECOMMENDED validate                |
 
-Resolvers implementing only RFC 8624's "MUST validate" set will treat zones signed with newer algorithms (ECDSA, Ed25519) as Insecure rather than Bogus when the algorithm is unknown — but middleboxes and old validators may still return `SERVFAIL`.
+Per [RFC 4035 §5.2](https://www.rfc-editor.org/rfc/rfc4035#section-5.2), a validator that does not implement the algorithm at the apex of a chain treats the zone as Insecure rather than Bogus, so well-behaved resolvers degrade gracefully. Middleboxes and old validators that misimplement this rule still return `SERVFAIL` — surface that with `dig +cd` (which should succeed if the resolver itself is the cause).
 
 **Chain of trust broken.** Use [DNSViz](https://dnsviz.net/) for visual analysis. Most chain breaks come from either a DS record at the parent that does not match any current DNSKEY, or a DNSKEY RRset that is not signed by the KSK referenced in the DS.
 

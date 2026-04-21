@@ -14,16 +14,20 @@ flowchart TB
 
     subgraph Keys["Key derivation (HKDF)"]
         direction LR
-        ES["Early Secret"] --> HS["Handshake Secret\n(from ECDHE)"] --> MS["Master Secret"] --> ATS["Application\nTraffic Secrets"]
+        ES["Early\nSecret"] --> HS["Handshake\nSecret"] --> MS["Master\nSecret"] --> ATS["App Traffic\nSecrets"]
     end
 
     subgraph Hardening["HTTPS hardening stack"]
         direction LR
         HSTS["HSTS\n+ preload"]
-        CT["Certificate\nTransparency"]
+        CT["CT logs"]
         OCSP["OCSP\nstapling"]
-        CAA["CAA + DNSSEC\n(2026-03)"]
-        SHORT["Short-lived\ncerts (ACME)"]
+        CAA["CAA +\nDNSSEC"]
+        SHORT["Short-lived\ncerts"]
+        ECH["ECH\n(SNI privacy)"]
+        HSTS ~~~ CAA
+        CT ~~~ SHORT
+        OCSP ~~~ ECH
     end
 
     Handshake -->|"derives"| Keys

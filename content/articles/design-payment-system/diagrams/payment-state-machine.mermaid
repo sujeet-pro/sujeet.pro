@@ -2,24 +2,25 @@
 %% Type: state
 %%{init: {'htmlLabels': false}}%%
 stateDiagram-v2
+    direction TB
     [*] --> pending: POST /payments
-    pending --> requires_action: 3DS2 challenge required
-    pending --> requires_capture: Auth only ok (manual capture)
-    pending --> processing: Auth+capture in flight
-    pending --> failed: Validation / fraud block
+    pending --> requires_action: 3DS2 challenge
+    pending --> requires_capture: Auth only ok
+    pending --> processing: Auth+capture
+    pending --> failed: Validation / fraud
     requires_action --> processing: Challenge passed
-    requires_action --> failed: Challenge failed / abandoned
+    requires_action --> failed: Challenge failed
     requires_capture --> processing: POST /capture
-    requires_capture --> canceled: POST /cancel (release hold)
-    requires_capture --> failed: Auth expired (window elapsed)
-    processing --> succeeded: Network / issuer approved
-    processing --> failed: Network / issuer error or decline
-    succeeded --> partially_refunded: POST /refunds (partial)
-    succeeded --> refunded: POST /refunds (full)
-    partially_refunded --> refunded: Remaining amount refunded
-    succeeded --> disputed: charge.dispute.created webhook
-    disputed --> succeeded: Dispute won (representment)
-    disputed --> refunded: Dispute lost (chargeback)
+    requires_capture --> canceled: POST /cancel
+    requires_capture --> failed: Auth expired
+    processing --> succeeded: Issuer approved
+    processing --> failed: Issuer declined
+    succeeded --> partially_refunded: Refund (partial)
+    succeeded --> refunded: Refund (full)
+    partially_refunded --> refunded: Remaining refunded
+    succeeded --> disputed: dispute.created
+    disputed --> succeeded: Dispute won
+    disputed --> refunded: Dispute lost
     refunded --> [*]
     canceled --> [*]
     failed --> [*]

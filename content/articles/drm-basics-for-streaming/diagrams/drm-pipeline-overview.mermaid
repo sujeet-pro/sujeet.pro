@@ -1,0 +1,42 @@
+%% Diagram: DRM pipeline overview — content encryption, key management, and client-side decryption
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph PREP["Content preparation"]
+        direction TB
+        SRC[Source video] --> ENC[Encode<br/>H.264 / HEVC / AV1]
+        ENC --> PKG[Package<br/>fMP4 / CMAF]
+        PKG --> CRYPT[Encrypt<br/>CENC / AES-128]
+        CRYPT --> PSSH[Add PSSH<br/>per DRM system]
+    end
+
+    subgraph KEYS["Key infrastructure"]
+        direction TB
+        KMS[Key management<br/>service] --> LIC[License server<br/>Widevine / FairPlay / PlayReady]
+    end
+
+    subgraph DELIV["Delivery"]
+        direction TB
+        CDN[CDN edge] --> MAN[Manifest<br/>HLS / DASH]
+    end
+
+    subgraph PLAY["Playback"]
+        direction TB
+        PLAYER[Player + EME API] --> CDM[CDM<br/>Content Decryption Module]
+        CDM --> DEC[Decrypt + decode]
+        DEC --> OUT[Playback]
+    end
+
+    KMS --> PSSH
+    PSSH --> CDN
+    MAN --> PLAYER
+    CDM <--> LIC
+
+    classDef src fill:#5A5A5A,stroke:#3a3a3a,color:#fff
+    classDef crypt fill:#B43A3A,stroke:#7a2424,color:#fff
+    classDef key fill:#8B5E15,stroke:#5e3f0e,color:#fff
+    classDef play fill:#2D7A2D,stroke:#1f5320,color:#fff
+    class SRC src
+    class CRYPT,PSSH crypt
+    class KMS,LIC key
+    class CDM,DEC play

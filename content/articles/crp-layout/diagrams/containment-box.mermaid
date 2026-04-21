@@ -3,6 +3,7 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Outside["Outside the contained subtree"]
+        direction TB
         Layout[Outer layout]
         Paint[Outer paint]
         Style[Outer style scope<br/>counters, quotes]
@@ -11,11 +12,11 @@ flowchart TB
 
     subgraph Box["Containment box (contain: ...)"]
         direction TB
-        L["layout — independent formatting context;<br/>internal layout cannot affect outside"]
-        P["paint — descendants clipped to border box;<br/>off-screen subtree skipped during paint"]
+        L["layout — independent formatting context"]
+        P["paint — descendants clipped to border box"]
         S["style — counters/quotes scoped to subtree"]
-        Z["size — element sized as if no children;<br/>pair with contain-intrinsic-size"]
-        IS["inline-size — only inline axis sized in isolation;<br/>used by container queries"]
+        Z["size — element sized as if no children"]
+        IS["inline-size — inline axis sized in isolation"]
     end
 
     Layout -. blocked by .-> L

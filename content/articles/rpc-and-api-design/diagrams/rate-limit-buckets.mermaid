@@ -1,22 +1,20 @@
 %% Diagram: Token bucket vs leaky bucket — burst behavior at the edge
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     Req([Request]) --> Mode{Algorithm}
 
-    Mode -- token bucket --> TBCheck{Token<br/>available?}
-    Refill[Refiller<br/>+r tokens/sec] --> Bucket[(Bucket<br/>capacity = burst)]
+    Mode -- token bucket --> TBCheck{"Token\navailable?"}
+    Refill["Refiller\n+r tokens/sec"] --> Bucket[("Bucket\ncapacity = burst")]
     Bucket --> TBCheck
-    TBCheck -- yes --> TBPass[Pass<br/>burst-friendly]
-    TBCheck -- no --> TBDrop[429 Too Many Requests]
+    TBCheck -- yes --> TBPass["Pass\nburst-friendly"]:::pass
+    TBCheck -- no --> TBDrop["429\nToo Many Requests"]:::drop
 
-    Mode -- leaky bucket --> LBQ{Queue<br/>full?}
+    Mode -- leaky bucket --> LBQ{"Queue\nfull?"}
     LBQ -- no --> Queue[(Queue capacity)]
-    LBQ -- yes --> LBDrop[429 Too Many Requests]
+    LBQ -- yes --> LBDrop["429\nToo Many Requests"]:::drop
     Queue --> Leak[Drain at fixed rate r]
-    Leak --> LBPass[Pass<br/>smoothed output]
+    Leak --> LBPass["Pass\nsmoothed output"]:::pass
 
-    style TBPass fill:#cfc,stroke:#3a3
-    style LBPass fill:#cfc,stroke:#3a3
-    style TBDrop fill:#fcc,stroke:#a33
-    style LBDrop fill:#fcc,stroke:#a33
+    classDef pass fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef drop fill:#B43A3A,stroke:#8E2828,color:#ffffff

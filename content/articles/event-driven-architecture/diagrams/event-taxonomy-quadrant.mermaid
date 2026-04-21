@@ -1,15 +1,24 @@
-quadrantChart
-  title "Message taxonomy: intent vs payload"
-  x-axis "Imperative (do X)" --> "Declarative (X happened)"
-  y-axis "Reference only" --> "Carries full state"
-  quadrant-1 "Event-Carried State Transfer"
-  quadrant-2 "Document Message"
-  quadrant-3 "Command Message"
-  quadrant-4 "Event Notification"
-  "ChargeCard(orderId)": [0.15, 0.18]
-  "PlaceOrder(orderId)": [0.18, 0.32]
-  "OrderRequest doc": [0.22, 0.82]
-  "OrderPlaced (id only)": [0.78, 0.18]
-  "EmailChanged (id+ts)": [0.82, 0.28]
-  "OrderPlaced (full snapshot)": [0.85, 0.85]
-  "ProductCatalogUpdated (full)": [0.7, 0.78]
+%% Diagram: Message taxonomy 2x2 — intent vs payload
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph FullState["Carries full state"]
+        direction LR
+        DM["Document Message\nOrderRequest doc"]:::doc
+        ECST["Event-Carried State Transfer\nOrderPlaced (full snapshot)\nProductCatalogUpdated (full)"]:::ecst
+    end
+    subgraph RefOnly["Reference only / id only"]
+        direction LR
+        CMD["Command Message\nChargeCard(orderId)\nPlaceOrder(orderId)"]:::cmd
+        EN["Event Notification\nOrderPlaced (id only)\nEmailChanged (id+ts)"]:::evt
+    end
+    FullState --- RefOnly
+    Imp["Imperative\n(do X)"] --- CMD
+    Imp --- DM
+    Dec["Declarative\n(X happened)"] --- EN
+    Dec --- ECST
+
+    classDef cmd fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef evt fill:#1F6E68,stroke:#155752,color:#fff
+    classDef ecst fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef doc fill:#5A5A5A,stroke:#3D3D3D,color:#fff

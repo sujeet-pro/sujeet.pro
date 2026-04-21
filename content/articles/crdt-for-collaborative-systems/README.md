@@ -529,7 +529,7 @@ Eg-walker generalises pattern 2 — the document state on disk is plain text, an
 ### Where they came from
 
 - **Operational Transformation (OT)** was introduced by Ellis & Gibbs in 1989 for grouped editors and matured into the algorithm behind Google Docs (Wave / Apache Wave / ShareDB lineage). It needs a central server to transform incoming operations against the operations they missed.
-- **CRDTs** start with [Oster et al.'s WOOT (CSCW 2006)](https://dl.acm.org/doi/10.1007/s00446-021-00414-6) and the [Shapiro et al. unification (2011)](https://inria.hal.science/inria-00555588/document). They were designed for decentralised and offline-first systems from the start.
+- **CRDTs** start with [Oster et al.'s WOOT (CSCW 2006)](https://hal.inria.fr/inria-00108523/document) and the [Shapiro et al. unification (2011)](https://inria.hal.science/inria-00555588/document). They were designed for decentralised and offline-first systems from the start.
 
 ### The fundamental difference
 

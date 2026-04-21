@@ -1,0 +1,19 @@
+%% Diagram: KGS lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph KGS["Key Generation Service"]
+        GEN["Key Generator<br/>(Offline)"]
+        UNUSED["Unused Keys<br/>Table"]
+        USED["Used Keys<br/>Table"]
+    end
+
+    subgraph App["Application"]
+        API["API Server"]
+        CACHE["Local Key Cache<br/>(1000 keys)"]
+    end
+
+    GEN -->|Pre-generate| UNUSED
+    API -->|Request batch| UNUSED
+    UNUSED -->|Move on use| USED
+    API --> CACHE

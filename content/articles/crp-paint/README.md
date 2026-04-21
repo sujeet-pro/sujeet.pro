@@ -344,6 +344,8 @@ Non-rectangular opacity, filters, or `clip-path` can produce regions where the p
 }
 ```
 
+The first rule is the anti-pattern: every `.list-item` is promoted at rest, even when nothing is animating. The second rule is the fix: toggle the `.animating` class only while the animation runs (`animationstart` / `animationend`, or for `requestAnimationFrame`-driven motion, immediately before and after the run) so the layer exists for exactly the frames that need it.
+
 A 1920 × 1080 layer is ~8 MB. A hundred such layers are ~800 MB before tiling overhead. Symptoms of overuse:
 
 - Checkerboarding (white rectangles) during scroll as the rasterizer falls behind.

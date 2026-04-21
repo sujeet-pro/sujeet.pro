@@ -2,31 +2,28 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant Client
-    participant Orch as Saga Orchestrator
-    participant Order as Order Service
-    participant Pay as Payment Service
-    participant Inv as Inventory Service
-    participant Ship as Shipping Service
+    participant Cl as Client
+    participant Or as Orchestrator
+    participant Od as Order
+    participant Pa as Payment
+    participant In as Inventory
 
-    Client->>Orch: place order
+    Cl->>Or: place order
 
-    Orch->>Order: create order (PENDING)
-    Order-->>Orch: ok
+    Or->>Od: create (PENDING)
+    Od-->>Or: ok
 
-    Orch->>Pay: reserve payment
-    Pay-->>Orch: ok
+    Or->>Pa: reserve
+    Pa-->>Or: ok
 
-    Orch->>Inv: reserve items
-    Inv--xOrch: FAIL (out of stock)
+    Or->>In: reserve
+    In--xOr: FAIL
 
-    rect rgb(255, 232, 232)
-    note over Orch,Ship: Compensate in reverse order\n(idempotent, semantic — not mechanical undo)
-    Orch->>Pay: release payment hold
-    Pay-->>Orch: ok
-    Orch->>Order: cancel order
-    Order-->>Orch: ok
-    end
+    note over Or,In: Compensate in reverse —\nidempotent, semantic.
 
-    Orch-->>Client: order failed,\ncompensations applied
+    Or->>Pa: release hold
+    Pa-->>Or: ok
+    Or->>Od: cancel
+    Od-->>Or: ok
+
+    Or-->>Cl: failed

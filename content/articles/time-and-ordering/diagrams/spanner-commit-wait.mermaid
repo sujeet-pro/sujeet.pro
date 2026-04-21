@@ -2,18 +2,17 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant Client
-    participant Coordinator as Coordinator Leader
-    participant Replica as Replica
-    participant TT as TrueTime API
+    participant Coord as Coordinator
+    participant Replica
+    participant TT as TrueTime
 
-    Client->>Coordinator: BEGIN T1
-    Coordinator->>TT: TT.now()
-    TT-->>Coordinator: [earliest, latest], ε≈4 ms
-    Note over Coordinator: pick s = TT.now().latest<br/>(commit timestamp)
-    Coordinator->>Replica: prepare T1 @ s
-    Replica-->>Coordinator: prepared
-    Note over Coordinator: COMMIT WAIT:<br/>block until TT.after(s)<br/>≈ 2ε ≈ 7-14 ms
-    Coordinator-->>Client: ack T1
-    Note right of Coordinator: Any T2 starting after the ack<br/>is guaranteed s(T2) > s(T1)<br/>without any T1↔T2 messaging.
+    Client->>Coord: BEGIN T1
+    Coord->>TT: TT.now()
+    TT-->>Coord: [earliest, latest], ε≈4ms
+    Note over Coord: pick s = latest
+    Coord->>Replica: prepare T1 @ s
+    Replica-->>Coord: prepared
+    Note over Coord: commit-wait until TT.after(s)<br/>≈ 2ε ≈ 7-14ms
+    Coord-->>Client: ack T1
+    Note right of Coord: Any T2 starting after the ack<br/>sees s(T2) > s(T1).

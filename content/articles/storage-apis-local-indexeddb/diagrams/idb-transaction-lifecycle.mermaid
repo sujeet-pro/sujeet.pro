@@ -1,5 +1,6 @@
 %% Diagram: IndexedDB transaction lifecycle and the auto-commit trap
 %% Type: stateDiagram
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 stateDiagram-v2
     [*] --> Active: db.transaction(stores, mode)
     Active --> Active: store.put / get / index ops

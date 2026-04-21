@@ -1,20 +1,20 @@
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph MV2["Manifest V2 (until Chrome 138)"]
         direction TB
         W2[webRequest API]
         W2 --> D2[Dynamic per-request decisions]
-        D2 --> R2[Inject scriptlets, cosmetic filters, custom rules]
+        D2 --> R2["Inject scriptlets, cosmetic filters,\ncustom rule sets"]
     end
 
     subgraph MV3["Manifest V3 (Chrome 139+)"]
         direction TB
         DNR[declarativeNetRequest API]
         DNR --> S3[Static rule declarations]
-        S3 --> L3[~30k guaranteed enabled rules<br/>+ shared global pool]
+        S3 --> L3["~30k guaranteed enabled rules\n+ shared global pool"]
     end
 
-    MV2 -. June 2025 cutoff .-> MV3
+    MV2 -. "June 2025 cutoff" .-> MV3
 
     style MV2 fill:#fff3e0,stroke:#e65100
     style MV3 fill:#e3f2fd,stroke:#1565c0

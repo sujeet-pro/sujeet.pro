@@ -40,6 +40,7 @@ Core mechanisms covered below:
 - **Stories architecture** — 24-hour TTL with aggressive prefetch targeting sub-200 ms perceived load.
 - **Feed ranking** — multi-task neural networks fine-tuned continually on engagement events.
 - **MQTT for real-time** — [pioneered for Facebook Messenger in 2011](https://engineering.fb.com/2011/08/12/android/building-facebook-messenger/) and now powers Instagram DMs, notifications, and presence over a [2-byte minimum-overhead binary protocol](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.pdf).
+- **Privacy + safety pipeline at upload time** — EXIF metadata sanitization (drop GPS, serial numbers, raw timestamps before any public CDN URL exists) and perceptual-hash-based CSAM/violence/terror screening against industry banks (Microsoft [PhotoDNA](https://www.microsoft.com/en-us/photodna), Meta's open-sourced [PDQ + TMK+PDQF hashes](https://about.fb.com/news/2019/08/open-source-photo-video-matching/), the [GIFCT hash database](https://gifct.org/hash-sharing-database/)).
 
 ## Requirements
 
@@ -177,7 +178,7 @@ On feed request, query the social graph for followed users, fetch their recent p
 - **Inactive followers**: skip fan-out for them and compute on demand if they return.
 
 > [!NOTE]
-> Instagram and Twitter both use hybrid fan-out, but neither has officially published its production threshold. The 5–10K follower band shows up consistently in [community write-ups of the architecture](https://www.abstractalgorithms.dev/write-time-vs-read-time-fan-out) and is best treated as a tunable knob, not a magic number. The right threshold for any platform is the point where the marginal cost of a fan-out write exceeds the marginal cost of a read-time merge.
+> Instagram and Twitter both use hybrid fan-out, but neither has officially published its production threshold. Raffi Krikorian's [Timelines at Scale](https://www.infoq.com/presentations/Twitter-Timeline-Scalability/) (QCon 2013) is the canonical engineering talk on Twitter's home-timeline architecture — push-on-write into Redis-backed materialised timelines for the long tail, pull-and-merge for high-fan-out accounts at read time — and the 5–10K follower band shows up consistently in [community write-ups of the architecture](https://www.abstractalgorithms.dev/write-time-vs-read-time-fan-out). Treat the threshold as a tunable knob, not a magic number: the right value is the point where the marginal cost of a fan-out write exceeds the marginal cost of a read-time merge.
 
 **Trade-offs:**
 
@@ -245,6 +246,10 @@ The rest of this article assumes **Path C (Hybrid Fan-out)** as the production d
 - Supported feed widths land in the **320–1080 px** band; sub-320 px uploads get upscaled to 320 px and >1080 px uploads get downscaled to 1080 px.
 - Supported source formats: JPEG, PNG, HEIC (HEIC is normalized to JPEG/HEIF for delivery).
 - Maximum upload size is generous on the wire (tens of MB), but client-side compression typically lands the post in the 2–5 MB range before the server sees it.
+
+**Metadata sanitization (EXIF stripping).** Camera-generated JPEG/HEIC files carry EXIF blocks that frequently include precise GPS coordinates, device serial numbers, and capture timestamps. Any photo-sharing platform must strip privacy-sensitive EXIF tags before serving variants from the CDN — public-share variants typically retain only orientation, color profile, and a sanitized capture timestamp; GPS, serial numbers, and thumbnail-embedded EXIF are dropped. The original-resolution copy may keep the full EXIF in cold storage for the uploader's own archive view, but it is never served to followers. Internally this is a small re-encode step that runs alongside variant generation; it is cheap relative to the resize ladder but mandatory for compliance.
+
+**Safety scanning (hash matching at the edge of the pipeline).** Before a media id becomes addressable from a public CDN URL, every upload runs through perceptual-hash matching against the industry CSAM hash banks (Microsoft's [PhotoDNA](https://www.microsoft.com/en-us/photodna), Meta's [PDQ image hash and TMK+PDQF video hash](https://about.fb.com/news/2019/08/open-source-photo-video-matching/) — both open-sourced in 2019 — and the [NCMEC hash list](https://www.missingkids.org/HashSharing)) plus internal classifiers for nudity, violence, and policy-violating content. Hash matches block the post and trigger a NCMEC report; classifier hits route into human review queues. The hashing step adds milliseconds at the most (PDQ is a 256-bit hash with sub-millisecond compute), so the pipeline can run it inline with variant generation rather than as a deferred audit. Meta also runs perceptual-hash matching against terror content via the [GIFCT shared hash database](https://gifct.org/hash-sharing-database/).
 
 **Resolution variants generated.** The exact ladder is implementation-specific; the shape below is representative of what a power-law CDN footprint requires:
 
@@ -608,7 +613,7 @@ interface QueuedMessage {
 
 ### Cassandra Data Model
 
-DMs use Cassandra for high write throughput and partition-local queries.
+DMs use Cassandra for high write throughput and partition-local queries. Instagram has been a heavy Cassandra user since the early 2010s; in 2018 the team published [Rocksandra](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589), a RocksDB-backed pluggable storage engine for Cassandra that cut p99 read latency by ~10x by replacing the default LSM-tree implementation with RocksDB and avoiding JVM GC pauses on the read path. The Cassandra schema below describes the **logical** model; the physical engine in Instagram's deployment is Rocksandra, not stock Cassandra.
 
 ```cql
 -- Thread metadata
@@ -1235,6 +1240,7 @@ Instagram's architecture demonstrates several principles that recur in any photo
 - **Feed ranking** — multi-task neural networks fed by tens-to-hundreds of thousands of features, fine-tuned continually on engagement events.
 - **Explore recommendation** — three-stage funnel (Two Towers retrieval → early ranking → late ranking) over 1,000+ production ML models.
 - **MQTT for real-time** — persistent low-overhead channel for DMs, notifications, and presence; Meta's preferred mobile chat substrate since 2011.
+- **Upload-time safety + privacy** — strip GPS/serial EXIF before serving variants; run PhotoDNA / PDQ / GIFCT perceptual-hash matching inline before a CDN URL becomes addressable.
 
 ### References
 
@@ -1255,3 +1261,9 @@ Instagram's architecture demonstrates several principles that recur in any photo
 - [Image resolution of photos you share on Instagram](https://help.instagram.com/1631821640426723/) — supported widths and resize behavior (Instagram Help Center).
 - [Instagram now has 3 billion monthly active users](https://www.cnbc.com/2025/09/24/instagram-now-has-3-billion-monthly-active-users.html) — Sept 2025 announcement (CNBC).
 - [MQTT Version 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.pdf) — protocol specification (OASIS).
+- [Timelines at Scale](https://www.infoq.com/presentations/Twitter-Timeline-Scalability/) — Raffi Krikorian on Twitter's hybrid fan-out home timeline (QCon 2013, InfoQ).
+- [Open-sourcing a 10x reduction in Apache Cassandra tail latency](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589) — Rocksandra: RocksDB-backed Cassandra storage engine (Instagram Engineering, 2018).
+- [Open-sourcing photo- and video-matching technology](https://about.fb.com/news/2019/08/open-source-photo-video-matching/) — Meta's PDQ image hash and TMK+PDQF video hash for safety scanning (2019).
+- [PhotoDNA](https://www.microsoft.com/en-us/photodna) — Microsoft's perceptual hash service for CSAM detection.
+- [GIFCT Hash Sharing Database](https://gifct.org/hash-sharing-database/) — industry-shared terror-content hash bank.
+- [NCMEC Hash Sharing](https://www.missingkids.org/HashSharing) — National Center for Missing & Exploited Children hash list.

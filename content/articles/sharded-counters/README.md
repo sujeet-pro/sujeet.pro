@@ -2,7 +2,7 @@
 title: Sharded Counters
 linkTitle: 'Sharded Counters'
 description: >-
-  Scaling counters past single-key write bottlenecks using sharding (random, hash-based, time-based), aggregation strategies for O(1) reads, and probabilistic structures (HyperLogLog, Count-Min Sketch) — with production patterns from Firestore, DynamoDB, Netflix, Meta TAO, and Twitter Manhattan.
+  Scaling counters past single-key write bottlenecks using sharding (random, hash-based, time-based), aggregation strategies for O(1) reads, probabilistic structures (HyperLogLog, Count-Min Sketch), and CRDT counters (G-Counter, PN-Counter) for active-active replication — with production patterns from Firestore, DynamoDB, Netflix, Meta TAO, Twitter Manhattan, and Redis Active-Active.
 publishedDate: 2026-02-03T00:00:00.000Z
 lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
@@ -29,7 +29,7 @@ Three axes, picked independently, define your counter:
 2. **Aggregation timing** — when N shard values become one displayed total. Synchronous on read, asynchronous in a rollup job, or a hybrid that mixes pre-rollup with a live tail.
 3. **Consistency model** — what a reader is guaranteed to see and what the system gives up to provide it. Strong (linearizable) vs. eventual.
 
-A fourth, sometimes-applicable axis is **representation**: keep an exact integer, or accept a probabilistic estimate (HyperLogLog for cardinality, Count-Min Sketch for frequency). Probabilistic structures change the cost model entirely — they trade a bounded error for sub-linear space and trivial mergeability across nodes.
+A fourth, sometimes-applicable axis is **representation**: keep an exact integer, accept a probabilistic estimate (HyperLogLog for cardinality, Count-Min Sketch for frequency), or use a **convergent replicated data type** (CRDT) such as a G-Counter or PN-Counter that lets independent replicas merge their states deterministically without coordination. Each representation changes the cost model — probabilistic structures trade bounded error for sub-linear space; CRDTs trade per-replica state growth for coordination-free writes.
 
 > [!IMPORTANT]
 > Sharding is a contention fix, not a consistency fix. Splitting one row into N rows does nothing for cross-row atomicity, double-counting under retry, or replication lag. Pick the shard layout for write throughput; pick the aggregation strategy and consistency model for everything else.
@@ -262,6 +262,42 @@ Like HLL, sketches are linear: `CMS(stream_A) + CMS(stream_B) = CMS(stream_A ∪
 | Memory-constrained       | No            | Yes         | Yes              |
 | Distributed merge        | Hard          | Trivial     | Trivial          |
 
+## Convergent counters (CRDTs)
+
+When the same logical counter is incremented concurrently in multiple replicas — multi-region active-active, edge clusters, or offline-first clients — coordination on every write is the wrong cost model. **Conflict-free Replicated Data Types** are the formal answer: data structures whose merge function is associative, commutative, and idempotent (a join-semilattice), so any two replicas that have observed the same set of operations converge to the same state regardless of order or duplication. Shapiro, Preguiça, Baquero, and Zawirski's 2011 INRIA technical report `RR-7506` is the comprehensive catalogue and remains the canonical reference.[^crdt-paper]
+
+### G-Counter (grow-only)
+
+A G-Counter is a vector of per-replica counters: `state[i]` is the total of all increments performed at replica `i`. Increment is local — replica `i` sets `state[i] += n`. Merge is element-wise `max`. The aggregate value is `Σ state[i]`. Because every replica only ever increases its own slot and merge is `max` per slot, divergence is impossible and concurrent updates never lose work.
+
+```python
+def increment(state: dict[str, int], replica_id: str, n: int = 1) -> None:
+    state[replica_id] = state.get(replica_id, 0) + n
+
+def merge(a: dict[str, int], b: dict[str, int]) -> dict[str, int]:
+    return {k: max(a.get(k, 0), b.get(k, 0)) for k in a.keys() | b.keys()}
+
+def value(state: dict[str, int]) -> int:
+    return sum(state.values())
+```
+
+### PN-Counter (positive + negative)
+
+A PN-Counter pairs two G-Counters — `P` for increments, `N` for decrements — so the value is `Σ P[i] - Σ N[i]`. This is the standard CRDT counter when the application needs both directions; storing increments and decrements separately preserves the join-semilattice property (`max` does not commute with subtraction).
+
+### Production: Redis Active-Active CRDB
+
+Redis Enterprise's Active-Active geo-replicated databases ship CRDT-backed types directly, including a counter type whose semantics match a PN-Counter; conflict resolution under concurrent writes across regions is automatic and lossless rather than last-writer-wins. Redis publishes the [Active-Active concepts](https://redis.io/docs/latest/operate/rs/databases/active-active/) page and an explicit [developing with CRDB counters](https://redis.io/docs/latest/operate/rs/databases/active-active/develop/data-types/counters/) guide as the operational references.[^redis-crdt-concepts][^redis-crdt-counters] The same engineering team published an SOSP-style overview, [Under the hood of Redis CRDTs](https://redis.io/blog/diving-into-crdts/), describing the operation-based variants used internally.[^redis-crdt-blog]
+
+### Trade-offs
+
+- **Buys you**: coordination-free writes across replicas; concurrent increments are never lost; merges are deterministic and require no consensus or vector-clock reconciliation.
+- **Costs you**: state size grows with the number of replicas (one counter per replica per logical entity), so high-fan-out edge deployments inflate per-key bytes; reads must aggregate across the per-replica vector; PN-Counters cannot represent the *intent* of a "set to zero" operation, only the net difference.
+- **Use when**: multi-region active-active, edge or offline-first clients, IoT fleets — anywhere the cost of inter-replica coordination on every write is unacceptable and last-writer-wins would silently drop increments.
+
+> [!NOTE]
+> CRDT counters and sharded counters compose: a CRDT counter can itself be sharded across keys within a single replica to push past per-key throughput limits, and a sharded counter can use CRDT semantics across regions to eliminate cross-region coordination. The two patterns address different problems — local hot-key contention vs. cross-replica convergence — and can be applied independently.
+
 ## Production architectures
 
 ### Firestore distributed counters
@@ -311,7 +347,7 @@ TAO is the social-graph store that fronts MySQL and serves the read-mostly engag
 
 ## Failure modes
 
-The four operational failures that recur across teams I have seen, in order of frequency:
+The operational failures that recur across teams, in rough order of frequency:
 
 ### Over-sharding
 
@@ -361,6 +397,7 @@ The decision tree is small. Walk it explicitly for every new counter rather than
 | Financial ledger                     | Single linearizable counter; do not shard                  |
 | Real-time analytics dashboards       | Time-bucketed sharding + batch rollup                      |
 | Mixed accuracy/latency requirements  | Hybrid (pre-rollup + live event tail) like Netflix         |
+| Active-active multi-region counter   | PN-Counter CRDT (e.g. Redis Active-Active) per logical key |
 
 ### Scaling order of operations
 
@@ -377,6 +414,7 @@ The decision tree is small. Walk it explicitly for every new counter rather than
 - Storage-engine ceilings are real and predictable: Firestore ~1/sec per doc, DynamoDB 1,000 WCU/sec per partition, Cassandra counters two orders of magnitude slower than ordinary writes. Design to those numbers, not to the headline benchmark.
 - Eventual consistency is a feature for engagement counters and a footgun for anything resembling money. The TAO engineering write-up — "losing consistency is a lesser evil than losing availability" — is a stance, not a default.
 - HyperLogLog and Count-Min Sketch turn impossible counting problems into bounded-error counting problems. Keep them in the toolbox; reach for them the moment exact counting hits a memory or time wall.
+- For active-active multi-region or edge deployments, reach for a PN-Counter CRDT before reinventing conflict resolution. Coordination-free convergence is the property to optimise for; per-replica state growth is the price.
 - Most production failures of sharded counters are operational, not algorithmic: over-sharding, missing fallback paths, mean-of-shards alerting, and unbounded rollup lag. Monitor per-shard, alert on lag, exercise the fallback.
 
 ## Appendix
@@ -396,6 +434,7 @@ The decision tree is small. Walk it explicitly for every new counter rather than
 - **Cardinality**: count of distinct elements in a multiset.
 - **HyperLogLog (HLL)**: probabilistic cardinality estimation, mergeable.
 - **Count-Min Sketch (CMS)**: probabilistic frequency estimation with one-sided (over-) error.
+- **CRDT** (Conflict-free Replicated Data Type): a data structure whose merge function is associative, commutative, and idempotent so independent replicas converge without coordination. **G-Counter** (grow-only) and **PN-Counter** (positive + negative) are the canonical counter shapes.
 - **Eventual consistency**: replicas converge to the same value in the absence of new updates; reads may transiently lag.
 - **Linearizability**: every read observes the most recent write, globally; the strongest consistency level commonly implemented.
 
@@ -416,3 +455,7 @@ The decision tree is small. Walk it explicitly for every new counter rather than
 [^hll-google]: Heule, Nunkesser, Hall, [HyperLogLog in Practice: Algorithmic Engineering of a State of the Art Cardinality Estimation Algorithm (EDBT 2013)](https://research.google.com/pubs/archive/40671.pdf). HLL++ improvements adopted by most modern implementations.
 [^fb-presto]: [HyperLogLog in Presto: Faster cardinality estimation — Engineering at Meta, 2018](https://engineering.fb.com/2018/12/13/data-infrastructure/hyperloglog/). The "12 hours, <1 MB" production result.
 [^cms-paper]: Cormode, Muthukrishnan, [An Improved Data Stream Summary: The Count-Min Sketch and its Applications (Journal of Algorithms, 2005)](https://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf). Formal accuracy bounds and parameter sizing.
+[^crdt-paper]: Shapiro, Preguiça, Baquero, Zawirski, [A comprehensive study of Convergent and Commutative Replicated Data Types (INRIA RR-7506, 2011)](https://inria.hal.science/inria-00555588/document). G-Counter, PN-Counter, and the join-semilattice formalism.
+[^redis-crdt-concepts]: [Active-Active geo-distribution — Redis documentation](https://redis.io/docs/latest/operate/rs/databases/active-active/). CRDB architecture and conflict resolution model.
+[^redis-crdt-counters]: [Develop applications with Active-Active counters — Redis documentation](https://redis.io/docs/latest/operate/rs/databases/active-active/develop/data-types/counters/). Counter type semantics under concurrent multi-region writes.
+[^redis-crdt-blog]: [Diving into CRDTs — Redis Blog](https://redis.io/blog/diving-into-crdts/). Operation-based CRDT variants used in Redis Enterprise.

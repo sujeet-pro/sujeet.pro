@@ -1,0 +1,13 @@
+%% Diagram: Network-aware Service Worker strategies (network-first, stale-while-revalidate)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    NF1["Network-First: fetch"] --> NF2[network + timeout]
+    NF2 -->|ok| NF3[return + cache]
+    NF2 -->|fail| NF4[return cached or offline]
+    NF3 ~~~ SWR1
+    NF4 ~~~ SWR1
+    SWR1["Stale-While-Revalidate: fetch"] --> SWR2{cached?}
+    SWR2 -->|hit| SWR3[return cached now]
+    SWR2 -->|miss| SWR4[await network + cache]
+    SWR3 -.->|background| SWR5[refresh cache]

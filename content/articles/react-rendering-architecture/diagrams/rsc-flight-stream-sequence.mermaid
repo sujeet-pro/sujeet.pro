@@ -2,20 +2,19 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant B as Browser
-    participant E as Edge / Node\n(SSR + RSC runtime)
+    participant E as Edge\n(SSR + RSC)
     participant DB as Database
 
-    B->>E: GET /products
-    E->>E: Render server tree\n(server components)
-    E->>DB: Query products
-    DB-->>E: Rows
-    E-->>B: HTML shell\n+ first Flight chunks
-    Note over E,B: Server keeps streaming\nas Suspense boundaries resolve
-    E->>DB: Query reviews\n(suspended boundary)
-    DB-->>E: Rows
-    E-->>B: Flight chunk\nfor reviews subtree
-    B->>B: Patch DOM placeholder\n(react-server-dom-* runtime)
-    B->>B: Hydrate client islands\n(use client modules)
-    Note over B: Server component code\nnever crosses the wire
+    B->>E: 1. GET /products
+    E->>E: 2. Render server tree
+    E->>DB: 3. Query products
+    DB-->>E: 4. Rows
+    E-->>B: 5. Shell + first chunks
+    Note over E,B: Stream continues as\nSuspense boundaries resolve
+    E->>DB: 6. Query reviews\n(suspended)
+    DB-->>E: 7. Rows
+    E-->>B: 8. Flight chunk\n(reviews subtree)
+    B->>B: 9. Patch DOM placeholder
+    B->>B: 10. Hydrate client islands
+    Note over B: Server code never\ncrosses the wire

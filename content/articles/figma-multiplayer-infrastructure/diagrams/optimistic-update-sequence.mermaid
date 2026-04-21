@@ -2,29 +2,28 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant CA as Client A
-    participant MP as Multiplayer Server (Rust)
+    participant MP as Server (Rust)
     participant CB as Client B
 
-    Note over CA: User edits prop P on object O — set fill = red
-    CA->>CA: apply locally and mark unacked
-    CA->>MP: delta(O, P, red, seq 42)
+    Note over CA: A edits O.fill = red
+    CA->>CA: apply locally,<br/>mark unacked
+    CA->>MP: delta(O.fill=red, seq 42)
 
-    Note over CB: Concurrent edit on same prop — set fill = blue
-    CB->>CB: apply locally and mark unacked
-    CB->>MP: delta(O, P, blue, seq 43)
+    Note over CB: B edits O.fill = blue
+    CB->>CB: apply locally,<br/>mark unacked
+    CB->>MP: delta(O.fill=blue, seq 43)
 
-    Note over MP: Server applies in arrival order — seq 43 wins for P on O
-    MP-->>CA: broadcast(O, P, blue, seq 43)
-    MP-->>CB: ack(O, P, blue, seq 43)
+    Note over MP: Apply in arrival order<br/>seq 43 wins
+    MP-->>CA: broadcast(blue, seq 43)
+    MP-->>CB: ack(blue, seq 43)
 
-    Note over CA: Conflict rule — discard server change for P while local P is unacked
-    CA->>CA: keep red (still unacked)
+    Note over CA: Discard server P while<br/>local P is unacked
+    CA->>CA: keep red
 
-    MP-->>CA: ack(O, P, red, seq 42)
-    Note over MP: Server processed seq 42 after 43 — broadcast wins-loss order
-    MP-->>CB: broadcast(O, P, red, seq 42)
+    MP-->>CA: ack(red, seq 42)
+    Note over MP: Re-broadcast wins/loss order
+    MP-->>CB: broadcast(red, seq 42)
 
-    CA->>CA: clear unacked and finalize red
-    CB->>CB: replace local and finalize red
+    CA->>CA: clear unacked, finalize red
+    CB->>CB: replace local, finalize red

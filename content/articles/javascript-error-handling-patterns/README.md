@@ -254,7 +254,7 @@ The annotation on the catch parameter itself is **restricted to `unknown` or `an
 
 ### `Error.isError` for cross-realm checks
 
-`Error.isError` reached Stage 4 in June 2025 and is included in the [ECMAScript 2026 specification](https://tc39.es/ecma262/). It addresses the cross-realm `instanceof` footgun:
+`Error.isError` reached [Stage 4 in 2025](https://github.com/tc39/proposal-is-error) and is included in the [ECMAScript 2026 specification](https://tc39.es/ecma262/). It addresses the cross-realm `instanceof` footgun:
 
 ```js
 const iframe = document.createElement("iframe")

@@ -1,20 +1,16 @@
 %% Diagram: OOP-R IPC flow between renderer and Viz process
 %% Type: sequenceDiagram
 sequenceDiagram
-    participant Main as Renderer · main thread
-    participant CC as Renderer · cc compositor
-    participant Worker as Renderer · raster worker
-    participant Viz as Viz · GPU process
-    participant GPU as GPU driver
+    participant Main as Renderer<br/>main thread
+    participant CC as Renderer<br/>cc compositor
+    participant Worker as Renderer<br/>raster worker
+    participant Viz as Viz / GPU process<br/>(Skia + driver)
 
     Main->>CC: commit PaintRecord
-    CC->>Worker: schedule tile (priority NOW)
-    Worker->>Worker: serialize Skia ops to command buffer
-    Worker->>Viz: IPC: raster commands + sync token
-    Viz->>Viz: Skia (Ganesh / Graphite) replays
-    Viz->>GPU: GL / Vulkan / Metal / D3D12 calls
-    GPU-->>Viz: texture written
-    Viz-->>Worker: signal sync token release
-    Viz->>Viz: register texture under mailbox
-    CC->>Viz: build CompositorFrame referencing mailbox
-    Viz->>GPU: present frame
+    CC->>Worker: schedule tile (NOW)
+    Worker->>Worker: serialize Skia ops<br/>to command buffer
+    Worker->>Viz: IPC: raster cmds + sync token
+    Viz->>Viz: Skia (Ganesh / Graphite)<br/>replays via GL / Vulkan / Metal / D3D12
+    Viz-->>Worker: sync token released<br/>texture under mailbox
+    CC->>Viz: CompositorFrame<br/>referencing mailbox
+    Viz->>Viz: present frame at VBlank

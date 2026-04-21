@@ -287,7 +287,7 @@ Permissions attach to roles; users are assigned roles. The model is formalised i
 
 RBAC's failure mode is **role explosion**. The moment a permission depends on the resource ("only your own documents") or context ("only during business hours"), pure RBAC starts spawning roles like `editor-team-A-monday-thru-friday-9-to-5`. When you find yourself doing that, you've outgrown RBAC.
 
-```ts title="rbac.ts" mark={20-22}
+```ts title="rbac.ts" mark={15-17}
 type Permission = `${string}:${"create" | "read" | "update" | "delete"}`
 
 const rolePermissions = new Map<string, Set<Permission>>([

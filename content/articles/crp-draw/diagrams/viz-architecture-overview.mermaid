@@ -1,0 +1,42 @@
+%% Diagram: Viz architecture — frames from many renderer processes plus the browser UI flow into the GPU process and out to the display.
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Producers["Frame producers (separate processes)"]
+        direction TB
+        BUI["Browser process<br/>(UI, tab strip, omnibox)"]
+        R1["Renderer A<br/>(top-level page)"]
+        R2["Renderer B<br/>(cross-origin iframe)"]
+        R3["Renderer C<br/>(cross-origin iframe)"]
+    end
+
+    subgraph VizProcess["Viz (GPU process)"]
+        direction TB
+        FS["FrameSinkManager<br/>(routes CompositorFrames)"]
+        Agg["SurfaceAggregator<br/>(walks SurfaceQuads, merges)"]
+        Skia["SkiaRenderer<br/>(Ganesh → Graphite)"]
+        CmdBuf["GPU command buffer<br/>(Vulkan / Metal / D3D / GL)"]
+    end
+
+    subgraph Hardware["Display path"]
+        direction TB
+        Swap["Swap chain / overlays"]
+        DC["Display controller"]
+        Screen["Physical screen"]
+    end
+
+    BUI -- "SubmitCompositorFrame" --> FS
+    R1 -- "SubmitCompositorFrame" --> FS
+    R2 -- "SubmitCompositorFrame" --> FS
+    R3 -- "SubmitCompositorFrame" --> FS
+    FS --> Agg
+    Agg -- "single aggregated frame" --> Skia
+    Skia --> CmdBuf
+    CmdBuf -- "GPU commands" --> Swap
+    Swap --> DC --> Screen
+
+    classDef proc fill:#e3f2fd,stroke:#0d47a1,color:#0d47a1
+    classDef viz fill:#fff3e0,stroke:#bf360c,color:#7f2300
+    classDef hw fill:#f3e5f5,stroke:#4a148c,color:#4a148c
+    class BUI,R1,R2,R3 proc
+    class FS,Agg,Skia,CmdBuf viz
+    class Swap,DC,Screen hw

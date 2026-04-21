@@ -40,7 +40,7 @@ The headline trade-off space:
 
 ### Cron-based (time-triggered)
 
-Tasks fire at specific times defined by cron expressions (`0 9 * * *` for 9 AM daily). The scheduler evaluates each expression against the current time and enqueues matching jobs. Cron has been the default since [Version 7 Unix in 1979](https://en.wikipedia.org/wiki/Cron#History) and the syntax has barely changed.
+Tasks fire at specific times defined by cron expressions (`0 9 * * *` for 9 AM daily). The scheduler evaluates each expression against the current time and enqueues matching jobs. Cron has been the default since [Version 7 Unix in 1979](https://en.wikipedia.org/wiki/Cron#History) and the syntax — five space-separated fields for minute, hour, day-of-month, month, and day-of-week — is standardised in `man 5 crontab`[^cron5] and POSIX[^posixcron]. Most modern schedulers extend that base format with seconds, year, or symbolic ranges (Quartz adds both[^quartzcron]).
 
 **Best when:** predictable, recurring workloads (daily reports, hourly aggregations) that align with calendar boundaries and where execution time should not drift based on the previous run.
 
@@ -189,7 +189,7 @@ Tasks are assigned to schedulers / workers by hashing the task ID. Each node own
 - ❌ Cluster changes still trigger some rebalancing.
 - ❌ Doesn't natively handle variable per-task complexity.
 
-Virtual nodes (each physical node owning many positions on the ring) significantly improve distribution. The exact ratio is workload-dependent — Cassandra ships with 256 vnodes per node by default, while many systems land in the 100–1000 range. Tune this with measured load variance, not a number copied from a blog post.
+Virtual nodes (each physical node owning many positions on the ring) significantly improve distribution. The exact ratio is workload-dependent — Cassandra defaulted to 256 vnodes per node through 3.x and dropped that to 16 in 4.0 (CASSANDRA-13701) once availability analysis showed lower vnode counts reduce the probability of multi-token-range outages on node failure[^cassvnodes]. Tune this with measured load variance, not a number copied from a blog post.
 
 ## Task storage
 
@@ -248,6 +248,8 @@ The [`db-scheduler`](https://github.com/kagkarlsson/db-scheduler) library is a c
 | **Redis**    | Push (lists/streams) | Optional (RDB/AOF)        | 100K+ ops/sec      | Low-latency, simple queues   |
 | **RabbitMQ** | Push (AMQP)          | Mirrored / quorum queues  | 50K+ msg/sec       | Complex routing, reliability |
 | **Kafka**    | Pull (log)           | Replicated partitions     | 1M+ msg/sec        | High volume, replayable log  |
+
+Sidekiq is the canonical Redis-backed example in the Ruby ecosystem and a useful concrete reference for how a "broker only" design handles durability: it persists jobs in Redis lists and uses a `processed/failed` counter pair plus a per-process heartbeat to detect crashed workers and recover their in-flight jobs[^sidekiq]. The Sidekiq docs explicitly call out the operational implication — Redis durability is bounded by RDB/AOF settings, so for hard-money workloads you either run Redis with `appendfsync always` or push the durable record into your primary database.
 
 ### Hybrid (database + broker)
 
@@ -477,6 +479,8 @@ Temporal's overlap policies — directly from the docs[^tsched]:
 - `TerminateOther` — terminate (no graceful cancel) the running execution, then start the new one.
 - `AllowAll` — no limits on concurrent executions.
 
+Quartz separates *overlap* (handled via `@DisallowConcurrentExecution`) from *missed firings*, which it controls with explicit **misfire instructions** per trigger — `MISFIRE_INSTRUCTION_FIRE_NOW`, `MISFIRE_INSTRUCTION_DO_NOTHING`, `MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT`, etc. The misfire threshold (default 60 s) defines how late a fire is allowed to be before it is treated as a misfire instead of just a delayed execution[^quartzmisfire]. Picking the wrong default is one of the more common Quartz footguns: a long downtime followed by `FIRE_NOW` on every trigger produces an instant thundering herd against whatever the jobs touch.
+
 Kubernetes CronJob exposes a smaller set:
 
 ```yaml title="cronjob.yaml"
@@ -608,7 +612,7 @@ Start with these questions:
    - Days to a year — durable execution (Temporal, AWS Step Functions Standard).
 
 4. **What operational capacity do you have?**
-   - Small team — managed services (AWS Step Functions, Cloud Tasks, Temporal Cloud).
+   - Small team — managed services (AWS Step Functions, Google Cloud Tasks / Cloud Scheduler, Temporal Cloud). Cloud Tasks in particular is a managed at-least-once HTTP-target queue with per-queue rate and concurrency limits and built-in retry backoff[^cloudtasks]; Cloud Scheduler is the managed cron front-end that targets Cloud Tasks, Pub/Sub, or arbitrary HTTP[^cloudsched].
    - Dedicated SRE — self-hosted Temporal, Airflow.
 
 | Requirement            | Celery     | Airflow      | Temporal    | DB-only   |
@@ -677,6 +681,14 @@ The key insight from production systems: **operational simplicity beats theoreti
 [^ddtemp]: ["How Datadog Ensures Database Reliability with Temporal"](https://temporal.io/resources/case-studies/how-datadog-ensures-database-reliability-with-temporal). Datadog's use of Temporal for Database Reliability Engineering.
 [^airflow3event]: ["Event-driven scheduling — Airflow"](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/event-scheduling.html) and ["Asset-Aware Scheduling"](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/asset-scheduling.html).
 [^daskwork]: ["Work Stealing — Dask.distributed"](https://distributed.dask.org/en/stable/work-stealing.html). Computation-to-communication ratio binning and saturated-worker rebalancing.
+[^cassvnodes]: ["The Impacts of Changing the Number of VNodes in Apache Cassandra"](https://thelastpickle.com/blog/2021/01/29/impacts-of-changing-the-number-of-vnodes.html) and [CASSANDRA-13701](https://issues.apache.org/jira/browse/CASSANDRA-13701) — default `num_tokens` lowered from 256 to 16 in 4.0 alongside `allocate_tokens_for_local_replication_factor` to control replica placement.
+[^cron5]: ["crontab(5) — Linux manual page"](https://man7.org/linux/man-pages/man5/crontab.5.html). Five-field syntax, supported ranges, environment variables, and `@reboot` / `@daily` macros.
+[^posixcron]: ["crontab — POSIX.1-2024"](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/crontab.html). Normative POSIX definition of `crontab` and the cron file format.
+[^quartzcron]: ["CronTrigger Tutorial — Quartz Scheduler"](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html). Quartz extends Unix cron with a leading seconds field and an optional trailing year field.
+[^quartzmisfire]: ["Lesson 4: More About Triggers — Misfire Instructions"](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/tutorial-lesson-04.html) and [`org.quartz.JobStore.misfireThreshold`](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/configuration/ConfigMain.html). Per-trigger misfire policies and the global threshold (default 60 s) that decides what counts as "late".
+[^sidekiq]: ["Sidekiq Best Practices"](https://github.com/sidekiq/sidekiq/wiki/Best-Practices) and ["Reliability"](https://github.com/sidekiq/sidekiq/wiki/Reliability) wiki pages — Redis-backed job queue, per-process heartbeat, and the explicit warning about Redis durability boundaries.
+[^cloudtasks]: ["Overview of Cloud Tasks — Google Cloud"](https://cloud.google.com/tasks/docs/dual-overview). Managed HTTP/App Engine target queues with rate, concurrency, and retry configuration; at-least-once delivery semantics.
+[^cloudsched]: ["Overview of Cloud Scheduler — Google Cloud"](https://cloud.google.com/scheduler/docs/overview). Managed cron service supporting HTTP, Pub/Sub, and App Engine targets with at-least-once delivery and configurable retry policy.
 
 #### Further reading
 

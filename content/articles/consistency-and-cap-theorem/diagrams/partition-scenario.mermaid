@@ -2,22 +2,19 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant C as Client
-    participant N1 as Node A (saw write)
-    participant N2 as Node B (isolated)
+    participant N1 as Node A
+    participant N2 as Node B
 
-    rect rgba(46, 90, 136, 0.12)
-    note over N1,N2: Partition: N1 ⇎ N2 cannot exchange messages
-    end
+    note over N1,N2: Partition: N1 and N2 cannot exchange messages
 
-    C->>N1: write(x = 1) [acked]
+    C->>N1: write(x=1) acked
     C->>N2: read(x)
 
     alt CP system (linearizable)
-        N2-->>C: ERROR / timeout — refuses to answer without quorum
-        note right of N2: Sacrifices availability to preserve C
+        N2-->>C: ERROR / timeout
+        note right of N2: Sacrifices A to preserve C
     else AP system (eventual)
-        N2-->>C: x = 0 (stale) — local value
-        note right of N2: Sacrifices consistency to preserve A
+        N2-->>C: x=0 (stale local value)
+        note right of N2: Sacrifices C to preserve A
     end

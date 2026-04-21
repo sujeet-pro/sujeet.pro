@@ -14,7 +14,7 @@ tags:
 
 # Design Pastebin: Text Sharing, Expiration, and Abuse Prevention
 
-A comprehensive system design for a text-sharing service like Pastebin covering URL generation strategies, content storage at scale, expiration policies, syntax highlighting, access control, and abuse prevention. This design addresses sub-100ms paste retrieval at 10:1 read-to-write ratio with content deduplication and multi-tier storage tiering.
+A system design for a text-sharing service like Pastebin covering URL generation strategies, content storage at scale, expiration policies, syntax highlighting, access control, and abuse prevention. The target is sub-100ms paste retrieval at a 10:1 read-to-write ratio with content deduplication and multi-tier storage tiering.
 
 ![High-level architecture](./diagrams/high-level-architecture-light.svg "Pastebin at a glance: a CDN absorbs immutable read traffic at the edge, the application tier splits write and read paths around a key-generation service and content scanner, an async tier runs syntax highlighting and expiration sweeps, and the storage tier separates Redis hot cache, PostgreSQL metadata, and object-stored paste bodies so each can scale independently.")
 ![High-level architecture](./diagrams/high-level-architecture-dark.svg)
@@ -591,14 +591,21 @@ The KGS is the critical component that decouples ID generation from the write pa
 - Cons: 64 bits encoded in Base62 needs 11 characters (`⌈64 / log₂(62)⌉`), so URLs are longer than the 7-char target; the embedded timestamp also leaks creation time and worker assignment
 - Best when: Time-ordering is valuable for downstream analytics or chronological iteration, and slightly longer URLs are acceptable
 
-**Option 4: Pre-generated Key Service (KGS)**
+**Option 4: NanoID-style random IDs at write time**
+
+- Generate a CSPRNG-backed URL-safe id inline on the write path (the [NanoID reference implementation](https://github.com/ai/nanoid) uses a 21-character alphabet of `A-Za-z0-9_-`)
+- Pros: No coordinator, no separate service, library exists for every runtime
+- Cons: Either accept a longer URL (NanoID's default 21 chars give ~149 bits of entropy) or shrink the id to 7-9 chars and re-introduce the birthday problem with explicit collision-retry on insert
+- Best when: A small project that does not want to operate a key service; tolerable to retry on `INSERT … ON CONFLICT` collisions at the chosen id length
+
+**Option 5: Pre-generated Key Service (KGS)**
 
 - Offline process generates random 7-character Base62 strings, stores in pool
 - Pros: Zero collision, O(1) retrieval, decoupled, predictable key length
 - Cons: Requires separate service, wastes keys on crashes
 - Best when: Short predictable-length URLs, high write throughput
 
-**Chosen approach:** KGS (Option 4)
+**Chosen approach:** KGS (Option 5)
 
 **Rationale:** Paste URLs must be short (7 characters) and unpredictable (no enumeration). KGS achieves both while eliminating collision handling from the write path entirely. The keyspace (62^7 = 3.52 trillion) is practically inexhaustible.
 

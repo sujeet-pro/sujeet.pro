@@ -1,0 +1,51 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge
+        direction TB
+        R53["Route 53"]
+        CF["CloudFront"]
+    end
+
+    subgraph Security
+        direction TB
+        WAF["AWS WAF"]
+        SHIELD["AWS Shield"]
+    end
+
+    subgraph Compute["EKS Cluster"]
+        direction TB
+        subgraph API["API Tier"]
+            direction TB
+            REDIRECT["Redirect Service<br/>(Fargate)"]
+            SHORTEN["Shortening Service<br/>(Fargate)"]
+        end
+        subgraph Workers["Worker Tier"]
+            direction TB
+            KGS["KGS<br/>(Fargate)"]
+            ANALYTICS["Analytics Processor<br/>(Fargate)"]
+        end
+    end
+
+    subgraph Storage
+        direction TB
+        ELASTICACHE["ElastiCache Redis<br/>(Cluster)"]
+        KEYSPACES["Amazon Keyspaces<br/>(Cassandra)"]
+        RDS["RDS PostgreSQL<br/>(Multi-AZ)"]
+    end
+
+    subgraph Analytics
+        direction TB
+        MSK["Amazon MSK<br/>(Kafka)"]
+        CLICKHOUSE["ClickHouse<br/>(Self-managed EC2)"]
+    end
+
+    R53 --> CF
+    CF --> WAF --> SHIELD
+    SHIELD --> REDIRECT & SHORTEN
+    REDIRECT --> ELASTICACHE
+    REDIRECT --> KEYSPACES
+    SHORTEN --> KGS --> RDS
+    SHORTEN --> KEYSPACES
+    REDIRECT --> MSK --> ANALYTICS --> CLICKHOUSE

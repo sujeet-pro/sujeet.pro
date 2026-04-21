@@ -3,29 +3,29 @@
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
     participant App as Rails app
-    participant PXA as ProxySQL (cluster_a)
-    participant PXB as ProxySQL (cluster_b)
-    participant A as cluster_a primary (source)
-    participant B as cluster_b primary (destination)
+    participant PXA as ProxySQL on cluster_a
+    participant PXB as ProxySQL on cluster_b
+    participant A as cluster_a primary - source
+    participant B as cluster_b primary - destination
 
-    Note over A,B: Steady state: B replicates from A; PXB routes to A
+    Note over A,B: Steady state - B replicates from A, PXB routes to A
     App->>PXA: writes
     PXA->>A: forward writes
     A->>B: standard MySQL replication
 
-    Note over App,B: Cutover script begins (executes in tens of milliseconds)
+    Note over App,B: Cutover script - executes in tens of milliseconds
 
     PXA->>A: 1. SET GLOBAL read_only=ON
-    A-->>PXA: writes now blocked (handful of 5xx)
+    A-->>PXA: writes blocked - small burst of 5xx
     PXA->>A: 2. read last executed GTID
     A-->>PXA: GTID = X
-    PXB->>B: 3. poll until GTID X arrived
+    PXB->>B: 3. poll until GTID X applied
     B-->>PXB: GTID X applied
     PXB->>B: 4. STOP REPLICA from cluster_a
     PXB->>PXB: 5. swap routing target to cluster_b primary
-    PXA->>A: 6. SET GLOBAL read_only=OFF (both primaries)
+    PXA->>A: 6. SET GLOBAL read_only=OFF
     PXB->>B: 6. SET GLOBAL read_only=OFF
 
-    Note over App,B: Steady state: writes now land on cluster_b primary
+    Note over App,B: Steady state - writes now land on cluster_b primary
     App->>PXB: writes
     PXB->>B: forward writes

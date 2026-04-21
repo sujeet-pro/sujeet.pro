@@ -18,6 +18,9 @@ flowchart LR
     NoteCost["O(N*K) + O(M*log M)<br/>N = |smallest input| (friends)<br/>K = number of inputs (2)<br/>M = result size"]
     Z -. cost .- NoteCost
 
-    style Z fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
-    style T fill:#fef3c7,stroke:#b45309,color:#7c2d12
-    style NoteCost fill:#f3f4f6,stroke:#6b7280,color:#1f2937
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    class Z primary
+    class T storage
+    class NoteCost neutral

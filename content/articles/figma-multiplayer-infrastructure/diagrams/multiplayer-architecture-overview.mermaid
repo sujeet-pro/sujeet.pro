@@ -1,0 +1,20 @@
+%% Diagram: Figma S Real Time Infrastructure Browser Clients Sync Document Edits Through A P
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Browser Clients A...N\n(WebAssembly + WebGPU)"]
+
+    subgraph MP["Multiplayer Server (Rust)"]
+        direction TB
+        WS["WebSocket Layer\n(Node.js)"]
+        RP["Rust Process\n(per document)"]
+        Auth["Authoritative State\nMap&lt;ObjectID, Map&lt;Property, Value&gt;&gt;"]
+        WS --> RP --> Auth
+    end
+
+    Persist["Persistence\nDynamoDB Journal (WAL, ~0.5s)\n+ S3 Checkpoints (30-60s)"]
+    LiveGraphSys["LiveGraph (Go)\nedge → cache → Postgres,\nKafka-driven invalidator"]
+
+    Clients <-->|"WebSocket deltas @ 30 FPS"| WS
+    RP --> Persist
+    Clients <-.->|"GraphQL-like subscriptions"| LiveGraphSys

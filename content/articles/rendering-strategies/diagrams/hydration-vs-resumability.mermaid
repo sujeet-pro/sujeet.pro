@@ -1,7 +1,7 @@
 %% Diagram: Hydration vs resumability — what runs on the client at startup
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph H["Full hydration (React 17, Vue)"]
         direction TB
         H1["HTML paints"] --> H2["Download full bundle"] --> H3["Re-execute every component"] --> H4["Attach event listeners"] --> H5["Page interactive"]

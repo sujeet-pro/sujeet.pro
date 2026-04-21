@@ -1,40 +1,38 @@
 %% Diagram: CI pipeline stages for a design-system monorepo
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     PR((PR opened))
 
     subgraph Fast["Fast feedback (< 2 min)"]
         direction TB
         LINT[Lint + typecheck]
         UNIT[Unit + interaction tests]
+        LINT --> UNIT
     end
 
     subgraph Quality["Quality gates (parallel)"]
         direction TB
-        VR[Visual regression<br/>Chromatic / Percy]
-        A11Y[Accessibility<br/>axe + Storybook addon]
-        BUDGET[Bundle budgets<br/>size-limit / bundlewatch]
-        BUILD[Library build<br/>Vite / Rollup]
+        VR["Visual regression"]
+        A11Y["Accessibility"]
+        BUDGET["Bundle budgets"]
+        BUILD["Library build"]
     end
 
     subgraph Release["Release (main only)"]
         direction TB
-        CHANGE[Changesets bot opens<br/>Version Packages PR]
-        PUB[Publish to registry +<br/>generate codemods]
+        CHANGE["Changesets bot opens\nVersion Packages PR"]
+        PUB["Publish + generate codemods"]
+        CHANGE --> PUB
     end
 
-    PR --> LINT --> UNIT
-    UNIT --> VR
-    UNIT --> A11Y
-    UNIT --> BUDGET
-    UNIT --> BUILD
+    PR --> Fast
+    Fast --> Quality
+    Quality -. "main merge" .-> Release
 
-    BUILD -. main merge .-> CHANGE --> PUB
-
-    classDef fast fill:#dbeafe,stroke:#1e40af,color:#1f2937
-    classDef gate fill:#fef3c7,stroke:#92400e,color:#1f2937
-    classDef rel fill:#dcfce7,stroke:#166534,color:#1f2937
+    classDef fast fill:#2E5A88,stroke:#1F3F60,color:#ffffff
+    classDef gate fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
+    classDef rel fill:#2D7A2D,stroke:#1B4D1B,color:#ffffff
     class LINT,UNIT fast
     class VR,A11Y,BUDGET,BUILD gate
     class CHANGE,PUB rel

@@ -33,16 +33,22 @@ flowchart TB
 
     TRIGGER --> CASCADE --> INVESTIGATION --> RECOVERY
 
-    style T1 fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style T2 fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style C1 fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style C2 fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style C3 fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style I1 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
-    style I2 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
-    style I3 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
-    style R1 fill:#1F6E68,stroke:#155752,color:#ffffff
-    style R2 fill:#1F6E68,stroke:#155752,color:#ffffff
-    style R3 fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style R4 fill:#1F6E68,stroke:#155752,color:#ffffff
-    style R5 fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    T1:::alert
+    T2:::alert
+    C1:::warn
+    C2:::warn
+    C3:::warn
+    I1:::neutral
+    I2:::neutral
+    I3:::neutral
+    R1:::secondary
+    R2:::secondary
+    R3:::warn
+    R4:::secondary
+    R5:::success
+
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff

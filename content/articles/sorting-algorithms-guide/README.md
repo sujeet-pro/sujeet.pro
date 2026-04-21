@@ -536,21 +536,8 @@ Both Quick Sort and Heap Sort are in-place, unstable, O(n log n) average-case al
 
 **Quick Sort wins decisively here.**
 
-```
-Quick Sort: Sequential memory access during partition
-┌───┬───┬───┬───┬───┬───┬───┬───┐
-│ 3 │ 1 │ 4 │ 1 │ 5 │ 9 │ 2 │ 6 │  ← Scans left-to-right
-└───┴───┴───┴───┴───┴───┴───┴───┘
-  →   →   →   →   →   →   →   →
-
-Heap Sort: Jumps between parent and children (2i+1, 2i+2)
-┌───┬───┬───┬───┬───┬───┬───┬───┐
-│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │  ← Index
-└───┴───┴───┴───┴───┴───┴───┴───┘
-  ↓───────↘───────↘
-      ↓───────↘───────↘
-          (Parent-child jumps cause cache misses)
-```
+![Quick Sort scans the array sequentially during partition while Heap Sort jumps between parent index i and children 2i+1, 2i+2 — causing cache misses on large arrays.](./diagrams/cache-access-patterns-light.svg "Quick Sort streams the array left-to-right; Heap Sort hops parent ↔ children (2i+1, 2i+2). At deep levels of a heap, those hops span half the array — far beyond any cache line.")
+![Quick Sort scans the array sequentially during partition while Heap Sort jumps between parent index i and children 2i+1, 2i+2 — causing cache misses on large arrays.](./diagrams/cache-access-patterns-dark.svg)
 
 - **Quick Sort**: The partition step scans the array sequentially. Adjacent elements are accessed together, maximizing L1/L2 cache hits.
 - **Heap Sort**: Heapify jumps between index `i` and indices `2i+1`, `2i+2`. For large arrays, parent and children are far apart in memory, causing frequent cache misses.
@@ -638,18 +625,13 @@ For comparison, the array itself for 10 million 64-bit integers takes **80 MB**.
 
 ### 6. Benchmark Reality
 
-Typical benchmarks show Quick Sort 2-3x faster than Heap Sort:
+Typical benchmarks on 10,000,000 random 64-bit integers show Quick Sort roughly 2-3× faster than Heap Sort. Concrete numbers below are illustrative — exact timings depend heavily on the hardware, allocator, and the specific implementation, but the *ranking* is consistent across published benchmarks ([Sedgewick & Wayne](https://algs4.cs.princeton.edu/), [pdqsort paper](https://arxiv.org/abs/2106.05123)).
 
-```
-Sorting 10,000,000 random integers (typical results):
-┌─────────────┬──────────────┬─────────┐
-│ Algorithm   │ Time (ms)    │ Ratio   │
-├─────────────┼──────────────┼─────────┤
-│ Quick Sort  │ ~800         │ 1.0x    │
-│ Heap Sort   │ ~2000        │ 2.5x    │
-│ Merge Sort  │ ~1200        │ 1.5x    │
-└─────────────┴──────────────┴─────────┘
-```
+| Algorithm  | Time (illustrative) | Ratio vs Quick Sort |
+| ---------- | ------------------- | ------------------- |
+| Quick Sort | ~800 ms             | 1.0×                |
+| Merge Sort | ~1200 ms            | 1.5×                |
+| Heap Sort  | ~2000 ms            | 2.5×                |
 
 ### When to Actually Use Heap Sort
 

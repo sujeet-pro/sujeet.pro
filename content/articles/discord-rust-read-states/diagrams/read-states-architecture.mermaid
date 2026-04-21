@@ -1,28 +1,33 @@
 %% Diagram: Single Read States server node — in-process LRU cache backed by Cassandra
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Clients["Hot-path callers"]
         direction TB
-        Ready["Gateway READY<br/>(every WebSocket connect)"]
-        Send["Message send<br/>(updates @mention counts)"]
-        Ack["Message ack<br/>(updates last_message_id)"]
+        Ready["Gateway READY\n(every WebSocket connect)"]:::primary
+        Send["Message send\n(updates @mention counts)"]:::primary
+        Ack["Message ack\n(updates last_message_id)"]:::primary
     end
 
     subgraph Node["Read States server node"]
         direction TB
-        API["RPC handler"]
-        LRU["In-process LRU cache<br/>tens of millions of Read States"]
-        Batcher["Dirty-entry batcher<br/>(commit +30s after update)"]
+        API["RPC handler"]:::secondary
+        LRU["In-process LRU cache\ntens of millions of entries"]:::neutral
+        Batcher["Dirty-entry batcher\ncommit +30s after update"]:::secondary
         API --> LRU
         LRU --> Batcher
     end
 
-    DB[("Cassandra<br/>billions of Read States")]
+    DB[("Cassandra\nbillions of Read States")]:::storage
 
     Ready --> API
     Send --> API
     Ack --> API
-    Batcher -->|"~tens of thousands<br/>writes/s"| DB
+    Batcher -->|"~tens of thousands\nwrites/s"| DB
     LRU -.->|"miss → load"| DB
     LRU -.->|"eviction → flush"| DB
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff

@@ -19,8 +19,8 @@ tags:
 
 How browsers parse HTML bytes into a Document Object Model (DOM) tree, why JavaScript loading strategies dictate performance, and how the preload scanner mitigates the cost of parser-blocking resources. This is the first construction stage of the [Critical Rendering Path](../crp-rendering-pipeline-overview/README.md) series; the parallel CSS pipeline is covered in [CRP: CSSOM Construction](../crp-cssom-construction/README.md).
 
-![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-light.svg "The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.")
-![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-dark.svg)
+![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/parsing-pipeline-overview-light.svg "The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.")
+![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/parsing-pipeline-overview-dark.svg)
 
 ## Abstract
 
@@ -113,7 +113,7 @@ When formatting elements like `<b>` or `<i>` are improperly nested, the adoption
 <p>One <b>two <i>three</i></b><i> four</i> five</p>
 ```
 
-The algorithm earned its name because "elements change parents" — nodes are reparented to produce valid structure. The [adoption agency algorithm](https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm) was chosen over alternatives that earlier WG drafts named the "incest algorithm" and the "Heisenberg algorithm" — the spec note still acknowledges those rejected names.
+The [adoption agency algorithm](https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm) earns its name from the way nodes are "adopted" by new parents to produce a valid structure. The spec links to [Hixie's design notes](https://ln.hixie.ch/?start=1037910467&count=1) on the alternative approaches that were rejected.
 
 ### Foster Parenting
 
@@ -223,7 +223,7 @@ If browsers rendered with a partial CSSOM, users would experience a **Flash of U
 
 ### When CSS Becomes Parser-Blocking
 
-CSS becomes parser-blocking whenever **any** script — external **or** inline — follows a pending stylesheet in the document. The HTML spec is explicit: a parser-inserted classic script that does not have `async` or `defer` set is blocked on every style sheet whose `<link>` element appeared earlier in the document ([HTML spec §13.2.6 — A script that will execute when the parser resumes](https://html.spec.whatwg.org/multipage/parsing.html#a-script-that-will-execute-when-the-parser-resumes), step-by-step rules in the [Scripting section §scripting-3](https://html.spec.whatwg.org/multipage/scripting.html#a-script-that-will-execute-when-the-parser-resumes)).
+CSS becomes parser-blocking whenever **any** script — external **or** inline — follows a pending stylesheet in the document. The HTML spec is explicit: a parser-inserted classic script that does not have `async` or `defer` set is blocked on every style sheet whose `<link>` element appeared earlier in the document, with the rules wired up under [HTML spec §13.2.6 — Tree construction (script handling)](https://html.spec.whatwg.org/multipage/parsing.html#scripting) and the per-script processing in [HTML spec §4.12.1 — The script element](https://html.spec.whatwg.org/multipage/scripting.html#the-script-element).
 
 ```html collapse={1}
 <head>

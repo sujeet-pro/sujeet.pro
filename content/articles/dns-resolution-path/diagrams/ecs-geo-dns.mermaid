@@ -7,11 +7,11 @@ sequenceDiagram
     participant Auth as Geo-aware Authoritative
 
     Client->>Rec: Query cdn.example.com
-    Note over Rec: ECS enabled: trim to /24 (203.0.113.0/24)
-    Rec->>Auth: Query + ECS option (FAMILY=IPv4, SOURCE=24, SCOPE=0)
+    Note over Rec: ECS on - trim to /24 prefix
+    Rec->>Auth: Query + ECS (FAMILY=IPv4 SOURCE=24 SCOPE=0)
     Note over Auth: Map 203.0.113.0/24 to nearest PoP
-    Auth-->>Rec: A 198.51.100.10, ECS SCOPE=24
-    Note over Rec: Cache key = (qname, qtype, ECS subnet 203.0.113.0/24)<br/>Reused only for clients inside that /24
+    Auth-->>Rec: A 198.51.100.10 + ECS SCOPE=24
+    Note over Rec: Cache key includes the /24 - reused only inside that subnet
     Rec-->>Client: 198.51.100.10
 
-    Note over Rec,Auth: ECS off (Cloudflare 1.1.1.1):<br/>Rec sends SOURCE=0 or omits option;<br/>Auth answers from resolver IP, single global cache entry.
+    Note over Rec,Auth: ECS off (Cloudflare 1.1.1.1) - Rec sends SOURCE=0 wildcard. Auth answers from resolver IP - single global cache entry.

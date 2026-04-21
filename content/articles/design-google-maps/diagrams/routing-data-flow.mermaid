@@ -1,0 +1,29 @@
+%% Diagram: Routing query data flow (CH + live traffic overlay)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant API as API Gateway
+    participant Router as Routing Service (CH)
+    participant Graph as CH Graph (mmap)
+    participant Traffic as Traffic Store (TSDB)
+    participant Geo as Geocoder
+
+    Client->>API: POST /routes {origin, destination, depart_at}
+    API->>Geo: snap origin/destination to nearest road node
+    Geo-->>API: (node_src, node_dst)
+    API->>Router: route(node_src, node_dst, depart_at)
+
+    par fetch base graph
+        Router->>Graph: bidirectional upward Dijkstra
+    and overlay live traffic
+        Router->>Traffic: speed multipliers for candidate edges
+        Traffic-->>Router: per-segment multipliers (1–5 min window)
+    end
+
+    Router->>Router: edge_weight = base_weight x multiplier
+    Router->>Router: meet at top node, unpack shortcuts
+    Router-->>API: polyline + per-step ETAs
+    API-->>Client: route(s) + duration_in_traffic
+
+    Note over Router,Traffic: Topology never changes at query time — traffic is a multiplier on the static CH graph

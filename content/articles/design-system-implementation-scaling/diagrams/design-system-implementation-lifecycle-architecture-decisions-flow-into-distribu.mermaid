@@ -2,31 +2,39 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Architecture["Architecture (decided once, expensive to revisit)"]
+    subgraph Architecture["Architecture (decided once)"]
+        direction LR
         ARCH[Framework strategy]
         TOKENS[Token pipeline]
         COMP[Component primitives]
-        ARCH --> TOKENS --> COMP
     end
 
     subgraph Distribution["Distribution (continuously tuned)"]
+        direction LR
         BUNDLE[Bundling + exports]
         REGISTRY[Registry + versioning]
         ASSETS[Shared CDN assets]
-        BUNDLE --> REGISTRY
-        REGISTRY --> ASSETS
     end
 
     subgraph Operations["Operations (run as a product)"]
-        CI[CI gates: visual / a11y / perf]
+        direction LR
+        CI[CI gates]
         ANALYTICS[Usage analytics]
         DEPRECATION[Deprecation policy]
         CODEMODS[Codemods]
-        CI --> ANALYTICS
-        ANALYTICS --> DEPRECATION
-        DEPRECATION --> CODEMODS
     end
 
-    COMP --> BUNDLE
-    ASSETS --> CI
-    CODEMODS -.->|"signals next architecture iteration"| ARCH
+    ARCH --> TOKENS --> COMP
+    BUNDLE --> REGISTRY --> ASSETS
+    CI --> ANALYTICS --> DEPRECATION --> CODEMODS
+
+    Architecture --> Distribution
+    Distribution --> Operations
+    Operations -.->|"signals next iteration"| Architecture
+
+    classDef arch fill:#2E5A88,stroke:#1F3F60,color:#ffffff
+    classDef dist fill:#2D7A2D,stroke:#1B4D1B,color:#ffffff
+    classDef ops fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
+    class ARCH,TOKENS,COMP arch
+    class BUNDLE,REGISTRY,ASSETS dist
+    class CI,ANALYTICS,DEPRECATION,CODEMODS ops

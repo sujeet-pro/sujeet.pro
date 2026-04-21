@@ -20,8 +20,8 @@ Change Data Capture (CDC) extracts and streams database changes to downstream sy
 
 This article covers CDC approaches, log-based implementation internals, production patterns, and when each variant makes sense.
 
-![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-light.svg "CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.")
-![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-dark.svg)
+![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers — each event carries the operation type, before/after state, and source metadata.](./diagrams/cdc-overview-light.svg "CDC captures changes from the database's transaction log and emits structured change events to downstream consumers — each event carries operation type, before/after state, and source metadata.")
+![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers — each event carries the operation type, before/after state, and source metadata.](./diagrams/cdc-overview-dark.svg)
 
 ## Mental Model
 
@@ -242,7 +242,7 @@ server-id = 1                          # Unique across replication topology
 log_bin = mysql-bin                    # Enable binary logging
 binlog_format = ROW                    # Required: ROW format (not STATEMENT)
 binlog_row_image = FULL                # Capture before and after state
-expire_logs_days = 3                   # Retention period
+binlog_expire_logs_seconds = 259200    # Retention (3 days). expire_logs_days is deprecated since MySQL 8.0.
 ```
 
 **GTID (Global Transaction ID):**

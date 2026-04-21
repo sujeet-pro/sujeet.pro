@@ -2,28 +2,11 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Share["Shared state surface"]
-        W["Single write API"]
-        R1["Reader A"]
-        R2["Reader B"]
-        R3["Reader C"]
-    end
+    W["Single write API"]
+    R["Readers A, B, C ..."]
+    W --> R
 
-    subgraph Costs["Synchronization costs"]
-        C1["Resubscribe / rerender fan-out"]
-        C2["Merge + conflict detection"]
-        C3["Fixtures + test prelude grow"]
-        C4["Stampede risk after invalidation"]
-    end
-
-    W --> R1
-    W --> R2
-    W --> R3
-    R1 --> C1
-    R2 --> C1
-    R3 --> C1
-    W --> C2
-    Share --> C3
-    R1 --> C4
-    R2 --> C4
-    R3 --> C4
+    R --> C1["Resubscribe and rerender fan-out"]
+    R --> C2["Merge and conflict detection"]
+    C1 --> C3["Test fixtures and prelude grow"]
+    C2 --> C4["Stampede risk after invalidation"]

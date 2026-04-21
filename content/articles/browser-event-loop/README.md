@@ -298,7 +298,7 @@ Worker event loops follow the same task and microtask mechanics, but they can be
 
 ## Conclusion
 
-The browser event loop is a policy-driven scheduler with three execution tiers: tasks (one per iteration, selected from ordered sets using UA-defined priority), microtasks (drained completely after each task), and rendering (a formal task since the December 2023 spec refactor). The practical outcomes are input-first scheduling, microtask starvation risks, and rendering timing that is intentionally UA-defined.
+The browser event loop is a policy-driven scheduler with three execution tiers: tasks (one per iteration, selected from ordered sets using UA-defined priority), microtasks (drained completely after each task), and rendering (a formal task since the WHATWG HTML refactor merged in [PR #10007](https://github.com/whatwg/html/pull/10007) on 2024-01-31). The practical outcomes are input-first scheduling, microtask starvation risks, and rendering timing that is intentionally UA-defined.
 
 Key operational insights:
 
@@ -340,7 +340,7 @@ Key operational insights:
 - Task queues are ordered sets (per Infra Standard); task selection across queues is UA-defined, but ordering within each task source is preserved.
 - Each task runs to completion and is followed by a microtask checkpoint that drains the microtask queue completely—including microtasks spawned during the checkpoint.
 - The microtask queue is separate from task queues; microtask checkpoints also occur during parsing and script cleanup, not just after tasks.
-- Since December 2023, "update the rendering" is a formal task on the rendering task source (previously a post-task operation).
+- Since the WHATWG HTML refactor merged 2024-01-31 ([PR #10007](https://github.com/whatwg/html/pull/10007)), "update the rendering" is a formal task on the rendering task source (previously a post-task operation).
 - Idle callbacks run FIFO during UA-defined idle periods capped at 50ms; callbacks posted during a period wait for the next one. Safari does not support `requestIdleCallback`.
 - Worker event loops can terminate automatically when closing and idle; schedule cleanup before calling `close()`.
 - The modern way to break up a long task on the main thread is `scheduler.yield()` (Chromium + Firefox 142+), with a `setTimeout(fn, 0)` fallback for Safari.

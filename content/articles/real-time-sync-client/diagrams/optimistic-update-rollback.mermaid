@@ -2,36 +2,26 @@
 %% Type: sequenceDiagram
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant U as User
     participant UI as UI
-    participant S as Local Store
-    participant Q as Pending Mutations
-    participant N as Network
+    participant S as Local Store + Pending Queue
     participant Srv as Server
 
     U->>UI: click toggle
-    UI->>S: snapshot previous state
-    UI->>S: apply optimistic state
+    UI->>S: snapshot previous, apply optimistic, enqueue mutation
     UI-->>U: render new state immediately
-    UI->>Q: enqueue mutation with idempotency key
-    UI->>N: PATCH /todos/:id
+    UI->>Srv: PATCH /todos/:id (idempotency key)
 
     alt Success
-        N->>Srv: forward request
-        Srv-->>N: 200 ack
-        N-->>UI: ack
-        UI->>Q: dequeue mutation
-        UI->>S: clear pending marker
+        Srv-->>UI: 200 ack
+        UI->>S: dequeue mutation, clear pending marker
     else Validation failure (4xx)
-        Srv-->>N: 422
-        N-->>UI: error
-        UI->>S: restore snapshot
-        UI->>Q: drop mutation
+        Srv-->>UI: 422
+        UI->>S: restore snapshot, drop mutation
         UI-->>U: show error
     else Network failure
-        N -x UI: timeout
-        UI->>Q: keep mutation pending
-        UI->>N: retry with backoff
-        Note over UI,Q: persistent failure means rollback and surface to user
+        Srv -x UI: timeout
+        UI->>S: keep mutation pending
+        UI->>Srv: retry with backoff
+        Note over UI,S: after persistent failure: rollback and surface to user
     end

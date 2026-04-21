@@ -52,7 +52,7 @@ Node.js runs JavaScript on a single thread driven by an event loop[^node-eventlo
 ![Node.js event loop phases with the nextTick queue draining before Promise microtasks between every phase](./diagrams/node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-dark.svg)
 
 > [!NOTE]
-> **Node.js 20 / libuv 1.45.0 timer change.** Earlier libuv versions could process the timer queue both before and after the poll phase within a single iteration. As of libuv 1.45.0 (shipped with Node.js 20), timers are evaluated only after the poll phase, which subtly shifts `setTimeout` / `setImmediate` interleaving under saturated polls[^node-eventloop].
+> **Node.js 20 / libuv 1.45.0 timer change.** Earlier libuv versions could process the timer queue both before and after the poll phase within a single iteration. As of libuv 1.45.0 (shipped in Node.js 20.3.0[^node-libuv-bump]), timers are evaluated only after the poll phase, which subtly shifts `setTimeout` / `setImmediate` interleaving under saturated polls.
 
 For a queue processor, the consequence is direct: any synchronous CPU work inside a job handler starves the loop, prevents Promise continuations, and — in distributed queues — blocks lock renewal so the worker is declared stalled even though it is technically alive. Yield with `await`, `setImmediate`, or move CPU work off-thread.
 
@@ -559,7 +559,8 @@ Kafka is the common substrate because the topic *is* the event log. The non-obvi
 
 ### References
 
-[^node-eventloop]: [Node.js — The Event Loop, Timers, and `process.nextTick()`](https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick) — phase order, microtask precedence, libuv 1.45.0 timer-phase change in Node.js 20.
+[^node-eventloop]: [Node.js — The Event Loop, Timers, and `process.nextTick()`](https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick) — phase order and microtask precedence.
+[^node-libuv-bump]: [Node.js v20.3.0 changelog — libuv 1.45.0 update](https://nodejs.org/en/blog/release/v20.3.0) and [libuv PR #3927 — timer-phase consolidation](https://github.com/libuv/libuv/pull/3927) — original PR that moved timer evaluation to after the poll phase.
 [^fastq-readme]: [`fastq` README](https://github.com/mcollina/fastq#readme) — design notes on `reusify` and per-task allocation avoidance.
 [^pqueue-readme]: [`p-queue` README — `onSizeLessThan(limit)`](https://github.com/sindresorhus/p-queue#onsizelessthanlimit) — promise that resolves when `queue.size < limit`.
 [^bullmq-stalled]: [BullMQ — Stalled Jobs](https://docs.bullmq.io/guide/jobs/stalled) — `lockDuration` 30 s default, `maxStalledCount` 1, at-least-once consequence.

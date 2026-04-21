@@ -1,0 +1,29 @@
+%% Diagram: Same 4-vertex graph stored as adjacency list vs adjacency matrix
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    src["Source graph: A-B, A-C, B-D, C-D"]:::head
+
+    listHead["Adjacency list — O(V + E)"]:::listHead
+    la["A -> [B, C]"]:::row
+    lb["B -> [A, D]"]:::row
+    lc["C -> [A, D]"]:::row
+    ld["D -> [B, C]"]:::row
+
+    matHead["Adjacency matrix — O(V^2)"]:::matHead
+    header["       A    B    C    D"]:::row
+    ra["A     0    1    1    0"]:::row
+    rb["B     1    0    0    1"]:::row
+    rc["C     1    0    0    1"]:::row
+    rd["D     0    1    1    0"]:::row
+
+    src --> listHead
+    src --> matHead
+
+    listHead --> la --> lb --> lc --> ld
+    matHead --> header --> ra --> rb --> rc --> rd
+
+    classDef head fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef listHead fill:#155752,stroke:#0D3F3B,color:#fff
+    classDef matHead fill:#1F4870,stroke:#152F4A,color:#fff
+    classDef row fill:#1F6E68,stroke:#155752,color:#fff

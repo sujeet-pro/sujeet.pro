@@ -19,8 +19,8 @@ tags:
 
 A design system is a product whose customers can route around it. Tokens, components, and pipelines are well-trodden engineering work; the hard problems are organizational: securing sustained investment, picking a governance model that survives a 10× change in adoption, codifying a tokens-first foundation that everything else inherits from, and making the system the *path of least resistance* for building UI rather than another source of process tax. This article covers the foundations that determine whether a design system program ever compounds — business case, sponsorship, team and governance shape, tokens-first architecture, an accessibility baseline, a working contribution model, an honest deprecation playbook, and the adoption metrics that tell you whether any of it is landing.
 
-![A design system program runs in two halves: foundations (this article — phases 1–2) and implementation/scaling (sibling article — phases 3–6).](./diagrams/the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-light.svg "The six phases: this article covers the foundations (1–2) plus the cross-cutting baselines (tokens, a11y, contribution, deprecation, measurement); deeper implementation lives in the sibling article.")
-![A design system program runs in two halves: foundations (this article — phases 1–2) and implementation/scaling (sibling article — phases 3–6).](./diagrams/the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-dark.svg)
+![Six-phase framework for a design-system program: organizational foundation (business case, team and governance), technical foundation (tokens, accessibility), and adoption + lifecycle (adoption mechanics, deprecation and versioning).](./diagrams/the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-light.svg "The six phases of a design-system program: organizational foundation (1–2), technical foundation (3–4), and adoption + lifecycle (5–6); deeper engineering for phases 3–6 continues in the sibling implementation article.")
+![Six-phase framework for a design-system program: organizational foundation (business case, team and governance), technical foundation (tokens, accessibility), and adoption + lifecycle (adoption mechanics, deprecation and versioning).](./diagrams/the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-dark.svg)
 
 ## Mental model
 
@@ -108,8 +108,8 @@ The most up-to-date public data point is the [zeroheight Design Systems Report 2
 
 | Signal                                              | Number                                       | Source                                                                  |
 | :-------------------------------------------------- | :------------------------------------------- | :---------------------------------------------------------------------- |
-| Teams now reporting design tokens in production     | 84% (up from 56% in 2024)                    | zeroheight 2025                                                         |
-| Teams with a dedicated design-system team           | 79% (up from 72% in 2024)                    | zeroheight 2025                                                         |
+| Teams reporting design tokens in production         | 86% (only 14% report not using tokens)       | zeroheight 2025                                                         |
+| Teams with a dedicated design-system team           | 79%                                          | zeroheight 2025                                                         |
 | Top efficiency-gain ranges quoted by Knapsack users | 20–46% productivity, 22–35% time-to-market   | Knapsack ROI calculator + practitioner write-ups[^knapsack-ranges]      |
 
 [^knapsack-ranges]: The Knapsack [ROI calculator](https://www.knapsack.cloud/calculator) and [ROI report landing page](https://www.knapsack.cloud/reports/roi-report) supply the model and case studies; the percentage ranges above are the figures community write-ups (e.g. [Design Systems Collective — ROI of Design Systems](https://www.designsystemscollective.com/the-roi-of-design-systems-turning-figma-components-into-business-value-768314733db5)) consistently quote when summarising Knapsack data. Treat them as the upper end of *self-reported* gains from teams who chose to share results.

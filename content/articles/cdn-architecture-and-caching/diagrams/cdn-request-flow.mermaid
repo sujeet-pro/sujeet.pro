@@ -1,0 +1,46 @@
+%% Diagram: CDN request flow — DNS routes users to nearest edge PoP; cache misses aggregate through origin shield before reaching origin.
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Users["Global Users"]
+        U1["User (US)"]
+        U2["User (EU)"]
+        U3["User (APAC)"]
+    end
+
+    subgraph DNS["DNS / Anycast Routing"]
+        direction TB
+        DNS1["Authoritative DNS"]
+    end
+
+    subgraph Edge["Edge PoPs"]
+        E1["US Edge"]
+        E2["EU Edge"]
+        E3["APAC Edge"]
+    end
+
+    subgraph Shield["Origin Shield"]
+        OS["Shield PoP"]
+    end
+
+    subgraph Origin["Origin Infrastructure"]
+        O1["Origin Server"]
+    end
+
+    U1 --> DNS1
+    U2 --> DNS1
+    U3 --> DNS1
+
+    DNS1 -.->|"Nearest PoP"| E1
+    DNS1 -.->|"Nearest PoP"| E2
+    DNS1 -.->|"Nearest PoP"| E3
+
+    U1 --> E1
+    U2 --> E2
+    U3 --> E3
+
+    E1 -->|"Cache Miss"| OS
+    E2 -->|"Cache Miss"| OS
+    E3 -->|"Cache Miss"| OS
+
+    OS -->|"Shield Miss"| O1

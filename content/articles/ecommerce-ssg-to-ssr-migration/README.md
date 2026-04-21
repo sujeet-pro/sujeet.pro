@@ -23,8 +23,8 @@ Marketing launches a campaign at 09:00. By 09:15 the featured product still show
 
 This article is a playbook for migrating an e-commerce front end from Static Site Generation (SSG) to Server-Side Rendering (SSR) without breaking SEO, conversion, or cost. It is opinionated about three things: that the migration is risk-management more than feature delivery; that you almost always want the [Strangler Fig pattern](https://martinfowler.com/bliki/StranglerFigApplication.html) at the edge rather than a big-bang cutover; and that the right destination for many teams is not pure SSR but [Incremental Static Regeneration with on-demand revalidation](https://nextjs.org/docs/app/getting-started/revalidating).
 
-![SSG vs SSR vs Strangler-Fig migration architecture, with the edge proxy splitting traffic between the SSG origin and the SSR origin](./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti-light.svg "SSG vs SSR vs Strangler-Fig migration: the edge proxy splits traffic between origins so the new platform can be validated without a cutover.")
-![SSG vs SSR vs Strangler-Fig migration architecture, with the edge proxy splitting traffic between the SSG origin and the SSR origin](./diagrams/high-level-architecture-comparison-ssg-s-build-time-approach-vs-ssr-s-request-ti-dark.svg)
+![SSG vs SSR vs Strangler-Fig migration architecture, with the edge proxy splitting traffic between the SSG origin and the SSR origin](./diagrams/architecture-comparison-light.svg "SSG vs SSR vs Strangler-Fig migration: the edge proxy splits traffic between origins so the new platform can be validated without a cutover.")
+![SSG vs SSR vs Strangler-Fig migration architecture, with the edge proxy splitting traffic between the SSG origin and the SSR origin](./diagrams/architecture-comparison-dark.svg)
 
 ## Terminology
 

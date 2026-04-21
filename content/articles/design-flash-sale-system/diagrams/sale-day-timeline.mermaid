@@ -1,32 +1,52 @@
-%% Diagram: Sale-day timeline (T0 = sale opens)
-%% Type: gantt
+%% Diagram: Sale-day operational timeline (T0 = sale opens)
+%% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-gantt
-    title Sale-day operational timeline (T0 = sale opens)
-    dateFormat HH:mm
-    axisFormat %H:%M
+flowchart TB
+    subgraph Pre["T-60 to T-1 — Pre-sale"]
+        direction TB
+        Pre1["Pre-warm CDN with waiting-room HTML"]
+        Pre2["Deploy WAF rules + bot baselines"]
+        Pre3["Open pre-sale waiting room"]
+        Pre4["Mint tokens / load inventory into shards"]
+    end
 
-    section Pre-sale (T-60 to T-1)
-    Pre-warm CDN with waiting-room HTML        :pre1, 09:00, 30m
-    Deploy WAF rules + bot baselines           :pre2, 09:00, 30m
-    Open pre-sale waiting room                 :pre3, 09:30, 30m
-    Mint tokens / load inventory into shards   :pre4, 09:45, 15m
+    subgraph T0["T0 — Sale opens"]
+        direction TB
+        T0a["Randomise pre-sale arrivals"]
+        T0b(["Admission gate engaged"])
+    end
 
-    section Sale open (T0)
-    Randomise pre-sale arrivals                :crit, t0a, 09:59, 1m
-    Sale opens (admission gate engaged)        :milestone, t0b, 10:00, 0m
+    subgraph Peak["T0 to T+5 — Peak"]
+        direction TB
+        P1["Edge absorbs polling spike"]
+        P2["Token-gated admission to checkout"]
+        P3["Atomic Redis decrement on hot SKUs"]
+        P4(["Inventory typically depleted"])
+    end
 
-    section Peak (T0 to T+5)
-    Edge absorbs polling spike                 :p1, 10:00, 5m
-    Token-gated admission to checkout          :p2, 10:00, 5m
-    Atomic Redis decrement on hot SKUs         :p3, 10:00, 5m
-    Inventory depletion (typical)              :milestone, p4, 10:05, 0m
+    subgraph Drain["T+5 to T+30 — Drain"]
+        direction TB
+        D1["Outstanding reservations expire / restock"]
+        D2["Async order workers drain queue"]
+        D3["DLQ inspection + manual replays"]
+    end
 
-    section Drain (T+5 to T+30)
-    Outstanding reservations expire / restock  :d1, 10:05, 25m
-    Async order workers drain queue            :d2, 10:00, 30m
-    DLQ inspection + manual replays            :d3, 10:15, 15m
+    subgraph Post["T+30+ — Post-sale"]
+        direction TB
+        Post1(["Sale closed, waiting room shut down"])
+        Post2["Capture metrics + postmortem snapshot"]
+    end
 
-    section Post-sale (T+30+)
-    Sale closed, waiting room shut down        :milestone, post1, 10:30, 0m
-    Capture metrics + postmortem snapshot      :post2, 10:30, 30m
+    Pre --> T0 --> Peak --> Drain --> Post
+
+    classDef pre fill:#2E5A88,stroke:#1F4870,color:#fff;
+    classDef trigger fill:#B43A3A,stroke:#7E2727,color:#fff;
+    classDef peak fill:#8B5E15,stroke:#6E4810,color:#fff;
+    classDef drain fill:#1F6E68,stroke:#155752,color:#fff;
+    classDef post fill:#2D7A2D,stroke:#1F5A1F,color:#fff;
+
+    class Pre1,Pre2,Pre3,Pre4 pre;
+    class T0a,T0b trigger;
+    class P1,P2,P3,P4 peak;
+    class D1,D2,D3 drain;
+    class Post1,Post2 post;

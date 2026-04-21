@@ -17,8 +17,8 @@ tags:
 
 How Twitter evolved from a monolithic Ruby on Rails app delivering reverse-chronological tweets at 4,600 writes/second into a distributed ML pipeline that processes 500 million tweets daily through a multi-stage recommendation system -- and how X replaced all of it with a Grok-based transformer in 2026. This case study traces the full arc: fanout-on-write, the hybrid celebrity problem, the algorithmic timeline controversy, the unprecedented open-sourcing of the recommendation algorithm, and the latest Phoenix/Thunder architecture.
 
-![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s-light.svg "Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).")
-![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-of-twitter-s-timeline-pre-materialized-redis-fanout-2009-2016-multi-s-dark.svg)
+![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-overview-light.svg "Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).")
+![Three eras of Twitter's timeline: pre-materialized Redis fanout (2009-2016), multi-service ML pipeline with SimClusters/GraphJet/MaskNet (2016-2025), and the unified Grok-based Phoenix/Thunder system (2026+).](./diagrams/three-eras-overview-dark.svg)
 
 ## Abstract
 
@@ -72,8 +72,8 @@ Three inflection points drove architectural transformations:
 
 The canonical description comes from Raffi Krikorian's "Timelines at Scale" presentation at QCon (April 2013).[^krikorian-2013] The core insight: shift computation from read time to write time.
 
-![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-light.svg "Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.")
-![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-dark.svg)
+![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-pipeline-light.svg "Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.")
+![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-pipeline-dark.svg)
 
 **Write path:**
 
@@ -161,8 +161,8 @@ On March 31, 2023, Twitter published the recommendation algorithm across two rep
 
 The "For You" timeline pipeline processed approximately 500 million tweets daily across 400 billion real-time events, running roughly 5 billion times per day with an average latency under 1.5 seconds -- though each execution consumed approximately 220 seconds of CPU time, parallelized across services.
 
-![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug-light.svg "The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.")
-![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/the-full-2023-recommendation-pipeline-four-stages-from-candidate-sourcing-throug-dark.svg)
+![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/recommendation-pipeline-2023-light.svg "The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.")
+![The full 2023 recommendation pipeline: four stages from candidate sourcing through mixing, orchestrated by Home Mixer on the Product Mixer Scala framework.](./diagrams/recommendation-pipeline-2023-dark.svg)
 
 ### Stage 1: Candidate Sourcing
 
@@ -322,7 +322,7 @@ The architectural trajectory: replacing feature engineering with model capacity.
 
 #### 1. Fanout Strategy Depends on Read:Write Ratio
 
-**The insight**: At a 500:1 read:write ratio, fanout-on-write is overwhelmingly efficient. But it breaks for high-degree nodes (celebrities) because write amplification scales with follower count. The hybrid approach -- fanout-on-write for the majority, fanout-on-read for outliers -- is the pragmatic solution.
+**The insight**: At a ~50:1 read-to-write ratio (300K timeline reads/sec against ~6K tweet writes/sec at the 2013 QCon snapshot), fanout-on-write is overwhelmingly efficient. The effective amplification on the write path is far higher once you factor in followers: every tweet from an account with N followers triggers up to N Redis inserts. The approach breaks for high-degree nodes (celebrities) because that write amplification scales with follower count. The hybrid approach -- fanout-on-write for the majority, fanout-on-read for outliers -- is the pragmatic solution.
 
 **How it applies elsewhere**: Any notification or feed system with skewed degree distribution faces this trade-off. Chat systems (Slack, Discord) use channel-based fanout-on-read because most messages target large groups. Email uses fanout-on-write because most emails target few recipients.
 

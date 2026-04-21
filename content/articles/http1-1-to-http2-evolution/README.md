@@ -258,7 +258,7 @@ HTTP/2 fixed the application layer. The transport layer remained the bottleneck.
 
 TCP guarantees in-order delivery to the application. When segment N is lost, segments N+1, N+2, … sit in the kernel receive buffer and the application sees nothing — even if those segments belong to different HTTP/2 streams whose data is already complete. On networks with sustained packet loss in the 1–2% range, a single HTTP/2 connection can lose to six independent HTTP/1.1 connections that absorb loss in parallel[^h3-quic].
 
-The [RFC 9113 introduction](https://www.rfc-editor.org/rfc/rfc9113.html#name-introduction) states the constraint explicitly: *"TCP head-of-line blocking is not addressed by this protocol."* That is the primary motivation for HTTP/3's adoption of [QUIC (RFC 9000)](https://www.rfc-editor.org/rfc/rfc9000.html), which delivers each stream independently over UDP and recovers loss per stream rather than per connection.
+The [RFC 9113 introduction](https://www.rfc-editor.org/rfc/rfc9113.html#name-introduction) states the constraint explicitly: *"Note, however, that TCP head-of-line blocking is not addressed by this protocol."* That is the primary motivation for HTTP/3's adoption of [QUIC (RFC 9000)](https://www.rfc-editor.org/rfc/rfc9000.html), which delivers each stream independently over UDP and recovers loss per stream rather than per connection.
 
 ## Protocol negotiation
 
@@ -289,9 +289,9 @@ The server's preface is its own `SETTINGS` frame, which must be the first frame 
 
 ### Cleartext HTTP/2 (h2c)
 
-[RFC 9113 §3.1](https://www.rfc-editor.org/rfc/rfc9113.html#name-starting-http-2-for-http-ur) defines a cleartext upgrade path:
+[RFC 7540 §3.2](https://datatracker.ietf.org/doc/html/rfc7540#section-3.2) originally defined an HTTP/1.1 `Upgrade: h2c` handshake to start HTTP/2 over cleartext TCP:
 
-```http title="h2c upgrade — server-only, never used by browsers"
+```http title="Legacy h2c upgrade handshake — removed in RFC 9113"
 GET / HTTP/1.1
 Host: example.com
 Connection: Upgrade, HTTP2-Settings
@@ -299,8 +299,10 @@ Upgrade: h2c
 HTTP2-Settings: <base64url-encoded SETTINGS frame>
 ```
 
+[RFC 9113 §3.1](https://www.rfc-editor.org/rfc/rfc9113.html#section-3.1) marks both the `h2c` upgrade token and the `HTTP2-Settings` header as obsolete because the mechanism was never widely deployed. Cleartext HTTP/2 in 2026 must instead use [prior knowledge (RFC 9113 §3.3)](https://www.rfc-editor.org/rfc/rfc9113.html#section-3.3): the client opens a TCP connection and sends the 24-octet HTTP/2 connection preface immediately, with no `Upgrade` dance.
+
 > [!WARNING]
-> No browser supports `h2c`. In practice HTTP/2 always implies TLS in the public web. The cleartext path is only useful for backend-to-backend traffic (gRPC over h2c on a private network, ingress-to-pod inside a service mesh).
+> No browser supports cleartext HTTP/2 in any form. In the public web HTTP/2 always implies TLS. Prior-knowledge h2c is only useful for backend-to-backend traffic (gRPC over h2c on a private network, ingress-to-pod inside a service mesh) where both sides are pre-configured to skip negotiation.
 
 ## Operational checklist
 
@@ -372,7 +374,7 @@ When standing up or auditing HTTP/2 in production:
 - [Evert Pot — HTTP/2 Server Push is dead](https://evertpot.com/http-2-push-is-dead/)
 
 [^hpbn-h2]: Ilya Grigorik, [*High Performance Browser Networking* — HTTP/2: connection management](https://hpbn.co/http2/#one-connection-per-origin), O'Reilly. HTTP/2 connection coalescing breaks down once shards land on different IPs or certificates.
-[^hpbn-tcp]: Ilya Grigorik, [*High Performance Browser Networking* — Building Blocks of TCP](https://hpbn.co/building-blocks-of-tcp/). Six is a de facto convention rather than a spec — RFC 7230 §6.4 only recommended two and was relaxed in practice.
+[^hpbn-tcp]: Ilya Grigorik, [*High Performance Browser Networking* — Building Blocks of TCP](https://hpbn.co/building-blocks-of-tcp/). Six is a de facto convention, not a spec requirement: [RFC 2616 §8.1.4 (HTTP/1.1, 1999)](https://www.rfc-editor.org/rfc/rfc2616#section-8.1.4) recommended at most two connections per server; [RFC 7230 §6.4](https://www.rfc-editor.org/rfc/rfc7230#section-6.4) and its successor [RFC 9112 §9.4](https://www.rfc-editor.org/rfc/rfc9112#section-9.4) dropped the explicit cap, leaving the per-origin limit to client policy. Browsers settled on six.
 [^cf-hpack]: Cloudflare, [HPACK: the silent killer feature of HTTP/2](https://blog.cloudflare.com/hpack-the-silent-killer-feature-of-http-2/), 2016. Reports compression ratios of 76–96% on real traffic samples.
 [^cf-h3-prio]: Cloudflare, [Better HTTP/3 prioritization for a faster web](https://blog.cloudflare.com/better-http-3-prioritization-for-a-faster-web/), 2022. Confirms the `Priority` header works for HTTP/2 and HTTP/3, but only matters when the server actually implements RFC 9218 scheduling.
 [^caniuse-priority]: [Can I use — `Priority` HTTP header](https://caniuse.com/mdn-http_headers_priority). Chrome/Edge 124+ (April 2024), Firefox 128+ (July 2024), Safari not yet.

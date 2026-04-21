@@ -2,27 +2,26 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant API as API process
-    participant DB as Postgres (ACID)
-    participant ENQ as Enqueuer (drain)
-    participant Q as Redis / Sidekiq
+    participant API as API
+    participant DB as Postgres
+    participant ENQ as Enqueuer
+    participant Q as Redis
     participant W as Worker
 
     API->>DB: BEGIN
     API->>DB: INSERT ride
-    API->>DB: INSERT staged_jobs(send_ride_receipt)
+    API->>DB: INSERT staged_jobs
     API->>DB: COMMIT
 
-    Note over DB: Both rows now visible<br/>to other transactions
+    Note over DB: rows visible to<br/>other transactions
 
-    loop every poll interval
+    loop poll
         ENQ->>DB: BEGIN (REPEATABLE READ)
-        ENQ->>DB: SELECT ... FROM staged_jobs LIMIT N
+        ENQ->>DB: SELECT staged_jobs LIMIT N
         ENQ->>Q: ENQUEUE jobs
-        ENQ->>DB: DELETE selected staged_jobs
+        ENQ->>DB: DELETE selected
         ENQ->>DB: COMMIT
     end
 
-    Q-->>W: dequeue job
-    W->>W: send receipt email
+    Q-->>W: dequeue
+    W->>W: send receipt

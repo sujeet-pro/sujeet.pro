@@ -2,21 +2,33 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    App["Backend services"] --> Lib["lib/tripstore<br/>abstraction"]
+    App["Backend services<br/>↓<br/>lib/tripstore abstraction"]
 
     subgraph Phase1["Phase 1 — backfill + mirror"]
-        Lib -->|"primary R/W"| PG1[("PostgreSQL")]
-        Lib -->|"mirror writes"| SL1[("Schemaless")]
-        Backfill["Backfill job"] --> SL1
+        direction LR
+        P1PG[("PostgreSQL<br/>primary R/W")]
+        P1SL[("Schemaless<br/>mirror writes")]
+        P1BF["Backfill job"]
+        P1PG -. "mirror" .-> P1SL
+        P1BF --> P1SL
     end
 
     subgraph Phase2["Phase 2 — shadow read + validate"]
-        Lib2["lib/tripstore"] -->|"primary read"| PG2[("PostgreSQL")]
-        Lib2 -->|"shadow read<br/>(probabilistic %)"| SL2[("Schemaless")]
-        Compare{"Diff results"} --> Report["Discrepancy report"]
+        direction LR
+        P2PG[("PostgreSQL<br/>primary read")]
+        P2SL[("Schemaless<br/>shadow read %")]
+        P2Diff{"Diff results"}
+        P2PG --> P2Diff
+        P2SL --> P2Diff
     end
 
     subgraph Phase3["Phase 3 — flip + decommission"]
-        Lib3["lib/tripstore"] -->|"primary R/W"| SL3[("Schemaless")]
-        Lib3 -.->|"PG kept hot for rollback"| PG3[("PostgreSQL")]
+        direction LR
+        P3SL[("Schemaless<br/>primary R/W")]
+        P3PG[("PostgreSQL<br/>kept hot for rollback")]
+        P3SL -. "rollback" .-> P3PG
     end
+
+    App --> Phase1
+    Phase1 --> Phase2
+    Phase2 --> Phase3

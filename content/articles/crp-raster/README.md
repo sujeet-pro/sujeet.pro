@@ -44,7 +44,7 @@ The current modernization story sits on top of this: Skia's GPU backend is migra
 
 Once Paint produces a [`cc::PaintRecord`](https://chromium.googlesource.com/chromium/src/+/lkgr/docs/how_cc_works.md) (a serializable sequence of Skia draw operations), the compositor thread takes ownership of the layer tree. It does not rasterize a layer end-to-end. Instead, every layer is decomposed into **tiles**.
 
-A long-scrolling page might be 50,000 px tall. Rasterizing it as one texture would exceed GPU limits (a 4K-equivalent texture is ~33 MB of VRAM (Video Random Access Memory)), block any pixel from appearing for hundreds of milliseconds, and waste memory on content the user may never scroll to. Tiling bounds memory at viewport-scale and lets the worker pool make incremental forward progress.
+A long-scrolling page might be 50,000 px tall. Rasterizing it as one texture would exceed GPU limits (a 4K-equivalent surface is ~33 MB of VRAM — Video Random Access Memory), block any pixel from appearing for hundreds of milliseconds, and waste memory on content the user may never scroll to. Tiling bounds memory at viewport-scale and lets the worker pool make incremental forward progress.
 
 | Mode            | Tile dimensions                       | Why                                                                                                              |
 | :-------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ A long-scrolling page might be 50,000 px tall. Rasterizing it as one texture wou
 Tiles are managed per-layer by `PictureLayerImpl`, which holds multiple `PictureLayerTiling` objects at different scale factors. A 512×512 layer at 1× produces four 256×256 software tiles; the same layer can also have a low-resolution tiling that the compositor falls back to during fast scroll, then discards once the high-resolution tiles are ready.
 
 > [!NOTE]
-> Tile sizes are heuristics, not constants. The compositor adjusts them per device (for example, 384×384 has been used for some 1080p displays to improve CPU utilization), and several tile-size flags exist for forced overrides. ([Chromium issue 40345382](https://issues.chromium.org/40345382))
+> Tile sizes are heuristics, not constants. The compositor adjusts them per device (for example, 384×384 has been used for some 1080p displays to improve CPU utilization), and several tile-size flags exist for forced overrides. ([Chromium issue 40345382](https://issues.chromium.org/issues/40345382))
 
 ---
 
@@ -85,7 +85,7 @@ Tiles are placed into priority bins by viewport distance and scroll velocity. Th
 | `SOON`       | Inside the prepaint window (~1 viewport away)   | Scheduled aggressively to absorb scroll                  |
 | `EVENTUALLY` | Within the layer but outside the prepaint window | Worked on opportunistically when the raster pool is idle |
 
-What the article-vintage "NEVER" bin used to capture is now expressed through a separate **`TileMemoryLimitPolicy`** axis — `ALLOW_NOTHING`, `ALLOW_ABSOLUTE_MINIMUM`, `ALLOW_PREPAINT_ONLY`, `ALLOW_ANYTHING` — that decides which bins are even *allowed* to consume memory under the current pressure. Under `ALLOW_NOTHING` the budget collapses and even `NOW` work is paused; under `ALLOW_PREPAINT_ONLY`, `EVENTUALLY` tiles are skipped entirely. ([`tile_priority.cc`][bins])
+What earlier Chromium versions captured as a fourth `NEVER` bin is now expressed through a separate **`TileMemoryLimitPolicy`** axis — `ALLOW_NOTHING`, `ALLOW_ABSOLUTE_MINIMUM`, `ALLOW_PREPAINT_ONLY`, `ALLOW_ANYTHING` — that decides which bins are even *allowed* to consume memory under the current pressure. Under `ALLOW_NOTHING` the budget collapses and even `NOW` work is paused; under `ALLOW_PREPAINT_ONLY`, `EVENTUALLY` tiles are skipped entirely. ([`tile_priority.cc`][bins])
 
 ![Tile priority bins relative to the viewport: NOW covers visible tiles, SOON covers the prepaint window, EVENTUALLY covers reachable but distant tiles, and the GPU memory budget plus TileMemoryLimitPolicy and TreePriority decide how aggressively each is filled.](./diagrams/tile-priority-bins-light.svg "Tile priority bins: NOW / SOON / EVENTUALLY rings around the viewport, with the GPU memory budget, TileMemoryLimitPolicy, and TreePriority deciding how aggressively each ring is filled.")
 ![Tile priority bins relative to the viewport.](./diagrams/tile-priority-bins-dark.svg)
@@ -152,7 +152,7 @@ Inside Viz, Skia is the actual rasterizer. Skia's GPU backend has been moving fo
 
 - **Multi-threaded by default** — independent `Recorder` objects produce `Recording` instances on worker threads, and recordings are submitted in parallel rather than through a single command queue.
 - **Depth testing for 2D** — every draw is assigned a z-value matching its painter's-algorithm position, so opaque draws can be reordered freely while the depth buffer keeps the result correct. The net effect is much less overdraw than Ganesh.
-- **Pipeline pre-compilation** — pipelines are compiled at startup (and via the [`SkiaGraphitePrecompilation`](https://chromium.googlesource.com/chromium/src/+/master/gpu/config/gpu_finch_features.cc) feature, persisted across runs), so animations don't pay the lazy-compile cost.
+- **Pipeline pre-compilation** — pipelines are compiled at startup (and via the [`SkiaGraphitePrecompilation`](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/gpu/config/gpu_finch_features.cc) feature, persisted across runs), so animations don't pay the lazy-compile cost.
 
 > [!NOTE]
 > As of Chrome 138 (announced 2025-07-08), Graphite is enabled by default on Apple Silicon Macs. On other platforms it remains opt-in via `--enable-features=SkiaGraphite` (and a backend selector such as `--skia-graphite-backend=metal` or `=dawn` where applicable). ([Chromium Blog][graphite])

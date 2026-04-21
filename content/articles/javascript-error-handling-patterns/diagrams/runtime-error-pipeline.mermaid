@@ -1,7 +1,7 @@
 %% Diagram: Runtime error pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     THROW(["throw / Promise reject"]) --> KIND{"sync or<br/>async?"}
 
     KIND -->|sync throw| TRY{"in a<br/>try / catch?"}

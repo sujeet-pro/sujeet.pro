@@ -19,8 +19,8 @@ tags:
 
 Modern browsers are multi-process systems with sophisticated isolation boundaries, layered caching hierarchies, and extension architectures that modify page behavior at precise lifecycle points. This article maps Chromium's process model (browser, renderer, GPU, network, utility processes), the threading architecture within renderers (main thread, compositor, raster workers), caching layers from DNS through HTTP disk cache, speculative loading mechanisms, and extension content script injection timing.
 
-![Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC](./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render-light.svg "Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC")
-![Chromium multi-process architecture: browser process coordinates sandboxed renderers, network service, GPU process, and extension processes via Mojo IPC](./diagrams/chromium-multi-process-architecture-browser-process-coordinates-sandboxed-render-dark.svg)
+![Chromium multi-process architecture: the privileged browser process coordinates the network service, GPU/Viz process, per-site renderer processes, and the extension process over Mojo IPC](./diagrams/multi-process-architecture-light.svg "Chromium multi-process architecture: the privileged browser process coordinates the network service, GPU/Viz process, per-site renderer processes, and the extension process over Mojo IPC. Renderer compositor frames are stitched together by the GPU/Viz display compositor.")
+![Chromium multi-process architecture: the privileged browser process coordinates the network service, GPU/Viz process, per-site renderer processes, and the extension process over Mojo IPC](./diagrams/multi-process-architecture-dark.svg)
 
 ## Abstract
 
@@ -46,8 +46,8 @@ A browser is a **privilege-separated, multi-process operating system for the web
 **The caching hierarchy:**
 
 ```text
-DNS cache (browser) → Socket pool (keep-alive) → Memory cache (renderer)
-                                               → HTTP cache (disk)
+DNS cache (network service) → Socket pool (keep-alive) → Memory cache (renderer)
+                                                       → HTTP cache (disk)
 ```
 
 **Extension injection timing**: Content scripts inject at three points—`document_start` (after CSS, before DOM), `document_end` (DOM complete, before subresources), or `document_idle` (browser-optimized timing between `document_end` and `load`). Each script runs in an **isolated world**—a separate JavaScript execution context that shares DOM access but not variables with the page.
@@ -281,12 +281,12 @@ Browsers implement multiple cache layers, each optimized for different access pa
 
 **The problem**: DNS resolution adds 20-120ms to every new origin connection. Caching eliminates this latency for repeat visits.
 
-**Chromium's DNS architecture:**
+**Chromium's DNS architecture** — per the [`net/dns/README.md`](https://chromium.googlesource.com/chromium/src/+/main/net/dns/README.md), a single `HostResolverManager` is owned by `network::NetworkService` (i.e. it lives in the network service process on desktop, in-process with the browser on Android):
 
 ```text
-HostResolverManager (browser process)
+HostResolverManager (network service)
          |
-         |-- Check HostCache (per-context)
+         |-- Check per-context HostCache (one per URLRequestContext)
          |       |
          |       └── Cache hit → return immediately
          |
@@ -299,10 +299,10 @@ HostResolverManager (browser process)
 
 **Design decisions:**
 
-- **Per-context cache**: Each `URLRequestContext` has its own `HostCache`, enabling isolation between profiles
-- **Request merging**: Multiple requests for the same hostname share a single resolution job
-- **TTL-based expiration**: Cache entries expire based on the DNS record's Time-To-Live
-- **Stale-while-revalidate**: In some configurations, stale results return immediately while fresh resolution proceeds in the background
+- **Per-context cache**: each `ContextHostResolver` owns its own `HostCache`, scoped to a `URLRequestContext`; this gives profile and incognito isolation for free.
+- **Request merging**: multiple in-flight requests for the same hostname coalesce onto a single `HostResolverManager::Job`.
+- **TTL-based expiration**: cache entries expire based on the DNS record's TTL.
+- **Stale-while-revalidate**: a `StaleHostResolver` (used by Cronet) can return stale results past the configured timeout while fresh resolution continues in the background.
 
 **Limits:** The host cache typically holds several thousand entries. Entries are evicted by LRU when space is needed.
 

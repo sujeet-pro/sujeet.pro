@@ -1,5 +1,6 @@
 %% Diagram: Storage quota and eviction lifecycle across browsers
 %% Type: stateDiagram
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 stateDiagram-v2
     [*] --> BestEffort: first write to IDB / Cache / OPFS
     BestEffort --> NearQuota: usage approaches origin quota

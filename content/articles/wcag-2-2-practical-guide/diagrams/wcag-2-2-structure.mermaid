@@ -1,0 +1,22 @@
+%% Diagram: WCAG 2.2 structure — POUR principles map to cumulative conformance levels
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "POUR Principles"
+        P["Perceivable<br/>Text alternatives, captions,<br/>contrast, adaptable"]
+        O["Operable<br/>Keyboard access, timing,<br/>navigation, focus"]
+        U["Understandable<br/>Readable, predictable,<br/>input assistance"]
+        R["Robust<br/>Compatible with<br/>assistive tech"]
+    end
+
+    subgraph "Conformance Levels (cumulative)"
+        A["Level A<br/>Essential<br/>31 criteria"]
+        AA["Level AA<br/>Recommended<br/>+24 criteria (55 total)"]
+        AAA["Level AAA<br/>Specialised<br/>+31 criteria (86 total)"]
+    end
+
+    P --> A
+    O --> A
+    U --> A
+    R --> A
+    A --> AA --> AAA

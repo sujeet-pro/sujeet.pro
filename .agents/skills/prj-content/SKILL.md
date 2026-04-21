@@ -32,14 +32,17 @@ Use this skill when the **content** of an existing entry is changing but the ent
 
 ```yaml
 ---
+
 title: "Title used for SEO and listing cards"
 description: "One-line summary used for SEO and listing cards"
 publishedDate: 2026-03-15
 lastUpdatedOn: 2026-03-20
 tags: [topic-a, topic-b]
 draft: true # optional
+
 ---
-```
+
+````
 
 - **Never** add `layout` or `category` — `schemas/frontmatter.ts` rejects them.
 - The visible page title comes from the markdown `# H1`, **not** the frontmatter `title`.
@@ -73,7 +76,7 @@ draft: true # optional
 > Warning message.
 > [!CAUTION]
 > Cautionary message.
-```
+````
 
 Use sparingly and intentionally — to flag a footgun, an op-time risk, or a non-obvious assumption.
 
@@ -97,7 +100,6 @@ export function getCacheKey() {
 \`\`\`
 ```
 
-
 | Meta               | Example                 | Use for                          |
 | ------------------ | ----------------------- | -------------------------------- |
 | `title="..."`      | `ts title="app.ts"`     | File-anchored snippets.          |
@@ -109,9 +111,7 @@ export function getCacheKey() {
 | `wrap`             | `ts wrap`               | Force soft-wrap.                 |
 | `frame="..."`      | `bash frame="terminal"` | Frame style.                     |
 
-
 Repo-local Shiki language aliases (defined in `content.config.ts`):
-
 
 | Alias        | Maps to     |
 | ------------ | ----------- |
@@ -125,7 +125,6 @@ Repo-local Shiki language aliases (defined in `content.config.ts`):
 | `properties` | `ini`       |
 | `m3u8`       | `bash`      |
 | `asciidoc`   | `markdown`  |
-
 
 Common mistakes:
 
@@ -194,4 +193,3 @@ For diagram-related warnings (e.g. low contrast), do not edit the SVG — hand o
 - Write for sujeet.pro's editorial bar (senior engineers; trade-offs, constraints, ROI).
 - Do not introduce features that the pipeline does not support; the validators will reject them.
 - Do not edit generated SVGs or hand-author `<picture>` / `<figure>` / `<img>` HTML.
-

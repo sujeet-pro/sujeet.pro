@@ -2,30 +2,27 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
-    participant JM as JobManager (coordinator)
+    participant JM as JobManager
     participant Op as Stream operator
     participant Sink as TwoPhaseCommitSink
-    participant Ext as External system\n(Kafka txn / DB)
+    participant Ext as External system
 
     Note over JM,Ext: Phase 0 - new checkpoint epoch
     JM->>Op: inject checkpoint barrier N
     Op->>Sink: process records for epoch N
-    Sink->>Ext: beginTransaction(txnId=N)
+    Sink->>Ext: beginTransaction for epoch N
 
     Note over JM,Ext: Phase 1 - PREPARE
-    Op->>Sink: snapshotState(N)
-    Sink->>Ext: flush + preCommit (txn open, not visible)
-    Sink-->>JM: ack barrier N\n(stores txnId in checkpoint)
+    Op->>Sink: snapshotState for epoch N
+    Sink->>Ext: flush plus preCommit
+    Sink-->>JM: ack barrier and store txnId
 
-    alt all operators ack barrier N
+    alt all operators ack the barrier
         Note over JM,Ext: Phase 2 - COMMIT
-        JM->>Sink: notifyCheckpointComplete(N)
-        Sink->>Ext: commit(txnId=N)
-        Note right of Ext: Records become visible to\nread_committed consumers.
+        JM->>Sink: notifyCheckpointComplete
+        Sink->>Ext: commit transaction
     else any operator fails to ack
         Note over JM,Ext: Phase 2 - ABORT
-        JM->>Sink: checkpoint N failed
-        Sink->>Ext: abort(txnId=N)
-        Note right of Ext: Pre-committed records\ndiscarded; replay from\nlast committed checkpoint.
+        JM->>Sink: checkpoint failed
+        Sink->>Ext: abort transaction
     end

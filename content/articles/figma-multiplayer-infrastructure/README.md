@@ -18,8 +18,8 @@ tags:
 
 How Figma built a real-time collaboration engine that supports 200 concurrent editors per document using a CRDT-inspired, server-authoritative protocol — rejecting both Operational Transformation and pure CRDTs in favor of property-level last-writer-wins with fractional indexing, backed by a Rust multiplayer server and a DynamoDB write-ahead journal processing over 2.2 billion changes per day.
 
-![Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.](./diagrams/figma-s-real-time-infrastructure-browser-clients-sync-document-edits-through-a-p-light.svg "Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.")
-![Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.](./diagrams/figma-s-real-time-infrastructure-browser-clients-sync-document-edits-through-a-p-dark.svg)
+![Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.](./diagrams/multiplayer-architecture-overview-light.svg "Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.")
+![Figma's real-time infrastructure: browser clients sync document edits through a per-document Rust process over WebSockets, while LiveGraph handles non-document data subscriptions backed by PostgreSQL.](./diagrams/multiplayer-architecture-overview-dark.svg)
 
 ## Abstract
 

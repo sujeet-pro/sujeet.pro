@@ -2,14 +2,14 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Root["createRoot(...)<br/>onCaughtError / onUncaughtError"]
-    EB["ErrorBoundary<br/>(class component)<br/>getDerivedStateFromError<br/>componentDidCatch"]
+    Root["createRoot(...)<br/>onCaughtError /<br/>onUncaughtError"]
+    EB["ErrorBoundary<br/>getDerivedStateFromError<br/>componentDidCatch"]
     Page["Page"]
-    Render["Render / lifecycle / constructor<br/>OK caught"]
-    Handler["onClick handler<br/>X NOT caught (use try/catch)"]
-    Async["setTimeout / fetch.then<br/>X NOT caught (microtask)"]
-    SSR["renderToString throw<br/>X NOT caught on server"]
-    Self["Boundary's own render throw<br/>X NOT caught — bubbles up"]
+    Render["Render / lifecycle /<br/>constructor<br/>OK caught"]
+    Handler["onClick handler<br/>NOT caught<br/>(use try/catch)"]
+    Async["setTimeout /<br/>fetch.then<br/>NOT caught"]
+    SSR["renderToString throw<br/>NOT caught on server"]
+    Self["Boundary's own throw<br/>NOT caught<br/>(bubbles up)"]
 
     Root --> EB
     EB --> Page
@@ -19,7 +19,7 @@ flowchart TB
     Page --> SSR
     EB --> Self
 
-    classDef caught fill:#0a7d2c,stroke:#0a7d2c,color:#ffffff
-    classDef notcaught fill:#a40010,stroke:#a40010,color:#ffffff
+    classDef caught fill:#2D7A2D,stroke:#2D7A2D,color:#ffffff
+    classDef notcaught fill:#B43A3A,stroke:#B43A3A,color:#ffffff
     class Render caught
     class Handler,Async,SSR,Self notcaught

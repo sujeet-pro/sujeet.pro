@@ -1,0 +1,17 @@
+// Diagram: How added eggs reduce worst-case drops to find a threshold among N floors
+// Type: graphviz dependency chain
+digraph egg_budget_overview {
+    graph [rankdir=LR, ratio="0.6", fontname="Helvetica", fontsize=14, bgcolor="transparent", nodesep="0.4", ranksep="0.5"];
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12,
+          fillcolor="#dae8fc", color="#6c8ebf", fontcolor="#1a1a1a"];
+    edge [fontname="Helvetica", fontsize=10, color="#888888", fontcolor="#1a1a1a"];
+
+    K1 [label="k = 1\nlinear scan\nN drops"];
+    K2 [label="k = 2\ndecreasing step\nT(T+1)/2 >= N"];
+    K3 [label="k = 3+\nDP recurrence\nf(k, m) >= N"];
+    KINF [label="k >= log2(N+1)\nbinary search\nlog2(N+1) drops"];
+
+    K1 -> K2;
+    K2 -> K3;
+    K3 -> KINF;
+}

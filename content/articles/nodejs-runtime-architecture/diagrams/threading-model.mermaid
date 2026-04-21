@@ -2,40 +2,28 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-  subgraph Proc["Single Node.js process"]
-    direction TB
-
-    subgraph Main["Main thread"]
-      js["JavaScript execution\n(V8 isolate + microtasks)"]
-      loop["libuv event loop\ntimers / poll / check / close"]
-      js --- loop
-    end
-
-    subgraph Workers["worker_threads (opt-in)"]
-      direction TB
-      w1["Worker 1\nown V8 isolate\nown libuv loop"]
-      w2["Worker N\nown V8 isolate\nown libuv loop"]
-    end
-
-    subgraph Pool["libuv thread pool"]
-      direction TB
-      t1["pool thread 1"]
-      t2["pool thread 2"]
-      t3["pool thread 3"]
-      t4["pool thread 4"]
-    end
+  subgraph Main["Main thread"]
+    direction LR
+    js["JavaScript\nV8 isolate + microtasks"]
+    loop["libuv event loop\ntimers / poll / check / close"]
+    js --- loop
   end
 
-  loop -- "fs / dns.lookup / crypto / zlib" --> Pool
-  w1 -- "shares" --> Pool
-  w2 -- "shares" --> Pool
+  subgraph Workers["worker_threads (opt-in)"]
+    direction LR
+    w1["Worker 1\nown isolate, own loop"]
+    w2["Worker N\nown isolate, own loop"]
+  end
 
-  js <-- "MessageChannel / SharedArrayBuffer" --> w1
-  js <-- "MessageChannel / SharedArrayBuffer" --> w2
+  Pool["Shared libuv thread pool\n(default 4 OS threads,\nUV_THREADPOOL_SIZE)"]
+
+  Main --> Pool
+  Workers -. "shares" .-> Pool
+  Main <-- "MessageChannel /\nSharedArrayBuffer" --> Workers
 
   classDef main fill:#2E5A88,stroke:#1F4870,color:#ffffff
   classDef worker fill:#1F6E68,stroke:#155752,color:#ffffff
   classDef pool fill:#8B5E15,stroke:#6E4810,color:#ffffff
   class js,loop main
   class w1,w2 worker
-  class t1,t2,t3,t4 pool
+  class Pool pool

@@ -3,16 +3,12 @@ sequenceDiagram
     autonumber
     participant U as User
     participant O as Omnibox
-    participant SE as Site search registry
-    participant T as Template engine
     participant Net as Browser nav
 
     U->>O: Type "j 123" + space
-    O->>SE: Lookup "j" prefix
-    SE-->>O: Match → Jira template
-    O->>O: Enter search mode
+    O->>O: Lookup "j" in site-search registry
+    O->>O: Match → Jira template, enter search mode
     U->>O: Press Enter
-    O->>T: Substitute %s with "123"
-    T-->>O: Resolved URL
-    O->>Net: Navigate
+    O->>O: Substitute %s with "123"
+    O->>Net: Navigate to resolved URL
     Net-->>U: Jira ticket page

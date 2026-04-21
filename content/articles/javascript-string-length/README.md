@@ -20,8 +20,8 @@ JavaScript's `string.length` returns UTF-16 code units—a 1995 design decision 
 
 ![Cover art collaging emoji, alphabets, ideographs, and combining marks to evoke the multi-script reality JavaScript strings sit inside](./assets/cover.jpg)
 
-![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-light.svg "Counting '👨‍👩‍👧‍👦' at each layer: 1 grapheme cluster, 7 Unicode code points, 11 UTF-16 code units. string.length operates at the lowest layer.")
-![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-dark.svg)
+![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/string-abstraction-layers-light.svg "Counting '👨‍👩‍👧‍👦' at each layer: 1 grapheme cluster, 7 Unicode code points, 11 UTF-16 code units. string.length operates at the lowest layer.")
+![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/string-abstraction-layers-dark.svg)
 
 ## Mental Model: Three Layers of Text
 

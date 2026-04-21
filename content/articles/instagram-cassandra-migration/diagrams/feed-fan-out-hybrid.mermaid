@@ -1,8 +1,9 @@
 %% Diagram: Hybrid feed fan-out — push for normal accounts, pull for celebrities, merge at read
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Write["Write path (post created)"]
+        direction TB
         Post["New post by user U"]
         Decision{"U has<br/>< follower threshold?"}
         Post --> Decision
@@ -11,6 +12,7 @@ flowchart LR
     end
 
     subgraph Read["Read path (feed render)"]
+        direction TB
         ReqFeed["GET /feed for user V"]
         Cache{{"LRU feed cache hit?"}}
         ReqFeed --> Cache

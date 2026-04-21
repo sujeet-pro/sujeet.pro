@@ -3,34 +3,33 @@
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Edge["Edge (multi-region)"]
-        Envoy["Envoy<br/>load balancing, AZ routing"]
-        Flannel["Flannel<br/>edge cache, consistent hashing"]
+        Envoy["Envoy\nload balancing, AZ routing"]
+        Flannel["Flannel\nedge cache, consistent hashing"]
     end
 
     subgraph RTM["Real-time messaging"]
-        GS["Gateway Servers<br/>WebSocket termination"]
-        CS["Channel Servers<br/>pub/sub, ~16M channels/host"]
-        AS["Admin Servers<br/>stateless routing"]
-        PS["Presence Servers<br/>online status"]
-        CHARM["CHARM<br/>hash-ring manager"]
+        GS["Gateway Servers\nWebSocket termination"]
+        CS["Channel Servers\npub/sub, ~16M channels/host"]
+        AS["Admin Servers\nstateless routing"]
+        CHARM["CHARM\nhash-ring manager"]
     end
 
     subgraph Compute["Application"]
-        Webapp["Webapp Monolith<br/>PHP/Hack on HHVM"]
-        JobQ["Job Queue<br/>9B jobs/day"]
-        Search["Search<br/>Solr + ML re-rank"]
+        Webapp["Webapp Monolith\nPHP/Hack on HHVM"]
+        JobQ["Job Queue\n9B jobs/day"]
+        Search["Search\nSolr + ML re-rank"]
     end
 
     subgraph Data["Data layer"]
-        Vitess["Vitess<br/>2.3M QPS, multi-keyspace"]
+        Vitess["Vitess\n2.3M QPS, multi-keyspace"]
         MC["Memcached + Mcrouter"]
-        Kafka["Kafka<br/>event stream"]
-        S3["S3<br/>warehouse / Parquet"]
+        Kafka["Kafka\nevent stream"]
+        S3["S3\nwarehouse / Parquet"]
     end
 
     subgraph Infra["Control"]
-        Consul["Consul<br/>service discovery"]
-        Rotor["Rotor<br/>xDS control plane"]
+        Consul["Consul\nservice discovery"]
+        Rotor["Rotor\nxDS control plane"]
     end
 
     Envoy --> Flannel
@@ -47,7 +46,7 @@ flowchart TB
     Consul --> Rotor --> Envoy
     CHARM -.manages.-> CS
 
-    style Envoy fill:#818cf8,stroke:#4338ca,color:#ffffff
-    style Flannel fill:#818cf8,stroke:#4338ca,color:#ffffff
-    style Vitess fill:#fb923c,stroke:#c2410c,color:#ffffff
-    style Webapp fill:#34d399,stroke:#1E5A1E,color:#ffffff
+    style Envoy fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    style Flannel fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    style Vitess fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style Webapp fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff

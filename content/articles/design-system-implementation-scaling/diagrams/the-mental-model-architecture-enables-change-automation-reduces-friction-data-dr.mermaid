@@ -1,32 +1,35 @@
 %% Diagram: The mental model — three forces that compound or undermine each other
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph Architecture["1. Architecture (anticipates change)"]
+        direction TB
         A1[Platform-agnostic tokens]
         A2[Framework wrappers]
         A3[Headless a11y primitives]
     end
 
     subgraph Distribution["2. Distribution (reduces friction)"]
+        direction TB
         D1[Tree-shakeable bundles]
         D2[Codemods]
         D3[Shared CDN assets]
     end
 
     subgraph Operations["3. Operations (drives decisions with data)"]
+        direction TB
         O1[Usage analytics]
         O2[Version compatibility windows]
         O3[Visual / a11y / perf CI]
     end
 
     Architecture -->|"survives framework swaps"| Distribution
-    Distribution -->|"upgrade pressure that doesn't break apps"| Operations
-    Operations -.->|"feedback into next architecture cycle"| Architecture
+    Distribution -->|"upgrade pressure"| Operations
+    Operations -.->|"feedback loop"| Architecture
 
-    classDef arch fill:#dbeafe,stroke:#1e40af,color:#1f2937
-    classDef dist fill:#dcfce7,stroke:#166534,color:#1f2937
-    classDef ops fill:#fef3c7,stroke:#92400e,color:#1f2937
+    classDef arch fill:#2E5A88,stroke:#1F3F60,color:#ffffff
+    classDef dist fill:#2D7A2D,stroke:#1B4D1B,color:#ffffff
+    classDef ops fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
     class A1,A2,A3 arch
     class D1,D2,D3 dist
     class O1,O2,O3 ops

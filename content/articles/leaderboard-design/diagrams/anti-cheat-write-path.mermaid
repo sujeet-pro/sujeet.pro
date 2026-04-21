@@ -30,8 +30,9 @@ flowchart TB
     Async -- match --> Promote
     Async -- mismatch --> Demote
 
-    style Reject fill:#fecaca,stroke:#991b1b,color:#7f1d1d
-    style DirectWrite fill:#dcfce7,stroke:#15803d,color:#14532d
-    style Pending fill:#fef3c7,stroke:#b45309,color:#7c2d12
-    style Demote fill:#fecaca,stroke:#991b1b,color:#7f1d1d
-    style Promote fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    class Reject,Demote alert
+    class DirectWrite,Promote success
+    class Pending storage

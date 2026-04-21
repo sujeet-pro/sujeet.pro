@@ -1,73 +1,28 @@
 %% Diagram: Software supply chain attack surface and the controls that defend each link
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
-    subgraph DEV["Developer plane"]
-        direction TB
-        IDE["IDE & extensions"]
-        WS["Workstation"]
-        TOK["Long-lived tokens"]
-    end
+flowchart TB
+    DEV["Developer plane<br/>IDE, workstation, tokens"]
+    SRC["Source plane<br/>Repo, branch protections"]
+    BUILD["Build plane<br/>CI/CD, secrets, artifacts"]
+    DIST["Distribution plane<br/>Registry, CDN, auto-update"]
+    RUN["Runtime plane<br/>App, transitive deps"]
 
-    subgraph SRC["Source plane"]
-        direction TB
-        REPO["Code repository"]
-        BR["Branch protections"]
-    end
+    DEV --> SRC --> BUILD --> DIST --> RUN
 
-    subgraph BUILD["Build plane"]
-        direction TB
-        CI["CI/CD runners"]
-        SECRETS["CI secrets"]
-        ART["Artifacts"]
-    end
+    DC["Controls: MFA, scoped tokens"]
+    SC["Controls: signed commits, branch rules"]
+    BC["Controls: hermetic builds, SLSA, signed artifacts, SBOM"]
+    DSC["Controls: private proxy, allowlist, SRI, canary"]
+    RC["Controls: signature verification, lockfile pinning"]
 
-    subgraph DIST["Distribution plane"]
-        direction TB
-        REG["Package registry"]
-        CDN["CDN / mirror"]
-        UPD["Auto-update channel"]
-    end
-
-    subgraph RUN["Runtime plane"]
-        direction TB
-        APP["Application"]
-        TRANS["Transitive deps"]
-    end
-
-    IDE --> REPO --> CI --> ART --> REG --> APP
-    WS --> REPO
-    TOK --> REG
-    SECRETS --> ART
-    REG --> CDN --> APP
-    REG --> UPD --> APP
-    REG --> TRANS --> APP
-
-    subgraph CTRL["Defensive controls"]
-        direction TB
-        C1["MFA + scoped tokens"]
-        C2["Signed commits + branch rules"]
-        C3["Hermetic builds + provenance (SLSA)"]
-        C4["Signed artifacts + SBOM (CycloneDX/SPDX)"]
-        C5["Private proxy registry + allowlist"]
-        C6["SRI for CDN assets"]
-        C7["Staged rollout / canary"]
-    end
-
-    DEV -. mitigated by .-> C1
-    DEV -. mitigated by .-> C2
-    SRC -. mitigated by .-> C2
-    BUILD -. mitigated by .-> C3
-    BUILD -. mitigated by .-> C4
-    DIST -. mitigated by .-> C5
-    DIST -. mitigated by .-> C6
-    DIST -. mitigated by .-> C7
-    RUN -. mitigated by .-> C4
-    RUN -. mitigated by .-> C5
+    DEV -.-> DC
+    SRC -.-> SC
+    BUILD -.-> BC
+    DIST -.-> DSC
+    RUN -.-> RC
 
     classDef plane fill:#26344a,color:#ffffff,stroke:#101828,stroke-width:1px
     classDef control fill:#1f6f43,color:#ffffff,stroke:#0f3f25,stroke-width:1px
-    classDef risk fill:#7a3030,color:#ffffff,stroke:#3f1818,stroke-width:1px
-
-    class IDE,WS,TOK,REPO,BR,CI,SECRETS,ART,REG,CDN,UPD,APP,TRANS plane
-    class C1,C2,C3,C4,C5,C6,C7 control
+    class DEV,SRC,BUILD,DIST,RUN plane
+    class DC,SC,BC,DSC,RC control

@@ -1,18 +1,25 @@
 %% Diagram: Inline cache state progression on a single property load
-%% Type: stateDiagram-v2
-stateDiagram-v2
-    direction LR
-    [*] --> Uninitialized: first call
-    Uninitialized --> Monomorphic: 1 shape seen<br/>direct memory load
-    Monomorphic --> Polymorphic: 2-4 shapes<br/>small lookup table
-    Polymorphic --> Megamorphic: 5+ shapes<br/>fall back to runtime lookup
-    Megamorphic --> [*]: stays megamorphic<br/>(IC frozen for the site)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    U["Uninitialized\n(first call, no cache)"]
+    M["Monomorphic\n1 shape seen\ndirect load at cached offset"]
+    P["Polymorphic\n2-4 shapes\nsmall lookup table"]
+    G["Megamorphic\n5+ shapes\nfall back to runtime lookup"]
 
-    note right of Monomorphic
-        Fastest path:
-        load at cached offset
-    end note
-    note right of Megamorphic
-        Slow path:
-        no caching, full property lookup
-    end note
+    U --> M
+    M --> P
+    P --> G
+    G -.-> G
+
+    note["Frozen at megamorphic:\nthe IC for this site\nstops caching for the\nlifetime of the function."]
+    G -.-> note
+
+    classDef good fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#5C3F0E,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#7A2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class U neutral
+    class M good
+    class P warn
+    class G bad

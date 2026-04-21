@@ -16,8 +16,8 @@ tags:
 
 A URL shortener looks like a one-line problem — store a `code → URL` row, return a redirect — but the constraints that matter are the ones that surface only at scale: collision-free IDs across many writers, single-digit-millisecond redirects across the planet, hot-key behavior on viral links, and an analytics path that never blocks the redirect. This article walks the design end-to-end at roughly Bitly's order of magnitude (≈6 billion clicks/month as of 2014, growing past 9 billion by 2017)[^bitly-scale], with each major decision tied to its underlying constraint and trade-off.
 
-![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-light.svg "High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.")
-![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-dark.svg)
+![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-light.svg "High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.")
+![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-dark.svg)
 
 ## Mental model
 
@@ -91,8 +91,8 @@ Picking how you mint short codes determines almost everything downstream — coo
 
 A relational `BIGINT IDENTITY` column hands out IDs; the application Base62-encodes the value.
 
-![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/diagram-1-light.svg "Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.")
-![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/diagram-1-dark.svg)
+![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/counter-based-shortening-light.svg "Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.")
+![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/counter-based-shortening-dark.svg)
 
 Pros: trivially correct, compact codes (sequential IDs Base62-encode to short strings), single source of truth.
 
@@ -102,19 +102,19 @@ Cons: a single writer is a single point of failure and a hard ceiling on write t
 
 Hash the long URL (MD5/SHA-256), truncate to the desired length, retry on collision.
 
-![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/diagram-2-light.svg "Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.")
-![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/diagram-2-dark.svg)
+![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/hash-based-shortening-light.svg "Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.")
+![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/hash-based-shortening-dark.svg)
 
 Pros: deterministic — same long URL always produces the same short code, enabling natural deduplication. No central coordinator.
 
-Cons: collisions are inevitable. By the birthday problem, with a 7-character Base62 keyspace ($62^7 \approx 3.52 \times 10^{12}$), collision probability is roughly 0.014 % at 1 B URLs and around 1.4 % at 10 B. Each collision means an extra round trip to the store and a salt-and-rehash retry. It also rules out user-chosen custom codes since they'd have to fit the same scheme.
+Cons: collisions are inevitable. With a 7-character Base62 keyspace ($62^7 \approx 3.52 \times 10^{12}$), the expected number of collisions across $N$ writes is approximately $\frac{N^2}{2 \cdot 62^7}$ — roughly 142 k collisions at 1 B URLs (about one write in 7 000) and 14 M at 10 B (about one in 700). Each collision means an extra round trip to the store and a salt-and-rehash retry. It also rules out user-chosen custom codes since they'd have to fit the same scheme.
 
 ### Option C — Snowflake (distributed time-ordered IDs)
 
 Twitter's Snowflake[^snowflake-2010] packs a 64-bit ID as `[1 bit unused][41 bit timestamp ms since epoch][10 bit worker ID][12 bit sequence]`, yielding 4 096 IDs per millisecond per node and 1 024 nodes — about 4.1 M IDs/s aggregate at one-millisecond grain[^snowflake-wiki].
 
-![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/diagram-3-light.svg "Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.")
-![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/diagram-3-dark.svg)
+![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/snowflake-id-generation-light.svg "Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.")
+![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/snowflake-id-generation-dark.svg)
 
 | Bits | Field      | Purpose                                                               |
 | ---- | ---------- | --------------------------------------------------------------------- |
@@ -133,8 +133,8 @@ Cons: Base62-encoding a 64-bit integer produces an 11-character code, longer tha
 
 An offline process generates all short codes in advance and stores them in a `keys_unused` table. Application servers fetch batches into a local buffer and atomically move codes from `unused → allocated → used`.
 
-![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/diagram-4-light.svg "KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.")
-![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/diagram-4-dark.svg)
+![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/kgs-lifecycle-light.svg "KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.")
+![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/kgs-lifecycle-dark.svg)
 
 Pros: zero collisions by construction; codes are short and configurable in length; custom user-chosen codes can be reserved out of the same pool.
 
@@ -158,13 +158,13 @@ This article focuses on a **KGS-primary, Snowflake-fallback** hybrid. KGS handle
 
 ### Request path
 
-![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/diagram-5-light.svg "Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.")
-![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/diagram-5-dark.svg)
+![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/request-path-light.svg "Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.")
+![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/request-path-dark.svg)
 
 ### Backing services
 
-![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/diagram-5-backing-light.svg "Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.")
-![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/diagram-5-backing-dark.svg)
+![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/backing-services-light.svg "Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.")
+![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/backing-services-dark.svg)
 
 ### Shortening service
 
@@ -181,8 +181,8 @@ Handles writes — validation, malware scanning, code assignment, persistence.
 
 The 99 % case. Must be cheap, predictable, and never block on analytics or scanning.
 
-![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/diagram-6-light.svg "Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.")
-![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/diagram-6-dark.svg)
+![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/redirect-sequence-light.svg "Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.")
+![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/redirect-sequence-dark.svg)
 
 Why each layer is there:
 
@@ -195,8 +195,8 @@ Why each layer is there:
 
 ### Key Generation Service (KGS)
 
-![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/diagram-7-light.svg "KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.")
-![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/diagram-7-dark.svg)
+![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/kgs-internals-light.svg "KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.")
+![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/kgs-internals-dark.svg)
 
 Allocation flow:
 
@@ -1071,8 +1071,8 @@ The WebSocket reads from the Redis fresh counter (via a thin pub/sub bridge), no
 
 ### AWS reference
 
-![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/diagram-8-light.svg "AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.")
-![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/diagram-8-dark.svg)
+![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/aws-reference-architecture-light.svg "AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.")
+![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/aws-reference-architecture-dark.svg)
 
 | Service                      | Configuration                  | Why                                          |
 | ---------------------------- | ------------------------------ | -------------------------------------------- |

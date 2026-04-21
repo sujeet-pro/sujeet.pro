@@ -1,0 +1,23 @@
+%% Diagram: TurboFan compilation pipeline with Turboshaft backend phases highlighted
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Bytecode[Bytecode] --> Builder[Graph Builder]
+    Feedback[FeedbackVector] --> Builder
+    Builder --> Graph[Initial Graph]
+
+    Graph --> Typer
+    Typer --> Lower[Lowering]
+    Lower --> Opts[Optimization Passes]
+    Opts --> Sched[Scheduling]
+    Sched --> Alloc[Register Allocation]
+    Alloc --> CodeGen[Code Generation]
+
+    subgraph Turboshaft["Turboshaft (CFG backend)"]
+        Sched
+        Alloc
+        CodeGen
+    end
+
+    style Bytecode fill:#e3f2fd
+    style CodeGen fill:#e8f5e8

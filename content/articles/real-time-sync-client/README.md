@@ -15,8 +15,8 @@ tags:
 
 Client-side architecture for real-time data synchronization: transport protocols, connection management, conflict resolution, and state reconciliation patterns used by Figma, Notion, Discord, and Linear.
 
-![Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.](./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi-light.svg "Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.")
-![Real-time sync client architecture: optimistic local state, sync engine with persistence, and transport abstraction connecting to authoritative server state.](./diagrams/real-time-sync-client-architecture-optimistic-local-state-sync-engine-with-persi-dark.svg)
+![Real-time sync client architecture: UI talks to optimistic local state and a sync engine that persists to IndexedDB and routes through a connection manager over WebSocket, SSE, or HTTP polling to an authoritative server.](./diagrams/architecture-overview-light.svg "Layered client architecture: optimistic state for instant feedback, sync engine for persistence and ordering, transport-agnostic connection manager talking to the authoritative server.")
+![Real-time sync client architecture: UI talks to optimistic local state and a sync engine that persists to IndexedDB and routes through a connection manager over WebSocket, SSE, or HTTP polling to an authoritative server.](./diagrams/architecture-overview-dark.svg)
 
 ## Abstract
 
@@ -189,6 +189,11 @@ For greenfield real-time apps that need binary, multiplexed, backpressured chann
 ![Decision tree for choosing between WebSocket, SSE, and long polling based on directionality, latency needs, and offline support.](./diagrams/transport-decision-tree-dark.svg)
 
 ## Connection Management
+
+A long-lived sync connection is a small state machine: open, heartbeat, drop, back off, retry. The same loop drives WebSocket, SSE, and long-polling clients — only the transport-specific signals (handshake, `error`, `Last-Event-ID`) differ.
+
+![State diagram for a sync connection: connecting transitions to open on handshake, open emits periodic heartbeats and reverts to closing on pong timeout, closing routes through a backoff state that retries with jittered exponential delay until success or max attempts.](./diagrams/connection-lifecycle-light.svg "Connection lifecycle: a Connecting state moves to Open on handshake, sends periodic heartbeats, and on drop or pong timeout enters a Backoff state that schedules the next attempt with jittered exponential delay (or terminates on auth failure or max attempts).")
+![State diagram for a sync connection: connecting transitions to open on handshake, open emits periodic heartbeats and reverts to closing on pong timeout, closing routes through a backoff state that retries with jittered exponential delay until success or max attempts.](./diagrams/connection-lifecycle-dark.svg)
 
 ### Reconnection with Exponential Backoff
 

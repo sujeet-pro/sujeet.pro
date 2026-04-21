@@ -167,7 +167,7 @@ Useful when:
 - Different latency budgets for popular vs. rare queries are acceptable.
 
 ![Tiered index: queries hit the hot tier first, then warm, then cold, with each miss falling through to the next layer.](./diagrams/path-c-tiered-light.svg "Path C: hot/warm/cold tiering. Most requests stop at the hot tier.")
-![Tiered index dark](./diagrams/path-c-tiered-dark.svg)
+![Tiered index: hot, warm, and cold tiers](./diagrams/path-c-tiered-dark.svg)
 
 - Most queries served from the hot tier (RAM-resident posting lists).
 - Warm tier on SSD covers mid-frequency terms.
@@ -369,7 +369,7 @@ Row: com.example.www/distributed-systems
 
 ### Inverted index structure
 
-The inverted index maps terms to **posting lists** — ordered lists of documents containing that term, with positions and frequencies attached.
+The inverted index maps terms to **posting lists** — ordered lists of documents containing that term, with positions and frequencies attached. The same shape — per-term lists ordered by `docID` with positions, frequencies, and "fancy hits" carrying font/anchor/title weight — is what Brin & Page described as Google's *barrels* in 1998[^anatomy], and it is what Lucene-derived engines (Elasticsearch, OpenSearch, Solr) and Vespa still expose today.
 
 Posting list (logical):
 
@@ -1270,3 +1270,4 @@ Known limitations:
 [^vespa-phased]: Vespa documents *phased ranking* — `first-phase` over all retrieved hits on content nodes, `second-phase` over top-K locally, and a stateless `global-phase` over the merged top-K — as the canonical production pattern. [Vespa — Phased Ranking](https://docs.vespa.ai/en/ranking/phased-ranking.html).
 [^how-ai-search]: Pandu Nayak, *How AI powers great search results*. Names neural matching (2018) as a retrieval-side neural system distinct from RankBrain. [Google Blog](https://blog.google/products-and-platforms/products/search/how-ai-powers-great-search-results/).
 [^sej-neural-matching]: Reporting from Search Engine Journal on Google's clarification: *"Neural matching helps us understand how queries relate to pages … RankBrain helps us rank."* [Google Explains the Difference Between Neural Matching and RankBrain](https://www.searchenginejournal.com/google-explains-the-difference-between-neural-matching-and-rankbrain/299713/).
+[^anatomy]: Brin & Page, *The Anatomy of a Large-Scale Hypertextual Web Search Engine*, WWW 1998 — §4 *System Anatomy* describes the per-term *barrels* (short + full inverted indexes), `docID`-ordered posting lists, hit lists with position/font/capitalisation, and "fancy hits" for anchor / title text. [Stanford InfoLab](http://infolab.stanford.edu/~backrub/google.html).

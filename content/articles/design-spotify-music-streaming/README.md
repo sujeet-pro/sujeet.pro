@@ -397,7 +397,7 @@ def select_cdn(user_location, content_type, cdns_health):
 Because the audio path uses `Range:` requests against a single file per (track, quality), the CDN cache key is per-file, not per-segment. The CDN serves arbitrary byte ranges out of the same cached object.
 
 ```text
-Audio:  /{track_id}/{quality}.ogg          (HTTP Range: bytes=N-M)
+Audio:  /{track_id}/{quality}.{ogg|aac|flac}   (HTTP Range: bytes=N-M)
 Images: /{image_id}/{size}.jpg
 ```
 
@@ -647,7 +647,7 @@ CREATE TABLE playlist_tracks_by_added (
 **Why Cassandra for playlists:**
 
 - Write-optimized (append-only storage)
-- Horizontal scaling for 675M users
+- Horizontal scaling for 696M users
 - Tunable consistency (eventual for non-critical reads)
 - Counter support for follower counts
 
@@ -739,14 +739,14 @@ CREATE TABLE listening_history (
 
 **Matrix factorization approach:**
 
-Given user-track interaction matrix R (675M users × 100M tracks), learn latent factors:
+Given a user–track interaction matrix $R$ (~696M users × ~100M tracks), learn latent factors:
 
 $$R \approx U \times V^T$$
 
 Where:
 
-- $U$ = user matrix (675M × 128)
-- $V$ = track matrix (100M × 128)
+- $U$ = user matrix (~696M × 128)
+- $V$ = track matrix (~100M × 128)
 
 **Implementation:**
 

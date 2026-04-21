@@ -2,7 +2,6 @@
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    autonumber
     participant Src as ReadableStream
     participant TX as TransformStream
     participant Sink as WritableStream
@@ -17,9 +16,9 @@ sequenceDiagram
     Src->>TX: enqueue chunk
     TX->>Sink: write chunk
     Sink-->>TX: writer ready PENDING
-    Note right of TX: TX queue fills.<br/>Its desiredSize -> 0.
+    Note right of TX: TX queue fills. Its desiredSize -> 0.
     TX-->>Src: stops calling pull
-    Note left of Src: Source MUST check<br/>controller desiredSize<br/>before next enqueue.
+    Note left of Src: Source MUST check controller desiredSize before next enqueue.
     Src->>Src: skip enqueue and retry later
 
     Note over Src,Sink: Sink drains

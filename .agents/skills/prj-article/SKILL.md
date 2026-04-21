@@ -72,26 +72,26 @@ Use this priority order. A higher tier overrides a lower one when they conflict;
 
 Use this as the default starting set per topic family. Always check for a newer or more specific source.
 
-| Topic                              | Tier-1 / Tier-2 starting points                                                                                              |
-| :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript language                | ECMA-262 (latest), ECMA-402, TC39 proposals, MDN JavaScript reference                                                        |
-| TypeScript                         | TypeScript Handbook (typescriptlang.org), TypeScript GitHub (release notes, design notes)                                    |
-| HTML / DOM                         | WHATWG HTML Living Standard, WHATWG DOM Standard, MDN, web.dev                                                               |
-| CSS                                | W3C CSS specs (per module — Selectors, Cascade, Containment, Houdini), MDN CSS reference, CSS Working Group drafts           |
-| Browser internals / rendering      | Chrome for Developers, V8 blog, web.dev, Mozilla Hacks, WebKit blog, browser source design docs                              |
-| Node.js / runtime                  | nodejs.org docs, libuv docs, V8 docs, Node release notes                                                                     |
-| HTTP / networking                  | RFCs (9110, 9111, 9112, 9113, 9114, 9000–9002 for QUIC, 8446 for TLS 1.3), MDN HTTP, Cloudflare blog                         |
-| DNS                                | RFCs (1034, 1035, 6891, 7858, 8484, 8499), IANA, Cloudflare / Google DNS docs                                                |
-| Security                           | OWASP project pages, NIST publications, IETF security RFCs, vendor security docs                                             |
-| Auth                               | RFC 6749 / 6750 / 7519 / 8252 / 9068 / OAuth 2.1 draft, OpenID Connect Core, vendor docs (Auth0, Okta) for ergonomics only   |
-| Databases                          | Vendor docs (Postgres / MySQL / MongoDB / Cassandra / DynamoDB), original papers (Dynamo, Spanner, etc.), Jepsen analyses    |
-| Distributed systems                | Original papers (Paxos, Raft, CRDTs, Calvin, Spanner), DDIA, Jepsen, vendor docs                                             |
-| Caching / CDN                      | RFC 9111, vendor docs (Varnish, Cloudflare, Fastly, Akamai), web.dev caching guide                                           |
-| Performance / Core Web Vitals      | web.dev, Chrome for Developers, HTTP Archive Almanac, browser vendor RUM docs                                                |
-| Streaming / messaging              | Kafka / Pulsar / NATS / Redpanda docs, Confluent engineering blog, original Kafka paper, RabbitMQ docs                       |
-| Cloud architecture                 | AWS Well-Architected, Google SRE Book / Workbook, Azure Architecture Center, vendor service docs                             |
-| Accessibility                      | WCAG 2.2 (W3C), ARIA Authoring Practices Guide, MDN accessibility, web.dev accessibility                                     |
-| React / framework internals        | Official docs, framework RFCs (e.g. React RFC repo), maintainer blog posts, conference talks                                 |
+| Topic                         | Tier-1 / Tier-2 starting points                                                                                            |
+| :---------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript language           | ECMA-262 (latest), ECMA-402, TC39 proposals, MDN JavaScript reference                                                      |
+| TypeScript                    | TypeScript Handbook (typescriptlang.org), TypeScript GitHub (release notes, design notes)                                  |
+| HTML / DOM                    | WHATWG HTML Living Standard, WHATWG DOM Standard, MDN, web.dev                                                             |
+| CSS                           | W3C CSS specs (per module — Selectors, Cascade, Containment, Houdini), MDN CSS reference, CSS Working Group drafts         |
+| Browser internals / rendering | Chrome for Developers, V8 blog, web.dev, Mozilla Hacks, WebKit blog, browser source design docs                            |
+| Node.js / runtime             | nodejs.org docs, libuv docs, V8 docs, Node release notes                                                                   |
+| HTTP / networking             | RFCs (9110, 9111, 9112, 9113, 9114, 9000–9002 for QUIC, 8446 for TLS 1.3), MDN HTTP, Cloudflare blog                       |
+| DNS                           | RFCs (1034, 1035, 6891, 7858, 8484, 8499), IANA, Cloudflare / Google DNS docs                                              |
+| Security                      | OWASP project pages, NIST publications, IETF security RFCs, vendor security docs                                           |
+| Auth                          | RFC 6749 / 6750 / 7519 / 8252 / 9068 / OAuth 2.1 draft, OpenID Connect Core, vendor docs (Auth0, Okta) for ergonomics only |
+| Databases                     | Vendor docs (Postgres / MySQL / MongoDB / Cassandra / DynamoDB), original papers (Dynamo, Spanner, etc.), Jepsen analyses  |
+| Distributed systems           | Original papers (Paxos, Raft, CRDTs, Calvin, Spanner), DDIA, Jepsen, vendor docs                                           |
+| Caching / CDN                 | RFC 9111, vendor docs (Varnish, Cloudflare, Fastly, Akamai), web.dev caching guide                                         |
+| Performance / Core Web Vitals | web.dev, Chrome for Developers, HTTP Archive Almanac, browser vendor RUM docs                                              |
+| Streaming / messaging         | Kafka / Pulsar / NATS / Redpanda docs, Confluent engineering blog, original Kafka paper, RabbitMQ docs                     |
+| Cloud architecture            | AWS Well-Architected, Google SRE Book / Workbook, Azure Architecture Center, vendor service docs                           |
+| Accessibility                 | WCAG 2.2 (W3C), ARIA Authoring Practices Guide, MDN accessibility, web.dev accessibility                                   |
+| React / framework internals   | Official docs, framework RFCs (e.g. React RFC repo), maintainer blog posts, conference talks                               |
 
 ### 3. Research workflow
 
@@ -182,12 +182,12 @@ Diagram authoring, rendering, embedding, and auditing are owned by [`../prj-diag
 
 Route through `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md` (via `../prj-diagrams/SKILL.md`):
 
-| Need                                               | Engine        |
-| :------------------------------------------------- | :------------ |
-| Flowchart, sequence, state, ER, gantt, class      | Mermaid       |
-| Freeform, hand-drawn, conceptual sketches         | Excalidraw    |
-| Dense infrastructure, cloud icons, BPMN           | draw.io       |
-| Algorithmic graph layouts (DAGs, large trees)     | Graphviz      |
+| Need                                          | Engine     |
+| :-------------------------------------------- | :--------- |
+| Flowchart, sequence, state, ER, gantt, class  | Mermaid    |
+| Freeform, hand-drawn, conceptual sketches     | Excalidraw |
+| Dense infrastructure, cloud icons, BPMN       | draw.io    |
+| Algorithmic graph layouts (DAGs, large trees) | Graphviz   |
 
 ### Embedding
 
@@ -204,17 +204,17 @@ Caption goes on the **light** image's title attribute. Both variants must be pre
 
 The full feature surface is documented upstream (read `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md`). The features you should actively reach for in articles:
 
-| Feature                                                                                                                                  | Use when                                                                                                            |
-| :--------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-| GFM tables (`\| col \|`)                                                                                                                 | Trade-offs, comparisons, capacity numbers, decision matrices.                                                       |
-| GitHub alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`)                                                        | Sparingly — to flag a footgun, an op-time risk, or a non-obvious assumption.                                        |
-| Footnotes (`[^1]`)                                                                                                                       | Dense citations and source links that would clutter prose.                                                          |
-| Math (`$...$`, `$$...$$`)                                                                                                                | Latency / throughput / probability formulas; rendered via MathJax (`markdown.math: 'auto'` in `content.config.ts`). |
+| Feature                                                                                                                                 | Use when                                                                                                            |
+| :-------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
+| GFM tables (`\| col \|`)                                                                                                                | Trade-offs, comparisons, capacity numbers, decision matrices.                                                       |
+| GitHub alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`)                                                       | Sparingly — to flag a footgun, an op-time risk, or a non-obvious assumption.                                        |
+| Footnotes (`[^1]`)                                                                                                                      | Dense citations and source links that would clutter prose.                                                          |
+| Math (`$...$`, `$$...$$`)                                                                                                               | Latency / throughput / probability formulas; rendered via MathJax (`markdown.math: 'auto'` in `content.config.ts`). |
 | Code blocks with meta — `title="..."`, `showLineNumbers`, `mark={3,5-7}`, `ins={4}`, `del={5}`, `collapse={1-5}`, `wrap`, `frame="..."` | File-anchored snippets, before/after diffs, focus highlights.                                                       |
-| Themed light/dark image pairs (consecutive `-light` then `-dark`)                                                                        | All diagrams. **Both variants must be present** — a lone `-light` or `-dark` throws.                                |
-| Auto-merged figure with caption                                                                                                          | Use the markdown title attribute on the **light** image: `![alt](./diagrams/x-light.svg "caption")`.                |
-| `rehype-local-images` (intrinsic dimensions, AVIF/WebP `<picture>`)                                                                      | Use markdown image syntax, not raw `<img>` / `<figure>` / `<picture>` HTML.                                         |
-| Heading auto-anchors + autolinks                                                                                                         | Free; use them to support deep linking from other articles.                                                         |
+| Themed light/dark image pairs (consecutive `-light` then `-dark`)                                                                       | All diagrams. **Both variants must be present** — a lone `-light` or `-dark` throws.                                |
+| Auto-merged figure with caption                                                                                                         | Use the markdown title attribute on the **light** image: `![alt](./diagrams/x-light.svg "caption")`.                |
+| `rehype-local-images` (intrinsic dimensions, AVIF/WebP `<picture>`)                                                                     | Use markdown image syntax, not raw `<img>` / `<figure>` / `<picture>` HTML.                                         |
+| Heading auto-anchors + autolinks                                                                                                        | Free; use them to support deep linking from other articles.                                                         |
 
 Repo-local Shiki language aliases (defined in `content.config.ts`) you can use in fences: `redis`, `vcl`, `promql`, `logql`, `bind`, `dns`, `cql`, `properties`, `m3u8`, `asciidoc`.
 

@@ -2,32 +2,17 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    REQ["@font-face requested<br/>font-display: ?"]
+    REQ["@font-face<br/>font-display = ?"]
 
-    REQ --> BLOCK["block<br/>FOIT"]
-    REQ --> SWAP["swap<br/>FOUT"]
-    REQ --> FALL["fallback<br/>compromise"]
-    REQ --> OPT["optional<br/>perf-first"]
+    REQ --> BLOCK["block (FOIT)<br/>~3s block, then swap"]
+    REQ --> SWAP["swap (FOUT)<br/>fallback ~0, swap forever"]
+    REQ --> FALL["fallback<br/>~100ms hide, swap if ≤3s"]
+    REQ --> OPT["optional<br/>~100ms hide, no late swap"]
 
-    BLOCK --> B1["Invisible text<br/>up to ~3s"]
-    B1 --> B2["Custom font<br/>or fallback if late"]
-
-    SWAP --> S1["Fallback visible<br/>~0ms block"]
-    S1 --> S2["Swap on load<br/>any time"]
-
-    FALL --> F1["Invisible<br/>~100ms"]
-    F1 --> F2["Fallback shown"]
-    F2 --> F3["Swap if font<br/>arrives ≤3s"]
-    F2 --> F4["Keep fallback<br/>after 3s"]
-
-    OPT --> O1["Invisible<br/>~100ms"]
-    O1 --> O2["Use font if<br/>cached / fast"]
-    O1 --> O3["Stay on fallback<br/>otherwise"]
-
-    BLOCK --> BU["Use: icon fonts<br/>Bad FCP/LCP"]
-    SWAP --> SU["Use: headings<br/>Risk CLS without overrides"]
-    FALL --> FU["Use: body text<br/>Balanced default"]
-    OPT --> OU["Use: non-critical<br/>Excellent CLS"]
+    BLOCK --> BU["icon fonts<br/>bad FCP / LCP"]
+    SWAP --> SU["headlines<br/>CLS without overrides"]
+    FALL --> FU["body text<br/>balanced default"]
+    OPT --> OU["non-critical<br/>excellent CLS"]
 
     classDef bad fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
     classDef ok fill:#d1fae5,stroke:#059669,color:#064e3b

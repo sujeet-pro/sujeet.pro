@@ -298,7 +298,7 @@ type MessageStatus = "PENDING" | "SENT" | "DELIVERED" | "READ"
 
 ### Presence Service
 
-Presence is intentionally low-fidelity. The service holds heartbeat-derived TTL state in Redis and broadcasts deltas via pub/sub. The conceptual model — "online" as a TTL-bounded subscription, with deltas pushed to subscribers — is the same one [XMPP RFC 6121 §3](https://datatracker.ietf.org/doc/html/rfc6121#section-3) defines around the roster, just realised with Redis instead of XML stanzas.
+Presence is intentionally low-fidelity. The service holds heartbeat-derived TTL state in Redis and broadcasts deltas via pub/sub. The conceptual model — "online" as a TTL-bounded subscription, with deltas pushed to subscribers — is the same one [XMPP RFC 6121 §3](https://datatracker.ietf.org/doc/html/rfc6121#section-3) defines for presence subscriptions, just realised with Redis instead of XML stanzas.
 
 ![Presence pipeline sequence: a client sends a heartbeat to its gateway every 30s; the gateway HSETs presence:user with status=online and refreshes a 120s TTL in Redis. State changes (typing.start, going offline) write a SETEX or DEL and PUBLISH to presence:changes; subscriber gateways receive the delta, filter by their subscribed users, and push presence.update / typing.update to clients. When a client misses heartbeats, the Redis TTL expires and a keyspace notification triggers an offline broadcast.](./diagrams/presence-pipeline-light.svg "Presence pipeline: heartbeat → Redis TTL → pub/sub fan-out to subscriber gateways. Last-seen falls out of the TTL automatically; no explicit \"offline\" message is required when the client just goes away.")
 ![Presence pipeline sequence.](./diagrams/presence-pipeline-dark.svg)
@@ -1273,7 +1273,7 @@ Two designs dominate, with very different cost curves.
 | Post-compromise security       | Hard at scale; needs O(N²)-ish rotation      | Built in; every Commit refreshes the tree                   |
 | Async joiners                  | Pairwise Sesame-style negotiation            | Welcome message + ratchet-tree extension                    |
 | Practical sweet spot           | Small/medium groups (≤ ~50)                  | Medium-to-large groups (hundreds to thousands)              |
-| Production examples            | WhatsApp groups (historically), Signal groups | Wire, RingCentral; WhatsApp has [migrated 1:1 and small groups to a Signal+MLS hybrid](https://engineering.fb.com/2023/09/07/security/messaging-interoperability-sec/) |
+| Production examples            | WhatsApp groups, Signal groups               | Wire, Cisco Webex (Secure Messaging), RingCentral. WhatsApp's [EU DMA interop bridge](https://engineering.fb.com/2024/03/06/security/whatsapp-messenger-messaging-interoperability-eu/) keeps its own chats on the Signal Protocol and exposes a Signal-based gateway to third parties. |
 
 ### Multi-device E2EE
 

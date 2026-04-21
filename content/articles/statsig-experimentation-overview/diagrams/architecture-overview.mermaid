@@ -1,0 +1,37 @@
+%% Diagram: Statsig high-level architecture - server vs client evaluation paths
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Statsig["Statsig platform"]
+        direction TB
+        CDN[(api.statsigcdn.com<br/>download_config_specs)]
+        Init[(api.statsig.com<br/>/initialize)]
+        Events[(Event ingestion + metrics pipeline)]
+    end
+
+    subgraph Server["Server side"]
+        direction TB
+        SrvApp[Application servers]
+        SrvSDK["Server Core SDK<br/>(@statsig/statsig-node-core, etc.)"]
+        Adapter[(Optional DataAdapter<br/>Redis / Edge Config)]
+    end
+
+    subgraph Client["Browser / mobile"]
+        direction TB
+        ClientApp[App / page]
+        ClientSDK["@statsig/js-client<br/>iOS / Android SDKs"]
+        Local[(localStorage cache)]
+    end
+
+    SrvApp --> SrvSDK
+    SrvSDK -- "full spec" --> CDN
+    SrvSDK <--> Adapter
+    SrvSDK -- "exposures + custom events" --> Events
+
+    ClientApp --> ClientSDK
+    ClientSDK -- "user object" --> Init
+    Init -- "pre-evaluated payload" --> ClientSDK
+    ClientSDK <--> Local
+    ClientSDK -- "exposures + custom events" --> Events
+
+    SrvSDK -. "getClientInitializeResponse(user)" .-> ClientSDK

@@ -1,0 +1,42 @@
+%% Diagram: Failure Chain — Trigger, Cascade, Recovery
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Trigger["Trigger: Capacity Addition"]
+        ADD["New servers added\nto front-end fleet"]
+    end
+
+    subgraph FE["Front-End Fleet (monolithic)"]
+        direction TB
+        THREAD["Each server creates\n1 OS thread per peer"]
+        LIMIT["Thread count exceeds\nOS configuration limit"]
+        SHARD["Shard-map cache\nconstruction fails"]
+        ROUTE["Servers cannot route\nrequests to back-end"]
+        THREAD --> LIMIT --> SHARD --> ROUTE
+    end
+
+    subgraph Cascade["Cascading Failures"]
+        KIN["Kinesis API errors"]
+        CW["CloudWatch\n(metrics + alarms down)"]
+        COG["Cognito\n(buffer blocks forever)"]
+        LAM["Lambda\n(memory contention)"]
+        AS["AutoScaling\n(blind to metrics)"]
+        DASH["Status Dashboard\n(can't post updates)"]
+        KIN --> CW & COG & LAM
+        CW --> AS
+        COG --> DASH
+    end
+
+    subgraph Recovery["Recovery: 17 Hours"]
+        RESTART["Controlled restart\n(few hundred servers/hour)"]
+        HERD["Thundering herd:\nfast restart = worse failure"]
+    end
+
+    ADD --> FE
+    FE --> Cascade
+    Cascade --> Recovery
+
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class LIMIT,DASH alert
+    class HERD warn

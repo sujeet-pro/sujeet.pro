@@ -1,8 +1,9 @@
 %% Diagram: Multi-region cache replication and invalidation broadcast
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart LR
+flowchart TB
     subgraph regionA["Region A (write region)"]
+        direction TB
         AppA["App"]
         CacheA["Local cache cluster"]
         DBA[("Primary DB")]
@@ -13,6 +14,7 @@ flowchart LR
     end
 
     subgraph regionB["Region B (read replica region)"]
+        direction TB
         AppB["App"]
         CacheB["Local cache cluster"]
         DBB[("Read replica DB")]
@@ -23,6 +25,7 @@ flowchart LR
     end
 
     subgraph regionC["Region C (read replica region)"]
+        direction TB
         AppC["App"]
         CacheC["Local cache cluster"]
         DBC[("Read replica DB")]

@@ -13,8 +13,6 @@ sequenceDiagram
 
     Note over A,B: each merges by max(version) per (endpoint, app-state-key)<br/>O(log N) rounds to fully propagate
 
-    Note over A: per-peer phi accrual:<br/>track inter-heartbeat distribution
-    Note over A: phi(t) = -log10(1 - F(t - t_last))
-    A-->>A: if phi(C) > 8 -> mark C suspect/convicted
+    Note over A: per-peer phi accrual:<br/>track inter-heartbeat distribution<br/>phi(t) = -log10(1 - F(t - t_last))<br/>if phi(C) > 8 -> mark C suspect/convicted
     A->>B: gossip "C is DOWN, gen=g, version=v"
-    B-->>A: merged; if newer, B propagates further
+    B-->>A: merged - if newer B propagates further

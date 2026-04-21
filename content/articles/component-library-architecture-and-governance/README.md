@@ -19,8 +19,8 @@ A component library is a product with internal customers. Its success depends on
 
 The focus is on React-based systems, though most principles apply across frameworks.
 
-![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des-light.svg "Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.")
-![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/component-libraries-operate-as-products-with-three-interconnected-layers-api-des-dark.svg)
+![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/library-as-product-overview-light.svg "Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.")
+![Component libraries operate as products with three interconnected layers: API design shapes developer experience, governance manages change, and operations ensure sustainable adoption.](./diagrams/library-as-product-overview-dark.svg)
 
 ## Abstract
 

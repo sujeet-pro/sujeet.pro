@@ -1,0 +1,22 @@
+%% Diagram: End-to-end transcoding pipeline overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Pre["Pre-encode"]
+        direction LR
+        SRC[Source<br/>upload] --> ING[Ingest<br/>validate + store]
+        ING --> ORCH[Orchestrate<br/>queue + schedule]
+    end
+
+    subgraph Encode["Distributed encode"]
+        direction LR
+        CHUNK[Chunk<br/>at GOPs] --> POOL[Worker pool<br/>parallel encode]
+        POOL --> MERGE[Merge]
+    end
+
+    subgraph Post["Post-encode"]
+        direction LR
+        QC[QC<br/>VMAF gate] --> PKG[Package<br/>HLS / DASH] --> CDN[CDN]
+    end
+
+    Pre --> Encode --> Post

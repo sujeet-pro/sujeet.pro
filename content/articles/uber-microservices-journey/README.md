@@ -119,7 +119,10 @@ Uber did not do a big-bang rewrite. Services were extracted incrementally from t
 - **Apache Thrift** as the IDL (Interface Definition Language) for cross-service contracts, giving every service a typed schema instead of a hand-rolled JSON envelope.
 - **[TChannel](https://github.com/uber/tchannel)**: A custom TCP multiplexing protocol for RPC, designed so that slow requests do not head-of-line-block faster ones on the same connection. Distributed tracing was promoted to a first-class protocol concern: every `call req` and `error` frame carries a 25-byte Dapper-style trace context (`spanid`, `parentid`, `traceid`, `traceflags`) embedded in the binary header[^tchannel-spec], which removed the "did you remember to propagate the trace?" failure mode that plagues HTTP-based stacks.
 - **[Ringpop](https://www.uber.com/blog/ringpop-open-source-nodejs-library/)**: Application-layer consistent hashing library that used a SWIM-style gossip protocol for cluster membership, so services could self-organize into sharded clusters without an external coordinator. It became the substrate for many of Uber's high-throughput real-time services.
-- **Hyperbahn**: An overlay network of routers built on Ringpop and TChannel. Services registered by name; consumers reached producers without knowing hosts or ports, and the routers provided fault tolerance, rate limiting, and circuit breaking.
+- **Hyperbahn**: An overlay network of routers built on Ringpop and TChannel. Services registered by name; consumers reached producers without knowing hosts or ports, and the routers provided fault tolerance, rate limiting, and circuit breaking. Hyperbahn was [archived in 2017][hyperbahn-archive]; by ~2016 Uber had moved on to an [on-host L7 service mesh][uber-mesh] — a sidecar reverse proxy on every host that owns service discovery, load balancing, authn/authz, traffic shaping, and observability for every RPC, decoupling those concerns from application code in any language.
+
+[hyperbahn-archive]: https://github.com/uber-archive/hyperbahn
+[uber-mesh]: https://www.uber.com/blog/better-load-balancing-real-time-dynamic-subsetting/
 
 [^tchannel-spec]: [TChannel Protocol Specification](https://tchannel.readthedocs.io/en/latest/protocol/) — `tracing` block layout and frame types.
 
@@ -133,7 +136,9 @@ The microservices explosion forced Uber to build an entire platform stack. Each 
 
 **Metrics — [M3 (2015)](https://www.uber.com/blog/m3/)**: Replaced a Graphite/Carbon/Whisper + Cassandra stack that lacked native replication, required manual resharding, and lost data on any single-node disk failure. M3 stores over **6.6 billion time series**, aggregates **500 million metrics per second** in flight, and persists **20 million resulting datapoints per second** to storage. Custom **M3TSZ** compression — an optimization of Facebook's Gorilla algorithm for `float64` values — combined with a move from Cassandra to M3DB delivered roughly a 7-10× reduction in hardware footprint.
 
-**Workflow orchestration — [Cadence (2017)](https://www.uber.com/blog/announcing-cadence/)**: Built by Maxim Fateev and Samar Abbas, who previously built AWS Simple Workflow Service. Traditional workflow engines exposed a DSL that became unwieldy past trivial flows; Cadence inverted that — workflows are written in native Go or Java and the engine handles persistence, queues, timers, retries, and recovery. At Uber it processes over 12 billion executions and 270 billion actions per month across more than 1,000 services. Fateev and Abbas left Uber in October 2019 to fork Cadence into [Temporal](https://temporal.io/blog/samars-journey).
+**Workflow orchestration — [Cadence (open-sourced 2017)](https://www.uber.com/blog/open-source-orchestration-tool-cadence-overview/)**: Built by Maxim Fateev and Samar Abbas, who previously built AWS Simple Workflow Service. Traditional workflow engines exposed a DSL that became unwieldy past trivial flows; Cadence inverted that — workflows are written in native Go or Java and the engine handles persistence, queues, timers, retries, and recovery. By the [Cadence 1.0 announcement (June 2023)][cadence-1-0], Uber was running over 12 billion executions and 270 billion actions per month across more than 1,000 services. Fateev and Abbas left Uber in October 2019 to fork Cadence into [Temporal](https://temporal.io/blog/samars-journey).
+
+[cadence-1-0]: https://www.uber.com/blog/announcing-cadence/
 
 **Container distribution — [Kraken (2018)](https://www.uber.com/blog/introducing-kraken/)**: A P2P Docker registry inspired by BitTorrent. Standard registries could not feed deploys at Uber's cluster scale because every host was pulling from a small pool of registry servers. Kraken pushes blobs peer-to-peer: at peak it distributes **20,000 blobs (100 MB-1 GB each) in under 30 seconds** across clusters of 8,000+ hosts, with cluster size having minimal effect on per-host throughput.
 
@@ -174,7 +179,10 @@ By 2016, with 1,000+ services, the architecture had produced exactly the complex
 
 Ranney's QCon SF 2016 talk, ["What Comes After Microservices?"][ranney-qcon-talk], openly questioned whether microservices were solving more problems than they created at this scale — a striking thing to hear from the Chief Systems Architect of one of the most-cited microservices success stories of the era.
 
+By April 2020, that ambivalence had crystallised into a public, team-level term: ["macroservices"][macroservices-tweet]. Gergely Orosz, then an engineering manager at Uber, described his team consolidating many narrowly-scoped microservices into larger, single-team-owned services aligned to a single business capability — explicitly not a return to a monolith, but a deliberate move up the granularity ladder. DOMA (covered next) is Uber's company-wide answer to the same problem; "macroservices" is the team-level vocabulary for the same instinct.
+
 [ranney-qcon-talk]: https://qconsf.com/sf2016/sf2016/presentation/what-comes-after-microservices.html
+[macroservices-tweet]: https://highscalability.com/one-team-at-uber-is-moving-from-microservices-to-macroservic/
 
 ## Phase 3: DOMA -- Domain-Oriented Microservice Architecture (2018-2020)
 
@@ -424,7 +432,7 @@ The most transferable insight is Ranney's observation that scaling traffic is no
 - [Designing Schemaless, Uber Engineering's Scalable Datastore Using MySQL](https://www.uber.com/blog/schemaless-part-one-mysql-datastore/) - Uber Engineering Blog
 - [Evolving Distributed Tracing at Uber Engineering](https://www.uber.com/blog/distributed-tracing/) - Yuri Shkuro, Uber Engineering Blog
 - [M3: Uber's Open Source, Large-scale Metrics Platform for Prometheus](https://www.uber.com/blog/m3/) - Uber Engineering Blog
-- [Announcing Cadence 1.0](https://www.uber.com/blog/announcing-cadence/) - Uber Engineering Blog, June 2023
+- [Conducting Better Business with Uber's Open Source Orchestration Tool, Cadence](https://www.uber.com/blog/open-source-orchestration-tool-cadence-overview/) - Uber Engineering Blog (origin and 2017 open-sourcing) and [Announcing Cadence 1.0](https://www.uber.com/blog/announcing-cadence/) - Uber Engineering Blog, June 2023 (current scale numbers)
 - [Introducing Kraken, an Open Source Peer-to-Peer Docker Registry](https://www.uber.com/blog/introducing-kraken/) - Uber Engineering Blog
 - [How We Built Uber Engineering's Highest Query per Second Service Using Go](https://www.uber.com/blog/go-geofence-highest-query-per-second-service/) - Uber Engineering Blog
 - [Code Migration in Production: Rewriting the Sharding Layer of Uber's Schemaless Datastore](https://www.uber.com/blog/schemaless-rewrite/) - Uber Engineering Blog

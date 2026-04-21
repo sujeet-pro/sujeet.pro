@@ -20,8 +20,8 @@ Most accessibility regressions ship not because tools are missing, but because t
 
 The reader profile is a senior engineer or accessibility lead deciding what to instrument, not a beginner learning what an `aria-label` is. The success bar is that after one read you can: pick the right runner per layer, justify the choice with rule-coverage data, write a CI gate that fails only on real violations, and explain what manual testing is still buying you.
 
-![Layered accessibility testing workflow — static lint, automated runtime, manual pass, and the irreducible criterion residue](./diagrams/testing-layers-light.svg "Layered accessibility testing workflow: each ring catches a different class of issue. Two coverage signals — ~57% of issue volume (Deque corpus) and ~13/45/42% of WCAG 2.2 AA criteria split — answer different questions.")
-![Layered accessibility testing workflow — static lint, automated runtime, manual pass, and the irreducible criterion residue](./diagrams/testing-layers-dark.svg)
+![Layered accessibility testing workflow — static lint at dev time, axe / Pa11y / Lighthouse in the CI gate, and a manual keyboard + screen-reader pass](./diagrams/testing-layers-light.svg "Layered accessibility testing workflow: each layer catches a different class of issue, and the layers downstream of CI are the ones that close the irreducible ~42% of WCAG 2.2 AA criteria automation cannot reach.")
+![Layered accessibility testing workflow — static lint at dev time, axe / Pa11y / Lighthouse in the CI gate, and a manual keyboard + screen-reader pass](./diagrams/testing-layers-dark.svg)
 
 ## Mental model: three coverage axes that do not collapse
 

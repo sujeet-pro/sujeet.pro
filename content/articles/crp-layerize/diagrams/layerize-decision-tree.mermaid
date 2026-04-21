@@ -2,20 +2,20 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    Start(["PaintChunk to place"]) --> Foreign{"Foreign content?<br/>(composited video,<br/>WebGL/2D canvas, plugin,<br/>OOPIF surface)"}
+    Start(["PaintChunk to place"]) --> Foreign{"Foreign content?<br/>(video, canvas,<br/>plugin, OOPIF)"}
     Foreign -- yes --> NewLayer["New cc::Layer<br/>(no merge)"]
-    Foreign -- no --> DCR{"PropertyTreeState carries a<br/>direct compositing reason?<br/>(will-change, 3D xform,<br/>compositor animation,<br/>backdrop-filter, sticky, ...)"}
+    Foreign -- no --> DCR{"Direct compositing<br/>reason on<br/>PropertyTreeState?"}
     DCR -- yes --> NewLayer
-    DCR -- no --> Search["Search backwards for the latest<br/>PendingLayer with a compatible<br/>PropertyTreeState"]
-    Search --> Found{"Compatible PendingLayer<br/>found?"}
+    DCR -- no --> Search["Find latest compatible<br/>PendingLayer"]
+    Search --> Found{"Compatible PL<br/>found?"}
     Found -- no --> NewLayer
-    Found -- yes --> Overlap{"Overlaps any intervening<br/>incompatible PendingLayer?"}
+    Found -- yes --> Overlap{"Overlaps an intervening<br/>incompatible PL?"}
     Overlap -- yes --> NewLayer
-    Overlap -- no --> Sparsity{"Combined bounds within<br/>kMergeSparsityAreaTolerance?"}
+    Overlap -- no --> Sparsity{"Within sparsity<br/>tolerance?"}
     Sparsity -- no --> NewLayer
-    Sparsity -- yes --> Merge["Merge into PendingLayer<br/>(flatten differing nodes via<br/>paired display items)"]
+    Sparsity -- yes --> Merge["Merge into PendingLayer<br/>(flatten differing nodes)"]
 
-    Merge --> Done(["Continue with next chunk"])
+    Merge --> Done(["Next chunk"])
     NewLayer --> Done
 
     style NewLayer fill:#ffe0b2,stroke:#e65100,stroke-width:2px

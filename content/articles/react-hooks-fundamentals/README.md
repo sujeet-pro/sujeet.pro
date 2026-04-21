@@ -16,8 +16,8 @@ tags:
 
 React Hooks let functional components own state and side effects without classes. Introduced in [React 16.8 in February 2019](https://react.dev/blog/2019/02/06/react-v16.8.0), hooks are now the default API for components. This is part one of a two-article series; specialized concurrent hooks (`useTransition`, `useDeferredValue`, `useLayoutEffect`, `useSyncExternalStore`, `useId`, `use`) live in [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md). This article covers the architectural principles, core hooks, and patterns you reach for daily.
 
-![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-light.svg "React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.")
-![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-dark.svg)
+![React 19 hook categories: state, effect, performance, and other hooks shipped in the current stable API.](./diagrams/hook-categories-light.svg "React 19 hook categories: state, effect, performance, and other hooks shipped in the current stable API.")
+![React 19 hook categories: state, effect, performance, and other hooks shipped in the current stable API.](./diagrams/hook-categories-dark.svg)
 
 ## Abstract
 
@@ -42,7 +42,7 @@ Before React 16.8, class components had three architectural problems that hooks 
 
 **3. `this` Binding**: Class methods required explicit binding or arrow function class properties. Hooks eliminate `this` entirely—components are just functions.
 
-> **Design rationale**: The React team considered alternatives like mixins (rejected due to the "diamond problem" of conflicting method names) and render props (rejected because they still add nesting). Hooks' call-order design naturally avoids these issues. See Dan Abramov's ["Why Do Hooks Rely on Call Order?"](https://overreacted.io/why-do-hooks-rely-on-call-order/) for the full reasoning.
+> **Design rationale**: The React team considered alternatives like mixins (rejected due to the "diamond problem" of conflicting method names) and render props (rejected because they still add nesting). Hooks' call-order design naturally avoids these issues. The full proposal lives in [React RFC #68: React Hooks](https://github.com/reactjs/rfcs/blob/main/text/0068-react-hooks.md); Dan Abramov's ["Why Do Hooks Rely on Call Order?"](https://overreacted.io/why-do-hooks-rely-on-call-order/) is the longer-form companion.
 
 ## The Rules of Hooks: Why Call Order Matters
 
@@ -135,6 +135,8 @@ function Counter() {
   }
 }
 ```
+
+**Automatic batching (React 18+)**: When mounted with `createRoot`, React batches every `setState` call inside a single synchronous turn into one render — including updates inside `setTimeout`, microtasks, promise `.then` handlers, and native event listeners. Pre-18 only batched inside React event handlers; everything else triggered a render per call. The change is described in the [React 18 working group's automatic batching note](https://github.com/reactwg/react-18/discussions/21). When you need to read DOM after a specific update, call [`flushSync`](https://react.dev/reference/react-dom/flushSync) to opt one update out of the batch.
 
 **Object state**: React uses [`Object.is`](https://react.dev/reference/react/useState#caveats) to detect changes. Mutating an object and calling the setter won't trigger a re-render because the reference hasn't changed.
 
@@ -296,16 +298,49 @@ function TextInput() {
 ```tsx title="useRef-timer.tsx" collapse={1-2}
 // Store interval ID without causing re-renders
 function Timer() {
-  const intervalRef = useRef<NodeJS.Timeout>()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     intervalRef.current = setInterval(() => console.log("tick"), 1000)
-    return () => clearInterval(intervalRef.current)
+    return () => {
+      if (intervalRef.current !== null) clearInterval(intervalRef.current)
+    }
   }, [])
 }
 ```
 
+> [!NOTE]
+> React 19's `@types/react` removed the no-argument `useRef<T>()` overload — every `useRef` call must pass an explicit initial value (typically `null`). The migration is documented in the [React 19 upgrade guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide#ref-cleanup-required).
+
 **Key distinction from state**: Mutating `ref.current` doesn't schedule a re-render. Use state when the UI should reflect the value; use refs for values that don't affect rendering.
+
+### useContext: Read Context Without Prop Drilling
+
+`useContext` reads the value of a context object created by `createContext`. It subscribes the calling component to the nearest matching `<Context.Provider>` ancestor; when that provider's `value` prop changes (compared with `Object.is`), every consumer re-renders.
+
+```tsx title="useContext-basics.tsx" collapse={1-2}
+const ThemeContext = createContext<"light" | "dark">("light")
+
+function App() {
+  return (
+    <ThemeContext.Provider value="dark">
+      <Toolbar />
+    </ThemeContext.Provider>
+  )
+}
+
+function Toolbar() {
+  const theme = useContext(ThemeContext) // "dark"
+  return <div className={`toolbar toolbar-${theme}`} />
+}
+```
+
+Two non-obvious behaviors that bite in production:
+
+- **All consumers re-render when `value` changes**, even if they only read one field of an object value. The fix is to split the context (one for state, one for setters) or memoize the provider's `value` so unrelated parents don't recreate it on every render. The [React docs on optimizing re-renders](https://react.dev/reference/react/useContext#optimizing-re-renders-when-passing-objects-and-functions) walk through both patterns.
+- **Provider lookup is lexical, not by component identity**. Two `<ThemeContext.Provider value="dark">` ancestors in different subtrees produce different live values to their respective subtrees — context is _not_ a singleton.
+
+In React 19, the equivalent of `useContext(MyContext)` can also be written as [`use(MyContext)`](https://react.dev/reference/react/use), which is the only hook permitted inside conditionals and loops. `useContext` itself still follows the standard rules.
 
 ## Performance Hooks: Memoization
 
@@ -395,7 +430,7 @@ Returns the value from the previous render. Useful for comparisons, animations, 
 import { useEffect, useRef } from "react"
 
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>()
+  const ref = useRef<T | undefined>(undefined)
   useEffect(() => {
     ref.current = value
   }, [value])
@@ -469,8 +504,11 @@ function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 }
 
 export function useFetch<T>(url: string | null) {
-  const [state, dispatch] = useReducer(reducer<T>, { data: null, error: null, isLoading: false })
-  const abortRef = useRef<AbortController>()
+  const [state, dispatch] = useReducer(
+    reducer as (s: State<T>, a: Action<T>) => State<T>,
+    { data: null, error: null, isLoading: false } as State<T>,
+  )
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!url) return
@@ -483,8 +521,8 @@ export function useFetch<T>(url: string | null) {
 
     fetch(url, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data) => dispatch({ type: "success", data }))
-      .catch((err) => {
+      .then((data: T) => dispatch({ type: "success", data }))
+      .catch((err: Error) => {
         if (err.name !== "AbortError") dispatch({ type: "error", error: err })
       })
 
@@ -613,7 +651,7 @@ React 19 (December 2024) introduces hooks for form handling and optimistic updat
 | `useActionState` | Manages form submission state, errors, and pending status       |
 | `useFormStatus`  | Reads parent `<form>` status without prop drilling              |
 | `useOptimistic`  | Shows optimistic UI while async request completes               |
-| `use`            | Reads promises/context during render (can follow early returns) |
+| `use`            | Reads a promise or context during render; the only hook callable inside conditionals and loops |
 
 ```tsx title="react-19-hooks.tsx" collapse={1-2}
 // useActionState example
@@ -635,11 +673,28 @@ function Form() {
 }
 ```
 
-The [React Compiler RC](https://react.dev/blog/2025/04/21/react-compiler-rc) auto-memoizes values and functions at build time, reducing the need for manual `useMemo`/`useCallback` in projects that adopt it.
+The [`use` API](https://react.dev/reference/react/use) reads a promise or context value during render and is the **only** hook permitted inside conditionals and loops. When passed a promise, it suspends the component until the promise resolves — when combined with `<Suspense>`, this replaces most ad-hoc loading state.
+
+```tsx title="use-promise.tsx" collapse={1-3}
+import { use, Suspense } from "react"
+
+function Profile({ userPromise }: { userPromise: Promise<User> }) {
+  const user = use(userPromise) // Suspends until resolved
+  return <h1>{user.name}</h1>
+}
+
+function App({ userPromise }: { userPromise: Promise<User> }) {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <Profile userPromise={userPromise} />
+    </Suspense>
+  )
+}
+```
 
 ## Conclusion
 
-Hooks solve class component problems through a single mechanism: call-order-based state tracking. Master the core hooks (`useState`, `useEffect`, `useRef`), understand their mental models (snapshots, synchronization, mutable refs), and compose custom hooks for reusable logic. The next part of the series — [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md) — picks up where this leaves off and walks through the specialized hooks (`useTransition`, `useDeferredValue`, `useLayoutEffect`, `useInsertionEffect`, `useSyncExternalStore`, `useId`, and the React 19 `use` API) that exist to solve concurrent-rendering, paint-timing, external-store, and SSR problems the core hooks cannot.
+Hooks solve class component problems through a single mechanism: call-order-based state tracking. Master the core hooks (`useState`, `useReducer`, `useEffect`, `useRef`, `useContext`), understand their mental models (snapshots, synchronization, mutable refs, lexical providers), and compose custom hooks for reusable logic. The next part of the series — [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md) — picks up where this leaves off and walks through the specialized hooks (`useTransition`, `useDeferredValue`, `useLayoutEffect`, `useInsertionEffect`, `useSyncExternalStore`, `useId`, and the React 19 `use` API) that exist to solve concurrent-rendering, paint-timing, external-store, and SSR problems the core hooks cannot.
 
 ## Appendix
 
@@ -672,7 +727,9 @@ Hooks solve class component problems through a single mechanism: call-order-base
 
 - [React Documentation: Hooks Reference](https://react.dev/reference/react/hooks) - Official API reference for all built-in hooks
 - [React Documentation: Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks) - Official rules and linting
-- [Dan Abramov: Why Do Hooks Rely on Call Order?](https://overreacted.io/why-do-hooks-rely-on-call-order/) - Design rationale from React core team
+- [React RFC #68: React Hooks](https://github.com/reactjs/rfcs/blob/main/text/0068-react-hooks.md) - Original design proposal and trade-off analysis
+- [React 18 working group: Automatic Batching](https://github.com/reactwg/react-18/discussions/21) - Behavior change for state updates outside React event handlers
+- [Dan Abramov: Why Do Hooks Rely on Call Order?](https://overreacted.io/why-do-hooks-rely-on-call-order/) - Long-form design rationale by a former React core team member
 - [React Documentation: Synchronizing with Effects](https://react.dev/learn/synchronizing-with-effects) - Mental model for useEffect
 - [React Documentation: Reusing Logic with Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks) - Custom hooks patterns
 - [React 19 Release (2024-12-05)](https://react.dev/blog/2024/12/05/react-19) - Stable launch announcement and new hooks

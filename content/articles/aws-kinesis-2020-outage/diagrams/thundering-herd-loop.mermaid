@@ -1,0 +1,12 @@
+%% Diagram: Thundering Herd Loop That Constrained Recovery
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    A["Restart\nservers"] --> B["Shard-map\nconstruction\nconsumes CPU"]
+    B --> C["Few resources\nfor requests"]
+    C --> D["Health checks\nfail"]
+    D --> E["Servers removed\nfrom fleet"]
+    E --> A
+
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    class D,E alert

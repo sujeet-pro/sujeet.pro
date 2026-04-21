@@ -2,18 +2,18 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    START([Picking a coordination mechanism]) --> Q1{"Throughput ceiling?"}
-    Q1 -->|&lt; 10K tasks/s| Q2{"Strict global ordering required?"}
-    Q1 -->|10K-100K tasks/s| Q3{"Tasks have affinity<br/>(cache, sticky state)?"}
-    Q1 -->|&gt; 100K tasks/s| Q4{"Worker classes heterogeneous<br/>or task durations skewed?"}
+    START([Pick coordination]) --> Q1{"Throughput?"}
+    Q1 -->|< 10K/s| Q2{"Strict global<br/>ordering?"}
+    Q1 -->|10K-100K/s| Q3{"Affinity needed?"}
+    Q1 -->|> 100K/s| Q4{"Heterogeneous<br/>workers?"}
 
-    Q2 -->|Yes| LEADER["Leader election<br/>(Raft / etcd / ZK lease)"]
-    Q2 -->|No| LOCKS["DB row locks<br/>SELECT FOR UPDATE SKIP LOCKED"]
+    Q2 -->|Yes| LEADER["Leader election<br/>Raft / etcd / ZK"]
+    Q2 -->|No| LOCKS["DB row locks<br/>SKIP LOCKED"]
 
-    Q3 -->|Yes| HASH["Consistent hashing<br/>partitioned scheduling"]
-    Q3 -->|No| BROKER["Broker pull queue<br/>(Kafka, NATS, RabbitMQ)"]
+    Q3 -->|Yes| HASH["Consistent hashing"]
+    Q3 -->|No| BROKER["Broker pull queue<br/>Kafka / NATS"]
 
-    Q4 -->|Yes| STEAL["Work stealing<br/>centrally rebalanced"]
+    Q4 -->|Yes| STEAL["Work stealing"]
     Q4 -->|No| BROKER
 
     classDef pick fill:#d5e8d4,stroke:#82b366,color:#000

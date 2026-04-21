@@ -17,8 +17,8 @@ tags:
 
 Service Level Objectives (SLOs), Service Level Indicators (SLIs), and error budgets form the framework Google's SRE practice uses to quantify reliability and trade it against development velocity. SLIs measure what users actually experience, SLOs commit to a target on those measurements, and error budgets convert the gap between perfection and the target into a finite resource that engineering can spend on releases, experiments, and incidents. This article covers the design reasoning behind each concept, the mathematics of multi-window multi-burn-rate alerting, and the operational practices — policies, review cadence, anti-patterns — that decide whether an SLO program drives decisions or just decorates a dashboard.
 
-![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve-light.svg "SLO framework: events feed SLIs, SLIs roll up to SLOs, the gap to 100% becomes the error budget that gates release velocity vs. reliability work.")
-![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-slis-measure-reliability-slos-set-targets-error-budgets-balance-ve-dark.svg)
+![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-overview-light.svg "SLO framework: events feed SLIs, SLIs roll up to SLOs, the gap to 100% becomes the error budget that gates release velocity vs. reliability work.")
+![SLO framework: SLIs measure reliability, SLOs set targets, error budgets balance velocity and reliability investment.](./diagrams/slo-framework-overview-dark.svg)
 
 ## Abstract
 
@@ -48,7 +48,7 @@ Three terms get conflated constantly. Pin them down before any further reading:
 
 A useful rule from Google's SRE org: **SLOs should be tighter than SLAs**, with internal headroom so that SLO violations are an internal alarm long before SLA penalties become a customer conversation.[^google-cloud-slos] Many teams set their SLO at a level they expect to violate occasionally and their SLA at a level they expect to never violate.
 
-The rest of this article is about SLIs and SLOs. SLAs are a contracts conversation; the engineering conversation lives in the SLO.
+The rest of this article is about SLIs and SLOs. SLAs are a contract conversation; the engineering conversation lives in the SLO.
 
 ## Defining SLIs: User-Centric Reliability Measurement
 
@@ -573,7 +573,7 @@ Start with what users actually care about, set targets you can honestly defend, 
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/) — context propagation; relevant when an SLI must follow a request across services.
 
 [^sre-book-slo]: Google SRE Book, ["Service Level Objectives"](https://sre.google/sre-book/service-level-objectives/) — the chapter that formally introduces SLIs, SLOs, and the principle that 100% is rarely the right reliability target.
-[^sre-workbook-alerting]: Google SRE Workbook, ["Alerting on SLOs"](https://sre.google/workbook/alerting-on-slos/) — multi-window multi-burn-rate alerting, the three-tier table (Table 5-7 in the published edition), and guidance on low-traffic services.
+[^sre-workbook-alerting]: Google SRE Workbook, ["Alerting on SLOs"](https://sre.google/workbook/alerting-on-slos/) — multi-window multi-burn-rate alerting, the three-tier "Recommended parameters for a 99.9% SLO alerting configuration" table (Table 5-8 in the published edition), and guidance on low-traffic services.
 [^sre-workbook-policy]: Google SRE Workbook, ["Error Budget Policy"](https://sre.google/workbook/error-budget-policy/) — three-party agreement template, escalation paths, and policy governance.
 [^sre-workbook-implementing]: Google SRE Workbook, ["Implementing SLOs"](https://sre.google/workbook/implementing-slos/) — SLI menu by service type (request-driven, storage, pipelines, scheduled jobs).
 [^art-of-slos]: Google SRE, [Art of SLOs participant handbook](https://sre.google/static/pdf/art-of-slos-handbook-a4.pdf) — canonical "good events / valid events" SLI formula, outage-math tables for the nines.

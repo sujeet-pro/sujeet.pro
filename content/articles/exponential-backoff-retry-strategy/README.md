@@ -90,10 +90,10 @@ $$
 
 For `N` independent clients picking uniformly random slots in a window of size `W = 2^c` after `c` collisions:
 
-- The probability that any two specific clients pick the same slot is `1 / W`.
-- The expected number of pairwise collisions is `\binom{N}{2} / W ≈ N² / (2W)`.
+- The probability that any two specific clients pick the same slot is $1/W$.
+- The expected number of pairwise collisions is $\binom{N}{2}/W \approx N^2 / (2W)$.
 
-So the window has to grow with `N²`, not `N`, to keep collisions rare. Doubling per collision (multiplying `W` by 2 each time) catches up to a quadratic growth target in `O(log N)` rounds, which is why the BEB doubling rule works in practice. With `N = 1000` and `c = 10` (`W = 1024`), the expected pairwise collision count is still around `488` — the network is still heavily contended at a single window, which is exactly why CSMA/CD also relies on transmission-level back-pressure beyond the backoff window.
+So the window has to grow with $N^2$, not $N$, to keep collisions rare. Doubling per collision (multiplying $W$ by 2 each time) catches up to a quadratic growth target in $O(\log N)$ rounds, which is why the BEB doubling rule works in practice. With $N = 1000$ and $c = 10$ ($W = 1024$), the expected pairwise collision count is still around 488 — the network is still heavily contended at a single window, which is exactly why CSMA/CD also relies on transmission-level back-pressure beyond the backoff window.
 
 The takeaway for service retries is that doubling alone does not magically eliminate contention; it makes contention recoverable. **Jitter does the rest.**
 
@@ -454,9 +454,9 @@ Three postmortems cover the failure modes the layered defence is designed to pre
 
 ### Discord: thundering herd from a flapping service
 
-Discord's [`dj3l6lw926kl` incident](http://status.discordapp.com/incidents/dj3l6lw926kl) (catalogued in [Dan Luu's postmortems list](https://github.com/danluu/post-mortems#thundering-herd--cascading-failure)) is a textbook thundering herd. A central service was flapping — coming up, accepting connections, and falling over — and every flap triggered a synchronised storm of reconnection attempts from millions of clients. The recovery storm exhausted memory in the frontend services, which then crashed and re-triggered the storm.
+Discord's [March 2017 connectivity incident](https://status.discordapp.com/incidents/dj3l6lw926kl) (catalogued in [Dan Luu's postmortems list](https://github.com/danluu/post-mortems#thundering-herd--cascading-failure)) is a textbook thundering herd. A presence-tracking server soft-locked and netsplit from its cluster; the millions of Erlang processes inside the sessions service all attempted to reconnect to the presence cluster at once, overloading the remaining presence nodes. While presence was unavailable, the sessions service's per-connection buffers filled with un-deliverable events, causing one-third of session nodes to OOM. Bringing presence back triggered the same reconnection storm a second time.
 
-**Lesson**: connection establishment is a retry too, and it needs jittered backoff just as much as RPCs do. Without it, a recovering service guarantees its own re-failure.
+**Lesson**: a service-to-service reconnection is a retry too, and it needs jittered backoff and a hard in-flight cap. The Discord post-incident actions were exactly that — a connection limit on the sessions→presence dependency and a fast-fail path so a presence outage stops cascading into sessions. Without those, every recovery synchronises into the next outage.
 
 ### Google SRE: retry amplification across layers
 
@@ -529,7 +529,7 @@ The discipline is not "retry harder when things fail." It is "retry only when re
 **Postmortems**
 
 - [Twilio — Billing Incident Post-Mortem (2013)](https://www.twilio.com/en-us/blog/company/communications/billing-incident-post-mortem-breakdown-analysis-and-root-cause-html)
-- [Discord — `dj3l6lw926kl` thundering-herd incident](http://status.discordapp.com/incidents/dj3l6lw926kl) (via [danluu/post-mortems](https://github.com/danluu/post-mortems#thundering-herd--cascading-failure))
+- [Discord — March 2017 connectivity incident (`dj3l6lw926kl`, thundering herd)](https://status.discordapp.com/incidents/dj3l6lw926kl) (via [danluu/post-mortems](https://github.com/danluu/post-mortems#thundering-herd--cascading-failure))
 
 **Practitioner write-ups and reference implementations**
 

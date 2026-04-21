@@ -19,8 +19,8 @@ tags:
 
 How Discord evolved its message storage from a single MongoDB replica set to Cassandra to ScyllaDB over 8 years, building Rust-based data services and a custom "super-disk" storage architecture along the way — reducing cluster size from 177 to 72 nodes while dropping p99 read latency from 125ms to 15ms.
 
-![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s-light.svg "Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.")
-![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/discord-s-message-storage-evolution-across-three-phases-from-a-mongodb-replica-s-dark.svg)
+![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/storage-evolution-light.svg "Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.")
+![Discord's message storage evolution across three phases, from a MongoDB replica set to a ScyllaDB cluster with Rust data services.](./diagrams/storage-evolution-dark.svg)
 
 ## Abstract
 
@@ -402,9 +402,6 @@ In December 2022, the FIFA World Cup Final generated massive concurrent traffic 
 | Primary read path switched to ScyllaDB     | May 2022      |
 | World Cup Final validation                 | December 2022 |
 | Second blog post (72 ScyllaDB nodes)       | March 2023    |
-
-![Gantt timeline of the 2022 migration: super-disk infra and Rust data services land first, dual-writes begin, the Spark migrator is rejected after a 3-month estimate, the Rust migrator is built in an afternoon and completes the backfill in roughly 9 days at up to 3.2M msgs/sec, mirrored-read validation precedes the May 2022 cutover, and the World Cup Final later that year stress-tests the new cluster.](./diagrams/migration-timeline-light.svg "Migration timeline: the Rust migrator collapsed a 3-month Spark plan into ~9 days; the team manually compacted the final tombstone-heavy token range to unblock the last 0.0001% of the backfill.")
-![Gantt timeline of the 2022 migration: super-disk infra and Rust data services land first, dual-writes begin, the Spark migrator is rejected after a 3-month estimate, the Rust migrator is built in an afternoon and completes the backfill in roughly 9 days at up to 3.2M msgs/sec, mirrored-read validation precedes the May 2022 cutover, and the World Cup Final later that year stress-tests the new cluster.](./diagrams/migration-timeline-dark.svg)
 
 ## Lessons Learned
 

@@ -20,8 +20,8 @@ JavaScript execution is the dominant source of main-thread blocking in modern we
 
 This article covers four levers a senior engineer can pull to keep the main thread responsive: the script-loading pipeline, task scheduling primitives, bundle shape (code splitting and tree shaking), and Web Workers. It is part of a [web-performance series](../web-performance-overview/README.md) — measurement and infrastructure are covered in sibling entries.
 
-![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-light.svg "JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.")
-![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-dark.svg)
+![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/optimization-techniques-overview-light.svg "The four levers covered in this article and the Core Web Vitals each one moves.")
+![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/optimization-techniques-overview-dark.svg)
 
 ## Mental model: three sources of main-thread blocking
 
@@ -68,8 +68,8 @@ The four loading modes produce four distinct interleavings of HTML parsing and s
 
 ### `async` vs `defer` Decision Matrix
 
-![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-light.svg "Decision tree for selecting script loading attributes based on dependency requirements.")
-![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-dark.svg)
+![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/script-loading-decision-tree-light.svg "Decision tree for picking async, defer, or type=module based on DOM and ordering requirements.")
+![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/script-loading-decision-tree-dark.svg)
 
 ### Module Scripts: Deferred by Default
 
@@ -511,6 +511,10 @@ class WorkerPool {
 }
 ```
 
+### Third-Party Scripts: Partytown
+
+Hand-written workers cover code you control. Third-party tags — analytics, A/B testing, tag managers — typically assume they own the main thread (synchronous DOM access, `document.write`, top-level `window` mutations). [Partytown](https://partytown.qwik.dev/) by the Qwik team hoists those scripts into a Web Worker and proxies the DOM/`window` calls back to the main thread *synchronously*: when [cross-origin isolated](https://partytown.qwik.dev/atomics/) it uses `Atomics.wait` over a `SharedArrayBuffer` (the [fast path, ~10× faster](https://partytown.qwik.dev/how-does-partytown-work/)); otherwise a service worker intercepts a synchronous `XMLHttpRequest` from the worker. Reach for it when you cannot control or remove a third-party script that measurably hurts INP — it preserves the script's synchronous API surface at the cost of either the cross-origin isolation rollout (see next section) or the service-worker round-trip per call.
+
 ### SharedArrayBuffer and Cross-Origin Isolation
 
 `SharedArrayBuffer` enables shared memory between the main thread and workers, but is gated on **cross-origin isolation** as a [Spectre](https://v8.dev/blog/spectre) mitigation. The page must be served with both:
@@ -570,6 +574,15 @@ const MemoizedChart = React.memo(
 **When to use**: Components that receive the same props frequently, expensive render logic, components deep in the tree that re-render due to parent updates.
 
 **When NOT to use**: Components that always receive new props (breaks memoization), simple components (memo overhead exceeds render cost).
+
+### React Compiler: Auto-Memoization
+
+[React Compiler 1.0](https://react.dev/blog/2025/10/07/react-compiler-1) shipped stable in October 2025 (RC since [April 2025](https://react.dev/blog/2025/04/21/react-compiler-rc)) as `babel-plugin-react-compiler`. It performs static analysis of components and hook bodies, then inserts the equivalent of `useMemo` / `useCallback` / `React.memo` automatically wherever it is provably safe — guided by the [Rules of React](https://react.dev/reference/rules). Two practical implications:
+
+- **Most `useMemo`, `useCallback`, and `React.memo` boilerplate becomes redundant** once the compiler is enabled. The Rules of React (pure render functions, no mutation of props/state during render, hooks called unconditionally) become hard requirements rather than guidelines.
+- **Manual memoization still wins where the compiler bails out** — components that violate the rules (mutate during render, call hooks conditionally, depend on external mutable state) are skipped. Run with the ESLint plugin (`eslint-plugin-react-hooks` v6+ in Compiler mode) to catch the bail-outs.
+
+Adopt the compiler before adding new manual memos; remove existing memos only after confirming the compiler is optimising the same components.
 
 ### useMemo and useCallback: Stabilizing References
 
@@ -789,6 +802,8 @@ longTaskObserver.observe({ type: "longtask" })
 - [webpack - Tree Shaking](https://webpack.js.org/guides/tree-shaking/) - sideEffects field
 - [React - lazy](https://react.dev/reference/react/lazy) - Component-level code splitting
 - [React - Server Components](https://react.dev/reference/rsc/server-components) - Server/client boundary
+- [React Compiler v1.0](https://react.dev/blog/2025/10/07/react-compiler-1) - Auto-memoization stable release
+- [Partytown - How Partytown Works](https://partytown.qwik.dev/how-does-partytown-work/) - Sync DOM proxy via SAB / service worker
 
 #### Core Maintainer Content
 

@@ -4,25 +4,27 @@
 flowchart TB
     CF["CompositorFrame"]
     META["metadata<br/>device_scale_factor<br/>frame_token<br/>begin_frame_ack"]
-    RES["resource_list<br/>transferable<br/>texture references"]
     RPL["render_pass_list[]<br/>back-to-front;<br/>dependencies first"]
+    RES["resource_list<br/>transferable<br/>texture references"]
 
     CF --> META
     CF --> RPL
     CF --> RES
 
     subgraph RP["RenderPass"]
+        direction TB
         ID["id"]
         REC["output_rect<br/>damage_rect"]
-        SQS["shared_quad_state_list[]<br/>shared transform / clip / opacity / blend"]
+        SQS["shared_quad_state_list[]<br/>shared transform / clip /<br/>opacity / blend"]
         QL["quad_list[]<br/>DrawQuads referencing SQS"]
     end
     RPL --> RP
 
     subgraph QUADS["DrawQuad kinds"]
+        direction TB
         TQ["TextureDrawQuad"]
-        SCQ["SolidColorDrawQuad"]
         TLQ["TileDrawQuad"]
+        SCQ["SolidColorDrawQuad"]
         VQ["VideoDrawQuad"]
         SDQ["SurfaceDrawQuad<br/>(another surface)"]
         RPDQ["RenderPassDrawQuad<br/>(another pass)"]

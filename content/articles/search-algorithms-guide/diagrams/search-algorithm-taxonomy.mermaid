@@ -1,0 +1,28 @@
+%% Diagram: Search algorithm taxonomy — array vs graph search families
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Array["Array search"]
+        direction TB
+        LS["Linear<br/>O(n)"]
+        BS["Binary<br/>O(log n)"]
+        JS["Jump<br/>O(√n)"]
+        IS["Interpolation<br/>O(log log n)"]
+    end
+
+    subgraph Graph["Graph search"]
+        direction TB
+        BFS["BFS<br/>O(V+E)"]
+        DFS["DFS<br/>O(V+E)"]
+        DIJ["Dijkstra<br/>O((V+E) log V)"]
+        ASTAR["A*<br/>focused expansion"]
+    end
+
+    LS -.->|sort first| BS
+    BFS -.->|add weights| DIJ
+    DIJ -.->|add heuristic| ASTAR
+
+    classDef arrayLeaf fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff
+    classDef graphLeaf fill:#7e22ce,stroke:#581c87,color:#ffffff
+    class LS,BS,JS,IS arrayLeaf
+    class BFS,DFS,DIJ,ASTAR graphLeaf

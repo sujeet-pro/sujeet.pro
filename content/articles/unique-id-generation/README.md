@@ -103,7 +103,7 @@ The most significant 48 bits are a Unix millisecond timestamp; the remaining 74 
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-Because the timestamp sits in the high bits in network byte order, raw byte comparison sorts UUID v7 values chronologically — the [RFC explicitly designed this](https://www.rfc-editor.org/rfc/rfc9562.html#section-6.10): "implementations that require sorting (e.g., database indexes) sort as opaque raw bytes without the need for parsing or introspection."
+Because the timestamp sits in the high bits in network byte order, raw byte comparison sorts UUID v7 values chronologically — the [RFC explicitly designed this](https://www.rfc-editor.org/rfc/rfc9562.html#section-6.11): "implementations that require sorting (e.g., database indexes) sort as opaque raw bytes without the need for parsing or introspection."
 
 PostgreSQL 18 ([released 2025-09-25](https://www.postgresql.org/about/news/postgresql-18-released-3142/)) ships native `uuidv7()` and `uuid_extract_timestamp()` functions. The migration is mechanical:
 
@@ -136,7 +136,7 @@ Twitter's [original Snowflake](https://github.com/twitter-archive/snowflake/tree
                                  generators    per generator
 ```
 
-The 10 machine-ID bits are usually subdivided into 5 bits of datacenter and 5 bits of worker-within-datacenter, matching the [twitter-archive Scala library](https://en.wikipedia.org/wiki/Snowflake_ID#Format). That gives 32 datacenters × 32 workers = 1024 generators. Each generator emits up to 4096 IDs per millisecond (`2^12`), for ~4M IDs/sec/generator.
+The 10 machine-ID bits are usually subdivided into 5 bits of datacenter and 5 bits of worker-within-datacenter, as catalogued on the [Snowflake ID format reference](https://en.wikipedia.org/wiki/Snowflake_ID#Format). That gives 32 datacenters × 32 workers = 1024 generators. Each generator emits up to 4096 IDs per millisecond (`2^12`), for ~4M IDs/sec/generator.
 
 The dominant variants change only the bit allocation:
 
@@ -271,7 +271,7 @@ The "which one" question collapses to a few orthogonal axes. Each table below ho
 | ULID       | 16 B        | 26 chars (Crockford Base32)          | `BYTEA(16)` or `UUID`     | 2×                          |
 | KSUID      | 20 B        | 27 chars (base62)                    | `BYTEA(20)` or `CHAR(27)` | 2.5×                        |
 
-At 1 billion rows, the difference between an 8-byte and 16-byte primary key is 8 GB on the heap and another 8 GB on every index that includes it (PG 16+'s index dedup helps a little, but not for unique B-trees on UUIDs).
+At 1 billion rows, the difference between an 8-byte and 16-byte primary key is 8 GB on the heap and another 8 GB on every index that includes it (PG 13+'s [B-tree deduplication](https://www.postgresql.org/docs/current/btree-implementation.html#BTREE-DEDUPLICATION) helps a little for non-unique secondary indexes, but unique B-trees on UUIDs cannot be deduplicated).
 
 ### Information leakage
 
@@ -288,7 +288,7 @@ At 1 billion rows, the difference between an 8-byte and 16-byte primary key is 8
 > [!CAUTION]
 > Anything time-ordered leaks creation time. For public-facing IDs that must be unguessable and untraceable (password-reset tokens, share links, anything an attacker could enumerate), use UUID v4 or a separate opaque token. For internal primary keys, time leakage is almost never a real privacy issue — but for a `users.id` exposed in URLs, an attacker who scrapes the API can build a registration timeline of the user base. If that matters, keep an internal v7 primary key and expose a separate v4 (or HMAC-derived) public ID.
 
-UUID v1 and v6 [embed the generator's MAC address](https://www.rfc-editor.org/rfc/rfc9562.html#section-6.10) in the node field unless explicitly randomised. The Melissa virus author was [identified in 1999](https://www.cnn.com/TECH/computing/9904/02/melissa.arrest.03/) partly through MAC-derived UUIDs in Word documents. Don't ship v1 or v6 publicly without overriding the node field with random bits.
+UUID v1 and v6 [embed the generator's MAC address](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.1) in the node field unless explicitly randomised per [§6.10 — UUIDs That Do Not Identify the Host](https://www.rfc-editor.org/rfc/rfc9562.html#section-6.10). The Melissa virus author was [identified in 1999](https://www.cnn.com/TECH/computing/9904/02/melissa.arrest.03/) partly through MAC-derived UUIDs in Word documents. Don't ship v1 or v6 publicly without overriding the node field with random bits.
 
 ## Real-world deployments
 

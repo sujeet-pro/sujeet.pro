@@ -16,8 +16,8 @@ tags:
 
 Time in a distributed system is not what it seems. Physical clocks drift, message delays are unbounded and asymmetric, and no observer can stamp events with "true" time. Yet ordering events correctly is what lets a database commit a transaction, a chat client place a reply after a question, and a CRDT merge two writes without losing data. This article walks the design space — physical clocks, logical clocks, hybrid clocks, broadcast ordering primitives, and time-sortable ID schemes — and grounds each in production systems that paid for the choice.
 
-![Spectrum of time solutions and the ordering guarantees they can provide](./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide-light.svg "Three families of clocks (physical, logical, hybrid) map onto three classes of ordering guarantee. Hybrid clocks reach total order only when uncertainty is explicitly bounded.")
-![Spectrum of time solutions and the ordering guarantees they can provide](./diagrams/the-spectrum-of-time-solutions-mapped-to-ordering-guarantees-they-can-provide-dark.svg)
+![Spectrum of time solutions and the ordering guarantees they can provide](./diagrams/time-spectrum-light.svg "Three families of clocks (physical, logical, hybrid) map onto three classes of ordering guarantee. Hybrid clocks reach total order only when uncertainty is explicitly bounded.")
+![Spectrum of time solutions and the ordering guarantees they can provide](./diagrams/time-spectrum-dark.svg)
 
 ## Mental model
 
@@ -141,7 +141,7 @@ Numbers reported in [§3 of Spanner OSDI 2012](https://www.usenix.org/system/fil
 | Worst-case drift           | 200 µs/s               |
 
 > [!NOTE]
-> TrueTime's design rationale is the inversion: bound the uncertainty and *expose* it. Spanner then uses commit-wait of `2ε` (~7–14 ms on average) so that any transaction starting after T₁ is acknowledged is guaranteed to see a higher timestamp than T₁ — without any coordination between them.
+> TrueTime's design rationale is the inversion: bound the uncertainty and *expose* it. Spanner then uses commit-wait of `2ε` (typically ~8 ms with a 30 s poll interval; up to ~14 ms when ε peaks) so that any transaction starting after T₁ is acknowledged is guaranteed to see a higher timestamp than T₁ — without any coordination between them.
 
 ### Amazon Time Sync Service
 
@@ -394,14 +394,14 @@ Variants tweak the bit budget for different scales:
 
 **Problem.** Globally distributed transactions that appear to execute in commit order, even across continents, with no central serialiser.
 
-**Approach.** Bound clock uncertainty with TrueTime, then use **commit-wait**: after assigning a transaction `T₁` a commit timestamp `s = TT.now().latest`, the coordinator blocks until `TT.after(s)` returns true (≈ `2ε` ≈ 7–14 ms on average) before acknowledging the client.
+**Approach.** Bound clock uncertainty with TrueTime, then use **commit-wait**: after assigning a transaction `T₁` a commit timestamp `s = TT.now().latest`, the coordinator blocks until `TT.after(s)` returns true (≈ `2ε`, typically a single-digit number of milliseconds) before acknowledging the client.
 
 ![Spanner commit-wait sequence](./diagrams/spanner-commit-wait-light.svg "Commit-wait turns clock uncertainty into latency. Once T1 is acknowledged, any T2 starting later is guaranteed s(T2) > s(T1) without any T1↔T2 messaging.")
 ![Spanner commit-wait sequence](./diagrams/spanner-commit-wait-dark.svg)
 
 This buys [external consistency](https://research.google.com/pubs/archive/45855.pdf): if `T₁` commits before `T₂` starts (in real time, anywhere on the planet), `T₂` sees `T₁`'s effects. Read-only transactions then serve at any past timestamp from any replica without coordination.
 
-The price is the average ~7–14 ms commit-wait. For workloads dominated by writes, this is significant; for the read-mostly workloads Spanner targets (advertising, knowledge graphs), it is paid once per write and amortised across many reads.
+The price is the commit-wait — typically single-digit milliseconds, up to ~14 ms when ε peaks. For workloads dominated by writes, this is significant; for the read-mostly workloads Spanner targets (advertising, knowledge graphs), it is paid once per write and amortised across many reads.
 
 ### CockroachDB: HLC without atomic clocks
 

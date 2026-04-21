@@ -55,7 +55,7 @@ Before a query ever leaves the host, several caches and overrides are consulted 
 
 ### Stub Resolver
 
-The stub resolver is the DNS client library on your machine—`gethostbyname()`, `getaddrinfo()`, or the resolver in `/etc/resolv.conf`. Per RFC 1034 Section 5.3.1, a stub resolver "cannot perform full resolution itself; it depends on a recursive resolver."
+The stub resolver is the DNS client library on your machine—`gethostbyname()`, `getaddrinfo()`, or the resolver in `/etc/resolv.conf`. [RFC 1034 §5.3.1](https://www.rfc-editor.org/rfc/rfc1034#section-5.3.1) discusses but does not formally define stub resolvers; [RFC 1123 §6.1.3.1](https://www.rfc-editor.org/rfc/rfc1123#section-6.1.3.1) and [RFC 9499 §6](https://www.rfc-editor.org/rfc/rfc9499#section-6) make it precise: a stub resolver cannot perform full resolution itself and depends on a recursive resolver to do the work.
 
 **Behavior:**
 
@@ -76,7 +76,7 @@ The stub resolver is intentionally simple. It offloads complexity to the recursi
 
 ### Recursive Resolver
 
-The recursive resolver (also called a full-service resolver or caching resolver) performs the actual work of walking the DNS tree. Per RFC 9499: "A server operating in recursive mode receives DNS queries and either responds from local cache or sends queries to other servers to get final answers."
+The recursive resolver (also called a full-service resolver or caching resolver) performs the actual work of walking the DNS tree. Per [RFC 9499 §6](https://www.rfc-editor.org/rfc/rfc9499#section-6), a server in *recursive mode* receives a query with RD=1 and is obligated to either return the final answer or pursue the resolution itself by querying other servers — the client never sees referrals.
 
 **Key characteristics:**
 
@@ -196,6 +196,26 @@ Response:
 
 The authoritative server returns the final answer with the AA flag set. The recursive resolver caches this record for 300 seconds (the TTL) and returns it to the stub resolver.
 
+### QNAME Minimization
+
+A naive iterative resolver sends the *full* QNAME (`api.example.com`) to every server in the chain — including the root and the TLD, which have no business knowing the leaf label. [RFC 9156](https://www.rfc-editor.org/rfc/rfc9156) (November 2021, Standards Track; obsoletes the experimental RFC 7816) tightens that to the "need to know" principle: send only the labels the next server requires to return a referral.
+
+For `api.example.com`, a QMIN-enabled resolver issues:
+
+| Step | Sent to              | QNAME           | QTYPE | What it learns          |
+| ---: | :------------------- | :-------------- | :---- | :---------------------- |
+|    1 | Root                 | `com.`          | NS    | NS for `.com`           |
+|    2 | `.com` TLD           | `example.com.`  | NS    | NS for `example.com`    |
+|    3 | `example.com` auth   | `api.example.com.` | A   | The actual A record     |
+
+Notes from RFC 9156 §2 and §3:
+
+- The minimised query type is **NS** at intermediate steps, not the original QTYPE. The full QTYPE is only sent at the final, authoritative step.
+- A response of NXDOMAIN at an intermediate label can be cached and combined with [RFC 8020](https://www.rfc-editor.org/rfc/rfc8020) (NXDOMAIN cut) to short-circuit further resolution.
+- §3.4 caps the number of labels minimised per query (default ~10) to prevent pathological cases on very long names from causing a query storm.
+
+QMIN is enabled by default in modern recursives — BIND 9.14+, Unbound 1.7+, and Knot Resolver — and is one of the cheapest privacy wins available because it changes only the recursive's behavior, not the wire format.
+
 ### Resolution Latency Breakdown
 
 | Hop                       | Typical Latency | Notes                           |
@@ -303,7 +323,7 @@ The ECS option carries three fields: `FAMILY` (IPv4/IPv6), `SOURCE PREFIX-LENGTH
 
 ### Privacy and operational trade-offs
 
-RFC 7871 itself opens with an unusually candid privacy warning: ECS exposes a slice of the user's network identity to every authoritative on the resolution path, which is exactly the leakage that DoT and DoH set out to remove. [RFC 7626 (DNS Privacy Considerations)](https://www.rfc-editor.org/rfc/rfc7626) §2.5 calls ECS out as one of the "active" privacy degradations of DNS in deployment.
+RFC 7871 itself opens with an unusually candid privacy warning: ECS exposes a slice of the user's network identity to every authoritative on the resolution path, which is exactly the leakage that DoT and DoH set out to remove. [RFC 9076 (DNS Privacy Considerations)](https://www.rfc-editor.org/rfc/rfc9076) — which obsoletes RFC 7626 — discusses ECS as one of the "active" privacy degradations of DNS in deployment.
 
 Operationally, ECS is a sharp tool. It is the right answer when:
 
@@ -613,12 +633,14 @@ DNS resolution is deceptively simple on the surface — a name goes in, an IP co
 | **mDNS**                 | Multicast DNS (RFC 6762); link-local resolution for `.local` names |
 | **Happy Eyeballs**       | RFC 8305; parallel A/AAAA queries with 50 ms resolution delay     |
 | **NRPT**                 | Windows Name Resolution Policy Table; per-namespace resolver pinning |
+| **QMIN**                 | QNAME Minimization (RFC 9156); recursive sends only the labels each upstream needs |
 
 ### Summary
 
 - Resolution starts in pre-network caches (browser → hosts/NSS → mDNS → OS) before any packet leaves the host
 - The wire path then flows from stub → recursive → root → TLD → authoritative, following referrals down the namespace tree
 - "Recursive" and "iterative" are two query modes; one resolver does both — recursive toward stubs, iterative toward authoritatives
+- QNAME minimization (RFC 9156) makes the iterative walk privacy-respecting by sending only the labels each upstream needs
 - Caching at the recursive resolver dominates latency; TTLs control cache lifetime; RFC 9520 makes failure caching mandatory
 - Negative responses (NXDOMAIN, NODATA) are cached using SOA.MINIMUM; RFC 8020 turns NXDOMAIN into a subtree cut
 - SERVFAIL indicates resolution failure; use `dig +trace` to identify the failing hop
@@ -642,8 +664,9 @@ DNS resolution is deceptively simple on the surface — a name goes in, an IP co
 - [RFC 4035 - DNSSEC Protocol Modifications](https://datatracker.ietf.org/doc/html/rfc4035) - DNSSEC validation process
 - [RFC 8767 - Serving Stale Data to Improve DNS Resiliency](https://datatracker.ietf.org/doc/html/rfc8767) - Stale data serving
 - [RFC 9609 - Initializing a DNS Resolver with Priming Queries](https://datatracker.ietf.org/doc/rfc9609/) - Root priming (obsoletes RFC 8109)
+- [RFC 9156 - DNS Query Name Minimisation to Improve Privacy](https://www.rfc-editor.org/rfc/rfc9156) - QMIN, "need to know" iterative queries (obsoletes RFC 7816)
 - [RFC 8020 - NXDOMAIN: There Really Is Nothing Underneath](https://www.rfc-editor.org/rfc/rfc8020) - NXDOMAIN cut behavior
-- [RFC 7626 - DNS Privacy Considerations](https://www.rfc-editor.org/rfc/rfc7626) - Threat model that motivated DoT, DoH, and ECS opt-out
+- [RFC 9076 - DNS Privacy Considerations](https://www.rfc-editor.org/rfc/rfc9076) - Current threat model that motivated DoT, DoH, QMIN, and ECS opt-out (obsoletes RFC 7626)
 - [RFC 7766 - DNS Transport over TCP - Implementation Requirements](https://www.rfc-editor.org/rfc/rfc7766) - TCP is mandatory; truncation and EDNS interaction
 - [RFC 7871 - Client Subnet in DNS Queries (ECS)](https://www.rfc-editor.org/rfc/rfc7871) - ECS option, scope semantics, privacy guidance
 - [RFC 8305 - Happy Eyeballs Version 2](https://www.rfc-editor.org/rfc/rfc8305) - Parallel A/AAAA, Resolution Delay, Connection Attempt Delay
