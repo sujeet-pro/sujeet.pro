@@ -26,7 +26,7 @@ describe("project config files", () => {
   it("loads the custom core-native site config", () => {
     const siteConfig = loadSiteConfig();
 
-    expect(siteConfig.basePath).toBe("/v5.sujeet.pro");
+    expect(siteConfig.basePath).toBe("");
     expect(siteConfig.search.enabled).toBe(true);
     expect(siteConfig.server.devPort).toBe(3000);
     expect(siteConfig.server.previewPort).toBe(4000);
