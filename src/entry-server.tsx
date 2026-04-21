@@ -97,7 +97,8 @@ function toHtml(node: unknown, includeDoctype: boolean): string {
 function resolveRoute(url: string, config: SsgRenderConfig): string {
   const [rawPath] = url.split(/[?#]/, 1);
   let path = rawPath || "/";
-  const normalizedBase = config.base !== undefined ? normalizeBasePath(config.base) : runtimeBasePath;
+  const normalizedBase =
+    config.base !== undefined ? normalizeBasePath(config.base) : runtimeBasePath;
 
   if (normalizedBase && path.startsWith(normalizedBase)) {
     path = path.slice(normalizedBase.length) || "/";
