@@ -1,5 +1,6 @@
 ---
 title: 'Web Performance Infrastructure: DNS, CDN, Caching, and Edge'
+linkTitle: 'Perf: Infrastructure'
 description: >-
   How DNS, HTTP/3 and QUIC, CDN edge networks, compression, and caching strategies work together to reduce TTFB by 85-95% and offload 80%+ of traffic from origin servers.
 publishedDate: 2026-02-03T00:00:00.000Z

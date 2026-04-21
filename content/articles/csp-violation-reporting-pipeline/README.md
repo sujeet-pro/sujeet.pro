@@ -1,5 +1,6 @@
 ---
 title: CSP Violation Reporting Pipeline at Scale
+linkTitle: 'CSP Reporting'
 description: >-
   Designing a CSP violation reporting pipeline (CSP-Sentinel) that handles 50k
   baseline to 500k+ burst RPS using Kafka, Valkey deduplication, and Snowflake

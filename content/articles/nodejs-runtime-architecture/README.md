@@ -1,5 +1,6 @@
 ---
 title: 'Node.js Runtime Architecture: Event Loop, Streams, and APIs'
+linkTitle: 'Node.js Runtime'
 description: >-
   Understand the runtime boundaries that matter at scale in Node.js — V8's
   JIT tiers and GC, libuv's event loop and thread pool, stream backpressure,

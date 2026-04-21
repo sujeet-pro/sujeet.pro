@@ -1,5 +1,6 @@
 ---
 title: Consistency Models and the CAP Theorem
+linkTitle: 'CAP Theorem'
 description: >-
   The CAP theorem demystified, PACELC's latency-consistency trade-off, and the full consistency
   spectrum from linearizability to eventual consistency — with guidance on choosing per-operation guarantees.

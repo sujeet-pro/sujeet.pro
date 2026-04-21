@@ -1,5 +1,6 @@
 ---
 title: Web Workers and Worklets for Off-Main-Thread Work
+linkTitle: 'Web Workers & Worklets'
 description: >-
   Dedicated, Shared, and Service Workers for off-main-thread computation via message passing, plus Paint, Animation, and Audio Worklets that hook directly into the browser's rendering pipeline. Covers lifecycle, data transfer, SharedArrayBuffer, and real-world patterns.
 publishedDate: 2026-02-03T00:00:00.000Z

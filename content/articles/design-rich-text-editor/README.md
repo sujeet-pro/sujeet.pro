@@ -1,5 +1,6 @@
 ---
 title: Design a Rich Text Editor
+linkTitle: 'Rich Text Editor'
 description: >-
   How modern rich text editors work under the hood — document models (ProseMirror,
   Slate, Lexical), contentEditable vs custom rendering trade-offs, IME handling,

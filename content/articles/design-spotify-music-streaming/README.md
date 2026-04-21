@@ -1,5 +1,6 @@
 ---
 title: Design Spotify Music Streaming
+linkTitle: 'Spotify'
 description: >-
   Architecting Spotify's music streaming platform — multi-CDN audio delivery,
   adaptive bitrate streaming, hybrid recommendation engines driving 30% of listens,

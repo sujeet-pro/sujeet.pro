@@ -1,5 +1,6 @@
 ---
 title: 'libuv Internals: Event Loop and Async I/O'
+linkTitle: 'libuv Internals'
 description: >-
   A deep dive into libuv's event loop phases, kernel polling vs. thread pool
   I/O, handle and request abstractions, and the io_uring integration that

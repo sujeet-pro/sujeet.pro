@@ -1,5 +1,6 @@
 ---
 title: Database Migrations at Scale
+linkTitle: 'DB Migrations'
 description: >-
   How to change database schemas without downtime using shadow-table tools
   (pt-osc, gh-ost), the expand-contract pattern, and instant DDL — with

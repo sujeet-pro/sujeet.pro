@@ -1,5 +1,6 @@
 ---
 title: 'Rate Limiting Strategies: Token Bucket, Leaky Bucket, and Sliding Window'
+linkTitle: 'Rate Limiting'
 description: >-
   Five rate limiting algorithms compared — token bucket, leaky bucket, fixed window, sliding window log, and sliding window counter — with production implementations from AWS, Stripe, and Cloudflare, plus distributed coordination patterns using Redis.
 publishedDate: 2026-02-03T00:00:00.000Z

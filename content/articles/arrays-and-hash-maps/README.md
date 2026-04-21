@@ -1,5 +1,6 @@
 ---
 title: 'Arrays and Hash Maps: Engine Internals and Performance Reality'
+linkTitle: 'Arrays & Hash Maps'
 description: >-
   How V8 internally represents arrays and objects through elements kinds, hidden classes, and
   deterministic hash tables — and why certain patterns permanently degrade performance.

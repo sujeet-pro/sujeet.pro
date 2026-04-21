@@ -1,5 +1,6 @@
 ---
 title: Sharding and Replication
+linkTitle: 'Sharding & Replication'
 description: >-
   Two orthogonal axes of database scaling — sharding (hash, range, consistent hash, directory) for write throughput and replication (single-leader, multi-leader, leaderless) for availability — with production patterns from CockroachDB, Cassandra, DynamoDB, and Vitess.
 publishedDate: 2026-02-03T00:00:00.000Z

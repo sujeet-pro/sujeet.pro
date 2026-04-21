@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Paint Stage'
+linkTitle: 'CRP: Paint'
 description: >-
   How the Paint stage records drawing instructions into display lists rather than
   producing pixels, covering display items, paint chunks, the stacking context

@@ -2,6 +2,7 @@
 title: >-
   AWS Kinesis 2020 Outage: Thread Limits, Thundering Herds, and Hidden
   Dependencies
+linkTitle: 'AWS Kinesis 2020'
 description: >-
   A deep-dive into the 2020 AWS Kinesis outage where a routine capacity addition hit an OS thread
   limit, cascading through CloudWatch, Lambda, and Cognito for 17 hours due to O(N^2) scaling and hidden dependencies.

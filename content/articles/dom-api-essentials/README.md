@@ -1,5 +1,6 @@
 ---
 title: 'DOM API Essentials: Structure, Traversal, and Mutation'
+linkTitle: 'DOM API Essentials'
 description: >-
   Why querySelector lives on Element and not HTMLElement, the difference between
   live and static collections, and how Observer APIs batch notifications — a

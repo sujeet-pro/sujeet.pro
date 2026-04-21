@@ -1,5 +1,6 @@
 ---
 title: 'Discord: From Billions to Trillions of Messages — A Three-Database Journey'
+linkTitle: 'Discord Messages'
 description: >-
   How Discord evolved message storage from MongoDB to Cassandra to ScyllaDB across
   trillions of messages — solving JVM GC pauses, hot partitions, and tombstone storms

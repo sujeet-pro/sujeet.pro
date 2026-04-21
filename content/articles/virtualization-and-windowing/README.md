@@ -1,5 +1,6 @@
 ---
 title: Virtualization and Windowing
+linkTitle: 'Virtualization'
 description: >-
   Rendering large lists efficiently by drawing only visible items — covering fixed-height, variable-height, and DOM recycling approaches, GPU-accelerated positioning, accessibility concerns, and the newer CSS content-visibility alternative.
 publishedDate: 2026-02-03T00:00:00.000Z

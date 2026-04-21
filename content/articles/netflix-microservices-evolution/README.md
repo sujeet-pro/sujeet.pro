@@ -1,5 +1,6 @@
 ---
 title: 'Netflix: From Monolith to Microservices — A 7-Year Architecture Evolution'
+linkTitle: 'Netflix Microservices'
 description: >-
   Trace Netflix's 7-year migration from a monolithic Oracle backend to 700+
   microservices on AWS — the phased approach, OSS tools born from production

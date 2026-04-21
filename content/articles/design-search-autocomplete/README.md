@@ -1,5 +1,6 @@
 ---
 title: 'Design Search Autocomplete: Prefix Matching at Scale'
+linkTitle: 'Search Autocomplete'
 description: >-
   Building a search autocomplete system that returns ranked suggestions within
   100ms — trie-based prefix matching, pre-computed top-K rankings, streaming

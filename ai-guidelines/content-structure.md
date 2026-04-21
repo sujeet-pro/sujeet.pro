@@ -27,7 +27,10 @@ Use this frontmatter for article and blog entries:
 
 ```yaml
 ---
-title: "Title used for SEO and listing cards"
+title: "Canonical title — fallback for every other title field"
+seoTitle: "Optional override used in <title> and OpenGraph"
+cardTitle: "Optional punchier title for listing cards"
+linkTitle: "Optional short title for sidebar / breadcrumb / prev-next"
 description: "One-line summary used for SEO and listing cards"
 publishedDate: 2026-03-15
 lastUpdatedOn: 2026-03-20
@@ -46,6 +49,60 @@ Rules:
 - Store diagram source files in a sibling `diagrams/` directory.
 - Store supporting images in a sibling `assets/` directory.
 
+### Title field semantics
+
+`title` is the only required title field; the other three are optional and
+each falls back to `title` whenever it is missing. Use them when the chrome
+that surfaces the title has different ergonomic constraints than the body.
+
+| Field       | Where it surfaces                                      | When to set                                                                                                                                |
+| :---------- | :----------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`     | Markdown `# H1`, fallback for every other field        | Always.                                                                                                                                    |
+| `seoTitle`  | `<title>`, OpenGraph, Twitter card                     | When the SEO title should differ from the body title — usually a longer, keyword-rich variant that would not read well as the page header. |
+| `cardTitle` | Listing-page cards, homepage rails                     | When a punchier or shorter title scans better in dense listings.                                                                           |
+| `linkTitle` | Sidebar entries, breadcrumb leaf, prev/next navigation | When the canonical title is too long for navigation chrome. Prefer 2-4 words; use community short forms like `JS`, `CRP`, `Perf`.          |
+
+Example for a CRP series article — full title in `title`, short `linkTitle`
+for the sidebar / breadcrumb / prev-next chrome:
+
+```yaml
+---
+title: "Critical Rendering Path: Commit"
+linkTitle: "CRP: Commit"
+description: "..."
+---
+```
+
+The H1 in the markdown body still controls what the reader sees on the
+page. Set `cardTitle` only when listings genuinely benefit; set `seoTitle`
+only when SEO should diverge from the visible title.
+
+### Tags and the canonical taxonomy
+
+Tags live in entry frontmatter as a flat list of strings:
+
+```yaml
+tags: [javascript, performance, web-vitals]
+```
+
+The taxonomy itself is defined in `content/tags.json5`. Each canonical slug
+declares a `displayName`, an optional `shortName`, and a list of `aliases`
+that should normalise to it. Matching is case-insensitive and ignores
+non-alphanumeric characters, so `JS`, `js`, `JavaScript`, `ecmascript`, and
+`ES6` all collapse to the canonical `javascript` slug and render as
+`JavaScript` in cards and content meta.
+
+Rules:
+
+- Prefer canonical slugs in frontmatter (`javascript`, not `js`). The alias
+  system exists so legacy and contributor variants do not break — not as a
+  license to invent new variants.
+- Add a new entry to `content/tags.json5` whenever you introduce a new
+  topic. Unknown tags still render with a title-cased fallback, but they do
+  not consolidate with existing tags or get a custom display name.
+- Keep tag lists tight: 3-6 tags per entry is typical. Tags should describe
+  the topic, not the format (do not tag with `article`).
+
 ## Coordination files
 
 Before creating, updating, or reviewing content, identify the companion metadata:
@@ -55,6 +112,7 @@ Before creating, updating, or reviewing content, identify the companion metadata
 - `content/blogs/meta.json5` drives blog listing behavior and ordering.
 - `content/home.json5` drives homepage hero copy and featured content.
 - `content/redirects.json5` holds vanity URLs and legacy content redirects.
+- `content/tags.json5` defines the canonical tag taxonomy (display names + aliases).
 
 Rules:
 

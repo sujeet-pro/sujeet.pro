@@ -1,5 +1,6 @@
 ---
 title: 'SSG Performance Optimizations: Build, Cache, and Delivery'
+linkTitle: 'SSG Performance'
 description: >-
   Production SSG architecture on AWS CloudFront — atomic deployments to S3, Brotli pre-compression, Lambda@Edge routing, cache invalidation strategies, and Core Web Vitals optimization for sub-50ms TTFB delivery.
 publishedDate: 2026-02-03T00:00:00.000Z

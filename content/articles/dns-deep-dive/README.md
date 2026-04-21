@@ -1,5 +1,6 @@
 ---
 title: DNS Deep Dive
+linkTitle: 'DNS Deep Dive'
 description: >-
   A comprehensive look at DNS internals — resolution mechanics, record types
   with design rationale, TTL and caching strategies, DNSSEC, DoH/DoT, and

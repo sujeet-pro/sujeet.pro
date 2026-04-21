@@ -1,5 +1,6 @@
 ---
 title: CDN Architecture and Edge Caching
+linkTitle: 'CDN Architecture'
 description: >-
   CDN request routing via DNS and Anycast, cache key design, TTL and invalidation trade-offs,
   tiered caching with origin shields, and edge compute — with examples from Cloudflare and CloudFront.

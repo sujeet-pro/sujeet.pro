@@ -1,5 +1,6 @@
 ---
 title: 'Storage Choices: SQL vs NoSQL'
+linkTitle: 'SQL vs NoSQL'
 description: >-
   A framework for choosing between SQL, NoSQL, and NewSQL databases based on data model, access patterns, consistency requirements, and operational capability — covering relational, document, key-value, wide-column, and graph stores.
 publishedDate: 2026-02-03T00:00:00.000Z

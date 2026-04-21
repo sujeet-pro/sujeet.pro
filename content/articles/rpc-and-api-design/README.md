@@ -1,5 +1,6 @@
 ---
 title: RPC and API Design
+linkTitle: 'RPC & API Design'
 description: >-
   REST, gRPC, and GraphQL compared — design constraints, wire efficiency, streaming capabilities, and production trade-offs — plus practical guidance on API versioning, pagination, rate limiting, and documentation strategies.
 publishedDate: 2026-02-03T00:00:00.000Z

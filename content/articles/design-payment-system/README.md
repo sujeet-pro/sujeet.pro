@@ -1,5 +1,6 @@
 ---
 title: Design a Payment System
+linkTitle: 'Payment System'
 description: >-
   Architecting a payment processing platform with idempotent authorization,
   edge tokenization for PCI compliance, real-time fraud scoring under 100ms,

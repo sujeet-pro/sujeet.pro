@@ -1,5 +1,6 @@
 ---
 title: DNS Troubleshooting Playbook
+linkTitle: 'DNS: Troubleshooting'
 description: >-
   Symptom-driven decision trees for diagnosing SERVFAIL, NXDOMAIN, timeouts, and
   propagation delays — with dig/delv/kdig command recipes, DNSSEC debugging

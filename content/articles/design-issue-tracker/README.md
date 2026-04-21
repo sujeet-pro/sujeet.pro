@@ -1,5 +1,6 @@
 ---
 title: Design an Issue Tracker (Jira/Linear)
+linkTitle: 'Issue Tracker'
 description: >-
   System design for an issue tracker like Jira or Linear, covering fractional
   indexing (LexoRank) for drag-and-drop ordering, project-specific workflow

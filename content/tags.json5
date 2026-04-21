@@ -1,0 +1,295 @@
+// Canonical tag taxonomy for sujeet.pro.
+//
+// Keys are canonical kebab-case slugs. `displayName` is what surfaces in
+// listings, cards, and content meta. `aliases` collapse to the canonical
+// slug at load time, so authors can write "JS", "javascript", "ecmascript",
+// or "es6" in an article and the rendered tag is always "JavaScript".
+//
+// Matching is case-insensitive and ignores `_`, `.`, and whitespace, so
+// "Web Vitals", "web_vitals", and "web-vitals" all collapse to the same tag.
+//
+// Add new entries here whenever a new topic is introduced; otherwise a raw
+// frontmatter tag falls through with title-cased text.
+
+{
+  // ── Languages and runtimes ─────────────────────────────────────────────
+  javascript: {
+    displayName: "JavaScript",
+    shortName: "JS",
+    aliases: ["js", "ecmascript", "es", "es6", "es2015", "es2017", "es2020", "es2021", "esnext"],
+  },
+  typescript: {
+    displayName: "TypeScript",
+    shortName: "TS",
+    aliases: ["ts"],
+  },
+  nodejs: {
+    displayName: "Node.js",
+    aliases: ["node", "nodejs", "node-js", "node.js"],
+  },
+  v8: {
+    displayName: "V8",
+    aliases: ["v8-engine"],
+  },
+  runtime: {
+    displayName: "Runtime",
+    aliases: ["runtimes", "language-runtime"],
+  },
+  "event-loop": {
+    displayName: "Event Loop",
+    aliases: ["eventloop", "event-loops"],
+  },
+  programming: {
+    displayName: "Programming",
+    aliases: ["programming-languages"],
+  },
+
+  // ── Browser, web platform, frontend ───────────────────────────────────
+  browser: {
+    displayName: "Browser",
+    aliases: ["browsers", "web-browser"],
+  },
+  "web-platform": {
+    displayName: "Web Platform",
+    aliases: ["web-platform-apis"],
+  },
+  "web-apis": {
+    displayName: "Web APIs",
+    aliases: ["webapi", "browser-apis", "browser-api"],
+  },
+  dom: {
+    displayName: "DOM",
+    aliases: ["document-object-model"],
+  },
+  "shadow-dom": {
+    displayName: "Shadow DOM",
+    aliases: ["shadow-root"],
+  },
+  "custom-elements": {
+    displayName: "Custom Elements",
+    aliases: ["customelements", "web-components-element"],
+  },
+  rendering: {
+    displayName: "Rendering",
+    shortName: "Render",
+    aliases: ["render", "rendering-engine", "browser-rendering"],
+  },
+  css: {
+    displayName: "CSS",
+    aliases: ["cascading-style-sheets", "css3"],
+  },
+  frontend: {
+    displayName: "Frontend",
+    aliases: ["front-end", "client-side", "ui"],
+  },
+  react: {
+    displayName: "React",
+    aliases: ["reactjs", "react-js"],
+  },
+  components: {
+    displayName: "Components",
+    aliases: ["component", "ui-components"],
+  },
+  "design-systems": {
+    displayName: "Design Systems",
+    shortName: "DS",
+    aliases: ["design-system", "ds"],
+  },
+  accessibility: {
+    displayName: "Accessibility",
+    shortName: "A11y",
+    aliases: ["a11y", "wcag"],
+  },
+
+  // ── Performance ───────────────────────────────────────────────────────
+  performance: {
+    displayName: "Performance",
+    shortName: "Perf",
+    aliases: ["perf", "web-performance"],
+  },
+  "web-vitals": {
+    displayName: "Web Vitals",
+    aliases: ["core-web-vitals", "cwv"],
+  },
+  optimization: {
+    displayName: "Optimization",
+    aliases: ["optimisation", "optimizations"],
+  },
+  "performance-engineering": {
+    displayName: "Performance Engineering",
+    shortName: "Perf Eng",
+    aliases: ["perf-engineering"],
+  },
+
+  // ── Networking ────────────────────────────────────────────────────────
+  networking: {
+    displayName: "Networking",
+    aliases: ["network", "networks"],
+  },
+  http: {
+    displayName: "HTTP",
+    aliases: ["http1", "http2", "http3", "https"],
+  },
+  dns: {
+    displayName: "DNS",
+    aliases: ["domain-name-system"],
+  },
+  tls: {
+    displayName: "TLS",
+    aliases: ["ssl", "tls13"],
+  },
+
+  // ── Security ──────────────────────────────────────────────────────────
+  security: {
+    displayName: "Security",
+    aliases: ["sec"],
+  },
+  "web-security": {
+    displayName: "Web Security",
+    aliases: ["websec"],
+  },
+  authentication: {
+    displayName: "Authentication",
+    shortName: "Auth",
+    aliases: ["auth", "authn"],
+  },
+
+  // ── Distributed systems and architecture ──────────────────────────────
+  "system-design": {
+    displayName: "System Design",
+    shortName: "SD",
+    aliases: ["systemdesign", "sd"],
+  },
+  architecture: {
+    displayName: "Architecture",
+    shortName: "Arch",
+    aliases: ["arch", "software-architecture"],
+  },
+  "distributed-systems": {
+    displayName: "Distributed Systems",
+    shortName: "Dist. Systems",
+    aliases: ["distsys", "distributed", "distributed-system"],
+  },
+  reliability: {
+    displayName: "Reliability",
+    aliases: ["reliable-systems"],
+  },
+  "reliability-engineering": {
+    displayName: "Reliability Engineering",
+    aliases: ["sre"],
+  },
+  patterns: {
+    displayName: "Patterns",
+    aliases: ["design-patterns", "software-patterns"],
+  },
+  outages: {
+    displayName: "Outages",
+    aliases: ["outage", "incidents"],
+  },
+  "case-study": {
+    displayName: "Case Study",
+    aliases: ["case-studies", "casestudy"],
+  },
+  "interview-prep": {
+    displayName: "Interview Prep",
+    shortName: "Interview",
+    aliases: ["interview", "interviewing", "interview-preparation"],
+  },
+
+  // ── Data and storage ──────────────────────────────────────────────────
+  data: {
+    displayName: "Data",
+    aliases: ["data-platforms"],
+  },
+  databases: {
+    displayName: "Databases",
+    shortName: "DB",
+    aliases: ["database", "db", "rdbms"],
+  },
+  storage: {
+    displayName: "Storage",
+    aliases: ["storage-systems"],
+  },
+  migrations: {
+    displayName: "Migrations",
+    aliases: ["migration", "data-migrations"],
+  },
+  "data-engineering": {
+    displayName: "Data Engineering",
+    shortName: "Data Eng",
+    aliases: ["dataeng"],
+  },
+
+  // ── Infrastructure and platform ───────────────────────────────────────
+  infrastructure: {
+    displayName: "Infrastructure",
+    shortName: "Infra",
+    aliases: ["infra"],
+  },
+  "platform-engineering": {
+    displayName: "Platform Engineering",
+    shortName: "Platform",
+    aliases: ["platform", "platform-eng"],
+  },
+  devops: {
+    displayName: "DevOps",
+    aliases: ["dev-ops"],
+  },
+  cicd: {
+    displayName: "CI/CD",
+    aliases: ["ci-cd", "ci_cd", "continuous-integration"],
+  },
+  "build-systems": {
+    displayName: "Build Systems",
+    aliases: ["build-system", "build-tooling", "bundler"],
+  },
+
+  // ── Computer science fundamentals ─────────────────────────────────────
+  algorithms: {
+    displayName: "Algorithms",
+    aliases: ["algorithm"],
+  },
+  "data-structures": {
+    displayName: "Data Structures",
+    shortName: "DS&A",
+    aliases: ["datastructures"],
+  },
+  "computer-science": {
+    displayName: "Computer Science",
+    shortName: "CS",
+    aliases: ["cs"],
+  },
+
+  // ── State and front-end glue ──────────────────────────────────────────
+  "state-management": {
+    displayName: "State Management",
+    aliases: ["state", "client-state"],
+  },
+
+  // ── Testing and quality ───────────────────────────────────────────────
+  testing: {
+    displayName: "Testing",
+    aliases: ["tests", "test", "qa"],
+  },
+
+  // ── Media ─────────────────────────────────────────────────────────────
+  media: {
+    displayName: "Media",
+    aliases: ["streaming", "video"],
+  },
+
+  // ── Productivity and leadership ───────────────────────────────────────
+  productivity: {
+    displayName: "Productivity",
+    aliases: ["dev-productivity"],
+  },
+  "developer-experience": {
+    displayName: "Developer Experience",
+    shortName: "DX",
+    aliases: ["dx", "devex"],
+  },
+  "engineering-leadership": {
+    displayName: "Engineering Leadership",
+    aliases: ["eng-leadership", "leadership"],
+  },
+}

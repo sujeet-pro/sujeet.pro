@@ -1,5 +1,6 @@
 ---
 title: 'Twitter/X: Timeline Architecture and the Recommendation Algorithm'
+linkTitle: 'Twitter Timeline'
 description: >-
   Twitter's timeline architecture across three eras — fanout-on-write with Redis, the multi-service ML recommendation pipeline (SimClusters, MaskNet), and X's Grok-based Phoenix/Thunder system — tracing the trade-offs between read latency, ranking quality, and system complexity.
 publishedDate: 2026-02-08T00:00:00.000Z

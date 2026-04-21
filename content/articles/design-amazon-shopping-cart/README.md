@@ -1,5 +1,6 @@
 ---
 title: Design Amazon Shopping Cart
+linkTitle: 'Shopping Cart'
 description: >-
   System design for an e-commerce shopping cart covering two-tier Redis/DB storage,
   soft inventory reservations with expiry, saga-pattern checkout coordination, and

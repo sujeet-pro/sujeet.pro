@@ -1,5 +1,6 @@
 ---
 title: 'Logging, Metrics, and Tracing Fundamentals'
+linkTitle: 'Logs / Metrics / Traces'
 description: >-
   Understand the three pillars of observability — structured logging, metrics,
   and distributed tracing — including cardinality trade-offs, sampling

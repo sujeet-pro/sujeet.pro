@@ -1,5 +1,6 @@
 ---
 title: Web Application Security Architecture
+linkTitle: 'Web App Security'
 description: >-
   Defense-in-depth security for web applications — layering TLS, CSP, authentication, and cryptography controls across the OWASP Top 10:2025 threat landscape, with concrete implementation patterns for each security boundary.
 publishedDate: 2026-02-03T00:00:00.000Z

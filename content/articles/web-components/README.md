@@ -1,5 +1,6 @@
 ---
 title: "Web Components: Custom Elements, Shadow DOM, and practical boundaries"
+linkTitle: 'Web Components'
 description: >-
   A senior-level tour of Custom Elements, Shadow DOM, templates and slots, lifecycle semantics, styling and accessibility at the encapsulation boundary, form association, and framework interoperability — with clear criteria for when standards-native components earn their complexity.
 publishedDate: 2026-03-20

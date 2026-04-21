@@ -1,5 +1,6 @@
 ---
 title: "Intersection Observer API: visibility without scroll listeners"
+linkTitle: 'Intersection Observer'
 description: >-
   How Intersection Observer defers visibility work to the browser, what root,
   rootMargin, and thresholds actually mean, how callbacks are batched and

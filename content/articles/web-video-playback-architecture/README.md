@@ -1,5 +1,6 @@
 ---
 title: 'Web Video Playback Architecture: HLS, DASH, and Low Latency'
+linkTitle: 'Web Video Playback'
 description: >-
   The complete video delivery pipeline from codecs (H.264, HEVC, AV1) and containers to adaptive streaming with HLS and DASH, DRM fragmentation, and ultra-low latency techniques — including protocol internals, design trade-offs, and production failure modes.
 publishedDate: 2026-02-03T00:00:00.000Z

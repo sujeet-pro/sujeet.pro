@@ -1,5 +1,6 @@
 ---
 title: CRDTs for Collaborative Systems
+linkTitle: 'CRDTs'
 description: >-
   Deep dive into CRDTs — state-based, operation-based, and delta-state variants
   — covering the math behind guaranteed convergence, practical implementation

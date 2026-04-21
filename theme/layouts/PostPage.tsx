@@ -10,6 +10,7 @@ import type {
 import { PageShell } from "@pagesmith/site/layouts";
 import type { Heading } from "@pagesmith/site/ssg-utils";
 import { ContentMeta } from "../components/ContentMeta";
+import { resolveTags } from "../lib/content";
 
 export type PostPageProps = {
   content: string;
@@ -26,6 +27,10 @@ export type PostPageProps = {
   lastUpdated?: string;
 };
 
+function pickString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
 export function PostPage(props: PostPageProps) {
   const {
     content,
@@ -41,14 +46,13 @@ export function PostPage(props: PostPageProps) {
     editLabel,
     lastUpdated,
   } = props;
-  const pageTitle =
-    typeof frontmatter.title === "string" && frontmatter.title.trim()
-      ? frontmatter.title
-      : undefined;
-  const pageDescription =
-    typeof frontmatter.description === "string" && frontmatter.description.trim()
-      ? frontmatter.description
-      : undefined;
+
+  // Title resolution order for the `<title>` tag and OpenGraph: explicit
+  // SEO override → canonical title → site fallback. The visible H1 in the
+  // markdown body is unaffected and remains the page heading.
+  const fallbackTitle = pickString(frontmatter.title);
+  const seoTitle = pickString(frontmatter.seoTitle) ?? fallbackTitle;
+  const pageDescription = pickString(frontmatter.description);
 
   const publishedDate = frontmatter.publishedDate;
   const publishedTime =
@@ -58,20 +62,22 @@ export function PostPage(props: PostPageProps) {
         ? publishedDate
         : undefined;
 
-  const tags = Array.isArray(frontmatter.tags)
+  const rawTags = Array.isArray(frontmatter.tags)
     ? frontmatter.tags.filter((tag): tag is string => typeof tag === "string")
-    : undefined;
+    : [];
+  const displayTags = resolveTags(rawTags);
+  const tagNames = displayTags.map((tag) => tag.name);
 
   const meta: SitePageMeta = {
     ogType: "article",
     publishedTime,
     modifiedTime: lastUpdated || undefined,
-    tags,
+    tags: tagNames,
   };
 
   return (
     <SiteDocument
-      title={pageTitle ? `${pageTitle} — ${site.title}` : site.title || site.name}
+      title={seoTitle ? `${seoTitle} — ${site.title}` : site.title || site.name}
       description={pageDescription ?? site.description}
       url={slug}
       socialImage={
@@ -98,11 +104,7 @@ export function PostPage(props: PostPageProps) {
           publishedDate={frontmatter.publishedDate as string | undefined}
           lastUpdatedDate={frontmatter.lastUpdatedOn as string | undefined}
           isDraft={frontmatter.draft as boolean | undefined}
-          tags={
-            Array.isArray(frontmatter.tags)
-              ? frontmatter.tags.filter((tag): tag is string => typeof tag === "string")
-              : undefined
-          }
+          tags={tagNames}
         />
         <div class="prose" innerHTML={content} />
       </PageShell>

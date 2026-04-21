@@ -1,5 +1,6 @@
 ---
 title: 'DNS Security and Privacy: DNSSEC, DoH, and DoT'
+linkTitle: 'DNS: Security'
 description: >-
   Two orthogonal layers of DNS security explained — DNSSEC for cryptographic
   authenticity (chain of trust, key types, NSEC vs. NSEC3) and DoH/DoT for

@@ -1,5 +1,6 @@
 ---
 title: Event-Driven Architecture
+linkTitle: 'Event-Driven Arch'
 description: >-
   When to choose events over API calls, and how to get the patterns right —
   event sourcing, CQRS, saga orchestration vs. choreography, idempotency, and

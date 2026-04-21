@@ -1,5 +1,6 @@
 ---
 title: Image Loading Optimization
+linkTitle: 'Image Loading'
 description: >-
   Balancing fast LCP, bandwidth efficiency, and layout stability through native
   lazy loading, responsive images, modern formats (AVIF/WebP), priority hints,

@@ -1,5 +1,6 @@
 ---
 title: 'Design Pastebin: Text Sharing, Expiration, and Abuse Prevention'
+linkTitle: 'Pastebin'
 description: >-
   Designing a Pastebin-like text sharing service with collision-free URL generation,
   multi-tier storage with content deduplication, expiration strategies, and abuse

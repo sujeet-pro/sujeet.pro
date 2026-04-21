@@ -1,5 +1,6 @@
 ---
 title: 'Search Algorithms: Linear, Binary, and Graph Traversal'
+linkTitle: 'Search Algorithms'
 description: >-
   Search algorithms from linear and binary search through BFS, DFS, Dijkstra, and A* — with TypeScript implementations, complexity analysis, and guidance on choosing the right algorithm based on data structure and search goal.
 publishedDate: 2026-02-03T00:00:00.000Z

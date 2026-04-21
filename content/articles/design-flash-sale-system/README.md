@@ -1,5 +1,6 @@
 ---
 title: Design a Flash Sale System
+linkTitle: 'Flash Sale'
 description: >-
   Handling millions of concurrent users competing for limited inventory during
   flash sales. Covers CDN-based virtual waiting rooms, token-gated admission,

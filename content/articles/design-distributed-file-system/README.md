@@ -1,5 +1,6 @@
 ---
 title: Design a Distributed File System
+linkTitle: 'Distributed File System'
 description: >-
   System design for a GFS/HDFS-style distributed file system covering single-master
   metadata management, 64MB chunk storage, rack-aware replication, and relaxed

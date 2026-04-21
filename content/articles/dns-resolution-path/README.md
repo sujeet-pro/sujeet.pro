@@ -1,5 +1,6 @@
 ---
 title: 'DNS Resolution Path: Stub to Recursive to Authoritative'
+linkTitle: 'DNS: Resolution Path'
 description: >-
   Tracing a DNS query from stub resolver through recursive resolver to the
   authoritative chain — with packet-level detail on iterative resolution,

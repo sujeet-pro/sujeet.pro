@@ -1,5 +1,6 @@
 ---
 title: Service Workers and Cache API
+linkTitle: 'Service Workers'
 description: >-
   Offline-first web architecture using the Service Worker lifecycle, Cache API storage strategies, and fetch interception patterns — from precaching and stale-while-revalidate to safe version updates and background sync.
 publishedDate: 2026-02-03T00:00:00.000Z

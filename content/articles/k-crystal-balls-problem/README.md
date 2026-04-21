@@ -1,5 +1,6 @@
 ---
 title: 'K-Crystal Balls Problem: Jump Search Pattern'
+linkTitle: 'K Crystal Balls'
 description: >-
   How consumable test resources change optimal search strategy — deriving the
   O(n^(1/k)) jump search pattern from first principles, with applications to

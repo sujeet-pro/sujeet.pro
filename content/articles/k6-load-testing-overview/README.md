@@ -1,5 +1,6 @@
 ---
 title: 'k6 Load Testing Overview: Smoke, Spike, Soak, Stress'
+linkTitle: 'k6 Load Testing'
 description: >-
   A practical guide to k6 load testing covering its Go/goroutine architecture,
   JavaScript scripting API, workload modeling (smoke, spike, soak, stress

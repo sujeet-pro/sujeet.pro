@@ -1,5 +1,6 @@
 ---
 title: Caching Fundamentals and Strategies
+linkTitle: 'Caching Fundamentals'
 description: >-
   Write policies, invalidation strategies, eviction algorithms, and cache topologies
   explained from CPU L1 through distributed CDN layers, with production examples from Netflix and Salesforce.

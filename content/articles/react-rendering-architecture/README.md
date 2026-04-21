@@ -1,5 +1,6 @@
 ---
 title: 'React Rendering Architecture: Fiber, SSR, and RSC'
+linkTitle: 'React Rendering'
 description: >-
   How React renders under the hood — the Fiber reconciliation engine, lane-based priority scheduling, two-phase render/commit cycle, streaming SSR, and React Server Components as stabilized in React 19.
 publishedDate: 2026-02-03T00:00:00.000Z

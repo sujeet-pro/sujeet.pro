@@ -1,5 +1,6 @@
 ---
 title: Design a Notification System
+linkTitle: 'Notifications'
 description: >-
   Designing a multi-channel notification system at scale — covering event ingestion,
   channel routing, user preference management, rate limiting, and at-least-once

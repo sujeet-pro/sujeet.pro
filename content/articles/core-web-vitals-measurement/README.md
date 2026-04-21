@@ -1,5 +1,6 @@
 ---
 title: 'Core Web Vitals Measurement: Lab vs Field Data'
+linkTitle: 'Core Web Vitals'
 description: >-
   A practical guide to measuring Core Web Vitals with lab tools, field data
   (RUM), and the web-vitals library, including metric-specific diagnostics for

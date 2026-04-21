@@ -1,5 +1,6 @@
 ---
 title: 'Web Performance Optimization: Overview and Playbook'
+linkTitle: 'Perf: Overview'
 description: >-
   A playbook-style overview of web performance optimization across infrastructure, JavaScript, CSS, images, and fonts — with quick reference tables, Core Web Vitals thresholds, and links to each detailed article in the series.
 publishedDate: 2026-02-03T00:00:00.000Z

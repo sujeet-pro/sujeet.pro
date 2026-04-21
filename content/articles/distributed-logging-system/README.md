@@ -1,5 +1,6 @@
 ---
 title: Distributed Logging System
+linkTitle: 'Logging System'
 description: >-
   Designing a centralized logging pipeline from collection agents to tiered
   storage — covering data models, indexing trade-offs (Elasticsearch vs. Loki),

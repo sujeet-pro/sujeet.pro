@@ -1,5 +1,6 @@
 ---
 title: Design Google Maps
+linkTitle: 'Google Maps'
 description: >-
   System design for a mapping and navigation platform covering quadtree-based
   vector tile rendering, Contraction Hierarchies for sub-millisecond routing on

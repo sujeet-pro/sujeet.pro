@@ -1,5 +1,6 @@
 ---
 title: Component Architecture Blueprint for Scalable UI
+linkTitle: 'Component Architecture'
 description: >-
   A layered component architecture using SDK abstractions, Primitives/Blocks/Widgets boundaries,
   and dependency injection via React Context — designed for testability and framework migration.

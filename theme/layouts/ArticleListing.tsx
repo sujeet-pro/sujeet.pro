@@ -32,10 +32,16 @@ export default function ArticleListing(props: Props) {
   const { series, other, meta } = getArticleListing(site.basePath || "");
   const totalItems =
     series.reduce((count, group) => count + group.articles.length, 0) + other.length;
-  const pageTitle =
-    typeof frontmatter.title === "string" && frontmatter.title.trim()
+  // Listing pages prefer `seoTitle` for the document title; the in-page H1
+  // is still driven by the markdown body, so authors can keep the visible
+  // heading short while exposing a richer SEO title.
+  const seoTitle =
+    (typeof frontmatter.seoTitle === "string" && frontmatter.seoTitle.trim()
+      ? frontmatter.seoTitle
+      : undefined) ??
+    (typeof frontmatter.title === "string" && frontmatter.title.trim()
       ? frontmatter.title
-      : undefined;
+      : undefined);
   const pageDescription =
     typeof frontmatter.description === "string" && frontmatter.description.trim()
       ? frontmatter.description
@@ -52,7 +58,7 @@ export default function ArticleListing(props: Props) {
 
   return (
     <SiteDocument
-      title={pageTitle ? `${pageTitle} — ${site.title}` : site.title || site.name}
+      title={seoTitle ? `${seoTitle} — ${site.title}` : site.title || site.name}
       description={pageDescription ?? meta?.description ?? site.description}
       url={slug}
       site={site}

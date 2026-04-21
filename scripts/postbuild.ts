@@ -107,7 +107,7 @@ function writeRss(): void {
       const url = `${siteConfig.origin}${entry.path}`;
       const pubDate = new Date(entry.publishedDate!).toUTCString();
       const categories = entry.tags
-        .map((tag) => `    <category>${escapeXml(tag)}</category>`)
+        .map((tag) => `    <category>${escapeXml(tag.name)}</category>`)
         .join("\n");
       return [
         "  <item>",

@@ -1,5 +1,6 @@
 ---
 title: "Build Pipelines and CI/CD Architecture"
+linkTitle: 'Build Pipelines'
 description: >-
   How to design commit-to-production pipelines: stage ordering, caching and reproducibility,
   test and security gates, deployment models, observability, and the failure modes that matter

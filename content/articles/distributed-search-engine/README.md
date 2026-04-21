@@ -1,5 +1,6 @@
 ---
 title: Distributed Search Engine
+linkTitle: 'Search Engine'
 description: >-
   Inverted index internals, Lucene's segment architecture, BM25 ranking,
   document-vs-term partitioning, and scatter-gather query execution — everything

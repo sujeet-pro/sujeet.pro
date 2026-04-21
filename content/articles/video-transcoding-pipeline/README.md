@@ -1,5 +1,6 @@
 ---
 title: Video Transcoding Pipeline Design
+linkTitle: 'Video Transcoding'
 description: >-
   Pipeline architecture for scalable video transcoding — covering codec selection, rate control strategies, chunked parallel encoding, per-title bitrate ladders, VMAF quality validation, and the compute/storage/egress cost trade-offs behind production video platforms.
 publishedDate: 2026-02-03T00:00:00.000Z

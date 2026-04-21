@@ -1,5 +1,6 @@
 ---
 title: 'HTTP/1.1 to HTTP/2: Bottlenecks and Multiplexing'
+linkTitle: 'HTTP/1.1 → HTTP/2'
 description: >-
   How HTTP/1.1's head-of-line blocking and header redundancy led to HTTP/2's
   binary framing, HPACK compression, and stream multiplexing — along with the

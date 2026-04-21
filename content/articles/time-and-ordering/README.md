@@ -1,5 +1,6 @@
 ---
 title: Time and Ordering in Distributed Systems
+linkTitle: 'Time & Ordering'
 description: >-
   How distributed systems establish event ordering without a global clock — from physical clock synchronization (NTP, PTP, TrueTime) to logical clocks (Lamport, vector, HLC), with production examples from Spanner, CockroachDB, and Discord.
 publishedDate: 2026-02-03T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: Distributed Locking
+linkTitle: 'Distributed Locking'
 description: >-
   How distributed locks actually work across Redis, ZooKeeper, etcd, and Chubby
   — covering lease-based expiration, the Redlock controversy, fencing tokens,

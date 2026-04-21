@@ -1,5 +1,6 @@
 ---
 title: 'Dropbox Magic Pocket: Building Exabyte-Scale Blob Storage'
+linkTitle: 'Dropbox Magic Pocket'
 description: >-
   How Dropbox built Magic Pocket — a content-addressable, exabyte-scale block
   store — to migrate 500+ PB off S3, save $74.6M, and achieve higher durability

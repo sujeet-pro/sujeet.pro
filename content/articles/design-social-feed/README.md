@@ -1,5 +1,6 @@
 ---
 title: Design a Social Feed (Facebook/Instagram)
+linkTitle: 'Social Feed'
 description: >-
   Designing a social feed system at Facebook/Instagram scale — hybrid push/pull
   fan-out, multi-stage ML ranking pipelines, graph-based content storage, and the

@@ -1,5 +1,6 @@
 ---
 title: 'SLOs, SLIs, and Error Budgets'
+linkTitle: 'SLOs & SLIs'
 description: >-
   The SLO reliability framework from Google's SRE practice — defining user-centric SLIs, setting meaningful targets, calculating error budgets, implementing burn-rate alerting, and using budget policies to balance feature velocity with reliability investment.
 publishedDate: 2026-02-03T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: 'Statsig Experimentation Platform: Architecture and Rollouts'
+linkTitle: 'Statsig'
 description: >-
   Statsig's architecture for unified feature flags, A/B testing, and analytics — covering dual SDK evaluation models, deterministic assignment via SHA-256 hashing, caching strategies, and deployment patterns for cloud and warehouse-native environments.
 publishedDate: 2026-01-24T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: Design a Distributed Key-Value Store
+linkTitle: 'Key-Value Store'
 description: >-
   Distributed key-value store design exploring the Dynamo/Cassandra AP model with
   consistent hashing, quorum replication, vector clocks, gossip protocols, and

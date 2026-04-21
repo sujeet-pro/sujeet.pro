@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Prepaint'
+linkTitle: 'CRP: Prepaint'
 description: >-
   How the Prepaint stage builds the four property trees (transform, clip,
   effect, scroll) and computes paint invalidations, enabling O(affected-nodes)

@@ -1,5 +1,6 @@
 ---
 title: Design Google Search
+linkTitle: 'Google Search'
 description: >-
   Web-scale search engine design covering the four pillars: crawling billions of
   pages with priority scheduling, inverted index construction across thousands of

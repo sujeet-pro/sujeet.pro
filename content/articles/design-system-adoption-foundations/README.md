@@ -1,5 +1,6 @@
 ---
 title: 'Design System Adoption: Foundations and Governance'
+linkTitle: 'DS: Adoption'
 description: >-
   A practical framework for launching and scaling design systems — building the
   business case, securing executive sponsorship, choosing governance models,

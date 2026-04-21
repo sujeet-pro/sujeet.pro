@@ -1,5 +1,6 @@
 ---
 title: Design Google Calendar
+linkTitle: 'Google Calendar'
 description: >-
   System design for a calendar application covering RRULE-based recurrence
   expansion, IANA timezone handling across DST boundaries, free/busy availability

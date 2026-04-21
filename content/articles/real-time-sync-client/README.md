@@ -1,5 +1,6 @@
 ---
 title: Real-Time Sync Client
+linkTitle: 'Real-Time Sync'
 description: >-
   Client-side architecture for real-time sync covering WebSocket, SSE, and long polling transports, connection resilience with exponential backoff, conflict resolution via OT and CRDTs, and state reconciliation patterns drawn from Figma, Notion, and Linear.
 publishedDate: 2026-02-03T00:00:00.000Z

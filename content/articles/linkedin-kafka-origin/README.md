@@ -2,6 +2,7 @@
 title: >-
   LinkedIn and the Birth of Apache Kafka: Solving the O(N²) Data Integration
   Problem
+linkTitle: 'LinkedIn → Kafka'
 description: >-
   How LinkedIn's O(N squared) data pipeline problem led to the creation of
   Apache Kafka — a distributed commit log that replaced fragile point-to-point

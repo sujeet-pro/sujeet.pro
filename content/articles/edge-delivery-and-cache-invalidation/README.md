@@ -1,5 +1,6 @@
 ---
 title: Edge Delivery and Cache Invalidation
+linkTitle: 'Edge Delivery'
 description: >-
   Cache key design, TTL strategies, invalidation approaches (versioned URLs,
   tag-based purge, stale-while-revalidate), and edge compute patterns — with

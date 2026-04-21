@@ -1,5 +1,6 @@
 ---
 title: 'Stripe: Idempotency for Payment Reliability'
+linkTitle: 'Stripe Idempotency'
 description: >-
   How Stripe prevents double charges and enables safe retries using idempotency keys, atomic phases, and database-backed state machines — including why they chose ACID transactions over distributed consensus for payment reliability at scale.
 publishedDate: 2026-02-08T00:00:00.000Z

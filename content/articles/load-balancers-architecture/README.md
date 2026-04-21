@@ -1,5 +1,6 @@
 ---
 title: 'Load Balancer Architecture: L4 vs L7 and Routing'
+linkTitle: 'Load Balancers'
 description: >-
   L4 vs. L7 load balancing explained — routing algorithms, TLS termination
   strategies, health checking, session persistence, and two-tier production

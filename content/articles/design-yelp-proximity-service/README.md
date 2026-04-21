@@ -1,5 +1,6 @@
 ---
 title: 'Design Yelp: Location-Based Business Discovery Platform'
+linkTitle: 'Yelp / Proximity'
 description: >-
   Designing a Yelp-like proximity service — geospatial indexing strategies (geohash,
   quadtree, R-tree), multi-signal ranking that blends distance with relevance,

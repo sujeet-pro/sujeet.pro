@@ -1,5 +1,6 @@
 ---
 title: Distributed Monitoring Systems
+linkTitle: 'Monitoring'
 description: >-
   Building observability infrastructure that scales — metric types and the
   cardinality problem, push vs. pull collection, time-series storage engines,

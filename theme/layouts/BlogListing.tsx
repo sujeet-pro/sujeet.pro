@@ -30,10 +30,13 @@ export default function BlogListing(props: Props) {
     lastUpdated,
   } = props;
   const { entries, meta } = getBlogListing(site.basePath || "");
-  const pageTitle =
-    typeof frontmatter.title === "string" && frontmatter.title.trim()
+  const seoTitle =
+    (typeof frontmatter.seoTitle === "string" && frontmatter.seoTitle.trim()
+      ? frontmatter.seoTitle
+      : undefined) ??
+    (typeof frontmatter.title === "string" && frontmatter.title.trim()
       ? frontmatter.title
-      : undefined;
+      : undefined);
   const pageDescription =
     typeof frontmatter.description === "string" && frontmatter.description.trim()
       ? frontmatter.description
@@ -42,7 +45,7 @@ export default function BlogListing(props: Props) {
 
   return (
     <SiteDocument
-      title={pageTitle ? `${pageTitle} — ${site.title}` : site.title || site.name}
+      title={seoTitle ? `${seoTitle} — ${site.title}` : site.title || site.name}
       description={pageDescription ?? meta?.description ?? site.description}
       url={slug}
       site={site}

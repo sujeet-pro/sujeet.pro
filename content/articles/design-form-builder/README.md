@@ -1,5 +1,6 @@
 ---
 title: Design a Form Builder
+linkTitle: 'Form Builder'
 description: >-
   Schema-driven form generation from JSON Schema and TypeScript-first approaches
   to validation strategies, state management, and conditional field logic.

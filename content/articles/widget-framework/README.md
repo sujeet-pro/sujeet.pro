@@ -1,5 +1,6 @@
 ---
 title: Multi-Tenant Pluggable Widget Framework
+linkTitle: 'Widget Framework'
 description: >-
   Architectural decisions behind multi-tenant pluggable widget systems like VS Code extensions and Figma plugins — covering module loading (Module Federation, SystemJS), sandboxing (iframe, Shadow DOM, WASM), registry design, and tenant-aware orchestration.
 publishedDate: 2026-02-03T00:00:00.000Z

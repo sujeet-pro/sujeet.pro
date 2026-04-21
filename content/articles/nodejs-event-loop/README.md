@@ -1,5 +1,6 @@
 ---
 title: 'Node.js Event Loop: Phases, Queues, and Process Exit'
+linkTitle: 'Node.js Event Loop'
 description: >-
   How Node.js schedules work across libuv's six phases, microtask and
   nextTick queues, and the thread pool — with precise ordering rules for

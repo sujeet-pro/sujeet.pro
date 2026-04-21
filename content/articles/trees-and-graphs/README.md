@@ -1,5 +1,6 @@
 ---
 title: 'Trees and Graphs: Traversals and Applications'
+linkTitle: 'Trees & Graphs'
 description: >-
   Tree variants (BST, AVL, Red-Black, B-trees, tries) and graph algorithms (DFS, BFS, topological sort, shortest paths) with design trade-offs — when to choose each structure and why, from database indexes to dependency resolution.
 publishedDate: 2026-02-03T00:00:00.000Z

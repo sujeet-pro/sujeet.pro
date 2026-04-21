@@ -2,6 +2,7 @@
 title: >-
   Design an API Rate Limiter: Distributed Throttling, Multi-Tenant Quotas, and
   Graceful Degradation
+linkTitle: 'API Rate Limiter'
 description: >-
   Distributed API rate limiting with sliding window counters, Redis-backed
   atomic counting, multi-tenant hierarchical quotas, and fail-open resilience.

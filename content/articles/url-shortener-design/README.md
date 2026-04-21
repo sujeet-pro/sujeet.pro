@@ -1,5 +1,6 @@
 ---
 title: 'Design a URL Shortener: IDs, Storage, and Scale'
+linkTitle: 'URL Shortener'
 description: >-
   System design for a URL shortener at Bitly scale — covering ID generation strategies, multi-tier caching for sub-50ms redirects, database sharding, async analytics pipelines, and abuse prevention with 99.99% availability.
 publishedDate: 2026-02-06T00:00:00.000Z

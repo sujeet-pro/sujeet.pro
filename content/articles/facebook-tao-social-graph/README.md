@@ -1,5 +1,6 @@
 ---
 title: 'Facebook TAO: The Social Graph''s Distributed Cache'
+linkTitle: 'Facebook TAO'
 description: >-
   A deep dive into TAO, Facebook's graph-aware caching layer that replaced
   generic memcache with a two-tier write-through architecture handling 1+

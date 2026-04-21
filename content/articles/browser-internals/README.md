@@ -1,5 +1,6 @@
 ---
 title: 'Browser Architecture: Processes, Caching, and Extensions'
+linkTitle: 'Browser Architecture'
 description: >-
   Chromium's multi-process architecture mapped end-to-end: renderer sandboxing, site isolation,
   GPU process separation, the DNS-to-disk caching hierarchy, speculative loading, and extension content script injection.

@@ -1,5 +1,6 @@
 ---
 title: 'React Hooks Fundamentals: Rules, Core Hooks, and Custom Hooks'
+linkTitle: 'React Hooks'
 description: >-
   A ground-up guide to React Hooks covering the call-order linked list model, core hooks like useState, useEffect, useRef, useMemo, and useCallback, plus patterns for building composable custom hooks.
 publishedDate: 2026-02-03T00:00:00.000Z

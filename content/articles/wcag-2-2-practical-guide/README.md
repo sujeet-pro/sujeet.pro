@@ -1,5 +1,6 @@
 ---
 title: 'WCAG 2.2: Practical Accessibility Guide'
+linkTitle: 'WCAG 2.2'
 description: >-
   Practical implementation of WCAG 2.2's 86 success criteria — covering the 9 new additions for cognitive accessibility and mobile interaction, semantic HTML strategies, ARIA patterns, testing methodologies, and legal requirements under ADA and the European Accessibility Act.
 publishedDate: 2026-02-03T00:00:00.000Z

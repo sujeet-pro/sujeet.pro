@@ -1,5 +1,6 @@
 ---
 title: Exponential Backoff and Retry Strategy
+linkTitle: 'Exponential Backoff'
 description: >-
   The mechanics behind exponential backoff, jitter algorithms (full, equal,
   decorrelated), retry budgets, and circuit breakers — from Ethernet's BEB

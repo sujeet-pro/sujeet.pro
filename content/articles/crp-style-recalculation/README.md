@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Style Recalculation'
+linkTitle: 'CRP: Style Recalc'
 description: >-
   How browsers resolve final CSS values for every element through rule indexing,
   right-to-left selector matching with Bloom filters, the CSS Cascade Level 5

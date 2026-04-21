@@ -240,6 +240,7 @@
     { from: "/articles/programming-patterns/javascript-patterns/javascript-error-handling-patterns", to: "/articles/javascript-error-handling-patterns" },
     { from: "/articles/programming-patterns/javascript-patterns/javascript-string-length", to: "/articles/javascript-string-length" },
     { from: "/articles/developer-experience/productivity-workflows/chrome-developer-setup", to: "/blogs/chrome-developer-setup" },
-    { from: "/articles/developer-experience/productivity-workflows/editor-terminal-setup", to: "/blogs/editor-terminal-setup" },
+    { from: "/articles/developer-experience/productivity-workflows/editor-terminal-setup", to: "/blogs/system-setup" },
+    { from: "/blogs/editor-terminal-setup", to: "/blogs/system-setup" },
   ],
 }

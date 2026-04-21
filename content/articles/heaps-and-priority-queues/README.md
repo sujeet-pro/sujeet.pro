@@ -1,5 +1,6 @@
 ---
 title: 'Heaps and Priority Queues: Internals, Trade-offs, and When Theory Breaks Down'
+linkTitle: 'Heaps & PQs'
 description: >-
   Binary heap internals, array representation, core operations, and the gap
   between textbook complexity and real-world cache performance — plus when

@@ -1,5 +1,6 @@
 ---
 title: JavaScript Error Handling Patterns
+linkTitle: 'JS Error Handling'
 description: >-
   Comparing exception-based (try/catch) and value-based (Result monad) error
   handling in JavaScript and TypeScript — covering type safety, composability,

@@ -1,5 +1,6 @@
 ---
 title: Accessibility Testing and Tooling Workflow
+linkTitle: 'A11y Testing'
 description: >-
   A layered accessibility testing workflow combining axe-core, Pa11y, and eslint-plugin-jsx-a11y
   with manual keyboard and screen reader testing to maximize WCAG 2.2 coverage in CI/CD pipelines.

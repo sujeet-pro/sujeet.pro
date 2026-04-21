@@ -1,5 +1,6 @@
 ---
 title: Event Sourcing
+linkTitle: 'Event Sourcing'
 description: >-
   Storing state as immutable events instead of mutable rows — covering stream
   design, snapshot strategies, projection patterns, schema evolution via

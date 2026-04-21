@@ -1,5 +1,6 @@
 ---
 title: 'Browser Event Loop: Tasks, Microtasks, Rendering, and Idle Time'
+linkTitle: 'Browser Event Loop'
 description: >-
   A spec-accurate breakdown of the browser event loop covering task queue selection, microtask
   checkpoints, rendering opportunities, and Chromium's Blink scheduler — focused on latency and frame-budget trade-offs.

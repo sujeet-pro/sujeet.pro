@@ -1,5 +1,6 @@
 ---
 title: Design a Drag and Drop System
+linkTitle: 'Drag & Drop'
 description: >-
   Browser APIs, architectural patterns, and accessibility requirements behind
   production drag-and-drop systems. Covers HTML5 DnD quirks, Pointer Events

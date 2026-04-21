@@ -1,5 +1,6 @@
 ---
 title: Blob Storage Design
+linkTitle: 'Blob Storage'
 description: >-
   Core building blocks of object storage systems — chunking strategies, content-defined deduplication,
   metadata separation, erasure coding vs. replication, and tiered storage — with design trade-offs at each layer.

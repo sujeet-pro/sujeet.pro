@@ -1,5 +1,6 @@
 ---
 title: 'Queues and Pub/Sub: Decoupling and Backpressure'
+linkTitle: 'Queues & Pub/Sub'
 description: >-
   Queues distribute work, topics broadcast events. Compare point-to-point,
   pub/sub, and hybrid consumer group patterns — with delivery semantics,

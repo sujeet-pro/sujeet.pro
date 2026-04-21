@@ -1,5 +1,6 @@
 ---
 title: 'V8 Engine Architecture: Parsing, Optimization, and JIT'
+linkTitle: 'V8 Engine'
 description: >-
   V8's four-tier compilation pipeline from Ignition interpreter to TurboFan optimizer — how hidden classes, inline caches, and speculative optimization achieve near-native JavaScript performance, plus Orinoco's concurrent garbage collection strategy.
 publishedDate: 2026-01-31T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: 'DNS Records, TTL Strategy, and Cache Behavior'
+linkTitle: 'DNS: Records & TTL'
 description: >-
   Every DNS record type explained with its constraints and design rationale, plus
   TTL strategies for migrations, failover, and caching — and why "DNS

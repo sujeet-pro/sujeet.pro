@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Draw'
+linkTitle: 'CRP: Draw'
 description: >-
   The final rendering pipeline stage where Chromium's Viz process aggregates
   compositor frames from multiple renderer processes, translates draw quads into

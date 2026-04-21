@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Commit'
+linkTitle: 'CRP: Commit'
 description: >-
   How Chromium's Commit stage performs a blocking handoff of property trees and
   display lists from the Main Thread to the Compositor Thread, enabling the

@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Rasterization'
+linkTitle: 'CRP: Raster'
 description: >-
   How Chromium converts display lists into GPU textures through tiling, priority
   scheduling, and the dual-tree architecture, including the transition from

@@ -1,5 +1,6 @@
 ---
 title: 'YouTube: Scaling MySQL to Serve Billions with Vitess'
+linkTitle: 'YouTube + Vitess'
 description: >-
   How YouTube built Vitess to scale MySQL from 4 shards to 256 across tens of thousands of nodes, solving cascading connection storms, enabling zero-downtime resharding, and serving millions of queries per second — and why they eventually migrated to Spanner anyway.
 publishedDate: 2026-02-08T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: 'OWASP Top 10: Web Application Security Risks'
+linkTitle: 'OWASP Top 10'
 description: >-
   A practical walkthrough of the OWASP Top 10 (2025 edition) — each risk
   category explained with vulnerability patterns, code-level prevention

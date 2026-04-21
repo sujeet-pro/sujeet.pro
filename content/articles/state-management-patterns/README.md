@@ -1,5 +1,6 @@
 ---
 title: "State Management Patterns: Boundaries, Ownership, and Consistency"
+linkTitle: 'State Management'
 description: >-
   A staff-level guide to frontend state: where truth lives, how to split local, global, and
   server-backed concerns, cache invalidation and optimistic updates, synchronization costs,

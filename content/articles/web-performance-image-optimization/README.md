@@ -1,5 +1,6 @@
 ---
 title: Image Performance Optimization for the Web
+linkTitle: 'Perf: Images'
 description: >-
   Everything you need to know about optimizing images for the web: modern formats like AVIF, WebP, and JPEG XL, responsive images with srcset and sizes, and loading strategies using fetchpriority and decoding attributes to dramatically improve LCP.
 publishedDate: 2026-02-03T00:00:00.000Z

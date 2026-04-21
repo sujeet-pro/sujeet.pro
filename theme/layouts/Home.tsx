@@ -79,10 +79,13 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
   );
   const stats = getSiteStats();
   const modalSections = buildSidebarModalSections(site.navItems);
-  const pageTitle =
-    typeof frontmatter.title === "string" && frontmatter.title.trim()
+  const seoTitle =
+    (typeof frontmatter.seoTitle === "string" && frontmatter.seoTitle.trim()
+      ? frontmatter.seoTitle
+      : undefined) ??
+    (typeof frontmatter.title === "string" && frontmatter.title.trim()
       ? frontmatter.title
-      : site.title;
+      : site.title);
   const pageDescription =
     typeof frontmatter.description === "string" && frontmatter.description.trim()
       ? frontmatter.description
@@ -90,7 +93,7 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
 
   return (
     <SiteDocument
-      title={pageTitle || site.name}
+      title={seoTitle || site.name}
       description={pageDescription}
       url={slug}
       socialImage={
@@ -157,7 +160,7 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
                 {featuredArticles.map((entry) => (
                   <li class="site-home-featured-item">
                     <a href={entry.path} class="site-home-featured-link">
-                      <span class="site-home-featured-title">{entry.title}</span>
+                      <span class="site-home-featured-title">{entry.cardTitle ?? entry.title}</span>
                       {entry.description ? (
                         <span class="site-home-featured-desc">{entry.description}</span>
                       ) : null}

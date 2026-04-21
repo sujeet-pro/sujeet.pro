@@ -1,5 +1,6 @@
 ---
 title: 'Shopify: Pod Architecture for Multi-Tenant Isolation at Scale'
+linkTitle: 'Shopify Pods'
 description: >-
   How Shopify evolved from a sharded Rails monolith to pod-based isolation, containing blast radius per failure domain, enabling sub-minute failover, and surviving 284 million edge requests per minute on Black Friday 2024.
 publishedDate: 2026-02-08T00:00:00.000Z

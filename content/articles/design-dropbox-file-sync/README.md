@@ -1,5 +1,6 @@
 ---
 title: Design Dropbox File Sync
+linkTitle: 'Dropbox Sync'
 description: >-
   System design for cross-device file synchronization at Dropbox scale, covering
   content-defined chunking for delta sync, the three-tree merge model for conflict

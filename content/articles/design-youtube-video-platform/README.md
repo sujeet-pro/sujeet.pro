@@ -1,5 +1,6 @@
 ---
 title: Design a YouTube-Style Video Platform
+linkTitle: 'YouTube'
 description: >-
   Designing a YouTube-scale video platform — resumable chunked uploads, segment-parallel
   transcoding across multiple codecs, adaptive bitrate streaming via HLS/DASH,

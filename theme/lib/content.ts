@@ -26,16 +26,37 @@ import {
   RootMetaSchema,
   type SectionMeta,
   SectionMetaSchema,
+  type TagsConfig,
+  TagsConfigSchema,
 } from "../../schemas/content-data";
 import { ArticleFrontmatterSchema, BlogFrontmatterSchema } from "../../schemas/frontmatter";
 
+/**
+ * Resolved tag projected to the UI. `slug` is the canonical taxonomy slug,
+ * `name` is the display label, and `shortName` is the optional terse variant
+ * for chrome with limited space.
+ */
+export type DisplayTag = {
+  slug: string;
+  name: string;
+  shortName?: string;
+};
+
 type RawEntry = {
   slug: string;
+  /** Canonical title — fallback for every other title field. */
   title: string;
+  /** Optional SEO-only override for `<title>` and OpenGraph. */
+  seoTitle?: string;
+  /** Optional listing-card override. */
+  cardTitle?: string;
+  /** Optional sidebar/breadcrumb/prev-next override. */
+  linkTitle?: string;
   description?: string;
   publishedDate?: string;
   lastUpdatedOn?: string;
-  tags: string[];
+  /** Tags after normalisation through the canonical taxonomy. */
+  tags: DisplayTag[];
 };
 
 export type ListingEntry = RawEntry & {
@@ -59,6 +80,8 @@ const sectionMetaCache = new Map<string, SectionMeta | undefined>();
 let rootMetaCache: RootMeta | undefined;
 let homeDataCache: HomeData | undefined;
 let redirectsCache: RedirectConfig | undefined;
+let tagsConfigCache: TagsConfig | undefined;
+let tagAliasIndexCache: Map<string, string> | undefined;
 
 function formatSchemaError(
   path: string,
@@ -102,6 +125,95 @@ function withPath(entry: RawEntry, section: string, basePath: string): ListingEn
   };
 }
 
+/**
+ * Lower-case + strip non-alphanumerics so "JavaScript", "JS", "js",
+ * "java_script", and "Java Script" all collapse to the same lookup key.
+ */
+function tagLookupKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function loadTagsConfig(): TagsConfig {
+  tagsConfigCache ??= readJson5File(join(CONTENT_ROOT, "tags.json5"), TagsConfigSchema);
+  return tagsConfigCache;
+}
+
+function getTagAliasIndex(): Map<string, string> {
+  if (tagAliasIndexCache) return tagAliasIndexCache;
+  const config = loadTagsConfig();
+  const index = new Map<string, string>();
+  for (const [slug, def] of Object.entries(config)) {
+    const slugKey = tagLookupKey(slug);
+    if (slugKey) index.set(slugKey, slug);
+    const nameKey = tagLookupKey(def.displayName);
+    if (nameKey && !index.has(nameKey)) index.set(nameKey, slug);
+    if (def.shortName) {
+      const shortKey = tagLookupKey(def.shortName);
+      if (shortKey && !index.has(shortKey)) index.set(shortKey, slug);
+    }
+    for (const alias of def.aliases) {
+      const aliasKey = tagLookupKey(alias);
+      if (aliasKey && !index.has(aliasKey)) index.set(aliasKey, slug);
+    }
+  }
+  tagAliasIndexCache = index;
+  return index;
+}
+
+function titleCaseFallback(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/**
+ * Normalise a raw frontmatter tag to its canonical `DisplayTag`. Unknown
+ * tags fall through with a title-cased display name and the original value
+ * as the slug — so a typo or an undeclared tag still renders, but author
+ * intent stays visible in the chrome.
+ */
+export function resolveTag(raw: string): DisplayTag {
+  const trimmed = raw.trim();
+  if (!trimmed) return { slug: "", name: "" };
+  const config = loadTagsConfig();
+  const index = getTagAliasIndex();
+  const key = tagLookupKey(trimmed);
+  const slug = index.get(key);
+  if (slug) {
+    const def = config[slug]!;
+    return { slug, name: def.displayName, shortName: def.shortName };
+  }
+  return {
+    slug: trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, ""),
+    name: titleCaseFallback(trimmed),
+  };
+}
+
+/**
+ * De-duplicate by canonical slug while preserving the order of first
+ * appearance. Empty/blank tags are filtered out.
+ */
+export function resolveTags(rawTags: ReadonlyArray<string>): DisplayTag[] {
+  const seen = new Set<string>();
+  const out: DisplayTag[] = [];
+  for (const raw of rawTags) {
+    const tag = resolveTag(raw);
+    if (!tag.slug || seen.has(tag.slug)) continue;
+    seen.add(tag.slug);
+    out.push(tag);
+  }
+  return out;
+}
+
 function loadRawEntries(section: "articles" | "blogs"): RawEntry[] {
   const cached = rawEntriesCache.get(section);
   if (cached) return cached;
@@ -133,10 +245,13 @@ function loadRawEntries(section: "articles" | "blogs"): RawEntry[] {
     entries.push({
       slug: entry.name,
       title: parsed.data.title,
+      seoTitle: parsed.data.seoTitle,
+      cardTitle: parsed.data.cardTitle,
+      linkTitle: parsed.data.linkTitle,
       description: parsed.data.description,
       publishedDate: toDateString(parsed.data.publishedDate),
       lastUpdatedOn: toDateString(parsed.data.lastUpdatedOn),
-      tags: parsed.data.tags,
+      tags: resolveTags(parsed.data.tags),
     });
   }
 
@@ -175,6 +290,11 @@ export function loadSectionMeta(section: "articles" | "blogs"): SectionMeta | un
   const meta = existsSync(metaPath) ? readJson5File(metaPath, SectionMetaSchema) : undefined;
   sectionMetaCache.set(section, meta);
   return meta;
+}
+
+/** Public accessor so layouts and validators can introspect the taxonomy. */
+export function loadTagTaxonomy(): TagsConfig {
+  return loadTagsConfig();
 }
 
 export function loadSectionEntries(
@@ -258,23 +378,24 @@ export function getArticleContext(
       ? buildPrevNext(
           flat,
           flatIndex,
-          (e) => e.title,
+          // Sidebar/prev/next chrome prefers the short link form.
+          (e) => e.linkTitle ?? e.title,
           (e) => e.path,
         )
       : { prev: undefined, next: undefined };
 
   let currentSeries: SeriesGroup | undefined;
-  let currentTitle: string | undefined;
+  let currentEntry: ListingEntry | undefined;
   for (const group of listing.series) {
     const hit = group.articles.find((entry) => entry.slug === slug);
     if (hit) {
       currentSeries = group;
-      currentTitle = hit.title;
+      currentEntry = hit;
       break;
     }
   }
-  if (!currentTitle) {
-    currentTitle = listing.other.find((entry) => entry.slug === slug)?.title;
+  if (!currentEntry) {
+    currentEntry = listing.other.find((entry) => entry.slug === slug);
   }
 
   // Sidebar: every series renders as a top-level item that links to its first
@@ -288,7 +409,7 @@ export function getArticleContext(
     title: group.displayName,
     path: group.articles[0]!.path,
     children: group.articles.map((entry) => ({
-      title: entry.title,
+      title: entry.linkTitle ?? entry.title,
       path: entry.path,
     })),
   }));
@@ -301,20 +422,22 @@ export function getArticleContext(
     sidebarSections.push({
       title: "Other",
       items: listing.other.map((entry) => ({
-        title: entry.title,
+        title: entry.linkTitle ?? entry.title,
         path: entry.path,
       })),
     });
   }
 
+  // Breadcrumbs prefer linkTitle for the leaf so deep article titles do
+  // not blow out the trail.
   const breadcrumbTrail: SiteBreadcrumb[] = [{ label: "Articles", path: "/articles" }];
   if (currentSeries) {
     breadcrumbTrail.push(
-      { label: currentSeries.displayName, path: "/articles" },
-      { label: currentTitle ?? slug },
+      { label: currentSeries.shortName ?? currentSeries.displayName, path: "/articles" },
+      { label: currentEntry?.linkTitle ?? currentEntry?.title ?? slug },
     );
-  } else if (currentTitle) {
-    breadcrumbTrail.push({ label: currentTitle });
+  } else if (currentEntry) {
+    breadcrumbTrail.push({ label: currentEntry.linkTitle ?? currentEntry.title });
   }
 
   return {
@@ -351,7 +474,7 @@ export function getBlogContext(
   const { prev, next } = buildPrevNext(
     listing.entries,
     index,
-    (e) => e.title,
+    (e) => e.linkTitle ?? e.title,
     (e) => e.path,
   );
 
@@ -360,12 +483,12 @@ export function getBlogContext(
       index >= 0
         ? buildBreadcrumbs(basePath, [
             { label: "Blogs", path: "/blogs" },
-            { label: listing.entries[index]!.title },
+            { label: listing.entries[index]!.linkTitle ?? listing.entries[index]!.title },
           ])
         : buildBreadcrumbs(basePath, [{ label: "Blogs", path: "/blogs" }]),
     sidebarSections: buildSidebarFromEntries(
       listing.meta?.displayName ?? "Blogs",
-      listing.entries.map((e) => ({ title: e.title, path: e.path })),
+      listing.entries.map((e) => ({ title: e.linkTitle ?? e.title, path: e.path })),
     ),
     prev,
     next,

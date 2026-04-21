@@ -1,5 +1,6 @@
 ---
 title: Change Data Capture
+linkTitle: 'CDC'
 description: >-
   Log-based, trigger-based, and polling-based CDC approaches compared, with Debezium implementation
   details, Kafka integration patterns, and the trade-offs that make log-based CDC the production standard.

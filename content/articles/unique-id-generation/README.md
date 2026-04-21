@@ -1,5 +1,6 @@
 ---
 title: Unique ID Generation in Distributed Systems
+linkTitle: 'Unique IDs'
 description: >-
   Trade-offs in distributed ID generation — comparing UUID v4, UUID v7, Snowflake, ULID, and KSUID across sortability, coordination overhead, collision probability, and B-tree performance. Includes the RFC 9562 standardization of UUID v7 as the recommended default.
 publishedDate: 2026-02-03T00:00:00.000Z

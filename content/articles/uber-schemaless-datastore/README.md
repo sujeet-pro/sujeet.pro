@@ -1,5 +1,6 @@
 ---
 title: 'Uber Schemaless: Building a Scalable Datastore on MySQL'
+linkTitle: 'Uber Schemaless'
 description: >-
   How Uber built Schemaless — a horizontally scalable, append-only datastore layered on sharded MySQL — to replace PostgreSQL under exponential trip growth. Covers the immutable cell model, fixed 4,096-shard architecture, buffered writes, and trigger-based replication.
 publishedDate: 2026-02-08T00:00:00.000Z

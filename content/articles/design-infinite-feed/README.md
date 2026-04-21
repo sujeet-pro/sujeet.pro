@@ -1,5 +1,6 @@
 ---
 title: Design an Infinite Feed
+linkTitle: 'Infinite Feed'
 description: >-
   Infinite scrolling feed design covering cursor-based pagination, Intersection
   Observer-driven loading, DOM virtualization for 60fps performance, and memory

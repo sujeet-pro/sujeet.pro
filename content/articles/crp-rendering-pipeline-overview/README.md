@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Rendering Pipeline Overview'
+linkTitle: 'CRP: Pipeline Overview'
 description: >-
   An end-to-end walkthrough of Chromium's RenderingNG pipeline — from DOM and
   CSSOM construction through style, layout, paint, commit, raster, composite,

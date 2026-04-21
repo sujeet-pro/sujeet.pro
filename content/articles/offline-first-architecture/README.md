@@ -1,5 +1,6 @@
 ---
 title: Offline-First Architecture
+linkTitle: 'Offline-First'
 description: >-
   Build apps that work without a network — covering IndexedDB, OPFS, Service
   Workers, sync queues, and conflict resolution via CRDTs and OT, with lessons

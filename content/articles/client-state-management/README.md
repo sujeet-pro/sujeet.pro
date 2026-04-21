@@ -1,5 +1,6 @@
 ---
 title: Client State Management
+linkTitle: 'Client State'
 description: >-
   Match the tool to the state category: TanStack Query for server state, useState/Zustand for UI
   state, React Hook Form for forms, and URL parameters for shareable state — with trade-offs for each.

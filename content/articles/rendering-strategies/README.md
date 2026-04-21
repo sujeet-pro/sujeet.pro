@@ -1,5 +1,6 @@
 ---
 title: Rendering Strategies
+linkTitle: 'Rendering Strategies'
 description: >-
   How to match rendering strategy to content characteristics — CSR for interactive apps, SSR for dynamic pages, SSG for static content, and islands architecture for content sites — with framework-level guidance for Next.js, Astro, and Nuxt.
 publishedDate: 2026-02-04T00:00:00.000Z

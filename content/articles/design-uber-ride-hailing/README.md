@@ -1,5 +1,6 @@
 ---
 title: Design Uber-Style Ride Hailing
+linkTitle: 'Uber'
 description: >-
   Designing a ride-hailing platform like Uber — H3 hexagonal geospatial indexing,
   batch-optimized driver dispatch, ETA prediction, surge pricing algorithms, and

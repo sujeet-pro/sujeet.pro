@@ -1,5 +1,6 @@
 ---
 title: 'Instagram: From Redis to Cassandra and the Rocksandra Storage Engine'
+linkTitle: 'Instagram → Cassandra'
 description: >-
   How Instagram migrated from Redis to Cassandra for 75% cost savings, then
   built Rocksandra (a RocksDB-based storage engine) to cut P99 read latency by

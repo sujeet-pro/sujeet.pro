@@ -1,5 +1,6 @@
 ---
 title: Sharded Counters
+linkTitle: 'Sharded Counters'
 description: >-
   Scaling counters past single-key write bottlenecks using distributed sharding (random, hash-based, and time-based), aggregation strategies for O(1) reads, and probabilistic structures like HyperLogLog — with production patterns from Meta, YouTube, and Firestore.
 publishedDate: 2026-02-03T00:00:00.000Z

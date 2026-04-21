@@ -1,5 +1,6 @@
 ---
 title: Multi-Region Architecture
+linkTitle: 'Multi-Region'
 description: >-
   Navigate the trade-offs of active-passive, active-active, and cell-based
   multi-region architectures — covering data replication strategies, conflict

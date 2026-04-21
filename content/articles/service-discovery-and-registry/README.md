@@ -1,5 +1,6 @@
 ---
 title: Service Discovery and Registry Patterns
+linkTitle: 'Service Discovery'
 description: >-
   How services find each other when instance locations change continuously — client-side, server-side, and service mesh discovery patterns, registry technologies like ZooKeeper, etcd, and Eureka, and the freshness-vs-stability trade-offs behind each approach.
 publishedDate: 2026-02-03T00:00:00.000Z

@@ -1,5 +1,6 @@
 ---
 title: Component Library Architecture and Governance
+linkTitle: 'Component Library'
 description: >-
   Compound component APIs, controlled/uncontrolled patterns, SemVer governance, federated
   contribution models, and quality gates for building React component libraries that teams actually adopt.

@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: CSSOM Construction'
+linkTitle: 'CRP: CSSOM Construction'
 description: >-
   How browsers tokenize and parse CSS into the CSSOM tree, why stylesheets are
   render-blocking, and how the cascade's dependency on the full rule set creates

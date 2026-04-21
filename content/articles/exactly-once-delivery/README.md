@@ -1,5 +1,6 @@
 ---
 title: Exactly-Once Delivery
+linkTitle: 'Exactly-Once'
 description: >-
   Why true exactly-once delivery is impossible and how production systems
   achieve it anyway — combining at-least-once delivery with idempotency keys,

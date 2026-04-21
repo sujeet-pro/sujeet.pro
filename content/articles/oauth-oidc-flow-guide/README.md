@@ -1,5 +1,6 @@
 ---
 title: 'OAuth 2.0 and OIDC Flows: Authorization Code to PKCE'
+linkTitle: 'OAuth & OIDC'
 description: >-
   Walk through OAuth 2.0 authorization flows and OpenID Connect from first
   principles — covering PKCE, token lifecycle, client types, and why the

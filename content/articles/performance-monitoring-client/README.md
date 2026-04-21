@@ -1,5 +1,6 @@
 ---
 title: Client Performance Monitoring
+linkTitle: 'Client Perf Monitoring'
 description: >-
   Capture real user performance with Core Web Vitals (LCP, INP, CLS), browser
   Performance APIs, and Real User Monitoring — including sampling strategies,

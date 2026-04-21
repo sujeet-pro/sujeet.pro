@@ -1,5 +1,6 @@
 ---
 title: Design a Time Series Database
+linkTitle: 'Time-Series DB'
 description: >-
   Designing a time-series database for metrics and monitoring — LSM-based storage
   engines, Gorilla compression achieving 12x ratios, cardinality management,

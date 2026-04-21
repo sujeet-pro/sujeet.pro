@@ -1,5 +1,6 @@
 ---
 title: CSS and Typography Performance Optimization
+linkTitle: 'Perf: CSS & Typography'
 description: >-
   A deep dive into CSS delivery optimization, critical CSS extraction, containment properties, and font loading strategies — covering WOFF2, subsetting, variable fonts, and metric overrides to eliminate layout shifts and improve Core Web Vitals.
 publishedDate: 2026-02-03T00:00:00.000Z

@@ -100,6 +100,32 @@ export const RedirectConfigSchema = z
   })
   .strict();
 
+export const TagDefinitionSchema = z
+  .object({
+    /** Canonical display name shown in listings, cards, and meta. */
+    displayName: z.string().min(1),
+    /** Optional short variant used by sidebar/breadcrumb chrome. */
+    shortName: z.string().min(1).optional(),
+    /** One-line description (reserved for a future tag landing page). */
+    description: z.string().min(1).optional(),
+    /**
+     * Lowercase aliases that should normalise to this tag. Aliases match
+     * after lowercasing and stripping common separators, so `JS`, `js`,
+     * `JavaScript`, `ecmascript`, `es6`, and `es2015` can all collapse to
+     * the canonical `javascript` slug below.
+     */
+    aliases: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+
+/**
+ * Repo-wide tag taxonomy. Keys are canonical slugs (kebab-case). Each entry
+ * declares a display name and the aliases that should collapse to it. The
+ * loader builds an alias→slug map at runtime, normalises every entry's tag
+ * list, and renders the canonical display name in cards and content meta.
+ */
+export const TagsConfigSchema = z.record(z.string().min(1), TagDefinitionSchema);
+
 export type FooterLink = z.infer<typeof FooterLinkSchema>;
 export type FooterLinkGroup = z.infer<typeof FooterLinkGroupSchema>;
 export type HomeData = z.infer<typeof HomeDataSchema>;
@@ -107,3 +133,5 @@ export type RedirectConfig = z.infer<typeof RedirectConfigSchema>;
 export type RootMeta = z.infer<typeof RootMetaSchema>;
 export type SectionMeta = z.infer<typeof SectionMetaSchema>;
 export type SeriesDefinition = z.infer<typeof SeriesDefinitionSchema>;
+export type TagDefinition = z.infer<typeof TagDefinitionSchema>;
+export type TagsConfig = z.infer<typeof TagsConfigSchema>;

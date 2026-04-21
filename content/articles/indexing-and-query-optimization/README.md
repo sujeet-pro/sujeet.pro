@@ -1,5 +1,6 @@
 ---
 title: Indexing and Query Optimization
+linkTitle: 'Indexing & Queries'
 description: >-
   B-trees, hash indexes, LSM trees, composite index design, and query planner
   cost models — covering how databases choose between index scans and sequential

@@ -1,5 +1,6 @@
 ---
 title: Distributed Consensus
+linkTitle: 'Distributed Consensus'
 description: >-
   A deep walk-through of Paxos, Raft, and PBFT — why consensus is provably hard
   (FLP impossibility), how each algorithm navigates the safety-vs-liveness

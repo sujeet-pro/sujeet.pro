@@ -1,5 +1,6 @@
 ---
 title: Publish-Subscribe Pattern in JavaScript
+linkTitle: 'Pub/Sub'
 description: >-
   Implement the Pub/Sub pattern in JavaScript from scratch — covering the three
   decoupling dimensions, error isolation, async dispatch, topic-based routing,

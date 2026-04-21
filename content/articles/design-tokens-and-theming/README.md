@@ -1,5 +1,6 @@
 ---
 title: Design Tokens and Theming Architecture
+linkTitle: 'Design Tokens'
 description: >-
   Everything about design tokens — the three-tier taxonomy (primitive, semantic,
   component), DTCG specification, naming conventions, multi-platform transformation

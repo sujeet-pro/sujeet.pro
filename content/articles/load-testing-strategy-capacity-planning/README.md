@@ -1,5 +1,6 @@
 ---
 title: "Load Testing Strategy and Capacity Planning"
+linkTitle: 'Load Testing'
 description: >-
   Hypothesis-driven load test design, realistic traffic modeling, saturation
   signals and bottleneck classes, and turning measurements into capacity envelopes

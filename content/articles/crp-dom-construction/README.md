@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: DOM Construction'
+linkTitle: 'CRP: DOM Construction'
 description: >-
   How the HTML parser's state machine builds the DOM tree, including error
   recovery, the preload scanner's ~20% performance boost, and the blocking chain

@@ -1,5 +1,6 @@
 ---
 title: Design a Cookie Consent Service
+linkTitle: 'Cookie Consent'
 description: >-
   Multi-tenant consent management platform handling GDPR, CCPA, and LGPD compliance
   at scale. Covers edge-cached consent delivery, anonymous-to-authenticated identity

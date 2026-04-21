@@ -1,5 +1,6 @@
 ---
 title: 'Design Instagram: Photo Sharing at Scale'
+linkTitle: 'Instagram'
 description: >-
   Photo-sharing platform design at Instagram scale covering hybrid fan-out feed
   generation, multi-resolution image processing pipelines, 24-hour TTL Stories

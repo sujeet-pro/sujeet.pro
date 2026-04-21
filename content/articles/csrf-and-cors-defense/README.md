@@ -1,5 +1,6 @@
 ---
 title: CSRF and CORS Defense for Modern Web Applications
+linkTitle: 'CSRF & CORS'
 description: >-
   Understanding CSRF and CORS from threat models to defense-in-depth
   implementation — covering SameSite cookies, CSRF tokens, origin verification,

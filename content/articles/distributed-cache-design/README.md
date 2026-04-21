@@ -1,5 +1,6 @@
 ---
 title: Distributed Cache Design
+linkTitle: 'Distributed Cache'
 description: >-
   A deep guide to distributed caching — cache topologies (embedded, client-server,
   clustered), consistent hashing, invalidation strategies, Redis internals,

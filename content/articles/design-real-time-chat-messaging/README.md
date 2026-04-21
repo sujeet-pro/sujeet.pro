@@ -1,5 +1,6 @@
 ---
 title: Design Real-Time Chat and Messaging
+linkTitle: 'Chat & Messaging'
 description: >-
   Designing a real-time chat system at WhatsApp/Discord scale — WebSocket connection
   management, message ordering and delivery guarantees, presence tracking, group

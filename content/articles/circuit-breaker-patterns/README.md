@@ -1,5 +1,6 @@
 ---
 title: Circuit Breaker Patterns for Resilient Systems
+linkTitle: 'Circuit Breakers'
 description: >-
   Circuit breaker state machines, detection strategies (count-based vs. time-window), isolation
   models (thread pool vs. semaphore), and half-open recovery — with Resilience4j and Netflix Hystrix configurations.

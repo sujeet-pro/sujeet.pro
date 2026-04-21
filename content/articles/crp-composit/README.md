@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Compositing'
+linkTitle: 'CRP: Composite'
 description: >-
   How Chromium's compositor thread assembles rasterized layers into compositor
   frames using the three-tree architecture, property trees, and async input

@@ -1,5 +1,6 @@
 ---
 title: 'JavaScript String Length: Graphemes, UTF-16, and Unicode'
+linkTitle: 'JS String Length'
 description: >-
   Why string.length returns 11 for a family emoji and how to handle it —
   covering UTF-16 surrogate pairs, Unicode code points vs. grapheme clusters,

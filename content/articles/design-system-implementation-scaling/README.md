@@ -1,5 +1,6 @@
 ---
 title: Design System Implementation and Scaling
+linkTitle: 'DS: Implementation'
 description: >-
   Engineering patterns for enterprise design systems — hybrid architecture with
   platform-agnostic tokens, codemod-driven migrations, tree-shakeable distribution,

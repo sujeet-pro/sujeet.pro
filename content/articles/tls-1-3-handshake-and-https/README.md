@@ -1,5 +1,6 @@
 ---
 title: TLS 1.3 Handshake and HTTPS Hardening
+linkTitle: 'TLS 1.3 & HTTPS'
 description: >-
   How TLS 1.3 achieves 1-RTT handshakes through speculative key shares, mandates forward secrecy via ephemeral (EC)DHE, and what production HTTPS hardening requires — from HSTS preload and certificate transparency to 0-RTT replay risks.
 publishedDate: 2026-02-03T00:00:00.000Z

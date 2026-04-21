@@ -2,6 +2,7 @@
 title: >-
   Slack: Scaling a Real-Time Messaging Platform from Monolith to Distributed
   Architecture
+linkTitle: 'Slack Architecture'
 description: >-
   How Slack scaled from a PHP monolith to a distributed architecture — migrating to Vitess for flexible sharding, building Flannel for edge caching, and adopting cellular infrastructure for 99.99% availability — all without a big-bang rewrite.
 publishedDate: 2026-02-16T00:00:00.000Z

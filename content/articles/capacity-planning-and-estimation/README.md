@@ -1,5 +1,6 @@
 ---
 title: Capacity Planning and Back-of-the-Envelope Estimates
+linkTitle: 'Capacity Planning'
 description: >-
   Reference latency numbers, powers of two, and estimation techniques for QPS, storage,
   bandwidth, and server counts — turning vague requirements into concrete infrastructure math.

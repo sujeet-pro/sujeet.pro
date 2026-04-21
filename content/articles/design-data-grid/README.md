@@ -1,5 +1,6 @@
 ---
 title: Design a Data Grid
+linkTitle: 'Data Grid'
 description: >-
   Architectural patterns for high-performance data grids, from virtualization
   strategies and column pinning to headless vs. full-featured library trade-offs.

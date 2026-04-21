@@ -1,5 +1,6 @@
 ---
 title: 'E-commerce SSG to SSR Migration: Strategy and Pitfalls'
+linkTitle: 'SSG → SSR Migration'
 description: >-
   A battle-tested playbook for migrating e-commerce platforms from SSG to SSR
   using the Strangler Fig pattern — addressing build-time bottlenecks, CLS from

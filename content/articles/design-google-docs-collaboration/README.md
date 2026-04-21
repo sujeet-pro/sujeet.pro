@@ -1,5 +1,6 @@
 ---
 title: Design Collaborative Document Editing (Google Docs)
+linkTitle: 'Google Docs'
 description: >-
   Real-time collaborative document editing covering Operational Transformation
   vs. CRDTs, WebSocket-based synchronization, presence broadcasting, event-sourced

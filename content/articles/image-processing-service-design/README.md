@@ -1,5 +1,6 @@
 ---
 title: 'Image Processing Service Design: CDN, Transforms, and APIs'
+linkTitle: 'Image Processing'
 description: >-
   Architecture for a cloud-agnostic, multi-tenant image processing platform
   with on-the-fly transforms, content-addressed caching, signed URLs, and a

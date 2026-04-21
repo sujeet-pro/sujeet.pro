@@ -1,5 +1,6 @@
 ---
 title: 'API Gateway Patterns: Routing, Auth, and Policies'
+linkTitle: 'API Gateway'
 description: >-
   Design choices for API gateways covering routing strategies, JWT and API key authentication,
   rate limiting algorithms, and BFF patterns, with production examples from Netflix, Stripe, and AWS.

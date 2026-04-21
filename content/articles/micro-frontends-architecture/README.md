@@ -1,5 +1,6 @@
 ---
 title: 'Micro-Frontends Architecture: Composition, Isolation, and Delivery'
+linkTitle: 'Micro-Frontends'
 description: >-
   Break monolithic frontends into independently deployable pieces using
   client-side, server-side, and edge-side composition — with integration

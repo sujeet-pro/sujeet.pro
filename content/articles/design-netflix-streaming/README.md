@@ -1,5 +1,6 @@
 ---
 title: Design Netflix Video Streaming
+linkTitle: 'Netflix'
 description: >-
   A deep dive into Netflix's streaming architecture — covering the Open Connect CDN,
   per-title and shot-based encoding pipelines, adaptive bitrate delivery, and the

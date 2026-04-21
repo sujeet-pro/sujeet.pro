@@ -1,5 +1,6 @@
 ---
 title: 'React Performance Patterns: Rendering, Memoization, and Scheduling'
+linkTitle: 'React Performance'
 description: >-
   Practical patterns for keeping React apps fast — understanding the render pipeline, applying memo/useMemo/useCallback correctly, leveraging concurrent features like useTransition, virtualizing large lists, and profiling with React DevTools.
 publishedDate: 2026-02-03T00:00:00.000Z

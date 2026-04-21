@@ -1,5 +1,6 @@
 ---
 title: 'Pinterest: MySQL Sharding from Zero to Billions of Objects'
+linkTitle: 'Pinterest Sharding'
 description: >-
   How Pinterest replaced five failing NoSQL systems with sharded MySQL — a
   64-bit ID scheme that embeds routing, virtual shards for painless growth,

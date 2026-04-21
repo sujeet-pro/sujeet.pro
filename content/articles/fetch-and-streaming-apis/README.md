@@ -1,5 +1,6 @@
 ---
 title: 'Fetch, Streams, and AbortController'
+linkTitle: 'Fetch & Streams'
 description: >-
   How the Fetch API, Streams Standard, and AbortController form an integrated
   system for network data handling — covering request/response lifecycles,

@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Layout Stage'
+linkTitle: 'CRP: Layout'
 description: >-
   How the Layout stage computes pixel positions and sizes for every box using
   Chromium's LayoutNG architecture, covering the box model, formatting contexts,

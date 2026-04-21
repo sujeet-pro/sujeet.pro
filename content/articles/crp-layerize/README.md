@@ -1,5 +1,6 @@
 ---
 title: 'Critical Rendering Path: Layerize'
+linkTitle: 'CRP: Layerize'
 description: >-
   How PaintArtifactCompositor groups paint chunks into compositor layers,
   balancing GPU memory against rasterization cost through merge heuristics,

@@ -1,5 +1,6 @@
 ---
 title: 'Uber: From Monolith to Domain-Oriented Microservices'
+linkTitle: 'Uber Microservices'
 description: >-
   Uber's three-phase architecture evolution — from a Python/Node.js monolith to 4,000+ microservices to Domain-Oriented Microservice Architecture (DOMA) — showing how each phase solved scaling bottlenecks while creating new organizational challenges.
 publishedDate: 2026-02-16T00:00:00.000Z

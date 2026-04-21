@@ -1,5 +1,6 @@
 ---
 title: 'Rendering Strategies: CSR, SSR, SSG, and ISR'
+linkTitle: 'CSR / SSR / SSG / ISR'
 description: >-
   A thorough comparison of CSR, SSR, SSG, and ISR — their mechanics, performance profiles, failure modes, and design trade-offs — plus modern hybrids like streaming SSR, islands architecture, and Partial Prerendering.
 publishedDate: 2026-02-16T00:00:00.000Z

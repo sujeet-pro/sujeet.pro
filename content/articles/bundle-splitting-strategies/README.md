@@ -1,5 +1,6 @@
 ---
 title: Bundle Splitting Strategies
+linkTitle: 'Bundle Splitting'
 description: >-
   Route-based, component-level, and vendor splitting techniques for reducing initial JavaScript
   payloads by 30-80%, with Webpack, Vite, and esbuild configurations and prefetch/preload strategies.

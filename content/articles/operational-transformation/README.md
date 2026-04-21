@@ -1,5 +1,6 @@
 ---
 title: Operational Transformation
+linkTitle: 'OT'
 description: >-
   How Operational Transformation enables real-time collaborative editing —
   covering TP1/TP2 correctness properties, client-server vs. peer-to-peer

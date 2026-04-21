@@ -1,5 +1,6 @@
 ---
 title: Task Scheduler Design
+linkTitle: 'Task Scheduler'
 description: >-
   Designing distributed task schedulers with the right coordination primitives — covering cron, interval, delay, and event-triggered models, database locks vs. consensus, delivery guarantees, and failure handling across Airflow, Celery, and Temporal.
 publishedDate: 2026-02-03T00:00:00.000Z

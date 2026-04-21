@@ -1,5 +1,6 @@
 ---
 title: 'JS Event Loop: Tasks, Microtasks, and Rendering (For Browser & Node.js)'
+linkTitle: 'JS Event Loop'
 description: >-
   How the browser and Node.js event loops orchestrate tasks, microtasks, and
   rendering around JavaScript's single-threaded execution — covering the WHATWG

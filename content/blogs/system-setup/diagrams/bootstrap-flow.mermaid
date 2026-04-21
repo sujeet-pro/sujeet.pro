@@ -1,0 +1,31 @@
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Bootstrap"
+        A["curl bootstrap-remote.sh<br/>or ./setup.sh"] --> B["Install Xcode CLI<br/>+ Homebrew + Ansible"]
+        B --> C["Copy .zshenv.example<br/>→ ~/.zshenv"]
+        C --> D["Source ~/.zshenv<br/>(name, email, SSH keys)"]
+    end
+
+    subgraph "Ansible roles"
+        D --> E[homebrew]
+        D --> F[mise]
+        D --> G[shell]
+        D --> H[git]
+        D --> I[ssh]
+        D --> J[apps]
+        D --> K[macos]
+
+        E --> E1["formulae + casks<br/>(brew install)"]
+        F --> F1["node, python, java, bun<br/>(mise install)"]
+        G --> G1["symlink .zshrc<br/>+ starship.toml"]
+        H --> H1["render .gitconfig<br/>from Jinja2 templates"]
+        I --> I1["render ~/.ssh/config<br/>(per-host identity)"]
+        J --> J1["symlink VS Code, Zed,<br/>Ghostty, Claude, Raycast"]
+        K --> K1["defaults write<br/>(Dock, Finder, keyboard)"]
+    end
+
+    subgraph "Cleanup check"
+        E1 --> Z["brew leaves vs vars<br/>code --list-extensions vs vars"]
+        J1 --> Z
+        Z --> Z1["Add / remove / skip<br/>each unmanaged package"]
+    end

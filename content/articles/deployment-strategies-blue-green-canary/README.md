@@ -1,5 +1,6 @@
 ---
 title: 'Deployment Strategies: Blue-Green, Canary, and Rolling'
+linkTitle: 'Blue-Green & Canary'
 description: >-
   Architectural trade-offs between blue-green, canary, and rolling deployments,
   covering traffic shifting mechanics, database migration coordination, automated

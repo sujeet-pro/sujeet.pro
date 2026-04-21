@@ -1,5 +1,6 @@
 ---
 title: 'CSS Architecture Strategies: BEM, Utility-First, and CSS-in-JS'
+linkTitle: 'CSS Architecture'
 description: >-
   Comparing BEM, utility-first (Tailwind v4), CSS-in-JS, and CSS Modules as
   scaling strategies — analyzing their tradeoffs around specificity, dead code,

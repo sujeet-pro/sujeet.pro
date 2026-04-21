@@ -1,5 +1,6 @@
 ---
 title: Leaderboard Design
+linkTitle: 'Leaderboard'
 description: >-
   Design real-time leaderboards using Redis sorted sets, covering ranking
   semantics, tie-breaking strategies, score-range partitioning, and scaling

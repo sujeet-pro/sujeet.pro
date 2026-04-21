@@ -1,5 +1,6 @@
 ---
 title: Graceful Degradation
+linkTitle: 'Graceful Degradation'
 description: >-
   Designing distributed systems to maintain partial functionality under failure
   through degradation hierarchies, circuit breakers, bulkheads, load shedding,

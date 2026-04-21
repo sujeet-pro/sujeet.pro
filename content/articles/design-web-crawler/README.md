@@ -1,5 +1,6 @@
 ---
 title: Design a Web Crawler
+linkTitle: 'Web Crawler'
 description: >-
   Designing a web-scale crawler for billions of pages — URL frontier management
   with politeness constraints, Bloom filter deduplication, SimHash near-duplicate

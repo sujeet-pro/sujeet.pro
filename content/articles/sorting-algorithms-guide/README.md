@@ -1,5 +1,6 @@
 ---
 title: 'Sorting Algorithms: Complexity, Stability, and Use Cases'
+linkTitle: 'Sorting Algorithms'
 description: >-
   Sorting algorithms from bubble sort through merge sort, quicksort, and radix sort — with TypeScript implementations, stability and complexity analysis, and the production hybrids (TimSort, pdqsort) that power real-world runtimes.
 publishedDate: 2026-02-03T00:00:00.000Z

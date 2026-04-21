@@ -1,5 +1,6 @@
 ---
 title: 'LRU Cache Design: Eviction Strategies and Trade-offs'
+linkTitle: 'LRU Cache'
 description: >-
   From the classic hash map + doubly linked list LRU to modern eviction
   strategies like 2Q, ARC, and SIEVE — understand the trade-offs between

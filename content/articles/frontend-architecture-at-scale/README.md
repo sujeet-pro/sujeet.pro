@@ -1,5 +1,6 @@
 ---
 title: 'Frontend Architecture at Scale: Boundaries, Ownership, and Platform Governance'
+linkTitle: 'Frontend Arch at Scale'
 description: >-
   How senior teams structure large UI systems: explicit domain boundaries,
   contract-first integration, release models, monorepo versus polyrepo tradeoffs,

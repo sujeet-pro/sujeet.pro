@@ -1,5 +1,6 @@
 ---
 title: Transactions and ACID Properties
+linkTitle: 'Transactions & ACID'
 description: >-
   ACID properties from implementation to practice — covering WAL, MVCC, and locking for single-node transactions, isolation level semantics across major databases, distributed protocols (2PC, Spanner's TrueTime), and alternatives like sagas and the outbox pattern.
 publishedDate: 2026-02-03T00:00:00.000Z

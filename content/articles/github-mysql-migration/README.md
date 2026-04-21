@@ -1,5 +1,6 @@
 ---
 title: 'GitHub: Scaling MySQL from One Database to 1,200+ Hosts'
+linkTitle: 'GitHub MySQL'
 description: >-
   How GitHub scaled MySQL from a single database to 1,200+ hosts and 5.5M QPS
   through vertical partitioning, custom tooling (gh-ost, orchestrator, freno),

@@ -2,6 +2,7 @@
 title: >-
   Facebook 2021 Outage: BGP Withdrawal, DNS Collapse, and the Backbone That
   Disappeared
+linkTitle: 'Facebook 2021'
 description: >-
   Anatomy of the October 2021 Meta outage — how a backbone maintenance command
   triggered global BGP withdrawal, collapsed DNS for 3.5 billion users, and

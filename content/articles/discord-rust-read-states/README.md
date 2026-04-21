@@ -1,5 +1,6 @@
 ---
 title: 'Discord: Rewriting Read States from Go to Rust'
+linkTitle: 'Discord: Go → Rust'
 description: >-
   Why Discord rewrote their Read States service from Go to Rust — Go's garbage
   collector caused unavoidable 2-minute latency spikes by scanning millions of live

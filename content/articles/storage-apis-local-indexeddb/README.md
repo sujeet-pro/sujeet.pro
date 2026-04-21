@@ -1,5 +1,6 @@
 ---
 title: 'Browser Storage APIs: localStorage, IndexedDB, and Beyond'
+linkTitle: 'Browser Storage APIs'
 description: >-
   Browser-side persistence from localStorage through IndexedDB, OPFS, and the Cache API — comparing quota models, transaction semantics, threading guarantees, and eviction behavior under the unified WHATWG Storage Standard.
 publishedDate: 2026-02-09T00:00:00.000Z

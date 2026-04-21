@@ -1,5 +1,6 @@
 ---
 title: 'WhatsApp: 2 Million Connections Per Server with Erlang'
+linkTitle: 'WhatsApp + Erlang'
 description: >-
   How WhatsApp achieved 2 million concurrent connections per server using Erlang/BEAM and FreeBSD, scaling to 1 billion users with fewer than 50 engineers by pushing vertical density, patching the VM, and replacing XMPP with a custom binary protocol.
 publishedDate: 2026-02-08T00:00:00.000Z

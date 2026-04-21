@@ -1,5 +1,6 @@
 ---
 title: Frontend Data Fetching Patterns and Caching
+linkTitle: 'Data Fetching'
 description: >-
   Core patterns for managing server state in frontend apps — request
   deduplication, stale-while-revalidate, cache normalization, and invalidation

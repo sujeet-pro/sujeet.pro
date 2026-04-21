@@ -1,5 +1,6 @@
 ---
 title: Async Queue Pattern in JavaScript
+linkTitle: 'Async Queue'
 description: >-
   From in-memory concurrency control with p-queue and fastq to distributed job processing
   with BullMQ and Redis, covering backpressure, retry strategies, and dead letter queues in Node.js.

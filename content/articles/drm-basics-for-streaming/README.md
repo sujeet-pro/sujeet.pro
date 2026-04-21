@@ -1,5 +1,6 @@
 ---
 title: DRM Fundamentals for Streaming Media
+linkTitle: 'DRM Basics'
 description: >-
   How CENC encryption, Widevine/FairPlay/PlayReady, and EME work together to
   protect streaming content — covering AES modes, security levels, license

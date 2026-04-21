@@ -1,5 +1,6 @@
 ---
 title: JavaScript Performance Optimization for the Web
+linkTitle: 'Perf: JavaScript'
 description: >-
   Covers the browser's script loading pipeline, long task management with scheduler.yield(), code splitting and tree shaking strategies, and Web Workers — all focused on keeping the main thread responsive and improving INP.
 publishedDate: 2026-02-03T00:00:00.000Z

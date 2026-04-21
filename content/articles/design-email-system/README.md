@@ -1,5 +1,6 @@
 ---
 title: Design an Email System
+linkTitle: 'Email System'
 description: >-
   System design for a Gmail-scale email service covering SMTP delivery pipelines,
   SPF/DKIM/DMARC authentication, ML-based spam filtering at 99.9% accuracy,

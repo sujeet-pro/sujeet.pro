@@ -1,5 +1,6 @@
 ---
 title: Failure Modes and Resilience Patterns
+linkTitle: 'Failure Modes'
 description: >-
   A taxonomy of distributed system failures — from fail-stop crashes to
   insidious gray failures — paired with layered resilience patterns like

@@ -1,5 +1,6 @@
 ---
 title: 'React Hooks Advanced Patterns: Specialized Hooks and Composition'
+linkTitle: 'React Hooks: Advanced'
 description: >-
   Deep dive into React's specialized hooks — useTransition, useDeferredValue, useLayoutEffect, useSyncExternalStore, useInsertionEffect, useId, and the React 19 use API — explaining the specific architectural problems each one solves.
 publishedDate: 2026-02-03T00:00:00.000Z

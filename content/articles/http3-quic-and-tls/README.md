@@ -1,5 +1,6 @@
 ---
 title: 'HTTP/3 and QUIC: Transport Layer Revolution'
+linkTitle: 'HTTP/3 & QUIC'
 description: >-
   How QUIC eliminates TCP's head-of-line blocking with per-stream
   retransmission, integrates TLS 1.3 for 1-RTT handshakes, enables connection

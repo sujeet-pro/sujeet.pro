@@ -1,5 +1,6 @@
 ---
 title: 'Authentication Foundations: Sessions, Tokens, and Trust'
+linkTitle: 'Auth Foundations'
 description: >-
   Sessions vs. JWTs, password hashing with Argon2id, OAuth 2.0 flows, WebAuthn, and RBAC vs. ABAC
   — the core authentication and authorization trade-offs with Node.js implementation patterns.

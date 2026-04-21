@@ -19,6 +19,7 @@ import {
   RedirectConfigSchema,
   RootMetaSchema,
   SectionMetaSchema,
+  TagsConfigSchema,
 } from "./schemas/content-data.ts";
 
 const Json5Loader: Loader = {
@@ -120,6 +121,12 @@ export const collections = defineCollections({
     directory: "content",
     include: ["redirects.json5"],
     schema: RedirectConfigSchema,
+  }),
+  tags: defineCollection({
+    loader: Json5Loader,
+    directory: "content",
+    include: ["tags.json5"],
+    schema: TagsConfigSchema,
   }),
 });
 

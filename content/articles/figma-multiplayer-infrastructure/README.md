@@ -1,5 +1,6 @@
 ---
 title: 'Figma: Building Multiplayer Infrastructure for Real-Time Design Collaboration'
+linkTitle: 'Figma Multiplayer'
 description: >-
   How Figma built real-time multiplayer editing for 200 concurrent users by
   rejecting both OT and pure CRDTs in favor of server-authoritative

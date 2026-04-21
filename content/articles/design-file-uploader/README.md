@@ -1,5 +1,6 @@
 ---
 title: Design a File Uploader
+linkTitle: 'File Uploader'
 description: >-
   Robust file upload design covering chunked uploads with resumability, browser
   memory constraints, XHR progress tracking, and the tus protocol. Explains why
