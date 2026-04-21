@@ -1,0 +1,18 @@
+%% Diagram: Image loading pipeline from discovery to paint.
+%% Shows how preload scanner, viewport position, and priority hints
+%% gate when a request fires, what format the server returns, and
+%% how decode + space reservation feed the final paint.
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    HTML["HTML parser"] --> Preload["Preload scanner"]
+    Hint["link rel=preload"] --> Preload
+    Preload --> Pos{{"Above fold?"}}
+    Pos -->|Yes| Pri["fetchpriority"]
+    Pos -->|No| Lazy{{"loading=lazy?"}}
+    Lazy -->|defer| Pri
+    Lazy -->|no| Pri
+    Pri --> Negotiate["Format negotiation\n(Accept / picture)"]
+    Negotiate --> Fetch["GET image"]
+    Fetch --> Decode["Off-thread\ndecode"]
+    Reserve["Reserve box\n(width/height /\naspect-ratio)"] --> Paint["Paint"]
+    Decode --> Paint

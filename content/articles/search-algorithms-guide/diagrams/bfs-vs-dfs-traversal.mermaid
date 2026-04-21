@@ -1,0 +1,36 @@
+%% Diagram: BFS vs DFS visit order on the same tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BFS["BFS — level order: 1, 2, 3, 4, 5, 6"]
+        direction TB
+        B1((1))
+        B2((2))
+        B3((3))
+        B4((4))
+        B5((5))
+        B6((6))
+        B1 --> B2
+        B1 --> B3
+        B2 --> B4
+        B2 --> B5
+        B3 --> B6
+    end
+
+    subgraph DFS["DFS — preorder: 1, 2, 4, 5, 3, 6"]
+        direction TB
+        D1((1))
+        D2((2))
+        D3((3))
+        D4((4))
+        D5((5))
+        D6((6))
+        D1 --> D2
+        D1 --> D3
+        D2 --> D4
+        D2 --> D5
+        D3 --> D6
+    end
+
+    classDef visited fill:#2563eb,stroke:#1e40af,color:#ffffff
+    class B1,B2,B3,B4,B5,B6,D1,D2,D3,D4,D5,D6 visited

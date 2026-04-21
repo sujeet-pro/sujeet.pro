@@ -1,0 +1,23 @@
+%% Diagram: 3x replication vs RS(10,4) erasure coding — overhead and recovery cost
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Replication["3x replication (GFS / HDFS default)"]
+        R_BLK["1 block (64 MB)"] --> R_R1["Replica 1"]
+        R_BLK --> R_R2["Replica 2"]
+        R_BLK --> R_R3["Replica 3"]
+        R_NOTE["Storage overhead: 3.0x<br/>Repair: copy 1 full block<br/>Survives: 2 disk losses"]
+    end
+
+    subgraph EC["Reed–Solomon RS(10,4) (HDFS EC, Tectonic warm)"]
+        E_FILE["1 stripe split into<br/>10 data shards (k=10)"] --> E_ENC["Encoder"]
+        E_ENC --> E_D["10 data shards"]
+        E_ENC --> E_P["4 parity shards (m=4)"]
+        E_NOTE["Storage overhead: 1.4x<br/>Repair: read k=10 shards to rebuild 1<br/>Survives: 4 shard losses"]
+    end
+
+    subgraph Recovery["Reconstruction on shard loss"]
+        LOST["Lost shard S_i"] --> READ["Read 10 surviving shards<br/>(network amplification ≈ 10x vs replication)"]
+        READ --> SOLVE["Solve linear system<br/>over GF(2^8)"]
+        SOLVE --> WRITE["Write rebuilt shard<br/>to a new node in the failure domain"]
+    end

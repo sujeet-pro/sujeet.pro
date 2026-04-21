@@ -1,0 +1,30 @@
+%% Diagram: Service Worker lifecycle states
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Parsed: register()
+
+    Parsed --> Installing: install event
+    Installing --> Installed: waitUntil resolves
+    Installing --> Redundant: install rejects
+
+    Installed --> Activating: no clients OR skipWaiting()
+    Installed --> Waiting: existing SW controls clients
+
+    Waiting --> Activating: old SW unregistered\nor clients reload
+
+    Activating --> Activated: activate handler resolves
+    Activating --> Redundant: activate rejects
+
+    Activated --> Idle: no events in flight
+    Idle --> Activated: fetch / push / sync\nresets idle timer
+    Idle --> Redundant: ~30s idle\n(UA may terminate)
+
+    Redundant --> [*]
+
+    note right of Idle
+        Termination is browser-controlled.
+        Use waitUntil() inside an
+        ExtendableEvent to keep the
+        worker alive until work settles.
+    end note

@@ -1,0 +1,11 @@
+%% Diagram: Path C — tiered hot/warm/cold index
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Query --> HOT
+    HOT -->|Miss| WARM
+    WARM -->|Miss| COLD
+
+    HOT[("Hot tier\nRAM\nFrequently accessed terms")]
+    WARM[("Warm tier\nSSD\nMid-frequency terms")]
+    COLD[("Cold tier\nHDD\nLong-tail terms")]

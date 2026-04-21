@@ -1,0 +1,48 @@
+%% Diagram: October 4 2021 outage timeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph TRIGGER["Trigger -- 15:39 UTC"]
+        T1["Backbone maintenance\ncommand issued"]
+        T2["Audit tool fails\nto block command"]
+        T1 --> T2
+    end
+
+    subgraph CASCADE["Cascade -- 15:42 to 15:55 UTC"]
+        C1["BGP withdrawals begin\n(RIPE / Cloudflare see spike)"]
+        C2["All routes to\n129.134.30.0/24 gone\n@ 15:53:47 UTC"]
+        C3["Recursive resolvers\nreturn SERVFAIL globally"]
+        C1 --> C2 --> C3
+    end
+
+    subgraph INVESTIGATION["Investigation -- 16:00 to 17:00 UTC"]
+        I1["Internal tools, dashboards,\nWorkplace unreachable"]
+        I2["OOB paths confirmed\ndependent on backbone"]
+        I3["Engineers dispatched\nphysically to data centers"]
+        I1 --> I2 --> I3
+    end
+
+    subgraph RECOVERY["Recovery -- 21:00 to 21:30 UTC"]
+        R1["Backbone restored\non-site"]
+        R2["Edge re-announces\nBGP routes"]
+        R3["Catchpoint sees services\nrecover @ 21:05 UTC"]
+        R4["Brief instability\n@ 21:11 UTC"]
+        R5["BGP stable; DNS resolves\n@ 21:30 UTC"]
+        R1 --> R2 --> R3 --> R4 --> R5
+    end
+
+    TRIGGER --> CASCADE --> INVESTIGATION --> RECOVERY
+
+    style T1 fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    style T2 fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    style C1 fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style C2 fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style C3 fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style I1 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    style I2 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    style I3 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    style R1 fill:#1F6E68,stroke:#155752,color:#ffffff
+    style R2 fill:#1F6E68,stroke:#155752,color:#ffffff
+    style R3 fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    style R4 fill:#1F6E68,stroke:#155752,color:#ffffff
+    style R5 fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff

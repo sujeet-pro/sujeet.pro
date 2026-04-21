@@ -1,0 +1,14 @@
+%% Diagram: Slack Vitess sharded MySQL architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Vitess["Slack Vitess sharded MySQL"]
+        direction TB
+        A["Application"] --> B["VTGate<br/>query router"]
+        B --> C1["VTTablet<br/>shard 1"]
+        B --> C2["VTTablet<br/>shard 2"]
+        B --> C3["VTTablet<br/>shard N"]
+        D["VReplication"] -. "stream changes,<br/>backfill" .-> C1
+        D -. "stream changes,<br/>backfill" .-> C2
+        E["Double-read diff"] -. "compare results<br/>before cut-over" .-> B
+    end

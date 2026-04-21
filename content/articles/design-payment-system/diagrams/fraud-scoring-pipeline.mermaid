@@ -1,0 +1,49 @@
+%% Diagram: Real-time fraud scoring pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Input["Transaction signals"]
+        TX["Transaction (amount / currency / MCC)"]
+        CARD["Card fingerprint + BIN"]
+        DEVICE["Device + browser fingerprint"]
+        BEHAV["Behavioral (mouse, dwell)"]
+    end
+
+    subgraph Features["Feature engineering"]
+        VEL["Velocity (1m / 1h / 1d)"]
+        HIST["Historical lifetime"]
+        GEO["Geo + IP / billing distance"]
+        CARDF["Card type / funding"]
+    end
+
+    subgraph Scoring["ML scoring (target p99 < 100ms)"]
+        MODEL["Risk model (gradient-boosted / DNN)"]
+        RULES["Rule overrides + allow / deny lists"]
+    end
+
+    subgraph Decision["Decision"]
+        SCORE["Risk score 0-99"]
+        ROUTE{"Threshold?"}
+        ALLOW["Allow"]
+        REVIEW["Manual review queue"]
+        BLOCK["Block"]
+        STEP["Step-up: 3DS challenge"]
+    end
+
+    TX --> VEL
+    CARD --> VEL
+    DEVICE --> GEO
+    BEHAV --> HIST
+    CARD --> CARDF
+    TX --> HIST
+    VEL --> MODEL
+    HIST --> MODEL
+    GEO --> MODEL
+    CARDF --> MODEL
+    MODEL --> SCORE
+    RULES --> SCORE
+    SCORE --> ROUTE
+    ROUTE -- "< 65" --> ALLOW
+    ROUTE -- "65-74" --> REVIEW
+    ROUTE -- ">= 75" --> BLOCK
+    ROUTE -- "borderline + SCA eligible" --> STEP

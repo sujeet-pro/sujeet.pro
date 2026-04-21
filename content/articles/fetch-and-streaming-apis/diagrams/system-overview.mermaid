@@ -1,0 +1,32 @@
+%% Diagram: System overview - how Fetch, Streams, and AbortController compose
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Fetch["Fetch API"]
+        REQ["Request"] --> NET["network<br/>(HTTP/1.1, /2, /3)"]
+        NET --> RESP["Response"]
+        RESP --> BODY["response.body<br/>(ReadableStream)"]
+    end
+
+    subgraph Streams["Streams API"]
+        RS["ReadableStream"] -->|pipeThrough| TS["TransformStream"]
+        TS -->|pipeTo| WS["WritableStream"]
+        WS -.->|desiredSize| TS
+        TS -.->|desiredSize| RS
+    end
+
+    subgraph Abort["AbortController"]
+        AC["AbortController"] --> SIG["AbortSignal"]
+        SIG -->|cancels network| NET
+        SIG -->|cancels pipe| TS
+        SIG -->|cancels reader| RS
+    end
+
+    BODY --> RS
+
+    classDef fetchBox fill:#1e40af,stroke:#1e3a8a,color:#ffffff
+    classDef streamsBox fill:#047857,stroke:#065f46,color:#ffffff
+    classDef abortBox fill:#b45309,stroke:#92400e,color:#ffffff
+    class REQ,NET,RESP,BODY fetchBox
+    class RS,TS,WS streamsBox
+    class AC,SIG abortBox

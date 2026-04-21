@@ -1,0 +1,23 @@
+%% Diagram: DOM Interface Inheritance Hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  ET["EventTarget&#10;addEventListener, dispatchEvent"]
+  N["Node&#10;parentNode, childNodes, appendChild"]
+  E["Element&#10;getAttribute, classList, querySelector"]
+  HOS["HTMLOrSVGElement (mixin)&#10;dataset, tabIndex, autofocus, focus()"]
+  HE["HTMLElement&#10;contentEditable, innerText, hidden, lang, dir"]
+  SE["SVGElement&#10;ownerSVGElement, viewportElement"]
+  ME["MathMLElement"]
+
+  ET --> N --> E
+  E --> HE
+  E --> SE
+  E --> ME
+  HOS -.implemented by.-> HE
+  HOS -.implemented by.-> SE
+
+  classDef base fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef mix fill:#5A4A7E,stroke:#3D305A,color:#ffffff
+  class E base
+  class HOS mix

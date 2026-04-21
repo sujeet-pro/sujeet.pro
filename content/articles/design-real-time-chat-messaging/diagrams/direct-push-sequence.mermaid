@@ -1,0 +1,23 @@
+%% Diagram: Direct Push Delivery Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as User A
+    participant GA as Gateway A
+    participant MSG as Message Service
+    participant DB as Message Store
+    participant GB as Gateway B
+    participant B as User B
+
+    A->>GA: send(msg, clientId)
+    GA->>MSG: route(msg)
+    MSG->>MSG: dedup by clientId
+    MSG->>DB: persist with seq + ts
+    MSG-->>GA: ack(seq, ts)
+    GA-->>A: ack(seq, ts)
+    MSG->>GB: deliver(msg)
+    GB->>B: push via WebSocket
+    B->>GB: delivered receipt
+    GB->>MSG: status DELIVERED
+    MSG->>GA: forward receipt
+    GA->>A: status DELIVERED

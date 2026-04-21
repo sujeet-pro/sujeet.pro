@@ -1,0 +1,28 @@
+%% Diagram: Ranking systems stack — signals → retrieval-time vs ranking-time models → learned weights → final score
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    SIGNALS["Ranking signals (hundreds)\nQuery / Document / User / Context"]
+
+    subgraph RetrievalSide["Retrieval-time (cheap)"]
+        BM25["BM25 / TF-IDF"]
+        PR["PageRank"]
+        FRESH["Freshness / QDF"]
+        NEURAL["Neural matching\n(retrieval-side embeddings)"]
+    end
+
+    subgraph RankingSide["Ranking-time (expensive)"]
+        BERT["BERT"]
+        MUM["MUM"]
+        RB["RankBrain"]
+        HC["Helpful-content\nclassifiers"]
+    end
+
+    LTR["Learning-to-rank\n(learned weights)"]
+    SCORE["Final document score"]
+
+    SIGNALS --> RetrievalSide
+    SIGNALS --> RankingSide
+    RetrievalSide --> LTR
+    RankingSide --> LTR
+    LTR --> SCORE

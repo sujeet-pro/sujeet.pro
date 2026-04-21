@@ -1,0 +1,27 @@
+%% Diagram: OT vs CRDT — concurrent insert at the same position
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start["Initial: 'AC'\nUsers A and B both online"]
+    Start --> OT
+    Start --> CRDT
+
+    subgraph OT["Operational Transform — central server orders ops"]
+        OT_A["A: insert 'X' at index 1"]
+        OT_B["B: insert 'Y' at index 1"]
+        OT_S["Server picks A first then transform B"]
+        OT_R["Result: 'AXYC'\nDeterministic via tie-break rule"]
+        OT_A --> OT_S
+        OT_B --> OT_S
+        OT_S --> OT_R
+    end
+
+    subgraph CRDT["CRDT — every op carries a unique ID"]
+        CRDT_A["A: insert (idA, 'X') after id_of_A"]
+        CRDT_B["B: insert (idB, 'Y') after id_of_A"]
+        CRDT_M["Merge by sorting on (idA, idB) tie-break"]
+        CRDT_R["Result: 'AXYC' or 'AYXC'\nDeterministic by ID order"]
+        CRDT_A --> CRDT_M
+        CRDT_B --> CRDT_M
+        CRDT_M --> CRDT_R
+    end

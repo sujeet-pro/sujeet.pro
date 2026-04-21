@@ -1,0 +1,41 @@
+%% Diagram: Content-addressed chunk dedup against a global Block Index
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Client["Client"]
+        File["Local file<br/>(modified region)"]
+        Chunk["Chunker<br/>(fixed 4 MiB or CDC)"]
+        Hash["SHA-256 each block<br/>=> blocklist [h1, h2, h3, h4]"]
+    end
+
+    File --> Chunk --> Hash
+
+    subgraph Meta["Metadata service"]
+        Idx[("Block Index<br/>hash -> cell, bucket<br/>global, sharded MySQL")]
+        Diff["Diff blocklist vs Index"]
+    end
+
+    Hash -- "commit(blocklist)" --> Diff
+    Diff --> Idx
+    Idx --> Diff
+    Diff -- "missing = [h2, h4]" --> Client
+
+    subgraph Upload["Upload only novel blocks"]
+        PB["PutBlock(h2), PutBlock(h4)"]
+        BS["Block service"]
+        MP["Magic Pocket<br/>(immutable, content-addressed)"]
+    end
+
+    Client --> PB --> BS --> MP
+
+    subgraph Commit["Re-commit"]
+        SFJ["Append SFJ row<br/>bump JID"]
+    end
+
+    PB -- "all blocks present" --> SFJ
+    SFJ --> Idx
+
+    classDef hit fill:#e5f5e5,stroke:#44aa44
+    classDef miss fill:#fff5e5,stroke:#cc8844
+    class Diff,Idx hit
+    class PB miss

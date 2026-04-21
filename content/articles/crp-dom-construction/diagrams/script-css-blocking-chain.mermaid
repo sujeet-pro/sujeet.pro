@@ -1,0 +1,24 @@
+%% Diagram: Script and CSS blocking chain during HTML parsing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant P as HTML Parser
+    participant N as Network
+    participant CSS as CSS / CSSOM
+    participant JS as JS Engine
+
+    P->>P: Parse <head>
+    P->>N: Request stylesheet
+    P->>P: Continue parsing (CSS does not block parser)
+    P->>P: Encounter <script src="app.js">
+    Note over P: Parser pauses
+    P->>N: Request app.js
+    N-->>P: app.js bytes
+    Note over P,JS: Script ready, but CSSOM not complete
+    N-->>CSS: stylesheet bytes
+    CSS-->>CSS: Build CSSOM
+    CSS-->>JS: CSSOM ready
+    JS->>JS: Execute app.js
+    Note over JS: May call getComputedStyle()<br/>or document.write()
+    JS-->>P: Execution complete
+    P->>P: Resume parsing

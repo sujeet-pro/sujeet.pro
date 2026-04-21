@@ -1,0 +1,27 @@
+%% Diagram: Decision tree for choosing event-driven vs request-driven and which patterns to layer on
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start([New service or<br/>integration point]) --> Q1{Strong consistency<br/>and immediate feedback?}
+    Q1 -- Yes --> Req[Request-driven<br/>HTTP / gRPC]
+    Q1 -- No --> Q2{Multiple consumers<br/>or independent scaling?}
+    Q2 -- No --> Req
+    Q2 -- Yes --> Events[Event-driven via broker]
+
+    Events --> A1{Audit trail or<br/>temporal queries?}
+    A1 -- Yes --> ES["+ Event sourcing<br/>(see deep-dive)"]
+    A1 -- No --> A2{Read patterns differ<br/>significantly from writes?}
+    ES --> A2
+    A2 -- Yes --> CQRS[+ CQRS]
+    A2 -- No --> Sagas{Distributed workflow?}
+    CQRS --> Sagas
+    Sagas -- 2-3 steps --> Choreo[Choreography]
+    Sagas -- 5+ steps --> Orch[Orchestration]
+    Sagas -- No --> Done([Single-service handler])
+
+    style Req fill:#dae8fc,stroke:#6c8ebf
+    style Events fill:#fff2cc,stroke:#d6b656
+    style ES fill:#d5e8d4,stroke:#82b366
+    style CQRS fill:#d5e8d4,stroke:#82b366
+    style Orch fill:#f8cecc,stroke:#b85450
+    style Choreo fill:#e1d5e7,stroke:#9673a6

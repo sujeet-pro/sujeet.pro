@@ -1,0 +1,18 @@
+%% Diagram: RGA tree — concurrent inserts after the same parent
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    ROOT(("⊥ root"))
+    H["H<br/>id=(1,A)"]
+    I["i<br/>id=(2,A)"]
+    EXC1["!<br/>id=(3,A) parent=i"]
+    EXC2["?<br/>id=(3,B) parent=i"]
+    DOT[".<br/>id=(3,C) parent=i"]
+    ROOT --> H --> I
+    I --> EXC1
+    I --> EXC2
+    I --> DOT
+    classDef concurrent fill:#fef3c7,stroke:#d97706,color:#92400e
+    class EXC1,EXC2,DOT concurrent
+    SUBT["Tie-break: order siblings by<br/>(timestamp DESC, replicaId DESC)<br/>Yields: Hi?!. — one run before the next,<br/>never characters interleaved when<br/>each user types a contiguous run."]
+    DOT -.-> SUBT

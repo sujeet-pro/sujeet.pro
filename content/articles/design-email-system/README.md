@@ -3,21 +3,23 @@ title: Design an Email System
 linkTitle: 'Email System'
 description: >-
   System design for a Gmail-scale email service covering SMTP delivery pipelines,
-  SPF/DKIM/DMARC authentication, ML-based spam filtering at 99.9% accuracy,
-  conversation threading, and full-text search across billions of daily messages.
+  SPF/DKIM/DMARC authentication, Bayesian + ML spam filtering, conversation
+  threading, and full-text search across billions of daily messages.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - architecture
+  - distributed-systems
 ---
 
 # Design an Email System
 
-A comprehensive system design for building a scalable email service like Gmail or Outlook. This design addresses reliable delivery, spam filtering, conversation threading, and search at scale—handling billions of messages daily with sub-second search latency and 99.99% delivery reliability.
+A system design for a Gmail- or Outlook-scale email service. This article walks through the four interlocking problems email infrastructure has to solve at internet scale — reliable [SMTP](https://datatracker.ietf.org/doc/html/rfc5321) delivery, sender authentication ([SPF](https://datatracker.ietf.org/doc/html/rfc7208) + [DKIM](https://datatracker.ietf.org/doc/html/rfc6376) + [DMARC](https://datatracker.ietf.org/doc/html/rfc7489)), spam filtering at 99%+ accuracy with a sub-0.1% false-positive rate, and sub-second full-text search over years of message history — and shows the trade-offs that fall out of each.
 
-![High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.](./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat-light.svg "High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.")
-![High-level architecture: Separate inbound (receiving) and outbound (sending) mail paths with shared storage and search infrastructure.](./diagrams/high-level-architecture-separate-inbound-receiving-and-outbound-sending-mail-pat-dark.svg)
+![High-level email system architecture with separate inbound and outbound paths sharing storage, search, and metadata stores.](./diagrams/system-overview-light.svg "Inbound (MX → auth → spam → router → mailbox) and outbound (submit → queue → MTA) paths run independently and share the metadata, message, search, attachment, and cache tiers.")
+![High-level email system architecture with separate inbound and outbound paths sharing storage, search, and metadata stores.](./diagrams/system-overview-dark.svg)
 
 ## Abstract
 
@@ -28,7 +30,7 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 | Decision         | Choice                         | Rationale                                           |
 | ---------------- | ------------------------------ | --------------------------------------------------- |
 | Inbound protocol | SMTP (RFC 5321)                | Universal standard, store-and-forward resilience    |
-| Client access    | IMAP (RFC 3501) + REST API     | IMAP for desktop clients, REST for web/mobile       |
+| Client access    | IMAP + JMAP + REST             | IMAP for legacy clients, JMAP for new ones, REST for web/mobile |
 | Authentication   | SPF + DKIM + DMARC             | Defense in depth: server auth, content auth, policy |
 | Spam filtering   | ML (Naive Bayes) + rules       | 99.9%+ detection with low false positives           |
 | Message storage  | Wide-column DB (Cassandra)     | Time-series access pattern, horizontal scaling      |
@@ -123,8 +125,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Path A: monolithic MTA stack — Postfix accepts SMTP, SpamAssassin filters, Dovecot serves IMAP from a local Maildir.](./diagrams/path-a-monolithic-light.svg "Path A — single host runs SMTP receive, content filter, and IMAP store on a local filesystem.")
+![Path A: monolithic MTA stack — Postfix accepts SMTP, SpamAssassin filters, Dovecot serves IMAP from a local Maildir.](./diagrams/path-a-monolithic-dark.svg)
 
 **Key characteristics:**
 
@@ -156,8 +158,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Path B: microservices stack — independent ingest, mailbox, search, and send services backed by a distributed message store, search index, and object store.](./diagrams/path-b-microservices-light.svg "Path B — every concern (ingest, spam, mailbox, search, send) runs as its own service over shared distributed storage.")
+![Path B: microservices stack — independent ingest, mailbox, search, and send services backed by a distributed message store, search index, and object store.](./diagrams/path-b-microservices-dark.svg)
 
 **Key characteristics:**
 
@@ -177,7 +179,7 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 - ❌ Higher infrastructure cost
 - ❌ Eventual consistency challenges
 
-**Real-world example:** Gmail (Bigtable + custom indexing), Outlook.com (Exchange Online + Azure), Fastmail (custom Cyrus-derived stack).
+**Real-world example:** Gmail (historically Bigtable; [migrated to Spanner](https://cloud.google.com/blog/products/databases/how-spanner-is-the-engine-behind-google-services) for the message store), Outlook.com (Exchange Online + Azure), [Fastmail](https://www.fastmail.help/hc/en-us/articles/1500000278242-The-Fastmail-storage-architecture) (custom Cyrus-derived stack).
 
 ### Path C: Hybrid with ESP Integration
 
@@ -190,8 +192,8 @@ Email systems solve four interconnected challenges: **reliable delivery** (messa
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Path C: hybrid ESP architecture — application sends through SendGrid/Mailgun and receives inbound mail via webhooks from an MX gateway.](./diagrams/path-c-hybrid-esp-light.svg "Path C — outbound is delegated to an ESP for deliverability and reputation; inbound rides a webhook from an MX provider.")
+![Path C: hybrid ESP architecture — application sends through SendGrid/Mailgun and receives inbound mail via webhooks from an MX gateway.](./diagrams/path-c-hybrid-esp-dark.svg)
 
 **Key characteristics:**
 
@@ -238,10 +240,15 @@ This article focuses on **Path B (Microservices)** because:
 
 ### Inbound Mail Flow
 
-When an external server sends mail to your domain:
+When an external server sends mail to your domain, the receive path runs as a sequence of cheap-to-expensive checks. Reject as early as possible — at connect, `MAIL FROM`, and `RCPT TO` — so the body never lands for traffic you can already classify.
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Inbound mail pipeline: TCP+STARTTLS → envelope → rate/reputation → DATA → SPF/DKIM/DMARC → ARC → spam → route to inbox, quarantine, or discard.](./diagrams/inbound-pipeline-light.svg "Inbound mail pipeline — each stage cheaper-than-the-next, with early reject at envelope and silent discard for spam to avoid backscatter.")
+![Inbound mail pipeline: TCP+STARTTLS → envelope → rate/reputation → DATA → SPF/DKIM/DMARC → ARC → spam → route to inbox, quarantine, or discard.](./diagrams/inbound-pipeline-dark.svg)
+
+The same pipeline expressed as a sequence between sender, MX, auth, spam, and mailbox stores:
+
+![Inbound SMTP sequence: sender resolves MX, the MX server rate-limits and runs SPF/DKIM/DMARC, hands off to spam scoring, then routes to either inbox or spam mailbox.](./diagrams/inbound-mail-sequence-light.svg "Inbound mail accepts during DATA, then asynchronously routes by spam verdict so bounces never go to forged senders (backscatter avoidance per RFC 5321 §6.2).")
+![Inbound SMTP sequence: sender resolves MX, the MX server rate-limits and runs SPF/DKIM/DMARC, hands off to spam scoring, then routes to either inbox or spam mailbox.](./diagrams/inbound-mail-sequence-dark.svg)
 
 **MX Server responsibilities:**
 
@@ -253,14 +260,19 @@ When an external server sends mail to your domain:
 
 **Why accept-then-filter (not reject during SMTP)?**
 
-Rejecting spam during the SMTP transaction (5xx response) causes the sender's MTA to generate a bounce. Spammers use forged From addresses, so bounces go to innocent parties (backscatter). Accepting and silently filtering avoids this.
+Rejecting *content-detected* spam after `DATA` causes the sender's MTA to generate a non-delivery report. Spammers forge the envelope sender, so those bounces flood innocent third parties — the [backscatter](https://en.wikipedia.org/wiki/Backscatter_(email)) problem. [RFC 5321 §6.2](https://datatracker.ietf.org/doc/html/rfc5321#section-6.2) explicitly recommends silently dropping (or quarantining) hostile content rather than generating a bounce. The corollary: reject as much as possible *before* the message body lands — at connect, `MAIL FROM`, and `RCPT TO` — and accept-then-discard only the spam you classify after `DATA`.
 
 ### Outbound Mail Flow
 
-When a user sends an email:
+When a user sends an email, the submission API acknowledges synchronously and the heavy lifting (signing, DNS, TLS, retries) happens asynchronously off a per-domain queue.
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Outbound send pipeline: submission → policy → DKIM signer → outbound queue → MX/MTA-STS resolution → connection pool → SMTP delivery with 2xx/4xx/5xx branches.](./diagrams/send-pipeline-light.svg "Outbound send pipeline — partition the queue by recipient domain so connection pooling, retries, and reputation are scoped per destination.")
+![Outbound send pipeline: submission → policy → DKIM signer → outbound queue → MX/MTA-STS resolution → connection pool → SMTP delivery with 2xx/4xx/5xx branches.](./diagrams/send-pipeline-dark.svg)
+
+The same pipeline as a sequence between client, API, queue, signer, MTA, and recipient:
+
+![Outbound SMTP sequence: client posts to API, message is enqueued, DKIM-signed, MX-resolved, and delivered with success / 4xx-retry / 5xx-bounce branches.](./diagrams/outbound-mail-sequence-light.svg "Outbound submission is acknowledged synchronously (202) and processed asynchronously through a delivery queue with exponential-backoff retries.")
+![Outbound SMTP sequence: client posts to API, message is enqueued, DKIM-signed, MX-resolved, and delivered with success / 4xx-retry / 5xx-bounce branches.](./diagrams/outbound-mail-sequence-dark.svg)
 
 **Outbound MTA responsibilities:**
 
@@ -381,10 +393,12 @@ Groups related messages into conversations:
 
 **Algorithm (priority order):**
 
-1. **References header**: RFC 5322 specifies References contains Message-IDs of all ancestors
-2. **In-Reply-To header**: Direct parent Message-ID
-3. **Subject matching**: Same subject (ignoring Re:/Fwd: prefixes) within time window
-4. **Participant overlap**: Same sender/recipients, similar timing
+1. **`References` header** ([RFC 5322 §3.6.4](https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.4)) — full Message-ID chain of all ancestors; oldest first. Walk newest-to-oldest so an out-of-order reply still anchors to the closest known ancestor.
+2. **`In-Reply-To` header** — direct parent Message-ID; useful when `References` is missing or truncated.
+3. **Subject matching** — same normalized subject (strip `Re:`/`Fwd:`/`Aw:`/`Sv:` prefixes) within a bounded time window.
+4. **Participant overlap** — same sender/recipient set within a similar timeframe; good defense against subject collisions across unrelated threads.
+
+The canonical algorithm is [Jamie Zawinski's 1997 message threading writeup](https://www.jwz.org/doc/threading.html), still the best-documented reference and the basis of most mail-client implementations.
 
 **Threading data model:**
 
@@ -591,9 +605,9 @@ interface Thread {
 | API requests | 1,000 requests | per minute |
 | Search       | 100 queries    | per minute |
 
-### IMAP Protocol Support
+### IMAP and JMAP Protocol Support
 
-For desktop client compatibility, expose standard IMAP (RFC 3501):
+For legacy desktop client compatibility, expose standard IMAP ([RFC 3501](https://datatracker.ietf.org/doc/html/rfc3501); IMAP4rev2 is [RFC 9051](https://datatracker.ietf.org/doc/html/rfc9051)). For new clients, [JMAP](https://jmap.io) ([RFC 8620](https://datatracker.ietf.org/doc/html/rfc8620) core, [RFC 8621](https://datatracker.ietf.org/doc/html/rfc8621) for mail) is the modern HTTP/JSON alternative — batched requests, push over WebSocket, no persistent IMAP connection — and is what new mailbox APIs should target alongside (or instead of) IMAP. Fastmail and Apache James run production JMAP servers today.
 
 **Supported commands:**
 
@@ -723,7 +737,7 @@ CREATE INDEX idx_labels_mailbox ON labels(mailbox_id);
 
 **Storage path convention:**
 
-```
+```text
 s3://email-attachments/{mailbox_id}/{year}/{month}/{message_id}/{attachment_id}/{filename}
 ```
 
@@ -820,6 +834,13 @@ CREATE TABLE attachments (
 
 ### Email Authentication Pipeline
 
+The receiver runs SPF, DKIM, and DMARC together — DMARC is the policy layer that combines the two underlying checks with **identifier alignment** against the visible `From:` header. RFC 7489 §6 describes the canonical evaluation order: extract the `RFC5322.From` domain, query the DMARC policy, run SPF and DKIM (in parallel is fine), then check alignment, then apply policy.
+
+![SPF / DKIM / DMARC validation flow: SPF on MAIL FROM and DKIM on signatures feed into DMARC alignment, which routes to pass, deliver-and-report, quarantine, or reject.](./diagrams/auth-validation-flow-light.svg "Authentication decision flow — DMARC passes if either SPF or DKIM is aligned; the published policy decides what to do on fail.")
+![SPF / DKIM / DMARC validation flow: SPF on MAIL FROM and DKIM on signatures feed into DMARC alignment, which routes to pass, deliver-and-report, quarantine, or reject.](./diagrams/auth-validation-flow-dark.svg)
+
+Alignment is computed against the **organizational domain** (the registrable base, e.g. `example.com` for `mail.corp.example.com`) using the [Public Suffix List](https://publicsuffix.org/) when in `relaxed` mode, or via FQDN match in `strict` mode. Get this wrong and a perfectly valid SPF/DKIM result still fails DMARC.
+
 #### SPF Validation
 
 Sender Policy Framework (RFC 7208) validates sending server authorization:
@@ -879,9 +900,9 @@ class SPFValidator {
 
 **SPF limitations:**
 
-- Only validates envelope sender (MAIL FROM), not header From
-- Breaks on forwarding (forwarding server IP not authorized)
-- 10 DNS lookup limit to prevent amplification attacks
+- Only validates the envelope sender (`MAIL FROM`), not the visible `From:` header — DMARC alignment is what closes that gap.
+- Breaks on forwarding because the forwarder's IP is not in the original sender's SPF record. ARC ([RFC 8617](https://datatracker.ietf.org/doc/html/rfc8617)) was introduced to preserve authentication results across forwarding hops.
+- [RFC 7208 §4.6.4](https://datatracker.ietf.org/doc/html/rfc7208#section-4.6.4) caps SPF evaluation at **10 DNS lookups** (mechanisms `include`, `a`, `mx`, `ptr`, `exists`, modifier `redirect`) to prevent amplification attacks; exceeding the cap yields `permerror`. A separate `SHOULD` limit of 2 void lookups (NXDOMAIN/NODATA) applies.
 
 #### DKIM Verification
 
@@ -938,9 +959,9 @@ class DKIMVerifier {
 
 **DKIM key considerations:**
 
-- RSA 2048-bit minimum (1024-bit deprecated)
-- Selector rotation: Publish new key, sign with new selector, retire old
-- Header field selection: Always include From, To, Subject, Date, Message-ID
+- [RFC 8301](https://datatracker.ietf.org/doc/html/rfc8301) requires signers to use **at least 1024-bit RSA** and recommends **2048-bit**; verifiers must support 1024–4096 bits. Treat 2048-bit as the floor for new deployments — major mailbox providers reject or downgrade trust on shorter keys in practice.
+- Selector rotation: publish a new key under a new selector, switch signers over, retire the old selector after a propagation window.
+- Header field selection: always include `From`, `To`, `Subject`, `Date`, and `Message-ID`. Sign `From` twice (oversigning) to prevent attackers from injecting an additional `From` after the signature.
 
 #### DMARC Policy Enforcement
 
@@ -1014,12 +1035,33 @@ class DMARCEvaluator {
 | `p=quarantine` | Deliver to spam folder            |
 | `p=reject`     | Reject at SMTP level (or discard) |
 
+#### Transport Security: MTA-STS and TLS-RPT
+
+Opportunistic STARTTLS is downgrade-vulnerable — an active attacker on the path can strip the `STARTTLS` advertisement and the sender will fall back to cleartext. **MTA-STS** ([RFC 8461](https://datatracker.ietf.org/doc/html/rfc8461)) lets a receiving domain publish a policy at `https://mta-sts.<domain>/.well-known/mta-sts.txt` (advertised by a `_mta-sts.<domain>` TXT record) that pins the allowed MX hostnames and requires TLS 1.2+ with a PKIX-valid certificate. In `enforce` mode, conforming senders **must not** deliver if validation fails; `testing` mode logs failures without blocking. **DANE for SMTP** ([RFC 7672](https://datatracker.ietf.org/doc/html/rfc7672)) is the DNSSEC-anchored alternative — TLSA records bind the expected certificate directly, no out-of-band HTTPS fetch — and most large operators publish both.
+
+**SMTP TLS Reporting** ([RFC 8460](https://datatracker.ietf.org/doc/html/rfc8460)) closes the loop: senders aggregate TLS-handshake outcomes per day and POST a JSON report to the URI in the receiver's `_smtp._tls.<domain>` TXT record. Without TLS-RPT, an MTA-STS misconfiguration (expired certificate, wrong SAN, MX rename) is invisible until users complain. The standard sequence is **deploy in `testing` mode → watch TLS-RPT for two reporting cycles → flip to `enforce`**.
+
+#### Forwarding: SRS, ARC, and the Forwarding Problem
+
+Plain forwarding breaks SPF: when `alice@example.com` forwards a message from `news@sender.com` to `alice@personal.com`, the forwarder's IP is not in `sender.com`'s SPF record, so SPF fails at the destination. Two complementary mitigations:
+
+- **SRS** ([Sender Rewriting Scheme](https://www.libsrs2.org/srs/srs.pdf)) rewrites the envelope sender to a forwarder-local address (`SRS0=hash=tt=sender.com=news@forwarder.example`) so SPF passes, while the local part still encodes the original sender for bounce routing. Postfix, OpenSRS, and most managed forwarders implement it. SRS does not help DKIM (signatures still cover the original `From:`) or DMARC alignment; it only fixes the SPF break.
+- **ARC** ([RFC 8617](https://datatracker.ietf.org/doc/html/rfc8617)) preserves the *authentication results* across hops: each forwarder adds an `ARC-Seal` chain attesting that "at my hop, SPF/DKIM/DMARC said X". Receivers that trust the forwarder's ARC seal can honor the original auth result even after SPF breaks at the boundary. Gmail, Office 365, and Fastmail all evaluate ARC; mailing lists in particular rely on it to survive forwarding.
+
+#### Brand Indicators: BIMI
+
+**BIMI** ([draft-blank-ietf-bimi](https://datatracker.ietf.org/doc/draft-brand-indicators-for-message-identification/)) lets a domain publish a verified logo SVG (and, for inbox-provider trust, a Verified Mark Certificate from a third-party CA) at `default._bimi.<domain>` that participating mailbox providers (Gmail, Yahoo, Apple Mail, Fastmail) render next to authenticated messages. BIMI requires DMARC at `p=quarantine` or `p=reject` — it is effectively a UX reward for getting the auth trifecta right.
+
+#### Internationalized Addresses: SMTPUTF8 / EAI
+
+[RFC 6531](https://datatracker.ietf.org/doc/html/rfc6531) (SMTPUTF8) and [RFC 6532](https://datatracker.ietf.org/doc/html/rfc6532) extend SMTP and message headers to allow UTF-8 mailbox local-parts and headers (`測試@例子.中国`). Servers advertise the `SMTPUTF8` extension after `EHLO`; clients opt in with `MAIL FROM:<…> SMTPUTF8`. Adoption is uneven — fall back to ASCII (`xn--`/IDNA for the domain, transcoded local-part) when the next hop does not advertise the extension, and never store mixed-encoding addresses without a normalization pass.
+
 ### Spam Filtering Pipeline
 
 #### Multi-Stage Classification
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Multi-stage spam pipeline: blocklist check → authentication check → heuristic rules → ML classifier → score-based routing to inbox or spam.](./diagrams/spam-pipeline-light.svg "Cheap stages (blocklist, auth) reject obvious bad mail before the expensive ML classifier runs, keeping per-message cost bounded.")
+![Multi-stage spam pipeline: blocklist check → authentication check → heuristic rules → ML classifier → score-based routing to inbox or spam.](./diagrams/spam-pipeline-dark.svg)
 
 #### Naive Bayes Classifier
 
@@ -1093,10 +1135,12 @@ class NaiveBayesSpamFilter {
 
 **Why Naive Bayes works for spam:**
 
-- Handles high-dimensional feature spaces (thousands of words) efficiently
-- Trains incrementally (user feedback updates model)
-- Achieves 99%+ accuracy despite "naive" independence assumption
-- Computationally cheap (O(n) where n = tokens in message)
+- Handles high-dimensional feature spaces (thousands of tokens) efficiently.
+- Trains incrementally — every "report spam" / "not spam" click updates the corpus.
+- Achieves 99%+ catch rate at sub-0.1% false positives despite the independence assumption: Paul Graham's original 2002 implementation [reported 99.5% catch with ~0.06% FP](https://paulgraham.com/better.html), and Yerazunis (MIT, 2004) noted Bayesian filters [hit an "accuracy plateau" around 99.9%](https://merl.com/publications/docs/TR2004-091.pdf).
+- Computationally cheap — `O(n)` in the number of tokens, single-pass scoring.
+
+In production, Naive Bayes is rarely the only signal. Modern systems stack reputation (IP/ASN/domain), authentication results, URL/attachment analysis, and gradient-boosted or transformer-based content models on top, with the Bayesian model providing a fast, per-user-trainable baseline.
 
 **Spammer countermeasures and responses:**
 
@@ -1265,6 +1309,20 @@ class DeliveryWorker {
 | 5       | 8 hours    | 10h 35m    |
 | 6       | 24 hours   | 34h 35m    |
 | Bounce  | -          | ~5 days    |
+
+[RFC 5321 §4.5.4.1](https://datatracker.ietf.org/doc/html/rfc5321#section-4.5.4.1) recommends a minimum retry interval of 30 minutes and a give-up time of "at least 4–5 days"; the schedule above is denser at the front end (where most transient failures resolve) and matches what Postfix, Sendmail, and Exchange ship by default. Senders **should** also emit a delayed-DSN warning if a message has been queued for ≥ 4 hours so the originator knows it is in flight.
+
+#### Bounce-Handling State Machine
+
+Each outbound message moves through a small lifecycle from the moment the API returns 202 until it is either delivered, hard-bounced, or aged out by the give-up timer:
+
+![Outbound message state machine: Queued → Sending → Delivered/Deferred/Bounced; Deferred backs off and retries until give-up; Bounced feeds the suppression list.](./diagrams/bounce-state-machine-light.svg "Outbound message state machine — hard bounces feed a suppression list (FBL/ARF), soft bounces retry with backoff until the RFC 5321 give-up timer fires.")
+![Outbound message state machine: Queued → Sending → Delivered/Deferred/Bounced; Deferred backs off and retries until give-up; Bounced feeds the suppression list.](./diagrams/bounce-state-machine-dark.svg)
+
+Two operational details often missed:
+
+- **Suppression list discipline.** Hard bounces (5xx — invalid mailbox, blocked sender) must add the recipient to a per-tenant suppression list that the submission API checks on the *next* send. ESPs that fail this lose sender reputation fast — the same recipient repeatedly bouncing is a clear spam signal to receivers.
+- **Feedback loops (FBLs).** Major mailbox providers (Yahoo, Microsoft, Comcast) publish [ARF](https://datatracker.ietf.org/doc/html/rfc5965)-formatted complaint feeds: when a user clicks "Report spam", the receiver POSTs a structured report to the registered sender. Wire FBL processing into the same suppression pipeline as hard bounces. Gmail does not run a per-message FBL but exposes aggregate spam rate via [Postmaster Tools](https://postmaster.google.com); both signals feed the same reputation model.
 
 ### Threading Algorithm
 
@@ -1534,11 +1592,11 @@ class OfflineMailbox {
 
 ### AWS Reference Architecture
 
-![AWS reference architecture (request path)](./diagrams/diagram-7-request-light.svg)
-![AWS reference architecture (request path)](./diagrams/diagram-7-request-dark.svg)
+![AWS reference architecture, request path: Route 53 fronts MX and CloudFront; EKS hosts MX, API gateway, and IMAP pods; data tier is Cassandra (Keyspaces), RDS Postgres, OpenSearch, Redis, and S3.](./diagrams/aws-arch-request-light.svg "Synchronous request path on AWS — clients hit either the MX pool over SMTP or the API/IMAP pool over HTTPS/IMAPS.")
+![AWS reference architecture, request path: Route 53 fronts MX and CloudFront; EKS hosts MX, API gateway, and IMAP pods; data tier is Cassandra (Keyspaces), RDS Postgres, OpenSearch, Redis, and S3.](./diagrams/aws-arch-request-dark.svg)
 
-![AWS reference architecture (async pipeline)](./diagrams/diagram-7-async-light.svg)
-![AWS reference architecture (async pipeline)](./diagrams/diagram-7-async-dark.svg)
+![AWS reference architecture, async pipeline: MX writes to Cassandra and MSK Kafka; delivery workers and search indexers consume Kafka and update OpenSearch.](./diagrams/aws-arch-async-light.svg "Async pipeline on AWS — Kafka decouples receive-time from spam scoring, indexing, and outbound delivery so each stage scales independently.")
+![AWS reference architecture, async pipeline: MX writes to Cassandra and MSK Kafka; delivery workers and search indexers consume Kafka and update OpenSearch.](./diagrams/aws-arch-async-dark.svg)
 
 **Service configurations:**
 
@@ -1558,23 +1616,32 @@ class OfflineMailbox {
 
 **MX record configuration:**
 
-```
+```bind
 example.com.    IN MX   10 mx1.example.com.
 example.com.    IN MX   10 mx2.example.com.
 example.com.    IN MX   20 mx-backup.example.com.
 ```
 
-**DNS records for authentication:**
+**DNS records for authentication, transport security, and reporting:**
 
-```
+```bind
 ; SPF
 example.com.    IN TXT  "v=spf1 ip4:203.0.113.0/24 include:_spf.google.com -all"
 
 ; DKIM
 selector1._domainkey.example.com.    IN TXT  "v=DKIM1; k=rsa; p=MIIBIjANBg..."
 
-; DMARC
-_dmarc.example.com.    IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@example.com"
+; DMARC (with aggregate + forensic reporting)
+_dmarc.example.com.    IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@example.com; ruf=mailto:dmarc@example.com; pct=100; adkim=s; aspf=s"
+
+; MTA-STS (RFC 8461) — points senders at the policy hosted over HTTPS
+_mta-sts.example.com.  IN TXT  "v=STSv1; id=20260421T0000Z"
+
+; SMTP TLS Reporting (RFC 8460) — TLS handshake telemetry
+_smtp._tls.example.com. IN TXT "v=TLSRPTv1; rua=mailto:tls-rpt@example.com"
+
+; BIMI — verified brand indicator, requires DMARC enforcement
+default._bimi.example.com. IN TXT "v=BIMI1; l=https://example.com/logo.svg; a=https://example.com/vmc.pem"
 ```
 
 ### Scaling Considerations
@@ -1587,9 +1654,10 @@ _dmarc.example.com.    IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@example.com
 
 **Outbound throughput:**
 
-- Per destination rate limits (Gmail: 500/day per IP for new IPs)
-- IP reputation warmup: Start 50/day, increase 2x daily
-- Dedicated IPs per sending reputation tier
+- Per-recipient daily caps at the destination side: Gmail consumer accounts allow [500 recipients/day](https://support.google.com/mail/answer/22839); Google Workspace allows 2,000/day.
+- Sender-side IP reputation warmup: start a fresh dedicated IP at a few hundred messages/day and roughly double daily until you hit the steady-state volume; back off immediately on spam complaints or 4xx throttling.
+- Dedicated IPs per reputation tier (transactional vs marketing) so a marketing campaign can't burn the password-reset IP.
+- Bulk senders (≥5,000 messages/day to Gmail or Yahoo personal accounts) must keep [Postmaster Tools](https://postmaster.google.com) spam rate **below 0.3%**, publish aligned DMARC, and support [one-click unsubscribe](https://datatracker.ietf.org/doc/html/rfc8058) per the [2024 Gmail/Yahoo bulk-sender requirements](https://support.google.com/a/answer/81126).
 
 **Search index lag:**
 
@@ -1609,7 +1677,7 @@ _dmarc.example.com.    IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@example.com
 This design provides a scalable email system with:
 
 1. **Reliable delivery** via store-and-forward queuing with exponential backoff retries
-2. **Strong authentication** through SPF + DKIM + DMARC defense in depth
+2. **Strong authentication and transport security** through SPF + DKIM + DMARC, ARC across forwarders, and MTA-STS / TLS-RPT to prevent downgrade and surface failures
 3. **Effective spam filtering** using ML classification with heuristic rules
 4. **Fast retrieval** via time-series optimized storage and full-text search indexing
 5. **Conversation threading** using RFC 5322 headers with subject/participant fallback
@@ -1669,27 +1737,43 @@ This design provides a scalable email system with:
 
 ### References
 
-**Protocol Specifications:**
+**Protocol specifications:**
 
-- [RFC 5321 - Simple Mail Transfer Protocol](https://datatracker.ietf.org/doc/html/rfc5321) - SMTP specification
-- [RFC 3501 - IMAP4rev1](https://datatracker.ietf.org/doc/html/rfc3501) - IMAP specification
-- [RFC 5322 - Internet Message Format](https://datatracker.ietf.org/doc/html/rfc5322) - Email message format
-- [RFC 2045-2049 - MIME](https://datatracker.ietf.org/doc/html/rfc2045) - Multipurpose Internet Mail Extensions
+- [RFC 5321](https://datatracker.ietf.org/doc/html/rfc5321) — Simple Mail Transfer Protocol (SMTP).
+- [RFC 6409](https://datatracker.ietf.org/doc/html/rfc6409) — Message submission for mail (port 587).
+- [RFC 3501](https://datatracker.ietf.org/doc/html/rfc3501) — IMAP4rev1; superseded by [RFC 9051](https://datatracker.ietf.org/doc/html/rfc9051) (IMAP4rev2).
+- [RFC 2177](https://datatracker.ietf.org/doc/html/rfc2177) — IMAP `IDLE` extension.
+- [RFC 8620](https://datatracker.ietf.org/doc/html/rfc8620) / [RFC 8621](https://datatracker.ietf.org/doc/html/rfc8621) — JMAP core and JMAP for Mail.
+- [RFC 5322](https://datatracker.ietf.org/doc/html/rfc5322) — Internet Message Format (headers, threading).
+- [RFC 2045–2049](https://datatracker.ietf.org/doc/html/rfc2045) — MIME.
+- [RFC 8058](https://datatracker.ietf.org/doc/html/rfc8058) — One-click `List-Unsubscribe`.
 
-**Authentication Standards:**
+**Authentication standards:**
 
-- [RFC 7208 - Sender Policy Framework (SPF)](https://datatracker.ietf.org/doc/html/rfc7208)
-- [RFC 6376 - DomainKeys Identified Mail (DKIM)](https://datatracker.ietf.org/doc/html/rfc6376)
-- [RFC 7489 - DMARC](https://datatracker.ietf.org/doc/html/rfc7489)
-- [NIST Technical Note 1945 - Email Authentication Mechanisms](https://nvlpubs.nist.gov/nistpubs/TechnicalNotes/NIST.TN.1945.pdf)
+- [RFC 7208](https://datatracker.ietf.org/doc/html/rfc7208) — Sender Policy Framework (SPF).
+- [RFC 6376](https://datatracker.ietf.org/doc/html/rfc6376) — DomainKeys Identified Mail (DKIM); updated by [RFC 8301](https://datatracker.ietf.org/doc/html/rfc8301) (algorithm and key sizes).
+- [RFC 7489](https://datatracker.ietf.org/doc/html/rfc7489) — DMARC.
+- [RFC 8617](https://datatracker.ietf.org/doc/html/rfc8617) — Authenticated Received Chain (ARC) for forwarding.
+- [RFC 8461](https://datatracker.ietf.org/doc/html/rfc8461) — SMTP MTA Strict Transport Security (MTA-STS).
+- [RFC 8460](https://datatracker.ietf.org/doc/html/rfc8460) — SMTP TLS Reporting (TLS-RPT).
+- [RFC 7672](https://datatracker.ietf.org/doc/html/rfc7672) — SMTP security via DNSSEC-anchored DANE TLSA records.
+- [RFC 5965](https://datatracker.ietf.org/doc/html/rfc5965) — Abuse Reporting Format (ARF) used by mailbox-provider feedback loops.
+- [RFC 6531](https://datatracker.ietf.org/doc/html/rfc6531) / [RFC 6532](https://datatracker.ietf.org/doc/html/rfc6532) — SMTPUTF8 and internationalized message headers (EAI).
+- [BIMI draft](https://datatracker.ietf.org/doc/draft-brand-indicators-for-message-identification/) — Brand Indicators for Message Identification.
+- [Sender Rewriting Scheme (SRS)](https://www.libsrs2.org/srs/srs.pdf) — envelope rewriting that lets forwarded mail pass SPF.
+- [NIST SP 800-177r1](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-177r1.pdf) — Trustworthy Email.
 
-**Spam Filtering:**
+**Spam filtering:**
 
-- [A Plan for Spam - Paul Graham](http://www.paulgraham.com/spam.html) - Foundational Bayesian spam filtering paper
-- [Machine Learning for Email Spam Filtering (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6562150/) - ML approaches survey
+- [A Plan for Spam — Paul Graham (2002)](https://paulgraham.com/spam.html) — foundational Bayesian spam filter.
+- [Better Bayesian Filtering — Paul Graham (2003)](https://paulgraham.com/better.html) — refinements and measured FP/FN rates.
+- [The Spam-Filtering Accuracy Plateau at 99.9% — Yerazunis, MERL, 2004](https://merl.com/publications/docs/TR2004-091.pdf).
+- [Machine Learning for Email Spam Filtering (PMC, 2019)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6562150/) — ML approaches survey.
 
-**Industry Implementations:**
+**Industry implementations and operations:**
 
-- [Gmail Architecture Overview](https://www.dhiwise.com/post/understanding-gmail-architecture-a-comprehensive-guide)
-- [Fastmail Storage Architecture](https://www.fastmail.help/hc/en-us/articles/1500000278242-The-Fastmail-storage-architecture)
-- [Cloudflare - DMARC, DKIM, SPF Explained](https://www.cloudflare.com/learning/email-security/dmarc-dkim-spf/)
+- [Spanner is the engine behind Google services — Google Cloud Blog](https://cloud.google.com/blog/products/databases/how-spanner-is-the-engine-behind-google-services) — Gmail's migration off Bigtable onto Spanner.
+- [Fastmail storage architecture](https://www.fastmail.help/hc/en-us/articles/1500000278242-The-Fastmail-storage-architecture).
+- [Email sender guidelines (Gmail / Google Workspace)](https://support.google.com/a/answer/81126) — 2024 bulk-sender requirements (≥5,000/day, DMARC, one-click unsubscribe, <0.3% spam rate).
+- [Cloudflare — DMARC, DKIM, SPF explained](https://www.cloudflare.com/learning/email-security/dmarc-dkim-spf/).
+- [Jamie Zawinski — message threading](https://www.jwz.org/doc/threading.html) — the canonical algorithm used by most mail clients.

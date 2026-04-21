@@ -1,0 +1,30 @@
+%% Diagram: Cursor vs Offset pagination — race condition under writes
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant API
+    participant DB
+
+    Note over Client,DB: OFFSET pagination — writes shift the window
+    Client->>API: GET /feed?offset=40&limit=20
+    API->>DB: SELECT ... ORDER BY created_at DESC LIMIT 20 OFFSET 40
+    DB-->>API: rows 40..59
+    API-->>Client: page 3
+    Note over DB: New post inserted at top
+    Client->>API: GET /feed?offset=60&limit=20
+    API->>DB: SELECT ... LIMIT 20 OFFSET 60
+    DB-->>API: rows 60..79 (was 59..78)
+    API-->>Client: page 4 — duplicate of last row of page 3
+
+    Note over Client,DB: Cursor (keyset) pagination — stable under writes
+    Client->>API: GET /feed?cursor=null
+    API->>DB: SELECT ... WHERE (created_at,id) < (max,max) ORDER BY (created_at,id) DESC LIMIT 20
+    DB-->>API: 20 rows + nextCursor=(t1,id1)
+    API-->>Client: page 1
+    Note over DB: New post inserted (any time)
+    Client->>API: GET /feed?cursor=(t1,id1)
+    API->>DB: SELECT ... WHERE (created_at,id) < (t1,id1) ORDER BY ... LIMIT 20
+    DB-->>API: next 20 rows — no overlap, no gap
+    API-->>Client: page 2

@@ -1,0 +1,22 @@
+%% Diagram: Sorting Hat request routing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant LB as nginx + OpenResty
+    participant SH as Sorting Hat (Lua)
+    participant CP as Routing control plane
+    participant APP as Shared app workers
+    participant POD as Pod (MySQL + Redis + Memcached)
+
+    Client->>LB: HTTPS request to shop domain
+    LB->>SH: Hand off request
+    SH->>CP: Lookup pod by host / domain
+    CP-->>SH: pod_id
+    SH->>SH: Inject X-Sorting-Hat-PodId header
+    SH->>APP: Forward request
+    APP->>APP: Read pod header, pick connection pool
+    APP->>POD: SQL / cache calls scoped to shop_id
+    POD-->>APP: Response
+    APP-->>Client: HTTP response

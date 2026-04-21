@@ -1,0 +1,27 @@
+%% Diagram: Stale-while-revalidate sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Component
+    participant L as Query Library
+    participant Cache as In-Memory Cache
+    participant N as Network
+
+    C->>L: useQuery("users")
+    L->>Cache: read("users")
+    alt Cache hit, fresh
+        Cache-->>L: data, isStale=false
+        L-->>C: data (no fetch)
+    else Cache hit, stale
+        Cache-->>L: data, isStale=true
+        L-->>C: stale data, isFetching=true
+        L->>N: GET /users (background)
+        N-->>L: 200 fresh data
+        L->>Cache: write("users", fresh)
+        L-->>C: re-render with fresh data
+    else Cache miss
+        L->>N: GET /users
+        N-->>L: 200 fresh data
+        L->>Cache: write("users", fresh)
+        L-->>C: data
+    end

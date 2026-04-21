@@ -6,7 +6,7 @@ description: >-
   production drag-and-drop systems. Covers HTML5 DnD quirks, Pointer Events
   unification, keyboard alternatives, and how libraries like dnd-kit and react-dnd differ.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - system-design
@@ -19,26 +19,26 @@ Building drag and drop interactions that work across input devices, handle compl
 
 Drag and drop appears simple: grab an element, move it, release it. In practice, it requires handling three incompatible input APIs (mouse, touch, pointer), working around significant browser inconsistencies in the HTML5 Drag and Drop API, providing keyboard alternatives for accessibility, and managing visual feedback during the operation. This article covers the underlying browser APIs, the design decisions that differentiate library approaches, and how production applications solve these problems at scale.
 
-![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen-light.svg "Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.")
-![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/drag-and-drop-system-architecture-multiple-input-sources-feed-into-a-unified-sen-dark.svg)
+![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/system-architecture-light.svg "Multiple input sources (mouse, touch, pointer, keyboard) feed a sensor layer that manages drag state, drop-target hit-testing, and visual feedback.")
+![Drag and drop system architecture: multiple input sources feed into a unified sensor layer, which manages drag state, tracks drop targets, and coordinates visual feedback.](./diagrams/system-architecture-dark.svg)
 
 ## Abstract
 
-Drag and drop systems must unify three input models while providing accessible alternatives. The core mental model:
+Drag and drop systems must unify three input models while providing an accessible non-drag alternative. The core mental model:
 
-- **Native HTML5 DnD has critical limitations**: The API works for mouse input but doesn't fire drag events for touch screens. DataTransfer timing varies by browser. Cross-browser inconsistencies make raw API usage impractical for production.
+- **Native HTML5 DnD has critical limitations**: The [WHATWG Drag and Drop API](https://html.spec.whatwg.org/multipage/dnd.html) works for mouse and pen input but does not fire drag events for touch on Chrome, Firefox, or Safari[^touch-dnd]. The `DataTransfer` object is governed by a strict three-mode lifecycle (read/write during `dragstart`, protected during intermediate events, read-only during `drop`)[^datastore], and historic browser drift around drag-image handling and event ordering makes raw API usage impractical for production.
 
-- **Pointer Events unify input devices**: The W3C Pointer Events API provides hardware-agnostic input handling for mouse, touch, and pen. Modern libraries (dnd-kit, Pragmatic) build on Pointer Events rather than native DnD.
+- **Pointer Events unify input devices**: The [W3C Pointer Events Level 2 Recommendation](https://www.w3.org/TR/pointerevents/) (with [Level 3 Candidate Recommendation](https://www.w3.org/TR/pointerevents3/) in flight) gives a single hardware-agnostic event stream for mouse, touch, and pen. Pointer-Events-based libraries (dnd-kit, React Aria) sidestep HTML5 DnD entirely; the trade-off is losing OS-level features like cross-window drag.
 
-- **Accessibility requires keyboard alternatives**: WCAG 2.5.7 mandates that all drag functionality must be achievable without dragging. This means Enter to grab, Tab to navigate targets, Enter to drop—not optional progressive enhancement.
+- **The two camps split on the API question, not the framework**: HTML5 DnD wrappers (react-dnd, Sortable.js, Pragmatic Drag and Drop) inherit native cross-window drag and file drops but inherit native quirks too. Pointer Events implementations (dnd-kit, React Aria) get touch and keyboard for free but cannot accept files dragged from the OS without a separate native code path.
 
-- **Two architectural approaches dominate**: Native API wrappers (react-dnd, Sortable.js) abstract browser quirks. Custom implementations (dnd-kit, Pragmatic) ignore native DnD entirely, building from Pointer Events for consistent behavior.
+- **Accessibility means a single-pointer alternative, not just keyboard**: [WCAG 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) (Level AA, added in WCAG 2.2) specifically requires a non-drag mechanism operable by a single pointer. Keyboard support is required by [WCAG 2.1.1](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html) but does not satisfy 2.5.7 on its own — you must also expose a click/tap path (move buttons, context menu, etc.).
 
-| Approach              | Browser API                       | Touch Support           | Accessibility | Bundle Size |
-| --------------------- | --------------------------------- | ----------------------- | ------------- | ----------- |
-| Native DnD wrapper    | HTML5 DnD + Touch backend         | Requires second backend | Manual        | Small core  |
-| Custom Pointer Events | Pointer Events                    | Built-in                | Built-in      | Larger      |
-| Hybrid                | HTML5 DnD desktop, Pointer mobile | Yes                     | Manual        | Medium      |
+| Approach                      | Browser API foundation         | Touch          | OS-level features (cross-window, files) | Built-in keyboard a11y | Notes                                     |
+| ----------------------------- | ------------------------------ | -------------- | --------------------------------------- | ---------------------- | ----------------------------------------- |
+| Native HTML5 DnD wrapper      | HTML5 DnD                      | Needs polyfill | Yes                                     | Manual                 | react-dnd, Sortable.js, Pragmatic         |
+| Pointer Events implementation | Pointer Events                 | Built-in       | No                                      | Usually built-in       | dnd-kit, React Aria, custom               |
+| Hybrid                        | HTML5 DnD + Pointer/Touch glue | Yes            | Yes                                     | Manual                 | Older Sortable.js + custom touch backends |
 
 ## The Challenge
 
@@ -52,28 +52,32 @@ The web has three overlapping APIs for pointer input, each with different capabi
 
 **Pointer Events API** (W3C spec): Unified model for all pointing devices. Events mirror mouse events with `pointer` prefix. The `pointerType` property indicates device: `"mouse"`, `"touch"`, or `"pen"`.
 
-**The fundamental problem**: HTML5 Drag and Drop events never fire for touch input. Chrome, Firefox, and Safari all require a mouse to initiate native drag operations. Touch users get nothing without additional implementation.
+**The fundamental problem**: HTML5 Drag and Drop events do not fire for touch input on Chrome, Firefox, or Safari[^touch-dnd]. Native drag is mouse- and pen-only; touch users get nothing without an explicit second code path or a polyfill such as [drag-drop-touch-js/dragdroptouch](https://github.com/drag-drop-touch-js/dragdroptouch).
 
 ### HTML5 DnD API Quirks
 
-The native API has behavior differences that break cross-browser implementations:
+The native API has behavior differences that break naive cross-browser implementations.
 
-**DataTransfer timing restrictions**:
+**DataTransfer is governed by a three-mode lifecycle.** The [WHATWG drag data store mode](https://html.spec.whatwg.org/multipage/dnd.html#concept-dnd-rw) is, in order:
 
-- `setData()` only works in `dragstart`. Calling it in any other event silently fails.
-- `getData()` returns empty string during `dragover` in Chrome/Safari—only readable on `drop`.
-- Firefox allows reading data during drag, but relying on this breaks other browsers.
+| Mode             | Active during                           | What you can do                                                                              |
+| ---------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **read/write**   | `dragstart`                             | Add data with `setData()`, set drag image, configure `effectAllowed`                         |
+| **protected**    | `drag`, `dragenter`, `dragover`, `dragleave`, `dragend` | Read `dataTransfer.types` (format names) but **not** payloads; calls to `setData`/`getData` are silently ignored |
+| **read-only**    | `drop`                                  | Call `getData()` to read payloads; `setData()` is ignored                                    |
 
-**Event sequencing differs**:
+Practically, this means: set everything you need in `dragstart`, gate drop targets in `dragover` by inspecting `dataTransfer.types`, and read payloads in `drop`. The protected mode exists to stop a malicious page from spying on data the user is dragging in from another origin or another application[^datastore].
 
-- Chrome/Safari: fire `dragend` then `drop`
-- Firefox: fire `drop` then `dragend`
+![DataTransfer mode lifecycle: read/write during dragstart, protected during all intermediate events, read-only during drop.](./diagrams/datatransfer-modes-light.svg "WHATWG DataTransfer drag data store transitions through three modes; only dragstart can write, only drop can read payloads.")
+![DataTransfer mode lifecycle: read/write during dragstart, protected during all intermediate events, read-only during drop.](./diagrams/datatransfer-modes-dark.svg)
 
-**Drag image requirements**:
+**The spec pins `drop` before `dragend`, but engines historically drifted.** Step 2 of the [WHATWG drag-and-drop processing model](https://html.spec.whatwg.org/multipage/dnd.html#drag-and-drop-processing-model) fires `drop` at the target; step 3 fires `dragend` at the source. Older Chrome/Safari builds fired `dragend` before `drop`[^drop-order], and the order can still surface bugs across long-tail user-agents. Treat them as a commit/cleanup *pair*, not a sequence — write idempotent handlers, and never gate `drop`'s persistence on state mutated in `dragend` (or vice versa).
 
-- Firefox accepts any DOM element for `setDragImage()`
-- Chrome requires the element to be in the DOM and visible (even if off-screen)
-- Safari requires specific CSS to prevent default image generation
+**Drag image requirements differ by engine**:
+
+- Firefox accepts any DOM element for `setDragImage()`.
+- Chromium requires the element to be in the DOM and have layout when `setDragImage` is called[^chrome-dragimage].
+- Safari has historically required the source to be visible enough to snapshot.
 
 ```typescript collapse={1-3, 20-25}
 // Setting up native drag with workarounds
@@ -121,22 +125,29 @@ Touch interaction differs fundamentally from mouse:
 
 ### Accessibility Requirements
 
-WCAG 2.5.7 (Dragging Movements) requires non-dragging alternatives:
+[WCAG 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) (Level AA, added in WCAG 2.2) is the normative bar:
 
 > "All functionality that uses a dragging movement for operation can be achieved by a single pointer without dragging, unless dragging is essential, or the functionality is determined by the user agent and not modified by the author."
 
 **Why dragging is problematic**:
 
-- Users with motor impairments may not be able to hold and move simultaneously
-- Head pointers, eye-gaze systems, and trackballs make dragging difficult or impossible
-- Screen reader users cannot perceive spatial relationships
+- Users with motor impairments may not be able to hold and move simultaneously.
+- Head pointers, eye-gaze systems, and trackballs make sustained drags difficult or impossible.
+- Screen reader users cannot perceive spatial relationships through visual feedback.
 
-**Acceptable alternatives**:
+> [!IMPORTANT]
+> Read 2.5.7 narrowly: it specifically requires a **single-pointer (click/tap)** alternative. Keyboard support is required by [WCAG 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html), but a keyboard-only alternative does **not** satisfy 2.5.7 on its own[^wcag-257-test]. You need both.
 
-- Keyboard: Enter to grab, Tab between targets, Enter to drop
-- Click-based: Click item, click destination
-- Menu-based: Right-click/long-press for move menu
-- Button-based: Up/down arrows for list reordering
+**Acceptable single-pointer (2.5.7) alternatives**:
+
+- Click-based "move": click item, then click destination slot.
+- Move menu invoked by right-click or long-press, with a list of valid destinations.
+- Up/down arrow buttons next to each item for list reordering.
+- Numeric position field where users type the new position.
+
+**Keyboard (2.1.1) alternative** — required in addition to the above:
+
+- Tab to focus the item, Enter or Space to grab, Arrow keys to move, Enter or Space to drop, Escape to cancel.
 
 ### Scale Factors
 
@@ -156,7 +167,7 @@ The right drag-drop approach depends on use case complexity:
 
 The native API provides drag operations with OS-level integration—dragging files from desktop, cross-tab dragging, and native drag previews.
 
-**Event sequence for successful drop**:
+**Event sequence for a successful drop** (per the [WHATWG drag-and-drop processing model](https://html.spec.whatwg.org/multipage/dnd.html#drag-and-drop-processing-model)):
 
 ```
 dragstart (source) → drag (source, repeating) →
@@ -164,7 +175,12 @@ dragenter (target) → dragover (target, repeating) →
 drop (target) → dragend (source)
 ```
 
-**DataTransfer security model**: The spec protects sensitive data during drag. During `dragover`, scripts can see data types (`dataTransfer.types`) but not values. This prevents malicious pages from reading clipboard data during drag-over.
+The spec pins `drop` (step 2) before `dragend` (step 3) inside the processing model, but historic browser drift around the pair is real (see [HTML5 DnD API Quirks](#html5-dnd-api-quirks)). Treat them as a commit/cleanup *pair* and write idempotent handlers.
+
+![HTML5 drag-and-drop event flow: dragstart writes to DataTransfer, dragenter and dragover gate the target by calling preventDefault, drop reads the payload, dragend cleans up.](./diagrams/event-flow-light.svg "HTML5 DnD events are a sequence over the source plus a loop over the target; only `dragstart` can write to DataTransfer and only `drop` can read its payload.")
+![HTML5 drag-and-drop event flow: dragstart writes to DataTransfer, dragenter and dragover gate the target by calling preventDefault, drop reads the payload, dragend cleans up.](./diagrams/event-flow-dark.svg)
+
+**DataTransfer security model**: The protected mode described above exists so that a malicious page cannot read data the user is dragging from another origin or another application during `dragover`. Scripts can still enumerate the available formats (`dataTransfer.types`), which is exactly what drop targets need to decide whether to accept the drop.
 
 ```typescript collapse={1-5, 35-45}
 // Complete native drag implementation
@@ -222,7 +238,7 @@ function createDropTarget(element: HTMLElement, onDrop: (itemId: string, positio
 
 ### Pointer Events
 
-Pointer Events (W3C Recommendation) provide a unified input model. A pointer is "any point of contact on the screen made by a mouse cursor, pen, touch, or other pointing input device."
+[Pointer Events Level 2](https://www.w3.org/TR/pointerevents/) is a W3C Recommendation; [Level 3](https://www.w3.org/TR/pointerevents3/) is currently a Candidate Recommendation. The spec defines a pointer as "a hardware-agnostic representation of input devices that can target a specific coordinate (or set of coordinates) on a screen". One unified API covers mouse, touch, and pen, with multi-pointer tracking via `pointerId`.
 
 **Key properties beyond mouse events**:
 
@@ -324,7 +340,7 @@ function setupPointerDrag(element: HTMLElement): void {
 
 ### Touch Events (Legacy)
 
-Touch Events remain relevant for multi-touch scenarios and older browser support, though Pointer Events are preferred for new implementations.
+[Touch Events Level 2](https://www.w3.org/community/reports/touchevents/CG-FINAL-touch-events-20240704/) was published as a W3C Community Group Final Report in 2024 and is explicitly designated a legacy API by the W3C Touch Events Community Group, which "strongly encourages adoption of Pointer Events". They remain relevant only for multi-touch scenarios that genuinely need direct touch list semantics, or for code that still has to support older non-Pointer-Events browsers.
 
 **TouchList collections**:
 
@@ -436,7 +452,7 @@ Mobile:  element → touchstart/touchmove/touchend → custom state → drop han
 - Con: DataTransfer quirks across browsers
 - Con: No touch support without additional library
 
-**Real-world example**: **Sortable.js** uses this approach. Provides reorderable lists with native DnD, includes touch support via adapter. ~7KB gzipped, no framework dependency.
+**Real-world example**: [**Sortable.js**](https://github.com/SortableJS/Sortable) uses this approach — native DnD on desktop with a touch adapter. ~14.7 kB gzipped (v1.15.6, per [Bundlephobia](https://bundlephobia.com/package/sortablejs)), no framework dependency.
 
 ### Path 2: Custom Pointer Events Implementation
 
@@ -478,7 +494,7 @@ pointerdown → capture → pointermove (throttled) → hit test drop targets �
 - Con: Must implement file drop separately
 - Con: More code to write/maintain
 
-**Real-world example**: **dnd-kit** uses this architecture. Sensors abstract input types—Pointer, Mouse, Touch, Keyboard. Built-in accessibility with keyboard navigation and screen reader announcements. ~15KB gzipped.
+**Real-world example**: [**dnd-kit**](https://dndkit.com/) uses this architecture. Its [sensor system](https://dndkit.com/extend/sensors/pointer-sensor) abstracts input types — `PointerSensor`, `MouseSensor`, `TouchSensor`, `KeyboardSensor` — and the `PointerSensor` explicitly avoids the HTML5 Drag and Drop API in favor of native `PointerEvent`s. Built-in accessibility with keyboard navigation and screen reader announcements. `@dnd-kit/core` is ~14.2 kB gzipped per [Bundlephobia](https://bundlephobia.com/package/@dnd-kit/core); a sortable setup with `@dnd-kit/sortable` and `@dnd-kit/modifiers` runs closer to ~25 kB.
 
 ### Path 3: Hybrid with Library Abstraction
 
@@ -519,20 +535,26 @@ pointerdown → capture → pointermove (throttled) → hit test drop targets �
 - Con: Less control over edge cases
 - Con: Learning library-specific patterns
 
-**Library comparison**:
+**Library comparison** (sizes are gzipped, sourced from [Bundlephobia](https://bundlephobia.com) and library docs as of 2026-Q1; treat them as orders of magnitude — your effective size depends on which sub-packages you import):
 
-| Library                            | Approach                | Size (gzipped) | Accessibility     | Framework |
-| ---------------------------------- | ----------------------- | -------------- | ----------------- | --------- |
-| react-dnd                          | Backend abstraction     | ~12KB          | Manual            | React     |
-| dnd-kit                            | Sensor abstraction      | ~15KB          | Built-in          | React     |
-| Sortable.js                        | Native DnD + touch      | ~7KB           | Manual            | Vanilla   |
-| @atlassian/pragmatic-drag-and-drop | Native primitives       | ~5KB core      | Separate packages | Vanilla   |
-| @react-aria/dnd                    | Pointer + accessibility | ~20KB          | Built-in          | React     |
+| Library                                                                                    | Browser API               | Approach                              | Bundled size                                  | Accessibility                                                                                          | Framework |
+| ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
+| [react-dnd](https://react-dnd.github.io/react-dnd/)                                        | HTML5 DnD (default)       | Backend abstraction (HTML5 / Touch)   | ~25 kB with `react-dnd-html5-backend`         | Manual                                                                                                 | React     |
+| [dnd-kit](https://dndkit.com/)                                                             | Pointer Events            | Sensor abstraction                    | ~14 kB core, ~25 kB with sortable & modifiers | [Built-in keyboard sensor + announcements](https://docs.dndkit.com/api-documentation/sensors/keyboard) | React     |
+| [Sortable.js](https://github.com/SortableJS/Sortable)                                      | HTML5 DnD + touch adapter | DOM mutation                          | ~14.7 kB                                      | Manual                                                                                                 | Vanilla   |
+| [@atlaskit/pragmatic-drag-and-drop](https://atlassian.design/components/pragmatic-drag-and-drop) | HTML5 DnD                 | Thin native wrappers + adapters       | ~4.7 kB core, optional packages on top        | Optional [accessibility add-on](https://atlassian.design/components/pragmatic-drag-and-drop/optional-packages/accessibility/about) | Any       |
+| [react-aria/dnd](https://react-aria.adobe.com/dnd)                                         | HTML5 DnD + bespoke a11y  | Hooks over native DnD with parity for keyboard/screen reader | Comparable to dnd-kit in real apps            | Built-in (designed accessibility-first)                                                                | React     |
+
+> [!NOTE]
+> Two common misreadings: (1) Pragmatic Drag and Drop is *built on the native HTML5 Drag and Drop API* — that is the whole point of "pragmatic", which is why it gets cross-window drag and file drops for free. It is not a Pointer-Events implementation. (2) React Aria's drag and drop also uses native HTML DnD under the hood for pointer/touch and only owns the keyboard/screen reader path itself — see Adobe's ["Taming the dragon" write-up](https://react-aria.adobe.com/blog/drag-and-drop).
+
+> [!WARNING]
+> [`react-beautiful-dnd` was archived on 2025-08-18](https://github.com/atlassian/react-beautiful-dnd/issues/2672) and now logs a deprecation warning at install. Atlassian routes new work to Pragmatic Drag and Drop; the community-maintained fork [`@hello-pangea/dnd`](https://github.com/hello-pangea/dnd) is the drop-in option for code that genuinely cannot migrate. Do not start a new project on `react-beautiful-dnd`.
 
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Library decision tree: cross-window drag forces native HTML5 DnD; otherwise accessibility and framework constraints route you to dnd-kit, React Aria, or Pragmatic.](./diagrams/library-decision-tree-light.svg "Decision tree for picking a drag-and-drop library based on cross-window drag, accessibility, framework, and complexity.")
+![Library decision tree: cross-window drag forces native HTML5 DnD; otherwise accessibility and framework constraints route you to dnd-kit, React Aria, or Pragmatic.](./diagrams/library-decision-tree-dark.svg)
 
 ## Implementing Core Patterns
 
@@ -601,6 +623,22 @@ function getDropIndicatorPosition(e: PointerEvent, element: HTMLElement): "befor
   return e.clientY < midpoint ? "before" : "after"
 }
 ```
+
+### Drop-Target Hit Testing
+
+Once you leave HTML5 DnD (where the browser does its own hit-testing for you), the library has to decide which droppable the active drag is "over". There are three workable strategies, with very different cost/precision profiles.
+
+![Drop-target detection strategies: elementFromPoint is cheap but single-element; rectangle intersection on cached rects supports closest-center / closest-corners; IntersectionObserver is the wrong tool for two-moving-element collision.](./diagrams/drop-target-detection-light.svg "Three drop-target detection strategies. dnd-kit defaults to rectangle intersection over cached rects; pointerWithin layers an `elementFromPoint`-style check on top.")
+![Drop-target detection strategies: elementFromPoint is cheap but single-element; rectangle intersection on cached rects supports closest-center / closest-corners; IntersectionObserver is the wrong tool for two-moving-element collision.](./diagrams/drop-target-detection-dark.svg)
+
+| Strategy                              | Cost per move                                  | Precision                            | Notes                                                                                                                       |
+| ------------------------------------- | ---------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `document.elementFromPoint(x, y)`     | O(1) — one browser hit-test                    | Top-most element only                | Cheap and accurate, but you have to walk up to the nearest droppable and you cannot resolve overlapping or `pointer-events: none` previews. `elementsFromPoint` (note the plural) returns the full stack and is well-supported in modern engines. |
+| Cached `getBoundingClientRect()` intersection | O(N) over N droppables, but rects are cached on `dragstart` | Full control — supports `rectIntersection`, `closestCenter`, `closestCorners`, area-overlap | What [dnd-kit's collision detection](https://docs.dndkit.com/api-documentation/context-provider/collision-detection-algorithms) ships by default. The cost knob is *cache invalidation*: scroll, resize, and layout shift during a drag invalidate cached rects. |
+| `IntersectionObserver`                | Async, off-main-thread                         | Only viewport / ancestor intersection| Designed for visibility, not collision between two moving elements. Workarounds (probe elements per droppable) tend to be brittle — avoid for the active drag, but useful for *registering* what is currently in-viewport before you cache rects. |
+
+> [!TIP]
+> Cache `getBoundingClientRect()` for every registered droppable on `pointerdown`/`dragstart`, then re-cache on `scroll` or `resize` events you intercept yourself. The dominant cost in production drag systems is not collision math — it is forgetting to invalidate the cache when an item being dragged shifts the layout of items it has not yet passed.
 
 ### Cross-Container Dragging
 
@@ -949,6 +987,9 @@ WCAG-compliant drag-drop requires full keyboard support.
 3. Arrow keys or Tab to move between positions
 4. Enter/Space to "drop" or Escape to cancel
 
+![Keyboard drag state machine: idle to grabbed via Enter/Space, arrow keys move within grabbed, Enter commits, Escape cancels back to idle.](./diagrams/keyboard-drag-state-light.svg "Keyboard drag-and-drop is a small state machine: Idle → Grabbed (Enter), Grabbed → Grabbed (arrow keys), Grabbed → Dropped (Enter) or → Idle (Escape).")
+![Keyboard drag state machine: idle to grabbed via Enter/Space, arrow keys move within grabbed, Enter commits, Escape cancels back to idle.](./diagrams/keyboard-drag-state-dark.svg)
+
 ```typescript collapse={1-15, 60-75}
 interface KeyboardDragState {
   isActive: boolean
@@ -1086,7 +1127,8 @@ function announceToScreenReader(message: string): void {
 </div>
 ```
 
-**Note**: `aria-grabbed` and `aria-dropeffect` are deprecated in ARIA 1.1 but still supported. Modern implementations rely more on live region announcements.
+> [!WARNING]
+> [`aria-grabbed`](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-grabbed) and [`aria-dropeffect`](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-dropeffect) were [deprecated in WAI-ARIA 1.1](https://www.w3.org/WAI/ARIA/track/actions/1672) and are [under active discussion for removal in ARIA 1.3](https://github.com/w3c/aria/issues/1447). Assistive technology support has always been poor. Use them only for legacy compatibility — the load-bearing accessibility comes from focus management and ARIA live region announcements.
 
 ## Real-World Implementations
 
@@ -1094,81 +1136,76 @@ function announceToScreenReader(message: string): void {
 
 **Challenge**: Drag cards between multiple lists with smooth animations and real-time sync.
 
-**Approach**:
+**Approach** (observable behavior; Trello has rotated through several internal libraries over the years):
 
-- Native HTML5 DnD for desktop with custom touch handling
-- Drop zones on each card and at list bottom
-- Visual feedback: Card rotates slightly during drag ("jaunty angle")
-- Optimistic updates with server reconciliation
+- Drop zones on each card and at list bottom.
+- Visual feedback: card tilts slightly during drag (the well-known "jaunty angle").
+- Optimistic updates with server reconciliation; failures roll the card back.
 
 **Technical details**:
 
-- `isDragging` state flag prevents style changes during drag (CSS transitions can interfere)
-- Lists are drop zones; cards calculate before/after position from pointer Y
-- AJAX PATCH to `/cards/{id}` with new `pos` value (floating-point for ordering)
-- Real-time updates via WebSocket push to other clients
+- Each card has a [`pos` attribute exposed by the public Trello API](https://developer.atlassian.com/cloud/trello/rest/api-group-cards/#api-cards-id-put), stored as a 64-bit floating-point number ([HN discussion of the format](https://news.ycombinator.com/item?id=10957165)).
+- Inserting between two cards averages the neighbors' `pos` values, so reorders are an `O(1)` API call instead of an `O(n)` re-index.
+- When `pos` gaps shrink below the float-precision threshold, a background job rebalances the affected list ([Hacker News thread](https://news.ycombinator.com/item?id=10957165)).
+- Updates broadcast to other clients via WebSocket so collaborators see moves in real time.
 
-**Key insight**: Trello uses position values with gaps (1.0, 2.0, 3.0) allowing inserts without reindexing all cards. When gaps exhaust, background job rebalances.
+**Key insight**: Floating-point `pos` with rebalancing trades per-write cost for occasional bulk maintenance — a classic "fractional indexing" pattern that decouples drag UX from server load.
 
 ### Notion: Block Reordering
 
 **Challenge**: Every piece of content is a draggable, nestable block. Blocks can be text, images, databases, or embedded content.
 
-**Approach**:
+**Observable behavior**:
 
-- Custom Pointer Events implementation
-- Drag handle (six dots) appears on hover
-- Multi-block selection with Shift+click
-- Alt/Option + drag creates duplicate
-- Horizontal drag position determines nesting depth
+- Drag handle (six dots) appears on hover.
+- Multi-block selection with Shift+click; Alt/Option+drag creates a duplicate.
+- Horizontal drag position determines nesting depth in toggles and lists.
+- Drag preview shows a block outline, not the full content; drop indicator style changes by nesting level.
 
-**Technical details**:
+**Architecture** (from [Notion's "data model behind Notion" post](https://www.notion.com/blog/data-model-behind-notion)):
 
-- Block IDs use UUIDs for conflict-free collaborative editing
-- Drag preview shows block outline, not full content
-- Drop indicator changes style based on nesting level
-- Tree operations use CRDT for real-time collaboration
+- Every piece of content is a *block* with a UUID, a `parent` pointer, and an ordered list of `content` (child block IDs). Blocks form a render tree.
+- User actions are encoded as discrete operations against that tree, batched into transactions, persisted in an append-only log on the server, and pushed to other clients over WebSockets.
+- Concurrent edits are merged with a hybrid strategy: tree-structure operations lean on operation-based sync with the server as serialization point, while character-level text edits use CRDT-style merging for offline tolerance[^notion-collab].
 
-**Key insight**: Notion separates "block" (content unit) from "view" (how it renders). Dragging operates on block identity, not DOM elements.
+**Key insight**: Notion's drag operates on block identity, not DOM nodes. Reparenting is just a server operation that updates `parent` and rewrites the source and destination `content` arrays, which is why drags survive page reloads and collaborator edits without bespoke client code.
 
 ### Figma: Canvas Objects
 
 **Challenge**: Drag objects on infinite canvas with zoom, precision positioning, and multi-select.
 
-**Approach**:
+**Architecture** (from Figma's engineering blog and the [Pragmatic Engineer interview with the Figma Slides team](https://newsletter.pragmaticengineer.com/p/building-figma-slides-with-noah-finer)):
 
-- WebGL rendering (not DOM) for canvas
-- Pointer Events for input handling
-- Separate layers: rendering, interaction, UI
-- DndKit for UI elements (layer list, component browser)
+- Core editor is a C++ engine compiled to WebAssembly that draws to an HTML `<canvas>` via WebGL — and now [WebGPU where supported](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/).
+- Surrounding UI (layer list, properties panel, modals) is React + TypeScript talking to the engine through a bindings layer.
+- Custom hit-testing against the scene graph rather than `elementFromPoint`; the canvas knows nothing about DOM.
 
-**Technical details**:
+**Implementation details**:
 
-- Canvas uses custom hit-testing against scene graph, not `elementFromPoint`
-- Drag threshold prevents accidental moves (3px)
-- Snap-to-grid and smart guides during drag
-- Undo stack captures drag as single operation
+- Drag threshold (a few pixels) prevents accidental moves on click.
+- Snap-to-grid and smart guides are computed every frame against neighbors.
+- Undo stack captures a drag as a single operation.
 
-**Key insight**: Figma's architecture separates concerns: WebGL handles rendering, D3-style zoom handles viewport, Pointer Events handle input. No single "drag library" covers all needs.
+**Key insight**: For canvas-style apps, no off-the-shelf drag library covers the load-bearing path. The renderer owns coordinates, the engine owns hit-testing, and you reach for a library only on the chrome.
 
-### VSCode: File Tree and Tabs
+### VS Code: File Tree and Tabs
 
-**Challenge**: Drag files between explorer, editors, and terminals. Support external file drops.
+**Challenge**: Drag files between explorer, editors, and terminals; also accept files dragged in from the OS.
 
-**Approach**:
+**Approach** (visible in [`src/vs/workbench/browser/dnd.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/dnd.ts)):
 
-- Custom implementation with `LocalSelectionTransfer` for same-window drags
-- Native DnD for external file drops
-- Drag identifiers: `DraggedEditorIdentifier` (single file), `DraggedEditorGroupIdentifier` (tab group)
+- Custom implementation built on a `LocalSelectionTransfer` singleton for same-window drags.
+- Native HTML5 DnD for external file drops, which is the only way to receive OS file drops.
+- Typed drag identifiers — `DraggedEditorIdentifier` for a single editor, `DraggedEditorGroupIdentifier` for a tab group.
 
 **Technical details**:
 
-- `LocalSelectionTransfer` singleton manages in-app drag state
-- `EditorDropTarget` components register as drop zones
-- File tree supports dragging into and out of folders
-- Tab dragging supports reordering and moving between groups
+- `LocalSelectionTransfer` is a singleton keyed by drag-payload type; it lets the source set typed payload data and the target read it back without going through `DataTransfer` (which is locked down outside `dragstart`/`drop`).
+- `EditorDropTarget` components register as drop zones.
+- The file tree supports dragging into and out of folders; tabs support reordering across editor groups.
+- For extensions, the public surface area is the `TreeDragAndDropController` and `DocumentDropEditProvider` APIs, which wrap a smaller `vscode.DataTransfer` abstraction.
 
-**Key insight**: VSCode uses different drag mechanisms for internal vs. external drops. Internal uses custom state management; external uses native DataTransfer for file access.
+**Key insight**: VS Code uses two drag mechanisms in parallel — a process-local typed channel for in-app drags (avoids `DataTransfer` quirks) and native `DataTransfer` for OS interop (the only way to accept files). This is the same pattern most desktop-class web apps converge on.
 
 ## Browser Constraints
 
@@ -1202,7 +1239,7 @@ function handlePointerMove(e: PointerEvent): void {
 
 ### Touch Delay and Gesture Conflicts
 
-Mobile browsers have 300ms tap delay (mostly eliminated in modern browsers with proper viewport meta). Touch gestures conflict with drag.
+The classic 300ms tap delay is essentially gone on modern mobile browsers as long as you ship a proper viewport meta tag (`<meta name="viewport" content="width=device-width">`) or apply `touch-action: manipulation` to interactive elements. Chrome documented the change in ["300ms tap delay, gone away"](https://developer.chrome.com/blog/300ms-tap-delay-gone-away); legacy polyfills like FastClick are no longer needed and may even hurt. Touch gestures (pan, pinch, double-tap-to-zoom) still conflict with drag, so you still need `touch-action` and activation constraints.
 
 **Activation constraints prevent accidental drags**:
 
@@ -1378,28 +1415,37 @@ function handleDrop(fromIndex: number, toIndex: number): void {
 
   setItems(newItems) // Optimistic
 
-  api.updateOrder(newItems.map((i) => i.id)).catch(() => {
-    setItems(previousItems) // Rollback
-    showError("Failed to save order")
-  })
+  api
+    .updateOrder(newItems.map((i) => i.id))
+    .then((serverOrder) => setItems(serverOrder)) // Reconcile against canonical state
+    .catch(() => {
+      setItems(previousItems) // Rollback
+      showError("Failed to save order")
+    })
 }
 ```
 
+![Optimistic update with server reconciliation: snapshot prevState, apply optimistic reorder, send mutation; on success replace with canonical server state, on failure rollback and notify.](./diagrams/optimistic-update-light.svg "Drag commit, optimistic state update, server mutation, then either reconcile against the canonical response or rollback to the pre-drag snapshot.")
+![Optimistic update with server reconciliation: snapshot prevState, apply optimistic reorder, send mutation; on success replace with canonical server state, on failure rollback and notify.](./diagrams/optimistic-update-dark.svg)
+
+> [!IMPORTANT]
+> "Reconcile" is not "no-op on success". The server's response is the canonical order — for fractional-position schemes (Trello, Notion, Figma), the server may return a position different from the one you optimistically computed (rebalance, conflict, concurrent edit). Always replace the optimistic state with the server response on success, otherwise drift accumulates silently across drags.
+
 ## Conclusion
 
-Drag and drop systems require unifying disparate browser APIs while maintaining accessibility. The fundamental tension: native HTML5 DnD provides OS integration but lacks touch support and has cross-browser quirks. Custom Pointer Events implementations provide consistency but lose native features like cross-window drag.
+Drag and drop systems require unifying disparate browser APIs while maintaining accessibility. The fundamental tension: native HTML5 DnD provides OS-level integration (cross-window drag, file drops) but lacks touch support and carries real cross-browser quirks. Pointer-Events implementations provide consistent behavior across input devices but cannot accept files dragged from the OS without falling back to native DnD anyway.
 
 **Architectural decisions**:
 
-**API layer**: Native DnD for file drops and cross-window scenarios. Pointer Events for consistent in-app interactions. Most applications need both.
+**API layer**: Native HTML5 DnD when you need file drops or cross-window/cross-tab drag. Pointer Events when you need consistent multi-device behavior and don't need OS integration. Many applications want both, isolated behind a small adapter.
 
-**Library vs custom**: Libraries (dnd-kit, react-dnd) provide tested solutions for common patterns. Custom implementation when you need precise control or have unusual requirements (canvas-based, non-DOM rendering).
+**Library vs custom**: Libraries (dnd-kit, Pragmatic Drag and Drop, react-dnd, Sortable.js, React Aria) all encode hard-won workarounds for the underlying APIs and are the right default. Custom implementation only when you have unusual requirements — canvas-based rendering, multi-pointer gestures, or extreme bundle-size constraints.
 
-**Accessibility**: Not optional. WCAG 2.5.7 requires keyboard alternatives. Build it in from the start—retrofitting is harder.
+**Accessibility**: Not optional. [WCAG 2.5.7](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) requires a single-pointer alternative; [WCAG 2.1.1](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html) requires a keyboard path. Build both in from the start — retrofitting is harder, and at least one (the single-pointer one) is easy to forget.
 
-**Visual feedback**: Users need constant feedback during drag. Drag preview follows cursor, drop indicators show destination, animations smooth transitions. Without feedback, drag operations feel broken.
+**Visual feedback**: Users need constant feedback during drag — drag preview follows the cursor, drop indicators show destination, animations smooth transitions. Without feedback, drag operations feel broken even when they're working correctly.
 
-The technology is mature. dnd-kit and Pragmatic Drag and Drop represent the current best practices—Pointer Events foundation, sensor abstraction, built-in accessibility. Choose based on your framework constraints and whether you need native DnD features.
+The current production split is roughly: dnd-kit and React Aria for Pointer-Events-first React stacks; Pragmatic Drag and Drop for framework-agnostic native-DnD work; Sortable.js for tiny vanilla apps; react-dnd in legacy code that nobody is rewriting. Pick by *which API you need underneath*, not by feature checklist alone — that decision flows backwards into everything else, including how much accessibility code you'll have to write yourself.
 
 ## Appendix
 
@@ -1421,22 +1467,35 @@ The technology is mature. dnd-kit and Pragmatic Drag and Drop represent the curr
 
 ### Summary
 
-- **HTML5 DnD limitations**: Mouse-only, DataTransfer timing quirks, no touch support without separate implementation
-- **Pointer Events advantage**: Single API for mouse/touch/pen, pointer capture for reliable drag tracking
-- **Accessibility requirement**: WCAG 2.5.7 mandates keyboard alternatives—Enter to grab, Tab/arrows to move, Enter to drop
-- **Library approaches**: Native wrappers (Sortable.js, react-dnd) vs custom implementations (dnd-kit, Pragmatic)
-- **Visual feedback**: Drag preview, drop indicators, and animations are essential for usable drag-drop
-- **Real-world patterns**: Trello uses position gaps, Notion operates on block IDs, Figma separates rendering from input
+- **HTML5 DnD limitations**: Mouse and pen only, three-mode `DataTransfer` lifecycle, no touch support without separate implementation, OS-level features (cross-window, file drop) only available here.
+- **Pointer Events advantage**: Single API for mouse, touch, and pen; pointer capture for reliable drag tracking when the cursor leaves the element.
+- **Accessibility requirement**: [WCAG 2.5.7](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) mandates a single-pointer (click/tap) alternative; [WCAG 2.1.1](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html) requires a keyboard path. Both are required.
+- **Library API split**: HTML5 DnD wrappers (react-dnd, Sortable.js, Pragmatic Drag and Drop) vs Pointer-Events implementations (dnd-kit, React Aria-managed pointer/touch is HTML5 underneath).
+- **Visual feedback**: Drag preview, drop indicators, and layout-shift animations are essential for usable drag-drop.
+- **Real-world patterns**: Trello uses fractional `pos` indexing with rebalancing, Notion operates on block IDs with hybrid OT/CRDT sync, Figma renders the canvas in a custom WebAssembly engine and only uses libraries on the chrome.
 
 ### References
 
-- [WHATWG HTML Standard - Drag and Drop](https://html.spec.whatwg.org/multipage/dnd.html) - Normative specification for HTML5 DnD
-- [W3C Pointer Events](https://www.w3.org/TR/pointerevents/) - Unified pointer input specification
-- [W3C Touch Events Level 2](https://w3c.github.io/touch-events/) - Touch Events specification (legacy)
-- [WCAG 2.5.7: Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) - Accessibility requirements
-- [MDN: HTML Drag and Drop API](https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API) - API reference and examples
-- [MDN: Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events) - Pointer Events guide
-- [dnd-kit Documentation](https://docs.dndkit.com/) - Modern drag-drop library
-- [React DnD Documentation](https://react-dnd.github.io/react-dnd/docs/overview) - Backend abstraction approach
-- [Pragmatic Drag and Drop - Atlassian](https://atlassian.design/components/pragmatic-drag-and-drop) - Low-level primitives approach
-- [React Aria: Accessible Drag and Drop](https://react-spectrum.adobe.com/react-aria/dnd.html) - Adobe's accessibility-first implementation
+- [WHATWG HTML Standard — Drag and Drop](https://html.spec.whatwg.org/multipage/dnd.html) — normative HTML5 DnD spec, including the three-mode `DataTransfer` lifecycle.
+- [W3C Pointer Events Level 2](https://www.w3.org/TR/pointerevents/) and [Pointer Events Level 3 (CR)](https://www.w3.org/TR/pointerevents3/) — unified pointer input specs.
+- [W3C Touch Events Level 2 — Community Group Final Report](https://www.w3.org/community/reports/touchevents/CG-FINAL-touch-events-20240704/) — Touch Events, now legacy.
+- [WCAG 2.5.7 Dragging Movements (WCAG 2.2, AA)](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) and [WCAG 2.1.1 Keyboard (A)](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html).
+- [MDN — HTML Drag and Drop API](https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API) and [MDN — Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events).
+- [dnd-kit documentation](https://docs.dndkit.com/) and the [pointer sensor reference](https://dndkit.com/extend/sensors/pointer-sensor).
+- [react-dnd documentation](https://react-dnd.github.io/react-dnd/docs/overview).
+- [Pragmatic Drag and Drop — Atlassian Design System](https://atlassian.design/components/pragmatic-drag-and-drop) and [Atlassian's "Designed for delight, built for performance" write-up](https://www.atlassian.com/blog/design/designed-for-delight-built-for-performance).
+- [React Aria — Drag and Drop](https://react-aria.adobe.com/dnd) and ["Taming the dragon" architecture post](https://react-aria.adobe.com/blog/drag-and-drop).
+- [Notion — The data model behind Notion's flexibility](https://www.notion.com/blog/data-model-behind-notion).
+- [Figma — Rendering powered by WebGPU](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/) and [Pragmatic Engineer interview on the Figma renderer](https://newsletter.pragmaticengineer.com/p/building-figma-slides-with-noah-finer).
+
+[^touch-dnd]: HTML5 Drag and Drop events are not fired in response to touch on Chrome, Firefox, or Safari. The spec is silent on touch behavior, but cross-browser testing has shown this consistently for years; see ["HTML5 Drag & Drop — Not the API You're Looking For" (sam.today)](https://www.sam.today/blog/html5-dnd-the-api-that-is-gaslighting-you) and the [`drag-drop-touch` polyfill README](https://github.com/drag-drop-touch-js/dragdroptouch) for representative test results.
+
+[^datastore]: See ["Working with the drag data store" — MDN](https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Drag_data_store) for the user-facing summary and the [WHATWG drag data store mode definition](https://html.spec.whatwg.org/multipage/dnd.html#concept-dnd-rw) for the normative description of read/write, protected, and read-only modes.
+
+[^drop-order]: The relative order of `drop` and `dragend` is not normatively pinned by [the WHATWG drag-and-drop processing model](https://html.spec.whatwg.org/multipage/dnd.html#drag-and-drop-processing-model). Historic browser drift was discussed in ["Cross Browser HTML5 Drag and Drop"](https://www.useragentman.com/blog/2010/01/10/cross-browser-html5-drag-and-drop/) (2010) and is still raised in current bug trackers; do not depend on a specific order.
+
+[^chrome-dragimage]: The Chromium constraint that the drag-image element must be in the DOM and have layout is documented across implementer notes; see [MDN's `setDragImage()` reference](https://developer.mozilla.org/en-US/docs/Web/API/DataTransfer/setDragImage) for the cross-browser caveats.
+
+[^wcag-257-test]: See [Vispero's "How to test 2.5.7 Dragging Movements"](https://vispero.com/resources/how-to-test-2-5-7-dragging-movements/) and the [W3C Understanding 2.5.7 document](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html), both of which explicitly state that providing a keyboard alternative does not by itself satisfy 2.5.7 — the criterion requires a single-pointer alternative.
+
+[^notion-collab]: Notion has not published a definitive paper on its concurrency model, but the [data model post](https://www.notion.com/blog/data-model-behind-notion) describes the operation-based sync model and tree structure. Third-party syntheses such as [Educative's "Notion System Design Explained"](https://www.educative.io/blog/notion-system-design) describe the hybrid OT-for-tree, CRDT-for-text approach; treat the specifics as informed inference rather than first-party documentation.

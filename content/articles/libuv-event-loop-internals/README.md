@@ -6,13 +6,14 @@ description: >-
   I/O, handle and request abstractions, and the io_uring integration that
   underpins Node.js's non-blocking architecture.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - javascript
   - runtime
   - v8
   - nodejs
   - event-loop
+  - libuv
 ---
 
 # libuv Internals: Event Loop and Async I/O
@@ -23,7 +24,7 @@ Explore libuv's event loop architecture, asynchronous I/O capabilities, thread p
 
 ## Abstract
 
-**libuv** (as of v1.51.0, April 2025) is a cross-platform asynchronous I/O library that provides Node.js with its event-driven, non-blocking architecture. The mental model centers on a **fundamental architectural dichotomy**:
+**libuv** (current stable: [v1.52.1, March 2026](https://github.com/libuv/libuv/releases/tag/v1.52.1)) is the cross-platform asynchronous I/O library that gives Node.js — and Luvit, Julia, uvloop, Neovim, and others — their event-driven, non-blocking architecture. The mental model centers on a **fundamental architectural dichotomy**:
 
 | I/O Type     | Mechanism                          | Scalability                                             | Bottleneck            |
 | ------------ | ---------------------------------- | ------------------------------------------------------- | --------------------- |
@@ -32,22 +33,25 @@ Explore libuv's event loop architecture, asynchronous I/O capabilities, thread p
 
 **Core abstractions form a triad:**
 
-- **Event Loop** (`uv_loop_t`): Single-threaded orchestrator executing callbacks in 6 phases (timers → pending → idle/prepare → poll → check → close)
-- **Handles** (`uv_handle_t`): Long-lived resources (sockets, timers, watchers) that keep the loop alive when active
-- **Requests** (`uv_req_t`): One-shot operations carrying context from initiation to completion callback
+- **Event Loop** (`uv_loop_t`): single-threaded orchestrator. The [design doc](https://docs.libuv.org/en/v1.x/design.html#the-i-o-loop) spells out roughly thirteen stages per iteration; the conventional teaching mnemonic collapses these into six phases (timers → pending callbacks → idle/prepare → poll → check → close) — but note that due timers actually run **twice**: at the top of the iteration (under `UV_RUN_DEFAULT`) and again after close callbacks.
+- **Handles** (`uv_handle_t`): long-lived resources (sockets, timers, watchers) that keep the loop alive when active.
+- **Requests** (`uv_req_t`): one-shot operations carrying context from initiation to completion callback.
 
 **Platform abstraction unifies fundamentally different I/O models:**
 
-- **Readiness-based** (Linux epoll, BSD kqueue): "Socket X is ready" → application performs I/O
-- **Completion-based** (Windows IOCP): "Read complete, data in buffer" → application processes result
+- **Readiness-based** (Linux epoll, BSD kqueue): "Socket X is ready" → application performs I/O.
+- **Completion-based** (Windows IOCP): "Read complete, data in buffer" → application processes result.
 
-libuv presents a completion-style API to users but must emulate completion semantics on readiness-based systems.
+libuv presents a completion-style API to users but must emulate completion semantics on readiness-based systems. The sequence below shows how a `uv_read_start()` call on a TCP stream travels through the kernel and back into user code on Linux:
 
-**Recent evolution (v1.50.0+):** io_uring integration provides true completion-based file I/O on Linux 5.13+, with epoll batching always enabled and SQPOLL file operations opt-in via `UV_USE_IO_URING=1`. Network I/O remains single-threaded polling—io_uring network support is still RFC with no implementation timeline.
+![Sequence showing how libuv emulates a completion-style read callback on top of level-triggered epoll](./diagrams/epoll-readiness-emulation-light.svg "uv_read_start on Linux: libuv registers level-triggered EPOLLIN, blocks in epoll_pwait, then performs the non-blocking read itself before invoking the user callback with the bytes — emulating IOCP-style completion on a readiness backend.")
+![Sequence showing how libuv emulates a completion-style read callback on top of level-triggered epoll](./diagrams/epoll-readiness-emulation-dark.svg)
+
+**Recent evolution (v1.49.0–v1.52.x):** io_uring integration provides true completion-based file I/O on Linux 5.13+. As of v1.50.0, libuv [unconditionally uses io_uring for epoll registration batching](https://github.com/libuv/libuv/releases/tag/v1.50.0) on supported kernels — [`src/unix/linux.c` `uv__use_io_uring()`](https://github.com/libuv/libuv/blob/v1.x/src/unix/linux.c) returns `1` whenever the SQPOLL flag is *not* requested, regardless of any environment variable. SQPOLL file operations were [disabled by default in v1.49.0](https://github.com/libuv/libuv/releases/tag/v1.49.0) and are now opt-in via *both* the `UV_LOOP_ENABLE_IO_URING_SQPOLL` loop flag (set with `uv_loop_configure`) *and* `UV_USE_IO_URING=1` ([Issue #4616](https://github.com/libuv/libuv/issues/4616)). Network I/O remains single-threaded polling — the io_uring network proposal ([Issue #4044](https://github.com/libuv/libuv/issues/4044)) explored integration but was never adopted.
 
 ## What is libuv
 
-libuv is a multi-platform support library with a focus on asynchronous I/O. Originally developed for Node.js, it now powers Luvit, Julia, uvloop, Neovim, and others. As of v1.51.0 (April 2025), the library targets C11 and supports Linux, macOS, BSD variants, Windows 10+, and various Unix-like systems.
+libuv is a multi-platform support library with a focus on asynchronous I/O. Originally developed for Node.js, it now powers Luvit, Julia, uvloop, Neovim, and others. The library [targets C11](https://github.com/libuv/libuv/discussions/4913) and supports Linux, macOS, BSD variants, Windows 10+, and various Unix-like systems.
 
 ### Features
 
@@ -122,7 +126,7 @@ Some examples:
   - threads have 8 MB stack as of v1.45.0
   - threads named "libuv-worker" as of v1.50.0
 - Only file I/O, getaddrinfo(), getnameinfo(), custom work runs on thread pool
-- Pool is initialized lazily when first work is queued; cannot be resized at runtime
+- Pool is initialized lazily on the first call that queues work; once initialized the size is fixed for the process lifetime, and changing `UV_THREADPOOL_SIZE` afterwards has no effect
 
 #### Architecture of the Global Worker Thread Pool
 
@@ -138,7 +142,11 @@ As established previously, the thread pool is libuv's solution for emulating asy
 
 #### The uv_queue_work Lifecycle: Task Delegation and Result Passing
 
-The primary API for submitting custom, user-defined tasks to the thread pool is uv_queue_work(). This function orchestrates a clear and robust lifecycle for offloading a task and receiving its result.
+The primary API for submitting custom, user-defined tasks to the thread pool is `uv_queue_work()`. It orchestrates a clear lifecycle for offloading work and routing the result back to the loop thread.
+
+![Thread pool lifecycle for uv_queue_work showing the loop thread, work queue, worker thread, and the final after_work_cb back on the loop](./diagrams/thread-pool-lifecycle-light.svg "uv_queue_work lifecycle. The work queue and pool are global per process; after_work_cb always runs on the loop thread that called uv_queue_work.")
+![Thread pool lifecycle for uv_queue_work showing the loop thread, work queue, worker thread, and the final after_work_cb back on the loop](./diagrams/thread-pool-lifecycle-dark.svg)
+
 
 **Queuing:** A developer calls uv_queue_work(), passing it four arguments: the event loop, a pointer to a uv_work_t request structure, a work_cb function pointer, and an after_work_cb function pointer. The uv_work_t request is initialized and placed onto a queue of pending work.
 
@@ -164,22 +172,25 @@ It is critical to reiterate that network I/O (e.g., TCP, UDP operations) is not 
 
 ## The Event Loop: A Phase-by-Phase Dissection
 
-The libuv event loop is not a simple First-In-First-Out (FIFO) queue. It is a sophisticated, multi-phase process that executes different categories of callbacks in a specific, predictable order within each iteration, or "tick," of the loop ([libuv design docs](https://docs.libuv.org/en/v1.x/design.html)). A granular understanding of these phases is essential for comprehending the execution order of asynchronous operations and for debugging complex timing-related issues.
+The libuv event loop is not a FIFO queue of callbacks. It is a multi-stage state machine that executes different categories of callbacks in a specific, predictable order within each iteration ("tick") of the loop. The [design doc](https://docs.libuv.org/en/v1.x/design.html#the-i-o-loop) enumerates roughly thirteen distinct stages per iteration. Most reference material (including this article) collapses them into the canonical **six phases** below — but two of those stages deserve explicit attention because they break the simple mental model:
+
+> [!IMPORTANT]
+> **Due timers run twice per iteration.** Per the design doc, expired-timer callbacks fire at the **top** of the iteration (only under `UV_RUN_DEFAULT`) **and again** after the close-callback phase. Between those two passes, the loop concept of "now" is updated exactly once, immediately after close callbacks. A timer that becomes due *during* callback processing in the same tick will not fire until the trailing timer pass — there is no mid-iteration re-check.
 
 ![Async Operations Slide by Bert Belder at Node Interactive - 2016](./assets/async-operations.jpg "Async operations diagram showing how libuv handles non-blocking I/O operations through the event loop")
 
 ### The Anatomy of a Single Loop Iteration
 
-![The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks](./diagrams/event-loop-phases-light.svg)
+![The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks](./diagrams/event-loop-phases-light.svg "Six-phase teaching model of a libuv event loop tick. The actual design doc lists thirteen sub-stages and runs due timers both at the top of the iteration (UV_RUN_DEFAULT only) and again after close callbacks.")
 ![The six phases of a libuv event loop iteration: timers, pending callbacks, idle/prepare, I/O poll, check callbacks, and close callbacks](./diagrams/event-loop-phases-dark.svg)
 
-Each full turn of the event loop, initiated by a call to uv_run(), proceeds through the following distinct stages:
+Each full turn of the event loop, initiated by a call to `uv_run()`, proceeds through the following distinct stages:
 
 **Phase 1: Update Loop Time & Run Timers**
 
-The iteration begins by updating the loop's internal concept of "now." To minimize the overhead of frequent, expensive system calls to get the current time, libuv caches this timestamp at the start of the tick. This cached value is used for the duration of the iteration when checking timer expirations.
+The iteration begins by updating the loop's internal concept of "now". libuv caches this timestamp at the start of the tick to avoid repeated `clock_gettime`-style syscalls; the cached value is used for the rest of the iteration when checking timer expirations.
 
-Next, the timers phase is executed. The timer queue, which is efficiently implemented as a min-heap data structure, is scanned. Callbacks for all active timers whose scheduled execution time is less than or equal to the cached "now" are executed sequentially.
+The timers phase then scans the timer queue — implemented as a [min-heap (complete binary tree) in `src/heap-inl.h`](https://github.com/libuv/libuv/blob/v1.x/src/heap-inl.h) — and executes the callback for every active timer whose scheduled time is `<=` the cached "now". Per the design doc, this top-of-iteration timer pass only happens when the loop is run under `UV_RUN_DEFAULT`; in `UV_RUN_ONCE`/`UV_RUN_NOWAIT`, due timers are processed in the trailing pass instead.
 
 **Phase 2: Pending Callbacks**
 
@@ -211,9 +222,12 @@ Callbacks for active check handles are executed immediately after the I/O poll c
 
 **Phase 6: Close Callbacks**
 
-Finally, this phase executes the callbacks for any handles that were requested to be closed via uv_close(). This provides a safe, deterministic point for the user to deallocate memory associated with a handle, ensuring that no other part of the loop will attempt to access it.
+This phase executes the callbacks for any handles that were requested to be closed via `uv_close()`. It is the only safe, deterministic point at which the user may deallocate memory associated with a handle — once the close callback has returned, no other part of the loop will touch the handle.
 
-It is important to note that after this phase, the loop does not immediately update its "now" time again. If a new timer becomes due while other callbacks in the current iteration are running, its callback will not be executed until the next full iteration of the event loop, starting again at Phase 1.
+After close callbacks complete, the [design doc](https://docs.libuv.org/en/v1.x/design.html#the-i-o-loop) prescribes two final substeps before the iteration ends: the loop's concept of "now" is updated, and a **second** due-timer pass runs. The "now" timestamp is then frozen for the duration of that timer pass, so a timer that becomes due *while* its sibling timer callbacks are executing does not fire until the next full iteration.
+
+> [!NOTE]
+> **libuv has no microtask phase.** The Promise job queue and `process.nextTick` queue belong to the *embedder*, not to libuv. In Node.js, the libuv host drains `process.nextTick` and then V8's microtask checkpoint (`isolate->PerformMicrotaskCheckpoint`) **after every individual libuv callback** in every phase, not as a separate phase of its own ([Node.js event-loop guide](https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick), [`MicrotaskPolicy::kExplicit`](https://v8.github.io/api/head/classv8_1_1Isolate.html)). Treat libuv's six phases as the *outer* loop and the embedder's microtask drain as an inner loop that runs at every callback boundary. A pure-C libuv program has no microtasks at all.
 
 ### Loop Lifecycle and State: Reference Counting and uv_run Modes
 
@@ -265,7 +279,7 @@ On Linux systems, libuv leverages epoll, the standard mechanism for high-perform
 
 **Implementation:** For each event loop, libuv creates a single epoll instance using the epoll_create1() system call. When a user wants to monitor a file descriptor (e.g., for a TCP socket), libuv uses epoll_ctl() to add (EPOLL_CTL_ADD), modify (EPOLL_CTL_MOD), or remove (EPOLL_CTL_DEL) the file descriptor from the epoll interest set. The core of the I/O polling phase in the event loop is a single, blocking call to epoll_pwait(), which waits for events to become available on any of the monitored file descriptors or for a specified timeout to elapse. The source code containing this logic resides primarily in [src/unix/linux.c](https://github.com/libuv/libuv/blob/v1.x/src/unix/linux.c).
 
-libuv is capable of utilizing both level-triggered (LT) and edge-triggered (ET) modes of epoll, though managing ET correctly is more complex as it requires the application to completely drain the I/O buffer upon each notification to avoid missing subsequent events.
+For its high-level stream and TCP/UDP handles, libuv uses **level-triggered** epoll internally ([Issue #1177](https://github.com/libuv/libuv/issues/1177)). The library's `uv_poll_t` handle exposes raw `epoll`-style readiness events for advanced use cases where the application owns the read/write loop, but the default abstraction stays level-triggered to keep the per-event drain semantics simple. Edge-triggered mode is used in a handful of internal pipes (signal pipes, async wakeup) where the consumer is libuv itself and is guaranteed to drain.
 
 ### The kqueue Backend (BSD/macOS)
 
@@ -447,14 +461,15 @@ The uv_signal_t handle provides a cross-platform, event-loop-integrated way to h
 
 **Lifecycle:** The handle is managed via uv_signal_init, uv_signal_start(handle, cb, signum), and uv_signal_stop.
 
-**Cross-Platform Emulation:** A key feature is its emulation of common Unix signals on Windows, providing a consistent developer experience:
+**Cross-Platform Emulation:** A key feature is its emulation of common Unix signals on Windows, providing a consistent developer experience ([uv_signal_t docs](https://docs.libuv.org/en/v1.x/signal.html)):
 
-- SIGINT is mapped to the user pressing CTRL+C.
-- SIGBREAK is mapped to CTRL+BREAK.
-- SIGHUP is generated when the console window is closed.
-- SIGWINCH is generated when the console is resized.
+- `SIGINT` is delivered when the user presses CTRL+C (terminal raw mode suppresses it, mirroring Unix).
+- `SIGBREAK` is delivered when the user presses CTRL+BREAK.
+- `SIGHUP` is generated when the console window is closed; the program then has approximately 10 seconds before Windows force-terminates it.
+- `SIGWINCH` is raised on console resize; for 32-bit processes on 64-bit Windows or under console emulators it is best-effort and may lag.
+- Watchers for `SIGILL`, `SIGABRT`, `SIGFPE`, `SIGSEGV`, `SIGTERM`, and `SIGKILL` *can* be created on Windows but the signals are never delivered, and `raise()` / `abort()` do not trigger libuv watchers.
 
-**Limitations:** The abstraction is not without its limits. Certain signals, such as SIGKILL and SIGSTOP, are uncatchable on any platform and cannot be handled by libuv. Furthermore, attempting to handle hardware-related signals like SIGSEGV (segmentation fault) or SIGFPE (floating-point exception) with a libuv watcher results in undefined behavior, as these typically indicate a critical program error that should not be caught and continued from.
+**Limitations:** The abstraction is not without its limits. `SIGKILL` and `SIGSTOP` are uncatchable on any platform. Handling hardware-fault signals (`SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL`) via libuv is undefined behavior — these indicate a corrupted process that should not be resumed. On Linux, `SIGRT0` and `SIGRT1` (signals 32–33) are reserved by NPTL pthreads and watching them produces unpredictable behavior; future libuv versions may reject them outright.
 
 ## Conclusion: Synthesis and Future Outlook
 
@@ -472,20 +487,29 @@ Despite its success, libuv is not without its limitations, and its continued evo
 
 **Context Switching Overhead:** In environments like Node.js, the bridge between the high-level language (JavaScript) and the C/C++ layer (libuv) necessarily incurs some context-switching overhead. While negligible for most applications, this can become a measurable factor in extremely I/O-intensive workloads where every microsecond counts.
 
-**The io_uring Evolution (Linux):** io_uring represents a paradigm shift, offering a true completion-based (Proactor) I/O interface designed for extremely high throughput and low overhead. libuv's io_uring integration operates in two distinct modes:
+**The io_uring Evolution (Linux):** io_uring represents a paradigm shift, offering a true completion-based (Proactor) I/O interface designed for extremely high throughput and low overhead. libuv's io_uring integration is split into two layers: an unconditional epoll-registration batcher and an opt-in SQPOLL backend for file I/O. The behavior was settled in [Issue #4616](https://github.com/libuv/libuv/issues/4616) (closed December 2024); the dedicated loop flag `UV_LOOP_ENABLE_IO_URING_SQPOLL` survives in the source but was [intentionally removed from the public docs in v1.52.0](https://github.com/libuv/libuv/releases/tag/v1.52.0), discouraging direct use without the matching `UV_USE_IO_URING=1` env var.
 
-1. **Epoll batching** (always enabled as of v1.50.0): Batches `epoll_ctl` calls through io_uring for improved polling efficiency. This requires no configuration and works transparently on supported kernels.
+![libuv io_uring control modes showing always-on epoll batching versus opt-in SQPOLL gated by both the loop flag and UV_USE_IO_URING](./diagrams/io-uring-modes-light.svg "io_uring in libuv v1.50.0+: epoll batching is unconditional on supported kernels; SQPOLL file I/O requires both the UV_LOOP_ENABLE_IO_URING_SQPOLL loop flag and UV_USE_IO_URING=1, and inherits the CVE-2024-22017 footgun.")
+![libuv io_uring control modes showing always-on epoll batching versus opt-in SQPOLL gated by both the loop flag and UV_USE_IO_URING](./diagrams/io-uring-modes-dark.svg)
 
-2. **SQPOLL file operations** (opt-in): Provides true async file I/O (read/write/fsync/fdatasync/stat) with [~8x throughput improvement](https://www.phoronix.com/news/libuv-io-uring) in benchmarks. Requires explicit opt-in via `UV_USE_IO_URING=1` environment variable plus the `UV_LOOP_ENABLE_IO_URING_SQPOLL` loop flag.
+| Loop configured with `UV_LOOP_ENABLE_IO_URING_SQPOLL`? | `UV_USE_IO_URING` | Epoll batching   | SQPOLL async file I/O |
+| :----------------------------------------------------- | :---------------- | :--------------- | :-------------------- |
+| no (default)                                           | any value         | always-on        | disabled              |
+| yes                                                    | _unset_ or `0`    | always-on        | disabled              |
+| yes                                                    | `1`               | always-on        | **enabled**           |
+
+1. **Epoll registration batching** is unconditional as of [v1.50.0, PR #4638](https://github.com/libuv/libuv/releases/tag/v1.50.0): on supported kernels libuv funnels `epoll_ctl` registrations through io_uring for lower per-event syscall overhead. The `uv__use_io_uring()` helper [returns `1` whenever the SQPOLL flag is absent](https://github.com/libuv/libuv/blob/v1.x/src/unix/linux.c) — no environment variable can turn it off.
+
+2. **SQPOLL file operations** (`read`, `write`, `fsync`, `fdatasync`, `stat`, plus a few path-mutating ops on newer kernels) provide true async file I/O backed by a dedicated kernel polling thread. They require both the loop flag *and* a positive `UV_USE_IO_URING` env var; missing either keeps file I/O on the worker pool. Phoronix [benchmarked roughly 8× throughput](https://www.phoronix.com/news/libuv-io-uring) over the worker-pool path on contention-heavy workloads. SQPOLL was the default briefly in v1.45–v1.48, then [disabled by default in v1.49.0](https://github.com/libuv/libuv/releases/tag/v1.49.0) after [CVE-2024-22017](https://github.com/libuv/libuv/issues/4416) and reports of [perf regressions on certain kernels](https://github.com/libuv/libuv/issues/4308). The `UV_LOOP_ENABLE_IO_URING_SQPOLL` flag itself still exists in the source but was [intentionally removed from the public docs in v1.52.0](https://github.com/libuv/libuv/releases/tag/v1.52.0).
 
 **Platform requirements and exclusions:**
 
-- Minimum Linux kernel 5.13+ (with statx support detection)
-- Additional operations require newer kernels: link/mkdir/symlink (5.15+), ftruncate (6.9+)
-- Disabled on Android (seccomp blocks), 32-bit ARM (kernel bugs), PowerPC64 (signal handler crashes)
-- CVE-2024-22017 highlighted that `setuid()` doesn't affect pre-initialized io_uring operations, leading Node.js to make SQPOLL opt-in rather than default
+- Minimum Linux kernel **5.13+** (with statx support detection); pre-5.10.186 kernels were [explicitly excluded in v1.47.0](https://github.com/libuv/libuv/releases/tag/v1.47.0).
+- Additional operations require newer kernels: `link`/`mkdir`/`symlink` (5.15+), `ftruncate` (6.9+).
+- Disabled on Android (seccomp blocks the syscalls), 32-bit ARM and PPC64/PPC64LE ([signal handler crashes and kernel bugs documented in v1.47–v1.48 release notes](https://github.com/libuv/libuv/releases/tag/v1.48.0)).
+- [CVE-2024-22017](https://github.com/libuv/libuv/issues/4416) highlighted that `setuid()` does not affect pre-initialized io_uring instances — operations queued before the privilege drop still execute with the original credentials. Node.js made SQPOLL opt-in rather than default in response.
 
-**Network I/O remains unchanged:** Despite io_uring's unified interface, libuv does not use io_uring for network I/O. An [RFC (Issue #4044)](https://github.com/libuv/libuv/issues/4044) explored integration but identified fundamental mismatches: io_uring's optimal pattern (batched requests with kernel-managed buffers) conflicts with libuv's "firehose" model (immediate single-request processing with user-managed memory). Network operations continue to use epoll/kqueue/IOCP directly, and the design docs explicitly state network I/O is "always performed in a single thread."
+**Network I/O remains unchanged:** Despite io_uring's unified interface, libuv does not use io_uring for network I/O. An [RFC (Issue #4044)](https://github.com/libuv/libuv/issues/4044) explored integration but identified fundamental mismatches: io_uring's optimal pattern (batched requests with kernel-managed buffers) conflicts with libuv's "firehose" model (immediate single-request processing with user-managed memory). Network operations continue to use epoll/kqueue/IOCP directly, and the design docs explicitly state that "network I/O is always performed in a single thread, each loop's thread."
 
 ## Appendix
 
@@ -499,11 +523,11 @@ Despite its success, libuv is not without its limitations, and its continued evo
 ### Summary
 
 - **Dual I/O strategy**: libuv uses kernel polling (epoll/kqueue/IOCP) for network I/O achieving massive concurrency, while emulating async file I/O through a worker thread pool—a pragmatic response to inconsistent OS-level file I/O primitives
-- **Six-phase event loop**: Each iteration processes timers → pending callbacks → idle/prepare → I/O poll (blocking) → check → close, with the poll phase dynamically calculating timeout based on pending timers
-- **Platform abstraction**: Unifies readiness-based (Linux, BSD) and completion-based (Windows) I/O models behind a consistent completion-style callback API
-- **Thread pool constraints**: Global shared pool (default 4, max 1024 threads, 8MB stack each) cannot be resized at runtime; pool saturation is the primary bottleneck for file-heavy workloads
-- **io_uring (v1.50.0+)**: Epoll batching always enabled on Linux 5.13+; SQPOLL file operations opt-in via `UV_USE_IO_URING=1`; network I/O remains thread-pool-free single-threaded polling
-- **Reference counting**: `uv_ref`/`uv_unref` controls whether handles keep the loop alive—essential for background tasks that shouldn't prevent graceful shutdown
+- **Six-phase event loop (with caveats)**: Each iteration processes timers → pending callbacks → idle/prepare → I/O poll (blocking) → check → close, with the poll phase dynamically calculating its timeout from the next-due timer. Due timers actually run twice — once at the top under `UV_RUN_DEFAULT`, and again after close callbacks once "now" is updated.
+- **Platform abstraction**: Unifies readiness-based (Linux epoll, BSD kqueue) and completion-based (Windows IOCP) I/O models behind a consistent completion-style callback API. Internally libuv uses level-triggered epoll for stream and TCP/UDP handles.
+- **Thread pool constraints**: Global shared pool (default 4, max 1024 threads, 8 MB stack each since v1.45.0, threads named `libuv-worker` since v1.50.0) cannot be resized at runtime; pool saturation is the primary bottleneck for file-heavy workloads.
+- **io_uring (v1.50.0+)**: Epoll registration batching via io_uring is unconditional on Linux 5.13+ (no env var can turn it off). SQPOLL async file I/O is opt-in and requires *both* `uv_loop_configure(loop, UV_LOOP_ENABLE_IO_URING_SQPOLL)` *and* `UV_USE_IO_URING=1`; the loop flag was deliberately removed from the v1.52.0 docs. Network I/O stays on epoll/kqueue/IOCP — single-threaded polling, no thread-pool path.
+- **Reference counting**: `uv_ref`/`uv_unref` controls whether handles keep the loop alive — essential for background tasks that shouldn't prevent graceful shutdown.
 
 ### References
 

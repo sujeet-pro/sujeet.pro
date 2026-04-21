@@ -4,7 +4,7 @@ linkTitle: 'Web Components'
 description: >-
   A senior-level tour of Custom Elements, Shadow DOM, templates and slots, lifecycle semantics, styling and accessibility at the encapsulation boundary, form association, and framework interoperability — with clear criteria for when standards-native components earn their complexity.
 publishedDate: 2026-03-20
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - web-platform
   - custom-elements
@@ -50,7 +50,7 @@ Two details trip up even experienced teams:
 
 ### Autonomous vs customized built-ins
 
-Most examples use **autonomous** custom elements (`extends HTMLElement`). The platform also supports **customized built-ins** (`extends HTMLButtonElement`, etc.), which use `customElements.define(..., { extends: "button" })` and the `is=""` attribute — but [Safari has historically not shipped `is=""` for customized built-ins](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements#types_of_custom_element), so many design systems stick to autonomous elements for cross-browser predictability.
+Most examples use **autonomous** custom elements (`extends HTMLElement`). The platform also supports **customized built-ins** (`extends HTMLButtonElement`, etc.), which use `customElements.define(..., { extends: "button" })` and the `is=""` attribute. WebKit historically [declined to implement them](https://github.com/WebKit/standards-positions/issues/97), but [Safari shipped customized built-in elements in 2025](https://webkit.org/blog/17818/announcing-interop-2026/), and remaining cross-browser test gaps are a [stated focus area for Interop 2026](https://wpt.fyi/interop-2026). The pragmatic guidance has not fully shifted yet — design systems still default to autonomous elements because of the long tail of older Safari versions and the limitation that scoped registries (below) refuse `extends` entirely.
 
 ## Shadow DOM: open, closed, and what “encapsulation” means
 
@@ -59,13 +59,13 @@ Most examples use **autonomous** custom elements (`extends HTMLElement`). The pl
 ![Diagram: host connects to shadow root; light DOM children project into slots; page CSS does not pierce the shadow boundary by default.](./diagrams/shadow-dom-encapsulation-light.svg)
 ![Diagram: host connects to shadow root; light DOM children project into slots; page CSS does not pierce the shadow boundary by default.](./diagrams/shadow-dom-encapsulation-dark.svg)
 
-**Declarative Shadow DOM** ([HTML template element with `shadowrootmode`](https://html.spec.whatwg.org/multipage/scripting.html#attr-template-shadowrootmode)) matters for SSR and static HTML. Server-rendered shadow roots can improve first paint for component libraries, but you still need a coherent story for hydration and progressive enhancement — see [Declarative Shadow DOM](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/template#declarative_shadow_dom) on MDN.
+**Declarative Shadow DOM** ([HTML template element with `shadowrootmode`](https://html.spec.whatwg.org/multipage/scripting.html#attr-template-shadowrootmode)) matters for SSR and static HTML. As of 2024 it is [Baseline newly available](https://web.dev/articles/declarative-shadow-dom) across Chrome 111+, Safari 16.4+, and Firefox 123+, so server-rendered shadow roots are a realistic option for component libraries that need first paint without a runtime. You still need a coherent story for hydration and progressive enhancement — see [Declarative Shadow DOM](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/template#declarative_shadow_dom) on MDN. Watch out for the legacy `shadowroot` attribute; the standardized name is `shadowrootmode` and older renderers may emit the deprecated form.
 
 ### Slots and composition
 
 Named and default slots let consumers pass **light DOM** children that render **as if** they lived inside your component, while still participating in the [composed tree](https://dom.spec.whatwg.org/#composed-tree) for events and hit testing. Listen for [`slotchange`](https://html.spec.whatwg.org/multipage/scripting.html#event-slotchange) when you need to react to what actually got assigned (especially for lazy or conditional slotted content).
 
-Imperative [slot assignment](https://dom.spec.whatwg.org/#slot-assignment) via [`HTMLSlotElement.assign()`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLSlotElement/assign) exists for advanced cases; most libraries start with declarative `slot="name"` usage.
+Two slot assignment modes exist: the default **named** mode (children with a matching `slot=""` attribute project automatically) and **manual** mode, opted into via `attachShadow({ slotAssignment: "manual" })`, which makes you call [`HTMLSlotElement.assign()`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLSlotElement/assign) explicitly. Manual mode is useful when the child element shouldn't carry a `slot` attribute or when you assemble the DOM in a non-template language ([slot assignment in DOM](https://dom.spec.whatwg.org/#slot-assignment)). Most libraries start with the declarative form.
 
 ## Lifecycle: constructor discipline and document moves
 
@@ -81,6 +81,7 @@ The [custom element reactions](https://html.spec.whatwg.org/multipage/custom-ele
 | `disconnectedCallback` | [removed from a document](https://html.spec.whatwg.org/multipage/custom-elements.html#dom-lifecycle-callbacks-disconnected-callback) | Tear down listeners and timers; undo side effects. |
 | `attributeChangedCallback` | [attribute changed](https://html.spec.whatwg.org/multipage/custom-elements.html#dom-lifecycle-callbacks-attribute-changed-callback) | Sync observed attributes into shadow state. |
 | `adoptedCallback` | [adopted into a new document](https://html.spec.whatwg.org/multipage/custom-elements.html#dom-lifecycle-callbacks-adopted-callback) | Reset document-scoped handles (`document` reference changes) when moving nodes across windows or templates. |
+| `connectedMoveCallback` | [connected move callback reaction](https://html.spec.whatwg.org/multipage/custom-elements.html#custom-element-reactions) | Preserve state across [`Element.moveBefore()`](https://developer.mozilla.org/en-US/docs/Web/API/Element/moveBefore) — when defined, the browser fires this in place of the disconnect/connect pair, keeping focus, animations, and `<iframe>` loads intact. Chromium 133+ ships it; other engines pending. |
 
 > [!TIP]
 > If you need one-time setup that depends on layout, combine `connectedCallback` with `requestAnimationFrame` or [`ResizeObserver`](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) rather than doing heavy measurement in the constructor.
@@ -99,7 +100,31 @@ Shadow DOM scopes selectors by default: **outside CSS does not match inside**, a
 | [`::part(...)`](https://developer.mozilla.org/en-US/docs/Web/CSS/::part) + [`part` / `exportparts`](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/part) | Opt-in styling of **internal** shadow nodes | Stable only if you treat `part` names as semver API. |
 
 > [!IMPORTANT]
-> [`:host-context(...)`](https://developer.mozilla.org/en-US/docs/Web/CSS/:host-context) is **not reliably available** across engines (for example, Firefox does not implement it). Prefer theming via **custom properties** on ancestors or explicit host attributes instead of `host-context` for production systems.
+> [`:host-context(...)`](https://developer.mozilla.org/en-US/docs/Web/CSS/:host-context) is **not reliably available** across engines — Firefox [declined to implement it](https://github.com/mdn/content/issues/38960) and the CSS Working Group has signalled the selector is being dropped. Prefer theming via **custom properties** on ancestors or explicit host attributes instead of `host-context` for production systems.
+
+### Constructible stylesheets and shared rules
+
+Inlining the same `<style>` into every shadow root is fine for one or two elements, but it scales badly: each instance pays a parse and a memory cost. Constructible stylesheets fix this by letting you build a `CSSStyleSheet` once and adopt it into many shadow roots:
+
+```js title="my-card.js"
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(`
+  :host { display: block; }
+  .body { padding: var(--card-padding, 12px); }
+`);
+
+class MyCard extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: "open" });
+    root.adoptedStyleSheets = [sheet];
+    root.innerHTML = `<div class="body"><slot></slot></div>`;
+  }
+}
+customElements.define("my-card", MyCard);
+```
+
+The same `CSSStyleSheet` instance can be assigned to `document.adoptedStyleSheets` and to any number of `ShadowRoot.adoptedStyleSheets` arrays; mutations via `replaceSync()`/`replace()` propagate to every adopter ([MDN: `Document.adoptedStyleSheets`](https://developer.mozilla.org/en-US/docs/Web/API/Document/adoptedStyleSheets)). Browser support is broad: Chrome 73+, Firefox 101+, Safari 16.4+. Pair this with [CSS Module Scripts](https://developer.chrome.com/blog/css-module-scripts) (`import styles from "./card.css" with { type: "css" }`) when your toolchain supports them so the sheet object is the same across every importer.
 
 ## Accessibility: own the host contract
 
@@ -108,6 +133,30 @@ Assistive technologies generally interact with the **flattened tree** and focus 
 - Put **roles, names, and states** on the **host** when the host is the control (`button`-like widgets, switches, tabs) — see [Using ARIA: practical guide](https://www.w3.org/WAI/ARIA/apg/practices/) and [ARIA in HTML](https://w3c.github.io/html-aria/) for what is valid on which HTML elements.
 - For rich content inside shadow DOM, ensure **focusable elements** have labels and that **keyboard order** matches visual order; `tabindex` gymnastics on slotted content are a smell that the component contract is unclear.
 - Remember **`aria-*` reflects string semantics** — mirror boolean state to `aria-checked`, `aria-expanded`, etc., when you expose toggles or disclosure regions.
+
+Where you previously had to set those `aria-*` attributes on the host imperatively (and risked clobbering page-author overrides), [`ElementInternals` exposes the `ARIAMixin` accessibility properties](https://html.spec.whatwg.org/multipage/custom-elements.html#elementinternals) (`role`, `ariaLabel`, `ariaChecked`, …) that act as **default semantics**. The browser uses them unless the page author sets the matching attribute on the host:
+
+```js title="my-switch.js"
+class MySwitch extends HTMLElement {
+  static observedAttributes = ["checked"];
+
+  constructor() {
+    super();
+    this._internals = this.attachInternals();
+    this._internals.role = "switch";
+    this._internals.ariaChecked = "false";
+  }
+
+  attributeChangedCallback(name, _old, value) {
+    if (name === "checked") {
+      this._internals.ariaChecked = value !== null ? "true" : "false";
+    }
+  }
+}
+customElements.define("my-switch", MySwitch);
+```
+
+This pattern works in Chromium-based engines, Firefox 119+, and Safari 16.4+ ([WebKit: ElementInternals and Form-Associated Custom Elements](https://webkit.org/blog/13711/elementinternals-and-form-associated-custom-elements/)) and is the right starting point for any control-shaped component.
 
 Web Components do not remove the need for accessibility testing; they move complexity to **your public API surface** (host attributes/properties/events) instead of framework component props.
 
@@ -145,7 +194,27 @@ Frameworks do not “special case” Web Components uniformly. The stable integr
 - **Communicate outward with DOM events** ([`CustomEvent`](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent/CustomEvent) with `composed: true` when you intend the event to escape shadow DOM — see [`Event.composed`](https://dom.spec.whatwg.org/#dom-event-composed)).
 - **Avoid breaking SSR** — mismatched HTML, forgotten declarative shadow roots, or client-only constructors that assume `window` are common failure modes.
 
-React historically treated unknown tag names as strings for children; **React 19** improved custom element integration (for example, [Custom Element support in React 19](https://react.dev/blog/2024/12/05/react-19#support-for-custom-elements)). Vue provides [`defineCustomElement`](https://vuejs.org/guide/extras/web-components.html) for publishing Vue SFCs as standards elements. Regardless of stack, **treat your Web Component like a mini-library** with semver, docs, and explicit supported usage.
+React historically treated unknown tag names as strings for children; **React 19** added [first-class custom-element support](https://react.dev/blog/2024/12/05/react-19#support-for-custom-elements) — props are assigned as element properties when one exists on the instance (otherwise as attributes), and listeners use the `on<EventName>` JSX syntax for `CustomEvent`s. SSR rendering follows narrower rules: only primitive props serialize as attributes, and `false`, objects, and functions are dropped. Vue provides [`defineCustomElement`](https://vuejs.org/guide/extras/web-components.html) for publishing Vue SFCs as standards elements. Regardless of stack, **treat your Web Component like a mini-library** with semver, docs, and explicit supported usage.
+
+## Scoped custom element registries
+
+The original `customElements.define()` writes into a single page-wide registry, which makes name collisions a hard error: two libraries that both claim `<dropdown>` cannot coexist on the same page. [Scoped custom element registries](https://developer.chrome.com/blog/scoped-registries) fix this by letting you instantiate `new CustomElementRegistry()` and bind it to a shadow root, a document, or a single created element. Inside that subtree, the same tag name can resolve to a different definition.
+
+```js title="register-scoped.js"
+const local = new CustomElementRegistry();
+local.define("dropdown", AppDropdown);
+
+const root = host.attachShadow({ mode: "open", customElementRegistry: local });
+root.innerHTML = `<dropdown>...</dropdown>`;
+```
+
+Status as of 2026-Q1:
+
+- **Safari** shipped scoped registries first (Safari 26.0); **Chromium** followed in 146 (Chrome and Edge), per [Chrome's announcement post](https://developer.chrome.com/blog/scoped-registries). Other engines are tracking it as an [Interop 2026 focus area](https://webkit.org/blog/17818/announcing-interop-2026/).
+- The `extends` option is **not supported** on scoped registries — if you rely on customized built-ins, stay on the global `customElements`.
+- Declarative shadow DOM has a matching `shadowrootcustomelementregistry` attribute on `<template>` for SSR-built scoped trees ([MDN: `CustomElementRegistry`](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry)).
+
+For now, treat scoped registries as the answer to **"what if two design systems land on the same page"**, but do not depend on them as the *only* mechanism for embedding — keep your library installable into the global registry as a fallback while support spreads.
 
 ## When Web Components are a strong fit — and when they are not
 

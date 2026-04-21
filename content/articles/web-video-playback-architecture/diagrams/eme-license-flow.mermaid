@@ -1,0 +1,21 @@
+%% Diagram: EME / CDM license acquisition for encrypted playback
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant V as HTMLMediaElement
+    participant JS as Player (JS)
+    participant CDM as CDM (Widevine / FairPlay / PlayReady)
+    participant LS as License Server
+    participant Origin as Origin / CDN
+
+    Origin-->>V: init segment with PSSH box
+    V->>JS: encrypted event (initData, initDataType)
+    JS->>JS: navigator.requestMediaKeySystemAccess()
+    JS->>CDM: createMediaKeys / createSession
+    CDM-->>JS: message event (license challenge)
+    JS->>LS: POST license challenge (auth, device cert)
+    LS-->>JS: signed license response (content key)
+    JS->>CDM: session.update(license)
+    CDM->>V: decrypt sample data (in TEE for L1 / SL3000)
+    V-->>JS: timeupdate, playback continues
+    Note over JS,LS: Renew before expiry (e.g. at ~80%)<br/>to avoid mid-stream stall

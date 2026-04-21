@@ -1,0 +1,17 @@
+%% Diagram: Multi-step wizard state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> idle
+    idle --> step1: START
+    step1 --> validating1: NEXT
+    validating1 --> step1: INVALID
+    validating1 --> step2: VALID
+    step2 --> validating2: NEXT
+    step2 --> step1: BACK
+    validating2 --> step2: INVALID
+    validating2 --> submitting: VALID
+    submitting --> success: DONE
+    submitting --> error: FAIL
+    error --> submitting: RETRY
+    success --> [*]

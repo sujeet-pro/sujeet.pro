@@ -1,0 +1,18 @@
+%% Diagram: Dirty-bit propagation and isolation boundary in PrePaintTreeWalk
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    R["1. Root LayoutObject<br/>visited (descendant dirty)"]
+    R --> N2["2. LayoutObject<br/>visited, no update"]
+    R --> N3["3. LayoutObject<br/>NeedsPaintPropertyUpdate<br/>(transform added)"]
+    N2 --> N4["4. LayoutObject<br/>skipped"]
+    N3 --> N5["5. LayoutObject<br/>contain: paint<br/>isolation boundary"]
+    N3 --> N6["6. LayoutObject<br/>reparents transform"]
+    N5 --> N7["7. LayoutObject<br/>SKIPPED<br/>(behind isolation)"]
+    N5 --> N8["8. LayoutObject<br/>SKIPPED<br/>(behind isolation)"]
+
+    style N3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style N5 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style N4 stroke-dasharray: 4 4
+    style N7 stroke-dasharray: 4 4
+    style N8 stroke-dasharray: 4 4

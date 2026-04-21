@@ -1,0 +1,24 @@
+%% Diagram: axe-core result categories and what to do with each
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Run["axe.run() result"]
+    Run --> V["violations<br/>definite failures"]
+    Run --> P["passes<br/>definite passes"]
+    Run --> I["incomplete<br/>heuristics fired,<br/>needs human review"]
+    Run --> N["inapplicable<br/>rule did not match<br/>anything on page"]
+
+    V --> VA["Fail build<br/>(CI gate)"]
+    P --> PA["Coverage telemetry<br/>(no action)"]
+    I --> IA["Annotate PR /<br/>queue for next<br/>manual pass"]
+    N --> NA["Wiring telemetry<br/>(no action)"]
+
+    classDef fail fill:#fee,stroke:#c33
+    classDef pass fill:#efe,stroke:#3a3
+    classDef warn fill:#fff5e0,stroke:#c80
+    classDef neutral fill:#eef,stroke:#669
+
+    class V,VA fail
+    class P,PA pass
+    class I,IA warn
+    class N,NA neutral

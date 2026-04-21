@@ -6,7 +6,7 @@ description: >-
   principles — covering PKCE, token lifecycle, client types, and why the
   implicit flow is deprecated in OAuth 2.1.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - security
   - authentication
@@ -17,15 +17,15 @@ tags:
 
 A comprehensive technical analysis of OAuth 2.0 authorization flows, OpenID Connect (OIDC) identity layer, PKCE security mechanism, and token lifecycle management for secure authentication and authorization implementations.
 
-![Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.](./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera-light.svg "Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.")
-![Complete OAuth 2.0 Authorization Code flow with PKCE and OIDC, showing the interaction between user, client, authorization server, and resource server.](./diagrams/complete-oauth-2-0-authorization-code-flow-with-pkce-and-oidc-showing-the-intera-dark.svg)
+![Authorization Code flow with PKCE and OIDC sequence across user, client, authorization server, and resource server](./diagrams/auth-code-pkce-oidc-overview-light.svg "End-to-end Authorization Code + PKCE + OIDC flow: the client generates state/nonce/PKCE, the user authenticates and consents at the authorization server, and the client exchanges the code for access, refresh, and ID tokens before calling the resource server.")
+![Authorization Code flow with PKCE and OIDC sequence across user, client, authorization server, and resource server](./diagrams/auth-code-pkce-oidc-overview-dark.svg)
 
 ## Abstract
 
 OAuth 2.0 is an **authorization delegation framework**—it lets users grant applications limited access to their resources without sharing credentials. OIDC (OpenID Connect) is an **identity layer on top of OAuth**—it proves _who_ the user is via ID tokens. The core security model relies on:
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![OAuth 2.0 and OIDC token relationships: authorization code, access token, refresh token, ID token, and the UserInfo endpoint](./diagrams/token-types-relationships-light.svg "How OAuth 2.0 authorization tokens (code, access, refresh) relate to the OIDC identity layer (ID token, UserInfo)—and how each one moves through the system.")
+![OAuth 2.0 and OIDC token relationships: authorization code, access token, refresh token, ID token, and the UserInfo endpoint](./diagrams/token-types-relationships-dark.svg)
 
 | Component              | Purpose                                     | Lifetime     | Audience              |
 | ---------------------- | ------------------------------------------- | ------------ | --------------------- |
@@ -77,6 +77,28 @@ Clients are classified by their ability to maintain credential confidentiality:
 | **Revocation**      | Invalidate tokens                | POST        |
 | **Introspection**   | Validate token metadata          | POST        |
 | **UserInfo** (OIDC) | Fetch user profile claims        | GET/POST    |
+
+### Picking a flow
+
+OAuth 2.1 narrows the canonical flow set to three, plus refresh tokens for session continuity. Everything else (Implicit, Resource Owner Password Credentials) is removed.[^oauth21-removed]
+
+![OAuth 2.1 flow selection decision tree based on actor type and device capability](./diagrams/flow-selection-decision-light.svg "Flow-selection decision tree: pick Authorization Code + PKCE for any flow with an end user and a browser, Device Authorization Grant for input-constrained devices, and Client Credentials for service-to-service. Implicit and ROPC are removed in OAuth 2.1.")
+![OAuth 2.1 flow selection decision tree based on actor type and device capability](./diagrams/flow-selection-decision-dark.svg)
+
+| Caller                   | Device capability                | Canonical flow                                          | Identity layer                  |
+| ------------------------ | -------------------------------- | ------------------------------------------------------- | ------------------------------- |
+| End user                 | Browser-capable (web, SPA, mobile, desktop) | **Authorization Code + PKCE** ([RFC 6749 §4.1][rfc6749-4-1], [RFC 7636][rfc7636]) | Add `openid` scope for OIDC     |
+| End user                 | Input-constrained (smart TV, CLI, IoT, kiosk) | **Device Authorization Grant** ([RFC 8628][rfc8628])    | Add `openid` scope for OIDC     |
+| Workload (no end user)   | Server-to-server                | **Client Credentials** ([RFC 6749 §4.4][rfc6749-4-4])    | None — no user identity exists  |
+| Any flow needing session | —                                | **Refresh token** with rotation or sender-constraint ([OAuth 2.1 §4.3][oauth21-rt]) | —                               |
+
+[^oauth21-removed]: [draft-ietf-oauth-v2-1-15 §1.6](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15#section-1.6) ("Differences from OAuth 2.0") removes the Implicit grant (`response_type=token`) and the Resource Owner Password Credentials grant.
+
+[rfc6749-4-1]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
+[rfc6749-4-4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+[rfc7636]: https://datatracker.ietf.org/doc/html/rfc7636
+[rfc8628]: https://datatracker.ietf.org/doc/html/rfc8628
+[oauth21-rt]: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15#section-4.3
 
 ---
 
@@ -263,8 +285,8 @@ PKCE (Proof Key for Code Exchange, RFC 7636) prevents authorization code interce
 
 ### The Attack PKCE Prevents
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Authorization code interception attack on a shared custom URI scheme, with and without PKCE](./diagrams/auth-code-interception-attack-light.svg "Authorization code interception: a malicious app registered against the same custom URI scheme intercepts the redirect and exchanges the code for tokens. PKCE breaks this attack because only the legitimate app holds the code_verifier.")
+![Authorization code interception attack on a shared custom URI scheme, with and without PKCE](./diagrams/auth-code-interception-attack-dark.svg)
 
 **Attack scenario**: On mobile platforms, multiple apps can register the same custom URI scheme (`com.example.app://`). A malicious app intercepts the redirect containing the authorization code and exchanges it for tokens.
 
@@ -290,13 +312,107 @@ PKCE (Proof Key for Code Exchange, RFC 7636) prevents authorization code interce
 
 ### PKCE in OAuth 2.1
 
-> **OAuth 2.1 draft-14, Section 7.6**: "Clients MUST use code_challenge and code_verifier and authorization servers MUST enforce their use."
+> **OAuth 2.1 [draft-15, Section 7.5](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15#section-7.5)** (March 2026): "Clients MUST use `code_challenge` and `code_verifier` and authorization servers MUST enforce their use except under the conditions described in Section 7.5.1. Even in this case, using and enforcing `code_challenge` and `code_verifier` as described above is still RECOMMENDED."
 
 OAuth 2.1 makes PKCE mandatory for all clients—public and confidential. This acknowledges that:
 
 1. Client secrets can leak (supply chain attacks, compromised dependencies)
 2. PKCE provides defense-in-depth even when secrets are used
 3. A single secure pattern simplifies implementation
+
+---
+
+## Client Credentials Flow (Machine-to-Machine)
+
+The Client Credentials grant ([RFC 6749 §4.4](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4)) is the only flow with no end user: the client is acting on its own behalf, typically a backend service calling another backend service. There is no authorization code, no redirect, no refresh token, and no ID token — there is no user to identify.
+
+![Client Credentials grant: a service authenticates with the authorization server and exchanges its own credentials for a short-lived access token, with no user involvement](./diagrams/client-credentials-flow-light.svg "Client Credentials grant: workload-to-workload. The client authenticates itself (shared secret, private_key_jwt, or mTLS) and receives an access token only — no refresh token, no ID token, no user identity.")
+![Client Credentials grant: a service authenticates with the authorization server and exchanges its own credentials for a short-lived access token, with no user involvement](./diagrams/client-credentials-flow-dark.svg)
+
+```http
+POST /token HTTP/1.1
+Host: auth.example.com
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic base64(client_id:client_secret)
+
+grant_type=client_credentials
+&scope=invoices:read invoices:write
+```
+
+### When to use it
+
+| Use case                                         | Notes                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Backend service calling another backend's API    | The canonical case. Scopes scope what the **service** can do, not what users can do. |
+| Cron job, batch worker, daemon                   | Use a private key (`private_key_jwt`) or mTLS instead of a shared secret when possible. |
+| CI / CD pipelines calling deployment APIs        | Mint short-lived tokens per pipeline run; never bake long-lived tokens into images.  |
+
+### What to avoid
+
+> [!CAUTION]
+> Do not use Client Credentials to act on behalf of an end user. The token has no `sub` for a human, no consent record, and no scoping to that user. If you need to act for a user, use Authorization Code + PKCE; if the call must be background, exchange a refresh token or use [Token Exchange (RFC 8693)](https://datatracker.ietf.org/doc/html/rfc8693).
+
+- Refresh tokens **MUST NOT** be issued for the Client Credentials grant ([RFC 6749 §4.4.3](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.3)). When the access token expires, the client just re-authenticates.
+- Prefer [`private_key_jwt`](https://datatracker.ietf.org/doc/html/rfc7523#section-2.2) or [mTLS client authentication (RFC 8705)](https://datatracker.ietf.org/doc/html/rfc8705) over `client_secret_basic`/`client_secret_post`. Shared secrets sit in env vars and leak through logs, configs, and container images.
+- Combine with **DPoP** ([RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449)) or **mTLS sender-constraint** so a stolen token cannot be replayed by a different caller.
+
+---
+
+## Device Authorization Grant
+
+The Device Authorization Grant ([RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628)) covers input-constrained devices — smart TVs, set-top boxes, CLIs, IoT devices, kiosks — where typing a password or rendering a full login UI is impractical. The user authenticates on a secondary device (phone or laptop) while the device polls for the result.
+
+![Device Authorization Grant sequence: the device requests a user_code and verification URI, displays it to the user, and polls the token endpoint while the user approves on a separate browser-capable device](./diagrams/device-code-flow-light.svg "Device Authorization Grant (RFC 8628): the device gets a short user_code and a verification URI, the user approves on their phone or laptop, and the device polls the token endpoint — backing off on slow_down — until it receives an access token or a terminal error.")
+![Device Authorization Grant sequence: the device requests a user_code and verification URI, displays it to the user, and polls the token endpoint while the user approves on a separate browser-capable device](./diagrams/device-code-flow-dark.svg)
+
+### Step 1: Device authorization request
+
+```http
+POST /device_authorization HTTP/1.1
+Host: auth.example.com
+Content-Type: application/x-www-form-urlencoded
+
+client_id=CLIENT_ID&scope=openid profile offline_access
+```
+
+### Step 2: Authorization server response
+
+```json
+{
+  "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
+  "user_code": "WDJB-MJHT",
+  "verification_uri": "https://auth.example.com/device",
+  "verification_uri_complete": "https://auth.example.com/device?user_code=WDJB-MJHT",
+  "expires_in": 1800,
+  "interval": 5
+}
+```
+
+The device displays `user_code` and `verification_uri` (or a QR code for `verification_uri_complete`) and starts polling.
+
+### Step 3: Polling the token endpoint
+
+```http
+POST /token HTTP/1.1
+Host: auth.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code
+&device_code=GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS
+&client_id=CLIENT_ID
+```
+
+The client **MUST** respect the `interval` and **MUST** back off when it receives `slow_down` ([RFC 8628 §3.5](https://datatracker.ietf.org/doc/html/rfc8628#section-3.5)):
+
+| Error                   | Meaning                                                       | Client action                                       |
+| ----------------------- | ------------------------------------------------------------- | --------------------------------------------------- |
+| `authorization_pending` | User has not yet approved.                                    | Continue polling at the current interval.           |
+| `slow_down`             | Polling too fast.                                             | Increase the interval by **5 seconds** and retry.   |
+| `access_denied`         | User declined.                                                | Stop polling; surface a "rejected" message.         |
+| `expired_token`         | `device_code` lifetime exceeded `expires_in`.                 | Stop polling; restart from step 1 if needed.        |
+
+> [!WARNING]
+> The Device Code flow is phishable: an attacker can initiate a device flow against a target and trick the victim into approving the attacker's `user_code` (consent phishing). Mitigations from [RFC 9700 §4.7](https://datatracker.ietf.org/doc/html/rfc9700#section-4.7): show the requesting client name, location, and scopes prominently on the verification page; rate-limit `user_code` generation; and treat unsolicited approvals with suspicion in account-takeover detection.
 
 ---
 
@@ -396,8 +512,12 @@ async function validateIdToken(idToken, expectedIssuer, clientId, nonce) {
 }
 
 // Compute at_hash per OIDC Core 3.1.3.6
+// Hash algorithm is derived from the *bit length* in the JWS alg name
+// ({RS,ES,HS,PS}{256,384,512} -> sha-{256,384,512}), NOT a binary RS256/everything-else split.
 function computeAtHash(accessToken, alg) {
-  const hashAlg = alg === "RS256" ? "sha256" : "sha512"
+  const bits = alg.match(/(256|384|512)$/)?.[1]
+  if (!bits) throw new Error(`Unsupported alg for at_hash: ${alg}`)
+  const hashAlg = `sha${bits}`
   const hash = crypto.createHash(hashAlg).update(accessToken).digest()
   const halfHash = hash.slice(0, hash.length / 2)
   return halfHash.toString("base64url")
@@ -480,15 +600,15 @@ grant_type=refresh_token
 
 Rotation issues a new refresh token with each use, invalidating the previous one:
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Refresh token rotation: each refresh issues a new access and refresh token while invalidating the previous refresh token](./diagrams/refresh-token-rotation-light.svg "Refresh token rotation: every successful refresh exchange invalidates the previous refresh token and issues a fresh one, so any single stolen token expires after one use.")
+![Refresh token rotation: each refresh issues a new access and refresh token while invalidating the previous refresh token](./diagrams/refresh-token-rotation-dark.svg)
 
 ### Reuse Detection
 
 If a previously-used refresh token is presented, it indicates token theft:
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Refresh token reuse detection: replaying an already-used refresh token triggers revocation of the entire token family](./diagrams/refresh-token-reuse-detection-light.svg "Reuse detection: when an attacker replays a previously-rotated refresh token, the authorization server treats the collision as theft and revokes the entire token family, forcing the legitimate client to re-authenticate.")
+![Refresh token reuse detection: replaying an already-used refresh token triggers revocation of the entire token family](./diagrams/refresh-token-reuse-detection-dark.svg)
 
 **Implementation considerations:**
 
@@ -552,8 +672,8 @@ async function handleRefreshToken(refreshToken) {
 
 **Backend-for-Frontend (BFF) Pattern** (most secure for SPAs):
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Backend-for-Frontend pattern keeping OAuth tokens off the browser, with the SPA holding only an HttpOnly session cookie](./diagrams/bff-pattern-architecture-light.svg "Backend-for-Frontend (BFF): the SPA holds only an HttpOnly session cookie; the BFF terminates the OAuth flow, stores access and refresh tokens server-side, and proxies API calls so tokens never touch JavaScript.")
+![Backend-for-Frontend pattern keeping OAuth tokens off the browser, with the SPA holding only an HttpOnly session cookie](./diagrams/bff-pattern-architecture-dark.svg)
 
 - Browser never sees OAuth tokens
 - BFF maintains server-side session
@@ -616,8 +736,8 @@ DPoP (RFC 9449) sender-constrains tokens to prevent stolen tokens from being usa
 
 ### How DPoP Works
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![DPoP flow: client signs a proof JWT with an ephemeral key, authorization server binds the access token to that key, and the resource server verifies a fresh per-request proof](./diagrams/dpop-flow-light.svg "DPoP (RFC 9449): the authorization server binds the access token to the client's public key (cnf claim with JWK thumbprint). The client must sign a fresh DPoP proof JWT for every API call, so a stolen bearer token alone is useless without the corresponding private key.")
+![DPoP flow: client signs a proof JWT with an ephemeral key, authorization server binds the access token to that key, and the resource server verifies a fresh per-request proof](./diagrams/dpop-flow-dark.svg)
 
 ### DPoP Proof JWT Structure
 
@@ -746,7 +866,7 @@ function validateRedirectUri(requestedUri) {
 
 ## OAuth 2.1 Key Changes
 
-OAuth 2.1 (currently draft-14, expected RFC in 2026) consolidates OAuth 2.0 with security best practices from RFC 9700.
+OAuth 2.1 (currently [draft-15](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15), published 2 March 2026 and still on the standards track) consolidates OAuth 2.0 with security best practices from [RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700) (January 2025).
 
 ### Removed Flows
 
@@ -777,16 +897,47 @@ OAuth 2.1 (currently draft-14, expected RFC in 2026) consolidates OAuth 2.0 with
 
 ---
 
+## Beyond OAuth 2.1: Hardening Profiles and Extensions
+
+OAuth 2.1 is the floor; high-assurance deployments — banking, healthcare, government, regulated APIs — layer additional specs on top. The pieces worth knowing:
+
+| Spec                                                                                                                              | What it does                                                                                                                                       | When to reach for it                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **[RFC 9068][rfc9068]** — JWT Profile for OAuth 2.0 Access Tokens                                                                 | Standardises JWT access-token shape: `typ: "at+jwt"` header; required `iss`, `exp`, `aud`, `sub`, `client_id`, `iat`, `jti`; optional `scope`, `roles`, `groups`, `entitlements`. | When you want resource servers to validate access tokens locally via JWKS instead of calling introspection.    |
+| **[RFC 9126][rfc9126]** — Pushed Authorization Requests (PAR)                                                                     | Client POSTs the authorization-request parameters to a `/par` endpoint, gets back a single-use `request_uri`, and uses that in the redirect.        | When request parameters carry sensitive data (RAR objects, large `claims`), or when integrity of the request matters. |
+| **[RFC 9101][rfc9101]** — JWT-Secured Authorization Request (JAR)                                                                 | Sign (and optionally encrypt) the authorization request as a JWT (`request` or `request_uri` parameter).                                            | When the channel between client and authorization server cannot be trusted to preserve parameter integrity.     |
+| **[JARM][jarm]** — JWT Secured Authorization Response Mode                                                                        | Returns the authorization response as a signed JWT (`response_mode=jwt`/`query.jwt`/`fragment.jwt`/`form_post.jwt`), binding `iss`, `aud`, `exp`.    | Closes the same integrity gap as JAR but on the response side; complements JAR/PAR.                             |
+| **[RFC 9396][rfc9396]** — Rich Authorization Requests (RAR)                                                                       | Replaces coarse `scope` strings with a structured `authorization_details` JSON array (`type`, `actions`, `locations`, `datatypes`, …).               | When scopes are too coarse — payment initiation ("transfer £100 to IBAN X"), per-record consent, fine-grained API authorization. |
+| **[RFC 9449][rfc9449]** — DPoP                                                                                                    | Sender-constrains tokens via a per-request signed proof JWT bound to a public key (`cnf` thumbprint).                                                | Public clients (SPAs, mobile) that need sender-constraint without mTLS infrastructure. Already covered above.   |
+| **[RFC 8705][rfc8705]** — Mutual-TLS Client Authentication and Certificate-Bound Tokens                                            | Sender-constrains tokens to the TLS client certificate (`cnf.x5t#S256`).                                                                            | Backend / FAPI deployments where you already have a PKI and can terminate mTLS at the edge.                     |
+| **[RFC 9207][rfc9207]** — Authorization Server Issuer Identification                                                              | Returns `iss` in the authorization response so clients can defend against mix-up attacks across multiple authorization servers.                      | Always, when you talk to more than one authorization server. Already covered in the callback validation above.   |
+| **[FAPI 2.0 Security Profile][fapi2]** (OIDF, Final, Feb 2025)                                                                    | Combines PAR + PKCE + sender-constrained tokens (mTLS or DPoP) + `private_key_jwt` / mTLS client auth + asymmetric signing into a single profile.    | Open Banking, Open Finance, Open Healthcare, government identity, any "high" assurance API.                     |
+
+[rfc9068]: https://datatracker.ietf.org/doc/html/rfc9068
+[rfc9126]: https://datatracker.ietf.org/doc/html/rfc9126
+[rfc9101]: https://datatracker.ietf.org/doc/html/rfc9101
+[jarm]: https://openid.net/specs/oauth-v2-jarm-final.html
+[rfc9396]: https://datatracker.ietf.org/doc/html/rfc9396
+[rfc9449]: https://datatracker.ietf.org/doc/html/rfc9449
+[rfc8705]: https://datatracker.ietf.org/doc/html/rfc8705
+[rfc9207]: https://datatracker.ietf.org/doc/html/rfc9207
+[fapi2]: https://openid.net/specs/fapi-security-profile-2_0-final.html
+
+> [!TIP]
+> If you are designing a new high-assurance deployment in 2026, do not hand-pick from this menu. Adopt **FAPI 2.0** as the target profile — it bundles PAR, PKCE, sender-constrained tokens, and asymmetric client authentication into a single conformance-tested package, with [Conformance Suite](https://openid.net/certification/) certification available.
+
+---
+
 ## Conclusion
 
 OAuth 2.0 and OIDC provide a robust framework for authorization and authentication, but secure implementation requires understanding the threat model and applying defense-in-depth:
 
-1. **Authorization Code + PKCE** is the only recommended flow—use it for all clients
-2. **ID tokens prove identity** (for clients); **access tokens prove authorization** (for APIs)—never confuse them
-3. **State, nonce, and PKCE** work together—all three are required
-4. **Token storage** must match platform capabilities—HttpOnly cookies for web, Keychain/Keystore for mobile
-5. **Refresh token rotation** or sender-constraining (DPoP) limits the blast radius of token theft
-6. **OAuth 2.1** codifies best practices—adopt its requirements now
+1. **Pick the right flow first.** Authorization Code + PKCE for any user-facing client; Device Authorization Grant for input-constrained devices; Client Credentials for service-to-service. Implicit and ROPC are gone.
+2. **ID tokens prove identity** (for clients); **access tokens prove authorization** (for APIs)—never confuse them.
+3. **State, nonce, and PKCE** work together—all three are required for user-facing flows.
+4. **Token storage** must match platform capabilities—HttpOnly cookies (or BFF) for web, Keychain/Keystore for mobile, never `localStorage`.
+5. **Refresh token rotation** or sender-constraining (**DPoP** / **mTLS**) is mandatory for public clients in OAuth 2.1; both is better.
+6. **OAuth 2.1 is the floor, not the ceiling.** For high-assurance APIs, adopt **FAPI 2.0** (PAR + PKCE + sender-constrained tokens + asymmetric client auth) as a single bundle.
 
 The complexity exists because the threat model is real. Authorization code interception, CSRF, replay attacks, and token theft are documented, exploited vulnerabilities. Every security parameter exists because of a specific attack it prevents.
 
@@ -813,32 +964,43 @@ The complexity exists because the threat model is real. Authorization code inter
 
 ### Summary
 
-- OAuth 2.0 is authorization (what you can access); OIDC is authentication (who you are)
-- Authorization Code + PKCE is mandatory for all clients in OAuth 2.1
-- `state` prevents CSRF; `nonce` prevents replay; PKCE prevents code interception—use all three
-- ID tokens are for clients; access tokens are for APIs—never interchange them
-- Refresh token rotation detects theft; DPoP prevents stolen token use
-- Store tokens appropriately: memory/HttpOnly cookies for web; Keychain/Keystore for mobile
-- OAuth 2.1 removes Implicit and ROPC flows; mandates PKCE and exact redirect URI matching
+- OAuth 2.0 is authorization (what you can access); OIDC is authentication (who you are).
+- Three canonical flows in OAuth 2.1: **Authorization Code + PKCE** (anything with a browser), **Device Authorization Grant** (input-constrained devices), **Client Credentials** (service-to-service). Implicit and ROPC are removed.
+- `state` prevents CSRF; `nonce` prevents replay; PKCE prevents code interception — use all three on user-facing flows.
+- ID tokens are for clients; access tokens are for APIs — never interchange them.
+- Refresh token rotation detects theft; DPoP / mTLS prevents stolen token use; one of the two is mandatory for public clients.
+- Store tokens appropriately: memory or HttpOnly cookies (BFF) for web; Keychain / Keystore for mobile.
+- For high-assurance APIs, jump straight to **FAPI 2.0** rather than re-deriving the hardening from RFCs.
 
 ### References
 
-**Core Specifications:**
+**Core specifications:**
 
-- [RFC 6749: OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749) - Core OAuth 2.0 specification
-- [RFC 7636: PKCE](https://datatracker.ietf.org/doc/html/rfc7636) - Proof Key for Code Exchange
-- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) - OIDC specification (also ISO/IEC 26131:2024)
-- [OAuth 2.1 Draft](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-14) - IETF Draft 14 (October 2025)
+- [RFC 6749: OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749) — core grants and roles.
+- [RFC 6750: Bearer Token Usage](https://datatracker.ietf.org/doc/html/rfc6750) — `Authorization: Bearer` semantics.
+- [RFC 7636: PKCE](https://datatracker.ietf.org/doc/html/rfc7636) — Proof Key for Code Exchange.
+- [RFC 8628: OAuth 2.0 Device Authorization Grant](https://datatracker.ietf.org/doc/html/rfc8628) — input-constrained devices.
+- [RFC 9068: JWT Profile for OAuth 2.0 Access Tokens](https://datatracker.ietf.org/doc/html/rfc9068) — `at+jwt` shape.
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) — identity layer (also ISO/IEC 26131:2024).
+- [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html) — `/.well-known/openid-configuration`.
+- [OAuth 2.1 Draft 15](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15) — IETF Internet-Draft, 2026-03-02.
 
-**Security Specifications:**
+**Security and hardening:**
 
-- [RFC 6819: OAuth 2.0 Threat Model](https://datatracker.ietf.org/doc/html/rfc6819) - Security considerations
-- [RFC 9700: OAuth Security BCP](https://datatracker.ietf.org/doc/rfc9700/) - Best Current Practice (January 2025)
-- [RFC 9449: DPoP](https://www.rfc-editor.org/rfc/rfc9449.html) - Demonstrating Proof of Possession
-- [RFC 9207: Authorization Server Issuer Identification](https://datatracker.ietf.org/doc/html/rfc9207) - Mix-up attack prevention
+- [RFC 6819: OAuth 2.0 Threat Model](https://datatracker.ietf.org/doc/html/rfc6819) — original threat model.
+- [RFC 9700: OAuth 2.0 Security Best Current Practice](https://datatracker.ietf.org/doc/html/rfc9700) — January 2025; updates 6749 / 6750 / 6819.
+- [RFC 9207: Authorization Server Issuer Identification](https://datatracker.ietf.org/doc/html/rfc9207) — `iss` in authorization response (mix-up defence).
+- [RFC 9449: DPoP](https://datatracker.ietf.org/doc/html/rfc9449) — sender-constrained tokens via proof-of-possession JWTs.
+- [RFC 8705: Mutual-TLS Client Authentication and Certificate-Bound Tokens](https://datatracker.ietf.org/doc/html/rfc8705) — mTLS sender-constraint.
+- [RFC 9126: Pushed Authorization Requests (PAR)](https://datatracker.ietf.org/doc/html/rfc9126) — push request parameters via back channel.
+- [RFC 9101: JWT-Secured Authorization Request (JAR)](https://datatracker.ietf.org/doc/html/rfc9101) — sign authorization requests.
+- [JARM Final](https://openid.net/specs/oauth-v2-jarm-final.html) — JWT Secured Authorization Response Mode.
+- [RFC 9396: Rich Authorization Requests (RAR)](https://datatracker.ietf.org/doc/html/rfc9396) — structured `authorization_details`.
+- [FAPI 2.0 Security Profile (OIDF, Final, Feb 2025)](https://openid.net/specs/fapi-security-profile-2_0-final.html) — high-assurance bundle.
 
-**Implementation Guidance:**
+**Implementation guidance:**
 
-- [RFC 8252: OAuth for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) - BCP 212 for mobile/desktop apps
-- [OWASP OAuth2 Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html) - Implementation security guidance
-- [Auth0 Token Best Practices](https://auth0.com/docs/secure/tokens/token-best-practices) - Practical implementation advice
+- [RFC 8252: OAuth for Native Apps (BCP 212)](https://datatracker.ietf.org/doc/html/rfc8252) — system browsers, claimed HTTPS, loopback, private URI schemes.
+- [RFC 7523: JWT Profile for Client Authentication](https://datatracker.ietf.org/doc/html/rfc7523) — `private_key_jwt`.
+- [RFC 8693: OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693) — delegation and impersonation patterns.
+- [OWASP OAuth2 Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html) — implementation security guidance.

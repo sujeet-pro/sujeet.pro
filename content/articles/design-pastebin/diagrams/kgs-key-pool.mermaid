@@ -1,0 +1,28 @@
+%% Diagram: KGS pool and batch allocation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Generator["Offline generator (cron)"]
+        GEN["Random 7-char Base62"]
+        DEDUP["Reject duplicates<br/>against used-key set"]
+    end
+
+    subgraph Pool["Key pool (PostgreSQL or DynamoDB)"]
+        AVAIL["available<br/>(buffer ~10M)"]
+        ALLOC["allocated<br/>(per-server batches)"]
+    end
+
+    subgraph Servers["App servers"]
+        APP1["Server 1<br/>local cache: 1k keys"]
+        APP2["Server 2<br/>local cache: 1k keys"]
+        APP3["Server 3<br/>local cache: 1k keys"]
+    end
+
+    GEN --> DEDUP --> AVAIL
+    AVAIL -->|FOR UPDATE SKIP LOCKED<br/>batch of 1000| ALLOC
+    ALLOC --> APP1
+    ALLOC --> APP2
+    ALLOC --> APP3
+    APP1 -.->|graceful shutdown<br/>returns unused keys| AVAIL
+    APP2 -.-> AVAIL
+    APP3 -.-> AVAIL

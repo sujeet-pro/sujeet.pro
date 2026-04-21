@@ -1,0 +1,33 @@
+%% Diagram: Linear-style sync engine — local mutation queue, lastSyncId, delta packets
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant UI as UI
+    participant POOL as Object pool (MobX)
+    participant TXQ as Tx queue + IndexedDB
+    participant WS as WebSocket
+    participant SYNC as Sync service
+    participant DB as Postgres
+
+    Note over UI,POOL: Local write
+    UI->>POOL: issue.title = "..."
+    POOL->>TXQ: enqueue Tx{op,entity,fields,baseSyncId}
+    TXQ-->>UI: ack (UI re-renders instantly)
+
+    TXQ->>WS: send Tx (online)
+    WS->>SYNC: Tx
+    SYNC->>DB: persist + bump lastSyncId
+    DB-->>SYNC: lastSyncId = N
+    SYNC-->>WS: ack(Tx, syncId=N)
+    WS-->>TXQ: ack — drop from queue
+
+    Note over SYNC,WS: Fan-out to other clients
+    SYNC->>WS: delta packet {syncActions, lastSyncId=N}
+    WS-->>POOL: apply delta
+    POOL-->>UI: re-render
+
+    Note over TXQ,WS: Reconnect after offline
+    TXQ->>WS: GET /sync/delta from=baseSyncId to=current
+    WS-->>TXQ: missed deltas
+    TXQ->>TXQ: rebase queued Tx onto new base
+    TXQ->>WS: replay remaining Tx

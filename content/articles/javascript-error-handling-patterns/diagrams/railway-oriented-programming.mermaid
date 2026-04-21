@@ -1,0 +1,11 @@
+%% Diagram: Railway Oriented Programming
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    A["op1<br/>Result&lt;A, E&gt;"] -->|Ok| B["op2<br/>Result&lt;B, E&gt;"]
+    B -->|Ok| C["op3<br/>Result&lt;C, E&gt;"]
+    C -->|Ok| OK["Final Ok"]
+
+    A -.->|Err| ERR["Final Err<br/>(short-circuit)"]
+    B -.->|Err| ERR
+    C -.->|Err| ERR

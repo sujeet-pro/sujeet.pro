@@ -1,0 +1,26 @@
+%% Diagram: Transport choice decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    START(["Need to fetch / push data"]) --> SHAPE{Data shape?}
+    SHAPE -->|"Resource-oriented,\ncacheable, public"| REST["REST + HTTP cache\n(RFC 9111 friendly)"]
+    SHAPE -->|"Graph, many views,\nover-/under-fetch is real"| GQL["GraphQL\n+ persisted queries (APQ)"]
+    SHAPE -->|"Typed RPC,\nmono-repo TS only"| TRPC["tRPC\n(no IDL, end-to-end TS)"]
+    SHAPE -->|"Typed RPC,\npolyglot or Protobuf"| PROTO{Browser client?}
+    PROTO -->|Yes| CONNECT["Connect /\ngRPC-Web (proxy)"]
+    PROTO -->|No| GRPC["Native gRPC\n(HTTP/2 trailers)"]
+    SHAPE -->|"Server -> client\nstream of events"| PUSH{Bidirectional?}
+    PUSH -->|"No (one-way push)"| SSE["SSE / EventSource\n(HTML living standard)"]
+    PUSH -->|"Yes, low ceremony"| WS["WebSocket\n(RFC 6455)"]
+    PUSH -->|"Yes, low latency,\nunreliable OK"| WT["WebTransport\n(QUIC datagrams)"]
+
+    classDef start fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef rest fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef rpc fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef stream fill:#6B3FA0,stroke:#522F7A,color:#ffffff
+    classDef gate fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class START start
+    class REST rest
+    class GQL,TRPC,CONNECT,GRPC rpc
+    class SSE,WS,WT stream
+    class SHAPE,PROTO,PUSH gate

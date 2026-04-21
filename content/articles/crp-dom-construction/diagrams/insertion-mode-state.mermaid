@@ -1,0 +1,50 @@
+%% Diagram: HTML5 tree-construction insertion modes (selected transitions)
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> initial
+    initial --> before_html : DOCTYPE
+    before_html --> before_head : html start tag
+    before_head --> in_head : head start tag
+    in_head --> in_head_noscript : noscript start tag
+    in_head_noscript --> in_head : noscript end tag
+    in_head --> after_head : head end tag
+    after_head --> in_body : body start tag
+
+    in_body --> in_table : table start tag
+    in_table --> in_caption : caption
+    in_table --> in_column_group : colgroup
+    in_table --> in_table_body : tbody/thead/tfoot
+    in_table_body --> in_row : tr
+    in_row --> in_cell : td/th
+    in_cell --> in_row : end of cell
+    in_row --> in_table_body : end of row
+    in_table_body --> in_table : end of section
+    in_table --> in_body : table end tag
+
+    in_body --> in_select : select start tag
+    in_select --> in_select_in_table : inside table cell
+    in_select_in_table --> in_select : leave table context
+    in_select --> in_body : select end tag
+
+    in_body --> in_template : template start tag
+    in_template --> in_body : template end tag
+
+    in_body --> in_foreign_content : svg/math start tag
+    in_foreign_content --> in_body : leave foreign root
+
+    in_body --> after_body : body end tag
+    after_body --> after_after_body : html end tag
+    after_after_body --> [*] : EOF
+
+    in_body --> in_frameset : frameset start tag
+    in_frameset --> after_frameset : frameset end tag
+    after_frameset --> after_after_frameset : html end tag
+    after_after_frameset --> [*] : EOF
+
+    note right of in_body
+        text and most flow content
+        live here; unhandled tokens
+        fall back to in body rules.
+    end note

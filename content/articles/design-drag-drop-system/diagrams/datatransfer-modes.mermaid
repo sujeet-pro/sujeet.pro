@@ -1,0 +1,25 @@
+%% Diagram: DataTransfer mode lifecycle
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> ReadWrite: dragstart fires
+    ReadWrite: read/write mode
+    ReadWrite: setData() OK
+    ReadWrite: setDragImage() OK
+    ReadWrite: effectAllowed OK
+
+    ReadWrite --> Protected: dragstart returns
+    Protected: protected mode
+    Protected: types readable
+    Protected: payloads hidden
+    Protected: setData / getData ignored
+
+    Protected --> Protected: drag / dragenter / dragover / dragleave
+    Protected --> ReadOnly: drop fires
+    Protected --> [*]: dragend with no drop
+
+    ReadOnly: read-only mode
+    ReadOnly: getData() OK
+    ReadOnly: setData() ignored
+
+    ReadOnly --> [*]: drop returns

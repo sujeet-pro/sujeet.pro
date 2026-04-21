@@ -1,0 +1,15 @@
+%% Diagram: REST API request flow for issue moves
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant API as REST API
+    participant DB as PostgreSQL
+    participant WS as WebSocket fan-out
+
+    C->>API: PATCH /issues/123 (move to column)
+    API->>DB: UPDATE issues SET status_id, rank, version
+    DB-->>API: 1 row, new version
+    API-->>C: 200 OK
+    API->>WS: Publish board event
+    WS-->>C: boardChanged subscription frame

@@ -1,0 +1,27 @@
+%% Diagram: Canvas-based grid render loop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Data["Data Model"]
+        Cells[Cell Data]
+        Viewport[Viewport State]
+        Selection[Selection State]
+    end
+
+    subgraph Render["Canvas Render Loop"]
+        RAF[requestAnimationFrame]
+        Draw[Draw Visible Cells]
+        Overlay[Draw Selection / Borders]
+    end
+
+    subgraph Input["Input Handling"]
+        Mouse[Mouse Events to Cell Coords]
+        Keyboard[Keyboard Events]
+        Touch[Touch Events]
+    end
+
+    Viewport --> RAF
+    Data --> Draw
+    RAF --> Draw
+    Draw --> Overlay
+    Input --> Data

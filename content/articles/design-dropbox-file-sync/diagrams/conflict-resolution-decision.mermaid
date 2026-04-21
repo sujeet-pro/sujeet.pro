@@ -1,0 +1,21 @@
+%% Diagram: Conflict resolution decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Compare Local, Remote against Synced"]) --> Q1{"Local changed?"}
+    Q1 -- "no" --> ApplyR["Apply remote change locally"]
+    Q1 -- "yes" --> Q2{"Remote changed?"}
+    Q2 -- "no" --> ApplyL["Push local change to server"]
+    Q2 -- "yes" --> Q3{"Local change == Remote change?"}
+    Q3 -- "yes" --> Skip["No-op (idempotent)"]
+    Q3 -- "no" --> Q4{"Either side a delete?"}
+    Q4 -- "both delete" --> SkipD["No-op (delete already applied)"]
+    Q4 -- "edit + delete" --> Restore["Restore the edited side, drop delete"]
+    Q4 -- "edit + edit" --> Conflict["Keep remote at original path<br/>Move local to '... (Computer's conflicted copy YYYY-MM-DD).ext'"]
+
+    classDef ok fill:#e5f5e5,stroke:#44aa44
+    classDef warn fill:#fff5e5,stroke:#cc8844
+    classDef bad fill:#ffe5e5,stroke:#cc4444
+    class ApplyR,ApplyL,Skip,SkipD ok
+    class Restore warn
+    class Conflict bad

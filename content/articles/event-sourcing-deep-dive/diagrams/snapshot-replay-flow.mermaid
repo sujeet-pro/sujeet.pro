@@ -1,0 +1,25 @@
+%% Diagram: Aggregate load using snapshot + tail replay
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Command handler
+    participant Snap as Snapshot store
+    participant ES as Event store
+    participant Agg as In-memory aggregate
+    App->>Snap: load(streamId)
+    alt Snapshot exists
+        Snap-->>App: state @ vN, schemaV
+        App->>App: schemaV current?
+        Note over App: If schemaV stale, discard snapshot
+    else No snapshot
+        Snap-->>App: null
+    end
+    App->>ES: readStream(streamId, fromVersion = vN+1)
+    ES-->>App: events [vN+1 .. vM]
+    App->>Agg: fold(events, startState)
+    Agg-->>App: state @ vM
+    App->>App: decide(command, state)
+    App->>ES: appendEvents(streamId, expectedVersion = vM, newEvents)
+    opt vM - vN > threshold
+        App->>Snap: save(streamId, state @ vM, schemaV)
+    end

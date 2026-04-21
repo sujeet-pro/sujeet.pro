@@ -1,0 +1,25 @@
+%% Diagram: Buffered writes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Worker["Worker node"]
+        Req["PUT cell<br/>(row_key, column, ref_key, body)"]
+    end
+
+    subgraph Sec["Secondary cluster (random)"]
+        SecMaster[("Secondary master<br/>buffer table")]
+    end
+
+    subgraph Pri["Primary cluster (shard N)"]
+        PriMaster[("Primary master<br/>entity table")]
+        Min1[("Minion DC2")]
+        Min2[("Minion DC3")]
+    end
+
+    Req -->|"1. write to buffer"| SecMaster
+    Req -->|"2. write to entity"| PriMaster
+    PriMaster -.->|"async replication"| Min1
+    PriMaster -.->|"async replication"| Min2
+
+    Reaper{"Background reaper"} -->|"poll for cell on minion"| Min1
+    Reaper -->|"on hit, delete buffer row"| SecMaster

@@ -2,308 +2,220 @@
 title: Distributed Cache Design
 linkTitle: 'Distributed Cache'
 description: >-
-  A deep guide to distributed caching — cache topologies (embedded, client-server,
-  clustered), consistent hashing, invalidation strategies, Redis internals,
-  and real-world patterns from Meta, Uber, and Discord.
+  A deep guide to distributed caching — topologies, consistent hashing,
+  invalidation, hot-key mitigation, and the operational patterns Meta, Uber,
+  Twitter, and Discord publish about their production caches.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - distributed-systems
+  - caching
+  - performance
+  - redis
+  - memcached
 ---
 
 # Distributed Cache Design
 
-Distributed caching is the backbone of high-throughput systems. This article covers cache topologies, partitioning strategies, consistency trade-offs, and operational patterns—with design reasoning for each architectural choice.
+A distributed cache trades RAM and operational complexity for latency. This article walks through the four design axes — topology, partitioning, replication, invalidation — then drills into Redis and Memcached internals, hot-key mitigation, stampede prevention, and the published patterns from Meta, Uber, Twitter, and Discord. The bar is: you should be able to pick a topology, a partitioning scheme, and an invalidation strategy with explicit reasoning and a known staleness budget.
 
-![Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.](./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac-light.svg "Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.")
-![Multi-tier caching architecture: L1 per-instance caches backed by distributed cache cluster with replica nodes. Consistent hashing routes keys; cache misses fall through to the database.](./diagrams/multi-tier-caching-architecture-l1-per-instance-caches-backed-by-distributed-cac-dark.svg)
+![Multi-tier cache architecture: per-instance L1 caches sit in front of a sharded L2 cluster, which falls through to the primary database on miss.](./diagrams/multi-tier-architecture-light.svg "Multi-tier architecture: per-instance L1 caches in front of a sharded L2 cluster that falls through to the primary database on miss.")
+![Multi-tier cache architecture: per-instance L1 caches sit in front of a sharded L2 cluster, which falls through to the primary database on miss.](./diagrams/multi-tier-architecture-dark.svg)
 
-## Abstract
+## Mental model
 
-Distributed caching trades memory for latency by storing frequently accessed data closer to computation. The core design decisions are:
+Before any architecture, fix four words and what they trade against each other:
 
-- **Topology**: Embedded (in-process) vs. client-server (external) vs. distributed cluster—determines failure domain, consistency model, and operational complexity
-- **Partitioning**: Hash-based (consistent hashing, hash slots) vs. range-based—determines data distribution and query patterns
-- **Replication**: Synchronous (strong consistency, higher latency) vs. asynchronous (eventual consistency, lower latency)—determines durability guarantees during failures
-- **Invalidation**: TTL, explicit delete, write-through, write-behind—each has different staleness windows and failure modes
+- **Topology** — where the cache lives relative to the application. Embedded (in-process), client–server (single external instance), or distributed cluster (sharded + replicated). Determines the failure domain and the smallest unit of consistency.
+- **Partitioning** — how keys map to nodes. Modulo, consistent hashing, hash slots, jump hash. Determines what happens when nodes are added or fail.
+- **Replication** — how copies of a key are kept in sync. Synchronous (durability, latency) vs. asynchronous (availability, eventual consistency). Caches almost always pick async.
+- **Invalidation** — how stale entries are evicted or refreshed. TTL, look-aside delete-on-write, write-through, write-behind, or change-data-capture (CDC) streams. Determines the staleness window the application must tolerate.
 
-The fundamental trade-off: **consistency vs. availability vs. partition tolerance** (CAP). Caches typically sacrifice consistency for availability—serving stale data is preferable to serving errors. Design for eventual consistency and explicit staleness bounds.
+Two facts make every choice harder than it looks. First, distributed systems have no global clock, so two updates to the same key at different sites cannot be ordered without explicit coordination — caches almost always sacrifice consistency for availability under [Brewer's CAP theorem](https://www.glassbeam.com/sites/all/themes/glassbeam/images/blog/10.1.1.67.6951.pdf). Second, real workloads are heavy-tailed: a few keys absorb most of the traffic, so the worst-behaved 0.01% of keys often determines the cluster's tail latency. Keep that in mind through the rest of this article — every topology, partitioning, and invalidation decision has to survive both.
 
-## Cache Topologies
+## Cache topologies
 
-### Design Choices
+### Embedded (in-process) cache
 
-#### Embedded (In-Process) Cache
+The cache lives inside the application process and is queried by a function call. There is no network hop, no serialization, and no shared memory across instances.
 
-**How it works:** Cache lives inside the application process. Data stored in application heap memory. No network hop for reads.
-
-**Best when:**
-
-- Sub-microsecond latency required (L1 CPU cache locality)
-- Data is read-heavy with infrequent updates
-- Application instances can tolerate inconsistent views
-- Memory footprint is bounded and predictable
+**Best when:** sub-microsecond reads matter, the dataset is small (< 1 GB), and your callers can tolerate per-instance staleness. Typical implementations: Caffeine on the JVM, in-process LRU/LFU on Go, Rust, or Python.
 
 **Trade-offs:**
 
-- ✅ Fastest possible access (~100ns vs. ~100μs network)
-- ✅ No external dependency; survives network partitions
-- ✅ Zero serialization overhead
-- ❌ Memory duplicated across instances (N instances = N copies)
-- ❌ Invalidation requires coordination (pub/sub, gossip)
-- ❌ Cache size limited by process heap
-- ❌ Cold starts require warm-up
+- Reads are essentially free — a hashtable lookup in user space.
+- N application instances hold N copies. Memory cost scales linearly with fleet size.
+- Invalidation requires coordination — pub/sub, gossip, or simply a short TTL plus willingness to serve stale data for a few seconds.
+- Cold starts are visible: a new instance starts with no cache and is slower for tens of seconds.
 
-**Real-world example:** Guava Cache, Caffeine (JVM). Discord uses per-instance L1 caches for guild metadata—accepting 5-second staleness in exchange for eliminating Redis round-trips for hot data. Result: P99 latency dropped from 12ms to 0.5ms for guild lookups.
+> [!NOTE]
+> Discord rewrote its Read States service from Go to Rust precisely because the in-process LRU cache (millions of entries) was triggering Go GC pauses every two minutes. Moving to Rust eliminated GC stop-the-world events entirely, so they could grow the cache to roughly 8 million entries without latency spikes — see [Why Discord is switching from Go to Rust](https://discord.com/blog/why-discord-is-switching-from-go-to-rust). The lesson is not "use Rust"; it is that an embedded cache makes you accountable for the runtime's memory pauses.
 
-#### Client-Server (External) Cache
+### Client–server (external) cache
 
-**How it works:** Dedicated cache servers (Redis, Memcached) accessed over network. Application is a client; cache is a separate service.
+A dedicated cache process (Redis, Memcached) sits behind a TCP socket and is shared across applications.
 
-**Best when:**
-
-- Multiple applications share cached data
-- Cache dataset exceeds single-instance memory
-- Need TTL, eviction policies, data structures managed externally
-- Operational separation between app and cache lifecycle
+**Best when:** multiple services share data, the dataset exceeds a single process's heap, you want centralized expiration / eviction, or you need richer data structures (sorted sets, streams, pub/sub).
 
 **Trade-offs:**
 
-- ✅ Single source of truth (no cross-instance inconsistency)
-- ✅ Scales independently of application tier
-- ✅ Rich data structures (sorted sets, lists, hashes)
-- ✅ Built-in expiration and eviction
-- ❌ Network latency (~100-500μs per operation)
-- ❌ Serialization/deserialization cost
-- ❌ External dependency (cache failure affects all apps)
-- ❌ Connection pool management complexity
+- One source of truth across the fleet — no cross-instance divergence.
+- Network latency adds ~100–500 µs per round trip even on a fast LAN.
+- Serialization and connection-pool management become real costs.
+- A single Redis instance is hard-capped by one core for command execution (more on that below).
 
-**Real-world example:** Instagram uses Memcached as the primary cache tier, accessed via mcrouter for consistent hashing. A single Memcached cluster serves billions of like counts, user profiles, and session data—with sub-millisecond P50 latency.
+### Distributed cluster
 
-#### Distributed Cache Cluster
+Multiple cache nodes form a cluster. Keys are partitioned via consistent hashing or hash slots; each shard typically has one or more replicas.
 
-**How it works:** Multiple cache nodes form a cluster. Data partitioned across nodes via consistent hashing or hash slots. Replication provides fault tolerance.
-
-**Best when:**
-
-- Dataset exceeds single-node memory (100GB+)
-- Throughput exceeds single-node capacity (>100K ops/sec)
-- High availability required (no single point of failure)
-- Horizontal scaling is a requirement
+**Best when:** the dataset exceeds single-node memory, throughput exceeds single-node capacity (>~200K ops/sec without pipelining, >~1M with pipelining), or you cannot accept a single point of failure.
 
 **Trade-offs:**
 
-- ✅ Horizontal scaling (add nodes = more capacity)
-- ✅ Fault tolerance via replication
-- ✅ No single point of failure
-- ❌ Increased operational complexity (cluster management)
-- ❌ Cross-slot operations limited or expensive
-- ❌ Network partitions can cause split-brain
-- ❌ Rebalancing during topology changes
+- Horizontal scale and fault tolerance.
+- Multi-key operations are constrained to a single shard (or expensive cross-shard coordination).
+- Topology changes (add/remove node) require slot or key migration.
+- Network partitions can produce split-brain — cluster managers (e.g., Redis Sentinel quorum) try to detect and limit it, but the design must assume it can happen.
 
-**Real-world example:** Uber's CacheFront handles 150M+ reads/second across a Redis Cluster. Partitioned by entity ID (independent of database sharding). Circuit breakers detect unhealthy nodes; 99.9% cache hit rate with sub-5ms latency.
+![Distributed cache cluster topology: clients reach an optional proxy tier (mcrouter, twemproxy) that fans out to sharded primaries; primaries replicate asynchronously to one or more replicas and gossip cluster state to each other.](./diagrams/cluster-topology-light.svg "A typical sharded cache cluster: client/proxy tier on top, hash-slot primaries with async replicas, and a gossip mesh that exchanges PING/PONG, FAIL, and UPDATE messages to keep slot ownership consistent.")
+![Distributed cache cluster topology: clients reach an optional proxy tier (mcrouter, twemproxy) that fans out to sharded primaries; primaries replicate asynchronously to one or more replicas and gossip cluster state to each other.](./diagrams/cluster-topology-dark.svg)
 
-### Decision Matrix
+### Decision matrix
 
-| Factor               | Embedded       | Client-Server   | Distributed Cluster |
-| -------------------- | -------------- | --------------- | ------------------- |
-| Latency              | ~100ns         | ~100-500μs      | ~100-500μs          |
-| Dataset size         | < 1GB          | < 100GB         | Terabytes+          |
-| Throughput           | Process-bound  | 1M+ ops/sec     | 10M+ ops/sec        |
-| Consistency          | Per-instance   | Single instance | Eventual            |
-| Operational overhead | None           | Low-Medium      | Medium-High         |
-| Failure blast radius | Single process | All clients     | Partial (replicas)  |
-| Cross-app sharing    | No             | Yes             | Yes                 |
-| Memory efficiency    | Duplicated     | Shared          | Shared + replicated |
+| Factor                | Embedded         | Client–server     | Distributed cluster        |
+| --------------------- | ---------------- | ----------------- | -------------------------- |
+| Read latency          | ~100 ns          | ~100–500 µs       | ~100–500 µs                |
+| Practical dataset     | < 1 GB / process | < 100 GB / node   | terabytes                  |
+| Throughput ceiling    | process-bound    | per-instance core | aggregated across shards   |
+| Consistency model     | per-instance     | single instance   | eventual + per-shard       |
+| Operational overhead  | none             | low–medium        | medium–high                |
+| Failure blast radius  | one process      | all clients       | partial (one shard / repl) |
+| Cross-app sharing     | no               | yes               | yes                        |
 
-### Hybrid Architecture: L1 + L2
+![Cache topology decision tree: working set size and HA needs drive the choice between embedded, single instance, Sentinel-fronted, or full cluster.](./diagrams/topology-decision-tree-light.svg "A decision tree for picking between embedded, single-instance, Sentinel, and clustered topologies — most production systems land on a hybrid L1+L2.")
+![Cache topology decision tree: working set size and HA needs drive the choice between embedded, single instance, Sentinel-fronted, or full cluster.](./diagrams/topology-decision-tree-dark.svg)
 
-Production systems typically combine topologies:
+### Hybrid L1 + L2
 
+Most production systems combine topologies:
+
+```text
+request → L1 (in-process, ~100 ns, MB-scale)
+        → L2 (cluster, ~500 µs, GB–TB scale)
+        → DB (~1–10 ms)
 ```
-Request → L1 (Embedded, ~100ns) → L2 (Distributed, ~500μs) → Database (~5ms)
-```
 
-**L1 (per-instance):**
+L1 absorbs hot keys, removing tens of millions of cluster reads per second. L2 holds the working set and is the source of truth for cached data. Meta runs this pattern in production, with [look-aside Memcached clusters](https://engineering.fb.com/2013/04/15/core-infra/scaling-memcache-at-facebook/) backed by application-level local caches and cross-region delete streams.
 
-- Small (100MB-1GB), hot data only
-- Short TTL (seconds to minutes)
-- No coordination; eventual consistency acceptable
+## Redis architecture
 
-**L2 (distributed cluster):**
+### Single-threaded command execution
 
-- Large (terabytes), full working set
-- Longer TTL (minutes to hours)
-- Source of truth for cached data
+Redis executes every command on a single thread. This is a deliberate design choice and the source of much of its predictability.
 
-**Invalidation flow:** Database write → invalidate L2 → L2 broadcasts to L1 instances (pub/sub) or L1 TTL expires naturally.
+- **No internal locks.** Atomic operations (`INCR`, `LPUSH`, `SADD`) are atomic by construction — the single thread serializes them.
+- **Memory-bound, not CPU-bound.** Most Redis commands touch at most a few hashtable entries; a single core saturates the memory subsystem before CPU becomes a bottleneck.
+- **Predictable tail latency.** No lock contention means consistent P99/P99.9, which is much harder to achieve in a multi-threaded design.
+- **I/O multiplexing.** The event loop uses `epoll` (Linux) or `kqueue` (BSD) to multiplex thousands of connections on the single command thread.
 
-Meta's architecture follows this pattern: application-local caches (seconds TTL) backed by Memcached clusters (minutes TTL), with invalidation streams propagating deletes across regions.
+**Throughput numbers, with the right caveats.** [The official `redis-benchmark` documentation](https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/) reports >1.5M SET/sec and >1.8M GET/sec on commodity hardware, but only with pipelining (`-P 16`). Without pipelining, a single instance typically sustains roughly 100–200K ops/sec for simple GET/SET — the round-trip dominates. If your client cannot batch commands, plan for the lower number.
 
-## Redis Architecture
+> [!IMPORTANT]
+> Redis 8.0 ships an asynchronous I/O threading implementation that offloads socket reads, command parsing, and reply writing to worker threads while the main thread retains command execution and atomicity. With `io-threads=8` on a multi-core Intel CPU, [Redis reports a 37% to 112% throughput improvement depending on the command mix](https://redis.io/blog/redis-8-0-m03-is-out-even-more-performance-new-features/), and unlike the 6.x/7.x I/O threads, the new implementation supports TLS connections.
 
-### Single-Threaded Event Loop
+### Redis Cluster: hash slots
 
-Redis executes all commands on a single thread. This is a deliberate design choice, not a limitation.
+[Redis Cluster](https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/) partitions the keyspace into a fixed 16,384 hash slots:
 
-**Why single-threaded?**
-
-1. **No synchronization overhead**: Increment operations (INCR), list pushes (LPUSH), and atomic operations require no locks. The single thread guarantees sequential execution.
-
-2. **Memory-bound workloads**: Redis operations are memory-bound, not CPU-bound. A single core saturates memory bandwidth before CPU becomes the bottleneck.
-
-3. **Predictable latency**: No lock contention means consistent tail latencies. P99 latency is stable under load.
-
-4. **Simplified implementation**: No race conditions, no deadlocks, no complex concurrency bugs.
-
-**Performance:** Redis achieves 1.5M SET ops/sec and 1.3M GET ops/sec on commodity hardware. The event loop uses epoll (Linux) or kqueue (BSD) for I/O multiplexing—handling thousands of concurrent connections efficiently.
-
-**Recent evolution (Redis 8.0):** Optional I/O threading offloads socket read/write/parsing to worker threads while the main thread still handles all command execution. Throughput improves 37-112% on multi-core systems without sacrificing the single-threaded execution model.
-
-### Redis Cluster: Hash Slots
-
-Redis Cluster partitions keys across nodes using **16,384 hash slots**.
-
-**Routing algorithm:**
-
-```
+```text
 slot = CRC16(key) mod 16384
 ```
 
-Each node owns a subset of slots. Clients cache the slot-to-node mapping and route requests directly.
+Each node owns a contiguous (or non-contiguous) subset of slots. Clients cache the slot-to-node map and contact the owning node directly; on a stale map the node returns `-MOVED <slot> <ip>:<port>` and the client refreshes.
 
-**Why 16,384 slots?**
+**Why 16,384?** It is small enough that a node's slot ownership fits in a 2 KB bitmap (cheap to gossip in heartbeats) and large enough that you can rebalance one slot at a time across hundreds of nodes without obvious lumpiness.
 
-- Enough granularity for rebalancing (move individual slots)
-- Small enough for efficient heartbeat messages (2KB bitmap)
-- Sweet spot between flexibility and overhead
+**Resharding mechanics.** When you migrate slot 7000 from node A to node B:
 
-**Scaling mechanics:**
+1. Mark the slot `MIGRATING` on A and `IMPORTING` on B.
+2. Move keys atomically with `MIGRATE`.
+3. Until the slot is fully moved, A returns `-ASK` redirects for keys that have already been transferred; the client re-issues with the `ASKING` prefix.
+4. After the move completes, A returns `-MOVED` for that slot — every client refreshes its slot cache lazily on the first stale request.
 
-- Add node: Migrate slots from existing nodes
-- Remove node: Migrate slots to remaining nodes
-- Resharding: Move slots without downtime (clients redirect during migration)
+![Redis Cluster slot migration sequence: clients see -ASK redirects mid-migration and -MOVED redirects after ownership flips.](./diagrams/redis-cluster-slot-migration-light.svg "Redis Cluster slot migration: -ASK redirects keys that have already migrated; -MOVED replies update the client's slot cache after ownership changes.")
+![Redis Cluster slot migration sequence: clients see -ASK redirects mid-migration and -MOVED redirects after ownership flips.](./diagrams/redis-cluster-slot-migration-dark.svg)
 
-**Limitations:**
+**Multi-key constraints.** `MGET`, `MSET`, transactions, and Lua scripts are slot-local: every key must hash to the same slot. The escape hatch is **hash tags**: only the substring inside `{ }` is hashed, so `{user:123}:profile` and `{user:123}:settings` collocate to the same slot.
 
-- Multi-key operations (MGET, MSET) only work if all keys hash to the same slot
-- Use hash tags `{user:123}:profile` and `{user:123}:settings` to colocate related keys
-- Cross-slot transactions require CLUSTER commands
+### Redis Sentinel: HA without sharding
 
-**Real-world:** Twitter uses Redis Cluster for home timelines. Keys are user IDs; all timeline data for a user hashes to the same slot. Cluster scales to hundreds of nodes across multiple data centers.
+[Sentinel](https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/) is the simpler high-availability story for single-master deployments. Three or more Sentinel processes monitor a Redis primary; on failure, a quorum elects a replica as the new primary and reconfigures clients via subscription.
 
-### Redis Sentinel: High Availability Without Sharding
+| Aspect               | Sentinel                       | Cluster                              |
+| -------------------- | ------------------------------ | ------------------------------------ |
+| Scaling              | vertical                       | horizontal (auto-sharding)           |
+| Data size            | single-node limit              | terabytes+                           |
+| Operational overhead | low                            | medium–high                          |
+| Failover             | Sentinel quorum                | cluster gossip + epoch bumps         |
+| Multi-key ops        | unrestricted                   | same-slot only                       |
+| Best for             | HA for small / medium datasets | sharded large-scale deployments      |
 
-Redis Sentinel provides automatic failover for single-master deployments.
+The decision rule is boring and useful: start with Sentinel, migrate to Cluster only when one node's RAM, CPU, or NIC genuinely runs out. The operational cost of Cluster is rarely worth paying preemptively.
 
-**Architecture:**
+## Memcached architecture
 
-- 3+ Sentinel processes monitor Redis master
-- Quorum agreement required to trigger failover
-- Sentinels elect new master from replicas
-- Clients discover master via Sentinel
+### Multi-threaded slab allocator
 
-**When to use Sentinel vs. Cluster:**
+Memcached's design is the inverse of Redis's: it gives up Redis's data structures and persistence in exchange for clean multi-threading and tight memory predictability. From [the Memcached UserInternals wiki](https://github.com/memcached/memcached/wiki/UserInternals):
 
-| Aspect               | Sentinel                 | Cluster                      |
-| -------------------- | ------------------------ | ---------------------------- |
-| Scaling              | Vertical only            | Horizontal (auto-sharding)   |
-| Data size            | Single-node limit        | Terabytes+                   |
-| Operational overhead | Low                      | Medium-High                  |
-| Failover             | Sentinel-coordinated     | Cluster-coordinated          |
-| Multi-key ops        | All supported            | Same-slot only               |
-| Use case             | HA for small-medium data | Large-scale distributed data |
+- Memory is pre-allocated in 1 MB **pages**.
+- Each page is divided into fixed-size **chunks** belonging to a **slab class** (chunk sizes grow geometrically).
+- An item lands in the smallest slab class that fits.
+- LRU eviction is per slab class, so a flood of small items cannot evict large items.
 
-**Design reasoning:** Sentinel is simpler to operate when your dataset fits on one machine. Cluster adds complexity that only pays off at scale. Start with Sentinel; migrate to Cluster when you hit single-node limits.
+This allocator eliminates external heap fragmentation in exchange for some internal fragmentation: a 100-byte item in a 128-byte chunk wastes 28 bytes. Tune the chunk-size factor for your value-size distribution.
 
-## Memcached Architecture
+**Threading model.** A single listener thread accepts TCP connections on port 11211 and hands each one to a worker thread. Workers run their own libevent loops and use fine-grained locking per slab class. Modern Memcached further splits each slab class into hot / warm / cold sub-LRUs to reduce lock contention on the LRU list.
 
-### Multi-Threaded Slab Allocator
+### When Memcached beats Redis
 
-Memcached uses a fundamentally different threading model than Redis.
+- Pure key/value workloads where you do not need lists, sorted sets, streams, or pub/sub.
+- Multi-core machines where you want the cache to scale with cores rather than with shards.
+- Memory predictability matters more than persistence.
+- Operations are limited to `GET`, `SET`, `DELETE`, `INCR`, `APPEND` — there is no Cluster mode and no command replay log.
 
-**Slab allocator design:**
+### Client-side consistent hashing, twemproxy, and mcrouter
 
-1. Memory pre-allocated in 1MB pages (slabs)
-2. Each slab divided into fixed-size chunks (slab classes)
-3. Items stored in the smallest chunk that fits
-4. LRU eviction per slab class
+Memcached servers know nothing about each other; clients are responsible for picking the right server. The standard implementation is the **Ketama** ring (consistent hashing with 100–200 virtual nodes per server), but at scale you almost always sit a router in front:
 
-**Why slabs?**
+- [**Twitter's twemproxy**](https://github.com/twitter/twemproxy) (also called nutcracker) is the lightweight option. It speaks both the Memcached and Redis protocols, performs consistent hashing, multiplexes client connections, and pipelines requests to backends. It is a *proxy*, not a cluster manager — it does not participate in failover and treats each backend as opaque.
+- [**Meta's mcrouter**](https://github.com/facebook/mcrouter) is the heavier reference implementation. It speaks the Memcached ASCII/binary protocol, terminates client connections, multiplexes them onto a small connection pool per server, and adds [a reliable delete stream, prefix routing, replicated pools, two-level local/remote caching, and health checks](https://engineering.fb.com/2014/09/15/web/introducing-mcrouter-a-memcached-protocol-router-for-scaling-memcached-deployments/). The client just talks to mcrouter as if it were one big Memcached. In Meta's deployment, mcrouter is also the in-region delivery surface for the [`mcsqueal`](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) cross-region invalidation pipeline.
 
-- **No fragmentation**: Fixed-size chunks eliminate heap fragmentation from malloc/free cycles
-- **Predictable memory usage**: Memory capped at startup; no unexpected growth
-- **Fast allocation**: O(1) chunk allocation from free list
+## Consistent hashing deep dive
 
-**Trade-off:** Items waste space (rounded up to chunk size). A 100-byte item in a 128-byte chunk wastes 28 bytes. Tune slab sizes for your workload.
+### Why modulo hashing fails
 
-**Threading model:**
+The naive scheme `server = hash(key) mod N` is fine until `N` changes. Adding one server to a 10-server pool changes the modulus from 10 to 11, and roughly 90% of keys now hash to a different server. Every one of those keys is a cache miss, and the database immediately drowns in the resulting stampede.
 
-- Single acceptor thread handles new connections
-- Worker thread pool processes requests
-- Fine-grained locking per slab class
-- Scales linearly with cores (unlike Redis)
+### Karger consistent hashing (1997)
 
-**When Memcached beats Redis:**
+[Karger et al.](https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf) introduced consistent hashing to solve exactly this problem:
 
-- Simple key-value workloads (no data structures)
-- Multi-core machines (Memcached scales better)
-- Memory efficiency critical (slab allocator is more predictable)
-- No persistence requirements
+- Map each server and each key to a point on a logical ring (e.g., `[0, 2^32)`).
+- A key belongs to the first server encountered clockwise from the key's position.
+- Adding or removing a server only re-homes the keys in the arc between the new server and its clockwise neighbor — `K/N` keys on average, not `K`.
 
-### Client-Side Consistent Hashing
+Without virtual nodes, server placement is uneven and load can vary by 50% or more. Each physical server is replicated as 100–1000 virtual nodes on the ring; the variance drops sharply with more replicas. The original paper measures a roughly 3.2% standard deviation in load with about 1000 points per server.
 
-Memcached servers have no cluster awareness. Clients implement consistent hashing.
+![Consistent hashing ring with virtual nodes: each physical server is replicated at multiple ring positions; keys map clockwise to the next virtual node.](./diagrams/consistent-hashing-ring-light.svg "Each physical server lives at many virtual ring positions; keys walk clockwise to the next virtual node, and adding a server only remaps the arc between the newcomer and its clockwise neighbor.")
+![Consistent hashing ring with virtual nodes: each physical server is replicated at multiple ring positions; keys map clockwise to the next virtual node.](./diagrams/consistent-hashing-ring-dark.svg)
 
-**Ketama algorithm** (standard implementation):
+Discord open-sources their Elixir ring implementation as [`ex_hash_ring`](https://github.com/discord/ex_hash_ring); its default of 512 replicas per node is a reasonable starting point.
 
-1. Hash each server to multiple points on a ring (virtual nodes)
-2. Hash each key to a point on the ring
-3. Walk clockwise to find the owning server
-4. Virtual nodes (100-200 per server) ensure even distribution
+### Jump consistent hash (Google, 2014)
 
-**Why client-side?**
-
-- No inter-server communication (servers are stateless)
-- Simpler server implementation (just a hash table)
-- Client libraries handle topology changes
-
-**Trade-off:** Server addition/removal requires client coordination. Misconfigured clients see different key distributions. Use a service mesh or consistent client configuration.
-
-## Consistent Hashing Deep Dive
-
-### The Problem with Modulo Hashing
-
-Naive approach: `server = hash(key) mod N`
-
-When N changes (server added/removed), most keys remap to different servers. Adding one server to a 10-server cluster remaps ~90% of keys—causing a cache stampede.
-
-### Consistent Hashing (Karger et al., 1997)
-
-**Core insight:** Map both keys and servers to a circular hash space. Keys belong to the first server encountered clockwise.
-
-**Properties:**
-
-- Adding/removing a server only affects keys in one range
-- On average, `K/N` keys remap (K = total keys, N = servers)
-- Adding one server to 10 servers remaps only ~10% of keys
-
-**Virtual nodes solve uneven distribution:**
-
-Without virtual nodes, servers can have 50%+ load variance due to hash clustering. With 100-200 virtual nodes per server:
-
-- Each physical server maps to 100-200 points on the ring
-- Load variance drops to <5%
-- Heterogeneous hardware can have proportional virtual nodes
-
-**Real-world:** Discord uses consistent hashing with 1000 virtual nodes per physical server. After node failures, load variance stays under 5%, preventing cascading overloads.
-
-### Jump Consistent Hash (Google, 2014)
-
-**Innovation:** O(1) memory, near-perfect distribution.
-
-**Algorithm (5 lines):**
+[Lamping & Veach](https://arxiv.org/abs/1406.2294) published a five-line algorithm with O(1) memory and near-perfect distribution:
 
 ```cpp
 int32_t JumpConsistentHash(uint64_t key, int32_t num_buckets) {
@@ -317,251 +229,202 @@ int32_t JumpConsistentHash(uint64_t key, int32_t num_buckets) {
 }
 ```
 
-**Properties:**
+Properties from the paper:
 
-- Zero memory for ring/virtual nodes
-- Standard deviation: 0.00000000764 (essentially perfect distribution)
-- When adding bucket N+1, each existing bucket transfers exactly `1/(N+1)` of its keys
+- O(1) memory — there is no ring or virtual-node table.
+- Distribution is so close to uniform that the standard error is essentially numerical noise (the paper measures a sub-millionth-percent deviation).
+- Adding bucket `N+1` moves exactly `1/(N+1)` of the keys from each existing bucket — the theoretical minimum.
 
-**Limitation:** Buckets must be numbered 0 to N-1. Removing bucket K requires renumbering. Better for stable topologies (e.g., sharded databases) than dynamic cache clusters.
+The catch: buckets must be numbered 0 to N-1. Removing bucket K requires renumbering, so jump hash is a great fit for sharded databases with stable bucket counts (think: ad-serving features with hot reshards) and a poor fit for elastic cache pools where nodes come and go.
 
-### Redis Hash Slots vs. Consistent Hashing
+### Hash slots vs. ring hashing
 
-| Aspect            | Consistent Hashing | Hash Slots (Redis)       |
-| ----------------- | ------------------ | ------------------------ |
-| Granularity       | Continuous ring    | 16,384 discrete slots    |
-| Rebalancing       | Key-by-key         | Slot-by-slot             |
-| Metadata size     | O(virtual nodes)   | Fixed 2KB bitmap         |
-| Implementation    | Client library     | Cluster protocol         |
-| Partial migration | Not native         | Native (MIGRATING slots) |
+| Aspect            | Karger ring          | Hash slots (Redis)        |
+| ----------------- | -------------------- | ------------------------- |
+| Granularity       | continuous ring      | 16,384 discrete slots     |
+| Rebalancing       | per virtual node     | per slot                  |
+| Metadata size     | O(virtual nodes)     | fixed 2 KB bitmap         |
+| Implementation    | client library       | cluster gossip protocol   |
+| Partial migration | not native           | native (`MIGRATING`/`IMPORTING`) |
 
-**Design reasoning:** Hash slots simplify cluster coordination. Instead of agreeing on ring positions, nodes agree on slot ownership. Slot migration is atomic—clients redirect mid-migration without losing requests.
+Slots simplify cluster coordination: nodes only have to agree on slot ownership, not on continuous ring positions. The `-ASK` / `-MOVED` redirect protocol makes slot migration atomic from the client's point of view.
 
-## Cache Invalidation Strategies
+## Cache invalidation strategies
 
-### The Invalidation Problem
+### The hard problem
 
-> "There are only two hard things in Computer Science: cache invalidation and naming things." —Phil Karlton
+> "There are only two hard things in Computer Science: cache invalidation and naming things." — Phil Karlton
 
-Cache invalidation is hard because distributed systems have no global clock. When data changes in the database, caches across multiple nodes must be updated—but network delays mean some nodes see the change before others.
+Cache invalidation is hard because there is no global clock and no atomic write across cache + DB. Pick the strategy whose worst case you can live with, and document the staleness bound.
 
-### Strategy 1: Time-To-Live (TTL)
+### Strategy 1: TTL
 
-**Mechanism:** Every cache entry has an expiration time. After TTL, the entry is evicted or refreshed.
+Every entry has an expiration time; once it expires, the next reader misses and re-populates. TTL is the safety net under every other strategy: even when explicit invalidation is buggy, the data stops being wrong after the TTL.
 
-**Staleness bound:** Maximum staleness = TTL. If TTL is 60 seconds, cached data is at most 60 seconds stale.
+**Maximum staleness = TTL.** Pick TTL based on how stale the application can tolerate, not based on how often the data changes.
 
-**Best when:**
+> [!WARNING]
+> Synchronized expiration causes stampedes. If 10,000 keys are written in the same second with the same TTL, they all expire in the same second. Add jitter:
+>
+> ```python
+> actual_ttl = base_ttl + random.uniform(0, jitter_seconds)
+> ```
 
-- Eventual consistency acceptable
-- Data changes infrequently
-- Simplicity preferred over freshness
+### Strategy 2: Cache-aside (look-aside)
 
-**Pitfall—Synchronized expiration:**
+The application owns the cache lifecycle. On read, check the cache; on miss, query the DB and populate. On write, update the DB and **delete** the cache entry. The next reader populates with the fresh value.
 
-If 10,000 keys set with the same TTL at the same time, they all expire simultaneously—causing a cache stampede. Always add jitter:
+![Cache-aside read and write paths: reads populate the cache on miss; writes delete the entry instead of updating it.](./diagrams/cache-aside-sequence-light.svg "Cache-aside (look-aside) — reads populate the cache on miss; writes delete the entry rather than updating it, so the next read pulls fresh data from the database.")
+![Cache-aside read and write paths: reads populate the cache on miss; writes delete the entry instead of updating it.](./diagrams/cache-aside-sequence-dark.svg)
 
-```python
-actual_ttl = base_ttl + random.uniform(0, jitter_seconds)
+**Why delete, not update?** Updating the cache after a write opens a race that pins stale data:
+
+```text
+T1: read DB -> old
+T2: write DB -> new
+T2: SET cache new
+T1: SET cache old   ← cache now stuck on old until TTL
 ```
 
-### Strategy 2: Explicit Invalidation (Cache-Aside)
+Deleting closes that race because the next read fetches fresh data. This is the pattern Meta formalized as "look-aside" caching in [Scaling Memcache at Facebook (NSDI '13)](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf), with leases on top to prevent thundering herds and stale sets (see below).
 
-**Mechanism:** Application manages cache lifecycle. On read miss, populate from database. On write, invalidate cache entry.
+### Strategy 3: Write-through
 
-**Pattern:**
+The application writes to the cache; the cache synchronously writes to the database before acknowledging. Every write blocks on the slowest of the two. Strong consistency between cache and DB at the cost of write latency. Useful when reads dominate writes by orders of magnitude and stale reads are unacceptable.
 
-```
-Read:
-  1. Check cache
-  2. On miss: query DB, populate cache
-  3. Return data
+### Strategy 4: Write-behind (write-back)
 
-Write:
-  1. Write to database
-  2. Delete cache entry (NOT update)
-```
+The application writes to the cache; the cache flushes to the DB asynchronously in the background. Writes are at memory speed, but a cache failure between write and flush loses data. Acceptable for non-critical write-heavy paths (counters, analytics, telemetry) where losing a few seconds of writes is cheaper than the latency of synchronous persistence.
 
-**Why delete, not update?**
+### Strategy 5: CDC-driven invalidation
 
-Race condition: Concurrent requests can leave cache inconsistent.
+The DB emits change events (binlog, WAL, CDC stream like [Debezium](https://debezium.io/)). An invalidation service consumes the stream, maps each row change to the affected cache keys, and issues `DEL`s — typically also broadcasting to L1 caches via pub/sub.
 
-```
-T1: Read DB (old value)
-T2: Write DB (new value)
-T2: Update cache (new value)
-T1: Update cache (old value)  ← Cache now has stale data
-```
+![CDC-driven invalidation: database writes flow through a change capture stream into an invalidator that deletes L2 entries and broadcasts to L1 caches.](./diagrams/cdc-invalidation-flow-light.svg "CDC-driven invalidation flow: database writes feed a durable change stream; an invalidation service deletes the L2 entry and fans out a pub/sub message that purges L1 caches.")
+![CDC-driven invalidation: database writes flow through a change capture stream into an invalidator that deletes L2 entries and broadcasts to L1 caches.](./diagrams/cdc-invalidation-flow-dark.svg)
 
-Delete avoids this—next read fetches fresh data.
+The DB does not need to know about the cache; the stream is durable, so the invalidator can retry; one event can fan out to every cache tier. The cost is staleness: invalidation lags the write by the CDC pipeline's latency (typically 100 ms – 1 s).
 
-**Facebook's Memcache paper** formalized this as "look-aside" caching. Delete on write; let reads repopulate. Leases prevent thundering herd (only first request fetches; others wait).
+### Strategy comparison
 
-### Strategy 3: Write-Through
+| Strategy        | Consistency model            | Write latency        | Failure mode                                | Best for                                  |
+| --------------- | ---------------------------- | -------------------- | ------------------------------------------- | ----------------------------------------- |
+| TTL only        | bounded staleness = TTL      | none                 | stale data until TTL expires                | rarely-changing data                       |
+| Cache-aside     | eventual + delete-on-write   | one DEL              | race window between DB write and DEL        | most read-heavy workloads                  |
+| Write-through   | strong (cache ↔ DB)          | DB latency           | cache failure → write fails                  | low write rate, strong consistency need    |
+| Write-behind    | eventual, possibly lossy     | memory speed         | data loss on cache failure before flush     | counters, analytics, non-critical writes   |
+| CDC stream      | bounded staleness ≈ CDC lag  | none on hot path     | stream backlog → invalidation lag           | multi-tier, multi-region invalidation      |
 
-**Mechanism:** Application writes to cache. Cache synchronously writes to database before acknowledging.
+## Eviction policies
 
-**Guarantee:** Cache and database always consistent (within transaction).
+Invalidation removes entries that are *wrong*. Eviction removes entries the cache no longer has *room* for. Pick the wrong eviction policy and your hit ratio collapses long before you run out of RAM.
 
-**Trade-off:** Write latency = max(cache_latency, db_latency). Every write blocks on database round-trip.
+### LRU and its limits
 
-**Best when:**
+Least-Recently-Used eviction discards the entry whose last access is oldest. It is the default in Memcached (per slab class) and Redis (`allkeys-lru`, `volatile-lru`). LRU is cheap to implement (a doubly-linked list with O(1) move-to-head) and adapts to recency, but it has two well-known failure modes:
 
-- Strong consistency required
-- Write volume is low
-- Can tolerate higher write latency
+- **Scan pollution.** A one-time linear scan over a large dataset evicts the entire working set; hit ratio crashes until reuse rebuilds it.
+- **Frequency blindness.** A key accessed 1,000 times in the last hour is evicted before a key touched once five minutes ago.
 
-### Strategy 4: Write-Behind (Write-Back)
+### LFU and the freshness problem
 
-**Mechanism:** Application writes to cache. Cache asynchronously flushes to database in background.
+Least-Frequently-Used keeps a counter per entry and evicts the lowest counter. Pure LFU never forgets: an item that was popular last year out-competes today's hot item forever. Redis ships an approximate LFU (`allkeys-lfu`) that decays counters on access ([`maxmemory-policy`](https://redis.io/docs/latest/operate/oss_and_stack/management/config/) defaults to `noeviction`, but LFU is the right pick for skewed read workloads) — see [Redis eviction policies](https://redis.io/docs/latest/operate/oss_and_stack/reference/eviction/).
 
-**Trade-off:**
+### Segmented LRU (SLRU) and TinyLFU
 
-- ✅ Ultra-fast writes (memory speed only)
-- ❌ Durability risk: cache failure before flush = data loss
-- ❌ Read-after-write may see stale data (race with async flush)
+Memcached's modern LRU is **segmented** into hot, warm, and cold sub-LRUs per slab class to amortize lock contention and protect frequently used items from a single scan. Caffeine on the JVM goes further with [**W-TinyLFU**](https://arxiv.org/abs/1512.00727) — Einziger, Friedman, and Manes (ACM TOS 13:4, 2017):
 
-**Best when:**
+1. A **count-min sketch** (a few bits per key) tracks approximate access frequency in O(1) memory.
+2. A **window LRU** (~1 % of the cache) lets brand-new items build frequency before they have to compete on it — the "sparse burst" defense.
+3. The **main SLRU** admits a new item only if its sketch frequency exceeds the eviction candidate's. Old popularity is forgotten by periodically halving the sketch counters.
 
-- Write performance critical
-- Data loss acceptable (metrics, analytics, non-critical logs)
-- Background flush latency is acceptable
+Caffeine's [efficiency benchmarks](https://github.com/ben-manes/caffeine/wiki/Efficiency) show W-TinyLFU matching ARC and beating LRU/LFU on database, search, and analytic workloads while preserving O(1) behavior. If you are picking an embedded cache today, default to W-TinyLFU.
 
-**Real-world:** Analytics pipelines often use write-behind. Losing a few data points is acceptable; sub-millisecond write latency is not negotiable.
+### Default policy by workload
 
-### Strategy 5: Event-Driven Invalidation
+| Workload                                | Sensible default                                                    |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| Embedded application cache (JVM, Rust)  | W-TinyLFU (Caffeine, `quick_cache`, `moka`)                         |
+| Memcached server                        | Per-slab segmented LRU (default since Memcached 1.5)                |
+| Redis with skewed reads                 | `allkeys-lfu` (approximate LFU with decay)                          |
+| Redis with rolling time-window data     | `allkeys-lru` plus explicit per-key TTLs                            |
+| Cache that must never silently evict    | `noeviction` plus monitoring on `evicted_keys`                      |
 
-**Mechanism:** Database emits change events (CDC—Change Data Capture). Cache subscribes and invalidates affected entries.
+## Hot keys
 
-**Architecture:**
+### The Zipf reality
 
-```
-DB Write → CDC Stream (Kafka, Debezium) → Cache Invalidation Service → Cache Delete
-```
+Production traffic is heavy-tailed: a small minority of keys absorbs most of the requests. Consistent hashing routes every read for a given key to the same node, so a hot key concentrates load on one shard regardless of cluster size. This is the most common reason for cache cluster overload.
 
-**Advantages:**
+![Hot-key fan-out: a single popular key concentrates load on one shard; mitigations are L1 caching, request coalescing, hot-key replication, and key splitting.](./diagrams/hot-key-fanout-light.svg "A hot key collapses cluster-wide throughput onto one shard. The four standard mitigations — L1 in front, single-flight coalescing, replicating the key across shards, and splitting the key into N physical sub-keys — trade memory and write amplification for read parallelism.")
+![Hot-key fan-out: a single popular key concentrates load on one shard; mitigations are L1 caching, request coalescing, hot-key replication, and key splitting.](./diagrams/hot-key-fanout-dark.svg)
 
-- Decoupled: Database doesn't know about cache
-- Reliable: Events persisted in stream (retry on failure)
-- Multi-cache: Single event invalidates all cache tiers
+### Solution 1: request coalescing (single-flight)
 
-**Latency:** Invalidation delay = CDC lag + processing time. Typically 100ms-1s. Not suitable for strong consistency requirements.
+Multiple in-flight requests for the same key collapse into one DB read; everyone shares the result.
 
-**Real-world:** LinkedIn uses Espresso (their database) with a change capture stream to invalidate distributed caches. Staleness bounded by stream lag.
+```go title="single-flight cache fetch"
+import "golang.org/x/sync/singleflight"
 
-## Hot Key Mitigation
-
-### The Hot Key Problem
-
-A single key receiving disproportionate traffic overwhelms one cache node. Examples:
-
-- Celebrity tweet goes viral (millions of reads on one key)
-- Flash sale product page (everyone viewing same item)
-- Breaking news article (global traffic spike)
-
-Consistent hashing makes this worse—all requests for a key go to one node, regardless of cluster size.
-
-### Solution 1: Request Coalescing (Single-Flight)
-
-**Mechanism:** Multiple simultaneous requests for the same key collapse into one database query. Others wait and share the result.
-
-**Implementation:**
-
-```go
 var group singleflight.Group
 
 func Get(key string) (Value, error) {
-    v, err, _ := group.Do(key, func() (interface{}, error) {
-        return fetchFromDB(key)  // Only called once per key
+    v, err, _ := group.Do(key, func() (any, error) {
+        return fetchFromDB(key)
     })
     return v.(Value), err
 }
 ```
 
-**Effect:** 10,000 simultaneous requests = 1 database query + 9,999 waiters.
+10,000 simultaneous requests become 1 DB query and 9,999 waiters. The trade-off: every waiter inherits the first request's latency, so a slow database stalls them all. The Go standard library exposes this in [`golang.org/x/sync/singleflight`](https://pkg.go.dev/golang.org/x/sync/singleflight); equivalents exist in most languages.
 
-**Trade-off:** First request's latency is shared by all waiters. If database is slow, all requests block.
+![Request coalescing sequence: N concurrent missers attach to a single in-flight DB fetch and share the result.](./diagrams/request-coalescing-light.svg "Single-flight: the first miss takes the lead, every subsequent miss for the same key attaches to the in-flight fetch instead of issuing its own DB query, and all waiters receive the same result.")
+![Request coalescing sequence: N concurrent missers attach to a single in-flight DB fetch and share the result.](./diagrams/request-coalescing-dark.svg)
 
-### Solution 2: Local Cache Tier (L1)
+### Solution 2: an L1 in front of the L2
 
-**Mechanism:** Replicate hot keys to per-instance L1 caches. Reads served locally; no network hop.
+Replicate hot keys into per-instance L1 caches. Reads served from L1 do not touch the cluster. The L1 is eventually consistent: it expires via short TTL or is invalidated via pub/sub from the L2 layer. The diagram in the [Mental model](#mental-model) section shows the typical L1+L2 layout; see the [CDC invalidation flow](#strategy-5-cdc-driven-invalidation) for how cross-tier invalidation propagates.
 
-**Architecture:**
+### Solution 3: explicit hot-key replication
 
-```
-App Instance → L1 (local, 100MB, 5s TTL) → L2 (Redis cluster) → DB
-```
+Detect hot keys (server-side via `redis-cli --hotkeys`, client-side rate counters, or offline log analysis) and replicate them onto N nodes. Clients pick a replica at random or round-robin. Twitter wrote about doing this for their timeline storage in [Handling Hotkeys in Timeline Storage at Twitter](https://matthewtejo.substack.com/p/handling-hotkeys-in-timeline-storage). The cost is N× memory per replicated key and a more elaborate invalidation path.
 
-**Trade-off:** L1 caches are eventually consistent. Updates propagate via TTL expiration or pub/sub invalidation.
+### Solution 4: key splitting (sharding within a key)
 
-**Real-world:** Discord serves guild metadata from L1 caches with 5-second TTL. 99% of reads hit L1; only 1% reach Redis.
+Split one logical key into N physical keys (`product:12345:0`, `:1`, …) and let the client pick a suffix at random. Distributes reads across nodes; writes have to update every shard. Best for read-heavy, write-rare data — product catalogs, configuration, feature flags.
 
-### Solution 3: Key Replication
+### Solution 5: probabilistic early recomputation (XFetch)
 
-**Mechanism:** Detect hot keys (via monitoring) and replicate to multiple cache nodes. Clients round-robin across replicas.
+Instead of refreshing the cache exactly at expiration, occasionally refresh early — with probability that grows as expiration approaches. Spreads the refresh load across the TTL window and prevents a synchronized stampede when popular keys expire.
 
-**Hot key detection:**
+```python title="XFetch (Vattani et al.)"
+import math, random, time
 
-- Client-side: Track request rates per key
-- Server-side: Redis HOTKEYS command (approximation via LFU)
-- Offline: Analyze access logs, identify keys above threshold
-
-**Trade-off:** Replication increases memory usage. Invalidation must reach all replicas.
-
-### Solution 4: Key Splitting (Sharding Within Key)
-
-**Mechanism:** Split one logical key into multiple physical keys. Distribute across nodes.
-
-```
-Original:  product:12345
-Split:     product:12345:0, product:12345:1, product:12345:2
-```
-
-Client randomly selects a suffix, distributing load across nodes.
-
-**Trade-off:** Writes must update all shards. Read consistency requires quorum or sticky routing.
-
-**Best for:** Read-heavy, write-rare data (product catalog, configuration).
-
-### Solution 5: Probabilistic Early Recomputation
-
-**Mechanism:** Before TTL expires, probabilistically refresh the cache entry. Probability increases as expiration approaches.
-
-**Algorithm (XFetch):**
-
-```python
 def should_recompute(expiry_time, delta, beta=1.0):
     now = time.time()
-    ttl_remaining = expiry_time - now
-    random_factor = random.random()
-    return ttl_remaining - (delta * beta * math.log(random_factor)) <= 0
+    return now - delta * beta * math.log(random.random()) >= expiry_time
 ```
 
-**Effect:** Refreshes spread across time window, preventing synchronized expiration stampede.
+The algorithm and its proof of optimality are in [Vattani, Chierichetti, Lowenstein — Optimal Probabilistic Cache Stampede Prevention (VLDB 2015)](http://www.vldb.org/pvldb/vol8/p886-vattani.pdf). `delta` is the expected recomputation cost; `beta` tunes how aggressively to refresh early.
 
-## Cache Stampede Prevention
+## Cache stampedes
 
-### The Thundering Herd Problem
+### The thundering herd
 
-When a popular cache entry expires, thousands of requests simultaneously:
+A popular cache entry expires, thousands of requests miss simultaneously, every miss queries the database, and the database collapses under the duplicate load. Every cache eventually meets this failure mode.
 
-1. Find cache miss
-2. Query database
-3. Try to populate cache
-4. Database drowns in identical queries
+### Solution 1: distributed locks
 
-### Solution 1: Distributed Locks
+The first request acquires a short-TTL lock and fetches; other requests either wait for the lock or return stale data.
 
-**Mechanism:** First request acquires lock, fetches data, populates cache. Others wait on lock or return stale data.
-
-```python
+```python title="lock-based cache fetch"
 def get_with_lock(key):
     value = cache.get(key)
     if value is not None:
         return value
 
     lock_key = f"lock:{key}"
-    if cache.setnx(lock_key, "1", ex=5):  # Acquired lock
+    if cache.set(lock_key, "1", nx=True, ex=5):
         try:
             value = fetch_from_db(key)
             cache.set(key, value, ex=300)
@@ -569,234 +432,209 @@ def get_with_lock(key):
         finally:
             cache.delete(lock_key)
     else:
-        # Wait and retry
         time.sleep(0.1)
         return get_with_lock(key)
 ```
 
-**Trade-off:** Lock contention under extreme load. Lock holder failure causes delays (mitigate with TTL on lock).
+Simple and effective. Watch out for lock-holder failures — always set a lock TTL — and for retry storms when the lock TTL is shorter than the DB query.
 
-### Solution 2: Stale-While-Revalidate
+### Solution 2: stale-while-revalidate
 
-**Mechanism:** Serve stale data immediately. Trigger background refresh.
+Serve the stale entry immediately; refresh in the background. Latency stays low, the database sees one query per stampede, and the application accepts a brief staleness window. This is the pattern HTTP standardized as [`Cache-Control: stale-while-revalidate` (RFC 5861)](https://www.rfc-editor.org/rfc/rfc5861) at the CDN layer.
 
-```
-Response: Stale data (fast)
-Background: Fetch fresh data, update cache
-Next request: Fresh data
-```
+### Solution 3: leases (Meta's approach)
 
-**Trade-off:** Clients may see stale data. Acceptable for non-critical reads.
+[Scaling Memcache at Facebook](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) introduces leases as a single mechanism that solves both stampedes and stale-set races:
 
-**HTTP analogy:** `Cache-Control: stale-while-revalidate` enables this at CDN layer.
+1. On miss, the cache returns a small lease token along with the miss.
+2. The token is required to set the value back into the cache.
+3. Concurrent missers either wait for the populated value or receive a "hot miss" — only the lease holder is allowed to refill.
+4. If a `DELETE` arrives between fetch and set, the lease is invalidated and the in-flight set is rejected — preventing the classic delete-vs-set race that pins stale data.
 
-### Solution 3: Leases (Facebook's Approach)
+![Lease-based stampede prevention: only the lease holder may populate the cache; concurrent missers wait or are rejected, and intervening deletes invalidate the lease.](./diagrams/leases-stampede-prevention-light.svg "Facebook leases collapse the stampede onto the single lease holder and reject stale writes when a delete arrives mid-fetch.")
+![Lease-based stampede prevention: only the lease holder may populate the cache; concurrent missers wait or are rejected, and intervening deletes invalidate the lease.](./diagrams/leases-stampede-prevention-dark.svg)
 
-**Mechanism:** On cache miss, cache issues a "lease" (token). Only lease holder can populate cache. Others wait or get "hot miss" response.
+### Solution 4: gutter pool
 
-From Facebook's Memcache paper:
+A small secondary cache absorbs traffic when the primary fails or during a stampede.
 
-1. Client requests key, gets miss + lease token
-2. Client fetches from database
-3. Client sets value with lease token
-4. If token expired or revoked, set fails (prevents stale write)
-
-**Properties:**
-
-- Prevents thundering herd (one fetcher per key)
-- Prevents stale sets (lease expires if too slow)
-- Handles delete races (delete revokes leases)
-
-### Solution 4: Gutter Servers
-
-**Mechanism:** Secondary cache tier absorbs traffic when primary fails or during stampede.
-
-```
-Primary cache miss → Gutter cache → Database
+```text
+primary miss/fail → gutter cache → DB
 ```
 
-**Facebook's design:** Gutter servers have short TTL (seconds). They don't replace primary cache—they absorb temporary overload while primary recovers.
+Meta's gutter pool runs with a short TTL (seconds) so it does not become a second source of truth — it just shaves off the overload while the primary recovers or until the failed node is replaced.
 
-**Trade-off:** Additional infrastructure. Gutter data is ephemeral and potentially stale.
+## Multi-region caches
 
-## Real-World Case Studies
+A single-region cache fronts a single-region database; a multi-region service has to decide what crosses regions and what does not. The four building blocks:
 
-### Facebook/Meta: Memcache at Billion-Request Scale
+1. **Per-region cache cluster, asynchronous DB replication.** Each region has its own cache fronting its own DB replica. Reads stay local; writes go to the active-region primary; cache invalidation is the hard part.
+2. **Invalidation broadcast.** A durable per-region change stream (CDC, Kafka, or Meta's [`mcsqueal`](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf)) carries `DEL` messages from the write region to every replica region's cache. Bandwidth is small; staleness is bounded by stream lag.
+3. **Optional value replication.** When the read region is read-heavy on the same key, ship the *value* (not just a delete) so the replica region warms its cache without a database round trip. [Netflix EVCache's cross-region replicator](https://netflixtechblog.com/building-a-resilient-data-platform-with-write-ahead-log-at-netflix-127b6712359a) does this through a Kafka WAL: the producer publishes only metadata, a regional reader fetches the value from local EVCache, then a writer synchronously sets it in the target region.
+4. **Active-active or active-passive DB.** Determines whether you can write in any region (and need conflict resolution) or only one (and need failover).
 
-**Scale:** 1+ billion cache operations per second.
+![Multi-region invalidation: the write region drives a Kafka or mcsqueal stream that fans out delete or set events to every replica region's cache, while the database replicates asynchronously in parallel.](./diagrams/multi-region-invalidation-light.svg "Multi-region cache: writes hit the active region's DB and local cache; a durable WAL fans cache invalidations (and optionally values) to every replica region. Cache staleness is bounded by stream lag, not by DB replication lag.")
+![Multi-region invalidation: the write region drives a Kafka or mcsqueal stream that fans out delete or set events to every replica region's cache, while the database replicates asynchronously in parallel.](./diagrams/multi-region-invalidation-dark.svg)
 
-**Architecture:**
+### Write-through vs cache-aside across regions
 
-- Look-aside cache (application manages reads/writes)
-- Hundreds of Memcached servers per cluster
-- Multiple clusters per region, multiple regions globally
-- mcrouter for routing and connection pooling
+Cache-aside scales effortlessly across regions because the application owns the cache and can issue local invalidations. Write-through is harder: the cache itself has to fan a synchronous write to every region's cache, and any region's failure stalls the write. The compromise most production systems pick is **cache-aside locally with asynchronous replication of invalidations across regions** — strong consistency inside one region, bounded staleness across regions.
 
-**Key innovations:**
+[AWS DynamoDB DAX](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html) is the rare managed write-through cache, but only within a single cluster: writes via the DAX client go to DynamoDB synchronously and then update the local item cache; intra-cluster replication to read replicas is asynchronous (sub-second). Writes that bypass DAX (or hit DynamoDB from another DAX cluster) leave the cache stale until the entry's TTL expires — a footgun worth flagging in any DAX migration.
 
-1. **Leases:** Prevent thundering herd and stale writes
-2. **Gutter servers:** Absorb traffic during failures
-3. **Regional pools:** Hot data replicated across regions
-4. **Delete streams:** Cross-region invalidation via async message queue
+### Managed multi-region caches
 
-**Performance insight:** 44% of page loads contact 20+ Memcached servers. Popular pages touch 100+ servers. mcrouter batches requests to reduce network overhead.
+| Service                                                                                                    | Cross-region model                                                                                            | Consistency window                                              |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [AWS ElastiCache Global Datastore (Redis/Valkey)](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Redis-Global-Datastore.html) | Active primary cluster + up to two read-only secondary clusters; managed async replication                    | Typically < 1 s; manual failover for DR                         |
+| [Netflix EVCache](http://techblog.netflix.com/2016/03/caching-for-global-netflix.html)                     | Per-region clusters + Kafka-backed WAL replicating invalidations and (optionally) values across AWS regions   | Best-effort eventual; bounded by Kafka consumer lag             |
+| [Meta Memcache regional pools + mcsqueal](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) | Master region writes; per-region delete pipeline broadcasts via mcrouter                                      | Bounded by mcsqueal queue lag; designed to avoid sync coordination |
 
-**Failure handling:** When a Memcached server fails, clients redirect to gutter. Gutter has 60-second TTL—long enough to absorb traffic, short enough to limit staleness.
+The shared lesson is that nobody synchronously coordinates cache state across regions. The latency is too high, the failure modes are too coupled, and the staleness window of an async invalidation broadcast is acceptable for almost every workload that wasn't already going to require a multi-region database.
 
-### Uber: CacheFront at 150M Reads/Second
+## Production case studies
 
-**Scale:** 150M+ reads/second with 99.9% hit rate.
+### Meta — Memcache at billion-request scale
 
-**Architecture:**
+[Scaling Memcache at Facebook (NSDI '13)](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) is the canonical paper on running a giant Memcached deployment, and most of its lessons still apply.
 
-- Redis clusters partitioned by entity ID
-- Partition scheme independent of database sharding
-- Sliding window circuit breaker per cache node
+Scale at the time of the paper: trillions of items, billions of requests per second, hundreds of Memcached nodes per cluster, multiple clusters per region, multiple regions. Loading a single popular page averages **521 distinct Memcache fetches**. Around 56% of page requests touch fewer than 20 servers; the remaining 44% touch more, and popular pages routinely contact more than 100 distinct servers — the canonical "all-to-all" communication pattern.
 
-**Design decisions:**
+Key mechanisms from the paper:
 
-1. **Entity-based partitioning:** Keys partitioned by business entity (user, ride, etc.), not database shard key. Allows cache layer to evolve independently.
+- **Look-aside (cache-aside) with leases.** Already covered above.
+- **Gutter pool** for overload absorption.
+- **mcrouter** for connection multiplexing, consistent hashing, and protocol-level routing.
+- **Regional pools** that shard by access locality and replicate the hottest cross-region keys.
+- **Delete pipelines** that fan invalidation across regions over an asynchronous queue, so cross-region staleness is bounded by the queue's lag rather than synchronous coordination.
 
-2. **Circuit breaker:** Monitors error rates per cache node. Opens circuit (stops requests) if error rate exceeds threshold. Requests fall through to database.
+### Uber — CacheFront at 150M reads/sec
 
-3. **Integrated cache:** Cache layer embedded in Uber's Docstore (their database abstraction). Developers don't manage cache directly.
+[How Uber Serves Over 150 Million Reads per Second from Integrated Cache with Stronger Consistency Guarantees](https://www.uber.com/us/en/blog/how-uber-serves-over-150-million-reads/) updates the earlier [40M reads/sec post](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache/). Headline numbers, all from Uber's own blogs:
 
-**Result:** Scaled from 40M to 150M reads/second without adding database capacity. Cache absorbs read load; database handles writes.
+- 150M+ reads/sec at peak.
+- >99.9% cache hit rate after a write-through consistency rework.
+- Cache layer integrated into Docstore (Uber's database abstraction); developers do not manage cache directly.
+- Keys partitioned by entity ID, independent of the underlying database shard key. The cache layer can rebalance without touching DB sharding.
+- Sliding-window circuit breakers per cache node — when a node's error rate exceeds a threshold, requests fall through to the database rather than queueing on a sick node.
 
-### Discord: Per-Instance Caching for Guild Metadata
+The architectural takeaway is the integration: Uber moved cache from a library that every service used incorrectly into a layer of their database that every service uses by default, then improved it once for everyone.
 
-**Problem:** Guild metadata (server info, channel lists) accessed on every message. Redis round-trip added 10ms to every operation.
+### Twitter — Haplo timeline cache, Nighthawk, Twemproxy, and Pelikan
 
-**Solution:**
+Twitter's 2017 [The Infrastructure Behind Twitter: Scale](https://blog.x.com/engineering/en_us/topics/infrastructure/2017/the-infrastructure-behind-twitter-scale) puts the cache tier at hundreds of clusters with ~320M packets/sec aggregate. The key components:
 
-- L1 cache per application instance (Rust, in-memory)
-- 5-second TTL (accepting staleness)
-- L2 Redis cluster as fallback
+- **Nighthawk** — sharded Redis used as the storage tier behind their cache APIs.
+- **Twemcache** — Twitter's Memcached fork (still serving production traffic; the [public cache trace dataset](https://github.com/twitter/cache-trace) is collected from these clusters).
+- **Twemproxy / nutcracker** — the in-house consistent-hashing proxy that fronts both Memcached and Redis backends and pipelines client requests onto a small backend connection pool. Open-sourced and still widely deployed beyond Twitter.
+- **Pelikan** — the modular C++ cache framework that replaces Twemcache in newer clusters. Pelikan separates the protocol, threading, and storage layers so a single binary (e.g., `pelikan_pingserver`, `pelikan_twemcache`, `pelikan_segcache`) can swap storage modules to match the workload — see [Yao Yue's interview on building Pelikan](https://www.infoq.com/interviews/yue-twitter-pelikan-cache/).
+- **Haplo** — a custom timeline cache built on a customized Redis with a "Hybrid List" data structure tuned for timeline access patterns. Used by the Timeline service and written to by the Fanout service ([source](https://blog.x.com/engineering/en_us/topics/infrastructure/2017/building-and-serving-conversations-on-twitter)).
 
-**Result:**
+Timelines use **fanout-on-write** for normal users (push the new tweet ID into every follower's timeline cache at post time, making reads O(1)), and **fanout-on-read** for accounts with millions of followers (do not push to millions of timelines; instead read those high-fanout accounts' tweets at read time and merge). This asymmetry trades write amplification for read latency — the right call when reads dominate writes by 1000:1.
 
-- 99% cache hit rate at L1
-- P99 latency dropped from 12ms to 0.5ms for guild lookups
-- Redis load reduced by 99x
+### Netflix — EVCache, two trillion items across regions
 
-**Trade-off accepted:** Guild metadata may be 5 seconds stale. For non-critical data (member count, channel order), this is acceptable. Critical data (permissions) bypasses cache.
+[Caching for a Global Netflix](http://techblog.netflix.com/2016/03/caching-for-global-netflix.html) and Netflix's [2023 re:Invent deep dive](https://d1.awsstatic.com/events/Summits/reinvent2023/NFX304_How-Netflix-uses-AWS-for-multi-Region-cache-replication.pdf) describe EVCache, a Memcached fork that runs on roughly 22,000 EC2 instances across ~200 clusters, holding ~2 trillion items (~14 PB) at the time of the talk.
 
-### Twitter/X: Timeline Caching with Redis
+Three design decisions drive most of EVCache's behavior:
 
-**Scale:** 320M packets/second aggregate.
+- **Topology-aware client.** The EVCache client knows AZ and region layout. Reads prefer the local AZ; writes fan to all replicas in the region; the client tolerates per-replica failures without falling through to the database.
+- **`extstore` for hot/warm tiering.** EVCache leans on Memcached's [`extstore`](https://github.com/memcached/memcached/wiki/Extstore) extension to spill less-frequently-touched items onto NVMe SSD while keeping hot items in RAM, trading a few hundred microseconds for an order-of-magnitude capacity gain per node.
+- **WAL-driven cross-region replication.** [Netflix's Write-Ahead Log](https://netflixtechblog.com/building-a-resilient-data-platform-with-write-ahead-log-at-netflix-127b6712359a) carries cache mutations between regions over Kafka. The producer publishes only metadata (key, TTL, timestamp); a regional reader fetches the value from the local EVCache cluster, sends it via REST to the destination region, and a writer commits it locally. For some namespaces, the WAL ships only a `DELETE` so cold remote regions do not pay for values they never read.
 
-**Architecture:**
+Consistency is **eventual** by design: there is no global lock, no quorum, and no transactional update across regions. The trade is explicit — Netflix accepts seconds of cross-region staleness in exchange for low-latency reads everywhere and the ability to serve traffic when an entire region is offline.
 
-- Redis Cluster for home timelines
-- Haplo (custom) for tweet timeline cache
-- Per-region cache hierarchy
+### Discord — embedded caches with deterministic memory
 
-**Design decisions:**
+Discord's [Why Discord is switching from Go to Rust](https://discord.com/blog/why-discord-is-switching-from-go-to-rust) post is the cleanest published case study on the cost of an embedded LRU on a garbage-collected runtime. The Read States service tracks "what messages has each user read" — millions of entries, billions of reads, every message send touches the cache.
 
-1. **Timeline-optimized data structure:** Sorted sets store tweet IDs by timestamp. ZRANGEBYSCORE fetches timeline slice in one operation.
+In Go, the LRU eviction set was so large that Go's GC scanned it every two minutes, blocking the service for ~250 ms. Discord rewrote the service in Rust, where eviction frees memory immediately and there is no GC. Result: average response times measured in microseconds, no periodic latency spikes, and the cache could grow to roughly 8M entries without deteriorating.
 
-2. **Write fanout:** When a tweet is posted, write to all follower timelines (fanout-on-write). Reads are O(1)—just fetch timeline.
+The lesson is not "Rust beats Go" in any general sense. It is that an embedded cache pushes you into the runtime's memory-management failure modes; you have to plan for them or pay an avoidable tail-latency tax.
 
-3. **Hybrid approach:** High-follower accounts use fanout-on-read (don't write to millions of timelines).
+## Common pitfalls
 
-**Trade-off:** Write amplification for fanout-on-write. Acceptable because reads vastly outnumber writes.
+### Pitfall 1: caching without TTL
 
-## Common Pitfalls
+Setting cache entries with no expiration is the single most common cause of "stuck stale data" outages. Even when explicit invalidation is correct today, it will eventually have a bug, and TTL is the safety net that bounds the blast radius. Always set a TTL.
 
-### Pitfall 1: Caching Without TTL
+### Pitfall 2: cache–DB race conditions
 
-**The mistake:** Setting cache entries without expiration.
+Update-then-update orderings between cache and DB pin stale data when concurrent requests interleave. Always delete the cache after a successful DB write (look-aside), or use leases / version stamps to reject stale sets.
 
-**Why it happens:** "We'll invalidate explicitly on writes."
+### Pitfall 3: ignoring serialization cost
 
-**The consequence:** Bugs in invalidation logic leave stale data forever. No safety net.
+Profiling shows ~1 ms cache round trip and the team declares victory — meanwhile JSON serialization of the cached object takes 8 ms on the application side. Profile the entire operation, not just the network call. Use compact serialization (Protobuf, MessagePack, FlatBuffers) for large objects, and consider caching the already-serialized bytes.
 
-**The fix:** Always set TTL, even with explicit invalidation. TTL is your fallback—maximum staleness bound.
+### Pitfall 4: hot-key blindness
 
-### Pitfall 2: Cache-Database Race Conditions
+Synthetic benchmarks distribute keys uniformly; production has a Zipf distribution where 0.01% of keys take 30% of the traffic. Monitor per-key request rates (`redis-cli --hotkeys` for Redis, application-side counters for Memcached) and have a hot-key playbook (request coalescing, L1 caching, replication, splitting) ready before you need it.
 
-**The mistake:** Update cache, then update database (or vice versa without careful ordering).
+### Pitfall 5: invalidating ahead of a database migration
 
-**Why it happens:** Assuming single-threaded execution in a concurrent system.
+A schema or shard migration that triggers cache invalidation drives every read to the database at exactly the moment the database is busiest. Either suppress invalidation during the migration, warm the cache from the new schema before flipping reads, or shift traffic with a gradual percentage-based ramp.
 
-**The consequence:**
+## Practical takeaways
 
-```
-T1: Delete cache
-T2: Read cache (miss)
-T2: Read database (old value)
-T1: Write database (new value)
-T2: Write cache (old value)  ← Stale forever (until TTL)
-```
-
-**The fix:** Delete cache after database write. Or use explicit versioning (cache entry includes version; reject stale writes).
-
-### Pitfall 3: Ignoring Serialization Costs
-
-**The mistake:** Caching large objects without considering serialization overhead.
-
-**Why it happens:** Measuring only network latency, not total operation time.
-
-**The consequence:** 1ms network latency + 10ms JSON serialization = 11ms total. Cache appears slow.
-
-**The fix:** Profile total operation time. Use efficient serialization (Protobuf, MessagePack). Cache already-serialized bytes when possible.
-
-### Pitfall 4: Hot Key Blindness
-
-**The mistake:** Assuming consistent hashing distributes load evenly.
-
-**Why it happens:** Works in testing with uniform key distribution.
-
-**The consequence:** Production traffic has Zipf distribution (few keys dominate). Hot keys overwhelm individual nodes.
-
-**The fix:** Monitor key-level metrics. Implement hot key detection. Use L1 caching, key replication, or request coalescing proactively.
-
-### Pitfall 5: Missing Cache During Database Migrations
-
-**The mistake:** Invalidating cache before database migration completes.
-
-**Why it happens:** Invalidation logic triggers on schema change.
-
-**The consequence:** Cache misses flood to database mid-migration. Database overloaded; migration fails.
-
-**The fix:** Warm cache before cutover. Use blue-green deployment for cache layer. Gradual traffic shift with monitoring.
-
-## Conclusion
-
-Distributed cache design requires explicit trade-offs between consistency, availability, and complexity. Key principles:
-
-1. **Choose topology for your scale**: Start simple (single Redis with Sentinel), evolve to cluster when single-node limits hit
-2. **Layer caches**: L1 (embedded, microseconds) + L2 (distributed, milliseconds) reduces load and latency
-3. **Always set TTL**: The safety net for invalidation bugs
-4. **Plan for hot keys**: They will happen. Request coalescing, L1 caching, and key replication are your tools
-5. **Measure staleness**: Know your consistency bounds and make them explicit to application developers
-
-The best cache is the one you don't notice—until it fails. Design for graceful degradation: circuit breakers, gutter servers, and fallback to database.
+1. **Write the staleness budget into the design doc.** "Up to 60 seconds stale, except for permission checks" beats "we'll add a TTL later."
+2. **Start with one Redis instance behind Sentinel.** Move to Cluster or to Memcached + mcrouter only when one node genuinely runs out of CPU, RAM, or NIC.
+3. **Default to cache-aside with delete-on-write and a TTL.** Reach for write-through, write-behind, or CDC only when the staleness budget rules cache-aside out.
+4. **Plan hot keys before they hit you.** Single-flight, L1, replication, splitting — pick one and have it ready.
+5. **Always set a TTL,** even when explicit invalidation is correct. The TTL is your safety net for the day the invalidation logic is not.
+6. **Design for graceful degradation.** Circuit breakers per node, fallback to the database, gutter pool, retries with jitter — caches fail and the system has to keep running.
 
 ## Appendix
 
 ### Prerequisites
 
-- Understanding of hash functions and modular arithmetic
-- Familiarity with CAP theorem and distributed systems fundamentals
-- Basic knowledge of Redis/Memcached operations
+- Hash functions, modular arithmetic, basic probability.
+- CAP theorem and the "consistency–availability under partitions" trade-off.
+- Familiarity with Redis or Memcached at the command level.
 
 ### Summary
 
-- **Cache topologies** range from embedded (fastest, per-instance) to distributed clusters (scalable, fault-tolerant). Most production systems use hybrid L1+L2 architectures.
-- **Consistent hashing** minimizes key remapping during topology changes. Virtual nodes ensure even distribution; jump consistent hash offers O(1) memory alternative.
-- **Invalidation strategies** trade staleness for simplicity. TTL is the baseline; explicit invalidation provides freshness; event-driven approaches decouple systems.
-- **Hot keys** break even distribution. Mitigate with request coalescing, local caching, key replication, or sharding within keys.
-- **Stampede prevention** requires proactive design: locks, leases, stale-while-revalidate, or probabilistic early refresh.
+- **Topology** ranges from embedded (per-instance, ~100 ns) to distributed cluster (terabytes, ~500 µs). Production usually layers them as L1 + L2.
+- **Consistent hashing** minimizes key remapping during topology change. Virtual nodes balance load; jump consistent hash gives O(1) memory on stable bucket sets.
+- **Hash slots** (Redis Cluster) trade ring continuity for explicit per-slot ownership and atomic migration over a gossip bus.
+- **Invalidation** trades staleness for simplicity. TTL is the floor; cache-aside with delete-on-write is the default; CDC and write-through (DAX) cover the consistency-critical edges.
+- **Eviction** matters as much as invalidation. LRU is the default; W-TinyLFU is the modern frequency-aware choice for embedded caches; Redis exposes approximate LFU per key class.
+- **Hot keys** break uniform distribution. Use single-flight, L1, replication, splitting, and probabilistic early refresh.
+- **Stampedes** are an operational certainty. Locks, stale-while-revalidate, leases, and gutter pools each address a different facet.
+- **Multi-region** caches always rely on asynchronous invalidation (mcsqueal, Kafka WAL, ElastiCache Global Datastore). Synchronous cross-region cache coordination is not viable at typical inter-region latencies.
 
 ### References
 
-- [Karger, D., et al. "Consistent Hashing and Random Trees: Distributed Caching Protocols for Relieving Hot Spots on the World Wide Web." ACM Symposium on Theory of Computing, 1997](https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf)
-- [Lamping, J. & Veach, E. "A Fast, Minimal Memory, Consistent Hash Algorithm." arXiv:1406.2294, 2014](https://arxiv.org/abs/1406.2294)
-- [Nishtala, R., et al. "Scaling Memcache at Facebook." USENIX NSDI, 2013](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf)
+- [Karger, D. et al. — Consistent Hashing and Random Trees (STOC 1997)](https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf)
+- [Lamping, J. & Veach, E. — A Fast, Minimal Memory, Consistent Hash Algorithm (arXiv:1406.2294, 2014)](https://arxiv.org/abs/1406.2294)
+- [Nishtala, R. et al. — Scaling Memcache at Facebook (USENIX NSDI 2013)](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf)
+- [Vattani, A., Chierichetti, F., Lowenstein, K. — Optimal Probabilistic Cache Stampede Prevention (VLDB 2015)](http://www.vldb.org/pvldb/vol8/p886-vattani.pdf)
 - [Redis Cluster Specification](https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/)
 - [Redis Sentinel Documentation](https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/)
+- [Redis Benchmark](https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/)
+- [Redis 8.0 I/O Threading](https://redis.io/blog/redis-8-0-m03-is-out-even-more-performance-new-features/)
+- [Memcached UserInternals](https://github.com/memcached/memcached/wiki/UserInternals)
 - [Memcached Protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt)
-- [Uber Engineering: How Uber Serves Over 150 Million Reads/Second](https://www.uber.com/blog/how-uber-serves-over-150-million-reads/)
-- [Discord Engineering: How Discord Stores Billions of Messages](https://discord.com/blog/how-discord-stores-billions-of-messages)
-- [Twitter Engineering: The Infrastructure Behind Twitter Scale](https://blog.x.com/engineering/en_us/topics/infrastructure/2017/the-infrastructure-behind-twitter-scale)
+- [Meta — mcrouter](https://github.com/facebook/mcrouter)
+- [Meta — Scaling Memcache at Facebook (engineering blog)](https://engineering.fb.com/2013/04/15/core-infra/scaling-memcache-at-facebook/)
+- [Uber — How Uber Serves Over 150 Million Reads per Second](https://www.uber.com/us/en/blog/how-uber-serves-over-150-million-reads/)
+- [Uber — How Uber Serves Over 40 Million Reads per Second from an Integrated Cache](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache/)
+- [Twitter — The Infrastructure Behind Twitter: Scale](https://blog.x.com/engineering/en_us/topics/infrastructure/2017/the-infrastructure-behind-twitter-scale)
+- [Twitter — Building and Serving Conversations on Twitter (Haplo)](https://blog.x.com/engineering/en_us/topics/infrastructure/2017/building-and-serving-conversations-on-twitter)
+- [Twitter — Handling Hotkeys in Timeline Storage](https://matthewtejo.substack.com/p/handling-hotkeys-in-timeline-storage)
+- [Discord — Why Discord is switching from Go to Rust](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)
+- [Discord — `ex_hash_ring`](https://github.com/discord/ex_hash_ring)
+- [Twitter — twemproxy / nutcracker](https://github.com/twitter/twemproxy)
+- [Twitter — Pelikan cache framework (Yao Yue interview)](https://www.infoq.com/interviews/yue-twitter-pelikan-cache/)
+- [Twitter — Anonymized cache traces](https://github.com/twitter/cache-trace)
+- [Netflix — Caching for a Global Netflix (EVCache)](http://techblog.netflix.com/2016/03/caching-for-global-netflix.html)
+- [Netflix — Building a Resilient Data Platform with Write-Ahead Log (cross-region EVCache replication)](https://netflixtechblog.com/building-a-resilient-data-platform-with-write-ahead-log-at-netflix-127b6712359a)
+- [Netflix — How Netflix uses AWS for multi-Region cache replication (re:Invent 2023)](https://d1.awsstatic.com/events/Summits/reinvent2023/NFX304_How-Netflix-uses-AWS-for-multi-Region-cache-replication.pdf)
+- [Meta — Introducing mcrouter (engineering blog)](https://engineering.fb.com/2014/09/15/web/introducing-mcrouter-a-memcached-protocol-router-for-scaling-memcached-deployments/)
+- [AWS — DynamoDB Accelerator (DAX) consistency model](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html)
+- [AWS — ElastiCache Global Datastore](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Redis-Global-Datastore.html)
+- [Einziger, G., Friedman, R., Manes, B. — TinyLFU: A Highly Efficient Cache Admission Policy (ACM TOS 2017)](https://arxiv.org/abs/1512.00727)
+- [Caffeine — Efficiency benchmarks (W-TinyLFU)](https://github.com/ben-manes/caffeine/wiki/Efficiency)
+- [Redis — Eviction policies](https://redis.io/docs/latest/operate/oss_and_stack/reference/eviction/)
+- [Memcached — `extstore` (RAM + SSD tiering)](https://github.com/memcached/memcached/wiki/Extstore)
+- [RFC 5861 — HTTP Cache-Control Extensions for Stale Content](https://www.rfc-editor.org/rfc/rfc5861)
+- [Go `singleflight` package](https://pkg.go.dev/golang.org/x/sync/singleflight)

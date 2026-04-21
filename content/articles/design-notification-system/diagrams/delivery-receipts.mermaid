@@ -1,0 +1,28 @@
+%% Diagram: Delivery receipts and async status flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CP as Channel processor
+    participant Pv as Provider (APNs/FCM/SES/Twilio)
+    participant Dev as End device / inbox
+    participant CB as Callback ingestor (webhook/SNS)
+    participant DS as delivery_status (Cassandra)
+    participant TR as Tracing pipeline
+
+    CP->>Pv: Send notification (HTTP/2 / API / SMTP)
+    Pv-->>CP: Sync ack: provider_id or 4xx/5xx
+    CP->>DS: status=sent OR failed, provider_id, attempt
+    CP->>TR: span: provider-ack
+
+    alt Failure (retryable)
+        CP->>CP: schedule retry (exp. backoff + jitter)
+    else Failure (terminal: invalid token)
+        CP->>DS: status=failed, error_code
+        CP->>CP: mark token invalid
+    end
+
+    Pv-)Dev: Deliver / open / click / bounce
+    Dev-)Pv: User interaction (open / click)
+    Pv-)CB: Async receipt event (BigQuery / SNS / status webhook)
+    CB->>DS: status=delivered/opened/clicked/bounced, timestamp
+    CB->>TR: span link to notification trace

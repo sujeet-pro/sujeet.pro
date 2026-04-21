@@ -2,33 +2,39 @@
 title: JavaScript Performance Optimization for the Web
 linkTitle: 'Perf: JavaScript'
 description: >-
-  Covers the browser's script loading pipeline, long task management with scheduler.yield(), code splitting and tree shaking strategies, and Web Workers — all focused on keeping the main thread responsive and improving INP.
+  Covers the browser's script loading pipeline, long-task management with scheduler.yield(), code splitting and tree shaking, and Web Workers — all focused on keeping the main thread responsive and improving INP.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - performance
   - web-vitals
   - optimization
+  - javascript
+  - frontend
+  - react
 ---
 
 # JavaScript Performance Optimization for the Web
 
-JavaScript execution is the primary source of main-thread blocking in modern web applications. This article covers the browser's script loading pipeline, task scheduling primitives, code splitting strategies, and Web Workers—with emphasis on design rationale and current API status as of 2025.
+JavaScript execution is the dominant source of main-thread blocking in modern web applications, and the main thread is the only thread that can paint, run input handlers, or run layout. Every long task therefore translates directly into [Interaction to Next Paint (INP)](https://web.dev/articles/inp) — the Core Web Vital that since [March 12, 2024](https://web.dev/blog/inp-cwv-march-12) replaces First Input Delay and is "good" at ≤200&nbsp;ms at the 75th percentile.
+
+This article covers four levers a senior engineer can pull to keep the main thread responsive: the script-loading pipeline, task scheduling primitives, bundle shape (code splitting and tree shaking), and Web Workers. It is part of a [web-performance series](../web-performance-overview/README.md) — measurement and infrastructure are covered in sibling entries.
 
 ![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-light.svg "JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.")
 ![JavaScript performance optimization techniques and their impact on Core Web Vitals metrics.](./diagrams/javascript-performance-optimization-techniques-and-their-impact-on-core-web-vita-dark.svg)
 
-## Abstract
+## Mental model: three sources of main-thread blocking
 
-JavaScript performance optimization addresses three distinct bottlenecks:
+JavaScript performance optimization addresses three distinct bottlenecks. Each lever in this article maps onto exactly one of them.
 
-1. **Parse-time blocking**: Scripts block DOM construction during fetch and execution. The `async`, `defer`, and `type="module"` attributes control when scripts execute relative to parsing—`defer` guarantees document order after parsing completes, `async` executes on arrival (no order guarantee), and modules are deferred by default with dependency resolution.
+1. **Parse-time blocking** — Scripts block DOM construction during fetch and execution. The `async`, `defer`, and `type="module"` attributes control when scripts execute relative to parsing: `defer` guarantees document order after parsing completes, `async` executes on arrival (no order guarantee), and modules are deferred by default with dependency-graph resolution.
+2. **Run-time blocking** — Tasks exceeding 50&nbsp;ms (the [W3C Long Tasks API](https://w3c.github.io/longtasks/) threshold) block input handling and inflate INP. [`scheduler.yield()`](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield) (Chromium 129+, Firefox 142+) yields to the browser while preserving the originating task's priority through a continuation queue — unlike `setTimeout(0)`, which appends to the back of the macrotask queue.
+3. **Bundle-size blocking** — Large initial bundles delay Time to Interactive (TTI). Code splitting via dynamic `import()` defers non-critical code; tree shaking eliminates dead exports statically. Both rely on ES modules — CommonJS is runtime-resolved and cannot be statically analyzed.
 
-2. **Run-time blocking**: Tasks exceeding 50ms (the RAIL-derived threshold for perceived responsiveness) block input handling. `scheduler.yield()` (Chrome 129+) yields to the browser while maintaining task priority through a continuation queue mechanism—unlike `setTimeout(0)` which sends work to the back of the queue.
+Web Workers cut transversely across all three: they move computation entirely off the main thread. [Transferable objects](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects) keep that off-loading cheap by handing ownership of large buffers to the worker without copying.
 
-3. **Bundle-size blocking**: Large initial bundles delay Time to Interactive (TTI). Code splitting via dynamic `import()` defers non-critical code; tree shaking eliminates dead exports statically. Both require ES modules—CommonJS is runtime-resolved and cannot be statically analyzed.
-
-Web Workers move computation entirely off the main thread. Transferable objects enable zero-copy data transfer by detaching ownership from the sending context.
+> [!NOTE]
+> Where a claim is version- or browser-sensitive, we date-stamp it. Browser-API status changes quickly; check [MDN's compatibility tables](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler) before shipping a fallback strategy.
 
 ## Script Loading: Parser Interaction and Execution Order
 
@@ -36,11 +42,7 @@ The choice of script loading strategy determines when the browser's HTML parser 
 
 ### Why Parser Blocking Matters
 
-The HTML parser cannot construct DOM nodes while JavaScript executes—JavaScript may call `document.write()` or modify the DOM being built. This creates the fundamental tension: scripts need DOM access, but parsing must complete for DOM to exist.
-
-> **WHATWG HTML spec**: "The classic script will be fetched in parallel and evaluated when the page has finished parsing."
-
-This quote describes `defer` behavior—the spec's solution to the tension. The parser continues unblocked while scripts download, then scripts execute in document order after parsing.
+The HTML parser cannot construct DOM nodes while JavaScript executes — a classic script may call `document.write()` or mutate the DOM being built, so the parser is forced to suspend. This is the fundamental tension: scripts need DOM access, but parsing must complete for the DOM to exist. The [WHATWG HTML scripting model](https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element) formalises three resolutions: blocking (the legacy default), `async` (parallel fetch, execute on arrival), and `defer` (parallel fetch, execute after parsing in document order).
 
 ### Execution Order Guarantees by Attribute
 
@@ -53,26 +55,29 @@ This quote describes `defer` behavior—the spec's solution to the tension. The 
 
 ### Why `defer` Executes After Parsing
 
-The `defer` attribute was introduced in Internet Explorer 4 (1997) and standardized in HTML 4. The design rationale: hint to the browser that the script "does not create any content" via `document.write()`, so parsing can continue.
+The `defer` attribute was introduced in Internet Explorer 4 (1997) and standardized in HTML 4 ([Mozilla Hacks history](https://hacks.mozilla.org/2009/06/defer/)). The design rationale: the author asserts the script does not call `document.write()`, so the parser can keep building the DOM while the script downloads and execute it once parsing is done. Before `defer`, every classic script blocked parsing during both download and execution — a major perceived-performance problem on slow networks.
 
-> **Prior to `defer`**: All scripts blocked parsing during both download and execution. Users saw nothing until scripts completed—a significant perceived performance problem on slow networks.
+Internally, the HTML spec defines a [list of scripts that will execute when the document has finished parsing](https://html.spec.whatwg.org/multipage/scripting.html#list-of-scripts-that-will-execute-when-the-document-has-finished-parsing). Deferred scripts append to this list and execute sequentially before `DOMContentLoaded`, preserving document order.
 
-The parser maintains a "list of scripts that will execute when the document has finished parsing." Deferred scripts append to this list and execute sequentially, preserving document order.
+### Parser-Script Timing
+
+The four loading modes produce four distinct interleavings of HTML parsing and script execution.
+
+![Parser vs script execution timing for blocking, async, defer, and module scripts.](./diagrams/script-loading-timing-light.svg "Parser vs. script execution timeline for the four loading modes — blocking, async, defer, and module.")
+![Parser vs script execution timing for blocking, async, defer, and module scripts.](./diagrams/script-loading-timing-dark.svg)
 
 ### `async` vs `defer` Decision Matrix
 
-![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-light.svg)
+![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-light.svg "Decision tree for selecting script loading attributes based on dependency requirements.")
 ![Decision tree for selecting script loading attributes based on dependency requirements.](./diagrams/decision-tree-for-selecting-script-loading-attributes-based-on-dependency-requir-dark.svg)
-
-<figcaption>Decision tree for selecting script loading attributes based on dependency requirements.</figcaption>
 
 ### Module Scripts: Deferred by Default
 
 ES modules (`type="module"`) are deferred by default with additional semantics:
 
-- **Strict mode**: Always enabled, `this` is `undefined` at top level
-- **Dependency resolution**: The module graph is fetched before any execution
-- **Top-level `await`**: Supported (blocks dependent modules, not the parser)
+- **Strict mode**: Always enabled; `this` is `undefined` at top level.
+- **Dependency resolution**: The whole module graph is fetched before any module body runs.
+- **Top-level `await`**: Supported; blocks dependent modules, not the parser ([TC39 spec](https://tc39.es/proposal-top-level-await/)).
 
 ```html collapse={1-3}
 <!-- Analytics: independent, no DOM dependency -->
@@ -87,29 +92,26 @@ ES modules (`type="module"`) are deferred by default with additional semantics:
 <script type="module" src="main.js"></script>
 ```
 
-**Trade-off**: Module scripts require `nomodule` fallback for legacy browsers (IE11, older Safari), adding bundle complexity.
+> [!TIP]
+> The `nomodule` fallback was load-bearing through ~2020 (IE11, older Safari). With IE11 fully retired and Safari 14+ shipping ESM since 2020, in 2026 most production apps can drop `nomodule` and the parallel ES5 bundle entirely — saving 30-50% of build time and roughly half the bytes for legacy users who would have downloaded both.
 
 ## Long Task Management: The 50ms Threshold
 
-Tasks exceeding 50ms are classified as "long tasks" and directly impact Interaction to Next Paint (INP).
+Tasks exceeding 50&nbsp;ms are classified as **long tasks** by the [W3C Long Tasks API](https://w3c.github.io/longtasks/) and directly inflate Interaction to Next Paint.
 
 ### Why 50ms?
 
-The threshold derives from the RAIL performance model's responsiveness target:
+The threshold comes from the [RAIL performance model](https://web.dev/articles/rail) and is reused as the [`requestIdleCallback` deadline cap](https://w3c.github.io/requestidlecallback/#dfn-deadline). The arithmetic:
 
-> **W3C Long Tasks spec**: "Any of the following occurrences whose duration exceeds 50ms."
+- Users perceive responses under 100&nbsp;ms as instantaneous ([Nielsen, 1993](https://www.nngroup.com/articles/response-times-3-important-limits/)).
+- A 50&nbsp;ms task budget leaves 50&nbsp;ms for the browser to coalesce input, run hit-testing, run layout/paint, and present a frame.
+- 50 + 50 = 100&nbsp;ms keeps the interaction inside the perceptual "instant" envelope.
 
-The reasoning:
-
-- Users perceive responses under 100ms as instantaneous
-- A 50ms task budget leaves 50ms for the browser to process input and render
-- This 50ms + 50ms = 100ms total maintains perceived responsiveness
-
-> **W3C requestIdleCallback spec**: "The maximum deadline of 50ms is derived from studies which show that a response to user input within 100ms is generally perceived as instantaneous."
+INP itself uses a more generous 200&nbsp;ms p75 budget — the gap between 50&nbsp;ms (per task) and 200&nbsp;ms (per interaction) absorbs multiple tasks plus the browser's own rendering work.
 
 ### `scheduler.yield()`: Priority-Preserving Yielding
 
-As of Chrome 129 (September 2024), `scheduler.yield()` provides yielding with priority inheritance.
+`scheduler.yield()` shipped in [Chromium 129](https://developer.chrome.com/release-notes/129#schedulerryield) (September 2024) and [Firefox 142](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield#browser_compatibility) (August 2025). Safari has not yet implemented it as of April 2026, so the [Scheduler API is not Baseline](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler) — design code paths to fall back gracefully.
 
 ```javascript collapse={1-2}
 async function processLargeDataset(items) {
@@ -131,18 +133,19 @@ async function processLargeDataset(items) {
 
 ### Why Not `setTimeout(0)`?
 
-`setTimeout(0)` has critical limitations that `scheduler.yield()` addresses:
+`setTimeout(0)` has four limitations that `scheduler.yield()` addresses:
 
-| Aspect                | `setTimeout(0)`                           | `scheduler.yield()`                  |
-| --------------------- | ----------------------------------------- | ------------------------------------ |
-| Queue position        | Back of task queue                        | Continuation queue (higher priority) |
-| Minimum delay         | ~4ms (spec-mandated after 5 nested calls) | None                                 |
-| Background throttling | 1000ms+ in background tabs                | Respects priority                    |
-| Priority awareness    | None                                      | Inherits from parent task            |
+| Aspect                | `setTimeout(0)`                                                                                                                    | `scheduler.yield()`                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Queue position        | Back of task queue                                                                                                                 | Continuation queue (higher priority) |
+| Minimum delay         | ≥4&nbsp;ms after 5 nested calls per [HTML spec §timers](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers) | None                                 |
+| Background throttling | Heavily throttled in background tabs (Chrome budgets to ≈1&nbsp;Hz after 5&nbsp;min)                                                | Respects priority                    |
+| Priority awareness    | None                                                                                                                               | Inherits from parent task            |
 
-> **WICG Scheduling spec**: "Continuations have a higher effective priority than tasks with the same TaskPriority."
+The [WICG Scheduling explainer](https://github.com/WICG/scheduling-apis/blob/main/explainers/yield-and-continuation.md) defines a **continuation queue** per priority that runs *before* the regular task queue at the same priority. Concretely: a `user-visible` continuation runs before `user-visible` regular tasks but after any `user-blocking` task. This is what lets a long task voluntarily yield to user input without losing its place in the system priority order.
 
-The browser maintains separate continuation queues for each priority level. A `user-visible` continuation runs before `user-visible` regular tasks but after `user-blocking` tasks.
+![Queue ordering for setTimeout(0) versus scheduler.yield() at user-visible priority.](./diagrams/scheduler-queue-ordering-light.svg "Where setTimeout(0) and scheduler.yield() resume relative to other queued work at user-visible priority.")
+![Queue ordering for setTimeout(0) versus scheduler.yield() at user-visible priority.](./diagrams/scheduler-queue-ordering-dark.svg)
 
 ```javascript
 // Priority inheritance demonstration
@@ -186,12 +189,12 @@ async function adaptiveProcessing(workQueue) {
 
 ### Browser Support and Fallback
 
-| API                    | Chrome          | Firefox        | Safari        |
-| ---------------------- | --------------- | -------------- | ------------- |
-| `scheduler.postTask()` | 94 (Sept 2021)  | 142 (Aug 2025) | Not supported |
-| `scheduler.yield()`    | 129 (Sept 2024) | Not supported  | Not supported |
+| API                    | Chrome          | Firefox        | Safari (April 2026) |
+| ---------------------- | --------------- | -------------- | ------------------- |
+| `scheduler.postTask()` | 94 (Sept 2021)  | 142 (Aug 2025) | Not supported       |
+| `scheduler.yield()`    | 129 (Sept 2024) | 142 (Aug 2025) | Not supported       |
 
-For browsers without support, fall back to `setTimeout(0)` with the understanding that priority is lost:
+For browsers without support, fall back to `setTimeout(0)` and accept that priority information is lost:
 
 ```javascript collapse={1-5}
 const yieldToMain = () => {
@@ -361,13 +364,13 @@ Web Workers run JavaScript in background threads, preventing long computations f
 
 ### When to Use Workers
 
-Workers have overhead: message serialization, thread creation, no DOM access. Use them for:
+Workers have non-trivial overhead — message serialization (or transfer), thread creation, no DOM access, no synchronous main-thread interaction. Use them for:
 
-- **CPU-intensive computation**: Image processing, encryption, compression
-- **Large data processing**: Sorting, filtering, aggregation
-- **Background sync**: Data transformation while UI remains responsive
+- **CPU-intensive computation**: Image processing, encryption, compression.
+- **Large data processing**: Sorting, filtering, aggregation.
+- **Background sync**: Data transformation while UI remains responsive.
 
-> **WHATWG Workers spec**: "Workers are relatively heavy-weight, and are not intended to be used in large numbers."
+The [WHATWG Workers spec](https://html.spec.whatwg.org/multipage/workers.html#workers) is explicit that "workers are relatively heavy-weight, and are not intended to be used in large numbers" — so reach for a pool, not a worker per task.
 
 ### Basic Worker Pattern
 
@@ -404,7 +407,7 @@ self.onmessage = (event) => {
 
 ### Transferable Objects: Zero-Copy Transfer
 
-By default, `postMessage` uses the structured clone algorithm—deep copying data. For large `ArrayBuffer`s, use transfer instead:
+By default, `postMessage` uses the [structured clone algorithm](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializewithtransfer) — deep copying data. For large `ArrayBuffer`s, use transfer instead:
 
 ```javascript
 const buffer = new ArrayBuffer(1024 * 1024 * 100) // 100MB
@@ -416,11 +419,12 @@ worker.postMessage({ buffer }, [buffer])
 console.log(buffer.byteLength) // 0 (detached)
 ```
 
-> **WHATWG spec**: "Transferring is an irreversible and non-idempotent operation. Once transferred, an object cannot be transferred or used again."
+Per the HTML spec, [transferring is irreversible](https://html.spec.whatwg.org/multipage/structured-data.html#transferable-objects): once transferred, an object cannot be used or re-transferred from the original context.
 
-**Transferable types**: `ArrayBuffer`, `MessagePort`, `ImageBitmap`, `OffscreenCanvas`, `ReadableStream`, `WritableStream`, `TransformStream`, `VideoFrame`, `AudioData`.
+**Transferable types** ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects)): `ArrayBuffer`, `MessagePort`, `ImageBitmap`, `OffscreenCanvas`, `ReadableStream`, `WritableStream`, `TransformStream`, `VideoFrame`, `AudioData`, `RTCDataChannel` (Chromium-only).
 
-**Common mistake**: `TypedArray`s (e.g., `Uint8Array`) are **not** transferable—only their underlying `ArrayBuffer` is.
+> [!CAUTION]
+> `TypedArray`s (e.g. `Uint8Array`, `Float32Array`) are **not** transferable. Only the underlying `ArrayBuffer` is. Pass `view.buffer` in the transfer list and reconstruct the view on the other side.
 
 ### Error Handling Edge Cases
 
@@ -509,14 +513,14 @@ class WorkerPool {
 
 ### SharedArrayBuffer and Cross-Origin Isolation
 
-`SharedArrayBuffer` enables shared memory between workers but requires cross-origin isolation due to Spectre/Meltdown mitigations:
+`SharedArrayBuffer` enables shared memory between the main thread and workers, but is gated on **cross-origin isolation** as a [Spectre](https://v8.dev/blog/spectre) mitigation. The page must be served with both:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-**Why the restriction**: `SharedArrayBuffer` enables construction of nanosecond-resolution timers that can be used for cache timing attacks to extract cross-origin data.
+The reason: a writer in one thread plus a reader in another thread can be used to build a [high-resolution timer](https://web.dev/articles/why-coop-coep) by busy-counting an incrementing counter. That timer is precise enough to mount cache-timing attacks that extract cross-origin secrets via Spectre. Cross-origin isolation guarantees the page cannot embed cross-origin secrets in the first place, neutralising the attack.
 
 ```javascript
 // Verify cross-origin isolation
@@ -528,7 +532,8 @@ if (crossOriginIsolated) {
 }
 ```
 
-**Safari limitation**: Safari does not support `COEP: credentialless`, requiring the stricter `require-corp` mode where all cross-origin resources must explicitly opt-in with CORS or CORP headers.
+> [!WARNING]
+> Safari does not support `COEP: credentialless` (a more permissive variant available in Chromium and Firefox). On a Safari-supporting site you are forced to `require-corp`, which means **every** cross-origin subresource — fonts, images, ads, third-party scripts — must explicitly opt in via CORS or CORP. Audit your CDN headers before flipping isolation on; a single missing CORP header tanks the page.
 
 ## React Optimization Patterns
 
@@ -591,7 +596,7 @@ function DataGrid({ data, filters, onRowClick }) {
 
 ### React Server Components
 
-As of React 18, Server Components run on the server with zero client bundle impact:
+[React Server Components](https://react.dev/reference/rsc/server-components) became stable with React 19 (December 2024) and ship today via Next.js App Router (production-mature) and React Router v7 (in development). They run on the server with zero client bundle impact:
 
 ```javascript title="ServerComponent.jsx"
 // No 'use client' - runs on server only
@@ -726,17 +731,23 @@ const longTaskObserver = new PerformanceObserver((list) => {
 longTaskObserver.observe({ type: "longtask" })
 ```
 
-## Conclusion
+## Practical takeaways
 
-JavaScript performance optimization requires understanding browser internals:
+- **Default to `defer`** for application code, `async` for truly independent scripts (analytics, error reporters), and `type="module"` for any new bundle entry. Drop the `nomodule` ES5 fallback bundle unless RUM data still shows IE11/legacy Safari traffic.
+- **Reach for `scheduler.yield()`** when you have work that legitimately exceeds 50&nbsp;ms and cannot be moved to a worker. Wrap it behind a feature-detected fallback to `setTimeout(0)` for Safari.
+- **Code-split by route first**, by interaction second, by component third. Pair every dynamic `import()` of a likely-needed chunk with a `<link rel="preload">` or `webpackPreload` hint to avoid the request waterfall.
+- **Tree-shake aggressively** with `"sideEffects": false` plus an explicit allow-list for CSS and polyfills. Verify with `import-cost` or `bundle-analyzer` — Terser's DCE is opaque otherwise.
+- **Hoist CPU-heavy work into a Worker pool sized to `navigator.hardwareConcurrency - 1`**. Use transferables for any buffer over a few hundred kilobytes; `SharedArrayBuffer` only when read/write traffic is high enough to amortise the cross-origin-isolation rollout cost.
+- **Measure before and after every change** with [`PerformanceObserver`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver) and field-data RUM. Synthetic Lighthouse runs miss the device + network distribution that determines real INP.
 
-- **Script loading** trades off parser blocking against execution timing—use `defer` for order-dependent application code, `async` for independent scripts
-- **Task scheduling** with `scheduler.yield()` maintains priority while yielding, unlike `setTimeout` which loses queue position
-- **Code splitting** reduces initial load but creates chunk waterfalls—mitigate with preload hints
-- **Tree shaking** requires ES modules and explicit side-effect declarations
-- **Web Workers** move computation off-thread but add message serialization overhead—use transfer for large buffers
+## Related reading in this series
 
-Measure before optimizing. INP, LCP, and Long Task observers provide visibility into actual user experience, not just synthetic benchmarks.
+- [Web Performance Overview](../web-performance-overview/README.md) — series index, Core Web Vitals refresher, JS-vs-rest budget breakdown.
+- [Web Performance Infrastructure Stack](../web-performance-infrastructure-stack/README.md) — DNS, HTTP/3, edge, BFF, and caching levers.
+- [CSS & Typography Performance](../web-performance-css-typography/README.md) — render-blocking CSS, containment, font-loading strategies.
+- [Image Optimization](../web-performance-image-optimization/README.md) — formats, responsive `srcset`, lazy-loading, LCP image rules.
+- [Bundle Splitting Strategies](../bundle-splitting-strategies/README.md) — deeper dive on splitting heuristics and resource hints.
+- [Browser Event Loop](../browser-event-loop/README.md) — model behind the scheduler primitives in this article.
 
 ## Appendix
 
@@ -748,12 +759,13 @@ Measure before optimizing. INP, LCP, and Long Task observers provide visibility 
 
 ### Summary
 
-- **Script loading**: `defer` = order-preserved after parsing; `async` = executes on arrival (no order); `module` = deferred with dependency resolution
-- **50ms threshold**: RAIL model target—100ms perceived instant, 50ms task budget leaves room for input handling
-- **`scheduler.yield()`**: Chrome 129+, maintains priority via continuation queues; falls back to `setTimeout(0)` elsewhere
-- **Tree shaking**: Requires ES modules (static structure); fails with side effects, dynamic imports, missing `sideEffects` field
-- **Web Workers**: Off-thread computation; use transfer for large `ArrayBuffer`s; promise rejections don't propagate
-- **INP replaced FID**: March 2024, measures full interaction latency not just input delay
+- **Script loading**: `defer` = order-preserved after parsing; `async` = executes on arrival (no order); `module` = deferred with dependency resolution.
+- **50ms threshold**: RAIL model target — 100&nbsp;ms perceived instant, 50&nbsp;ms task budget leaves room for input handling.
+- **`scheduler.yield()`**: Chromium 129+ and Firefox 142+; not yet in Safari. Preserves task priority via continuation queues; falls back to `setTimeout(0)` elsewhere.
+- **Tree shaking**: Requires ES modules (static structure); fails on side effects, dynamic property access, dynamic imports, or a missing `sideEffects` field.
+- **Web Workers**: Off-thread computation; use transferables for large `ArrayBuffer`s; promise rejections inside the worker do not propagate to the main thread.
+- **React Server Components**: Stable in React 19 (Dec 2024); zero client bundle for server-only components.
+- **INP**: Replaced FID on 12 March 2024; "good" at ≤200&nbsp;ms p75.
 
 ### References
 

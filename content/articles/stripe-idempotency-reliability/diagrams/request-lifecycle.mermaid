@@ -1,0 +1,28 @@
+%% Diagram: Idempotency-Key request lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A([Client generates UUIDv4]) --> B["POST /v1/charges\nIdempotency-Key: 8e03978e-..."]
+
+    B --> C{Key exists\nfor this account?}
+    C -->|No| D[Insert idempotency_keys row\nrecovery_point=started\nlocked_at=now]
+    C -->|Yes, finished| E[Return cached response\nIdempotent-Replayed: true]
+    C -->|Yes, locked| F[HTTP 409 Conflict\nidempotency_error]
+    C -->|Yes, params differ| G[HTTP 409 Conflict\nidempotency_error]
+
+    D --> H[Run atomic phases]
+    H --> I[Persist response_code\nresponse_body, recovery_point=finished]
+    I --> J[Return response to client]
+
+    K([Network timeout / 5xx]) --> L([Client retries\nsame Idempotency-Key])
+    L --> C
+
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef err fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef api fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class A,B,L api
+    class D,I store
+    class E,J ok
+    class F,G err
+    class H,K,C api

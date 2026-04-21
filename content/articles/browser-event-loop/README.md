@@ -5,13 +5,16 @@ description: >-
   A spec-accurate breakdown of the browser event loop covering task queue selection, microtask
   checkpoints, rendering opportunities, and Chromium's Blink scheduler — focused on latency and frame-budget trade-offs.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - javascript
   - runtime
   - v8
-  - nodejs
   - event-loop
+  - browser
+  - rendering
+  - performance
+  - web-apis
 ---
 
 # Browser Event Loop: Tasks, Microtasks, Rendering, and Idle Time
@@ -29,7 +32,7 @@ The browser event loop is a **policy-driven, single-threaded scheduler** with th
 
 2. **Microtasks** — Drained completely after each task, before rendering. The microtask queue is separate from task queues. Microtasks spawning microtasks extend the checkpoint, blocking all other work.
 
-3. **Rendering** — Since the December 2023 spec refactor, "update the rendering" is a formal task on the rendering task source, not a post-task operation. rAF callbacks run inside this task, before style/layout. Rendering opportunities are UA-defined, typically aligned to 60Hz (~16.7ms budget).
+3. **Rendering** — Since the late-2023 / early-2024 spec refactor ([PR #10007](https://github.com/whatwg/html/pull/10007), merged 2024-01-31), "update the rendering" is a formal task on the rendering task source, not a post-task operation. rAF callbacks run inside this task, before style/layout. Rendering opportunities are UA-defined, typically aligned to vsync (~16.7ms at 60Hz).
 
 **Operational invariants:**
 
@@ -51,7 +54,12 @@ That single-task removal is the macro-task boundary: one task per iteration, the
 
 > "A task is runnable if its document is either null or fully active."
 
-> **Spec evolution (December 2023):** Prior to PR #10007, the spec modeled "update the rendering" as a post-task operation rather than a formal task. This created edge cases where microtasks could execute without a current task. The refactor aligned the spec with Chromium and Gecko implementations, which already treated rendering as a special task with its own task source.
+> **Spec evolution (PR #10007, merged 2024-01-31):** Prior to [PR #10007](https://github.com/whatwg/html/pull/10007), the spec modeled "update the rendering" as a post-task operation rather than a formal task. This created edge cases where microtasks could execute without a current task and where the Long Tasks API could not attribute rendering work to a task. The refactor aligned the spec with Chromium and Gecko implementations, which already treated rendering as a special task with its own task source.
+
+The full spec algorithm — including task selection, the microtask checkpoint hand-off, long-task reporting, and the worker-loop teardown branch — looks like this:
+
+![Detailed event-loop main iteration: task selection, execution, microtask checkpoint, long-task reporting, idle-period entry, and worker-loop teardown.](./diagrams/detailed-event-loop-main-light.svg "Detailed event-loop main iteration as defined by the WHATWG HTML processing model.")
+![Detailed event-loop main iteration: task selection, execution, microtask checkpoint, long-task reporting, idle-period entry, and worker-loop teardown.](./diagrams/detailed-event-loop-main-dark.svg)
 
 **Example:** During a scroll, user-interaction tasks can be selected repeatedly while timer callbacks wait, keeping the UI responsive but delaying timers.
 
@@ -79,11 +87,14 @@ Each task source (DOM manipulation, user interaction, networking, timers, etc.) 
 
 **Trade-offs:** Preserving order within a source maintains causal consistency, while flexible cross-queue selection lets the UA favor latency-critical sources. The cost is that low-priority sources can starve.
 
-**Edge cases:** Do not assume timers fire at their nominal deadlines; a busy interaction source can push them back significantly. The 4ms minimum delay for nested `setTimeout` (per the spec) compounds this—a timer-heavy app can accumulate significant drift.
+**Edge cases:** Do not assume timers fire at their nominal deadlines; a busy interaction source can push them back significantly. The [4ms minimum delay for nested `setTimeout` after five levels of nesting](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timer-initialisation-steps) (per the spec) compounds this — a timer-heavy app can accumulate significant drift.
+
+> [!NOTE]
+> Chromium [shipped a divergence from the spec](https://groups.google.com/a/chromium.org/g/blink-dev/c/ncLo1AMia5I) that raises the nesting threshold from 5 to 15 before the 4ms clamp engages. Spec-aligned engines (Gecko, WebKit) still clamp at 5, so depending on `setTimeout(fn, 0)` for low-latency scheduling produces different timing across browsers. Use `scheduler.yield()` or `MessageChannel` instead.
 
 ## Chromium (Blink) main-thread queues and priorities
 
-> **Implementation note:** This section describes Chromium's Blink scheduler as of early 2025. Queue types, priorities, and throttling policies change frequently. Treat this as a conceptual map, not an authoritative reference—consult the source code for current behavior.
+> **Implementation note:** This section describes Chromium's Blink scheduler as of 2026-Q2. Queue types, priorities, and throttling policies change frequently. Treat this as a conceptual map, not an authoritative reference — consult the [Blink scheduler source](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/platform/scheduler/) and [TaskTypes.md](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/scheduler/TaskTypes.md) for current behavior.
 
 Blink's main-thread scheduler defines a fixed set of queue types (`MainThreadTaskQueue::QueueType`) grouped into queue classes (loading, timer, compositor, none). Frame-associated work is posted using a `TaskType`, and `FrameScheduler::GetTaskRunner()` selects a task runner based on that type.
 
@@ -156,9 +167,47 @@ This is the drain semantics: the checkpoint keeps running until the queue is emp
 - As part of the "clean up after running script" algorithm
 - When the execution context stack empties during callback invocation
 
-The checkpoint algorithm sets a `performingMicrotaskCheckpoint` flag to prevent re-entrancy—calling a function that would trigger another checkpoint during a checkpoint is a no-op.
+The checkpoint algorithm sets a `performingMicrotaskCheckpoint` flag to prevent re-entrancy — calling a function that would trigger another checkpoint during a checkpoint is a no-op.
 
-**Example:** A click handler that chains Promises can block rendering until the chain ends; each Promise enqueues more microtasks and the checkpoint drains them before any new task is selected. Insert a task boundary (`setTimeout`, `MessageChannel`, or `scheduler.postTask`) to yield.
+**How microtasks get enqueued.** The spec's "queue a microtask" algorithm is the only direct entry point. In script you reach it via:
+
+- `queueMicrotask(fn)` — direct, allocation-free, no Promise wrapper. Prefer over `Promise.resolve().then(fn)` when you only need the side effect.
+- Promise reactions — every settled `then` / `catch` / `finally` enqueues a microtask via the [HostEnqueuePromiseJob](https://tc39.es/ecma262/#sec-hostenqueuepromisejob) host hook, which the HTML spec [defines](https://html.spec.whatwg.org/multipage/webappapis.html#hostenqueuepromisejob) to call "queue a microtask".
+- `MutationObserver` callbacks — delivered at the microtask checkpoint, not as tasks. A burst of DOM mutations is coalesced into one callback invocation per checkpoint.
+
+![Microtask checkpoint algorithm: re-entrancy guard, drain loop that processes microtasks queued during the checkpoint, then post-drain hooks (rejected-promise notifications, IndexedDB cleanup, ClearKeptObjects).](./diagrams/detailed-event-loop-microtask-light.svg "Perform a microtask checkpoint, with re-entrancy guard and drain loop.")
+![Microtask checkpoint algorithm: re-entrancy guard, drain loop that processes microtasks queued during the checkpoint, then post-drain hooks (rejected-promise notifications, IndexedDB cleanup, ClearKeptObjects).](./diagrams/detailed-event-loop-microtask-dark.svg)
+
+> [!WARNING]
+> A microtask that re-enqueues itself (or chains an unbounded `Promise.then`) extends the same checkpoint indefinitely. Rendering, input, and timers all wait. If you cannot prove the chain terminates, yield to a task instead.
+
+**Example:** A click handler that chains Promises can block rendering until the chain ends; each Promise enqueues more microtasks and the checkpoint drains them before any new task is selected. Insert a task boundary to yield. The modern primitives are `scheduler.yield()` and `scheduler.postTask()`; older fallbacks are `MessageChannel` and `setTimeout(fn, 0)`.
+
+```ts title="yield-to-main.ts"
+async function yieldToMain(): Promise<void> {
+  if (typeof globalThis.scheduler?.yield === "function") {
+    return globalThis.scheduler.yield();
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+```
+
+`scheduler.yield()` resumes [at the front of the task queue](https://developer.chrome.com/blog/use-scheduler-yield) for its priority, so other same-priority scripts cannot cut in line; `setTimeout(fn, 0)` re-enters at the back (and is subject to the 4 ms nested-timer clamp). Both create a true task boundary, so the microtask checkpoint drains and the UA gets a chance to render.
+
+`MessageChannel` is the historic fallback when `scheduler.yield()` is unavailable: posting on `port2` queues a `message` task on `port1` via the [posted-message task source](https://html.spec.whatwg.org/multipage/web-messaging.html#message-ports), bypassing the `setTimeout` clamp. `window.postMessage` works the same way for same-origin self-messaging. Both yield to rendering and input on the next iteration.
+
+```ts title="message-channel-yield.ts"
+const channel = new MessageChannel();
+const pending: Array<() => void> = [];
+channel.port1.onmessage = () => pending.shift()?.();
+
+export function yieldViaPort(): Promise<void> {
+  return new Promise((resolve) => {
+    pending.push(resolve);
+    channel.port2.postMessage(null);
+  });
+}
+```
 
 **Trade-offs:** Microtasks provide deterministic ordering for promise reactions and DOM mutation delivery, but they can starve tasks and rendering if used as an unbounded loop.
 
@@ -171,6 +220,11 @@ Rendering opportunities are UA-defined; when one occurs, the UA queues an update
 > "queue a global task on the rendering task source to update the rendering"
 
 > "Rendering opportunities occur at a maximum of every 60th of a second (about 16.7ms)."
+
+The "update the rendering" task itself is a long ordered sequence of sub-steps. The diagram below maps the parallel rendering-opportunity watcher into the update-rendering task, with all the sub-steps the spec runs in order:
+
+![Update-the-rendering task: filter renderable documents, run resize/scroll/animation/fullscreen steps, run rAF callbacks, recalc style and layout, run ResizeObserver loop, fire IntersectionObserver, record paint timing, paint.](./diagrams/detailed-event-loop-rendering-light.svg "Update-the-rendering task: filter, lifecycle steps, rAF, style/layout, observers, paint.")
+![Update-the-rendering task: filter renderable documents, run resize/scroll/animation/fullscreen steps, run rAF callbacks, recalc style and layout, run ResizeObserver loop, fire IntersectionObserver, record paint timing, paint.](./diagrams/detailed-event-loop-rendering-dark.svg)
 
 **rAF timestamp source:** The timestamp passed to rAF callbacks varies by implementation. Chromium and Gecko derive it from vsync signals; WebKit uses the timestamp at the start of the "update the rendering" phase. This can cause observable timing differences in frame-pacing code.
 
@@ -230,7 +284,7 @@ Each `requestIdleCallback` schedules a single callback; to keep running work, re
 - A timeout callback can fire outside idle time with `didTimeout=true` and `timeRemaining()=0`
 - Safari does not support `requestIdleCallback`; use a polyfill based on `setTimeout` with frame-timing heuristics
 
-**Browser support:** Chrome, Firefox, Edge. Not supported in Safari as of January 2025.
+**Browser support:** Chrome, Firefox, Edge. [Not supported in Safari as of 2026-Q2](https://caniuse.com/requestidlecallback) — the API exists behind a flag in Safari Technology Preview but is disabled in stable releases.
 
 ## Worker event loops and shutdown
 
@@ -248,10 +302,10 @@ The browser event loop is a policy-driven scheduler with three execution tiers: 
 
 Key operational insights:
 
-- **Yield to rendering** by inserting task boundaries (`setTimeout`, `MessageChannel`, `scheduler.postTask`) rather than chaining microtasks
-- **Don't rely on timer accuracy**—busy interaction sources push timers back, and the 4ms nested timer clamp compounds drift
-- **Use rIC timeouts for must-run work**—idle periods are not guaranteed under load
-- **Account for browser differences**—rAF timing, rIC support, and task prioritization vary across engines
+- **Yield to rendering** by inserting task boundaries (`scheduler.yield()`, `scheduler.postTask`, `MessageChannel`, `setTimeout(fn, 0)`) rather than chaining microtasks. Prefer `scheduler.yield()` where supported — it resumes at the front of the queue.
+- **Don't rely on timer accuracy** — busy interaction sources push timers back; the 4ms nested-timer clamp engages at 5 nesting levels per spec but at 15 in Chromium, so cross-browser timing diverges.
+- **Use rIC timeouts for must-run work** — idle periods are not guaranteed under load and never arrive in Safari (no `requestIdleCallback`).
+- **Account for browser differences** — rAF timing, rIC support, and task prioritization vary across engines; surface the differences in your perf tests, not after a customer report.
 
 ## Appendix
 
@@ -269,6 +323,7 @@ Key operational insights:
 - **Microtask**: High-priority work run during a microtask checkpoint. Not part of any task queue.
 - **Microtask queue**: A separate queue (one per event loop) that holds microtasks. Drained completely at each checkpoint.
 - **Microtask checkpoint**: The algorithm that drains the microtask queue. Occurs after tasks, during parsing, and during script cleanup. Uses a re-entrancy guard.
+- **queueMicrotask(fn)**: Direct entry point to "queue a microtask"; equivalent to `Promise.resolve().then(fn)` without the Promise allocation or rejection plumbing.
 - **Idle period**: A UA-defined window (max 50ms) when no runnable tasks exist. Used for running idle callbacks.
 - **Idle callback**: A `requestIdleCallback` handler invoked during an idle period or via timeout.
 - **IdleDeadline**: Object passed to idle callbacks; exposes `timeRemaining()` (clamped to ≥0) and `didTimeout`.
@@ -276,6 +331,8 @@ Key operational insights:
 - **Update the rendering task**: A task on the rendering task source that runs rAF callbacks, style recalculation, layout, and paint-related work.
 - **requestAnimationFrame (rAF)**: API to schedule a callback for the next rendering update. Callbacks are snapshotted; new callbacks added during execution run in the next frame.
 - **requestIdleCallback (rIC)**: API to schedule best-effort work during idle periods. Not supported in Safari.
+- **scheduler.postTask / scheduler.yield**: The Web Scheduling API for posting prioritized tasks and yielding control inside a task. `scheduler.yield()` resumes at the front of the task queue for its priority. Supported in Chromium and Firefox 142+; not in Safari.
+- **MessageChannel / postMessage**: Historic yield primitive; queues a task on the posted-message task source, bypassing the 4 ms nested-`setTimeout` clamp.
 - **User Agent (UA)**: The browser engine implementing the event loop (e.g., Blink, Gecko, WebKit).
 
 ### Summary
@@ -286,6 +343,7 @@ Key operational insights:
 - Since December 2023, "update the rendering" is a formal task on the rendering task source (previously a post-task operation).
 - Idle callbacks run FIFO during UA-defined idle periods capped at 50ms; callbacks posted during a period wait for the next one. Safari does not support `requestIdleCallback`.
 - Worker event loops can terminate automatically when closing and idle; schedule cleanup before calling `close()`.
+- The modern way to break up a long task on the main thread is `scheduler.yield()` (Chromium + Firefox 142+), with a `setTimeout(fn, 0)` fallback for Safari.
 
 ### References
 
@@ -302,6 +360,8 @@ Key operational insights:
 - [WHATWG Infra Standard - Sets](https://infra.spec.whatwg.org/#sets) - Definition of "set" used by task queues
 - [DOM Standard - MutationObserver](https://dom.spec.whatwg.org/#mutationobserver)
 - [W3C requestIdleCallback](https://www.w3.org/TR/requestidlecallback/)
+- [WICG Prioritized Task Scheduling — `scheduler.postTask` and `scheduler.yield`](https://wicg.github.io/scheduling-apis/)
+- [WHATWG HTML — Timer initialisation steps (4 ms clamp)](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timer-initialisation-steps)
 
 **Spec Issues and PRs**
 
@@ -313,6 +373,10 @@ Key operational insights:
 
 - [MDN - Using microtasks in JavaScript](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide)
 - [MDN - In depth: Microtasks and the JavaScript runtime](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide/In_depth)
+- [MDN - Scheduler.yield()](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield)
+- [Chrome for Developers - Use scheduler.yield() to break up long tasks](https://developer.chrome.com/blog/use-scheduler-yield)
+- [Can I use - requestIdleCallback (Safari support tracker)](https://caniuse.com/requestidlecallback)
+- [Chromium Intent to Ship - Increased max nesting level for setTimeout(0)](https://groups.google.com/a/chromium.org/g/blink-dev/c/ncLo1AMia5I)
 
 **Core Maintainer Content**
 

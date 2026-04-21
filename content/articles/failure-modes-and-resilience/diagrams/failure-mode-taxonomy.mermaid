@@ -1,0 +1,30 @@
+%% Diagram: Failure-mode taxonomy by detection cost and cascade likelihood
+%% Type: flowchart (quadrant-style layout)
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Easy["Easy to detect"]
+        direction TB
+        FailStop["Fail-stop\n(crash, OOM kill)"]
+        CrashRecov["Crash-recovery\n(restart with stale state)"]
+    end
+
+    subgraph Mixed["Detectable with care"]
+        direction TB
+        Omission["Omission\n(dropped messages, full queues)"]
+        Timing["Timing\n(slow, not dead)"]
+    end
+
+    subgraph Hard["Hard to detect"]
+        direction TB
+        Gray["Gray failure\n(probes pass, traffic fails)"]
+        Byzantine["Byzantine\n(arbitrary, malicious, corrupt)"]
+    end
+
+    subgraph Cascade["Cascade amplifier"]
+        direction TB
+        Cascading["Cascading failure\n(retry storms, shared fate,\nresource exhaustion)"]
+    end
+
+    Easy --> Mixed --> Hard
+    Mixed -.-> Cascade
+    Hard -.-> Cascade

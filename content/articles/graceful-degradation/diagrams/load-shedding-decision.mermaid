@@ -1,0 +1,24 @@
+%% Diagram: load-shedding-decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Req["Incoming request"] --> Cap{"Headroom &gt; class threshold?"}
+
+    Cap -- "Yes" --> Adm["Admit"]
+    Cap -- "No" --> Crit{"Class = CRITICAL_PLUS?"}
+
+    Crit -- "Yes" --> Adm
+    Crit -- "No" --> Dead{"Deadline expired<br/>or near expiry?"}
+
+    Dead -- "Yes" --> Drop["Drop fast<br/>(don't waste work)"]
+    Dead -- "No" --> Coal{"Coalescable<br/>(GET, idempotent key)?"}
+
+    Coal -- "Yes" --> Single["Attach to in-flight singleflight"]
+    Coal -- "No" --> Q{"Queue under maxQueue<br/>and est. wait &lt; deadline?"}
+
+    Q -- "Yes" --> Enq["Enqueue with deadline"]
+    Q -- "No" --> Shed["503 + Retry-After<br/>+ jittered hint"]
+
+    Adm --> Done["Serve"]
+    Single --> Done
+    Enq --> Done

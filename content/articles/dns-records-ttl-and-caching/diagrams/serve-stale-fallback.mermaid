@@ -1,0 +1,26 @@
+%% Diagram: RFC 8767 serve-stale fallback when authoritative servers are unreachable
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant Client as Stub client
+    participant Recursive as Recursive resolver<br/>(serve-stale enabled)
+    participant Auth as Authoritative server<br/>(unreachable)
+
+    Note over Recursive: Cache holds api.example.com A 192.0.2.10<br/>Original TTL expired 4h ago<br/>max-stale-ttl = 24h, stale-answer-ttl = 30s
+
+    Client->>Recursive: Q: api.example.com A?
+
+    Note over Recursive: Start client-response timer (1.8s)
+    Recursive->>Auth: Q: api.example.com A?
+    Note right of Auth: Timeout — DDoS / outage
+
+    Note over Recursive: 1.8s elapsed without an answer
+    Recursive-->>Client: Stale answer 192.0.2.10<br/>(TTL=30s per RFC 8767 §6)
+
+    par Background refresh continues
+        Recursive->>Auth: retry Q: api.example.com A?
+        Auth-->>Recursive: SERVFAIL / timeout
+        Note over Recursive: failure-recheck timer (30s)<br/>throttles next attempt
+    end
+
+    Note over Client,Recursive: Service stays up during the outage instead of returning SERVFAIL

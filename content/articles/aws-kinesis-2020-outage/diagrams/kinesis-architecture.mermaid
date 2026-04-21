@@ -1,0 +1,37 @@
+%% Diagram: Kinesis Front-End and Back-End Architecture (US-EAST-1, Nov 2020)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    CLIENT["Kinesis API clients<br/>(PutRecord / GetRecords)"]
+
+    subgraph FE["Front-End Fleet (monolithic, many thousands of servers)"]
+        direction TB
+        FE1["Front-end server"]
+        FE2["Front-end server"]
+        FEN["Front-end server"]
+        FE1 <-. "thread-per-peer<br/>shard-map gossip<br/>(O(N) per server)" .-> FE2
+        FE2 <-. " " .-> FEN
+        FE1 <-. " " .-> FEN
+    end
+
+    subgraph SOURCES["Shard-map cache sources"]
+        direction TB
+        MS["Membership microservice"]
+        DDB["DynamoDB<br/>(authoritative config)"]
+        PEERS["Peer messages<br/>from other front-end servers"]
+    end
+
+    subgraph BE["Back-End (already cell-based)"]
+        direction TB
+        C1["Cell-cluster A<br/>(owns shards 1..k)"]
+        C2["Cell-cluster B<br/>(owns shards k+1..m)"]
+        C3["Cell-cluster N<br/>(owns shards m+1..n)"]
+    end
+
+    CLIENT --> FE
+    FE --> SOURCES
+    FE --> BE
+
+    style FE fill:#FBE6E6,stroke:#B43A3A,color:#1f2937
+    style BE fill:#DCEFE0,stroke:#1f7a3a,color:#1f2937
+    style SOURCES fill:#E6EEFB,stroke:#264F9C,color:#1f2937

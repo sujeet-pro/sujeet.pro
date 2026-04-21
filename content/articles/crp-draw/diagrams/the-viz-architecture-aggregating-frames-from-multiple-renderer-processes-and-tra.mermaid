@@ -1,32 +1,42 @@
-%% Diagram: The Viz Architecture Aggregating Frames From Multiple Renderer Processes And Tra
-%% Type: flowchart
+%% Diagram: Viz architecture — frames from many renderer processes plus the browser UI flow into the GPU process and out to the display.
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    subgraph RendererProcess["Renderer Process (Multi-process)"]
-        CC1[Compositor Frame 1]
-        CC2[Compositor Frame 2]
+    subgraph Producers["Frame producers (separate processes)"]
+        direction TB
+        BUI["Browser process<br/>(UI, tab strip, omnibox)"]
+        R1["Renderer A<br/>(top-level page)"]
+        R2["Renderer B<br/>(cross-origin iframe)"]
+        R3["Renderer C<br/>(cross-origin iframe)"]
     end
 
-    subgraph VizProcess["Viz Process (GPU)"]
-        FS[FrameSink Manager]
-        Agg[Surface Aggregator]
-        Skia[Skia / Graphite Engine]
-        GPU_I[GPU Driver Interface]
+    subgraph VizProcess["Viz (GPU process)"]
+        direction TB
+        FS["FrameSinkManager<br/>(routes CompositorFrames)"]
+        Agg["SurfaceAggregator<br/>(walks SurfaceQuads, merges)"]
+        Skia["SkiaRenderer<br/>(Ganesh → Graphite)"]
+        CmdBuf["GPU command buffer<br/>(Vulkan / Metal / D3D / GL)"]
     end
 
-    subgraph Hardware["Display Hardware"]
-        Swap[Swap Chain / Overlays]
-        DC[Display Controller]
+    subgraph Hardware["Display path"]
+        direction TB
+        Swap["Swap chain / overlays"]
+        DC["Display controller"]
+        Screen["Physical screen"]
     end
 
-    CC1 -- "SubmitFrame" --> FS
-    CC2 -- "SubmitFrame" --> FS
+    BUI -- "SubmitCompositorFrame" --> FS
+    R1 -- "SubmitCompositorFrame" --> FS
+    R2 -- "SubmitCompositorFrame" --> FS
+    R3 -- "SubmitCompositorFrame" --> FS
     FS --> Agg
-    Agg -- "Aggregated Frame" --> Skia
-    Skia --> GPU_I
-    GPU_I -- "GL/Vulkan/Metal Commands" --> Swap
-    Swap --> DC
-    DC --> Screen[Physical Screen]
+    Agg -- "single aggregated frame" --> Skia
+    Skia --> CmdBuf
+    CmdBuf -- "GPU commands" --> Swap
+    Swap --> DC --> Screen
 
-    style Agg fill:#f9f,stroke:#333,stroke-width:2px
-    style Skia fill:#bbf,stroke:#333,stroke-width:2px
+    classDef proc fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef viz fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef hw fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    class BUI,R1,R2,R3 proc
+    class FS,Agg,Skia,CmdBuf viz
+    class Swap,DC,Screen hw

@@ -1,0 +1,20 @@
+%% Diagram: Edit-commit state machine for inline cell editing
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> ViewMode: focus cell
+    ViewMode --> EditMode: F2 / Enter / dblclick / printable key
+    ViewMode --> ViewMode: arrow keys move focus
+
+    state EditMode {
+        [*] --> Dirty: keystroke
+        Dirty --> Validating: blur / Tab / Enter
+        Validating --> Pending: valid + onCellEditRequest
+        Validating --> Dirty: invalid (show error)
+        Pending --> Committed: server ack / sync write
+        Pending --> Reverted: server reject
+    }
+
+    EditMode --> ViewMode: Escape (cancel, restore original)
+    Committed --> ViewMode: focus moves (Enter ↓, Tab →)
+    Reverted --> ViewMode: toast + revert

@@ -1,0 +1,30 @@
+%% Diagram: Optimistic Update Reconciliation
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant CA as Client A
+    participant MP as Multiplayer Server (Rust)
+    participant CB as Client B
+
+    Note over CA: User edits prop P on object O — set fill = red
+    CA->>CA: apply locally and mark unacked
+    CA->>MP: delta(O, P, red, seq 42)
+
+    Note over CB: Concurrent edit on same prop — set fill = blue
+    CB->>CB: apply locally and mark unacked
+    CB->>MP: delta(O, P, blue, seq 43)
+
+    Note over MP: Server applies in arrival order — seq 43 wins for P on O
+    MP-->>CA: broadcast(O, P, blue, seq 43)
+    MP-->>CB: ack(O, P, blue, seq 43)
+
+    Note over CA: Conflict rule — discard server change for P while local P is unacked
+    CA->>CA: keep red (still unacked)
+
+    MP-->>CA: ack(O, P, red, seq 42)
+    Note over MP: Server processed seq 42 after 43 — broadcast wins-loss order
+    MP-->>CB: broadcast(O, P, red, seq 42)
+
+    CA->>CA: clear unacked and finalize red
+    CB->>CB: replace local and finalize red

@@ -1,0 +1,21 @@
+%% Diagram: Tiered Caching and Request Collapsing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    C["N concurrent clients"]
+    E1["Edge PoP A"]
+    E2["Edge PoP B"]
+    S1["Shield PoP"]
+    CR["Cache Reserve"]
+    O1["Origin"]
+
+    C --> E1
+    C --> E2
+    E1 -- "1 miss" --> S1
+    E2 -- "1 miss" --> S1
+    S1 -- "miss" --> CR
+    CR -- "miss" --> O1
+    O1 -- "response" --> CR
+    CR -- "response" --> S1
+    S1 -- "fan-out" --> E1
+    S1 -- "fan-out" --> E2

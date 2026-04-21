@@ -1,27 +1,15 @@
-%% Diagram: Resource Count Determines Search Depth Each Additional Resource Enables One More
+%% Diagram: How added eggs reduce worst-case drops to find a threshold among N floors
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Strategy Evolution by Resource Count"
+    subgraph "Worst-case drops for N floors as eggs grow"
         direction TB
-
-        subgraph K1["k=1: Linear Only"]
-            L1["1→2→3→...→n"]
-        end
-
-        subgraph K2["k=2: Jump + Linear"]
-            J2["Jump √n"] --> S2["Linear √n"]
-        end
-
-        subgraph K3["k=3: Jump² + Jump + Linear"]
-            J31["Jump n^(2/3)"] --> J32["Jump n^(1/3)"] --> S3["Linear n^(1/3)"]
-        end
-
-        subgraph KINF["k=∞: Binary Search"]
-            B["Halve repeatedly → log n"]
-        end
+        K1["k = 1 egg<br/>Linear scan<br/>worst case = N drops"]
+        K2["k = 2 eggs<br/>Decreasing-step plan<br/>T(T+1)/2 >= N<br/>worst case = ceil((sqrt(8N+1)-1)/2)"]
+        K3["k = 3+ eggs<br/>DP recurrence<br/>f(k, m) = f(k-1, m-1) + f(k, m-1) + 1<br/>worst case = min m with f(k, m) >= N"]
+        KINF["k -> infinity<br/>Binary search<br/>worst case = ceil(log2(N+1))"]
     end
 
-    K1 -.->|"Add resource"| K2
-    K2 -.->|"Add resource"| K3
-    K3 -.->|"..."| KINF
+    K1 -->|"+1 egg unlocks one risky probe"| K2
+    K2 -->|"+1 egg unlocks another tier"| K3
+    K3 -->|"k >= log2(N+1) saturates"| KINF

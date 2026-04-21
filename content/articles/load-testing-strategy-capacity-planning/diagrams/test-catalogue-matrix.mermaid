@@ -1,0 +1,29 @@
+%% Diagram: Test catalogue — five families compared by goal, load shape, and duration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph LOAD["Load (capacity search)"]
+        L_GOAL["Goal: confirm SLO holds<br/>at planned peak mix"]
+        L_SHAPE["Shape: step ramp,<br/>dwell at each step"]
+        L_DUR["Duration: 30 min – 4 h"]
+    end
+    subgraph STRESS["Stress"]
+        S_GOAL["Goal: behavior beyond peak<br/>(graceful degrade vs collapse)"]
+        S_SHAPE["Shape: sustained high load<br/>past expected ceiling"]
+        S_DUR["Duration: 30 min – 2 h"]
+    end
+    subgraph BREAK["Breakpoint"]
+        B_GOAL["Goal: locate the failure point<br/>(open model, ramp until break)"]
+        B_SHAPE["Shape: monotonic ramp,<br/>no dwell, disable autoscale"]
+        B_DUR["Duration: until SLO/error breach"]
+    end
+    subgraph SOAK["Soak / endurance"]
+        SK_GOAL["Goal: time-dependent decay<br/>(leaks, fragmentation, rollover)"]
+        SK_SHAPE["Shape: hold sub-saturation<br/>(60–80 percent of capacity)"]
+        SK_DUR["Duration: 8 h – several days"]
+    end
+    subgraph SPIKE["Spike / burst"]
+        SP_GOAL["Goal: control loops<br/>(autoscale, admission, retries)"]
+        SP_SHAPE["Shape: step jump<br/>(2–10x in seconds)"]
+        SP_DUR["Duration: 5 – 30 min"]
+    end

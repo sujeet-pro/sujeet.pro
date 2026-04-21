@@ -3,13 +3,19 @@ title: 'LRU Cache Design: Eviction Strategies and Trade-offs'
 linkTitle: 'LRU Cache'
 description: >-
   From the classic hash map + doubly linked list LRU to modern eviction
-  strategies like 2Q, ARC, and SIEVE — understand the trade-offs between
-  recency, frequency, and memory overhead in cache design.
+  strategies like 2Q, ARC, SIEVE, and W-TinyLFU — understand the trade-offs
+  between recency, frequency, memory overhead, and concurrency in cache
+  design.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - distributed-systems
+  - caching
+  - algorithms
+  - data-structures
+  - databases
+  - performance
 ---
 
 # LRU Cache Design: Eviction Strategies and Trade-offs
@@ -192,6 +198,7 @@ class DoublyLinkedList {
   }
 
   addToHead(node: ListNode): void {
+    node.prev = null
     node.next = this.head
     if (this.head) {
       this.head.prev = node
@@ -203,14 +210,13 @@ class DoublyLinkedList {
   }
 
   removeNode(node: ListNode): void {
-    if (node === this.head) {
-      this.head = node.next
-    } else if (node === this.tail) {
-      this.tail = node.prev
-    } else {
-      if (node.prev) node.prev.next = node.next
-      if (node.next) node.next.prev = node.prev
-    }
+    const { prev, next } = node
+    if (prev) prev.next = next
+    if (next) next.prev = prev
+    if (node === this.head) this.head = next
+    if (node === this.tail) this.tail = prev
+    node.prev = null
+    node.next = null
   }
 
   removeTail(): ListNode | null {
@@ -236,9 +242,12 @@ class DoublyLinkedList {
 
 LRU equates "recently used" with "important"—an assumption that breaks catastrophically during **sequential scans**.
 
+![How a sequential scan poisons an LRU cache by displacing the working set](./diagrams/scan-pollution-light.svg "A sequential scan reads many cold rows; each miss inserts a new entry at the MRU head and evicts the oldest entry from the LRU tail. By the time the scan finishes, the working set is gone and the cache is full of data that will never be touched again.")
+![How a sequential scan poisons an LRU cache by displacing the working set](./diagrams/scan-pollution-dark.svg)
+
 **The Failure Mechanism:**
 
-```
+```text
 Before scan: Cache contains hot items A, B, C, D (frequently accessed)
 During scan: Items 1, 2, 3, 4... sequentially accessed
 After scan:  Cache contains cold items (last N scanned), hot items evicted
@@ -294,7 +303,7 @@ To overcome LRU's scan vulnerability, several algorithms incorporate additional 
 - ❌ K parameter needs tuning (workload-dependent)
 - ❌ Naive eviction is O(n); requires heap for O(log n)
 
-**Real-World Example:** The original LRU-K paper (O'Neil et al., 1993) demonstrated that LRU-2 improved buffer hit rates by 5-20% over LRU on database workloads with mixed sequential and random access patterns.
+**Real-World Example:** The original LRU-K paper ([O'Neil, O'Neil & Weikum, SIGMOD 1993](https://www.cs.cmu.edu/~natassa/courses/15-721/papers/p297-o_neil.pdf)) demonstrated that on a one-hour OLTP trace at small buffer sizes, LRU-1 needed **more than twice the buffer pages** of LRU-2 to match the same hit ratio — the "equi-effective buffer size ratio" the authors used to compare policies. The gain shrinks as buffer size grows, but for memory-constrained workloads with mixed sequential and random access, the improvement is substantial.
 
 ```ts collapse={1-10, 45-74}
 class LRUKCache {
@@ -383,7 +392,10 @@ In practice, the O(n) eviction complexity is acceptable for small to medium cach
 
 ### 2Q: Probationary Filtering
 
-**Mechanism:** Use two queues to filter first-time accesses before admitting to the main cache.
+**Mechanism:** Use two queues to filter first-time accesses before admitting to the main cache. Source: [Johnson & Shasha, VLDB 1994](https://www.vldb.org/conf/1994/P439.PDF).
+
+![2Q cache architecture with probationary FIFO, main LRU, and ghost list](./diagrams/two-queue-architecture-light.svg "First-touch keys land in the FIFO probation queue (A1in). Only a second access promotes them into the main LRU (Am). The ghost list (A1out) remembers recently evicted A1 keys so a return visitor can be promoted directly.")
+![2Q cache architecture with probationary FIFO, main LRU, and ghost list](./diagrams/two-queue-architecture-dark.svg)
 
 | Queue               | Type      | Purpose                                |
 | ------------------- | --------- | -------------------------------------- |
@@ -395,9 +407,9 @@ In practice, the O(n) eviction complexity is acceptable for small to medium cach
 
 **Best When:**
 
-- Production databases needing scan resistance (PostgreSQL used 2Q in 8.0.1-8.0.2)
-- Systems requiring O(1) operations without tuning parameters
-- Patent-free implementations required (no patent on 2Q)
+- Production databases needing scan resistance — PostgreSQL backpatched 2Q into [8.0.2](https://www.postgresql.org/docs/release/8.0.2/) to dodge the ARC patent.
+- Systems requiring O(1) operations without tuning parameters.
+- Patent-free implementations required (no patent on 2Q).
 
 **Trade-offs:**
 
@@ -409,7 +421,7 @@ In practice, the O(n) eviction complexity is acceptable for small to medium cach
 - ❌ Requires tuning A1/Am size ratio (typically 25%/75%)
 - ❌ Ghost list (A1out) adds memory overhead
 
-**Real-World Example:** PostgreSQL briefly used 2Q in versions 8.0.1-8.0.2 after discovering the ARC patent issue. The PostgreSQL developers found 2Q provided comparable performance to ARC without legal concerns. They later moved to clock sweep in 8.1 for better concurrency characteristics.
+**Real-World Example:** PostgreSQL [introduced ARC in 8.0.0](https://www.postgresql.org/docs/release/8.0.0/), discovered IBM's pending US patent, and [backpatched 2Q into 8.0.2](https://www.postgresql.org/about/news/postgresql-802-released-303/) ([LWN coverage](https://lwn.net/Articles/131554/)). The PostgreSQL developers found 2Q provided comparable performance to ARC without legal exposure. They later moved to clock sweep in [8.1](https://www.postgresql.org/docs/release/8.1.0/) for better concurrency characteristics under multi-core load.
 
 ```ts collapse={1-18, 70-85}
 class TwoQueueCache {
@@ -507,7 +519,10 @@ class TwoQueueCache {
 
 ### ARC: Adaptive Self-Tuning
 
-**Mechanism:** Maintain two LRU lists (T1 for recency, T2 for frequency) with adaptive sizing based on "ghost lists" that remember recently evicted keys.
+**Mechanism:** Maintain two LRU lists (T1 for recency, T2 for frequency) with adaptive sizing based on "ghost lists" that remember recently evicted keys. Source: [Megiddo & Modha, USENIX FAST 2003](https://www.usenix.org/legacy/events/fast03/tech/full_papers/megiddo/megiddo.pdf).
+
+![ARC's four lists - T1 and T2 hold resident entries, B1 and B2 are ghost histories that drive the adaptation parameter p](./diagrams/arc-four-lists-light.svg "Resident lists T1 (recency) and T2 (frequency) sit above ghost lists B1 and B2. A hit on B1 means we evicted the wrong recent item, so p grows and T1 expands. A hit on B2 means we evicted the wrong frequent item, so p shrinks and T2 expands.")
+![ARC's four lists - T1 and T2 hold resident entries, B1 and B2 are ghost histories that drive the adaptation parameter p](./diagrams/arc-four-lists-dark.svg)
 
 | List | Contents                | Purpose                         |
 | ---- | ----------------------- | ------------------------------- |
@@ -535,7 +550,7 @@ class TwoQueueCache {
 - ✅ Self-tuning: no parameters to configure
 - ✅ Handles mixed workloads dynamically
 - ✅ Ghost lists provide learning without storing values
-- ✅ **Patent expired February 22, 2024** (US6996676B2) — now freely usable
+- ✅ **Patent expired February 22, 2024** ([US6996676B2](https://patents.google.com/patent/US6996676B2/en)) — now freely usable
 - ❌ Memory overhead: 4 data structures + ghost lists can equal cache size
 - ❌ More complex to implement and debug
 - ❌ Ghost list maintenance adds CPU overhead
@@ -546,12 +561,12 @@ ARC was developed by Nimrod Megiddo and Dharmendra S. Modha at IBM Almaden Resea
 
 | System               | Response to ARC Patent                                           |
 | -------------------- | ---------------------------------------------------------------- |
-| PostgreSQL           | Used ARC in 8.0.0 → Switched to 2Q in 8.0.1 → Clock sweep in 8.1 |
-| ZFS                  | Licensed through Sun/IBM cross-licensing agreement               |
-| MySQL                | Adopted LIRS algorithm instead                                   |
+| PostgreSQL           | Used ARC in 8.0.0/8.0.1 → backpatched 2Q into 8.0.2 → clock sweep in 8.1 |
+| ZFS                  | Adopted ARC at inception (2005); shipped under Sun's CDDL licence with ARC referenced in the source — IBM did not enforce the patent against open ZFS forks |
+| MySQL                | Adopted LIRS-style scan-resistant LRU instead                    |
 | Open-source projects | Generally avoided ARC until patent expiration                    |
 
-**Real-World Example:** ZFS has used ARC since its inception (2005) through Sun's cross-licensing agreement with IBM. ZFS extended ARC with L2ARC for SSD caching, demonstrating that the adaptive approach works well for storage systems with mixed sequential/random workloads.
+**Real-World Example:** ZFS has used ARC since its inception (2005), with the ARC patent acknowledged in the source. ZFS extended it with L2ARC for SSD-tier caching, demonstrating that the adaptive approach works well for storage systems with mixed sequential/random workloads.
 
 ```ts collapse={1-21, 68-137}
 class ARCCache {
@@ -692,11 +707,17 @@ class ARCCache {
 }
 ```
 
+> [!IMPORTANT]
+> The reference ARC in the paper is O(1) per operation: T1, T2, B1, and B2 are doubly linked lists, eviction takes the tail in O(1), and the ghost lists are size-bounded with `2c` entries total. The toy above uses a timestamp scan (O(n)) so the four-list state machine is easier to follow. A production port should mirror the LRU implementation pattern — hash map + DLL per list — and bound `|T1| + |B1| ≤ c`, `|T1| + |T2| + |B1| + |B2| ≤ 2c` exactly as the paper specifies.
+
 ### SIEVE: Lazy Promotion (NSDI'24)
 
-**Mechanism:** Maintain a single FIFO queue with one "visited" bit per entry and a "hand" pointer for eviction.
+**Mechanism:** Maintain a single FIFO queue with one "visited" bit per entry and a "hand" pointer for eviction. Source: [Zhang et al., NSDI 2024](https://www.usenix.org/conference/nsdi24/presentation/zhang-yazhuo).
 
-```
+![SIEVE eviction with visited bit and hand pointer](./diagrams/sieve-hand-sweep-light.svg "On a hit, SIEVE only flips the visited bit — no list manipulation, no lock contention. On eviction, the hand sweeps from tail to head: visited entries get a second chance and their bit cleared; the first unvisited entry is removed.")
+![SIEVE eviction with visited bit and hand pointer](./diagrams/sieve-hand-sweep-dark.svg)
+
+```text
 Queue: [A*] [B] [C*] [D*] [E] ← hand points here
        *=visited bit set
 
@@ -721,11 +742,11 @@ On miss: Move hand from tail, reset visited bits, evict first unvisited item
 - ✅ Simpler than LRU (no list manipulation on hits)
 - ✅ Better throughput (fewer memory operations)
 - ✅ One bit per entry (minimal memory overhead)
-- ✅ Outperforms LRU on 45%+ of web cache traces
+- ✅ Beats every other algorithm on more than 45% of the 1,559 evaluated traces (next-best beats others on 15%)
 - ❌ Less effective for very short TTLs (items may be evicted before hand reaches them)
 - ❌ Newer algorithm (2024), less battle-tested than LRU/2Q/ARC
 
-**Real-World Example:** SIEVE (Zhang et al., NSDI'24) was evaluated on 1,559 traces containing 247 billion requests. It reduces miss ratio by 21% on average compared to FIFO and has been adopted by production systems including TiDB and Pelikan (Twitter's cache).
+**Real-World Example:** SIEVE was evaluated on **1,559 traces / 247 billion requests / 14.8 billion objects** sourced from seven production datasets ([NSDI'24 paper](https://www.usenix.org/system/files/nsdi24-zhang-yazhuo.pdf)). On the CDN1 dataset it reduces miss ratio by **21% on average vs. FIFO** ([author writeup](https://blog.jasony.me/system/cache/2024/06/12/sieve)). It has been adopted as a primitive by [TiDB, Pelikan, and several other open-source caches](https://cachemon.github.io/SIEVE-website/) — Pelikan was originally open-sourced from Twitter, but adoption inside Twitter's production cache fleet is not publicly confirmed.
 
 ```ts collapse={1-8, 35-60}
 class SIEVECache<K, V> {
@@ -803,20 +824,24 @@ class SIEVECache<K, V> {
 
 ### Window TinyLFU (Caffeine)
 
-**Mechanism:** Combine a small "window" LRU cache (1%) with a large "main" cache (99%) using frequency-based admission filtering.
+**Mechanism:** Combine a small "window" LRU cache with a large "main" SLRU cache using frequency-based admission filtering. The 2015 paper proposed a fixed 1% window / 99% main split; Caffeine starts there but [adapts the split via a hill-climbing controller](https://github.com/ben-manes/caffeine/wiki/Design) that probes hit-rate as the workload shifts between recency-heavy and frequency-heavy. Source: [Einziger, Friedman & Manes, ACM TOS 2017](https://arxiv.org/pdf/1512.00727).
 
-```
-Request → Window (1%) → Admission Filter → Main Cache (99%)
-                              ↓
-                    CountMinSketch (frequency estimate)
+![Window TinyLFU - window LRU buffers bursts, TinyLFU admission filter compares frequencies, main SLRU stores winners](./diagrams/wtinylfu-admission-light.svg "New keys land in a small window LRU. When a key gets evicted from the window, the TinyLFU admission filter compares its CountMin-Sketch frequency to the candidate victim in the main SLRU; only the higher-frequency key survives.")
+![Window TinyLFU - window LRU buffers bursts, TinyLFU admission filter compares frequencies, main SLRU stores winners](./diagrams/wtinylfu-admission-dark.svg)
+
+```text
+Request → Window LRU  →  Admission Filter  →  Main SLRU
+          (~1%, adaptive)        ↓             (probationary → protected)
+                       4-bit Count-Min Sketch
+                       (shared frequency estimate, periodically aged)
 ```
 
 **Why It Works:**
 
-- Window cache handles burst traffic (recency)
-- Main cache uses segmented LRU (protected + probationary)
-- Admission filter blocks low-frequency items from polluting main cache
-- 4-bit CountMinSketch provides frequency estimates with minimal memory
+- Window cache absorbs bursty / one-shot traffic so it never reaches the admission filter (recency).
+- Main cache uses segmented LRU (probationary → protected, with demotion on pressure).
+- Admission filter blocks low-frequency items from polluting the main cache.
+- 4-bit `CountMinSketch` is a single shared structure (~8 bytes per cache entry) that gives frequency estimates without per-key counters; an aging step periodically halves all counters so the sketch tracks recent popularity, not all-time popularity.
 
 **Best When:**
 
@@ -826,16 +851,19 @@ Request → Window (1%) → Admission Filter → Main Cache (99%)
 
 **Trade-offs:**
 
-- ✅ Near-optimal hit rates (within 1% of theoretical best)
-- ✅ Only 8 bytes overhead per entry (vs. ARC's doubled cache size for ghosts)
-- ✅ Battle-tested (Caffeine is the standard Java cache library)
-- ❌ More complex than simpler algorithms
-- ❌ Requires frequency decay mechanism (adds CPU overhead)
-- ❌ Java-specific reference implementation
+- ✅ Near-optimal hit rates across most published traces ([Caffeine simulator results](https://github.com/ben-manes/caffeine/wiki/Efficiency))
+- ✅ ~8 bytes overhead per entry from the 4-bit CountMinSketch ([Caffeine wiki](https://github.com/ben-manes/caffeine/wiki/Efficiency)) — no ghost lists doubling cache size
+- ✅ Battle-tested (Caffeine is the de facto Java cache library; [`moka`](https://github.com/moka-rs/moka) ports it to Rust)
+- ❌ More complex than LRU/2Q/SIEVE
+- ❌ Requires frequency decay (aging) — adds CPU overhead
+- ❌ Reference implementation is Java; ports lag
 
-**Real-World Example:** Caffeine's W-TinyLFU achieves 39.6% hit rate on benchmark traces where ARC achieves 20% and the theoretical optimal is 40.3%. The key insight: don't track evicted keys (like ARC's ghost lists) — use probabilistic frequency counting instead.
+**Real-World Example:** On a "shifting" trace where workload mix changes mid-run, adaptive W-TinyLFU has been [reported](https://news.ycombinator.com/item?id=36456274) to reach roughly **40% hit rate while LRU and ARC sit near 20%**. The key insight: don't track evicted keys (like ARC's ghost lists) — use probabilistic frequency counting on every observed key.
 
 ## How to Choose
+
+![Decision tree for picking a cache eviction algorithm](./diagrams/algorithm-decision-light.svg "Walk the tree from the access pattern you actually have, not the one you wish you had. Scans push you toward 2Q or SIEVE; shifting workloads push you toward ARC; skewed popularity pushes you toward W-TinyLFU.")
+![Decision tree for picking a cache eviction algorithm](./diagrams/algorithm-decision-dark.svg)
 
 ### Decision Matrix
 
@@ -905,97 +933,102 @@ Real-world systems often use approximated or specialized variants of these algor
 
 ### Redis: Approximated LRU
 
-Redis uses random sampling instead of tracking exact recency for all keys.
+Redis uses random sampling instead of tracking exact recency for all keys ([key eviction docs](https://redis.io/docs/latest/develop/reference/eviction/)).
 
 **Mechanism:**
 
-1. Sample N random keys (default: 5, configurable via `maxmemory-samples`)
-2. Evict the least recently used among the sampled keys
-3. Repeat until memory is below threshold
+1. Sample N random keys (default: 5, configurable via `maxmemory-samples`).
+2. Evict the least recently used among the sampled keys.
+3. Repeat until memory is below threshold.
 
 **Why This Design:**
 
-- No linked list = no pointer overhead per key (just 24 bits for LRU clock)
-- No lock contention from list manipulation
-- Sampling 10 keys provides ~95% of true LRU accuracy
+- No linked list = no pointer overhead per key (just 24 bits for the LRU clock).
+- No lock contention from list manipulation.
+- Sampling 10 keys gets close enough to true LRU for most workloads (Redis docs publish a comparison plot vs. theoretical LRU).
 
-```
-# Redis configuration
+```text title="redis.conf"
 maxmemory-policy allkeys-lru
 maxmemory-samples 5   # Increase to 10 for near-true LRU accuracy
 ```
 
-**As of Redis 3.0:** Uses a pool of good eviction candidates that persists across eviction cycles, improving accuracy without increasing per-key memory.
+**As of Redis 3.0:** the eviction code keeps a persistent **pool of good candidates** across cycles instead of throwing the sample away each iteration, raising accuracy without increasing per-key memory.
 
 ### Linux Kernel: MGLRU
 
-The Linux kernel evolved from a two-list approach to Multi-Generational LRU.
+The Linux kernel evolved from a two-list approach to Multi-Generational LRU ([kernel docs](https://docs.kernel.org/admin-guide/mm/multigen_lru.html)).
 
 | Era     | Algorithm             | Limitations                           |
 | ------- | --------------------- | ------------------------------------- |
 | Pre-6.1 | Active/Inactive lists | Binary hot/cold, poor scan resistance |
 | 6.1+    | MGLRU                 | Multiple generations, better aging    |
 
-**MGLRU (merged in Linux 6.1, backported to some 5.x kernels):**
+**MGLRU (merged in [Linux 6.1](https://www.phoronix.com/news/MGLRU-In-Linux-6.1), backported to some 5.x kernels):**
 
-- Multiple generations (typically 4) instead of 2 lists
-- Pages move to younger generations when accessed
-- Workload-aware: adapts scan frequency to access patterns
+- Multiple generations (typically 4) instead of 2 lists.
+- Pages move to younger generations when accessed.
+- Workload-aware: adapts scan frequency to access patterns.
 
-**Google's deployment results (Chrome OS + Android):**
+**Google's deployment results (Chrome OS + Android, [v11 cover letter via Phoronix](https://www.phoronix.com/news/MGLRU-v11-Linux-Perf)):**
 
-- 40% decrease in kswapd CPU usage
-- 85% decrease in low-memory kill events
-- 18% decrease in rendering latency
+- ~40% decrease in `kswapd` CPU usage.
+- 85% decrease in low-memory kills at the **75th percentile**.
+- 18% decrease in **app launch time** at the **50th percentile** (commonly summarized as "smoother UI").
 
 **Distribution Support:** Enabled by default in Fedora and Arch Linux. Available but not default in Ubuntu and Debian.
 
 ### Memcached: Segmented LRU
 
-Memcached uses per-slab-class LRU with modern segmentation.
+Memcached uses per-slab-class LRU with modern segmentation, [introduced in 1.5.0](https://github.com/memcached/memcached/wiki/ReleaseNotes150) and described in detail on the [Modern LRU blog post](https://memcached.org/blog/modern-lru/).
 
-**Slab Allocator:** Memory is divided into slab classes (64B, 128B, 256B, etc.). LRU is per-class, not global—eviction from the 128B class only evicts 128B items, even if there are older 256B items.
+**Slab Allocator:** Memory is divided into slab classes (64B, 128B, 256B, …). LRU is per-class, not global — eviction from the 128B class only evicts 128B items, even if there are older 256B items.
 
-**Modern Segmented LRU (since 1.5.x):**
+**Modern Segmented LRU (since 1.5.0):**
 
 | Queue | Purpose                                |
 | ----- | -------------------------------------- |
 | HOT   | Recently written items (FIFO, not LRU) |
-| WARM  | Frequently accessed items (LRU)        |
+| WARM  | Frequently re-accessed items (LRU)     |
 | COLD  | Eviction candidates                    |
 | TEMP  | Very short TTL items (no bumping)      |
 
-**Key Optimization:** Items are only "bumped" once every 60 seconds, reducing lock contention dramatically.
+**Key Optimization:** Items are only "bumped" between queues at most **once every 60 seconds**, which dramatically reduces mutex contention on hot keys.
 
 ### PostgreSQL: Clock Sweep
 
-PostgreSQL uses clock sweep for buffer pool management since version 8.1.
+PostgreSQL uses clock sweep for buffer pool management since [version 8.1](https://www.postgresql.org/docs/release/8.1.0/).
 
 **Mechanism:**
 
-- Circular buffer array with `usage_count` per buffer (0-5)
-- "Clock hand" sweeps through buffers
-- On sweep: if `usage_count > 0`, decrement and skip; if 0, evict
-- On access: increment `usage_count` (saturates at 5)
+- Circular buffer array with `usage_count` per buffer (0–5).
+- "Clock hand" sweeps through buffers.
+- On sweep: if `usage_count > 0`, decrement and skip; if 0, evict.
+- On access: increment `usage_count` (saturates at 5).
 
 **Why Clock Sweep:**
 
-- No linked list = no pointer manipulation on buffer access
-- Single atomic increment instead of list relinking
-- Better concurrency than 2Q (which PostgreSQL used briefly in 8.0.1-8.0.2)
+- No linked list = no pointer manipulation on buffer access.
+- Single atomic increment instead of list relinking.
+- Better concurrency than 2Q (which PostgreSQL used briefly after 8.0.2).
 
-**Implementation Detail:** The `nextVictimBuffer` pointer is a simple unsigned 32-bit integer that wraps around the buffer pool. This simplicity enables high concurrency without complex locking.
+**Implementation Detail:** The `nextVictimBuffer` pointer is a simple unsigned 32-bit integer that wraps around the buffer pool. This simplicity enables high concurrency without complex locking. See the [InterDB walk-through](https://www.interdb.jp/pg/pgsql08/01.html) for the full clock-sweep code path.
 
 ## Concurrency and Thread Safety
 
 Production caches must handle concurrent access. The key trade-off: simplicity vs. scalability.
 
-| Strategy         | Pros                                  | Cons                   | Used By           |
-| ---------------- | ------------------------------------- | ---------------------- | ----------------- |
-| Global lock      | Simple, correct                       | Serializes all ops     | Simple caches     |
-| Sharded locking  | Concurrent access to different shards | Hot shards bottleneck  | ConcurrentHashMap |
-| Read-write locks | Multiple readers                      | Writer starvation      | Many caches       |
-| Lock-free (CAS)  | Best throughput                       | Complex, hard to debug | Caffeine          |
+| Strategy           | Pros                                                       | Cons                                                  | Used By                                |
+| ------------------ | ---------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------- |
+| Global mutex       | Simple, correct                                            | Serializes every `get` and every `put`                | Toy caches, low-throughput services    |
+| Sharded / striped  | Concurrent access to different shards, predictable tail    | Hot shard bottleneck, eviction skewed across shards   | Java `ConcurrentHashMap`, Go `bigcache`|
+| Read-write lock    | Multiple readers, single writer                            | Writer starvation; LRU `get` mutates the order list   | Read-heavy variants only               |
+| Lock-free / async  | Best multi-core throughput, no lock-contention tail        | Complex; relies on ring buffers + replay              | Caffeine (read/write buffers + drain)  |
+
+![Sharded LRU - hash the key to one of N independent LRU stripes, lock only that stripe](./diagrams/sharded-lru-light.svg "Sharded (striped) LRU: a stable hash routes each request to one of N stripes, each owning its own hashmap, doubly linked list, and mutex. Throughput scales with N until a hot key concentrates traffic on a single stripe.")
+![Sharded LRU - hash the key to one of N independent LRU stripes, lock only that stripe](./diagrams/sharded-lru-dark.svg)
+
+> [!NOTE]
+> A read-write lock is the wrong default for a strict LRU. Every `get` has to move the touched node to the head of the doubly linked list, which is a write to the order structure even when the value is unchanged. Either drop strictness (e.g. SIEVE's visited bit, CLOCK's `usage_count`) or batch the order updates the way Caffeine does — its read buffer is a striped ring buffer that records hits and a single drain task replays them under the eviction lock, so the read path stays effectively lock-free.
 
 **Production Recommendation:** Don't implement concurrent caches yourself. Use battle-tested libraries:
 
@@ -1017,7 +1050,7 @@ Production caches must handle concurrent access. The key trade-off: simplicity v
 
 **The Consequence:** Backend overwhelmed with N duplicate requests for the same data.
 
-**The Fix:** Use "singleflight" pattern—only one request fetches, others wait for its result.
+**The Fix:** Use the "singleflight" pattern — only one request fetches, others wait for its result. Go ships [`golang.org/x/sync/singleflight`](https://pkg.go.dev/golang.org/x/sync/singleflight); other ecosystems either provide it (e.g. Caffeine's `LoadingCache`) or it has to be built around the cache.
 
 ```ts collapse={1-5, 18-25}
 class StampedeProtectedCache<K, V> {

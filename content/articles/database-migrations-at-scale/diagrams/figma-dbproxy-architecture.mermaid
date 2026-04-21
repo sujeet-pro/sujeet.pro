@@ -1,0 +1,13 @@
+%% Diagram: Figma DBProxy horizontal Postgres sharding
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Figma["Figma horizontal Postgres sharding"]
+        direction TB
+        A["Application"] --> B["DBProxy<br/>(Go)<br/>SQL parser, AST,<br/>logical + physical planner"]
+        B --> P["PgBouncer<br/>connection pool"]
+        P --> C1["Postgres shard 1"]
+        P --> C2["Postgres shard 2"]
+        P --> C3["Postgres shard N"]
+        D["Shadow traffic /<br/>readiness testing"] -. "validate routing" .-> B
+    end

@@ -1,0 +1,23 @@
+%% Diagram: Third-party payment platform (Path B)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Client (browser / app)"]
+    subgraph App["Your application"]
+        API["Thin payment API"]
+        WEBHOOK["Webhook handler"]
+        LEDGER[("Internal ledger")]
+    end
+
+    subgraph PSP["Payment platform (Stripe / Adyen)"]
+        PAY["Payments API"]
+        RADAR["Built-in fraud engine"]
+        VAULT[("Hosted PCI vault")]
+    end
+
+    Client -->|tokenization SDK| PAY
+    API --> PAY
+    PAY --> RADAR
+    PAY --> VAULT
+    PAY -. signed events .-> WEBHOOK
+    WEBHOOK --> LEDGER

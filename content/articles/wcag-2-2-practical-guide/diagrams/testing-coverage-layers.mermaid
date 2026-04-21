@@ -1,0 +1,10 @@
+%% Diagram: Accessibility testing coverage layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    L1["Automated rules<br/>axe-core, Pa11y<br/>~57% issues<br/>~32% WCAG 2.1 AA SC"]
+    L2["Manual structural review<br/>heading order, reading order,<br/>name accuracy, error clarity"]
+    L3["Screen reader smoke test<br/>NVDA+Firefox, VO+Safari<br/>nav flow, live regions, forms"]
+    L4["AT user research<br/>cognitive load,<br/>workflow friction"]
+
+    L1 --> L2 --> L3 --> L4

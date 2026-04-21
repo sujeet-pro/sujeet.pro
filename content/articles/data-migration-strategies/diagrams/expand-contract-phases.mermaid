@@ -1,0 +1,29 @@
+%% Diagram: Expand And Contract Phases
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph EXP["Expand · additive only"]
+    E1[Add new column<br/>or table, nullable]
+    E2[Backfill via tool<br/>gh-ost / pt-osc / job]
+    E3[Dual-write old + new<br/>old still authoritative]
+    E1 --> E2 --> E3
+  end
+
+  subgraph MIG["Migrate · move reads, then writes"]
+    M1[Shadow read new vs old<br/>diff under prod shapes]
+    M2[Flip reads to new<br/>per tenant or shard]
+    M3[Flip writes to new<br/>old becomes follower]
+    M1 --> M2 --> M3
+  end
+
+  subgraph CON["Contract · remove old"]
+    C1[Stop writing to old<br/>burn-in window]
+    C2[Drop column / table<br/>revoke permissions]
+    C3[Delete dual-write code<br/>and feature flags]
+    C1 --> C2 --> C3
+  end
+
+  EXP --> MIG --> CON
+
+  classDef phase fill:transparent,stroke-width:1px;
+  class EXP,MIG,CON phase;

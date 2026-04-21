@@ -1,0 +1,14 @@
+%% Diagram: How a browser resolves srcset + sizes to a single URL.
+%% Walks through the steps the user agent runs in the spec to pick
+%% the variant that minimizes wasted bytes for a given viewport
+%% and device pixel ratio.
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Start(["srcset + sizes"]) --> Match{{"sizes\nmatches?"}}
+    Match -->|yes| RenderedW["Rendered width\n(50vw of 1280 = 640)"]
+    Match -->|no| Default["100vw fallback"] --> RenderedW
+    RenderedW --> DPR["x DPR\n(640 x 2 = 1280px)"]
+    DPR --> Pick["Smallest candidate\n>= effective width"]
+    Pick --> Cache{{"Cached\n>= width?"}}
+    Cache -->|yes| Reuse["Reuse"] --> Done(["Render"])
+    Cache -->|no| Issue["GET URL"] --> Done

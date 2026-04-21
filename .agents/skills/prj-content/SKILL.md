@@ -1,7 +1,7 @@
 ---
-name: prj-content
+
+## name: prj-content
 description: Author or revise the prose / markdown surface of an existing entry in sujeet.pro — frontmatter, headings, code blocks, tables, alerts, themed images, citations, and footnotes. Use when the user asks to write, polish, restructure, or expand the markdown body of an article or blog without changing its identity (slug, series, redirects).
----
 
 # prj-content — markdown authoring helper
 
@@ -11,8 +11,7 @@ Use this skill when the **content** of an existing entry is changing but the ent
 
 1. `ai-guidelines/markdown.md` — repo-local supplement (allowed code-block meta, language aliases, themed-image rules, validator expectations).
 2. `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/markdown-guidelines.md` — full upstream feature reference. **Read this end-to-end before writing non-trivial markdown.** It covers the entire pipeline:
-
-   ```
+  ```
    remark-parse → remark-gfm → remark-frontmatter
      → remark-github-alerts → remark-smartypants
      → remark-math (auto-detected)
@@ -23,8 +22,7 @@ Use this skill when the **content** of an existing entry is changing but the ent
      → rehype-slug → rehype-autolink-headings
      → rehype-external-links → rehype-accessible-emojis → rehype-local-images
      → heading extraction → rehype-stringify
-   ```
-
+  ```
 3. `node_modules/@pagesmith/core/REFERENCE.md` — pipeline order, code-block meta syntax, frontmatter schemas, validators.
 4. `node_modules/@pagesmith/core/skills/pagesmith-core-setup/references/errors.md` — error catalogue when validation fails.
 
@@ -99,6 +97,7 @@ export function getCacheKey() {
 \`\`\`
 ```
 
+
 | Meta               | Example                 | Use for                          |
 | ------------------ | ----------------------- | -------------------------------- |
 | `title="..."`      | `ts title="app.ts"`     | File-anchored snippets.          |
@@ -110,7 +109,9 @@ export function getCacheKey() {
 | `wrap`             | `ts wrap`               | Force soft-wrap.                 |
 | `frame="..."`      | `bash frame="terminal"` | Frame style.                     |
 
+
 Repo-local Shiki language aliases (defined in `content.config.ts`):
+
 
 | Alias        | Maps to     |
 | ------------ | ----------- |
@@ -124,6 +125,7 @@ Repo-local Shiki language aliases (defined in `content.config.ts`):
 | `properties` | `ini`       |
 | `m3u8`       | `bash`      |
 | `asciidoc`   | `markdown`  |
+
 
 Common mistakes:
 
@@ -192,3 +194,4 @@ For diagram-related warnings (e.g. low contrast), do not edit the SVG — hand o
 - Write for sujeet.pro's editorial bar (senior engineers; trade-offs, constraints, ROI).
 - Do not introduce features that the pipeline does not support; the validators will reject them.
 - Do not edit generated SVGs or hand-author `<picture>` / `<figure>` / `<img>` HTML.
+

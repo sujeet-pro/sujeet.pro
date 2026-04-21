@@ -1,253 +1,215 @@
 ---
 title: Design Google Calendar
-linkTitle: 'Google Calendar'
+linkTitle: "Google Calendar"
 description: >-
-  System design for a calendar application covering RRULE-based recurrence
-  expansion, IANA timezone handling across DST boundaries, free/busy availability
-  aggregation, and sync-token-based multi-client synchronization at Google-scale.
+  System design for a calendar application — RRULE-based recurrence, IANA
+  timezone handling across DST boundaries, free/busy aggregation, and
+  sync-token-based multi-client synchronization at planet scale.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
+  - architecture
+  - databases
   - interview-prep
 ---
 
 # Design Google Calendar
 
-A comprehensive system design for a calendar and scheduling application handling recurring events, timezone complexity, and real-time collaboration. This design addresses event recurrence at scale (RRULE expansion), global timezone handling across DST boundaries, availability aggregation for meeting scheduling, and multi-client synchronization with conflict resolution.
+A planet-scale calendar is three coupled problems wearing one product skin: **temporal data modelling** (events, recurrence rules, exceptions), **timezone arithmetic** (the same event at the right local time across DST boundaries and a moving user base), and **availability computation** (finding meeting slots across many calendars in tens of milliseconds). This article designs a system around those three axes, leaning on the iCalendar family of RFCs ([RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545), [5546](https://datatracker.ietf.org/doc/html/rfc5546), [6047](https://datatracker.ietf.org/doc/html/rfc6047), [4791](https://datatracker.ietf.org/doc/html/rfc4791), [6638](https://datatracker.ietf.org/doc/html/rfc6638), [6578](https://datatracker.ietf.org/doc/html/rfc6578)) and on the publicly documented behaviour of the [Google Calendar API](https://developers.google.com/workspace/calendar/api).
 
-![High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.](./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services--light.svg "High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.")
-![High-level architecture: Clients connect through an API gateway to core services backed by a hybrid data layer with async processing for notifications and recurrence expansion.](./diagrams/high-level-architecture-clients-connect-through-an-api-gateway-to-core-services--dark.svg)
+![High-level architecture: clients hit edge auth + rate limit, fan out to event, recurrence, scheduling, sync, and notification services, all backed by Postgres + Redis + search + object storage with an async worker tier.](./diagrams/high-level-architecture-light.svg "High-level architecture: clients hit edge auth and rate limiting, then fan out across event, recurrence, scheduling, sync, and notification services backed by Postgres, Redis, search, and an async worker tier.")
+![High-level architecture: clients hit edge auth + rate limit, fan out to event, recurrence, scheduling, sync, and notification services, all backed by Postgres + Redis + search + object storage with an async worker tier.](./diagrams/high-level-architecture-dark.svg)
 
-## Abstract
+## Mental model
 
-Calendar systems solve three interconnected problems: **temporal data modeling** (representing events, recurrence rules, and exceptions), **timezone arithmetic** (displaying the same event correctly across global participants), and **availability computation** (finding meeting slots across multiple calendars).
+Three concepts carry the rest of the article:
 
-The core data model stores **recurring event masters** with RRULE strings (RFC 5545) rather than individual instances. Expansion happens in a **hybrid approach**: materialize instances 30-90 days ahead for query performance, expand dynamically beyond that window. Exceptions (cancellations, single-instance modifications) are stored separately and merged at read time.
+- **Recurrence master vs. instance.** A recurring series is one row carrying an [RRULE](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.3) (e.g. `FREQ=WEEKLY;BYDAY=MO,WE,FR`) plus `DTSTART;TZID=…`. An *instance* is one occurrence of that series at a concrete moment. Instances are usually computed, not stored — except where the user has overridden one (an *exception*), in which case it lives as its own row keyed by the master's id and the original start time. This is exactly how the Google Calendar API exposes recurring events: instances carry `recurringEventId` and `originalStartTime`, and a deleted occurrence appears as `status: "cancelled"` rather than as an `EXDATE` on the master.[^gcal-recurring]
+- **Local time + named TZID, not UTC.** A "9 AM daily standup" is a *local-time* recurrence. RFC 5545 §3.3.5 stores `DATE-TIME` values with a `TZID` parameter (a name from the [IANA Time Zone Database](https://www.iana.org/time-zones)) and resolves UTC offset at render time using the `VTIMEZONE` rules. Storing the start as a UTC instant silently breaks every recurring event the moment its DST rule fires.
+- **Sync-token, not poll.** CalDAV and the Google Calendar API both expose monotonic sync-tokens ([RFC 6578](https://datatracker.ietf.org/doc/html/rfc6578)) so a client can ask "what changed since state *X*?" instead of refetching the whole calendar. When the server can no longer answer that question — token aged out, ACL changed, calendar reindexed — it returns `410 Gone` and the client must do a full sync.[^gcal-sync]
 
-**Timezone handling** requires storing events in local time with named IANA timezone identifiers—never raw UTC offsets. This ensures a "9 AM daily standup" remains at 9 AM local time across DST transitions.
-
-**Conflict-free synchronization** uses sync-tokens (RFC 6578) for incremental updates. Each calendar has a monotonically increasing token; clients send their last token and receive only changes since that state. For concurrent edits, the server maintains the event history and uses last-write-wins with user notification for conflicts.
+The rest of the article is a tour of how those three primitives drive the architecture, the API, the storage layout, and the failure modes.
 
 ## Requirements
 
-### Functional Requirements
+### Functional requirements
 
 | Feature                                          | Priority | Scope        |
 | ------------------------------------------------ | -------- | ------------ |
-| Single events (create, read, update, delete)     | Core     | Full         |
-| Recurring events (RRULE support)                 | Core     | Full         |
+| Single events (CRUD)                             | Core     | Full         |
+| Recurring events (RRULE)                         | Core     | Full         |
 | Event exceptions (cancel/modify single instance) | Core     | Full         |
-| Time zone handling with DST                      | Core     | Full         |
-| Meeting invitations (RSVP workflow)              | Core     | Full         |
+| Timezone handling with DST                       | Core     | Full         |
+| Meeting invitations (RSVP, iTIP/iMIP)            | Core     | Full         |
 | Free/busy queries                                | Core     | Full         |
 | Calendar sharing and delegation                  | Core     | Full         |
-| Reminders and notifications                      | Core     | Full         |
+| Reminders and notifications (VALARM)             | Core     | Full         |
 | Multi-client sync (CalDAV)                       | Core     | Full         |
 | Calendar search                                  | High     | Full         |
 | Meeting room/resource booking                    | High     | Overview     |
 | Video conferencing integration                   | Medium   | Brief        |
 | Task management (VTODO)                          | Low      | Out of scope |
 
-### Non-Functional Requirements
+### Non-functional requirements
 
 | Requirement                    | Target          | Rationale                                                   |
 | ------------------------------ | --------------- | ----------------------------------------------------------- |
 | Availability                   | 99.99%          | Calendar access is mission-critical for business operations |
-| Read latency (calendar view)   | p99 < 200ms     | Month view may expand hundreds of recurring events          |
-| Write latency (event creation) | p99 < 500ms     | Acceptable for user-initiated actions                       |
-| Sync latency                   | < 5 seconds     | Changes should propagate across devices quickly             |
+| Read latency (calendar view)   | p99 < 200 ms    | Month view may expand hundreds of recurring events          |
+| Write latency (event creation) | p99 < 500 ms    | Acceptable for user-initiated actions                       |
+| Sync latency                   | < 5 s           | Changes should propagate across devices quickly             |
 | Data consistency               | Eventual (< 5s) | Strong consistency not required for calendar data           |
 | Data retention                 | 10+ years       | Historical calendar data has legal/compliance value         |
 
-### Scale Estimation
+### Scale estimation
 
-**Users:**
+These numbers are illustrative — Google does not publish exact Calendar MAU — but they are the right order of magnitude for sizing a planet-scale design.
 
-- MAU: 500M (Google Workspace + consumer Gmail)
-- DAU: 100M
-- Peak concurrent: 10M (10% of DAU)
+**Users**
 
-**Events:**
+- MAU: 500 M (Workspace + consumer Gmail).
+- DAU: 100 M.
+- Peak concurrent: ~10 M (10% of DAU).
 
-- Average events per user: 50 active recurring + 200 single events
-- Total events: 500M users × 250 events = 125B event records
-- But with recurrence masters (not instances): ~25B records
+**Events**
 
-**Traffic:**
+- Average per user: 50 active recurring + 200 single events.
+- Total event records: 500 M × 250 ≈ **125 B logical instances** but only ≈ **25 B master rows** because we store recurrence rules, not expansions.
 
-- Calendar loads: 100M DAU × 10 loads/day = 1B/day = ~12K RPS
-- Event writes: 100M DAU × 2 writes/day = 200M/day = ~2.3K RPS
-- Free/busy queries: 100M DAU × 0.5/day = 50M/day = ~580 RPS
-- Peak multiplier: 3x → 36K RPS reads, 7K RPS writes
+**Traffic**
 
-**Storage:**
+- Calendar loads: 100 M DAU × 10/day ≈ **12 K RPS**.
+- Event writes: 100 M DAU × 2/day ≈ **2.3 K RPS**.
+- Free/busy queries: 100 M DAU × 0.5/day ≈ **580 RPS**.
+- 3× peak multiplier → ~36 K read RPS, ~7 K write RPS.
 
-- Event master: ~2KB average (metadata, description, RRULE, attendees)
-- 25B events × 2KB = 50TB primary storage
-- With indexes, replicas, and history: ~200TB total
+**Storage**
 
-## Design Paths
+- Master row ≈ 2 KB (metadata, description, RRULE, attendees).
+- 25 B × 2 KB ≈ 50 TB primary, ~200 TB with indexes, replicas, and history.
 
-### Path A: RRULE-Centric (Store Rules, Expand on Read)
+## Recurrence storage: RRULE-only, instances-only, or hybrid
 
-**Best when:**
+There are three defensible strategies. The article picks the third; the trade-off table below is the reason.
 
-- Events have long or infinite recurrence (daily standups forever)
-- Storage cost is a primary concern
-- Updates to recurring series are frequent
+### Path A — RRULE-centric (store rules, expand on read)
 
-**Key characteristics:**
+- Store only the recurrence rule on the master.
+- Expand instances dynamically when a query asks for a date range.
+- Cache expansion results in Redis for hot calendars.
 
-- Store only the recurrence rule in the events table
-- Expand instances dynamically when querying a date range
-- Cache expansion results in Redis for frequently accessed calendars
+**Pros**: minimal storage; series updates propagate instantly; supports infinite recurrence naturally.
+**Cons**: CPU-heavy for complex RRULEs; slow over long ranges; exception handling adds query complexity.
+Open-source CalDAV servers (Radicale, DAViCal) lean here because storage cost dominates for personal calendars.
 
-**Trade-offs:**
+### Path B — instance-centric (materialize all)
 
-- ✅ Minimal storage (one record per recurring series)
-- ✅ Updating series changes all future instances instantly
-- ✅ Supports infinite recurrence naturally
-- ❌ CPU-intensive expansion for complex RRULEs
-- ❌ Slow queries spanning long date ranges
-- ❌ Exception handling adds query complexity
+- Pre-expand every instance into a separate table.
+- Series modifications fan out to thousands of rows.
+- Range queries become a single B-tree scan.
 
-**Real-world example:** Many open-source CalDAV servers (Radicale, DAViCal) use this approach because storage efficiency matters more than query speed for personal calendars.
+**Pros**: O(1)-shaped range queries, simple free/busy aggregation, exception is just a row with overrides.
+**Cons**: storage explosion (a daily event for 10 years = 3,650 rows), expensive series updates, no natural infinite recurrence. Microsoft Exchange historically takes this path because corporate scheduling latency dominates.
 
-### Path B: Instance-Centric (Materialize All Instances)
+### Path C — hybrid (chosen)
 
-**Best when:**
+- Store recurrence rules on the master.
+- Materialize instances for a rolling window (typically 30–90 days).
+- Expand dynamically beyond the window.
+- Refresh the materialized window with a nightly background job.
 
-- Queries span arbitrary date ranges frequently
-- Meeting scheduling and free/busy aggregation are critical
-- Most events have bounded recurrence (end dates)
+**Pros**: fast queries inside the window, bounded storage per series, infinite recurrence still works, series updates only touch the window.
+**Cons**: two code paths; staleness possible if the background refresher lags.
 
-**Key characteristics:**
+### Path comparison
 
-- Pre-expand all instances into a separate table
-- Recurring series modifications trigger batch updates to instances
-- Indexes on start_time enable fast range queries
-
-**Trade-offs:**
-
-- ✅ O(1) range queries—just filter by date
-- ✅ Simple free/busy aggregation (SUM over intervals)
-- ✅ Exception instances are just rows with modified fields
-- ❌ Storage explosion (daily event for 10 years = 3,650 rows)
-- ❌ Series updates require updating thousands of rows
-- ❌ Cannot support infinite recurrence
-
-**Real-world example:** Microsoft Outlook's Exchange uses materialization for corporate calendars where meeting scheduling performance is paramount.
-
-### Path C: Hybrid (Chosen Approach)
-
-**Best when:**
-
-- Mix of short-term and long-term recurring events
-- Need both fast queries and storage efficiency
-- Workload varies (view calendar vs. schedule meetings)
-
-**Key characteristics:**
-
-- Store recurrence rules in the master events table
-- Materialize instances for a rolling window (30-90 days)
-- Expand dynamically beyond the materialized window
-- Background jobs refresh materialized instances nightly
-
-**Trade-offs:**
-
-- ✅ Fast queries within the materialized window
-- ✅ Reasonable storage (30-90 instances per series, not thousands)
-- ✅ Can support infinite recurrence (expand on demand)
-- ✅ Series updates only touch instances within window
-- ❌ More complex architecture (two code paths)
-- ❌ Stale data possible if background jobs lag
-
-### Path Comparison
-
-| Factor              | Path A (RRULE)     | Path B (Instance)     | Path C (Hybrid)    |
+| Factor              | Path A (RRULE)     | Path B (instance)     | Path C (hybrid)    |
 | ------------------- | ------------------ | --------------------- | ------------------ |
 | Storage             | Minimal            | High                  | Moderate           |
 | Read latency        | High (expansion)   | Low                   | Low within window  |
 | Write complexity    | Low                | High (batch updates)  | Moderate           |
 | Infinite recurrence | Yes                | No                    | Yes                |
 | Free/busy speed     | Slow               | Fast                  | Fast within window |
-| Best for            | Personal calendars | Enterprise scheduling | General-purpose    |
+| Best for            | Personal calendars | Enterprise scheduling | General purpose    |
 
-### This Article's Focus
+![Hybrid recurrence storage: a master row holds RRULE plus DTSTART/TZID, a rolling 90-day window holds materialized instances and any exceptions keyed by recurringEventId + originalStartTime, and queries beyond the window expand on read.](./diagrams/hybrid-recurrence-storage-light.svg "Hybrid recurrence storage: a master row holds RRULE plus DTSTART/TZID, a rolling 90-day window holds materialized instances and any exceptions keyed by recurringEventId + originalStartTime, and queries beyond the window expand on read.")
+![Hybrid recurrence storage: a master row holds RRULE plus DTSTART/TZID, a rolling 90-day window holds materialized instances and any exceptions keyed by recurringEventId + originalStartTime, and queries beyond the window expand on read.](./diagrams/hybrid-recurrence-storage-dark.svg)
 
-This article implements **Path C (Hybrid)** because Google Calendar serves both consumer users (long-running personal recurring events) and enterprise users (meeting-heavy scheduling). The hybrid approach optimizes for the common case (viewing this week/month) while supporting edge cases (events repeating forever).
+The hybrid model fits the realistic workload mix: most reads are "this week / this month" inside the window, and the long tail of "show me everything in 2031" can absorb the cost of dynamic expansion.
 
-## High-Level Design
+## High-level design
 
-### Service Architecture
+### Service responsibilities
 
-#### Event Service
+#### Event service
 
-Handles CRUD operations for events and recurring masters:
+CRUD for event masters and exceptions:
 
-- Create/update/delete single events
-- Create/update/delete recurring series (stores RRULE)
-- Create exceptions (modified or cancelled instances)
-- Query events by date range (calls Recurrence Service for expansion)
+- Create / update / delete single events.
+- Create / update / delete recurring series (stores RRULE + EXDATE/RDATE).
+- Create exception rows (modified or cancelled occurrences).
+- Range queries: hits the materialized window directly; calls the recurrence service for ranges beyond.
 
-#### Recurrence Service
+#### Recurrence service
 
-Expands RRULE strings into concrete instances:
+Expands RRULE strings into instances per [RFC 5545 §3.8.5.3](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.3):
 
-- Parse RRULE using RFC 5545 grammar
-- Generate instances within a date range
-- Apply EXDATE (exclusions) and RDATE (additions)
-- Merge with exception instances from database
-- Cache expansions in Redis (TTL = 1 hour)
+- Parse the RRULE.
+- Generate occurrences in the requested range, in the master's TZID.
+- Apply EXDATE (exclusions) and RDATE (additions).
+- Merge with exception rows from Postgres.
+- Cache expansions in Redis (TTL ≈ 1 h for hot series).
 
-#### Scheduling Service
+#### Scheduling service
 
-Handles meeting coordination:
+Meeting coordination:
 
-- Aggregate free/busy across attendees
-- Find available meeting slots
-- Send invitations (iTIP REQUEST method)
-- Process RSVPs (iTIP REPLY method)
-- Resource (room) availability and booking
+- Aggregate free/busy across attendees and resources.
+- Find available slots within a working-hours window.
+- Send invitations as iTIP `REQUEST` messages ([RFC 5546 §3.2.2](https://datatracker.ietf.org/doc/html/rfc5546#section-3.2.2)).
+- Process RSVPs as iTIP `REPLY` messages.
+- Resource booking (rooms, equipment).
 
-#### Sync Service
+#### Sync service
 
-Manages multi-client synchronization:
+Multi-client synchronisation:
 
-- Implement CalDAV protocol (RFC 4791)
-- Maintain sync-tokens per calendar
-- Push notifications for real-time updates (WebSocket/FCM)
-- Handle conflict detection and resolution
+- Implement CalDAV ([RFC 4791](https://datatracker.ietf.org/doc/html/rfc4791)) and the CalDAV scheduling extensions ([RFC 6638](https://datatracker.ietf.org/doc/html/rfc6638)).
+- Maintain monotonic sync-tokens per calendar via the WebDAV `DAV:sync-collection` report ([RFC 6578](https://datatracker.ietf.org/doc/html/rfc6578)).
+- Push real-time updates over WebSocket / FCM / APNs.
+- Detect and surface conflicts.
 
-#### Notification Service
+#### Notification service
 
-Delivers reminders and alerts:
+Reminder and alert delivery:
 
-- Schedule reminders based on event VALARM
-- Deliver via push notification, email, SMS
-- Handle timezone-aware scheduling (reminder at 9 AM local time)
-- Batch notification delivery for efficiency
+- Schedule reminders from `VALARM` properties.
+- Deliver via push, email, or SMS.
+- Apply timezone-aware fan-out (a 9 AM local reminder for an event hops timezones with the user).
+- Batch and deduplicate at delivery time.
 
-### Data Flow: Creating a Recurring Event
+### Create a recurring event
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Create-recurring-event flow: client posts to the API gateway, the event service inserts the master row and asks the recurrence service to materialize the next 90 days into the instances table, the free/busy cache is invalidated, and an iTIP REQUEST job is enqueued for the workers.](./diagrams/create-recurring-event-flow-light.svg "Create-recurring-event flow: client POSTs to the API gateway, the event service inserts the master row and asks the recurrence service to materialize the next 90 days into the instances table, the free/busy cache is invalidated, and an iTIP REQUEST job is enqueued for the workers.")
+![Create-recurring-event flow: client posts to the API gateway, the event service inserts the master row and asks the recurrence service to materialize the next 90 days into the instances table, the free/busy cache is invalidated, and an iTIP REQUEST job is enqueued for the workers.](./diagrams/create-recurring-event-flow-dark.svg)
 
-### Data Flow: Querying Calendar View
+### Query a calendar view
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Calendar-view query flow: the API gateway routes to the event service which checks Redis first, falls back to a Postgres scan of the materialized window, asks the recurrence service to lazily expand any masters whose range exceeds the window, merges exceptions, populates the cache for five minutes, and returns the events plus a fresh sync token.](./diagrams/calendar-view-query-flow-light.svg "Calendar-view query flow: the API gateway routes to the event service which checks Redis first, falls back to a Postgres scan of the materialized window, asks the recurrence service to lazily expand any masters whose range exceeds the window, merges exceptions, populates the cache for five minutes, and returns the events plus a fresh sync token.")
+![Calendar-view query flow: the API gateway routes to the event service which checks Redis first, falls back to a Postgres scan of the materialized window, asks the recurrence service to lazily expand any masters whose range exceeds the window, merges exceptions, populates the cache for five minutes, and returns the events plus a fresh sync token.](./diagrams/calendar-view-query-flow-dark.svg)
 
-## API Design
+## API design
 
-### Event Resource
+The REST surface mirrors the Google Calendar API closely so clients are familiar; the underlying mechanics map 1:1 to iCalendar primitives.
 
-#### Create Event
+### Event resource
 
-**Endpoint:** `POST /api/v1/calendars/{calendarId}/events`
+#### Create event
 
-```json collapse={1-3, 29-35}
+`POST /api/v1/calendars/{calendarId}/events`
+
+```json title="POST /events request body" collapse={1-3, 29-35}
 // Headers
 Authorization: Bearer {access_token}
 Content-Type: application/json
@@ -257,68 +219,17 @@ Content-Type: application/json
   "summary": "Weekly Team Standup",
   "description": "Discuss blockers and priorities",
   "start": {
-    "dateTime": "2024-01-15T09:00:00",
+    "dateTime": "2026-01-15T09:00:00",
     "timeZone": "America/New_York"
   },
   "end": {
-    "dateTime": "2024-01-15T09:30:00",
+    "dateTime": "2026-01-15T09:30:00",
     "timeZone": "America/New_York"
   },
   "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"],
   "attendees": [
-    {"email": "alice@example.com"},
-    {"email": "bob@example.com", "optional": true}
-  ],
-  "reminders": {
-    "useDefault": false,
-    "overrides": [
-      {"method": "popup", "minutes": 10},
-      {"method": "email", "minutes": 60}
-    ]
-  },
-  "conferenceData": {
-    "createRequest": {"requestId": "unique-request-id"}
-  },
-  "visibility": "default",
-  "transparency": "opaque"
-}
-```
-
-**Response (201 Created):**
-
-```json collapse={1-5, 35-50}
-{
-  "kind": "calendar#event",
-  "etag": "\"3148476458000000\"",
-  "id": "abc123xyz",
-  "status": "confirmed",
-  "htmlLink": "https://calendar.example.com/event?eid=abc123xyz",
-  "created": "2024-01-10T15:30:00.000Z",
-  "updated": "2024-01-10T15:30:00.000Z",
-  "summary": "Weekly Team Standup",
-  "description": "Discuss blockers and priorities",
-  "creator": {
-    "email": "organizer@example.com",
-    "self": true
-  },
-  "organizer": {
-    "email": "organizer@example.com",
-    "self": true
-  },
-  "start": {
-    "dateTime": "2024-01-15T09:00:00-05:00",
-    "timeZone": "America/New_York"
-  },
-  "end": {
-    "dateTime": "2024-01-15T09:30:00-05:00",
-    "timeZone": "America/New_York"
-  },
-  "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"],
-  "iCalUID": "abc123xyz@calendar.example.com",
-  "sequence": 0,
-  "attendees": [
-    { "email": "alice@example.com", "responseStatus": "needsAction" },
-    { "email": "bob@example.com", "responseStatus": "needsAction", "optional": true }
+    { "email": "alice@example.com" },
+    { "email": "bob@example.com", "optional": true }
   ],
   "reminders": {
     "useDefault": false,
@@ -328,94 +239,79 @@ Content-Type: application/json
     ]
   },
   "conferenceData": {
-    "conferenceId": "meet123",
-    "conferenceSolution": {
-      "name": "Google Meet",
-      "iconUri": "https://..."
-    },
-    "entryPoints": [{ "entryPointType": "video", "uri": "https://meet.example.com/meet123" }]
-  }
+    "createRequest": { "requestId": "unique-request-id" }
+  },
+  // conferenceData maps onto the iCalendar CONFERENCE property
+  // standardised in RFC 7986 §5.11 — useful for cross-vendor interop.
+  "visibility": "default",
+  "transparency": "opaque"
 }
 ```
 
-**Error Responses:**
+`201 Created` returns the canonical resource (id, ETag, server-resolved offsets, conference link, etc.). The shape is documented in the [Google Events resource reference](https://developers.google.com/workspace/calendar/api/v3/reference/events).
 
-- `400 Bad Request`: Invalid RRULE syntax, missing required fields
-- `401 Unauthorized`: Missing or invalid auth token
-- `403 Forbidden`: No write access to calendar
-- `409 Conflict`: Event conflicts with existing event (if strict mode)
-- `429 Too Many Requests`: Rate limit exceeded
+**Error responses**
 
-**Rate Limits:** 600 requests/minute per user, 10,000/minute per project
+- `400 Bad Request` — invalid RRULE syntax, missing required fields.
+- `401 Unauthorized` — missing or invalid auth token.
+- `403 Forbidden` — no write access to calendar.
+- `409 Conflict` — strict-mode collision with an existing event.
+- `429 Too Many Requests` — rate limit exceeded.
 
-#### Query Events
+**Rate limits**: 600 requests / minute / user, 10,000 requests / minute / project (mirroring Google's published quotas).
 
-**Endpoint:** `GET /api/v1/calendars/{calendarId}/events`
+#### Query events
 
-**Query Parameters:**
+`GET /api/v1/calendars/{calendarId}/events`
 
 | Parameter      | Type    | Description                                           |
 | -------------- | ------- | ----------------------------------------------------- |
 | `timeMin`      | ISO8601 | Lower bound (inclusive) for event end time            |
 | `timeMax`      | ISO8601 | Upper bound (exclusive) for event start time          |
-| `singleEvents` | boolean | If true, expand recurring events into instances       |
-| `orderBy`      | string  | `startTime` (requires singleEvents=true) or `updated` |
-| `maxResults`   | integer | Maximum entries returned (default: 250, max: 2500)    |
-| `pageToken`    | string  | Token for pagination                                  |
+| `singleEvents` | boolean | If `true`, expand recurring events into instances     |
+| `orderBy`      | string  | `startTime` (requires `singleEvents=true`) or `updated` |
+| `maxResults`   | integer | Default 250, max 2,500                                |
+| `pageToken`    | string  | Pagination cursor                                     |
 | `syncToken`    | string  | Token from previous sync for incremental updates      |
-| `showDeleted`  | boolean | Include cancelled events (for sync)                   |
+| `showDeleted`  | boolean | Include cancelled events (required for sync)          |
 
-**Design Decision: Pagination Strategy**
+**Why cursor-based, not offset-based**: calendar data churns constantly, so offset pagination silently skips or duplicates rows when the underlying set changes between pages. Sync tokens additionally enable incremental sync — the client gets only changes since the previous token.
 
-**Why cursor-based (pageToken/syncToken), not offset-based:**
+**Sync flow**
 
-- Calendar data is highly dynamic (events created/deleted constantly)
-- Offset pagination breaks when data changes between pages
-- Sync tokens enable efficient incremental sync (only fetch changes)
+1. Initial full sync: `GET /events?timeMin=…&timeMax=…` → returns `nextSyncToken`.
+2. Incremental sync: `GET /events?syncToken={token}&showDeleted=true` → returns changed items + new `nextSyncToken`.
+3. If the token is no longer valid (`410 Gone`): wipe local state and re-do the initial full sync. The Google Calendar API does not document a fixed expiration; tokens may also be invalidated by ACL changes or server-side reindexing,[^gcal-sync] so clients must always be ready to recover.
 
-**Sync flow:**
+#### Modify a single instance of a recurring event
 
-1. Initial full sync: `GET /events?timeMin=...&timeMax=...` → returns `nextSyncToken`
-2. Incremental sync: `GET /events?syncToken={token}` → returns changed items + new `syncToken`
-3. If sync token expires (410 Gone): perform full sync again
+`PUT /api/v1/calendars/{calendarId}/events/{recurringEventId}/instances/{instanceId}`
 
-#### Modify Single Instance of Recurring Event
+This creates an **exception** that overrides one occurrence:
 
-**Endpoint:** `PUT /api/v1/calendars/{calendarId}/events/{recurringEventId}/instances/{instanceId}`
-
-This creates an **exception instance** that overrides the recurring pattern for one occurrence.
-
-```json
+```json title="PUT instance override"
 {
-  "start": {
-    "dateTime": "2024-01-17T10:00:00",
-    "timeZone": "America/New_York"
-  },
-  "end": {
-    "dateTime": "2024-01-17T10:30:00",
-    "timeZone": "America/New_York"
-  }
+  "start": { "dateTime": "2026-01-17T10:00:00", "timeZone": "America/New_York" },
+  "end":   { "dateTime": "2026-01-17T10:30:00", "timeZone": "America/New_York" }
 }
 ```
 
-The `instanceId` encodes the original instance date (e.g., `abc123xyz_20240117T140000Z`).
+The `instanceId` encodes the original start time (e.g. `abc123_20260117T140000Z`).
 
-**Design Decision: How Exceptions Are Stored**
+**How exceptions are stored.** The exception is a separate row linked to the master via `recurring_event_id` (a.k.a. `recurringEventId`) and pinned to the `original_start_time`. That gives three properties at once:
 
-The exception is stored as a separate row linked to the recurring master via `recurring_event_id` with the `original_start_time` preserved. This allows:
+- the modified instance is queryable by its new time;
+- deleting the exception reverts to the original time;
+- a deleted occurrence is just an exception with `status = 'cancelled'` — no `EXDATE` mutation on the master.[^gcal-recurring]
 
-- Querying the modified instance by its new time
-- Reverting to the original time by deleting the exception
-- Identifying which instance was modified (via `original_start_time`)
+### Free/busy query
 
-### Free/Busy Query
+`POST /api/v1/freeBusy`
 
-**Endpoint:** `POST /api/v1/freeBusy`
-
-```json
+```json title="freeBusy request"
 {
-  "timeMin": "2024-01-15T00:00:00Z",
-  "timeMax": "2024-01-22T00:00:00Z",
+  "timeMin": "2026-01-15T00:00:00Z",
+  "timeMax": "2026-01-22T00:00:00Z",
   "items": [
     { "id": "alice@example.com" },
     { "id": "bob@example.com" },
@@ -424,25 +320,25 @@ The exception is stored as a separate row linked to the recurring master via `re
 }
 ```
 
-**Response:**
+Response (only the busy intervals — never event details):
 
-```json collapse={1-3, 25-30}
+```json title="freeBusy response" collapse={1-3, 23-30}
 {
   "kind": "calendar#freeBusy",
-  "timeMin": "2024-01-15T00:00:00Z",
-  "timeMax": "2024-01-22T00:00:00Z",
+  "timeMin": "2026-01-15T00:00:00Z",
+  "timeMax": "2026-01-22T00:00:00Z",
   "calendars": {
     "alice@example.com": {
       "busy": [
-        { "start": "2024-01-15T14:00:00Z", "end": "2024-01-15T15:00:00Z" },
-        { "start": "2024-01-16T09:00:00Z", "end": "2024-01-16T10:00:00Z" }
+        { "start": "2026-01-15T14:00:00Z", "end": "2026-01-15T15:00:00Z" },
+        { "start": "2026-01-16T09:00:00Z", "end": "2026-01-16T10:00:00Z" }
       ]
     },
     "bob@example.com": {
-      "busy": [{ "start": "2024-01-15T14:00:00Z", "end": "2024-01-15T14:30:00Z" }]
+      "busy": [{ "start": "2026-01-15T14:00:00Z", "end": "2026-01-15T14:30:00Z" }]
     },
     "conference-room-a@resource.example.com": {
-      "busy": [{ "start": "2024-01-15T10:00:00Z", "end": "2024-01-15T11:00:00Z" }],
+      "busy": [{ "start": "2026-01-15T10:00:00Z", "end": "2026-01-15T11:00:00Z" }],
       "errors": []
     }
   },
@@ -450,20 +346,18 @@ The exception is stored as a separate row linked to the recurring master via `re
 }
 ```
 
-**Design Decision: Free/Busy Privacy**
+**Privacy.** Free/busy never leaks event content. The `transparency` field on the underlying event controls whether the time even appears as busy: `opaque` (default) blocks the time, `transparent` does not (e.g. an all-day "working from home" marker). This mirrors the CalDAV `CALDAV:free-busy-query` REPORT ([RFC 4791 §7.10](https://datatracker.ietf.org/doc/html/rfc4791#section-7.10)) which returns `VFREEBUSY` components only.
 
-Free/busy queries return only time intervals, not event details. This allows users to share availability without exposing meeting contents. The `transparency` field on events controls whether they appear as busy:
+## Data modeling
 
-- `opaque` (default): Shows as busy
-- `transparent`: Doesn't block time (e.g., "Working from home" all-day event)
+![Event data model: a calendars row owns event master rows, each event expands into materialized event_instances inside the rolling window, an exception is an event_instance row pinned to event_id plus original_start_utc, and event_attendees hangs off the master.](./diagrams/event-data-model-light.svg "Event data model: a calendars row owns event master rows, each event expands into materialized event_instances inside the rolling window, an exception is an event_instance row pinned to event_id plus original_start_utc, and event_attendees hangs off the master.")
+![Event data model: a calendars row owns event master rows, each event expands into materialized event_instances inside the rolling window, an exception is an event_instance row pinned to event_id plus original_start_utc, and event_attendees hangs off the master.](./diagrams/event-data-model-dark.svg)
 
-## Data Modeling
+### Event schema
 
-### Event Schema
+PostgreSQL is the primary store: ACID writes, range queries, and a rich type system are the ergonomic fit; the recurrence machinery sits in application code, not the database.
 
-**Primary Store:** PostgreSQL (ACID for writes, complex queries for recurrence)
-
-```sql collapse={1-5, 45-55}
+```sql title="events.sql" collapse={1-3, 45-55}
 -- Users and calendars (simplified)
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -481,7 +375,7 @@ CREATE TABLE calendars (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Event master table (stores both single and recurring events)
+-- Event master table (single + recurring)
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     calendar_id UUID NOT NULL REFERENCES calendars(id),
@@ -490,7 +384,7 @@ CREATE TABLE events (
     description TEXT,
     location VARCHAR(500),
 
-    -- Time fields stored in local time with timezone
+    -- Local time + named TZID, per RFC 5545 §3.3.5
     start_datetime TIMESTAMP NOT NULL,
     end_datetime TIMESTAMP NOT NULL,
     start_timezone VARCHAR(50) NOT NULL,
@@ -498,28 +392,26 @@ CREATE TABLE events (
     is_all_day BOOLEAN DEFAULT FALSE,
 
     -- Recurrence (NULL for single events)
-    recurrence_rule TEXT,  -- RRULE string, e.g., "FREQ=WEEKLY;BYDAY=MO,WE,FR"
-    recurrence_exceptions TEXT[],  -- EXDATE array
-    recurrence_additions TEXT[],   -- RDATE array
+    recurrence_rule TEXT,            -- RRULE string
+    recurrence_exceptions TEXT[],    -- EXDATE
+    recurrence_additions TEXT[],     -- RDATE
 
     -- Metadata
-    status VARCHAR(20) DEFAULT 'confirmed',  -- confirmed, tentative, cancelled
-    visibility VARCHAR(20) DEFAULT 'default',  -- default, public, private
-    transparency VARCHAR(20) DEFAULT 'opaque',  -- opaque, transparent
-    sequence INTEGER DEFAULT 0,  -- Increment on updates (iCal SEQUENCE)
+    status VARCHAR(20) DEFAULT 'confirmed',
+    visibility VARCHAR(20) DEFAULT 'default',
+    transparency VARCHAR(20) DEFAULT 'opaque',
+    sequence INTEGER DEFAULT 0,      -- iCal SEQUENCE (incremented on update)
 
-    -- Organizer and creator
     organizer_email VARCHAR(255),
     creator_email VARCHAR(255),
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ,  -- Soft delete
+    deleted_at TIMESTAMPTZ,          -- soft delete
 
     UNIQUE(calendar_id, ical_uid)
 );
 
--- Indexes for common query patterns
 CREATE INDEX idx_events_calendar_time ON events(calendar_id, start_datetime, end_datetime)
     WHERE deleted_at IS NULL;
 CREATE INDEX idx_events_updated ON events(calendar_id, updated_at)
@@ -528,59 +420,51 @@ CREATE INDEX idx_events_recurring ON events(calendar_id)
     WHERE recurrence_rule IS NOT NULL AND deleted_at IS NULL;
 ```
 
-**Design Decision: Local Time Storage**
+**Why local time + TZID instead of UTC**
 
-Why store `start_datetime` as local time with a separate `start_timezone` instead of UTC?
+1. **DST correctness.** A "9 AM daily standup" must stay at 9 AM local time; storing UTC silently shifts it by an hour twice a year.
+2. **RRULE semantics.** `BYDAY=MO` means Monday in the event's timezone, not UTC Monday — which differs in the western Pacific.
+3. **Display simplicity.** No round-trip conversion when rendering in the organizer's zone.
 
-1. **DST correctness**: A "9 AM daily standup" should always be at 9 AM local time. If stored as UTC, it would shift by an hour during DST transitions.
-2. **RRULE expansion**: The RRULE `BYDAY=MO` means Monday in the event's timezone, not UTC Monday.
-3. **Display simplicity**: No conversion needed when displaying in the organizer's timezone.
+The trade-off is that cross-timezone range queries need conversion. The materialized instances table stores computed UTC times so range scans can use a B-tree index without per-row conversion.
 
-**Trade-off**: Queries that span multiple timezones require conversion. The materialized instances table stores computed UTC times for efficient range queries.
+### Materialized instances
 
-### Materialized Instances
-
-```sql collapse={1-3, 30-35}
--- Materialized instances for query performance
--- Regenerated nightly for rolling 90-day window
+```sql title="event_instances.sql" collapse={1-3, 30-35}
+-- Materialized instances inside the rolling 90-day window
 CREATE TABLE event_instances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     calendar_id UUID NOT NULL REFERENCES calendars(id),
 
-    -- Instance timing (UTC for efficient range queries)
     instance_start_utc TIMESTAMPTZ NOT NULL,
-    instance_end_utc TIMESTAMPTZ NOT NULL,
+    instance_end_utc   TIMESTAMPTZ NOT NULL,
 
-    -- Original occurrence date (for exception matching)
+    -- Original occurrence date — used to match exceptions to the master
     original_start_utc TIMESTAMPTZ NOT NULL,
 
-    -- Instance-specific overrides (NULL = inherit from master)
-    summary_override VARCHAR(500),
+    -- NULL fields inherit from the master
+    summary_override     VARCHAR(500),
     description_override TEXT,
-    location_override VARCHAR(500),
-    start_override TIMESTAMP,
-    end_override TIMESTAMP,
-    timezone_override VARCHAR(50),
+    location_override    VARCHAR(500),
+    start_override       TIMESTAMP,
+    end_override         TIMESTAMP,
+    timezone_override    VARCHAR(50),
 
-    -- Exception status
-    status VARCHAR(20) NOT NULL DEFAULT 'confirmed',  -- confirmed, cancelled
-    is_exception BOOLEAN DEFAULT FALSE,
+    status        VARCHAR(20) NOT NULL DEFAULT 'confirmed',  -- confirmed | cancelled
+    is_exception  BOOLEAN     DEFAULT FALSE,
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Primary query index: calendar + date range
 CREATE INDEX idx_instances_calendar_range
     ON event_instances(calendar_id, instance_start_utc, instance_end_utc)
     WHERE status != 'cancelled';
 
--- Free/busy aggregation index
 CREATE INDEX idx_instances_freebusy
     ON event_instances(calendar_id, instance_start_utc, instance_end_utc)
     WHERE status = 'confirmed';
 
--- Exception lookup (find if this occurrence has been modified)
 CREATE INDEX idx_instances_exception
     ON event_instances(event_id, original_start_utc)
     WHERE is_exception = TRUE;
@@ -588,26 +472,23 @@ CREATE INDEX idx_instances_exception
 
 ### Attendees and RSVPs
 
-```sql collapse={1-3, 25-30}
--- Attendees for meetings
+```sql title="event_attendees.sql" collapse={1-3, 25-30}
 CREATE TABLE event_attendees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     email VARCHAR(255) NOT NULL,
     display_name VARCHAR(255),
 
-    -- Response status (RFC 5545 PARTSTAT)
+    -- RFC 5545 PARTSTAT
     response_status VARCHAR(20) DEFAULT 'needsAction',
-        -- needsAction, declined, tentative, accepted
+    -- needsAction | declined | tentative | accepted
 
-    -- Role
     is_organizer BOOLEAN DEFAULT FALSE,
-    is_optional BOOLEAN DEFAULT FALSE,
-    is_resource BOOLEAN DEFAULT FALSE,  -- Conference room, equipment
+    is_optional  BOOLEAN DEFAULT FALSE,
+    is_resource  BOOLEAN DEFAULT FALSE,  -- conference room, equipment
 
-    -- Response metadata
     response_comment TEXT,
-    responded_at TIMESTAMPTZ,
+    responded_at     TIMESTAMPTZ,
 
     UNIQUE(event_id, email)
 );
@@ -616,163 +497,135 @@ CREATE INDEX idx_attendees_email ON event_attendees(email, event_id);
 CREATE INDEX idx_attendees_event ON event_attendees(event_id);
 ```
 
-### Database Selection Matrix
+### Database selection matrix
 
-| Data Type            | Store                 | Rationale                                         |
+| Data type            | Store                 | Why                                               |
 | -------------------- | --------------------- | ------------------------------------------------- |
-| Events and instances | PostgreSQL            | ACID, complex RRULE queries, date range filtering |
-| Free/busy cache      | Redis Sorted Sets     | Sub-ms latency, TTL, efficient range queries      |
-| Full-text search     | Elasticsearch         | Event content search, attendee search             |
-| Attachments          | Object Storage (S3)   | Large files, CDN delivery                         |
+| Events and instances | PostgreSQL            | ACID, range queries, rich type system             |
+| Free/busy cache      | Redis sorted sets     | Sub-ms latency, TTL, range queries                |
+| Full-text search     | Elasticsearch         | Event content + attendee search                   |
+| Attachments          | Object storage (S3)   | Large files, CDN delivery                         |
 | Notification queue   | Redis Streams / Kafka | High throughput, at-least-once delivery           |
-| Sync tokens          | PostgreSQL            | Transactional consistency with events             |
+| Sync tokens          | PostgreSQL            | Transactional consistency with the events table   |
 
-### Sharding Strategy
+### Sharding
 
-**Primary shard key:** `calendar_id`
+**Shard key**: `calendar_id`.
 
-**Rationale:**
+- Co-locates all events for a calendar — most queries filter by calendar.
+- Calendar view queries hit a single shard.
+- Cross-calendar queries (free/busy) become scatter-gather, but they are an order of magnitude rarer than per-calendar reads.
 
-- Co-locates all events for a calendar (most queries filter by calendar)
-- Calendar view queries hit single shard
-- Cross-calendar queries (free/busy) require scatter-gather, but these are less frequent
+Hash-based sharding with 256 logical shards distributed across physical nodes; consistent hashing for rebalancing.
 
-**Shard distribution:**
+## Low-level design
 
-- Hash-based sharding on `calendar_id`
-- 256 logical shards, distributed across physical nodes
-- Rebalancing via consistent hashing
+### Recurrence expansion
 
-## Low-Level Design
+The recurrence service expands RRULE strings into concrete instances per [RFC 5545 §3.8.5.3](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.3). The algorithm itself is well-specified; the cost lives in the edge cases (DST, leap day, byday-with-monthday). The pipeline below shows how the master's RRULE, its EXDATE / RDATE properties, and any exception rows collapse into the rendered series for a query.
 
-### Recurrence Expansion Algorithm
+![RRULE expansion pipeline: the master row's RRULE produces a raw set of UTC instants, EXDATE removes excluded dates, RDATE injects extra dates, then exception rows replace the matching original_start_utc to produce the rendered series.](./diagrams/rrule-expansion-pipeline-light.svg "RRULE expansion pipeline: the master row's RRULE produces a raw set of UTC instants, EXDATE removes excluded dates, RDATE injects extra dates, then exception rows replace the matching original_start_utc to produce the rendered series.")
+![RRULE expansion pipeline: the master row's RRULE produces a raw set of UTC instants, EXDATE removes excluded dates, RDATE injects extra dates, then exception rows replace the matching original_start_utc to produce the rendered series.](./diagrams/rrule-expansion-pipeline-dark.svg)
 
-The recurrence service expands RRULE strings into concrete instances. RFC 5545 defines the algorithm, but edge cases require careful handling.
-
-#### RRULE Parsing and Expansion
-
-```typescript collapse={1-10, 45-60}
-// Using a library like rrule.js or python-dateutil for parsing
-import { RRule, RRuleSet, rrulestr } from "rrule"
+```typescript title="expand-recurrence.ts" collapse={1-10, 45-60}
+import { RRule, RRuleSet } from "rrule"
 
 interface RecurrenceExpansionRequest {
-  rruleString: string // e.g., "FREQ=WEEKLY;BYDAY=MO,WE,FR"
-  dtstart: Date // Series start in local time
-  timezone: string // IANA timezone
-  rangeStart: Date // Query range start (UTC)
-  rangeEnd: Date // Query range end (UTC)
-  exdates?: Date[] // Excluded dates
-  rdates?: Date[] // Additional dates
+  rruleString: string  // e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+  dtstart: Date        // series start in local time
+  timezone: string     // IANA TZID
+  rangeStart: Date     // query range start (UTC)
+  rangeEnd: Date       // query range end (UTC)
+  exdates?: Date[]
+  rdates?: Date[]
 }
 
 function expandRecurrence(req: RecurrenceExpansionRequest): Date[] {
-  // Parse the RRULE with timezone awareness
   const rule = RRule.fromString(req.rruleString)
+  const set = new RRuleSet()
+  set.rrule(rule)
 
-  const rruleSet = new RRuleSet()
-  rruleSet.rrule(rule)
+  for (const exdate of req.exdates ?? []) set.exdate(exdate)
+  for (const rdate of req.rdates ?? []) set.rdate(rdate)
 
-  // Add exclusions (EXDATE)
-  for (const exdate of req.exdates ?? []) {
-    rruleSet.exdate(exdate)
-  }
-
-  // Add additional dates (RDATE)
-  for (const rdate of req.rdates ?? []) {
-    rruleSet.rdate(rdate)
-  }
-
-  // Expand within range
-  // CRITICAL: between() uses the RRULE's timezone for DST handling
-  const instances = rruleSet.between(req.rangeStart, req.rangeEnd, true)
-
-  return instances
+  // CRITICAL: between() expands in the rule's timezone for DST correctness.
+  return set.between(req.rangeStart, req.rangeEnd, true)
 }
 
-// Example: Weekly standup at 9 AM, Mon/Wed/Fri
 const instances = expandRecurrence({
   rruleString: "FREQ=WEEKLY;BYDAY=MO,WE,FR",
-  dtstart: new Date("2024-01-15T09:00:00"),
+  dtstart: new Date("2026-01-15T09:00:00"),
   timezone: "America/New_York",
-  rangeStart: new Date("2024-01-01T00:00:00Z"),
-  rangeEnd: new Date("2024-03-31T23:59:59Z"),
-  exdates: [new Date("2024-01-17T09:00:00")], // Skip Jan 17
+  rangeStart: new Date("2026-01-01T00:00:00Z"),
+  rangeEnd: new Date("2026-03-31T23:59:59Z"),
+  exdates: [new Date("2026-01-17T09:00:00")],
 })
-// Returns: [Jan 15, Jan 19, Jan 22, Jan 24, Jan 26, ...]
+// → [Jan 15, Jan 19, Jan 22, Jan 24, Jan 26, ...]
 ```
 
-#### DST Edge Cases
+#### DST edge cases
 
-**Spring Forward (2 AM → 3 AM):**
+> [!IMPORTANT]
+> The behaviour below is normative in [RFC 5545 §3.3.5](https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.5) and was clarified by [Errata ID 4271](https://www.rfc-editor.org/errata/rfc5545). A library that does not implement it (or a database that stores UTC instead of local + TZID) will silently produce wrong instance times during DST transitions.
 
-When an event is scheduled at 2:30 AM on the night clocks spring forward, the time doesn't exist.
+**Spring forward (the missing hour, e.g. 02:30 on the second Sunday in March in `America/New_York`)**
 
-```typescript collapse={1-5}
-// Handling non-existent times during spring forward
+Per the spec, a `DATE-TIME` whose local representation falls in the gap is interpreted using the UTC offset that was in effect *immediately before* the gap. So `TZID=America/New_York:20260308T023000` is interpreted at -05:00 (EST), which is `07:30 UTC` — the same UTC instant as `03:30` -04:00 (EDT). The visible local time the user sees post-transition is 03:30, not 02:30.
+
+```typescript title="adjust-for-dst.ts" collapse={1-5}
 function adjustForDST(localTime: Date, timezone: string): Date {
   const { DateTime } = require("luxon")
-
   const dt = DateTime.fromJSDate(localTime, { zone: timezone })
 
   if (!dt.isValid && dt.invalidReason === "time zone offset transition") {
-    // Time doesn't exist—shift forward to the next valid time
+    // RFC 5545 §3.3.5: interpret as if the pre-transition offset still applied.
     return dt.plus({ hours: 1 }).toJSDate()
   }
-
   return localTime
 }
 ```
 
-**Fall Back (2 AM occurs twice):**
+**Fall back (the duplicated hour, e.g. 01:30 occurs twice in November)**
 
-When clocks fall back, the 1:00-2:00 AM hour repeats. The iCalendar spec recommends using the first occurrence.
+RFC 5545 §3.3.5 prescribes that an ambiguous local time refers to the **first** occurrence — the pre-transition one (DST, -04:00 in `America/New_York`).
 
-**Design Decision:** Follow the VTIMEZONE specification by storing and expanding in local time with TZID. The TZID references the IANA database, which contains the complete DST rules. Libraries like Luxon, date-fns-tz, and moment-timezone handle this correctly.
+**Operational consequence.** Always carry both `DATE-TIME` and `TZID` through the system. A `VTIMEZONE` reference points at the IANA database, which encodes the full historical and future DST rule set. Libraries — Luxon, date-fns-tz, moment-timezone, python-dateutil — implement these rules correctly only because they consume `tzdata`. Keep `tzdata` upgrades in your release pipeline; a stale tzdata is the most common reason a calendar drifts after a country changes its DST rules ([recent example: Egypt restoring DST in 2023](https://mm.icann.org/pipermail/tz-announce/2023-April/000079.html)).
 
-### Free/Busy Aggregation
+### Free/busy aggregation
 
-Free/busy aggregation is the core of meeting scheduling. It must be fast (< 100ms for 10 attendees over 1 week) and respect privacy.
+Free/busy aggregation is the hot path of meeting scheduling. The latency target — under 100 ms for 10 attendees over a week — rules out per-request expansion of every attendee's calendar. Pre-computed busy intervals in Redis sorted sets, scored by start timestamp, give the right shape: range scans are O(log N + M).
 
-#### Redis-Based Free/Busy Cache
-
-```typescript collapse={1-8, 40-50}
+```typescript title="freebusy.ts" collapse={1-8, 40-50}
 import { Redis } from "ioredis"
 
 interface BusyInterval {
-  start: number // Unix timestamp
+  start: number  // unix seconds
   end: number
-  eventId?: string // Only for the calendar owner
+  eventId?: string  // only for the calendar owner
 }
 
-// Store busy intervals as sorted set members
-// Key: freebusy:{calendarId}
-// Score: start timestamp
-// Member: JSON { start, end, eventId }
+// Storage: ZSET freebusy:{calendarId}, score = start, member = JSON({ start, end, eventId })
 
 async function updateFreeBusy(redis: Redis, calendarId: string, instances: EventInstance[]): Promise<void> {
   const key = `freebusy:${calendarId}`
   const pipeline = redis.pipeline()
 
-  // Clear existing entries in the affected range
   const rangeStart = Math.min(...instances.map((i) => i.startUtc.getTime() / 1000))
-  const rangeEnd = Math.max(...instances.map((i) => i.endUtc.getTime() / 1000))
+  const rangeEnd   = Math.max(...instances.map((i) => i.endUtc.getTime() / 1000))
   pipeline.zremrangebyscore(key, rangeStart, rangeEnd)
 
-  // Add new busy intervals
   for (const instance of instances) {
     if (instance.status === "confirmed" && instance.transparency === "opaque") {
       const interval: BusyInterval = {
         start: instance.startUtc.getTime() / 1000,
-        end: instance.endUtc.getTime() / 1000,
+        end:   instance.endUtc.getTime() / 1000,
         eventId: instance.eventId,
       }
       pipeline.zadd(key, interval.start, JSON.stringify(interval))
     }
   }
 
-  // Set TTL to 7 days (refresh weekly)
   pipeline.expire(key, 7 * 24 * 60 * 60)
-
   await pipeline.exec()
 }
 
@@ -784,143 +637,138 @@ async function queryFreeBusy(
 ): Promise<BusyInterval[]> {
   const key = `freebusy:${calendarId}`
   const start = rangeStart.getTime() / 1000
-  const end = rangeEnd.getTime() / 1000
+  const end   = rangeEnd.getTime() / 1000
 
-  // Get all intervals that START within the range
   const members = await redis.zrangebyscore(key, start, end)
-
-  return members.map((m) => JSON.parse(m) as BusyInterval).filter((interval) => interval.end > start) // Exclude ended before range
+  return members
+    .map((m) => JSON.parse(m) as BusyInterval)
+    .filter((i) => i.end > start)  // exclude intervals that ended before the range
 }
 ```
 
-#### Finding Available Slots
+#### Finding available slots
 
-```typescript collapse={1-5, 50-60}
-interface TimeSlot {
-  start: Date
-  end: Date
-}
+A standard interval-merge then gap-scan: union every attendee's busy intervals, sort by start, fold overlaps, and emit the gaps that are at least the requested duration. The diagram below shows the same algorithm visually for three calendars over a working window.
+
+![Free/busy intersection: Alice, Bob, and a conference room contribute busy intervals; the union after interval merging shows four busy blocks and three open slots of at least 30 minutes inside the 09:00-17:00 working window.](./diagrams/freebusy-intersection-light.svg "Free/busy intersection: Alice, Bob, and a conference room contribute busy intervals; the union after interval merging produces four merged busy blocks and three open slots of at least 30 minutes inside the 09:00-17:00 working window.")
+![Free/busy intersection: Alice, Bob, and a conference room contribute busy intervals; the union after interval merging shows four busy blocks and three open slots of at least 30 minutes inside the 09:00-17:00 working window.](./diagrams/freebusy-intersection-dark.svg)
+
+```typescript title="find-slots.ts" collapse={1-5, 50-60}
+interface TimeSlot { start: Date; end: Date }
 
 function findAvailableSlots(
-  busyIntervalsByAttendee: Map<string, BusyInterval[]>,
+  busyByAttendee: Map<string, BusyInterval[]>,
   rangeStart: Date,
   rangeEnd: Date,
-  duration: number, // minutes
-  workingHours?: { start: number; end: number }, // e.g., { start: 9, end: 17 }
+  durationMinutes: number,
+  workingHours?: { start: number; end: number },
 ): TimeSlot[] {
-  // Merge all busy intervals
-  const allBusy: BusyInterval[] = []
-  for (const intervals of busyIntervalsByAttendee.values()) {
-    allBusy.push(...intervals)
-  }
+  const all: BusyInterval[] = []
+  for (const intervals of busyByAttendee.values()) all.push(...intervals)
 
-  // Sort by start time
-  allBusy.sort((a, b) => a.start - b.start)
+  all.sort((a, b) => a.start - b.start)
 
   // Merge overlapping intervals
   const merged: BusyInterval[] = []
-  for (const interval of allBusy) {
-    if (merged.length === 0 || merged[merged.length - 1].end < interval.start) {
-      merged.push({ ...interval })
-    } else {
-      merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, interval.end)
-    }
+  for (const iv of all) {
+    const last = merged[merged.length - 1]
+    if (!last || last.end < iv.start) merged.push({ ...iv })
+    else last.end = Math.max(last.end, iv.end)
   }
 
-  // Find gaps that fit the duration
-  const durationSec = duration * 60
-  const available: TimeSlot[] = []
+  const durationSec = durationMinutes * 60
+  const free: TimeSlot[] = []
   let cursor = rangeStart.getTime() / 1000
 
   for (const busy of merged) {
     if (busy.start - cursor >= durationSec) {
-      available.push({
-        start: new Date(cursor * 1000),
-        end: new Date(busy.start * 1000),
-      })
+      free.push({ start: new Date(cursor * 1000), end: new Date(busy.start * 1000) })
     }
     cursor = Math.max(cursor, busy.end)
   }
 
-  // Check final gap
   const endSec = rangeEnd.getTime() / 1000
   if (endSec - cursor >= durationSec) {
-    available.push({
-      start: new Date(cursor * 1000),
-      end: rangeEnd,
-    })
+    free.push({ start: new Date(cursor * 1000), end: rangeEnd })
   }
 
-  // Filter by working hours if specified
   if (workingHours) {
-    return available.filter((slot) => {
-      const startHour = slot.start.getHours()
-      return startHour >= workingHours.start && startHour < workingHours.end
+    return free.filter((slot) => {
+      const h = slot.start.getHours()
+      return h >= workingHours.start && h < workingHours.end
     })
   }
-
-  return available
+  return free
 }
 ```
 
-**Time Complexity:** O(N log N) for sorting, O(N) for merging, where N = total busy intervals across all attendees.
+**Complexity**: `O(N log N)` for the sort, `O(N)` for the merge, where `N` is the total busy interval count across all attendees.
 
-### Sync Token Implementation
+### Sync token implementation
 
-Sync tokens enable efficient incremental sync for CalDAV clients and mobile apps.
+CalDAV's incremental sync is built on the WebDAV `DAV:sync-collection` REPORT ([RFC 6578 §3](https://datatracker.ietf.org/doc/html/rfc6578#section-3)): the client sends its last sync-token, the server returns the changed members plus a fresh token. The semantics of the token are deliberately opaque — the server is free to use a monotonic integer, an LSN, or any other state identifier the implementation can resolve back to a change set.
 
-```sql collapse={1-5}
--- Track changes for sync
+```sql title="calendar_changes.sql" collapse={1-5}
 CREATE TABLE calendar_changes (
     id BIGSERIAL PRIMARY KEY,
     calendar_id UUID NOT NULL REFERENCES calendars(id),
     event_id UUID NOT NULL,
-    change_type VARCHAR(10) NOT NULL,  -- 'created', 'updated', 'deleted'
+    change_type VARCHAR(10) NOT NULL,   -- 'created' | 'updated' | 'deleted'
     changed_at TIMESTAMPTZ DEFAULT NOW(),
-    sync_token BIGINT NOT NULL  -- Matches calendars.sync_token at time of change
+    sync_token BIGINT NOT NULL          -- matches calendars.sync_token at change time
 );
 
 CREATE INDEX idx_changes_sync ON calendar_changes(calendar_id, sync_token);
 
--- On event change, record it
 CREATE OR REPLACE FUNCTION record_event_change()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Increment calendar's sync token
   UPDATE calendars SET sync_token = sync_token + 1 WHERE id = NEW.calendar_id;
-
-  -- Record the change
   INSERT INTO calendar_changes (calendar_id, event_id, change_type, sync_token)
-  SELECT NEW.calendar_id, NEW.id, TG_OP, sync_token FROM calendars WHERE id = NEW.calendar_id;
-
+  SELECT NEW.calendar_id, NEW.id, TG_OP, sync_token
+  FROM calendars WHERE id = NEW.calendar_id;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 ```
 
-**Sync flow:**
+**Sync flow**
 
-1. **Initial sync:** Client receives all events + current `syncToken` (e.g., 15)
-2. **Incremental sync:** Client sends `syncToken=15`, server returns changes where `sync_token > 15` + new token (e.g., 23)
-3. **Token expiration:** If changes for token 15 have been purged (older than 30 days), return 410 Gone → client performs full sync
+1. **Initial sync**: client gets all events + current `syncToken` (e.g. `15`).
+2. **Incremental sync**: client sends `syncToken=15`, server returns rows where `sync_token > 15` plus the new token (e.g. `23`).
+3. **Token invalidation** (`410 Gone`): the change-log entry has been compacted, the calendar ACL changed, or the server simply chose to invalidate. Client wipes its local state and does step 1 again. Google's documentation does not promise a fixed token lifetime — clients must always handle `410`.[^gcal-sync]
 
-### Invitation Workflow (iTIP/iMIP)
+For server-to-server consumers (a CalDAV-style integration, a downstream automation), the Google Calendar API also exposes a **watch + webhook** model: a `POST .../events/watch` registers a notification channel with an HTTPS callback URL; when a change occurs, Google sends a signal-only `POST` carrying `X-Goog-Resource-State` and `X-Goog-Resource-URI` headers but **no event body**, and the consumer is expected to immediately call `events.list?syncToken=…` to fetch the actual delta.[^gcal-watch] Channels expire (default 1 week) and must be renewed; reliability is best-effort, so a low-frequency periodic full sync remains the safety net.
 
-When an organizer invites attendees, the system generates iTIP REQUEST messages:
+### Notification fan-out
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+A single change must reach many surfaces — open browser tabs, iOS / Android apps in background, third-party watch channels, and (for invitations) external mailboxes — without each one polling. The pattern is the same one used for any large fan-out write: commit, publish to a durable change topic, and let a fan-out worker resolve the per-attendee subscription set against a registry of live channels.
 
-**iMIP Email Format:**
+![Push fan-out: an event update commits, the calendar service publishes to a change topic, a fan-out worker reads the device and channel registry and pushes signals over WebSocket, FCM, APNs, iMIP email, and CalDAV / Google watch webhooks; each client then GETs /events with its sync token to reconcile.](./diagrams/push-fanout-light.svg "Push fan-out: an event update commits, the calendar service publishes to a change topic, a fan-out worker reads the device and channel registry and pushes signals over WebSocket, FCM, APNs, iMIP email, and CalDAV / Google watch webhooks; each client then GETs /events with its sync token to reconcile.")
+![Push fan-out: an event update commits, the calendar service publishes to a change topic, a fan-out worker reads the device and channel registry and pushes signals over WebSocket, FCM, APNs, iMIP email, and CalDAV / Google watch webhooks; each client then GETs /events with its sync token to reconcile.](./diagrams/push-fanout-dark.svg)
 
-```text
+Two design choices fall out of this shape:
+
+- **Signal, don't ship payloads.** The push carries enough metadata for the client to ask "what changed?" but never the event body. That keeps payloads tiny, sidesteps end-to-end encryption concerns on third-party push infrastructure, and keeps the source of truth on the server (one sync-token-driven path, not two divergent representations).
+- **Idempotent reconcile, at-least-once delivery.** WebSockets reconnect, FCM/APNs retry, watch channels duplicate. The reconciliation path is a `GET /events?syncToken=…` whose result is purely a function of the server-side change log, so duplicate signals collapse to a single no-op fetch.
+
+### Invitation workflow (iTIP / iMIP)
+
+When the organiser invites attendees, the system emits an iTIP `REQUEST` ([RFC 5546 §3.2.2](https://datatracker.ietf.org/doc/html/rfc5546#section-3.2.2)) wrapped in an iMIP-formatted email ([RFC 6047](https://datatracker.ietf.org/doc/html/rfc6047)).
+
+![iTIP / iMIP invitation flow: organizer creates event, calendar service persists VEVENT and attendees with PARTSTAT=NEEDS-ACTION, queues one iTIP REQUEST per attendee for the email worker to deliver as an iMIP message, and an attendee RSVP enqueues a REPLY back to the organizer.](./diagrams/itip-invitation-flow-light.svg "iTIP / iMIP invitation flow: organizer creates event, calendar service persists VEVENT and attendees with PARTSTAT=NEEDS-ACTION, queues one iTIP REQUEST per attendee for the email worker to deliver as an iMIP message, and an attendee RSVP enqueues a REPLY back to the organizer.")
+![iTIP / iMIP invitation flow: organizer creates event, calendar service persists VEVENT and attendees with PARTSTAT=NEEDS-ACTION, queues one iTIP REQUEST per attendee for the email worker to deliver as an iMIP message, and an attendee RSVP enqueues a REPLY back to the organizer.](./diagrams/itip-invitation-flow-dark.svg)
+
+The iMIP wire format is a multipart MIME message with a `text/calendar; method=REQUEST` part:
+
+```text title="invite.eml"
 Content-Type: multipart/alternative; boundary="boundary"
 
 --boundary
 Content-Type: text/plain
 
 You've been invited to: Weekly Team Standup
-When: Monday, January 15, 2024 9:00 AM - 9:30 AM (EST)
+When: Monday, January 15, 2026 9:00 AM - 9:30 AM (EST)
 
 --boundary
 Content-Type: text/calendar; method=REQUEST
@@ -930,8 +778,8 @@ VERSION:2.0
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:abc123xyz@calendar.example.com
-DTSTART;TZID=America/New_York:20240115T090000
-DTEND;TZID=America/New_York:20240115T093000
+DTSTART;TZID=America/New_York:20260115T090000
+DTEND;TZID=America/New_York:20260115T093000
 SUMMARY:Weekly Team Standup
 ORGANIZER:mailto:organizer@example.com
 ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:attendee@example.com
@@ -941,16 +789,15 @@ END:VCALENDAR
 --boundary--
 ```
 
-## Frontend Considerations
+A native CalDAV client takes a different path — the CalDAV scheduling extensions ([RFC 6638](https://datatracker.ietf.org/doc/html/rfc6638)) deliver `REQUEST` and `REPLY` server-side via inboxes/outboxes on each user's calendar home, avoiding the email round-trip entirely.
 
-### Calendar View Performance
+## Frontend considerations
 
-**Problem:** A month view showing 30+ days with recurring events may need to display hundreds of event instances.
+### Calendar view performance
 
-**Solution: Virtual Scrolling + Batched Loading**
+A month view with recurring events can show hundreds of instances. The win is virtualization plus range-buffered loading.
 
-```typescript collapse={1-10, 35-45}
-// Load events in batches as user scrolls
+```typescript title="useCalendarEvents.ts" collapse={1-10, 35-45}
 interface CalendarViewState {
   visibleRange: { start: Date; end: Date }
   loadedRanges: Array<{ start: Date; end: Date }>
@@ -964,9 +811,8 @@ function useCalendarEvents(calendarId: string) {
     events: new Map(),
   })
 
-  // Load events for visible range + buffer
   useEffect(() => {
-    const rangeToLoad = expandRange(state.visibleRange, { days: 7 }) // ±1 week buffer
+    const rangeToLoad = expandRange(state.visibleRange, { days: 7 })  // ±1 week buffer
 
     if (!isRangeCovered(rangeToLoad, state.loadedRanges)) {
       fetchEvents(calendarId, rangeToLoad).then((newEvents) => {
@@ -983,19 +829,18 @@ function useCalendarEvents(calendarId: string) {
 }
 ```
 
-**Key optimizations:**
+Plus the usual list of cheap wins:
 
-- Request `singleEvents=true` from API to get pre-expanded instances
-- Cache responses by date range (events within a range don't change often)
-- Use `ETag` / `If-None-Match` for conditional requests
-- Virtualize day cells in month view (render only visible weeks)
+- Pass `singleEvents=true` so the server returns pre-expanded instances.
+- Cache by date range — events inside a past range almost never change.
+- Use `ETag` / `If-None-Match` for conditional refetches.
+- Virtualize day cells in month view (render only visible weeks).
 
-### Real-Time Updates
+### Real-time updates
 
-**Strategy:** WebSocket for active browser tabs, push notifications for background/mobile.
+WebSocket for active browser tabs, push (FCM/APNs) for backgrounded clients. Both deliver the same change envelope: `{ type, eventId, ... }` plus a fresh sync-token so the client can reconcile.
 
-```typescript collapse={1-5, 25-35}
-// Real-time sync via WebSocket
+```typescript title="useCalendarSync.ts" collapse={1-5, 25-35}
 const useCalendarSync = (calendarId: string) => {
   const queryClient = useQueryClient()
 
@@ -1004,11 +849,12 @@ const useCalendarSync = (calendarId: string) => {
 
     ws.onmessage = (event) => {
       const change = JSON.parse(event.data)
-
       switch (change.type) {
         case "event.created":
         case "event.updated":
-          queryClient.setQueryData(["events", calendarId], (old: CalendarEvent[]) => upsertEvent(old, change.event))
+          queryClient.setQueryData(["events", calendarId], (old: CalendarEvent[]) =>
+            upsertEvent(old, change.event),
+          )
           break
         case "event.deleted":
           queryClient.setQueryData(["events", calendarId], (old: CalendarEvent[]) =>
@@ -1023,29 +869,25 @@ const useCalendarSync = (calendarId: string) => {
 }
 ```
 
-### Timezone Display
+### Timezone display
 
-**User expectations:**
+User expectations:
 
-- Event times shown in user's local timezone by default
-- Option to view in event's original timezone
-- All-day events should span the full day in any timezone
+- Event times shown in the user's local timezone by default.
+- Optional view in the event's original timezone.
+- All-day events span the full day in any timezone — no conversion.
 
-```typescript collapse={1-5}
-// Convert and display event times
+```typescript title="format-event-time.ts" collapse={1-5}
 function formatEventTime(event: CalendarEvent, userTimezone: string): string {
   const { DateTime } = require("luxon")
 
   if (event.isAllDay) {
-    // All-day events: show date only, no timezone conversion
     return DateTime.fromISO(event.start.date).toLocaleString(DateTime.DATE_MED)
   }
 
-  // Timed events: convert to user's timezone
   const start = DateTime.fromISO(event.start.dateTime, { zone: event.start.timeZone })
   const userStart = start.setZone(userTimezone)
 
-  // Show original timezone if different
   if (event.start.timeZone !== userTimezone) {
     return `${userStart.toLocaleString(DateTime.TIME_SIMPLE)} (${userStart.toFormat("ZZZZ")})`
   }
@@ -1054,138 +896,148 @@ function formatEventTime(event: CalendarEvent, userTimezone: string): string {
 }
 ```
 
-### Drag-and-Drop Rescheduling
+### Drag-and-drop rescheduling
 
-**Optimistic updates with rollback:**
+Optimistic update with rollback for single events; for recurring events, *always* prompt for scope before issuing the mutation — "this event only", "this and following", or "all events".
 
-```typescript collapse={1-5, 30-40}
-// Drag event to new time slot
+```typescript title="handle-event-drop.ts" collapse={1-5, 30-40}
 async function handleEventDrop(eventId: string, newStart: Date, newEnd: Date) {
-  const previousEvent = queryClient.getQueryData(["event", eventId])
+  const previous = queryClient.getQueryData(["event", eventId])
 
-  // Optimistic update
   queryClient.setQueryData(["event", eventId], (old: CalendarEvent) => ({
     ...old,
     start: { dateTime: newStart.toISOString(), timeZone: old.start.timeZone },
-    end: { dateTime: newEnd.toISOString(), timeZone: old.end.timeZone },
+    end:   { dateTime: newEnd.toISOString(),   timeZone: old.end.timeZone },
   }))
 
   try {
     await updateEvent(eventId, { start: newStart, end: newEnd })
   } catch (error) {
-    // Rollback on failure
-    queryClient.setQueryData(["event", eventId], previousEvent)
+    queryClient.setQueryData(["event", eventId], previous)
     toast.error("Failed to reschedule event")
   }
 }
 
-// For recurring event instance: prompt user for scope
 function handleRecurringEventDrop(eventId: string, instanceDate: Date, newTime: Date) {
   showDialog({
     title: "Edit recurring event",
     options: [
-      { label: "This event only", action: () => updateInstance(eventId, instanceDate, newTime) },
-      { label: "This and future events", action: () => splitSeries(eventId, instanceDate, newTime) },
-      { label: "All events", action: () => updateSeries(eventId, newTime) },
+      { label: "This event only",         action: () => updateInstance(eventId, instanceDate, newTime) },
+      { label: "This and future events",  action: () => splitSeries(eventId, instanceDate, newTime) },
+      { label: "All events",              action: () => updateSeries(eventId, newTime) },
     ],
   })
 }
 ```
 
-## Infrastructure Design
+## Infrastructure design
 
-### Cloud-Agnostic Concepts
+### Cloud-agnostic shopping list
 
-| Component            | Requirement              | Options                        |
-| -------------------- | ------------------------ | ------------------------------ |
-| **Primary Database** | ACID, complex queries    | PostgreSQL, MySQL              |
-| **Cache**            | Sub-ms reads, TTL        | Redis, Memcached               |
-| **Search**           | Full-text, aggregations  | Elasticsearch, OpenSearch      |
-| **Message Queue**    | At-least-once, ordering  | Kafka, RabbitMQ, Redis Streams |
-| **Object Storage**   | Attachments, large files | S3-compatible (MinIO)          |
-| **Job Scheduler**    | Cron, delayed jobs       | Temporal, Celery, pg-boss      |
+| Component        | Requirement              | Concrete options               |
+| ---------------- | ------------------------ | ------------------------------ |
+| Primary database | ACID, complex queries    | PostgreSQL, MySQL              |
+| Cache            | Sub-ms reads, TTL        | Redis, Memcached               |
+| Search           | Full-text, aggregations  | Elasticsearch, OpenSearch      |
+| Message queue    | At-least-once, ordering  | Kafka, RabbitMQ, Redis Streams |
+| Object storage   | Attachments, large files | S3-compatible (MinIO)          |
+| Job scheduler    | Cron, delayed jobs       | Temporal, Celery, pg-boss      |
 
-### AWS Reference Architecture
+### AWS reference architecture
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![AWS reference architecture: Route 53 + CloudFront in front of an ALB; ECS Fargate runs the API and sync services with Fargate Spot workers; RDS PostgreSQL Multi-AZ with read replicas, ElastiCache Redis cluster, OpenSearch, and S3 for attachments; SQS or MSK feeds workers and EventBridge schedules Lambda push notifications.](./diagrams/aws-reference-architecture-light.svg "AWS reference architecture: Route 53 and CloudFront in front of an ALB; ECS Fargate runs the API and sync services with Fargate Spot workers; RDS PostgreSQL Multi-AZ with read replicas, ElastiCache Redis cluster, OpenSearch, and S3 for attachments; SQS or MSK feeds workers and EventBridge schedules Lambda push notifications.")
+![AWS reference architecture: Route 53 + CloudFront in front of an ALB; ECS Fargate runs the API and sync services with Fargate Spot workers; RDS PostgreSQL Multi-AZ with read replicas, ElastiCache Redis cluster, OpenSearch, and S3 for attachments; SQS or MSK feeds workers and EventBridge schedules Lambda push notifications.](./diagrams/aws-reference-architecture-dark.svg)
 
-| Component          | AWS Service       | Configuration                            |
-| ------------------ | ----------------- | ---------------------------------------- |
-| API Service        | ECS Fargate       | 2-50 tasks, 1 vCPU / 2GB each            |
-| Background Workers | ECS Fargate Spot  | 5-20 tasks, Spot for cost                |
-| Primary Database   | RDS PostgreSQL    | db.r6g.xlarge, Multi-AZ, 1TB gp3         |
-| Read Replicas      | RDS Read Replicas | 2 replicas across AZs                    |
-| Cache              | ElastiCache Redis | cache.r6g.large, 3-node cluster          |
-| Search             | OpenSearch        | m6g.large.search, 3-node                 |
-| Message Queue      | Amazon SQS / MSK  | SQS for simplicity, MSK for ordering     |
-| Object Storage     | S3 + CloudFront   | Intelligent-Tiering, CDN for attachments |
-| Notifications      | Lambda + SNS      | Push via FCM/APNs                        |
+| Component          | AWS service       | Sizing                                    |
+| ------------------ | ----------------- | ----------------------------------------- |
+| API service        | ECS Fargate       | 2–50 tasks, 1 vCPU / 2 GB each            |
+| Background workers | ECS Fargate Spot  | 5–20 tasks, Spot for cost                 |
+| Primary database   | RDS PostgreSQL    | `db.r6g.xlarge`, Multi-AZ, 1 TB gp3       |
+| Read replicas      | RDS read replicas | 2 replicas across AZs                     |
+| Cache              | ElastiCache Redis | `cache.r6g.large`, 3-node cluster         |
+| Search             | OpenSearch        | `m6g.large.search`, 3-node                |
+| Message queue      | Amazon SQS / MSK  | SQS for simplicity, MSK for ordering      |
+| Object storage     | S3 + CloudFront   | Intelligent-Tiering, CDN for attachments  |
+| Notifications      | Lambda + SNS      | Push via FCM / APNs                       |
 
-### Self-Hosted Alternatives
+### Self-hosted alternatives
 
-| Managed Service | Self-Hosted          | When to Self-Host                            |
+| Managed         | Self-hosted          | Trigger                                      |
 | --------------- | -------------------- | -------------------------------------------- |
 | RDS PostgreSQL  | PostgreSQL on EC2    | Cost at scale, specific extensions (pg_cron) |
 | ElastiCache     | Redis on EC2         | Redis modules (RedisJSON, RediSearch)        |
 | OpenSearch      | Elasticsearch on EC2 | Cost, specific plugins                       |
 | MSK             | Kafka on EC2         | Cost at scale, Kafka Streams                 |
 
+## Failure modes worth designing for
+
+- **Sync-token invalidation storm.** A wide ACL change or a calendar reindex invalidates every active client at once. The recovery (full sync) is N× more expensive than incremental sync; protect the API tier with per-client backoff and cap concurrent full syncs per backend.
+- **Hot recurring series.** A 5-minute standup with 200,000 attendees is one master row whose expansion is read by every attendee's calendar view. Cache the expansion at the recurrence service, not just at the event service.
+- **Time-bomb RRULE.** A user can create `RRULE:FREQ=SECONDLY` (technically valid). Reject server-side if the resulting expansion in any window exceeds a hard cap (e.g. 10,000 instances).
+- **Stale tzdata.** A country changes its DST rule; until your tzdata package is upgraded and your services restarted, recurring events drift. Bake tzdata refreshes into the release pipeline and add a startup-time assertion against the expected version.
+- **Last-write-wins amnesia.** Two clients edit the same event offline; on reconnect, the later write silently overwrites the earlier one. Surface the conflict to the user (using the `SEQUENCE` and `LAST-MODIFIED` properties from RFC 5545) instead of swallowing it.
+
 ## Conclusion
 
-This design prioritizes the **hybrid approach** for recurring events—materializing instances within a rolling window while supporting on-demand expansion for arbitrary ranges. This balances storage efficiency with query performance for the most common use cases (viewing this week/month).
+The hybrid recurrence model — store rules, materialize a window, expand beyond it on read — keeps query latency bounded for the common case (this week / this month) while supporting infinite series cleanly. Three other choices carry their weight throughout the design:
 
-Key architectural decisions:
+1. **Local time + TZID storage** — events keep meaning across DST and time-zone-shifting users; UTC alone silently breaks recurring events.
+2. **Sync tokens** — incremental sync is mandatory for CalDAV / mobile; clients must always handle `410 Gone` and full-sync recovery.
+3. **Pre-computed free/busy in Redis** — sub-100 ms scheduling queries fall out of an interval-merge over sorted sets, not out of an on-demand expansion at query time.
 
-1. **Local time + TZID storage**: Events stored in local time with named timezones, ensuring DST correctness for recurring events.
+What this design deliberately does *not* solve, and where the next iteration should go:
 
-2. **Sync tokens for incremental sync**: Monotonically increasing tokens per calendar enable efficient CalDAV/mobile sync without polling.
-
-3. **Redis-cached free/busy**: Pre-computed busy intervals in sorted sets provide sub-100ms scheduling queries.
-
-4. **iTIP/iMIP for interoperability**: Standards-based invitation workflow ensures email-based RSVP works across calendar providers.
-
-**Limitations and future improvements:**
-
-- **Conflict detection**: Current design uses last-write-wins; could implement operational transforms for real-time collaborative editing.
-- **AI scheduling**: Could add ML-based suggestions for optimal meeting times based on attendee patterns.
-- **Calendar federation**: Cross-organization free/busy queries require additional privacy controls and federation protocols.
+- **Real collaborative editing.** Last-write-wins with surfaced conflicts is the practical floor; CRDT-based collaborative editing of event properties is a real next step but a larger commitment.
+- **Federated free/busy.** Cross-organisation availability needs the iSchedule extensions and additional privacy controls.
+- **Smart scheduling.** Suggesting good meeting slots from attendee patterns is a separable ML/analytics problem layered on top of the data model.
 
 ## Appendix
 
 ### Prerequisites
 
-- Distributed systems fundamentals (CAP theorem, eventual consistency)
-- Database design (indexing, sharding, replication)
-- REST API design principles
-- Basic understanding of timezone concepts (UTC, offsets, DST)
+- Distributed-systems fundamentals (CAP, eventual consistency).
+- Database design (indexing, sharding, replication).
+- REST API design.
+- Basic understanding of timezone concepts (UTC, offsets, DST).
 
 ### Terminology
 
-- **RRULE**: Recurrence Rule—RFC 5545 syntax for defining repeating patterns (e.g., `FREQ=WEEKLY;BYDAY=MO`)
-- **EXDATE**: Exception Date—dates excluded from a recurring series
-- **iTIP**: iCalendar Transport-Independent Interoperability Protocol—defines methods for scheduling (REQUEST, REPLY, CANCEL)
-- **iMIP**: iCalendar Message-Based Interoperability Protocol—iTIP over email
-- **CalDAV**: Calendaring Extensions to WebDAV—protocol for calendar access and sync
-- **Sync Token**: Opaque string representing calendar state for incremental synchronization
-- **TZID**: Timezone Identifier—IANA timezone name (e.g., `America/New_York`)
+- **RRULE** — recurrence rule (RFC 5545 §3.8.5.3), e.g. `FREQ=WEEKLY;BYDAY=MO`.
+- **EXDATE / RDATE** — exception / addition dates on a recurring series.
+- **RECURRENCE-ID** — identifies which occurrence of a series an exception modifies.
+- **iTIP** — iCalendar Transport-Independent Interoperability Protocol (RFC 5546): scheduling methods (`REQUEST`, `REPLY`, `CANCEL`).
+- **iMIP** — iTIP over email (RFC 6047).
+- **CalDAV** — calendar access on top of WebDAV (RFC 4791); scheduling extensions in RFC 6638.
+- **Sync token** — opaque server state identifier for incremental sync (RFC 6578).
+- **TZID** — IANA timezone name (e.g. `America/New_York`).
 
 ### Summary
 
-- Calendar systems require a **hybrid recurrence model**: store RRULE masters, materialize instances for a rolling window (30-90 days), expand dynamically beyond
-- **Time storage must be local time with TZID**, not UTC, to handle DST transitions correctly for recurring events
-- **Free/busy aggregation** is optimized via Redis sorted sets with pre-computed busy intervals
-- **Sync tokens** enable efficient incremental sync—clients receive only changes since their last sync
-- **iTIP/iMIP** provide interoperability with other calendar systems via standardized invitation workflows
-- Scale to 500M users requires PostgreSQL sharding by calendar_id, Redis caching, and async notification delivery
+- Recurring events live as RRULE-bearing master rows; instances are materialized for a rolling 30–90-day window and expanded on demand beyond it.
+- Time is stored as local-time + named TZID per RFC 5545 §3.3.5; never raw UTC, or DST silently breaks every recurring event.
+- Free/busy is a Redis sorted-set workload; an interval-merge over the union answers "find me a slot" in `O(N log N)`.
+- Sync tokens (RFC 6578) make incremental sync cheap; clients must always handle `410 Gone` and re-do a full sync.
+- iTIP / iMIP (RFC 5546 / 6047) deliver invitations interoperably across vendors; CalDAV scheduling (RFC 6638) is the server-side alternative.
+- Sharding by `calendar_id` co-locates the per-calendar working set and keeps view queries on a single shard.
 
 ### References
 
-- [RFC 5545 - iCalendar Specification](https://datatracker.ietf.org/doc/html/rfc5545) - Core data format for calendar interchange
-- [RFC 4791 - CalDAV](https://datatracker.ietf.org/doc/html/rfc4791) - Calendar access protocol
-- [RFC 5546 - iTIP](https://datatracker.ietf.org/doc/html/rfc5546) - Scheduling protocol (REQUEST, REPLY, CANCEL)
-- [RFC 6047 - iMIP](https://datatracker.ietf.org/doc/html/rfc6047) - Email transport for calendar invitations
-- [RFC 6578 - Collection Synchronization](https://datatracker.ietf.org/doc/html/rfc6578) - Sync token mechanism for WebDAV
-- [IANA Time Zone Database](https://www.iana.org/time-zones) - Authoritative timezone data
-- [Google Calendar API Documentation](https://developers.google.com/calendar/api) - Reference implementation patterns
-- [rrule.js](https://github.com/jakubroztocil/rrule) - JavaScript library for RRULE expansion
+- [RFC 5545 — iCalendar core object specification](https://datatracker.ietf.org/doc/html/rfc5545)
+- [RFC 5545 errata (incl. ID 4271 — DST-gap clarification)](https://www.rfc-editor.org/errata/rfc5545)
+- [RFC 5546 — iTIP](https://datatracker.ietf.org/doc/html/rfc5546)
+- [RFC 6047 — iMIP](https://datatracker.ietf.org/doc/html/rfc6047)
+- [RFC 4791 — CalDAV](https://datatracker.ietf.org/doc/html/rfc4791)
+- [RFC 6638 — Scheduling extensions to CalDAV](https://datatracker.ietf.org/doc/html/rfc6638)
+- [RFC 6578 — WebDAV collection synchronization](https://datatracker.ietf.org/doc/html/rfc6578)
+- [RFC 7809 — CalDAV time zones by reference](https://datatracker.ietf.org/doc/html/rfc7809)
+- [RFC 7986 — New properties for iCalendar (NAME, COLOR, IMAGE, REFRESH-INTERVAL, SOURCE, CONFERENCE)](https://datatracker.ietf.org/doc/html/rfc7986)
+- [IANA Time Zone Database](https://www.iana.org/time-zones)
+- [Google Calendar API — Synchronize resources efficiently](https://developers.google.com/workspace/calendar/api/guides/sync)
+- [Google Calendar API — Push notifications (watch channels)](https://developers.google.com/workspace/calendar/api/guides/push)
+- [Google Calendar API — Recurring events](https://developers.google.com/workspace/calendar/api/guides/recurringevents)
+- [Google Calendar API — Events resource reference](https://developers.google.com/workspace/calendar/api/v3/reference/events)
+- [rrule.js](https://github.com/jakubroztocil/rrule)
+
+[^gcal-recurring]: Google Calendar API — [Recurring events](https://developers.google.com/workspace/calendar/api/guides/recurringevents). Cancelled occurrences are represented as instance rows with `status: "cancelled"` carrying `id`, `recurringEventId`, and `originalStartTime`, not as `EXDATE` entries on the master.
+[^gcal-sync]: Google Calendar API — [Synchronize resources efficiently](https://developers.google.com/workspace/calendar/api/guides/sync). Sync tokens may be invalidated for several reasons including age and ACL changes; the API does not document a fixed lifetime, so clients must always be ready to handle `410 Gone` and re-do a full sync.
+[^gcal-watch]: Google Calendar API — [Push notifications](https://developers.google.com/workspace/calendar/api/guides/push) and the [`Events: watch`](https://developers.google.com/workspace/calendar/api/v3/reference/events/watch) reference. Webhook deliveries carry `X-Goog-Resource-State` / `X-Goog-Resource-URI` but no event body; channels expire (default 1 week) and must be renewed.

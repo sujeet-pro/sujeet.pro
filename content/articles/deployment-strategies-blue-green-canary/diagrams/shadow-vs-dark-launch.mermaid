@@ -1,0 +1,18 @@
+%% Diagram: Shadow traffic vs dark launch — the response path is what differs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Shadow["Shadow / mirrored traffic"]
+        direction LR
+        UserS["User"] --> EdgeS["Edge proxy / mesh<br/>request_mirror_policy"]
+        EdgeS --> ProdS["Stable backend"]
+        EdgeS -. mirror .-> ShadowS["Candidate backend<br/>response discarded"]
+        ProdS --> UserS
+    end
+
+    subgraph Dark["Dark launch (feature-flag gated)"]
+        direction LR
+        UserD["User"] --> AppD["App with new code path<br/>flag OFF for users"]
+        AppD --> NewD["New code path<br/>logs metrics, no UI change"]
+        AppD --> UserD
+    end

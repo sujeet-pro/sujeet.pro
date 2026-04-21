@@ -1,0 +1,31 @@
+%% Diagram: High-Level Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Rider + Driver Apps"]
+    GW["API Gateway\nLB · Auth · Rate Limit"]
+    WS["WebSocket Gateway\nLocation + Trip Events"]
+    CORE["Core Services\nRide · Matching (DISCO)\nLocation · Pricing\nRouting/ETA · Payment"]
+    QUEUES{{"Kafka\nLocation + Match topics"}}
+    DATA[("Data Layer\nDocstore · Redis+H3\nCassandra · Analytics")]
+    ML["ML Platform\nDeepETA · Surge\nFraud · Forecasting"]
+
+    Clients --> GW
+    GW --> CORE
+    Clients <--> WS
+    WS --> QUEUES
+    QUEUES --> CORE
+    CORE --> DATA
+    CORE --> ML
+    ML --> CORE
+
+    classDef client fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef edge fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef svc fill:#1F6E68,stroke:#155752,color:#fff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef ml fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    class Clients client
+    class GW,WS edge
+    class CORE,QUEUES svc
+    class DATA store
+    class ML ml

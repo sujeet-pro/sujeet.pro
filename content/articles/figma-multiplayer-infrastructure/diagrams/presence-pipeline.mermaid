@@ -1,0 +1,31 @@
+%% Diagram: Presence pipeline (cursors, selection, viewport)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CA["Client A (sender)"]
+        direction TB
+        Move["Pointer move /<br/>selection / viewport change"]
+        Sample["Sample at ~30 FPS<br/>(coalesce to last value per tick)"]
+        Frame["Pack presence frame<br/>(cursorXY, selectionIDs,<br/>viewport, color, name)"]
+    end
+
+    subgraph MP["Per-document Rust process"]
+        direction TB
+        Recv["Receive presence frame"]
+        Fanout["Fan-out to other<br/>connected clients"]
+        Note1["Not appended to the journal.<br/>Not persisted to S3."]
+    end
+
+    subgraph CB["Client B...N (receivers)"]
+        direction TB
+        Decode["Decode frame"]
+        Interp["Interpolate cursor<br/>between frames<br/>(rAF render loop)"]
+        Cap["Render up to 200<br/>cursors / file"]
+    end
+
+    Move --> Sample --> Frame
+    Frame -->|"WebSocket<br/>(same connection<br/>as document deltas)"| Recv
+    Recv --> Fanout
+    Fanout -->|"WebSocket"| Decode
+    Decode --> Interp --> Cap
+    Note1 -. "ephemeral" .- Recv

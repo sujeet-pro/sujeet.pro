@@ -1,0 +1,22 @@
+%% Diagram: Hybrid leaderboard read path - exact rank for top tier, approximate percentile for the long tail
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q["GET /me/rank"]
+    L1{"In top-N ZSET<br/>(top 100k)?"}
+    Top["ZREVRANK lb:top member<br/>O(log N), exact rank"]
+    Tail["ZSCORE lb:scores member<br/>+ ZCOUNT (score, +inf)"]
+    Pct["percentile =<br/>(1 - higher_count / ZCARD) x 100"]
+    R1["Response:<br/>{ rank, total }"]
+    R2["Response:<br/>{ percentile, tier }"]
+
+    Q --> L1
+    L1 -- yes --> Top --> R1
+    L1 -- no --> Tail --> Pct --> R2
+
+    Note1["t-digest (Redis Stack)<br/>can replace tail path<br/>for true streaming<br/>percentile estimates"]
+    Pct -. alternative .- Note1
+
+    style Top fill:#dcfce7,stroke:#15803d,color:#14532d
+    style Tail fill:#fef3c7,stroke:#b45309,color:#7c2d12
+    style Note1 fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e

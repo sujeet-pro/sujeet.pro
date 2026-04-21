@@ -1,0 +1,26 @@
+%% Diagram: Quorum reads/writes (W + R > N) overlap guarantee
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Replicas["N = 3 replicas"]
+        R1[Replica 1]
+        R2[Replica 2]
+        R3[Replica 3]
+    end
+
+    subgraph Write["Write to W = 2"]
+        W[Writer]
+    end
+
+    subgraph Read["Read from R = 2"]
+        Reader[Reader]
+    end
+
+    W ==>|ack| R1
+    W ==>|ack| R2
+    W -. "skipped, lags" .-> R3
+
+    Reader ==>|fetch| R2
+    Reader ==>|fetch| R3
+
+    R2 -.->|"R2 in both quorums:<br/>read sees latest write"| Reader

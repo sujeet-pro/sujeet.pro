@@ -1,0 +1,16 @@
+%% Diagram: Inbound mail pipeline (block flow)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    CONN["TCP :25<br/>STARTTLS<br/>(MTA-STS<br/>RFC 8461)"] --> ENV["Envelope phase<br/>EHLO / MAIL FROM<br/>/ RCPT TO"]
+    ENV -->|reject early| EARLY["5xx at<br/>RCPT TO"]
+    ENV --> RATE["Rate / reputation<br/>per IP, ASN, domain"]
+    RATE --> DATA["DATA<br/>(message body)"]
+    DATA --> AUTH["SPF + DKIM<br/>+ DMARC<br/>(see auth flow)"]
+    AUTH --> ARC["ARC seal<br/>(RFC 8617)"]
+    ARC --> SPAM["Spam pipeline<br/>(see spam pipeline)"]
+    SPAM --> ROUTE{"Route by<br/>verdict"}
+    ROUTE -->|Inbox| INBOX[("Mailbox store<br/>+ search index")]
+    ROUTE -->|Quarantine| QUAR[("Spam folder")]
+    ROUTE -->|Discard| DISCARD["Silently drop<br/>(avoid backscatter)"]
+    INBOX --> PUSH["JMAP push /<br/>IMAP IDLE notify"]

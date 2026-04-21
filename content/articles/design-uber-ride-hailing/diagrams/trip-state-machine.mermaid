@@ -1,0 +1,15 @@
+%% Diagram: Trip State Machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> REQUESTED: POST /rides
+    REQUESTED --> MATCHED: DISCO assigns driver
+    REQUESTED --> CANCELLED: rider cancels<br/>or no supply
+    MATCHED --> DRIVER_ARRIVING: driver accepts
+    MATCHED --> CANCELLED: driver declines<br/>(reassign)
+    DRIVER_ARRIVING --> DRIVER_ARRIVED: ETA < 60s<br/>or geofence hit
+    DRIVER_ARRIVED --> IN_PROGRESS: rider boards<br/>(driver taps Start)
+    DRIVER_ARRIVED --> CANCELLED: no-show<br/>(fee applies)
+    IN_PROGRESS --> COMPLETED: driver taps End<br/>charge fires
+    COMPLETED --> [*]
+    CANCELLED --> [*]

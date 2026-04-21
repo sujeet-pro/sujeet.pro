@@ -1,0 +1,19 @@
+%% Diagram: Design-path decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A["Need exactly-once?"] --> B{"Control the consumer?"}
+    B -->|Yes| C{"Operations naturally idempotent?"}
+    C -->|Yes| D["Path 1: Idempotent operations"]
+    C -->|No| E{"Dual-write to DB + broker?"}
+    E -->|Yes| F["Path 6: Transactional outbox"]
+    E -->|No| G{"Broker is Kafka or Pulsar?"}
+    G -->|Yes| H{"Read-transform-write?"}
+    H -->|Yes| I["Path 5: Transactional processing"]
+    H -->|No| J["Path 3: Idempotent producer"]
+    G -->|No| K["Path 4: Consumer-side dedup"]
+    B -->|No| L{"Exposing an HTTP API?"}
+    L -->|Yes| M["Path 2: Idempotency keys"]
+    L -->|No| N{"Broker supports dedup?"}
+    N -->|Yes| O["Path 3: Broker-side dedup"]
+    N -->|No| P["Path 4: Consumer-side dedup"]

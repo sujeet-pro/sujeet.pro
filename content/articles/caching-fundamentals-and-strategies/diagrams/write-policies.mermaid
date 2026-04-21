@@ -1,0 +1,28 @@
+%% Diagram: Write Policy Comparison
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application
+    participant Cache
+    participant Store as Backing Store
+
+    Note over App,Store: Write-Through - synchronous to both
+    App->>Cache: write k v
+    Cache->>Store: write k v
+    Store-->>Cache: ok
+    Cache-->>App: ok
+
+    Note over App,Store: Write-Back - cache acks, store flushed later
+    App->>Cache: write k v
+    Cache-->>App: ok
+    Cache->>Store: async flush, batched
+    Store-->>Cache: ok
+
+    Note over App,Store: Write-Around - bypass cache, populate on read
+    App->>Store: write k v
+    Store-->>App: ok
+    App->>Cache: read k later
+    Cache-->>App: miss
+    App->>Store: read k
+    Store-->>App: v
+    App->>Cache: set k v

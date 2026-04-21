@@ -1,0 +1,34 @@
+%% Diagram: High-level architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients\nWeb / Mobile / API"]
+    CDN["CDN"]
+    LB["Load Balancer"]
+    GATEWAY["API Gateway"]
+    WS["WebSocket"]
+    PUBSUB["Redis Pub/Sub"]
+
+    ISSUE_SVC["Issue"]
+    PROJECT_SVC["Project"]
+    WORKFLOW_SVC["Workflow"]
+    SEARCH_SVC["Search"]
+    SYNC_SVC["Sync"]
+
+    POSTGRES[(PostgreSQL)]
+    REDIS["Redis"]
+    ES[(Elasticsearch)]
+    S3["S3"]
+
+    CLIENTS --> CDN
+    CLIENTS --> LB --> GATEWAY
+    GATEWAY --> ISSUE_SVC & PROJECT_SVC & WORKFLOW_SVC & SEARCH_SVC
+    CLIENTS --> WS
+    WS <--> SYNC_SVC
+    SYNC_SVC --> PUBSUB
+    ISSUE_SVC --> POSTGRES
+    PROJECT_SVC --> POSTGRES
+    ISSUE_SVC --> REDIS
+    SEARCH_SVC --> ES
+    ISSUE_SVC --> S3
+    PUBSUB --> WS

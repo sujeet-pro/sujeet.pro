@@ -1,446 +1,316 @@
 ---
-title: 'JS Event Loop: Tasks, Microtasks, and Rendering (For Browser & Node.js)'
-linkTitle: 'JS Event Loop'
+title: "JavaScript Event Loop: A Foundational Overview"
+linkTitle: "JS Event Loop"
 description: >-
-  How the browser and Node.js event loops orchestrate tasks, microtasks, and
-  rendering around JavaScript's single-threaded execution — covering the WHATWG
-  processing model, libuv phases, and common starvation pitfalls.
-publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+  A foundational map of how JavaScript runtimes schedule async work — the
+  ECMA-262 contract (Jobs, agents, the four host hooks), the universal
+  mental model (stack drains then microtasks drain then next task), where
+  the browser (WHATWG HTML 8.1.6) and Node.js (libuv phases + nextTick)
+  diverge, and the patterns and footguns that fall out.
+publishedDate: 2026-01-31
+lastUpdatedOn: 2026-04-21
 tags:
   - javascript
   - runtime
-  - v8
-  - nodejs
   - event-loop
+  - ecma-262
+  - concurrency
 ---
 
-# JS Event Loop: Tasks, Microtasks, and Rendering (For Browser & Node.js)
+# JavaScript Event Loop: A Foundational Overview
 
-The event loop is not a JavaScript language feature—it is the host environment's mechanism for orchestrating asynchronous operations around the engine's single-threaded execution. Browsers implement the WHATWG HTML Standard processing model optimized for UI responsiveness (60 frames per second, ~16.7ms budgets). Node.js implements a phased architecture via libuv, optimized for high-throughput I/O (Input/Output). Understanding both models is essential for debugging timing issues, avoiding starvation, and choosing the right scheduling primitive.
+Every JavaScript runtime — browsers, Node.js, Deno, Bun, Workers — is built around the same small contract: ECMAScript defines _Jobs_, _agents_, and four _host hooks_; the host plugs in the actual scheduler, queues, timers, and (for browsers) rendering. This article is the foundational overview for that contract. It establishes one mental model that fits every host, then shows precisely where the browser and Node.js diverge, and ends with the patterns and footguns that follow. For host-specific deep dives, see [Browser Event Loop](../browser-event-loop/README.md), [Node.js Event Loop](../nodejs-event-loop/README.md), and [libuv Internals](../libuv-event-loop-internals/README.md).
 
-![Node.js Event Loop Phases](./assets/nodejs-event-loop-with-example.png "Node.js event loop phases showing the libuv-managed execution order")
+![ECMA-262 specifies Jobs and host hooks; the host implements the concrete event loop.](./diagrams/engine-host-contract-light.svg "ECMA-262 specifies Jobs and host hooks; the host implements the concrete event loop, queues, timers, I/O, and rendering integration.")
+![ECMA-262 specifies Jobs and host hooks; the host implements the concrete event loop.](./diagrams/engine-host-contract-dark.svg)
 
-## Abstract
+## Thesis
 
-The JavaScript runtime consists of two distinct components: the **engine** (V8, SpiderMonkey, JavaScriptCore) that executes ECMAScript with a call stack, heap, and run-to-completion guarantee; and the **host environment** (browser or Node.js) that provides the event loop, timers, and I/O APIs.
+There is no "the JavaScript event loop". ECMA-262 specifies a deliberately small surface[^ecma262]:
 
-The event loop implements a two-tier priority system:
+- A **Job** is an Abstract Closure that "initiates an ECMAScript computation when no other ECMAScript computation is currently in progress" — it runs only when the agent's execution context stack is empty.
+- Four host hooks enqueue Jobs: `HostEnqueueGenericJob`, `HostEnqueuePromiseJob`, `HostEnqueueTimeoutJob`, `HostEnqueueFinalizationRegistryCleanupJob`.
+- An **agent** is a single thread of evaluation (one stack, one running execution context); an **agent cluster** is the maximum boundary for shared memory.
+- The spec does not define "tasks" vs "microtasks", "phases", a render hook, idle callbacks, or any priority order. Those are host policy. §9.5 explicitly notes: "Host environments are not required to treat Jobs uniformly with respect to scheduling. For example, web browsers and Node.js treat Promise-handling Jobs as a higher priority than other work"[^jobs].
 
-1. **Microtasks** (high priority): Promise reactions, `queueMicrotask()`, `MutationObserver`. Drain completely after each macrotask, before rendering.
-2. **Macrotasks** (lower priority): `setTimeout`, `setInterval`, I/O callbacks, UI events. One per event loop iteration.
+The portable guarantees you can lean on:
 
-**Browser model**: Task → Microtask checkpoint → Rendering (rAF → Style → Layout → Paint → Composite) → Idle callbacks → Loop.
+- One Job runs at a time per agent, to completion.
+- `HostEnqueuePromiseJob` invocations execute in invocation order — promise reactions are FIFO per agent.
+- An async function's continuation after `await` is scheduled via a promise reaction Job — never inline, even when the awaited value is a primitive.
+- The microtask queue is drained _to empty_ between Jobs/tasks, including microtasks that microtasks queue.
 
-**Node.js model** (as of Node.js 20+): Six libuv phases (timers → pending → idle/prepare → poll → check → close). `process.nextTick()` and microtasks run between phases—nextTick first in CommonJS modules, microtasks first in ECMAScript Modules (ESM).
+Everything else — the rendering integration, libuv phases, `process.nextTick`, the 4 ms timer clamp, `setImmediate`, idle scheduling — is host policy and varies between Chromium, Gecko, WebKit, Node.js, Deno, Bun, Cloudflare Workers, and the rest.
 
-**Key design tradeoffs**:
+## Mental model: the universal JS loop
 
-- Microtasks before rendering enables consistent DOM state but risks UI starvation
-- Node.js's phased model optimizes I/O throughput but adds scheduling complexity
-- The 4-thread default pool handles blocking operations (file I/O, DNS) without stalling the main loop
+Every host realizes the same shape: a single-threaded engine, a heap, two queues (one for tasks, one for microtasks), and a loop that picks one task, runs it to completion, then drains the microtask queue before doing anything else.
 
-## The Runtime Architecture
+![The universal JavaScript runtime model: one engine with a stack and heap, per-agent task and microtask queues, and a loop that picks one task and drains microtasks.](./diagrams/js-loop-common-light.svg "Every host fits the same shape: an engine with stack + heap, a microtask queue and one or more task queues per agent, and a loop that picks one task at a time and drains microtasks to empty between tasks.")
+![The universal JavaScript runtime model: one engine with a stack and heap, per-agent task and microtask queues, and a loop that picks one task and drains microtasks.](./diagrams/js-loop-common-dark.svg)
 
-JavaScript's characterization as a "single-threaded, non-blocking, asynchronous, concurrent language" obscures the division of labor between engine and host. The ECMAScript specification (ECMA-262) defines the language semantics—call stack, heap, run-to-completion—but delegates asynchronous scheduling to the host via abstract "Jobs" and "Job Queues." The host environment (browser or Node.js) implements the concrete event loop that processes these jobs.
+### One iteration
 
-![JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components](./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host-light.svg "JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components")
-![JavaScript runtime architecture showing the relationship between the engine, host environment, and bridge layer components](./diagrams/javascript-runtime-architecture-showing-the-relationship-between-the-engine-host-dark.svg)
+A single iteration is the same everywhere: pick one task, push it onto the stack, run synchronous JS to completion, drain microtasks, then — only in the browser — give the rendering pipeline a chance to update.
 
-### Core Execution Primitives
+![One event-loop iteration: pick a task, run to completion, drain microtasks, then (browser only) maybe render.](./diagrams/event-loop-iteration-light.svg "One iteration of the loop: pick a task, run synchronous JS to completion, wait until the execution context stack is empty, drain the microtask queue (including any microtasks queued during the drain), then — browser only — take a rendering opportunity.")
+![One event-loop iteration: pick a task, run to completion, drain microtasks, then (browser only) maybe render.](./diagrams/event-loop-iteration-dark.svg)
 
-The ECMAScript specification defines three fundamental primitives:
+Three rules are worth memorizing:
 
-1. **Call Stack**: LIFO (Last-In-First-Out) data structure tracking execution contexts. Each function call pushes a new context; returns pop it.
-2. **Heap**: Unstructured memory region for object allocation, managed by the garbage collector.
-3. **Run-to-Completion Guarantee**: Once a function starts, it runs without preemption until it returns or throws. No other JavaScript can interrupt mid-execution.
+1. **Run-to-completion is per agent, not per task.** No other Job in the same agent can preempt the running synchronous JS — that is the spec's whole concurrency model[^jobs]. This is why you don't need locks around purely-JS data structures within a single agent.
+2. **Microtasks drain to empty.** If a microtask queues another microtask, it runs before the next task. There is no "drain N microtasks then yield"; you either let the queue run dry or you starve everything that comes after.
+3. **There is no implicit yield.** "Async" code is only async at `await` and Promise-resolution points. A `for` loop with no `await` is exactly as blocking as it would be in synchronous JS.
 
-This run-to-completion model simplifies reasoning about shared state (no need for locks) but means long-running synchronous code blocks everything—including rendering in browsers.
+### Agents, realms, and clusters (skim)
 
-![Core execution model showing the flow between task queue, event loop, and call stack](./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta-light.svg "Core execution model showing the flow between task queue, event loop, and call stack")
-![Core execution model showing the flow between task queue, event loop, and call stack](./diagrams/core-execution-model-showing-the-flow-between-task-queue-event-loop-and-call-sta-dark.svg)
+The spec's concurrency boundary has three nested concepts[^agents]: a **Realm** is one JavaScript world (its own `globalThis` and intrinsics — same-origin iframes, `vm.createContext()`, V8 `Context`s); an **Agent** is one thread of evaluation (window agent, dedicated worker, Node main thread, `worker_threads.Worker`); an **Agent Cluster** is the maximum set of agents that can share `SharedArrayBuffer` memory. A V8 `Isolate` ≈ an agent; multiple Realms (`Context`s) live inside one isolate. Crossing isolates requires postMessage; crossing Realms inside an isolate is a direct call. Cross-realm calls do **not** yield — they push onto the same execution context stack.
 
-### Specification Hierarchy
+> [!NOTE]
+> The Agent Record carries `[[CanBlock]]`, which gates `Atomics.wait`. Browser window agents have `[[CanBlock]] = false`; Workers and the Node main thread are `true`. `Atomics.waitAsync` (ECMAScript 2024) works anywhere because it returns a Promise rather than suspending the thread[^waitasync].
 
-![ECMAScript defines abstract Jobs; host environments implement concrete event loops](./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop-light.svg "ECMAScript defines abstract Jobs; host environments implement concrete event loops")
-![ECMAScript defines abstract Jobs; host environments implement concrete event loops](./diagrams/ecmascript-defines-abstract-jobs-host-environments-implement-concrete-event-loop-dark.svg)
+## The four host hooks
 
-The ECMAScript 2025 specification (16th edition) defines an **Agent** as the execution context for JavaScript code—comprising a call stack, running execution context, and job queues. The spec provides abstract operations like `HostEnqueuePromiseJob` that hosts must implement. This separation allows browsers and Node.js to optimize for different workloads while maintaining language semantics.
+ECMA-262 §9.5 defines exactly four hooks, each with its own constraints on top of the basic Job contract.
 
-## Universal Priority System: Tasks and Microtasks
+| Hook | Triggered by | Extra spec constraint |
+| :--- | :--- | :--- |
+| `HostEnqueueGenericJob(job, realm)` | Engine bookkeeping; rarely user-triggered | None beyond §9.5 — explicitly _not_ FIFO[^jobs] |
+| `HostEnqueuePromiseJob(job, realm)` | `Promise.then`, `await`, async function bodies, thenable adoption via `Promise.resolve` | Jobs must run in invocation order (FIFO across all promise reactions on the agent)[^enqueue-promise-job] |
+| `HostEnqueueTimeoutJob(job, realm, ms)` | Timer infrastructure routed through the spec hook | Run "after at least `ms` milliseconds"[^jobs] |
+| `HostEnqueueFinalizationRegistryCleanupJob(registry)` | A registered target becomes unreachable | Optional — "if possible"; the host may skip it entirely[^jobs] |
 
-All modern JavaScript environments implement a two-tiered priority system. Per the WHATWG HTML Standard: "All microtasks are completed before any other event handling or rendering or any other macrotask takes place." This guarantee is why Promise callbacks run before the next `setTimeout`, regardless of timer delay.
+Two non-obvious things:
 
-### Queue Processing Model
+- **FIFO is only guaranteed for promise jobs.** `HostEnqueueGenericJob` says its closures "are intended to be scheduled without additional constraints, such as priority and ordering"[^jobs]. If you ever see an engine-internal job appear out of order relative to a promise reaction, that is spec-compliant.
+- **Timeouts and timers are host-routed.** The HTML spec routes `setTimeout` through its own task source (not `HostEnqueueTimeoutJob`); Node.js routes timers through libuv. The hook exists so an embedder that wants a uniform mechanism can use it.
 
-![Queue processing model showing the priority system between macrotasks and microtasks in the event loop](./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt-light.svg "Queue processing model showing the priority system between macrotasks and microtasks in the event loop")
-![Queue processing model showing the priority system between macrotasks and microtasks in the event loop](./diagrams/queue-processing-model-showing-the-priority-system-between-macrotasks-and-microt-dark.svg)
+When a host enqueues a Job that will eventually call into user code, it has to carry the right "settings" across the asynchronous boundary. `HostMakeJobCallback` returns a `JobCallback` Record `{ [[Callback]], [[HostDefined]] }`; browsers use `[[HostDefined]]` to carry the **incumbent settings object** so a `then` handler scheduled from frame A but resolved by code from frame B still attributes script origin to frame A. Both `HostMakeJobCallback` and `HostCallJobCallback` carry a hard rule: "ECMAScript hosts that are not web browsers must use the default implementation"[^jobs]. Node, Deno, and Bun are spec-bound to the trivial pass-through.
 
-### Priority Hierarchy
+## Promise resolution timing
 
-![Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks](./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic-light.svg "Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks")
-![Priority hierarchy showing the execution order from synchronous code through microtasks to macrotasks](./diagrams/priority-hierarchy-showing-the-execution-order-from-synchronous-code-through-mic-dark.svg)
+`Promise.then`, `await`, and the body of every async function ultimately schedule promise reactions via two abstract operations[^promise-jobs]: `NewPromiseReactionJob` (when a settled promise has a handler attached, or when an attached handler has its promise settled) and `NewPromiseResolveThenableJob` (when `Promise.resolve` adopts a foreign thenable). Both go through `HostEnqueuePromiseJob`.
 
-### Microtask Starvation Pattern
+![Promise.then schedules a reaction job via HostEnqueuePromiseJob; the host drains its queue when the engine yields.](./diagrams/promise-reaction-lifecycle-light.svg "Sequence: Promise.then captures a JobCallback, the engine asks the host to enqueue a reaction Job, and the host invokes it once the execution context stack drains.")
+![Promise.then schedules a reaction job via HostEnqueuePromiseJob; the host drains its queue when the engine yields.](./diagrams/promise-reaction-lifecycle-dark.svg)
 
-The event loop drains the microtask queue completely before proceeding. If microtasks enqueue more microtasks recursively, the queue never empties—starving macrotasks, I/O, and rendering indefinitely.
+### `await` is exactly a promise reaction — there is no fast path
 
-```javascript title="microtask-starvation.js"
-// Pathological microtask starvation - DO NOT use in production
-function microtaskFlood() {
-  Promise.resolve().then(microtaskFlood) // Recursive microtask
+The `Await` abstract operation wraps the awaited value in `PromiseResolve` (so non-thenables become resolved promises), attaches an internal handler that resumes the async function's generator state, and suspends the running execution context. The resumption handler runs as a normal promise reaction. **There is no synchronous fast path** for `await Promise.resolve(v)` or `await 1` — both schedule a microtask:
+
+```ts title="await-microtask.ts"
+async function f() {
+  console.log("a");
+  await 1;
+  console.log("b");
 }
-microtaskFlood()
-
-// This macrotask NEVER executes - the microtask queue never empties
-setTimeout(() => {
-  console.log("Starved macrotask")
-}, 1000)
-
-// In browsers: UI freezes, no rendering occurs
-// In Node.js: I/O callbacks never fire, server becomes unresponsive
+f();
+console.log("c");
 ```
 
-**Production impact**: A server handling 1000 req/s with a recursive microtask pattern will stop accepting connections entirely. The socket accept queue fills, clients timeout, and monitoring shows 100% CPU with zero throughput.
+Output is `a`, `c`, `b`. The `b` continuation is scheduled via `HostEnqueuePromiseJob` and runs after the synchronous `console.log("c")` completes and the stack unwinds. Anyone relying on `await x` to be synchronous when `x` is a primitive is reading non-spec behavior.
 
-**Detection**: Event loop lag metrics exceeding 100ms consistently. In Node.js, use `monitorEventLoopDelay()` from `perf_hooks`.
+### `then` ordering is a language guarantee
 
-## Browser Event Loop Architecture
+Because `HostEnqueuePromiseJob` is FIFO, two `then` handlers registered in order on the same agent fire in that order — across nested promises, across realms, in any conformant host. This is one of the few ordering guarantees that does port between Chromium, Gecko, WebKit, Node, Deno, Bun, Cloudflare Workers, and Edge runtimes.
 
-The browser event loop is optimized for UI (User Interface) responsiveness, integrating directly with the rendering pipeline. At 60 fps (frames per second), each frame has approximately 16.7ms for JavaScript execution, style calculation, layout, paint, and composite operations. Exceeding this budget causes dropped frames—visible as jank or stutter.
+## Browser vs Node.js
 
-### WHATWG Processing Model
+The two runtimes implement the same hooks but wrap them in very different scheduler shells. The browser model has one task queue (composed of multiple task sources), one microtask checkpoint per task, and a render opportunity that the spec models as a separate task on the rendering task source after the 2024 refactor[^html-jobs]. Node's model is libuv's phased loop: six phases in fixed order, with the microtask queue (and Node's own `process.nextTick` queue) drained _between every callback_, not only at phase boundaries[^node-event-loop].
 
-The WHATWG HTML Living Standard (January 2026) defines the event loop processing model:
+![Browser vs Node.js: HTML 8.1.6 single task queue with microtask checkpoint and render opportunity, vs libuv phased loop with per-callback nextTick + microtask drain.](./diagrams/browser-vs-node-diff-light.svg "Side-by-side: the browser picks one task, drains microtasks once, optionally renders, then idles before the next task. Node walks libuv's phases (timers, pending, idle/prepare, poll, check, close), and after every callback in any phase drains process.nextTick first and then the microtask queue.")
+![Browser vs Node.js: HTML 8.1.6 single task queue with microtask checkpoint and render opportunity, vs libuv phased loop with per-callback nextTick + microtask drain.](./diagrams/browser-vs-node-diff-dark.svg)
 
-![WHATWG processing model: Task → Microtasks → Rendering → Idle](./diagrams/whatwg-processing-model-task-microtasks-rendering-idle-light.svg "WHATWG processing model: Task → Microtasks → Rendering → Idle")
-![WHATWG processing model: Task → Microtasks → Rendering → Idle](./diagrams/whatwg-processing-model-task-microtasks-rendering-idle-dark.svg)
+### Browser: WHATWG HTML 8.1.6
 
-**Design rationale**: Running all microtasks before rendering ensures the DOM (Document Object Model) reaches a consistent state. If microtasks ran interleaved with rendering, intermediate states could flash on screen. The tradeoff: long microtask chains can delay rendering, causing dropped frames.
+The HTML Living Standard overrides every hook on the window/worker event loop[^html-jobs]:
 
-### Rendering Pipeline Integration
+- `HostEnqueuePromiseJob` enqueues onto the **microtask queue** — one queue per event loop, processed at the **microtask checkpoint** after each task. FIFO follows from the spec.
+- `HostEnqueueTimeoutJob` queues onto the **timer task source** with HTML's own clamping rules: 1 ms minimum; nested timers (after 5 levels) clamp to 4 ms; background tabs throttle further.
+- "Update the rendering" is a formal task on the rendering task source (since [PR #10007](https://github.com/whatwg/html/pull/10007), merged 2024-01-31) — UA-defined frequency, typically aligned to vsync (~16.7 ms at 60 Hz). `requestAnimationFrame` callbacks run inside this task, before style/layout/paint.
+- `HostMakeJobCallback` / `HostCallJobCallback` propagate the **incumbent settings object** through `[[HostDefined]]`.
+- `HostEnqueueFinalizationRegistryCleanupJob` runs in a microtask-adjacent slot — when it runs at all.
 
-![Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.](./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames-light.svg "Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.")
-![Frame budget allocation at 60fps. Exceeding 16.7ms drops frames.](./diagrams/frame-budget-allocation-at-60fps-exceeding-16-7ms-drops-frames-dark.svg)
+### Node.js: libuv phases + nextTick
 
-**requestAnimationFrame (rAF) timing**: Per the spec, rAF callbacks run after microtasks but before style recalculation—the optimal point for DOM mutations that should appear in the next frame.
+Node implements the same hooks against V8's microtask queue but adds a non-spec channel[^node-microtasks]:
 
-**Browser inconsistency**: Chrome and Firefox run rAF before the next render (spec-compliant). Safari historically ran rAF before the _following_ render, causing a one-frame delay. Per WHATWG GitHub issue #2569, "Developers are pretty confused about this, with currently 60% expecting the [Safari] behaviour."
+- `HostEnqueuePromiseJob` lands on V8's microtask queue, drained by Node after each callback (default `microtaskMode: 'afterTask'`).
+- `HostEnqueueTimeoutJob` is bridged to libuv's timer phase. **libuv 1.45 (Node.js 20+) moved timer processing to after the poll phase**, so `setImmediate`-based yielding can now starve other work under load[^libuv-timers].
+- `process.nextTick` is **not** a Job. It uses Node's own queue, drained _before_ the V8 microtask queue. In CommonJS, `process.nextTick(f)` runs before `Promise.resolve().then(g)`. In ESM, the entry module evaluation _is itself_ a microtask, so `queueMicrotask` and Promise reactions queued at top level fire before `process.nextTick`[^node-microtasks].
+- `HostMakeJobCallback` uses the spec default — non-browser hosts are required to.
+- `process.nextTick` is **Stability 3 — Legacy** as of Node.js 22.7 / 20.18; the docs explicitly recommend `queueMicrotask()` instead[^node-microtasks].
 
-**Timer inaccuracy**: `setTimeout(fn, 0)` does not execute immediately. Browsers clamp delays to ≥1ms (Chrome historically used 4ms for nested timers). The actual delay includes:
+### Portability matrix
 
-1. Minimum delay clamp
-2. Time until next event loop iteration
-3. Queue position behind other macrotasks
+| Behavior | Spec requires | Browser | Node | Cross-host portable? |
+| :--- | :--- | :--- | :--- | :--- |
+| One Job at a time per agent | Yes | Yes | Yes | Yes |
+| Promise reactions in `then`-call order | Yes (FIFO) | Yes | Yes | Yes |
+| Promise reactions before next timer | No (host policy) | Yes | Yes | Yes (de facto) |
+| `await x` schedules a microtask, even for primitives | Yes | Yes | Yes | Yes |
+| Microtask queue drains to empty between tasks | No (host policy) | Yes | Yes (between every callback) | Yes (de facto) |
+| `process.nextTick` before microtasks | No | n/a | Yes (CJS) / No (ESM) | No |
+| `setTimeout(fn, 0)` floor | No | 1 ms (4 ms after 5 nesting levels) | 1 ms | No |
+| `setImmediate` exists | No | No | Yes | No |
+| Render opportunity after microtask checkpoint | No | Yes | n/a | n/a |
+| `requestIdleCallback` exists | No | Yes | No | No |
+| `FinalizationRegistry` callback ever runs | No (optional) | Sometimes | Sometimes | No |
+| `Atomics.wait` blocks the calling thread | Yes — only when `[[CanBlock]] = true` | Workers only | Always (main + workers) | Partially |
 
-### Task Source Prioritization
+## Common patterns and footguns
 
-The WHATWG spec allows browsers to prioritize task sources but doesn't mandate specific priorities. In practice, browsers implement:
+### Microtask starvation
 
-| Task Source                   | Typical Priority | Rationale                               |
-| ----------------------------- | ---------------- | --------------------------------------- |
-| User interaction (click, key) | Highest          | Immediate feedback critical for UX      |
-| `MessageChannel`              | High             | Used for inter-frame communication      |
-| DOM manipulation              | Medium           | Balance responsiveness with batching    |
-| Networking (fetch callbacks)  | Medium           | Async by nature, less latency-sensitive |
-| Timers (`setTimeout`)         | Lower            | Explicit deferral implies tolerance     |
+Because the microtask queue drains to empty before the next task can run, a microtask that keeps queuing more microtasks **never lets the loop advance**. In a browser this freezes rendering and input; in Node it freezes I/O and timers — including the poll phase that would have unblocked the work that resolves the promise.
 
-**Scheduler API (Chrome 115+)**: The `scheduler.postTask()` API exposes explicit priority levels:
+```ts title="microtask-starvation.ts"
+function spin(): Promise<never> {
+  return Promise.resolve().then(spin);
+}
+spin();
+setTimeout(() => console.log("never runs"), 0);
+```
 
-```javascript title="scheduler-api.js" collapse={1-2}
-// Check for scheduler support
-if ("scheduler" in window) {
-  // user-blocking: highest, for input response
-  scheduler.postTask(() => handleInput(), { priority: "user-blocking" })
+The same shape with `queueMicrotask(spin)` or with a `for await` loop over an always-resolved async iterator has the same effect. Recursive `then` chains are the easiest accidental version: any "polling" loop expressed as `await checkAgain()` with no underlying I/O will starve the loop.
 
-  // user-visible: default, for non-critical rendering
-  scheduler.postTask(() => updateChart(), { priority: "user-visible" })
+> [!WARNING]
+> If a long-running task must run in chunks, yield with a **task** (`MessageChannel`, `setTimeout`, `scheduler.postTask`, `setImmediate` in Node) — not with a microtask. Microtasks do not yield to rendering, input, or I/O.
 
-  // background: lowest, for analytics/logging
-  scheduler.postTask(() => sendAnalytics(), { priority: "background" })
+### `queueMicrotask` vs `Promise.resolve().then()`
+
+Both schedule onto the same per-agent microtask queue and fire in `HostEnqueuePromiseJob` order. The differences are intent, overhead, and error semantics[^mdn-microtasks]:
+
+| | `queueMicrotask(fn)` | `Promise.resolve().then(fn)` |
+| :--- | :--- | :--- |
+| Standard intent | Explicit microtask scheduling[^mdn-microtasks] | Side effect of Promise resolution |
+| Allocation | None beyond the closure | Allocates a Promise + reaction record |
+| Throw inside `fn` | Reported as a normal unhandled exception (`window.onerror` / `uncaughtException`) | Reported as an _unhandled rejection_ on the returned Promise |
+| Argument passing | Closure / `bind` | Closure / `bind` |
+| Use it for | "Run after this turn, before the next task" | Promise pipelines; not as a microtask shim |
+
+Reach for `queueMicrotask` when you actually want a microtask. Reach for a Promise when you want a Promise.
+
+### `MessageChannel` as a real macrotask trick
+
+`setTimeout(fn, 0)` does **not** mean "next tick". HTML clamps it to 1 ms minimum and to 4 ms once nested past five levels[^html-timers]; background tabs clamp harder. To enqueue a true zero-delay macrotask in the browser, use `MessageChannel`:
+
+```ts title="yield-to-browser.ts"
+const channel = new MessageChannel();
+const tasks: Array<() => void> = [];
+channel.port1.onmessage = () => {
+  const fn = tasks.shift();
+  fn?.();
+};
+function macroTask(fn: () => void) {
+  tasks.push(fn);
+  channel.port2.postMessage(null);
 }
 ```
 
-**Browser support**: Chrome, Edge, Opera. Not supported in Firefox or Safari as of January 2026.
+Each `postMessage` queues a task on the message task source, bypassing the timer clamp. React's scheduler and many microbenchmark harnesses use this pattern for exactly this reason[^macarthur].
 
-## Node.js Event Loop: libuv Integration
+> [!TIP]
+> Prefer `scheduler.postTask({ priority: "user-blocking" | "user-visible" | "background" })` (Prioritized Task Scheduling, baseline in Chromium and Firefox) when available — it's the standard API and exposes priority. Fall back to `MessageChannel`. Use `setTimeout(fn, 0)` only when you actually want the timer-source semantics.
 
-Node.js implements a phased event loop architecture via libuv, optimized for high-throughput I/O. The event loop runs on a single thread, abstracting platform-specific polling mechanisms: epoll on Linux, kqueue on macOS/BSD, and IOCP (I/O Completion Ports) on Windows.
+### `process.nextTick` is legacy in modern Node
 
-**Historical context**: Node.js originally used libev (event loop) and libeio (async I/O). Per Bert Belder (libuv co-creator), these libraries assumed the select() model worked universally and that system calls behaved identically across platforms—both false. libuv was created to provide consistent cross-platform I/O while enabling Windows support via IOCP.
+`process.nextTick` is faster and higher-priority than the microtask queue, but it is not a Job and not portable to any non-Node host. Node 22.7 / 20.18 marked it **Stability 3 — Legacy** and the docs recommend `queueMicrotask()` for almost every case[^node-microtasks]. Two real reasons remain:
 
-### libuv Architecture
+- **API guarantees.** A constructor that needs to give callers time to attach `.on('error')` before async work starts must defer with `nextTick`, not with a Promise (a Promise rejection would already be visible on the next microtask, before user code runs).
+- **CJS vs ESM ordering matters.** In CJS, `nextTick` callbacks run before `Promise.then` callbacks queued at the same top level; in ESM they run after, because ESM evaluation is itself a microtask. Anything that depends on this ordering is fragile across module systems[^node-microtasks].
 
-![libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms](./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an-light.svg "libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms")
-![libuv architecture showing the integration between V8 engine, libuv event loop, and OS-specific I/O mechanisms](./diagrams/libuv-architecture-showing-the-integration-between-v8-engine-libuv-event-loop-an-dark.svg)
+If you don't need either of those, use `queueMicrotask` and your code keeps the same meaning under Workers, Deno, Bun, and the browser.
 
-### Phased Event Loop Structure
+### `FinalizationRegistry` is "best effort, sometimes never"
 
-As of Node.js 20+, the event loop executes in six phases. Each phase has a FIFO (First-In-First-Out) queue; all callbacks in that queue execute before moving to the next phase:
+`HostEnqueueFinalizationRegistryCleanupJob` is the only host hook the spec marks as optional ("if possible"). Cloudflare Workers explicitly disables FinalizationRegistry-driven cleanup — their post-mortem is the canonical "why you should never rely on it"[^cf-finreg]. Treat any logic whose correctness depends on a finalizer running as broken. Use explicit lifetime instead: `using` declarations (Stage 4 explicit resource management), close hooks, or your own ref counting.
 
-![Six phases of the Node.js event loop](./diagrams/six-phases-of-the-node-js-event-loop-light.svg "Six phases of the Node.js event loop")
-![Six phases of the Node.js event loop](./diagrams/six-phases-of-the-node-js-event-loop-dark.svg)
+### `Atomics.wait` blocks; on the main thread, use `waitAsync`
 
-| Phase                 | Executes                                       | Examples                       |
-| --------------------- | ---------------------------------------------- | ------------------------------ |
-| **timers**            | Expired `setTimeout`/`setInterval` callbacks   | Timer-based polling            |
-| **pending callbacks** | I/O callbacks deferred from previous iteration | TCP errors, some system errors |
-| **idle, prepare**     | Internal libuv operations                      | Not user-facing                |
-| **poll**              | Retrieve new I/O events; execute I/O callbacks | Most async I/O                 |
-| **check**             | `setImmediate()` callbacks                     | Post-I/O processing            |
-| **close callbacks**   | Close event handlers                           | `socket.on('close')`           |
+Calling `Atomics.wait` on an agent whose `[[CanBlock]] = false` (browser window agents, by spec) throws `TypeError`. Use `Atomics.waitAsync`, which returns `{ async: true, value: Promise<"ok" | "timed-out"> }` and resolves via the normal `HostEnqueuePromiseJob` path[^waitasync]. The forward-progress guarantee in §9.8 says "every unblocked agent with a dedicated executing thread eventually makes forward progress"[^forward-progress] — that is the only liveness contract you get; anything finer is host policy.
 
-**Node.js 20+ change (libuv 1.45.0)**: Prior versions ran timers both before and after the poll phase. Since libuv 1.45.0, timers run only after poll. This can affect `setImmediate()` callback timing—existing timing-dependent code may break.
+### Cross-realm calls don't yield, even between iframes or `vm.Context`s
 
-### Poll Phase Logic
+A function call from one Realm into another inside the same agent pushes onto the same execution context stack. Same-origin iframes share their parent's window agent; `vm.runInContext()` runs synchronously on the Node main thread. There is no microtask checkpoint between Realms in the same agent. The only way to actually yield to the host scheduler is to cross an _agent_ boundary: `Worker.postMessage`, `worker_threads`, `MessageChannel`, or a structured-clone-based message.
 
-![Poll phase decision tree: block for I/O, timers, or proceed immediately](./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately-light.svg "Poll phase decision tree: block for I/O, timers, or proceed immediately")
-![Poll phase decision tree: block for I/O, timers, or proceed immediately](./diagrams/poll-phase-decision-tree-block-for-i-o-timers-or-proceed-immediately-dark.svg)
+## Where to go next
 
-The poll phase is where libuv spends most of its time in I/O-heavy applications. It blocks waiting for new I/O events unless:
+The host-specific detail this overview deliberately omits lives in the sibling articles:
 
-1. `setImmediate()` callbacks are pending → proceed to check phase
-2. Timers are about to expire → wrap back to timers phase
-3. No active handles remain → exit the event loop
-
-### Thread Pool vs Direct I/O
-
-Network I/O is **always** performed on the event loop's thread using non-blocking OS primitives (epoll, kqueue, IOCP). File system operations use the thread pool because, per the libuv design docs: "Unlike network I/O, there are no platform-specific file I/O primitives libuv could rely on."
-
-![Thread pool for blocking operations; event loop for non-blocking network I/O](./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o-light.svg "Thread pool for blocking operations; event loop for non-blocking network I/O")
-![Thread pool for blocking operations; event loop for non-blocking network I/O](./diagrams/thread-pool-for-blocking-operations-event-loop-for-non-blocking-network-i-o-dark.svg)
-
-**Thread pool configuration**:
-
-| Setting      | Value     | Notes                                |
-| ------------ | --------- | ------------------------------------ |
-| Default size | 4 threads | Set via `UV_THREADPOOL_SIZE` env var |
-| Maximum size | 1024      | Increased from 128 in libuv 1.30.0   |
-| Stack size   | 8 MB      | Since libuv 1.45.0                   |
-
-**Why 4 threads?** Per libuv maintainer Andrius Bentkus: "The thread pool primarily emulates async behavior for blocking operations. Since these are I/O-bound rather than CPU-bound, more threads don't improve throughput. There is no deterministic way of a perfect size."
-
-**Production consideration**: If your application performs many concurrent file operations (e.g., static file server), 4 threads may bottleneck. Increase `UV_THREADPOOL_SIZE` to match expected concurrency—but not beyond, as threads consuming CPU-bound work (crypto, zlib) could block legitimate I/O.
-
-**Linux AIO and io_uring**: libuv explored native async file I/O via Linux AIO and io_uring (8x throughput improvement reported). However, as of libuv 1.49.0, io_uring support was reverted to thread pool by default due to stability concerns.
-
-## Node.js-Specific Scheduling
-
-Node.js provides unique scheduling primitives with distinct priority levels. Critically, `process.nextTick()` is **not part of the event loop**—it executes after the current operation completes, before the event loop continues to the next phase.
-
-### Priority Hierarchy
-
-![Node.js priority: nextTick → microtasks → event loop phases](./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases-light.svg "Node.js priority: nextTick → microtasks → event loop phases")
-![Node.js priority: nextTick → microtasks → event loop phases](./diagrams/node-js-priority-nexttick-microtasks-event-loop-phases-dark.svg)
-
-### process.nextTick() vs queueMicrotask()
-
-| Feature         | `process.nextTick()`                 | `queueMicrotask()`           |
-| --------------- | ------------------------------------ | ---------------------------- |
-| Queue           | nextTick queue (Node.js-managed)     | Microtask queue (V8-managed) |
-| Priority in CJS | Higher (runs first)                  | Lower (runs after nextTick)  |
-| Priority in ESM | **Lower** (runs after microtasks)    | **Higher** (runs first)      |
-| Standard        | Node.js-specific                     | Web standard, cross-platform |
-| Additional args | `nextTick(fn, arg1, arg2)` supported | Requires closure             |
-| Starvation risk | High (can starve I/O if recursive)   | Lower                        |
-
-**Critical ESM/CJS difference**: In ESM modules, Node.js is already draining the microtask queue when your code runs, so `queueMicrotask()` callbacks execute **before** `process.nextTick()`. This reverses the CJS behavior and can break code ported between module systems.
-
-**Official recommendation** from Node.js docs: "For most userland use cases, `queueMicrotask()` provides a portable and reliable mechanism for deferring execution."
-
-### nextTick vs setImmediate Execution
-
-![nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms](./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t-light.svg "nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms")
-![nextTick vs setImmediate execution showing the timing difference between these two Node.js-specific scheduling mechanisms](./diagrams/nexttick-vs-setimmediate-execution-showing-the-timing-difference-between-these-t-dark.svg)
-
-### setTimeout vs setImmediate Ordering
-
-Within an I/O callback, `setImmediate()` always executes before `setTimeout(fn, 0)` because the poll phase proceeds to the check phase before wrapping back to timers. Outside I/O callbacks (e.g., in the main module), the order is **non-deterministic** and depends on process performance at startup.
-
-![Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.](./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic-light.svg "Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.")
-![Inside I/O: deterministic (setImmediate first). Outside I/O: non-deterministic.](./diagrams/inside-i-o-deterministic-setimmediate-first-outside-i-o-non-deterministic-dark.svg)
-
-```javascript title="timer-ordering.js"
-const fs = require("fs")
-
-// In main module: non-deterministic order
-setTimeout(() => console.log("setTimeout"), 0)
-setImmediate(() => console.log("setImmediate"))
-// Output varies between runs
-
-// Inside I/O callback: always setImmediate first
-fs.readFile(__filename, () => {
-  setTimeout(() => console.log("setTimeout (I/O)"), 0)
-  setImmediate(() => console.log("setImmediate (I/O)"))
-})
-// Output: "setImmediate (I/O)" then "setTimeout (I/O)" - guaranteed
-```
-
-**Recommendation from Node.js docs**: "We recommend developers use `setImmediate()` in all cases because it's easier to reason about."
-
-## True Parallelism: Worker Threads
-
-Worker threads (browser Web Workers or Node.js `worker_threads`) provide true parallelism by creating independent JavaScript execution contexts with their own event loops.
-
-### Worker Architecture
-
-![Workers have independent event loops; communication via message passing](./diagrams/workers-have-independent-event-loops-communication-via-message-passing-light.svg "Workers have independent event loops; communication via message passing")
-![Workers have independent event loops; communication via message passing](./diagrams/workers-have-independent-event-loops-communication-via-message-passing-dark.svg)
-
-### Data Transfer Mechanisms
-
-| Method                         | Performance   | Use Case                                          |
-| ------------------------------ | ------------- | ------------------------------------------------- |
-| **Structured Clone** (default) | O(n) copy     | Small messages, primitives, plain objects         |
-| **Transferable Objects**       | O(1) transfer | ArrayBuffer, MessagePort, ImageBitmap             |
-| **SharedArrayBuffer**          | Zero-copy     | High-frequency updates, lock-free data structures |
-
-**Structured Clone** serializes and deserializes the data, suitable for small payloads. For large binary data (e.g., image processing), use **Transferable Objects** to avoid copying—ownership transfers to the worker, making the original reference unusable.
-
-**SharedArrayBuffer** enables true shared memory between threads. Use `Atomics` for synchronization to avoid race conditions. Per ECMAScript 2025: "The memory model ensures no undefined behavior from data races."
-
-```javascript title="worker-transfer.js" collapse={1-3, 12-15}
-// Main thread
-const worker = new Worker("processor.js")
-const buffer = new ArrayBuffer(1024 * 1024) // 1MB
-
-// Transfer ownership - buffer becomes detached (length: 0)
-worker.postMessage({ data: buffer }, [buffer])
-console.log(buffer.byteLength) // 0 - transferred
-
-// For shared memory (requires cross-origin isolation)
-const shared = new SharedArrayBuffer(1024)
-const view = new Int32Array(shared)
-Atomics.store(view, 0, 42) // Thread-safe write
-worker.postMessage({ shared })
-```
-
-## Performance Monitoring and Debugging
-
-### Node.js Event Loop Metrics
-
-The `perf_hooks` module provides event loop delay monitoring:
-
-```javascript title="event-loop-monitor.js" collapse={1-2}
-const { monitorEventLoopDelay } = require("perf_hooks")
-
-const histogram = monitorEventLoopDelay({ resolution: 20 })
-histogram.enable()
-
-// Check every 5 seconds
-setInterval(() => {
-  console.log({
-    min: histogram.min / 1e6, // Convert ns to ms
-    max: histogram.max / 1e6,
-    mean: histogram.mean / 1e6,
-    p99: histogram.percentile(99) / 1e6,
-  })
-  histogram.reset()
-}, 5000)
-```
-
-**Healthy thresholds**:
-
-- **mean < 10ms**: Good—event loop is responsive
-- **p99 < 50ms**: Acceptable for most applications
-- **p99 > 100ms**: Problematic—indicates blocking operations or CPU-bound work
-
-### Bottleneck Identification
-
-| Symptom                          | Likely Cause               | Diagnostic                              |
-| -------------------------------- | -------------------------- | --------------------------------------- |
-| High event loop lag, high CPU    | CPU-bound JavaScript       | CPU profiler, look for hot functions    |
-| High event loop lag, low CPU     | Blocking I/O in event loop | Check for `*Sync` APIs                  |
-| Normal lag, slow file operations | Thread pool saturation     | Increase `UV_THREADPOOL_SIZE`           |
-| Slow network, normal lag         | Network I/O capacity       | Check connection counts, socket buffers |
-
-### Browser Performance APIs
-
-For browser event loop monitoring, use `PerformanceObserver` with `longtask` entries:
-
-```javascript title="long-task-monitor.js"
-const observer = new PerformanceObserver((list) => {
-  for (const entry of list.getEntries()) {
-    // Long tasks are > 50ms
-    console.log(`Long task: ${entry.duration}ms`, entry.attribution)
-  }
-})
-observer.observe({ entryTypes: ["longtask"] })
-```
-
-`requestIdleCallback` indicates when the browser has idle time—useful for deferring non-critical work:
-
-```javascript title="idle-callback.js"
-requestIdleCallback(
-  (deadline) => {
-    // deadline.timeRemaining() reports ms until next frame
-    while (deadline.timeRemaining() > 0 && workQueue.length > 0) {
-      processItem(workQueue.shift())
-    }
-  },
-  { timeout: 2000 }, // Force execution after 2s even if busy
-)
-```
-
-**Note**: `requestIdleCallback` is not supported in Safari. Maximum idle period is 50ms per the W3C spec to ensure 100ms response time for user input.
-
-## Conclusion
-
-The JavaScript event loop is an abstract concurrency model with environment-specific implementations. The ECMAScript specification defines Jobs and Agents; hosts implement concrete event loops optimized for their workloads—browsers for UI responsiveness at 60fps, Node.js for high-throughput I/O via libuv's phased architecture.
-
-The key insight: microtasks always drain completely before the next macrotask or render. This enables consistent DOM state before paint but risks starvation if microtasks spawn recursively. Understanding this priority system—and the environment-specific scheduling APIs (`requestAnimationFrame`, `setImmediate`, `scheduler.postTask`)—is essential for building responsive applications.
+- [Browser Event Loop: Tasks, Microtasks, Rendering, and Idle Time](../browser-event-loop/README.md) — WHATWG HTML 8.1.6 processing model in depth, render-opportunity selection, long tasks, scheduler.postTask, idle scheduling.
+- [Node.js Event Loop: Phases, Queues, and Process Exit](../nodejs-event-loop/README.md) — libuv phases, nextTick + microtask drain points, `setImmediate` vs timers, process exit conditions, the libuv 1.45 timer change.
+- [libuv Internals: Event Loop and Async I/O](../libuv-event-loop-internals/README.md) — handles, requests, the thread pool, epoll/kqueue/IOCP/io_uring backends.
+- [V8 Engine Architecture](../v8-engine-architecture/README.md) — Ignition, TurboFan, the microtask queue implementation.
+- [Browser Internals](../browser-internals/README.md) — process model, site isolation, scheduler integration with rendering.
 
 ## Appendix
 
 ### Prerequisites
 
-- JavaScript async/await and Promise fundamentals
-- Basic understanding of operating system I/O models
-- Familiarity with browser rendering concepts (for browser section)
+- JavaScript Promise mechanics and async/await syntax.
+- High-level familiarity with at least one of the browser or Node.js event loops.
 
 ### Terminology
 
-| Term             | Definition                                                                       |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **Agent**        | ECMAScript execution context with call stack, job queues, and running context    |
-| **Macrotask**    | A task scheduled for future event loop iteration (setTimeout, I/O callback)      |
-| **Microtask**    | A high-priority task that drains completely before next macrotask (Promise.then) |
-| **Event Loop**   | Host-provided mechanism that schedules JavaScript execution                      |
-| **libuv**        | Cross-platform async I/O library used by Node.js                                 |
-| **IOCP**         | I/O Completion Ports—Windows async I/O mechanism                                 |
-| **epoll/kqueue** | Linux/macOS async I/O notification mechanisms                                    |
+| Term | Spec section | Definition |
+| :--- | :--- | :--- |
+| **Job** | §9.5 | An Abstract Closure with no parameters that initiates an ECMAScript computation when no other ECMAScript computation is currently in progress. |
+| **Job Abstract Closure** | §9.5 | The closure passed to a `HostEnqueue*Job` hook; must return a normal completion. |
+| **JobCallback Record** | §9.5.1 | `{ [[Callback]], [[HostDefined]] }` — wraps a function so the host can carry context across the async boundary. |
+| **Realm** | §9.3 | A self-contained world: intrinsics, `globalThis`, current evaluation environment. |
+| **Agent** | §9.6 | A single thread of evaluation: execution context stack, running execution context, Agent Record, executing thread. |
+| **Agent Cluster** | §9.7 | Maximal set of agents that can share memory. Bounds `SharedArrayBuffer` visibility and Atomics synchronization. |
+| **Forward Progress** | §9.8 | Liveness guarantee: every unblocked agent with a dedicated thread makes progress; one of any thread-sharing set makes progress. |
+| **Promise Job** | §27.2.1.3.2 / §27.2.1.4.1 | A Job created by `NewPromiseReactionJob` or `NewPromiseResolveThenableJob`. |
+| **Microtask** | WHATWG HTML / Node docs | Host-level term for a Job enqueued via `HostEnqueuePromiseJob` (plus `MutationObserver` records and `queueMicrotask` callbacks in browsers). Not in ECMA-262. |
+| **Task / macrotask** | WHATWG HTML | Host-level term for a unit of work selected from a task queue. Not in ECMA-262. |
+| **`[[CanBlock]]`** | §9.6 | Boolean field on the Agent Record gating `Atomics.wait`. |
+
+### Spec section quick-reference
+
+| Topic | Section | URL |
+| :--- | :--- | :--- |
+| Jobs and Host Operations | §9.5 | [tc39.es/ecma262/#sec-jobs](https://tc39.es/ecma262/#sec-jobs) |
+| `HostEnqueuePromiseJob` | §9.5.5 | [tc39.es/ecma262/#sec-hostenqueuepromisejob](https://tc39.es/ecma262/#sec-hostenqueuepromisejob) |
+| `HostEnqueueGenericJob` | §9.5.4 | [tc39.es/ecma262/#sec-hostenqueuegenericjob](https://tc39.es/ecma262/#sec-hostenqueuegenericjob) |
+| `HostEnqueueTimeoutJob` | §9.5.6 | [tc39.es/ecma262/#sec-hostenqueuetimeoutjob](https://tc39.es/ecma262/#sec-hostenqueuetimeoutjob) |
+| `HostEnqueueFinalizationRegistryCleanupJob` | §9.9.4.1 | [tc39.es/ecma262/#sec-hostenqueuefinalizationregistrycleanupjob](https://tc39.es/ecma262/#sec-hostenqueuefinalizationregistrycleanupjob) |
+| `HostMakeJobCallback` / `HostCallJobCallback` | §9.5.2 / §9.5.3 | [tc39.es/ecma262/#sec-hostmakejobcallback](https://tc39.es/ecma262/#sec-hostmakejobcallback) |
+| Agents | §9.6 | [tc39.es/ecma262/#sec-agents](https://tc39.es/ecma262/#sec-agents) |
+| Agent Clusters | §9.7 | [tc39.es/ecma262/#sec-agent-clusters](https://tc39.es/ecma262/#sec-agent-clusters) |
+| Forward Progress | §9.8 | [tc39.es/ecma262/#sec-forward-progress](https://tc39.es/ecma262/#sec-forward-progress) |
+| Promise Jobs (`NewPromiseReactionJob`, `PerformPromiseThen`) | §27.2.1.3.2, §27.2.5.4.1 | [tc39.es/ecma262/#sec-newpromisereactionjob](https://tc39.es/ecma262/#sec-newpromisereactionjob) |
+| `Await` | §6.2.4.10 | [tc39.es/ecma262/#await](https://tc39.es/ecma262/#await) |
+| Memory Model | §29 | [tc39.es/ecma262/#sec-memory-model](https://tc39.es/ecma262/#sec-memory-model) |
+| WHATWG HTML — event loops | §8.1.6 | [html.spec.whatwg.org/#event-loops](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops) |
+| WHATWG HTML — JavaScript host hook integration | §8.1.7 | [html.spec.whatwg.org/#integration-with-the-javascript-job-queue](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-job-queue) |
+| Node.js Event Loop guide | — | [nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick](https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick) |
 
 ### Summary
 
-- The event loop is a host environment feature, not a JavaScript language feature
-- Two-tier priority: microtasks (high) drain completely before macrotasks (lower)
-- Browsers integrate with rendering: Task → Microtasks → rAF → Style → Layout → Paint
-- Node.js uses 6 libuv phases: timers → pending → idle → poll → check → close
-- `process.nextTick()` has higher priority than microtasks in CJS, but lower in ESM
-- Thread pool (default 4) handles blocking operations; network I/O is non-blocking
-- Worker threads provide true parallelism with separate event loops
-- Monitor event loop lag; healthy p99 < 50ms
+- ECMA-262 specifies four host hooks (`HostEnqueueGenericJob`, `HostEnqueuePromiseJob`, `HostEnqueueTimeoutJob`, `HostEnqueueFinalizationRegistryCleanupJob`) and leaves the actual event loop to the host.
+- A Job runs only when the agent's execution context stack is empty. One Job at a time, run-to-completion, no preemption.
+- The microtask queue drains to empty between tasks/callbacks — including microtasks that microtasks queue. This is the source of microtask starvation.
+- `HostEnqueuePromiseJob` is FIFO across all promise reactions on the agent. `await x` schedules a microtask even when `x` is a primitive.
+- Browsers implement one task queue (multiple sources), one microtask checkpoint per task, and a render opportunity modeled as a task on the rendering task source.
+- Node implements libuv's six phases with `process.nextTick` (legacy in 22+) and the V8 microtask queue drained between every callback.
+- `queueMicrotask` is the standard microtask API; prefer it over `Promise.resolve().then()` for microtask intent, and over `process.nextTick` for portability.
+- For real "yield to the scheduler" semantics in the browser, use `scheduler.postTask` (or `MessageChannel` as a fallback), not `setTimeout(fn, 0)` — which is clamped to 1–4 ms.
+- `FinalizationRegistry` cleanup is optional in the spec; never depend on it firing.
 
-### References
-
-**Specifications**
-
-- [WHATWG HTML Living Standard - Event Loops](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops) - Authoritative browser processing model
-- [ECMAScript 2025 - Jobs and Job Queues](https://tc39.es/ecma262/#sec-jobs-and-job-queues) - Language specification for async scheduling
-- [W3C requestIdleCallback](https://w3c.github.io/requestidlecallback/) - Idle callback specification
-
-**Official Documentation**
-
-- [Node.js Event Loop Documentation](https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick) - Phases, `process.nextTick`, `setImmediate`
-- [libuv Design Overview](https://docs.libuv.org/en/v1.x/design.html) - Thread pool, OS abstraction, I/O model
-- [libuv Thread Pool](https://docs.libuv.org/en/v1.x/threadpool.html) - Configuration, sizing, operations
-- [MDN - Using Microtasks](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide) - Microtask behavior
-- [MDN - Prioritized Task Scheduling API](https://developer.mozilla.org/en-US/docs/Web/API/Prioritized_Task_Scheduling_API) - scheduler.postTask
-
-**Core Maintainer Content**
-
-- [Tasks, Microtasks, Queues and Schedules - Jake Archibald](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/) - Interactive visualization
-- [Bert Belder libuv Talk Notes](https://baking-code.dev/post/my-notes-from-bert-belders-talk-on-libuv/) - libuv design rationale
-- [Video: Everything You Need to Know About Node.js Event Loop - Bert Belder, IBM](https://youtu.be/PNa9OMajw9w)
-- [Video: Node's Event Loop From the Inside Out - Sam Roberts, IBM](https://youtu.be/P9csgxBgaZ8)
-- [The Dangers of setImmediate - Platformatic](https://blog.platformatic.dev/the-dangers-of-setimmediate) - Node.js 20 timing changes
+[^ecma262]: [ECMA-262, 16th edition (June 2025) — Jobs and Host Operations](https://tc39.es/ecma262/#sec-jobs).
+[^jobs]: [ECMA-262 §9.5 Jobs and Host Operations to Enqueue Jobs](https://tc39.es/ecma262/#sec-jobs).
+[^agents]: [ECMA-262 §9.6 Agents](https://tc39.es/ecma262/#sec-agents) and [§9.7 Agent Clusters](https://tc39.es/ecma262/#sec-agent-clusters).
+[^forward-progress]: [ECMA-262 §9.8 Forward Progress](https://tc39.es/ecma262/#sec-forward-progress).
+[^promise-jobs]: [ECMA-262 §27.2.1.3.2 NewPromiseReactionJob](https://tc39.es/ecma262/#sec-newpromisereactionjob), [§27.2.1.4.1 NewPromiseResolveThenableJob](https://tc39.es/ecma262/#sec-newpromiseresolvethenablejob), and [§27.2.5.4.1 PerformPromiseThen](https://tc39.es/ecma262/#sec-performpromisethen).
+[^enqueue-promise-job]: [ECMA-262 §9.5.5 HostEnqueuePromiseJob](https://tc39.es/ecma262/#sec-hostenqueuepromisejob).
+[^html-jobs]: [WHATWG HTML — JavaScript specification host hooks](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-job-queue) and [HTML §8.1.6 Event loops](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops); rendering-task refactor in [whatwg/html PR #10007 (merged 2024-01-31)](https://github.com/whatwg/html/pull/10007).
+[^html-timers]: [WHATWG HTML — Timers (`setTimeout`/`setInterval`)](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers).
+[^node-event-loop]: [Node.js — The Node.js Event Loop, Timers, and process.nextTick()](https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick).
+[^node-microtasks]: [Node.js — `process.nextTick()` and "When to use queueMicrotask vs process.nextTick"](https://nodejs.org/docs/latest/api/process.html#when-to-use-queuemicrotask-vs-processnexttick); `process.nextTick` is Stability 3 (Legacy) since Node.js 22.7 / 20.18.
+[^libuv-timers]: [libuv PR #3927 — process timers after the poll phase](https://github.com/libuv/libuv/pull/3927) (libuv 1.45.0, Node.js 20+); see also [nodejs/node #57364](https://github.com/nodejs/node/issues/57364) and [Tasks, microtasks, queues and schedules — Jake Archibald](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/) for the conceptual baseline.
+[^mdn-microtasks]: [MDN — Using microtasks in JavaScript with `queueMicrotask()`](https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide) and [MDN — `Window.queueMicrotask()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/queueMicrotask).
+[^macarthur]: [Alex MacArthur — Picking the Right Tool for Maneuvering JavaScript's Event Loop](https://macarthur.me/posts/navigating-the-event-loop) (cross-validates the `MessageChannel` macrotask pattern documented by the WHATWG and used in React's scheduler).
+[^waitasync]: [MDN — `Atomics.waitAsync()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Atomics/waitAsync); standardized in ECMAScript 2024.
+[^cf-finreg]: [Cloudflare — We shipped FinalizationRegistry in Workers; why you should never use it](https://blog.cloudflare.com/we-shipped-finalizationregistry-in-workers-why-you-should-never-use-it/).

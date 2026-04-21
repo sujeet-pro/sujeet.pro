@@ -1,0 +1,37 @@
+%% Diagram: Schema Domains - Logical to Physical Partitioning
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph BEFORE["Before: mysql1 monolith (~950K QPS)"]
+        M1["mysql1\n~130 hot tables\n(users, repos, issues,\nPRs, gists, ...)"]
+    end
+
+    subgraph LINT["Logical partition (in code)"]
+        SD["schema-domains.yml"]
+        QL["Query linter:\nblock cross-domain JOIN"]
+        TL["Transaction linter:\nsampled in prod"]
+        SD --> QL
+        SD --> TL
+    end
+
+    subgraph AFTER["After: 50+ domain clusters"]
+        C1["users cluster"]
+        C2["repositories cluster"]
+        C3["gists cluster"]
+        C4["notifications\n(Vitess sharded)"]
+        CN["... 46+ more"]
+    end
+
+    M1 -->|"adopt\nschema domains"| SD
+    QL -->|"zero violations"| C1
+    TL -->|"physical move:\nVitess vertical OR\n6-step cutover"| C2
+    SD --> C3
+    SD --> C4
+    SD --> CN
+
+    classDef monolith fill:#d97757,stroke:#5d2a16,color:#1c1c1c
+    classDef tooling fill:#9d8fd6,stroke:#3f3267,color:#1c1c1c
+    classDef cluster fill:#5fa479,stroke:#26482f,color:#1c1c1c
+    class M1 monolith
+    class SD,QL,TL tooling
+    class C1,C2,C3,C4,CN cluster

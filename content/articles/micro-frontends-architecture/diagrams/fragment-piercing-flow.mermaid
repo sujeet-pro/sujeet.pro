@@ -1,0 +1,20 @@
+%% Diagram: Fragment piercing — incrementally migrate a legacy SPA via edge fragments
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant Edge as Edge Worker (Gateway)
+    participant Legacy as Legacy SPA (origin)
+    participant Frag as New Fragment (origin)
+
+    U->>Edge: GET /account
+    Edge->>Legacy: Fetch shell HTML
+    Edge->>Frag: Fetch new fragment HTML in parallel
+    Frag-->>Edge: SSR fragment (interactive at first paint)
+    Legacy-->>Edge: Shell HTML
+    Edge-->>U: Stream shell + fragment at top of DOM
+    Note over U: Fragment is interactive immediately
+    U->>U: Legacy SPA hydrates
+    U->>U: Pierce: move fragment node into\n<piercing-fragment-outlet>
+    Note over U: No layout shift · focus and form state preserved

@@ -1,0 +1,24 @@
+%% Diagram: Three package topologies for distributing a design system
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Single["Single package — @company/ds"]
+        S1[index.ts re-exports everything]
+        S1 --> S2[Button] & S3[Dialog] & S4[Table]
+        S5["Tree-shaking depends on<br/>preserveModules + sideEffects"]
+    end
+
+    subgraph Subpath["Subpath exports — @company/ds/button"]
+        SP1["package.json exports map"]
+        SP1 --> SP2["./button → ./dist/button.js"]
+        SP1 --> SP3["./dialog → ./dist/dialog.js"]
+        SP1 --> SP4["./table  → ./dist/table.js"]
+        SP5["Imports stay narrow even with<br/>aggressive tree-shakers off"]
+    end
+
+    subgraph PerComponent["Per-component packages — @company/button"]
+        PC1["@company/button"]
+        PC2["@company/dialog"]
+        PC3["@company/table"]
+        PC4["Independent semver per component<br/>Heaviest release tooling"]
+    end

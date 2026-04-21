@@ -1,0 +1,24 @@
+%% Diagram: Rate Limiting Overview — algorithm + coordination + response
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Client(["Client request"]) --> Decision{"Identify\nkey"}
+    Decision --> Algo["Algorithm\nTB / LB / FW / SWL / SWC"]
+    Algo --> Coord{"State\nlocation?"}
+    Coord -->|"Single instance"| Local["Local counter\nO(1) memory"]
+    Coord -->|"Distributed"| Shared[("Redis / Memcached\n+ Lua atomic ops")]
+    Coord -->|"Latency-sensitive"| Hybrid["Local approx\n+ periodic sync"]
+    Local --> Verdict{"Allow?"}
+    Shared --> Verdict
+    Hybrid --> Verdict
+    Verdict -->|"Yes"| Backend["Backend service"]
+    Verdict -->|"No"| Reject["429 Too Many Requests\n+ Retry-After\n+ RateLimit headers"]
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class Algo,Local,Hybrid,Backend primary
+    class Shared storage
+    class Reject alert
+    class Decision,Coord,Verdict neutral

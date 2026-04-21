@@ -1,0 +1,23 @@
+%% Diagram: Service architecture (logical)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Browser["Browser / Mobile"]
+    GW["API Gateway + Auth"]
+    CS["Cart Service"]
+    CartStore[("Cart Store\nRedis + RDBMS")]
+    DOMAIN["Pricing + Inventory\nServices, Promo Engine, caches, stores"]
+    COS["Checkout Orchestrator"]
+    ORDERPAY["Payment + Order Service\n+ Order DB"]
+    ASYNC["Queue + Workers\nCart Expiry · Notifications"]
+
+    Browser --> GW
+    GW --> CS
+    GW --> COS
+    CS --> CartStore
+    CS --> DOMAIN
+    CS --> ASYNC
+    COS --> ORDERPAY
+    COS --> DOMAIN
+    ASYNC --> CartStore
+    ASYNC --> DOMAIN

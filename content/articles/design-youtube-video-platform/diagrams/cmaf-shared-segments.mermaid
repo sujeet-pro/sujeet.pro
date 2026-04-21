@@ -1,0 +1,12 @@
+%% Diagram: CMAF shared segments across HLS and DASH
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    SRC[Source video] --> ENC[Encoder]
+    ENC --> SEG[CMAF fMP4 segments<br/>.cmfv / .cmfa / .m4s]
+    SEG --> HLS[HLS .m3u8 manifest]
+    SEG --> DASH[DASH .mpd manifest]
+    HLS --> SAFARI[Safari / iOS / tvOS]
+    DASH --> CHROME[Chrome / Firefox / Edge / Android]
+    HLS -.same bytes.-> SEG
+    DASH -.same bytes.-> SEG

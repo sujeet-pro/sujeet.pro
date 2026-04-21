@@ -6,332 +6,203 @@ description: >-
   design, snapshot strategies, projection patterns, schema evolution via
   upcasting, and the practical trade-offs that determine when event sourcing fits.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - patterns
   - system-design
+  - event-sourcing
+  - cqrs
 ---
 
 # Event Sourcing
 
-A deep-dive into event sourcing: understanding the core pattern, implementation variants, snapshot strategies, schema evolution, and production trade-offs across different architectures.
+Event sourcing stores application state as an append-only log of domain events; current state is a derived view, not the source of truth. This article is for senior engineers deciding whether to adopt the pattern, or operating a system that already uses it. By the end you should know when event sourcing is the right answer, how to choose between inline and async projections, how to evolve event schemas without rewriting history, when to add snapshots, why Apache Kafka is a streaming bus and not an event store, and how teams like LMAX, Netflix, and Uber actually run it in production.
 
-![Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.](./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections-light.svg "Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.")
-![Event sourcing architecture: commands produce events stored immutably; projections derive read models; state rebuilt by replaying events from snapshots.](./diagrams/event-sourcing-architecture-commands-produce-events-stored-immutably-projections-dark.svg)
+![Event sourcing architecture: commands produce events stored immutably; projections derive read models; recovery folds snapshot plus tail events.](./diagrams/architecture-overview-light.svg "Event sourcing architecture — commands append immutable events; projections derive read models; recovery folds snapshot plus tail events.")
+![Event sourcing architecture: commands produce events stored immutably; projections derive read models; recovery folds snapshot plus tail events.](./diagrams/architecture-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-Event sourcing stores application state as a sequence of immutable events rather than current state. The core insight: **events are facts that happened—they cannot be deleted or modified, only appended**. State is derived by replaying events (a "left fold" over the event stream).
+Three loops:
 
-Key mental model:
+- **Write path.** A command hits a handler, the handler loads the aggregate by folding its event stream, runs the decision, and appends new events to the stream with an expected version (optimistic concurrency).
+- **Read path.** Subscribers consume the event log and project it into one or more read-optimised models. There is no general "query the event store"; every read serves a projection.
+- **Recovery.** State is rebuilt by replaying events. Snapshots are an optimisation for that replay, never a source of truth.
 
-- **Write path**: Commands → Validation → Event(s) → Append to stream
-- **Read path**: Subscribe to events → Project into read-optimized models
-- **Recovery**: Snapshot + Replay events since snapshot = Current state
-
-Design decisions after choosing event sourcing:
-
-1. **Stream granularity**: Per-aggregate (common) vs shared streams (rare)
-2. **Projection strategy**: Synchronous (strong consistency) vs async (eventual)
-3. **Snapshot policy**: Event-count vs time-based vs state-triggered
-4. **Schema evolution**: Upcasting (transform on read) vs stream transformation (migrate data)
-
-Event sourcing is not CQRS (Command Query Responsibility Segregation), but with event sourcing you must use CQRS—reads come from projections, not the event store.
-
-## The Problem
-
-### Why Naive Solutions Fail
-
-**Approach 1: Mutable state in a database (CRUD)**
-
-- **Fails because**: Current state overwrites history. You cannot answer "what was the balance at 3pm yesterday?" without separate audit logging.
-- **Example**: A bank account shows $500. A customer disputes a charge. Without event history, proving what transactions occurred requires mining application logs—if they exist.
-
-**Approach 2: Adding audit tables alongside CRUD**
-
-- **Fails because**: Audit tables and current state can diverge. The audit is a second-class citizen—queries hit current state, audits are bolted on.
-- **Example**: A bug updates the balance without writing to the audit table. Now the audit and state disagree. Which is correct?
-
-**Approach 3: Database triggers for audit logging**
-
-- **Fails because**: Triggers capture "what changed," not "why it changed." You see "balance changed from 600 to 500" but not "customer withdrew $100 at ATM #4421."
-- **Example**: Debugging why an order was cancelled. Trigger logs show "status changed to CANCELLED" but not "cancelled by customer due to shipping delay."
-
-### The Core Challenge
-
-The fundamental tension: **optimized writes vs queryable history**. CRUD optimizes for writes (overwrite current state) but sacrifices history. Audit logging preserves history but creates dual-write complexity and semantic loss.
-
-Event sourcing exists to make **events the single source of truth**—current state becomes a derived view that can be rebuilt at any time.
-
-## Pattern Overview
-
-### Core Mechanism
-
-Every state change is captured as an immutable event appended to an event stream. Current state is derived by replaying events from the beginning (or from a snapshot).
-
-From Martin Fowler's foundational definition:
-
-> "Capture all changes to an application state as a sequence of events."
-
-Events are structured facts:
-
-```typescript collapse={1-3}
-// Event structure
-interface DomainEvent {
-  eventId: string // Unique identifier
-  streamId: string // Aggregate this event belongs to
-  eventType: string // e.g., "OrderPlaced", "ItemAdded"
-  data: unknown // Event-specific payload
-  metadata: {
-    timestamp: Date
-    version: number // Position in stream
-    causationId?: string // What caused this event
-    correlationId?: string // Request/saga identifier
-  }
-}
-```
-
-State reconstruction follows a deterministic left-fold:
+The core invariant is a deterministic left fold:
 
 ```
 currentState = events.reduce(applyEvent, initialState)
 ```
 
-### Key Invariants
+So long as `applyEvent` is pure and the event stream is ordered within a stream, replay is reproducible.
 
-1. **Append-only**: Events are never updated or deleted. The event store is an immutable log.
-2. **Deterministic replay**: Given the same events in the same order, replay produces identical state.
-3. **Event ordering**: Events within a stream are totally ordered by version number.
-4. **Idempotent projections**: Projections must handle duplicate event delivery gracefully.
+> [!IMPORTANT]
+> Event sourcing implies CQRS — reads come from projections, never from the event store directly. CQRS does not imply event sourcing — you can split commands and queries while still using a CRUD database for both sides. [Martin Fowler distinguishes the two explicitly](https://martinfowler.com/bliki/CQRS.html) and warns that combining them adds significant complexity.
 
-### Failure Modes
+### Vocabulary you need before reading the rest
 
-| Failure                          | Impact                                                | Mitigation                                          |
-| -------------------------------- | ----------------------------------------------------- | --------------------------------------------------- |
-| Event store unavailable          | Commands blocked; reads from projections may continue | Multi-region replication; read replicas             |
-| Projection lag                   | Stale read models                                     | Monitor lag; circuit breaker on staleness threshold |
-| Event schema mismatch            | Projection crashes or produces incorrect state        | Schema registry; upcasting; versioned projections   |
-| Unbounded event growth           | Replay becomes prohibitively slow                     | Snapshots; event archival to cold storage           |
-| Concurrent writes to same stream | Optimistic concurrency violation                      | Retry with conflict resolution; smaller aggregates  |
+| Term | Working definition |
+| --- | --- |
+| **Event** | Immutable fact: something that already happened in the domain. Past tense (`OrderPlaced`, not `PlaceOrder`). |
+| **Stream** | Ordered sequence of events for one aggregate (one order, one account). |
+| **Aggregate** | DDD consistency boundary; the unit you load, decide on, and append against. |
+| **Projection** | Read model produced by folding events from one or more streams. |
+| **Snapshot** | Materialised state at a stream position; an optimisation, not the source of truth. |
+| **Upcasting** | Transforming an old event payload to the current schema on read. |
+| **Optimistic concurrency** | Append succeeds only if the stream's current version equals the version the handler read. |
 
-## Design Paths
+## Why CRUD and bolt-on audit tables fall short
 
-### Path 1: Pure Event Sourcing
+Event sourcing exists because the obvious alternatives quietly fail at the bar that drove someone to consider it.
 
-**When to choose this path:**
+| Approach | What it gives up | Concrete failure |
+| --- | --- | --- |
+| **Mutable state in a row** (CRUD) | History — every write overwrites the previous value | "What was the balance at 15:00 yesterday?" needs a separate audit pipeline that may or may not exist |
+| **Audit tables alongside CRUD** | Single source of truth — current state and audit can diverge | A code path forgets to write the audit row; reconciliation jobs become a permanent tax |
+| **Database triggers for audit** | Domain semantics — the trigger sees `status: pending → cancelled` but not *why* | Debugging an order cancellation reveals the diff but not the customer's reason or the actor |
 
-- Audit trail is a regulatory requirement (finance, healthcare)
-- Temporal queries are core functionality ("what was the state on date X?")
-- Domain naturally expresses state changes as events
-- You need to rebuild projections for new query patterns
+Event sourcing reframes this: the event log *is* the database. Current state and the audit trail are no longer two artefacts that have to agree — they come from the same fold.
 
-**Key characteristics:**
+## The pattern in code
 
-- Events are the **only** source of truth
-- All read models are projections derived from events
-- No direct database writes outside the event store
-- State can be fully rebuilt from events at any time
+Events carry domain meaning plus metadata for ordering and tracing:
 
-**Implementation approach:**
-
-```typescript collapse={1-5, 15-25}
-// Pure event sourcing: aggregate loaded from events
-interface Aggregate<TState, TEvent> {
-  state: TState
-  version: number
-}
-
-// Command handler pattern
-async function handle<TState, TEvent>(
-  command: Command,
-  loadAggregate: (id: string) => Promise<Aggregate<TState, TEvent>>,
-  decide: (state: TState, command: Command) => TEvent[],
-  appendEvents: (streamId: string, expectedVersion: number, events: TEvent[]) => Promise<void>,
-): Promise<void> {
-  const aggregate = await loadAggregate(command.aggregateId)
-  const newEvents = decide(aggregate.state, command)
-  await appendEvents(command.aggregateId, aggregate.version, newEvents)
-}
-
-// Loading aggregate from event store
-async function loadAggregate<TState, TEvent>(
-  streamId: string,
-  eventStore: EventStore,
-  evolve: (state: TState, event: TEvent) => TState,
-  initialState: TState,
-): Promise<Aggregate<TState, TEvent>> {
-  const events = await eventStore.readStream(streamId)
-  const state = events.reduce(evolve, initialState)
-  return { state, version: events.length }
+```ts collapse={1-3}
+interface DomainEvent<TPayload = unknown> {
+  eventId: string         // unique, used for idempotency
+  streamId: string        // aggregate id
+  eventType: string       // e.g. "OrderPlaced"
+  data: TPayload          // domain payload
+  metadata: {
+    timestamp: Date
+    version: number       // position within the stream
+    causationId?: string  // event/command that caused this one
+    correlationId?: string // saga / request id
+  }
 }
 ```
 
-**Real-world example:**
+A command handler loads the aggregate, decides, and appends with optimistic concurrency:
 
-LMAX Exchange processes 6 million orders per second using pure event sourcing. Their Business Logic Processor runs entirely in-memory, single-threaded. Events are the recovery mechanism—on restart, they replay from last snapshot plus subsequent events to reconstruct state in milliseconds.
+```ts collapse={1-4, 24-30} title="commandHandler.ts"
+async function handle<TState, TEvent>(
+  command: Command,
+  deps: {
+    eventStore: EventStore
+    evolve: (state: TState, event: TEvent) => TState
+    decide: (state: TState, command: Command) => TEvent[]
+    initialState: TState
+  },
+): Promise<void> {
+  const events = await deps.eventStore.readStream<TEvent>(command.aggregateId)
+  const state = events.reduce(deps.evolve, deps.initialState)
+  const newEvents = deps.decide(state, command)
+  await deps.eventStore.appendEvents(
+    command.aggregateId,
+    /* expectedVersion */ events.length,
+    newEvents,
+  )
+}
+```
 
-Key implementation details:
+If another writer wins the race, the store rejects the append on the version check and the handler retries — `decide` runs again on the now-newer state.
 
-- Ring buffer (Disruptor) handles I/O concurrency: 20 million slots for input
-- Latency: sub-50 nanosecond event processing (mean latency 3 orders of magnitude below queue-based approaches)
-- Nightly snapshots; BLP restarts every night with zero downtime via replication
+### Invariants that the rest of the system relies on
 
-**Trade-offs vs other paths:**
+1. **Append-only.** No update, no delete on the event log; everything else assumes this.
+2. **Deterministic replay.** Same events, same order, same final state — no clocks, no random IDs, no implicit time-of-day reads inside `evolve`.
+3. **Total order within a stream.** Across streams, only causal order matters; pretending you have a global clock is a footgun.
+4. **Idempotent projections.** Subscribers will see duplicates and replays — handlers must tolerate them.
 
-| Aspect                  | Pure Event Sourcing              | Hybrid (ES + CRUD)                          |
-| ----------------------- | -------------------------------- | ------------------------------------------- |
-| Audit completeness      | Full history guaranteed          | Partial—only ES domains audited             |
-| Query flexibility       | Build any projection from events | Some data may not be projectable            |
-| Complexity              | Higher—must project all reads    | Lower—CRUD for simple domains               |
-| Migration cost          | Very high (all-or-nothing)       | Incremental                                 |
-| Team expertise required | Event-driven thinking throughout | Can isolate ES to specific bounded contexts |
+### Failure modes worth designing for
 
-### Path 2: Hybrid Event Sourcing (ES + CRUD)
+| Failure | Impact | Mitigation |
+| --- | --- | --- |
+| Event store unavailable | Writes block; reads from existing projections may continue | Multi-AZ replication, read replicas, write retries |
+| Projection lag | Stale read models | Lag SLOs, alert on staleness, circuit-break stale-sensitive features |
+| Schema mismatch on replay | Projection crashes or produces nonsense | Schema registry, upcasters, versioned projections |
+| Unbounded event growth | Replay too slow to cold-start | Snapshots, archival to cold storage, time-segmented streams |
+| Concurrent writes to the same stream | Optimistic concurrency violation | Smaller aggregates, retry on conflict |
 
-**When to choose this path:**
+## Design paths
 
-- Some domains require audit trails; others don't
-- Team has mixed experience with event-driven architecture
-- Migrating from existing CRUD system incrementally
-- Read-heavy workloads where projection lag is unacceptable for some data
+The four shapes below trade consistency, throughput, and operational complexity in different ways. They are not mutually exclusive — large systems usually mix them per bounded context.
 
-**Key characteristics:**
+### Path 1: Pure event sourcing
 
-- Core business domains use event sourcing (orders, transactions, inventory)
-- Supporting domains use CRUD (user preferences, product catalog)
-- Clear boundaries between ES and CRUD contexts
-- Events may be published from CRUD systems for integration
+**Choose when** the audit trail is regulatory (finance, healthcare), temporal queries are first-class, the domain naturally expresses itself as state changes, or you expect to grow new read models from the same events for years.
 
-**Implementation approach:**
+**Shape.** Events are the only persisted state. Every read goes through a projection. Aggregates are loaded by replay. There is no shadow CRUD database.
 
-```typescript collapse={1-3}
-// Hybrid: Event-sourced orders, CRUD product catalog
+**Real-world.** [LMAX Exchange](https://martinfowler.com/articles/lmax.html) demonstrated the upper bound of this style: a single-threaded, in-memory **Business Logic Processor** (BLP) handling around 6 million orders per second on a 3 GHz Nehalem-class server, with the [LMAX Disruptor](https://lmax-exchange.github.io/disruptor/disruptor.html) ring buffer (20 M input slots, 4 M output slots) decoupling I/O from the BLP. The BLP recovers by replaying events from the most recent nightly snapshot; replication keeps two BLPs in the primary data centre and one in DR so a restart causes no downtime.
 
-// Order aggregate (event-sourced)
+The lesson is not "you'll hit 6 M ops/s," but that when state lives in memory and the only durable artefact is the event log, the database stops being the bottleneck. You pay for that with complete event-driven discipline.
+
+### Path 2: Hybrid event sourcing (ES + CRUD)
+
+**Choose when** only some bounded contexts need history (transactions yes, product catalog no), the team has uneven event-driven experience, or you are migrating from CRUD incrementally.
+
+**Shape.** The event-sourced contexts own their streams and projections. CRUD contexts publish events for integration but their own state is the row in the database, not the event log. Boundaries are explicit.
+
+**Real-world.** [Walmart's Inventory & Availability system](https://medium.com/walmartglobaltech/design-inventory-availability-system-using-event-sourcing-1d0f022e399f) uses this hybrid: inventory is event-sourced (stock movements, reservations, business-rule application), partitioned in Cosmos DB by `<product, node>` id; the Change Feed streams events into materialised views that power real-time availability queries. The product catalog (descriptions, imagery) stays in conventional storage.
+
+```ts collapse={1-3} title="hybrid.ts"
 class OrderAggregate {
   apply(event: OrderEvent): void {
     switch (event.type) {
-      case "OrderPlaced":
-        this.status = "placed"
-        this.items = event.data.items
-        break
-      case "OrderShipped":
-        this.status = "shipped"
-        break
+      case 'OrderPlaced':  this.status = 'placed';  this.items = event.data.items; break
+      case 'OrderShipped': this.status = 'shipped'; break
     }
   }
 }
 
-// Product service (CRUD with event publishing)
 class ProductService {
   async updatePrice(productId: string, newPrice: number): Promise<void> {
-    // CRUD update
     await this.db.products.update(productId, { price: newPrice })
-    // Publish event for downstream consumers (not source of truth)
-    await this.eventBus.publish({ type: "PriceUpdated", productId, newPrice })
+    await this.outbox.enqueue({ type: 'PriceUpdated', productId, newPrice })
   }
 }
 ```
 
-**Real-world example:**
+Note the outbox on the CRUD side — even when the row is the source of truth, the integration event still needs the [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html) to avoid the dual-write trap (see "Pitfalls" below).
 
-Walmart's Inventory Availability System uses hybrid event sourcing. The inventory domain is fully event-sourced to track every stock movement. Product catalog data (descriptions, images) remains in traditional databases. Events from inventory updates feed projections that power real-time availability queries for millions of customers.
+### Path 3: Inline (synchronous) projections
 
-Key details:
+**Choose when** read-after-write must be strong, projections are cheap, throughput requirements are moderate, and you want a single failure domain for the write.
 
-- Events partitioned by product-node ID for scalability
-- Command processor validates business rules before event emission
-- Read and write sides use different tech stacks, scaled independently
+**Shape.** Append the events and apply the projections in the same database transaction. When the command returns, the read model is already current.
 
-**Trade-offs vs pure ES:**
+**Real-world.** [Marten](https://martendb.io/events/projections/inline) (a Postgres-backed event store for .NET) supports exactly this: inline projections "are running as part of the same transaction as the events being captured" via `IDocumentSession.SaveChangesAsync()`. Append + projection update commit together or roll back together.
 
-| Aspect                 | Hybrid                                      | Pure ES                           |
-| ---------------------- | ------------------------------------------- | --------------------------------- |
-| Migration path         | Gradual, bounded context by context         | Big-bang or strangler pattern     |
-| Team adoption          | Easier—ES expertise not required everywhere | Requires organization-wide buy-in |
-| Consistency            | Mixed—ES domains eventual, CRUD immediate   | Eventual consistency throughout   |
-| Operational complexity | Higher—two paradigms to operate             | Single paradigm (but complex)     |
-
-### Path 3: Event Sourcing with Synchronous Projections
-
-**When to choose this path:**
-
-- Strong consistency between writes and reads required
-- Projection latency is unacceptable
-- Lower throughput acceptable for consistency guarantee
-- Single-node or low-scale deployments
-
-**Key characteristics:**
-
-- Projections updated in same transaction as event append
-- Read model immediately reflects write
-- No eventual consistency concerns
-- Limited scalability—projection work blocks command processing
-
-**Implementation approach:**
-
-```typescript collapse={1-2, 18-22}
-// Synchronous projection: update read model in same transaction
-async function handleCommand(command: PlaceOrderCommand): Promise<void> {
+```ts collapse={1-2, 18-22} title="inlineProjection.ts"
+async function handlePlaceOrder(command: PlaceOrderCommand): Promise<void> {
   await db.transaction(async (tx) => {
-    // 1. Load aggregate
     const order = await loadFromEvents(tx, command.orderId)
-
-    // 2. Execute business logic
     const events = order.place(command.items)
-
-    // 3. Append events
     await appendEvents(tx, command.orderId, events)
-
-    // 4. Update projection synchronously
     for (const event of events) {
       await updateOrderListProjection(tx, event)
       await updateInventoryProjection(tx, event)
     }
   })
-  // Transaction commits: events + projections atomically
 }
 ```
 
-**Real-world example:**
+The price is throughput: every projection blocks the write, every projection's failure fails the command, and you cannot scale projections independently of writes.
 
-Marten (for .NET/PostgreSQL) supports inline projections that run within the same database transaction as event appends. This guarantees that when a command succeeds, the read model is immediately consistent.
+### Path 4: Async projections
 
-From Marten documentation: inline projections are "run as part of the same transaction as the events being captured and updated in the underlying database as well."
+**Choose when** write throughput matters more than read freshness, projections are expensive (aggregations, fan-out), or you want to scale reads independently from writes.
 
-**Trade-offs:**
+**Shape.** Commands return as soon as events commit. Subscribers tail the log, project asynchronously, and checkpoint their position. Projections must be idempotent because subscribers will replay on restart and the bus may deliver out of order on rebalance.
 
-| Aspect            | Synchronous Projections                 | Async Projections                    |
-| ----------------- | --------------------------------------- | ------------------------------------ |
-| Consistency       | Strong—reads reflect writes immediately | Eventual—lag between write and read  |
-| Throughput        | Lower—projection work blocks writes     | Higher—writes return without waiting |
-| Scalability       | Limited by projection cost              | Projections scale independently      |
-| Failure isolation | Projection failure fails the write      | Write succeeds; projection can retry |
+**Real-world.** [Netflix Downloads](https://netflixtechblog.com/scaling-event-sourcing-for-netflix-downloads-episode-2-ce1b54d46eec) (launched November 2016, built in roughly six months) is event-sourced on Cassandra with three components — Event Store, Aggregate Repository, Aggregate Service — and async projections rebuilt on demand for debugging. During development, full re-runs over historical events took *days*; snapshots and event archival were the path out.
 
-### Path 4: Event Sourcing with Asynchronous Projections
-
-**When to choose this path:**
-
-- High write throughput required
-- Eventual consistency acceptable
-- Projections are expensive (aggregations, joins)
-- Need to scale reads independently of writes
-
-**Key characteristics:**
-
-- Events appended to store; command returns immediately
-- Background processes subscribe to event streams
-- Projections catch up asynchronously
-- Must handle out-of-order delivery, duplicates, and lag
-
-**Implementation approach:**
-
-```typescript collapse={1-4, 20-28}
-// Async projection with checkpointing
+```ts collapse={1-4, 20-28} title="asyncProjection.ts"
 interface ProjectionState {
   lastProcessedPosition: number
-  // projection-specific state
 }
 
 async function runProjection(
@@ -340,87 +211,65 @@ async function runProjection(
   checkpoint: (position: number) => Promise<void>,
 ): Promise<void> {
   let state = await loadProjectionState()
-
   for await (const event of subscription.fromPosition(state.lastProcessedPosition)) {
     state = project(state, event)
-
-    // Checkpoint periodically (not every event—batching for performance)
     if (event.position % 100 === 0) {
       await checkpoint(event.position)
     }
   }
 }
 
-// Idempotent projection handling duplicates
 function projectOrderPlaced(state: OrderListState, event: OrderPlacedEvent): OrderListState {
-  // Skip if already processed (idempotency)
-  if (state.processedEventIds.has(event.eventId)) {
-    return state
-  }
-
+  if (state.processedEventIds.has(event.eventId)) return state // idempotency
   return {
     ...state,
-    orders: [...state.orders, { id: event.data.orderId, status: "placed" }],
+    orders: [...state.orders, { id: event.data.orderId, status: 'placed' }],
     processedEventIds: state.processedEventIds.add(event.eventId),
   }
 }
 ```
 
-**Real-world example:**
+The diagram below contrasts the two projection lifecycles end-to-end:
 
-Netflix's Downloads feature (launched November 2016) uses Cassandra-backed event sourcing with async projections. The team built this in six months, transforming from a stateless to stateful service.
+![Inline vs async projection lifecycle, with optimistic concurrency on the write path and idempotent upserts on the async read path.](./diagrams/sync-vs-async-projections-light.svg "Inline projections commit with the events; async projections checkpoint after the fact and must tolerate duplicates and reordering.")
+![Inline vs async projection lifecycle, with optimistic concurrency on the write path and idempotent upserts on the async read path.](./diagrams/sync-vs-async-projections-dark.svg)
 
-Key implementation details:
+### Picking a path
 
-- Three components: Event Store, Aggregate Repository, Aggregate Service
-- Projections rebuild on-demand for debugging
-- Horizontal scaling limited only by disk space
+![Decision framework: audit/temporal need → bounded context shape → consistency requirement → throughput, leading to CRUD, hybrid ES, inline projections, or async projections.](./diagrams/decision-framework-light.svg "From audit need down to consistency and throughput — the cheapest combination that still answers the questions you need to answer.")
+![Decision framework: audit/temporal need → bounded context shape → consistency requirement → throughput, leading to CRUD, hybrid ES, inline projections, or async projections.](./diagrams/decision-framework-dark.svg)
 
-**Trade-offs:**
+## Snapshots
 
-| Aspect            | Async Projections                          | Sync Projections                    |
-| ----------------- | ------------------------------------------ | ----------------------------------- |
-| Write latency     | Low—return immediately                     | Higher—wait for projections         |
-| Read freshness    | Eventual (seconds to minutes lag)          | Immediate                           |
-| Failure isolation | Yes—projection failures don't block writes | No—projection failure fails command |
-| Complexity        | Higher—handle duplicates, ordering, lag    | Lower—transactional guarantees      |
+Replaying every event for every command is fine until your hot aggregates carry tens of thousands of events. Snapshots store materialised state at a stream position so replay only has to fold the tail.
 
-### Decision Framework
+> [!TIP]
+> Do not snapshot eagerly. The [EventStoreDB / Kurrent guidance](https://www.kurrent.io/) and most practitioner posts agree: aggregates with hundreds of events do not need them. Wait until measured cold-start or load times push past your SLO.
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+### When to snapshot
 
-## Snapshot Strategies
+Add snapshots when at least one of these holds:
 
-Replaying thousands of events for every command becomes prohibitive. Snapshots store materialized state at a point in time, enabling replay from snapshot + recent events.
+- A hot aggregate routinely carries more events than your replay budget allows (measure before guessing).
+- Cold-start latency on rebalancing or restart is unacceptable to upstream callers.
+- A new projection rebuild would otherwise take days.
 
-### When to Snapshot
+### Trigger strategies
 
-From the EventStoreDB team: "Do not add snapshots right away. They are not needed at the beginning."
+| Strategy | Trigger | Strengths | Weaknesses |
+| --- | --- | --- | --- |
+| **Event-count** | Every N events (e.g. 100) | Predictable replay cost | Snapshots a quiet aggregate unnecessarily |
+| **Time-based** | Every N hours / days | Operationally simple | Variable event count between snapshots |
+| **State-triggered** | On natural transitions (`draft → published`) | Snapshots at semantic boundaries | Requires domain knowledge per aggregate |
+| **On-demand** | First load that exceeds a threshold | Only when needed | First slow load before snapshot exists |
 
-Add snapshots when:
+### Implementation and load path
 
-- Aggregate event counts exceed hundreds (measure first)
-- Load times impact user experience or SLAs
-- Cold start times are unacceptable
-
-### Snapshot Approaches
-
-| Strategy            | Trigger                                      | Pros                            | Cons                                    |
-| ------------------- | -------------------------------------------- | ------------------------------- | --------------------------------------- |
-| **Event-count**     | Every N events (e.g., 100)                   | Predictable load times          | May snapshot unnecessarily              |
-| **Time-based**      | Every N hours/days                           | Operational simplicity          | Variable event counts between snapshots |
-| **State-triggered** | On significant transitions (draft→published) | Snapshots at natural boundaries | Requires domain knowledge               |
-| **On-demand**       | When load time exceeds threshold             | Only when needed                | First slow load before snapshot exists  |
-
-### Implementation
-
-```typescript collapse={1-5, 22-30}
-// Snapshot-aware aggregate loading
+```ts collapse={1-5, 22-30} title="snapshotLoad.ts"
 interface Snapshot<TState> {
   state: TState
   version: number
-  schemaVersion: number // For schema evolution
+  schemaVersion: number
 }
 
 async function loadWithSnapshot<TState, TEvent>(
@@ -430,26 +279,20 @@ async function loadWithSnapshot<TState, TEvent>(
   evolve: (state: TState, event: TEvent) => TState,
   initialState: TState,
 ): Promise<{ state: TState; version: number }> {
-  // Try loading snapshot first
   const snapshot = await snapshotStore.load<TState>(streamId)
-
   const startVersion = snapshot?.version ?? 0
   const startState = snapshot?.state ?? initialState
-
-  // Replay only events after snapshot
   const events = await eventStore.readStream(streamId, { fromVersion: startVersion + 1 })
   const state = events.reduce(evolve, startState)
-
   return { state, version: startVersion + events.length }
 }
 
-// Snapshot after command if threshold exceeded
 async function maybeSnapshot<TState>(
   streamId: string,
   state: TState,
   version: number,
   snapshotStore: SnapshotStore,
-  threshold: number = 100,
+  threshold = 100,
 ): Promise<void> {
   const lastSnapshot = await snapshotStore.getVersion(streamId)
   if (version - lastSnapshot > threshold) {
@@ -458,83 +301,63 @@ async function maybeSnapshot<TState>(
 }
 ```
 
-### Schema Evolution for Snapshots
+![Snapshot-aware aggregate load: snapshot lookup, optional schema check, tail replay, decide, append, and a conditional snapshot save.](./diagrams/snapshot-replay-flow-light.svg "Snapshots short-circuit the replay; the events still own correctness.")
+![Snapshot-aware aggregate load: snapshot lookup, optional schema check, tail replay, decide, append, and a conditional snapshot save.](./diagrams/snapshot-replay-flow-dark.svg)
 
-When snapshot schema changes:
+### Snapshots and schema evolution
 
-1. Increment `schemaVersion` in new snapshots
-2. On load, check `schemaVersion`
-3. If outdated, discard snapshot and rebuild from events
+Snapshots are derived state, so when the snapshot shape changes:
 
-This is simpler than migrating snapshots—events are the source of truth; snapshots are ephemeral optimization.
+1. Bump the `schemaVersion` on new snapshots.
+2. On load, compare the stored `schemaVersion` to the current one.
+3. If outdated, discard the snapshot and rebuild from events.
 
-## Event Schema Evolution
+This is much simpler than migrating snapshots in place. It only works because events are still the source of truth.
 
-Events are immutable and stored forever. Schema changes must be backward-compatible or handled via transformation.
+## Event schema evolution
 
-### Core Principle
+Events are stored forever. Schema changes have to be backward-compatible or applied through a transformation step.
 
-From Greg Young (EventStoreDB creator):
+> [!IMPORTANT]
+> Greg Young's rule, from [*Versioning in an Event Sourced System*](https://leanpub.com/esversioning/read): "A new version of an event must be convertible from the old version of the event. If not, it is not a new version of the event but rather a new event."
 
-> "A new version of an event must be convertible from the old version. If not, it is not a new version but a new event."
+### Strategy 1 — additive only (default)
 
-### Evolution Strategies
+Add optional fields. Never remove or rename. Projections must accept both shapes.
 
-#### Strategy 1: Additive Changes (Preferred)
-
-Add optional fields; never remove or rename.
-
-```typescript collapse={1-3}
-// Version 1
+```ts collapse={1-3} title="versioning-additive.ts"
 interface OrderPlacedV1 {
   orderId: string
   customerId: string
   items: OrderItem[]
 }
 
-// Version 2: Added optional field
-interface OrderPlacedV2 {
-  orderId: string
-  customerId: string
-  items: OrderItem[]
-  discountCode?: string // New optional field
+interface OrderPlacedV2 extends OrderPlacedV1 {
+  discountCode?: string
 }
 
-// Projection handles both
 function projectOrder(event: OrderPlacedV1 | OrderPlacedV2): Order {
   return {
     id: event.orderId,
     customerId: event.customerId,
     items: event.items,
-    discountCode: "discountCode" in event ? event.discountCode : undefined,
+    discountCode: 'discountCode' in event ? event.discountCode : undefined,
   }
 }
 ```
 
-#### Strategy 2: Upcasting (Transform on Read)
+Use this until you genuinely cannot.
 
-Transform old events to new schema when reading.
+### Strategy 2 — upcasting (transform on read)
 
-```typescript collapse={1-4, 18-22}
-// Upcaster transforms old schema to current schema
-type Upcaster<TOld, TNew> = (old: TOld) => TNew
+Old payloads pass through a chain of upcasters that lift them to the current schema before they reach domain logic. The fold and projections only ever see the current shape.
 
-const orderPlacedUpcasters: Map<number, Upcaster<unknown, OrderPlacedV3>> = new Map([
-  [
-    1,
-    (v1: OrderPlacedV1) => ({
-      ...v1,
-      discountCode: undefined,
-      source: "unknown", // Default for old events
-    }),
-  ],
-  [
-    2,
-    (v2: OrderPlacedV2) => ({
-      ...v2,
-      source: "unknown",
-    }),
-  ],
+```ts collapse={1-4, 18-22} title="upcasters.ts"
+type Upcaster<TIn, TOut> = (old: TIn) => TOut
+
+const orderPlacedUpcasters = new Map<number, Upcaster<unknown, OrderPlacedV3>>([
+  [1, (v1: OrderPlacedV1) => ({ ...v1, discountCode: undefined, source: 'unknown' })],
+  [2, (v2: OrderPlacedV2) => ({ ...v2, source: 'unknown' })],
 ])
 
 function upcast(event: StoredEvent): DomainEvent {
@@ -543,71 +366,63 @@ function upcast(event: StoredEvent): DomainEvent {
 }
 ```
 
-**When to use**: Schema changes are frequent; you want projections to only handle the latest version.
+**Use when** schema churns and you want every consumer to think in the present tense. **Trade-off**: a small CPU cost on every read and a chain that grows over time — eventually you will either snapshot to compress it or graduate to Strategy 3.
 
-**Trade-off**: CPU cost on every read; upcaster chain grows over time.
+### Strategy 3 — stream transformation (rewrite history)
 
-#### Strategy 3: Stream Transformation (Migrate Data)
+Copy the stream into a new stream with transformed events, then point readers at the new stream during a release window. Preserve event ids, timestamps, and order.
 
-Rewrite the event stream with transformed events during a release window.
+**Use when** the change is genuinely breaking (units, semantics, identity), or when the upcaster chain has become technical debt.
 
-**When to use**: Breaking changes that upcasting cannot handle; reducing technical debt from long upcaster chains.
+> [!WARNING]
+> Never modify events in place — even small edits propagate to every projection that already saw the original. Always rewrite into a new stream and switch over atomically.
 
-**Trade-off**: Requires downtime or careful blue-green deployment; must preserve event IDs and ordering.
+### Schema registry
 
-**Warning from Greg Young**: "Updating an existing event can cause large problems." Prefer stream transformations (copy with transform) over in-place modification.
+For anything multi-team, register event schemas (Avro, Protobuf, JSON Schema) and validate on write. The registry gives you:
 
-### Schema Registry
+- Compile-time types generated from the schema.
+- A reject-on-write barrier so producers cannot quietly diverge.
+- A history of versions per event type that upcasters can reference.
 
-For production systems, use a schema registry:
+## Projections and read models
 
-- Store event schemas with versions
-- Validate events against schema on write
-- Reject events that don't conform
-- Generate types from schemas (Avro, Protobuf, JSON Schema)
+Projections turn the event log into the shapes the read side actually needs. The lifecycle (using [Marten's vocabulary](https://martendb.io/events/projections/), which most stores follow):
 
-## Projections and Read Models
+| Type | Execution | Consistency | Use case |
+| --- | --- | --- | --- |
+| **Inline** | Same transaction as events | Strong | Critical reads with cheap projections |
+| **Async** | Background subscriber | Eventual | Complex aggregations, high throughput, fan-out |
+| **Live** | Computed on demand, not persisted | Computed at query time | Ad-hoc analytics, debugging |
 
-Projections transform event streams into query-optimized read models.
+### Building a projection
 
-### Projection Lifecycle (Marten Model)
-
-| Type       | Execution                  | Consistency     | Use Case                              |
-| ---------- | -------------------------- | --------------- | ------------------------------------- |
-| **Inline** | Same transaction as events | Strong          | Critical reads; simple projections    |
-| **Async**  | Background process         | Eventual        | Complex aggregations; high throughput |
-| **Live**   | On-demand, not persisted   | None (computed) | One-time analytics; debugging         |
-
-### Building Projections
-
-```typescript collapse={1-6}
-// Projection as left-fold over events
+```ts collapse={1-6} title="orderListProjection.ts"
 interface Projection<TState> {
   initialState: TState
   apply: (state: TState, event: DomainEvent) => TState
 }
 
-// Order list projection for dashboard
 const orderListProjection: Projection<OrderListState> = {
   initialState: { orders: [], totalRevenue: 0 },
 
   apply(state, event) {
     switch (event.type) {
-      case "OrderPlaced":
+      case 'OrderPlaced':
         return {
           ...state,
-          orders: [...state.orders, { id: event.data.orderId, status: "placed", total: event.data.total }],
+          orders: [...state.orders, { id: event.data.orderId, status: 'placed', total: event.data.total }],
           totalRevenue: state.totalRevenue + event.data.total,
         }
-      case "OrderShipped":
+      case 'OrderShipped':
         return {
           ...state,
-          orders: state.orders.map((o) => (o.id === event.data.orderId ? { ...o, status: "shipped" } : o)),
+          orders: state.orders.map((o) => (o.id === event.data.orderId ? { ...o, status: 'shipped' } : o)),
         }
-      case "OrderRefunded":
+      case 'OrderRefunded':
         return {
           ...state,
-          orders: state.orders.map((o) => (o.id === event.data.orderId ? { ...o, status: "refunded" } : o)),
+          orders: state.orders.map((o) => (o.id === event.data.orderId ? { ...o, status: 'refunded' } : o)),
           totalRevenue: state.totalRevenue - event.data.refundAmount,
         }
       default:
@@ -617,406 +432,243 @@ const orderListProjection: Projection<OrderListState> = {
 }
 ```
 
-### Rebuilding Projections
+### Rebuilding projections
 
-Since events are source of truth, projections can be rebuilt at any time:
+Because events are the source of truth, projections are disposable. Rebuild whenever:
 
-1. Drop existing projection state
-2. Replay all events through projection logic
-3. New projection reflects current business logic
+- A bug in projection logic produced wrong state.
+- A new query pattern needs a new shape.
+- The read database schema changes.
 
-**Use cases**:
+The safe rebuild shape is **blue/green**, not in-place replay. Stand up the new projection from position 0 in a parallel read-model store, let it catch up to the live tail, then atomically swap the reader pointer when its lag drops under your SLO. In-place replay is tempting and almost always wrong: it serves partially-rebuilt state to live readers, and any failure mid-replay leaves the read model in a state nobody can describe.
 
-- Bug fix in projection logic
-- New read model for new query pattern
-- Schema change in read database
+![Blue/green projection rebuild: a v2 projection folds from position 0 in parallel with v1; readers swap to v2 once it catches up.](./diagrams/projection-rebuild-flow-light.svg "Rebuild a projection from position 0 next to the live one, then swap the reader pointer when v2 has caught up — never replay in place.")
+![Blue/green projection rebuild: a v2 projection folds from position 0 in parallel with v1; readers swap to v2 once it catches up.](./diagrams/projection-rebuild-flow-dark.svg)
 
-**Warning**: Rebuilding from millions of events takes time. For Netflix Downloads, "re-runs took DAYS to complete" during development—mitigated by snapshots and event archival.
+Rebuild cost grows with the event log; this is exactly what snapshots and archival exist to bound. Netflix's experience — re-runs taking days — is a good warning that "we can always rebuild" only holds if you also designed for it.
 
-### Cross-Projection Dependencies
+### Cross-projection dependencies
 
-**Problem**: Projection A depends on Projection B's state. During replay, B may not be at the same position as A.
+> [!CAUTION]
+> Projections that read other projections are a footgun during rebuilds — the dependency may sit at a different position in the log than its consumer. Either denormalise so each projection stands alone, declare dependencies so the rebuild engine orders them, or have dependents wait until their dependencies' positions catch up. Dennis Doomen's ["The Ugly of Event Sourcing"](https://www.dennisdoomen.com/2017/11/the-ugly-of-event-sourcingreal-world.html) has a long catalogue of variations on this failure.
 
-From Dennis Doomen's production experience:
+## Choosing an event store
 
-> "Rebuilding projection after schema upgrade caused projector to read from another projection that was at a different state in the event store's history."
+### Purpose-built: KurrentDB (formerly EventStoreDB)
 
-**Solutions**:
+KurrentDB is what was previously called EventStoreDB; the project rebranded under the company [Kurrent](https://www.kurrent.io/) in 2024. Whichever name you encounter, it is the same engine — purpose-built for streams, subscriptions, and event-sourced workloads.
 
-1. **Single-pass projections**: Project to denormalized models; avoid joins at projection time
-2. **Explicit dependencies**: Projections declare dependencies; rebuild engine ensures correct ordering
-3. **Position tracking**: Each projection tracks which events it has seen; dependent projections wait
+- Around **15 k writes/sec and 50 k reads/sec** in Kurrent's published benchmarks, configuration- and disk-bound — see Kurrent's own ["What if you need better performance than 15k writes per second?"](https://discuss.kurrent.io/t/what-if-you-need-better-performance-than-15k-writes-per-second/4974) and [product page](https://www.kurrent.io/kurrent).
+- Native primitives: streams, optimistic concurrency per stream, persistent subscriptions with checkpoints, JavaScript projections.
+- Vertical replica-set scaling; sharding is on you. Performance is dominated by disk I/O.
 
-## Event Store Technologies
+### Apache Kafka — streaming, not sourcing
 
-### EventStoreDB (KurrentDB)
+Kafka is excellent for event *streaming* (transport, fan-out, integration). It is the wrong default for event *sourcing*. The widely cited [Serialized.io article "Apache Kafka is not for Event Sourcing"](https://medium.com/serialized-io/apache-kafka-is-not-for-event-sourcing-81735c3cf5c) lays this out:
 
-Purpose-built for event sourcing.
+1. **Topic granularity.** Aggregates can easily reach millions; Kafka is not designed for millions of topics, and a topic per entity type forces consumers to scan the whole partition to load one aggregate.
+2. **No cheap "load events for entity X."** The streaming API gives you an offset-ordered scan, not a stream-by-id read.
+3. **No optimistic concurrency.** "Append only if version is still N" is not a Kafka primitive; you bolt that on with a coordinating database.
+4. **Log compaction destroys history.** Compaction keeps only the latest value per key — the exact opposite of what an event store needs.
 
-**Performance characteristics**:
+Use Kafka as the bus that ships events from your real event store to downstream consumers; do not let it own the source of truth.
 
-- 15,000+ writes/second
-- 50,000+ reads/second
-- Quorum-based replication (majority must acknowledge)
+### PostgreSQL-backed stores
 
-**Strengths**:
+A relational engine works as long as you accept the patterns:
 
-- Native event sourcing primitives (streams, subscriptions, projections)
-- Optimistic concurrency per stream
-- Persistent subscriptions with checkpointing
-- Built-in projections in JavaScript
+- **Transactional outbox** to publish events together with state changes.
+- **`LISTEN/NOTIFY`** for low-latency subscription wake-ups.
+- **Advisory locks** for projection coordination.
 
-**Limitations**:
+Libraries: [Marten](https://martendb.io/) (.NET), [pg-event-store](https://github.com/team-supercharge/pg-event-store) (Node), [Eventide](https://eventide-project.org/) (Ruby).
 
-- No built-in sharding (must implement at application level)
-- Performance bounded by disk I/O
-- Read-only replicas require cluster connection
+| Aspect | PostgreSQL-backed | KurrentDB / EventStoreDB |
+| --- | --- | --- |
+| Operational familiarity | High — same DB you already run | New engine and ops surface |
+| ES primitives | Library-provided | Native |
+| Transactionality with app data | Full ACID | Event store separate from app DB |
+| Scaling | Conventional Postgres patterns | Purpose-built but limited sharding |
 
-### Apache Kafka
+### Cloud message-grid services (and what they are not)
 
-Designed for event streaming, not event sourcing.
+- **AWS EventBridge** — routing and orchestration across 90+ AWS services. Useful as a serverless event bus; not an event store.
+- **Azure Event Hubs** — Kafka-compatible high-volume ingestion with geo-DR. Same caveats as Kafka for sourcing.
 
-**Why Kafka is problematic for event sourcing** (from Serialized.io):
+## Production patterns from real systems
 
-1. **Topic scalability**: Not designed for millions of topics (aggregates can easily reach millions)
-2. **Entity loading**: No practical way to load events for specific entity by ID within a topic
-3. **No optimistic concurrency**: Cannot do "save this event only if version is still X"
-4. **Compaction destroys history**: Log compaction keeps only latest value per key—antithetical to event sourcing
+### LMAX — pure ES, in-memory, single-thread
 
-**Where Kafka fits**: Transport layer for events to downstream consumers. Use dedicated event store for source of truth, Kafka for integration.
+[LMAX's architecture](https://martinfowler.com/articles/lmax.html) is the textbook upper bound of pure event sourcing.
 
-### PostgreSQL-Backed Stores
+- **Business Logic Processor**: single-threaded, in-memory, event-sourced; ~6 M orders/sec on commodity hardware.
+- **Disruptor**: lock-free ring buffer for I/O — input ring of 20 M slots, output rings of 4 M slots; benchmarks claim [25 M+ messages/sec and sub-50 ns latency](https://lmax-exchange.github.io/disruptor/disruptor.html).
+- **Replication**: three BLPs running the same input — two in the primary DC, one in DR.
+- **Snapshots**: nightly; restart cycles every night with no downtime.
 
-Use relational database as event store.
+What worked: in-memory state with the log as the durability story made the database irrelevant to throughput. What was hard: enforcing determinism in business logic and debugging replay-driven incidents.
 
-**Implementation patterns**:
+### Netflix Downloads — Cassandra-backed, async projections, 6-month build
 
-- **Transactional outbox**: Events + state change in same transaction
-- **LISTEN/NOTIFY**: PostgreSQL async notifications for real-time subscriptions
-- **Advisory locks**: Application-level locking for projection synchronization
+[Netflix's downloads service](https://netflixtechblog.com/scaling-event-sourcing-for-netflix-downloads-episode-2-ce1b54d46eec) launched in November 2016 with a tight deadline ("a 6 am global press release"). They built it in roughly six months on a Cassandra-backed event store with three components — Event Store, Aggregate Repository, Aggregate Service — and async projections.
 
-**Libraries**: Marten (.NET), pg-event-store (Node.js), Eventide (Ruby)
+What worked: requirements churn during the build was absorbable because new questions only needed new projections, not migrations. What was hard: rebuild times during development took days, which forced snapshotting and event archival earlier than they would have liked.
 
-**Trade-offs**:
+### Uber Cadence — event sourcing for durable execution
 
-| Aspect                    | PostgreSQL                      | EventStoreDB                       |
-| ------------------------- | ------------------------------- | ---------------------------------- |
-| Operational familiarity   | High (existing expertise)       | New technology to learn            |
-| Event sourcing primitives | Must build or use library       | Native                             |
-| Transactions              | Full ACID with application data | Event store separate from app DB   |
-| Scaling                   | Traditional DB scaling          | Purpose-built but limited sharding |
+[Cadence](https://www.uber.com/us/en/blog/open-source-orchestration-tool-cadence-overview/) (and its fork [Temporal](https://temporal.io/)) is event sourcing applied to workflow state, not just data. Each workflow's history is the event stream; the worker reconstructs state by deterministic replay before continuing execution.
 
-### Cloud Services
+- Multi-tenant clusters host hundreds of domains.
+- A [single Cadence service](https://cadenceworkflow.io/docs/concepts/topology) runs more than a hundred applications at Uber.
+- The [host-level priority task processor](https://www.uber.com/us/en/blog/cadence-multi-tenant-task-processing/) reduced worker goroutines on each history host from **16 000 to about 100** (a 95 %+ reduction) at the same load.
 
-**AWS EventBridge**: Event routing and orchestration; not an event store. 90+ AWS service integrations. Use for serverless event-driven architectures, not as source of truth.
+The lesson is that "event sourcing" generalises beyond database design — durable execution platforms reuse the same deterministic-replay primitive.
 
-**Azure Event Hubs**: High-volume event ingestion (millions/second). Kafka-compatible. Geo-disaster recovery. Similar caveats as Kafka for event sourcing.
+### Comparing the three
 
-## Production Implementations
+| Aspect | LMAX | Netflix Downloads | Uber Cadence |
+| --- | --- | --- | --- |
+| Domain | Financial exchange | Media licensing | Workflow orchestration |
+| Throughput | ~6 M orders/sec (BLP) | Not disclosed | Hundreds of domains, multi-tenant |
+| Consistency | Single-threaded, deterministic | Eventual | Per-workflow, deterministic replay |
+| Storage | In-memory + on-disk log | Cassandra | Cassandra |
+| Snapshots | Nightly | On demand | Per workflow history |
+| Team shape | Small, specialised | 6-month feature team | Platform team |
 
-### LMAX: 6 Million Orders/Second
+## Pitfalls in production
 
-**Context**: Financial exchange requiring ultra-low latency and complete audit trail.
+### 1. Unbounded event growth
 
-**Architecture**:
+Storing every tick or every micro-event without an archival plan eventually breaks rebuilds. Mitigate with snapshots, time-segmented streams (`orders-2026-q1`), and tiered storage (recent in hot store, older in S3 / Glacier).
 
-- Business Logic Processor (BLP): Single-threaded, in-memory, event-sourced
-- Disruptor: Lock-free ring buffer for I/O (25M+ messages/second, sub-50ns latency)
-- Replication: Three BLPs process all input events (two in primary DC, one DR)
+### 2. Assuming event order across streams
 
-**Specific details**:
+Within a stream, events are totally ordered. Across streams, the bus may deliver duplicates, reorder, or replay. Build projections that treat each event as an independent input keyed by `eventId`, and never rely on arrival order for correctness.
 
-- Ring buffers: 20M slots (input), 4M slots (output each)
-- Nightly snapshots; BLPs restart nightly with zero downtime
-- Cryptographic operations offloaded from core logic
-- Validation split: state-independent checks before BLP, state-dependent in BLP
+### 3. Dual-write to event store and message bus
 
-**What worked**: In-memory event sourcing eliminated database as bottleneck.
+Writing the event then publishing in two operations is the classic distributed bug — append succeeds, publish fails, downstream silently misses the event. Use the [transactional outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html), Change Data Capture from the event table, or an event store with built-in subscriptions (KurrentDB).
 
-**What was hard**: Debugging distributed replay; ensuring determinism in business logic.
+### 4. Projection complexity sprawl
 
-**Source**: [Martin Fowler - LMAX Architecture](https://martinfowler.com/articles/lmax.html)
+Projections that join across streams, aggregate across long windows, or reach into other projections become rebuild monsters. Denormalise aggressively, accept duplication in read models, and prefer many small focused projections over one universal one. If the question is genuinely analytical ("revenue by region by category by month"), push it into the warehouse instead.
 
-### Netflix Downloads: Six-Month Build
+### 5. Schema drift without a strategy
 
-**Context**: November 2016 feature launch requiring stateful service (download tracking, licensing) built in months.
+Adding a field "just for new events" and assuming projections will cope works exactly until you replay history through new logic. Make additive changes the default, mark new fields optional, and embed the producing code version in the event metadata so projections can branch on intent rather than presence.
 
-**Architecture**:
+### 6. Time-travel debugging is oversold
 
-- Cassandra-backed event store
-- Three components: Event Store, Aggregate Repository, Aggregate Service
-- Async projections for query optimization
+Event sourcing gives you an audit trail; it does not magically reduce debugging effort. Chris Kiehl's first-hand take in ["Don't Let the Internet Dupe You, Event Sourcing is Hard"](https://chriskiehl.com/article/event-sourcing-is-hard) argues that "99% of the time 'bad states' were *bad events* caused by your standard run-of-the-mill human error" — the ledger added little over a normal database for those cases. Practical questions to answer before you rely on time travel: how do you fix the bad event for already-affected users (a compensating event, almost always), how do you inspect intermediate state if events are binary, and how do you scope a replay to production data without polluting projections?
 
-**Specific details**:
+Invest in the tooling instead — event visualisation, projection-state-at-event inspection, and a documented compensating-event playbook.
 
-- Horizontal scaling: only disk space was the constraint
-- Projections rebuilt during debugging/development
-- Full auditing enabled rapid issue diagnosis
+## GDPR and the right to erasure
 
-**What worked**: Event sourcing flexibility enabled pivoting requirements during development.
+Event sourcing's immutability collides head-on with the GDPR right to erasure. The two practical workarounds:
 
-**What was hard**: Rebuild times during development ("re-runs took DAYS")—mitigated by snapshotting.
+### Crypto-shredding
 
-**Source**: [InfoQ - Scaling Event Sourcing for Netflix Downloads](https://www.infoq.com/presentations/netflix-scale-event-sourcing/)
+[Mathias Verraes' crypto-shredding pattern](https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/) is the most common answer:
 
-### Uber Cadence: Durable Execution at Scale
+1. Encrypt personal data with a per-subject key before writing it into the event.
+2. Store the keys in a separate, mutable key store keyed by subject.
+3. On erasure, delete the key. The encrypted payload becomes permanently unreadable.
 
-**Context**: Workflow orchestration for hundreds of applications across Uber.
-
-**Architecture**:
-
-- Event sourcing for workflow state (deterministic replay)
-- Components: Front End, History Service, Matching Service
-- Cassandra backend
-
-**Specific details**:
-
-- Multitenant clusters with hundreds of domains each
-- Single service supports 100+ applications
-- Worker Goroutines reduced from 16K to 100 per history host (95%+ reduction)
-
-**Key insight**: Workflows are event-sourced—state reconstructed by replaying historical events. Cadence (and its fork, Temporal) demonstrates event sourcing for durable execution, not just data storage.
-
-**Source**: [Uber Engineering - Cadence Overview](https://www.uber.com/blog/open-source-orchestration-tool-cadence-overview/)
-
-### Implementation Comparison
-
-| Aspect            | LMAX               | Netflix Downloads | Uber Cadence           |
-| ----------------- | ------------------ | ----------------- | ---------------------- |
-| Domain            | Financial exchange | Media licensing   | Workflow orchestration |
-| Events/second     | 6M orders          | Not disclosed     | Hundreds of domains    |
-| Consistency       | Single-threaded    | Eventual          | Per-workflow           |
-| Storage           | In-memory + disk   | Cassandra         | Cassandra              |
-| Snapshot strategy | Nightly            | As needed         | Per-workflow history   |
-| Team size         | Small, specialized | 6-month team      | Platform team          |
-
-## Common Pitfalls
-
-### 1. Unbounded Event Growth
-
-**The mistake**: Not planning for event retention or archival.
-
-**Example**: Financial app storing every price tick (millions/day). After one year, rebuilding account balances requires replaying 3TB of events. Queries take minutes; cold starts are impossible.
-
-**Solutions**:
-
-- **Snapshots**: Every N events or time period
-- **Archival**: Move events older than N days to cold storage (S3, Glacier)
-- **Temporal streams**: Segment streams by time period (orders-2024-Q1)
-
-### 2. Assuming Event Order Guarantees
-
-**The mistake**: Building logic that assumes "event A always comes before event B."
-
-**Reality** (from production war stories): "Events are duplicated, delayed, reordered, partially processed, or replayed long after the context that created them has changed."
-
-**Example**: Projection assumes `OrderPlaced` arrives before `OrderShipped`. During backfill, events arrive out of order; projection crashes.
-
-**Solutions**:
-
-- Treat each event as independent input
-- Build projections that handle any arrival order
-- Use event timestamps for ordering within projections, not arrival order
-
-### 3. Dual-Write to Event Store and Downstream
-
-**The mistake**: Writing event to store, then publishing to message queue in separate operations.
-
-**Example**: `appendEvent()` succeeds, `publishToKafka()` fails. Event exists but downstream never sees it.
-
-**Solutions**:
-
-- **Transactional outbox**: Write event + outbox entry in same transaction; separate process polls outbox
-- **Change Data Capture (CDC)**: Database-level capture of event table changes
-- **Event store with built-in pub/sub**: EventStoreDB subscriptions
-
-### 4. Projection Complexity Explosion
-
-**The mistake**: Building projections with complex joins, aggregations, and cross-stream queries.
-
-**Example**: "Order revenue by region by product category by month" projection requires joining order events, product catalog, and region data. Rebuild takes hours.
-
-**Solutions**:
-
-- Denormalize aggressively at projection time
-- Accept data duplication in read models
-- Build multiple focused projections vs one complex one
-- Consider whether query belongs in analytics layer (data warehouse)
-
-### 5. Schema Migration Nightmares
-
-**The mistake**: Changing event schemas without migration strategy.
-
-**Example** (from production): Team added `discount_code` field to `OrderPlaced` events. Old projections ignored it. Replay applied 2024 logic to 2022 events, giving customers unintended discounts.
-
-**Solutions**:
-
-- **Additive changes only**: New optional fields with defaults
-- **Versioned projections**: Tag projections with compatible schema versions
-- **Code version in events**: Every event carries code version that created it
-- **Upcasters**: Transform old events to current schema on read
-
-### 6. "Time Travel Debugging" Oversold
-
-**The mistake**: Expecting event sourcing to make debugging trivial.
-
-**Reality** (from Chris Kiehl's experience): "99% of the time 'bad states' were bad events caused by standard run-of-the-mill human error. Having a ledger provided little value over normal debugging intuition."
-
-**Practical questions**:
-
-- How do you apply time-travel on production data?
-- How do you inspect intermediate states if events are in binary format?
-- How do you fix bugs for users already impacted?
-
-**Example**: "Order stuck in pending for 3 hours" took 6 hours to debug—what would've been a 20-minute fix in CRUD required understanding the full event history.
-
-**Solution**: Event sourcing provides audit capability, not magic debugging. Invest in:
-
-- Event visualization tooling
-- Projection debugging (show state at any event)
-- Compensating event workflows for fixing bad state
-
-## GDPR and Data Deletion
-
-Event sourcing's immutability conflicts with "right to be forgotten."
-
-### Crypto Shredding Pattern
-
-From Mathias Verraes:
-
-**How it works**:
-
-1. Store personal data encrypted in event store (not plaintext)
-2. Store encryption key separately (different database/filesystem)
-3. When user requests deletion, delete only the encryption key
-4. Encrypted data becomes permanently unreadable
-
-**Implementation**:
-
-```typescript collapse={1-4, 18-25}
-// Events store only encrypted personal data
+```ts collapse={1-4, 18-25} title="cryptoShredding.ts"
 interface OrderPlacedEvent {
   orderId: string
-  customerRef: string // Reference to customer, not PII
-  encryptedCustomerData: string // AES-encrypted name, address
+  customerRef: string
+  encryptedCustomerData: string
   items: OrderItem[]
 }
 
-// Key storage separate from event store
 interface CustomerKeyStore {
   getKey(customerRef: string): Promise<CryptoKey | null>
-  deleteKey(customerRef: string): Promise<void> // "Forget" customer
+  deleteKey(customerRef: string): Promise<void>
 }
 
-// Projection decrypts only if key exists
 async function projectOrder(event: OrderPlacedEvent, keyStore: CustomerKeyStore): Promise<OrderReadModel> {
   const key = await keyStore.getKey(event.customerRef)
   const customerData = key
     ? await decrypt(event.encryptedCustomerData, key)
-    : { name: "[deleted]", address: "[deleted]" }
-
+    : { name: '[deleted]', address: '[deleted]' }
   return {
     orderId: event.orderId,
     customerName: customerData.name,
-    // ...
   }
 }
 ```
 
-**Benefits**:
+![Crypto-shredding flow: write encrypts PII with a per-subject key; erasure deletes the key; subsequent reads render tombstones.](./diagrams/crypto-shredding-flow-light.svg "Crypto-shredding leaves the immutable event log untouched — erasure is a key-store delete that turns ciphertext into a tombstone on the next read.")
+![Crypto-shredding flow: write encrypts PII with a per-subject key; erasure deletes the key; subsequent reads render tombstones.](./diagrams/crypto-shredding-flow-dark.svg)
 
-- Event stream remains intact (immutable)
-- Deleting key effectively removes data from all backups
-- Existing events still queryable for non-personal data
+> [!WARNING]
+> Encrypted personal data is still personal data under GDPR. Verraes himself is explicit that crypto-shredding renders data unreadable but may not satisfy a formal erasure request, and recommends pairing it with retention policies, key-management hygiene, and legal review.
 
-**Legal caveat**: GDPR states encrypted personal information is still personal information. Some legal interpretations argue crypto shredding may not be fully compliant. Consult legal counsel.
+### Forgettable payloads
 
-### Forgettable Payloads Alternative
+[Verraes' "Forgettable Payloads"](https://verraes.net/2019/05/eventsourcing-patterns-forgettable-payloads/) takes the opposite trade-off: store personal data in a separate, mutable store and reference it from the event by id. Erasure becomes a normal `DELETE`. The cost is a join at projection time and another datastore to operate.
 
-Store personal data in separate database; events contain only references.
+The two patterns compose — keep ids and immutable facts in the event, push PII into a forgettable side store, and use crypto-shredding for the few PII fields you really do need to keep alongside the event for replay.
 
-**Trade-off**: Requires joins at read time; personal data store becomes another system to maintain.
+## Practical takeaways
 
-## Conclusion
-
-Event sourcing replaces mutable state with an immutable log of domain events. Current state is derived, not stored. This enables complete audit trails, temporal queries, and projection flexibility—at the cost of increased complexity, eventual consistency, and schema evolution challenges.
-
-Key takeaways:
-
-1. **Not a silver bullet**: CQRS/ES adds complexity. Use only for bounded contexts where audit trails or temporal queries justify the cost.
-2. **Design decisions multiply**: Stream granularity, projection strategy, snapshot policy, and schema evolution must all be decided.
-3. **Production realities differ from theory**: Real systems handle out-of-order events, duplicate delivery, projection lag, and schema migrations.
-4. **Start simple**: No snapshots initially. Synchronous projections if consistency matters. Add complexity only when measured.
-5. **Kafka is not an event store**: Purpose-built stores (EventStoreDB) or database-backed solutions (Marten, PostgreSQL) are better fits.
+- **Default to CRUD until the audit/temporal need is real.** Event sourcing carries genuine cost and "we might need history later" rarely justifies it up front.
+- **Pick the smallest path that solves the problem.** Hybrid > pure for most teams; inline projections > async until throughput forces the trade.
+- **Hold off on snapshots, schema registries, and stream transformations.** Add them when measurements demand it, not before.
+- **Treat events as the source of truth and everything else as derived.** Projections, snapshots, and read databases are all rebuildable; events are not.
+- **Use Kafka as transport, not as the store.** Pair it with a purpose-built or relational event store.
+- **Plan for erasure on day one.** Decide between crypto-shredding and forgettable payloads before personal data lands in the log.
 
 ## Appendix
 
 ### Prerequisites
 
-- Understanding of domain-driven design (aggregates, bounded contexts)
-- Familiarity with distributed systems consistency models (eventual vs strong)
-- Basic understanding of CQRS (Command Query Responsibility Segregation)
-
-### Terminology
-
-| Term                       | Definition                                                                |
-| -------------------------- | ------------------------------------------------------------------------- |
-| **Event**                  | Immutable fact representing something that happened in the domain         |
-| **Stream**                 | Ordered sequence of events for an aggregate                               |
-| **Projection**             | Read model derived by applying events to initial state                    |
-| **Snapshot**               | Materialized state at a point in time; optimization for replay            |
-| **Upcasting**              | Transforming old event schema to current schema on read                   |
-| **Aggregate**              | DDD concept; consistency boundary containing related entities             |
-| **Left-fold**              | Reducing a sequence to a single value by applying a function cumulatively |
-| **Optimistic concurrency** | Conflict detection by checking version hasn't changed since read          |
-| **Transactional outbox**   | Pattern for reliable event publishing within database transaction         |
-
-### Summary
-
-- **Core pattern**: State = replay(events). Events are immutable facts; current state is derived.
-- **Design paths**: Pure ES vs hybrid; sync vs async projections. Choose based on consistency and throughput requirements.
-- **Snapshots**: Add when replay time becomes problematic. Event-count or time-based triggers.
-- **Schema evolution**: Additive changes preferred. Upcasting for breaking changes. Never modify existing events in place.
-- **Production reality**: Handle out-of-order events, duplicates, projection lag, and unbounded growth.
-- **GDPR**: Crypto shredding pattern separates encryption keys from encrypted data.
+- Working knowledge of domain-driven design (aggregates, bounded contexts).
+- Familiarity with consistency models (strong vs eventual; optimistic vs pessimistic concurrency).
+- Comfort with CQRS as a separate concept from event sourcing.
 
 ### References
 
-#### Foundational Sources
+#### Foundational
 
-- [Martin Fowler - Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html) - Original definition and patterns
-- [Martin Fowler - CQRS](https://martinfowler.com/bliki/CQRS.html) - CQRS relationship and warnings
-- [Greg Young - CQRS Documents](https://cqrs.files.wordpress.com/2010/11/cqrs_documents.pdf) - Comprehensive CQRS/ES guide from the pattern's creator
-- [Microsoft - Exploring CQRS and Event Sourcing](https://www.microsoft.com/en-us/download/details.aspx?id=34774) - Reference implementation with Greg Young foreword
+- [Martin Fowler — Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html)
+- [Martin Fowler — CQRS](https://martinfowler.com/bliki/CQRS.html)
+- [Greg Young — *Versioning in an Event Sourced System*](https://leanpub.com/esversioning/read)
+- [Microsoft patterns & practices — Exploring CQRS and Event Sourcing](https://learn.microsoft.com/en-us/previous-versions/msp-n-p/jj554200(v=pandp.10))
 
-#### Production Case Studies
+#### Production case studies
 
-- [Martin Fowler - LMAX Architecture](https://martinfowler.com/articles/lmax.html) - 6M orders/second event sourcing
-- [Netflix Tech Blog - Scaling Event Sourcing for Downloads](https://netflixtechblog.com/scaling-event-sourcing-for-netflix-downloads-episode-2-ce1b54d46eec) - Six-month build case study
-- [Walmart Global Tech - Inventory Availability System](https://medium.com/walmartglobaltech/design-inventory-availability-system-using-event-sourcing-1d0f022e399f) - Hybrid event sourcing at scale
-- [Uber Engineering - Cadence Overview](https://www.uber.com/blog/open-source-orchestration-tool-cadence-overview/) - Event sourcing for durable execution
+- [Martin Fowler — The LMAX Architecture](https://martinfowler.com/articles/lmax.html)
+- [LMAX Disruptor — design and benchmarks](https://lmax-exchange.github.io/disruptor/disruptor.html)
+- [Netflix Tech Blog — Scaling Event Sourcing for Netflix Downloads (Episode 2)](https://netflixtechblog.com/scaling-event-sourcing-for-netflix-downloads-episode-2-ce1b54d46eec)
+- [Walmart Global Tech — Inventory Availability with Event Sourcing](https://medium.com/walmartglobaltech/design-inventory-availability-system-using-event-sourcing-1d0f022e399f)
+- [Uber Engineering — Cadence Overview](https://www.uber.com/us/en/blog/open-source-orchestration-tool-cadence-overview/)
+- [Uber Engineering — Cadence Multi-Tenant Task Processing](https://www.uber.com/us/en/blog/cadence-multi-tenant-task-processing/)
 
-#### Implementation Patterns
+#### Implementation patterns
 
-- [Event-Driven.io - Projections and Read Models](https://event-driven.io/en/projections_and_read_models_in_event_driven_architecture/) - Projection lifecycle patterns
-- [Event-Driven.io - Event Versioning](https://event-driven.io/en/how_to_do_event_versioning/) - Schema evolution strategies
-- [Domain Centric - Snapshotting](https://domaincentric.net/blog/event-sourcing-snapshotting) - Snapshot strategy decision framework
-- [Marten Documentation](https://martendb.io/) - PostgreSQL-backed event sourcing for .NET
+- [Event-Driven.io — Projections and read models](https://event-driven.io/en/projections_and_read_models_in_event_driven_architecture/)
+- [Event-Driven.io — How to (not) do event versioning](https://event-driven.io/en/how_to_do_event_versioning/)
+- [Marten — Inline projections](https://martendb.io/events/projections/inline)
+- [Microservices.io — Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html)
 
-#### Failure Modes and Lessons
+#### Failure modes and lessons
 
-- [Dennis Doomen - The Ugly of Event Sourcing](https://www.dennisdoomen.com/2017/11/the-ugly-of-event-sourcingreal-world.html) - Production war stories
-- [Chris Kiehl - Event Sourcing is Hard](https://chriskiehl.com/article/event-sourcing-is-hard) - Debugging reality check
-- [Serialized.io - Why Kafka is Not for Event Sourcing](https://serialized.io/blog/apache-kafka-is-not-for-event-sourcing/) - Technology selection guidance
+- [Dennis Doomen — The Ugly of Event Sourcing](https://www.dennisdoomen.com/2017/11/the-ugly-of-event-sourcingreal-world.html)
+- [Chris Kiehl — Don't Let the Internet Dupe You, Event Sourcing is Hard](https://chriskiehl.com/article/event-sourcing-is-hard)
+- [Serialized.io — Apache Kafka is not for Event Sourcing](https://medium.com/serialized-io/apache-kafka-is-not-for-event-sourcing-81735c3cf5c)
 
-#### GDPR and Compliance
+#### GDPR and compliance
 
-- [Mathias Verraes - Crypto Shredding Pattern](https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/) - Data deletion strategy
-- [Event-Driven.io - GDPR in Event-Driven Architecture](https://event-driven.io/en/gdpr_in_event_driven_architecture/) - Compliance patterns
+- [Mathias Verraes — Crypto-Shredding](https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/)
+- [Mathias Verraes — Forgettable Payloads](https://verraes.net/2019/05/eventsourcing-patterns-forgettable-payloads/)
+- [Event-Driven.io — GDPR in event-driven systems](https://event-driven.io/en/gdpr_in_event_driven_architecture/)
 
-#### Tools and Frameworks
+#### Tools and frameworks
 
-- [EventStoreDB Documentation](https://developers.eventstore.com/) - Purpose-built event store
-- [LMAX Disruptor](https://lmax-exchange.github.io/disruptor/) - High-performance ring buffer
-- [Axon Framework](https://www.axoniq.io/framework) - Java CQRS/ES toolkit (70M+ downloads)
-- [Temporal.io](https://temporal.io/) - Durable execution platform (Cadence fork)
+- [KurrentDB (formerly EventStoreDB)](https://www.kurrent.io/)
+- [Marten — Postgres event store for .NET](https://martendb.io/)
+- [Axon Framework — Java CQRS/ES toolkit](https://www.axoniq.io/products/axon-framework)
+- [Temporal](https://temporal.io/) (Cadence fork)

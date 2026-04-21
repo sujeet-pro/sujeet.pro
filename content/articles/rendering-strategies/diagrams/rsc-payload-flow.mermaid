@@ -1,0 +1,21 @@
+%% Diagram: React Server Components — payload flow from server tree to client DOM
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client as Browser
+    participant Edge as Edge / CDN
+    participant Server as RSC Server
+    participant DB as Data source
+
+    Client->>Edge: GET /post/42
+    Edge->>Server: cache miss → forward
+    Server->>DB: server-only fetch
+    DB-->>Server: data
+    Note over Server: Render Server Components<br/>Heavy deps stay on server
+    Server-->>Edge: stream Flight payload<br/>(tree + client refs + props)
+    Edge-->>Client: HTML shell + serialized RSC stream
+    Note over Client: Parse HTML, paint shell (FCP)
+    Client->>Edge: fetch Client Component<br/>JS chunks (referenced in payload)
+    Edge-->>Client: chunk JS
+    Note over Client: Hydrate only Client Components<br/>Server tree never re-executes

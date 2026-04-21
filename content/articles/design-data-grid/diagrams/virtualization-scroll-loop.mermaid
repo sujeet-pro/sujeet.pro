@@ -1,0 +1,19 @@
+%% Diagram: Virtualization scroll loop sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User
+    participant Container as Scroll Container
+    participant Calc as Visible Range Calculator
+    participant Pool as DOM Node Pool
+    participant Body as Rendered Body
+
+    User->>Container: scroll wheel / touch
+    Container-->>Calc: scrollTop, clientHeight
+    Calc->>Calc: derive [startIndex, endIndex] (+ overscan)
+    Calc-->>Pool: requested row indices
+    Pool->>Pool: recycle off-screen rows, hydrate new ones
+    Pool-->>Body: positioned absolute rows
+    Body-->>User: paint within next frame
+    Note over Calc,Body: Total budget: 16 ms per frame at 60 Hz

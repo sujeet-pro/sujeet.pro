@@ -1,0 +1,31 @@
+%% Diagram: Unique ID selection decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START(["New table /\nnew system"]) --> Q_ORDER{"Need\ntime ordering\nor good index\nlocality?"}
+
+    Q_ORDER -->|"No (read-mostly\nor public token)"| Q_LEAK{"Want to\nhide creation\ntime?"}
+    Q_LEAK -->|"Yes"| UUID4["UUID v4\n(random)"]
+    Q_LEAK -->|"No, but no\nordering needed"| UUID4
+
+    Q_ORDER -->|"Yes"| Q_64{"Hard 64-bit\nbudget?\n(BIGINT, legacy\nschema)"}
+
+    Q_64 -->|"Yes"| Q_COORD{"Can assign\nworker IDs at\ndeploy time?"}
+    Q_COORD -->|"Yes"| SNOW["Snowflake\n(64-bit, 5+5+12)"]
+    Q_COORD -->|"No"| FLAKE["Sonyflake / Flake\n(no central\ncoordinator)"]
+
+    Q_64 -->|"No, 128-bit\nis fine"| Q_DB{"DB has\nnative UUIDv7?\n(PG18+, MS SQL\n2025, etc.)"}
+    Q_DB -->|"Yes"| UUID7["UUID v7\n(RFC 9562)"]
+    Q_DB -->|"No native\nfunction"| Q_LIB{"Library and\nteam familiarity?"}
+    Q_LIB -->|"Have UUID lib"| UUID7
+    Q_LIB -->|"Want compact\nstring (URLs,\nlogs, copy-paste)"| ULID["ULID\n(26 char Base32)"]
+
+    classDef decision fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef recommended fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef alternative fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class Q_ORDER,Q_LEAK,Q_64,Q_COORD,Q_DB,Q_LIB decision
+    class UUID7 recommended
+    class SNOW,ULID,FLAKE alternative
+    class UUID4 warn

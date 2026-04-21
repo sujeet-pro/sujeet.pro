@@ -1,0 +1,18 @@
+%% Diagram: Hidden class transition tree built by adding properties in different orders
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    M0["Map M0<br/>{ }"]
+
+    M0 -- "add x" --> M1["Map M1<br/>{ x }"]
+    M0 -- "add y" --> M2["Map M2<br/>{ y }"]
+
+    M1 -- "add y" --> M3["Map M3<br/>{ x, y } - shape A"]
+    M2 -- "add x" --> M4["Map M4<br/>{ y, x } - shape B"]
+
+    P1["p = { x:1, y:2 }<br/>shape A"] -.-> M3
+    P2["q = { x:3, y:4 }<br/>shape A"] -.-> M3
+    P3["r = { y:5, x:6 }<br/>shape B"] -.-> M4
+
+    note["Calling getX(p), getX(q): IC stays monomorphic on shape A.<br/>Then calling getX(r) introduces shape B - IC becomes polymorphic."]
+    M4 -.-> note

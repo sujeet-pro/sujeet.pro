@@ -1,0 +1,25 @@
+%% Diagram: Paste sanitizer pipeline — clipboard payload to schema-validated insert
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIP["beforeinput insertFromPaste\nDataTransfer { text/html, text/plain, files }"]
+    PICK{"Pick best payload"}
+    HTML["text/html (rich source)"]
+    TEXT["text/plain (fallback)"]
+    FILE["files (image upload path)"]
+
+    CLIP --> PICK
+    PICK -->|"prefer"| HTML
+    PICK -->|"fallback"| TEXT
+    PICK -->|"images"| FILE
+
+    PARSE["DOMParser.parseFromString\n(detached document)"]
+    STRIP["Strip Office / Google Docs cruft\n(mso-* classes, conditional comments,\nspans-around-everything)"]
+    PURIFY["DOMPurify.sanitize\n(drop <script>, javascript: URLs,\nevent handlers, srcdoc)"]
+    SCHEMA["Editor schema parser\n(ProseMirror DOMParser /\nLexical $generateNodesFromDOM)"]
+    NORM["Normalize / coerce\nto valid node tree"]
+    TR["Transaction insert\nat current selection"]
+
+    HTML --> PARSE --> STRIP --> PURIFY --> SCHEMA --> NORM --> TR
+    TEXT --> NORM
+    FILE --> TR

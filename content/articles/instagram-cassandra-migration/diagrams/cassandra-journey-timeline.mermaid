@@ -1,0 +1,27 @@
+%% Diagram: Instagram's Cassandra evolution across four phases
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Phase1["Phase 1 — Redis (2010-2012)"]
+        R1["Activity feed"] --> Redis[("Redis cluster<br/>32 nodes, in-memory")]
+        R2["Fraud detection"] --> Redis
+        R3["User inbox"] --> Redis
+    end
+
+    subgraph Phase2["Phase 2 — Cassandra adoption (2012-2017)"]
+        Redis -. "≈75% cost cut<br/>disk-backed LSM" .-> C1[("Cassandra 1.2<br/>12 → 1,000+ nodes")]
+        C1 --> U1["Feed: 1M+ write QPS"]
+        C1 --> U2["Inbox & Direct"]
+        C1 --> U3["Fraud detection"]
+    end
+
+    subgraph Phase3["Phase 3 — Rocksandra (2017-2018)"]
+        C1 -. "P99 60ms → 20ms<br/>GC stalls 2.5% → 0.3%" .-> C2[("Rocksandra<br/>RocksDB engine on<br/>Cassandra 3.0")]
+    end
+
+    subgraph Phase4["Phase 4 — Geo-locality with Akkio (2018+)"]
+        C2 --> DC1["3 US data centres"]
+        C2 --> DC2["3 EU data centres"]
+        Akkio["Akkio data<br/>placement service"] --> DC1
+        Akkio --> DC2
+    end

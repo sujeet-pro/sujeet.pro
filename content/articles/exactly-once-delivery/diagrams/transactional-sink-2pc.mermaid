@@ -1,0 +1,31 @@
+%% Diagram: Flink-style two-phase commit sink lifecycle (begin / preCommit / commit / abort)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant JM as JobManager (coordinator)
+    participant Op as Stream operator
+    participant Sink as TwoPhaseCommitSink
+    participant Ext as External system\n(Kafka txn / DB)
+
+    Note over JM,Ext: Phase 0 - new checkpoint epoch
+    JM->>Op: inject checkpoint barrier N
+    Op->>Sink: process records for epoch N
+    Sink->>Ext: beginTransaction(txnId=N)
+
+    Note over JM,Ext: Phase 1 - PREPARE
+    Op->>Sink: snapshotState(N)
+    Sink->>Ext: flush + preCommit (txn open, not visible)
+    Sink-->>JM: ack barrier N\n(stores txnId in checkpoint)
+
+    alt all operators ack barrier N
+        Note over JM,Ext: Phase 2 - COMMIT
+        JM->>Sink: notifyCheckpointComplete(N)
+        Sink->>Ext: commit(txnId=N)
+        Note right of Ext: Records become visible to\nread_committed consumers.
+    else any operator fails to ack
+        Note over JM,Ext: Phase 2 - ABORT
+        JM->>Sink: checkpoint N failed
+        Sink->>Ext: abort(txnId=N)
+        Note right of Ext: Pre-committed records\ndiscarded; replay from\nlast committed checkpoint.
+    end

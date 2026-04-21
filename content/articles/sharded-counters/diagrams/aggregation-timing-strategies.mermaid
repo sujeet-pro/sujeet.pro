@@ -1,0 +1,29 @@
+%% Diagram: Aggregation Timing Strategies
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph SYNC["Synchronous fan-in"]
+        direction TB
+        SR[Read request] --> SF["Fan-in: read all N shards"]
+        SF --> SS["Sum N values"]
+        SS --> SOut["Exact total<br/>O(N) reads"]
+    end
+
+    subgraph ASYNC["Async rollup"]
+        direction TB
+        AW["Background worker<br/>every T seconds"] --> AS["Sum all N shards"]
+        AS --> AC["Cache total<br/>TTL = 2T"]
+        AR[Read request] --> ACk["Read cache"]
+        ACk --> AOut["Stale by ≤ T<br/>O(1) read"]
+        ACk -. miss .-> AS
+    end
+
+    subgraph HYBRID["Hybrid: pre-rollup + live tail"]
+        direction TB
+        HW["Rollup worker"] --> HPR["Pre-rollup total<br/>(durable)"]
+        HE["Event log<br/>since last rollup"]
+        HR[Read request] --> HSum["pre_rollup + Σ tail events"]
+        HPR --> HSum
+        HE --> HSum
+        HSum --> HOut["Near-real-time<br/>O(1) + O(K) tail"]
+    end

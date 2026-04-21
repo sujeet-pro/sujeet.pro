@@ -1,0 +1,19 @@
+%% Diagram: stale-while-revalidate window — first request after TTL serves stale and triggers async refresh
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant CDN
+    participant Origin
+
+    Note over CDN: max-age expired, within stale-while-revalidate window
+    Client->>CDN: GET /api/data
+    CDN-->>Client: 200 OK (stale, instant)
+    par Async revalidation
+        CDN->>Origin: GET /api/data
+        Origin-->>CDN: 200 OK (fresh)
+        Note over CDN: Cache replaced
+    end
+
+    Client->>CDN: GET /api/data
+    CDN-->>Client: 200 OK (fresh)

@@ -1,0 +1,28 @@
+%% Diagram: Block sync protocol — commit blocklist, upload only missing blocks
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client (Nucleus)
+    participant M as Metadata service
+    participant B as Block service
+    participant MP as Magic Pocket
+    participant N as Notification service
+
+    Note over C: File changed locally
+    C->>C: Re-chunk (CDC) and hash blocks [h1, h2', h3]
+
+    C->>M: commit(blocklist=[h1, h2', h3])
+    M->>M: Look up which hashes already exist
+    M-->>C: need_blocks=[h2']  (h1, h3 are dedup hits)
+
+    C->>B: PutBlock(h2', Broccoli-compressed bytes)
+    B->>MP: store(h2', cell, bucket)
+    MP-->>B: ack (replicated to ≥2 zones)
+    B-->>C: 200 OK
+
+    C->>M: commit(blocklist=[h1, h2', h3])
+    M->>M: All blocks present — append SFJ row and bump JID
+    M-->>C: committed, rev=N
+
+    M->>N: publish(namespace, JID)
+    N-->>C: notify other clients (cursor advanced)

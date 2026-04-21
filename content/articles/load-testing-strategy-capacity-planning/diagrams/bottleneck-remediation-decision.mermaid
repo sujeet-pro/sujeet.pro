@@ -1,0 +1,16 @@
+%% Diagram: Bottleneck class to capacity decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    START["Binding constraint identified\nwith reproducible evidence"] --> CLASSIFY["Classify bottleneck\nCPU memory I O network sync dependency"]
+    CLASSIFY --> Q1{"Scales out cleanly\nor coupled to shared state?"}
+    Q1 -->|Scales out| Q2{"Local fix or\nshape of traffic fix?"}
+    Q1 -->|Coupled| FIX_COUPLE["Fix coupling first\nshrink critical sections\npartition or shard\nremove hidden global locks"]
+    Q2 -->|Local| FIX_LOCAL["Local remediation\nright size resource\ntune pool or cache\ncollapse N plus 1 calls"]
+    Q2 -->|Shape of traffic| FIX_SHAPE["Reshape traffic\nbatch and async work\ntimeouts and circuit breakers\nadmission control"]
+    FIX_COUPLE --> COMPARE["Compare time to mitigate\nversus time to fail\nunder forecast demand"]
+    FIX_LOCAL --> COMPARE
+    FIX_SHAPE --> COMPARE
+    COMPARE --> DECIDE{"Mitigation lands\nbefore demand?"}
+    DECIDE -->|Yes| SHIP["Ship remediation\nset rollback triggers\nrecord rejected options"]
+    DECIDE -->|No| ESCALATE["Escalate scope\nredesign or budget reallocation\nstaff and timeline"]

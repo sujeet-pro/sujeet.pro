@@ -1,0 +1,17 @@
+%% Diagram: Online resharding pipeline (Stripe DocDB-style)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    P1["1. Setup<br/>register intent<br/>build dest indexes<br/>start CDC"]
+    P2["2. Bulk copy<br/>snapshot source<br/>load dest in sort order"]
+    P3["3. Catch-up<br/>apply CDC backlog<br/>until lag is seconds"]
+    P4["4. Cutover<br/>brief write pause<br/>apply final batch<br/>flip routing"]
+    P5["5. Verify<br/>compare source/dest<br/>auto-rollback on diff"]
+    P6["6. Cleanup<br/>tombstone source<br/>tear down CDC"]
+
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
+
+    Src[("Source shard<br/>(serving traffic)")] -.->|writes via CDC| P3
+    Src -.->|writes via CDC| P4
+    P4 ==>|"new writes go here"| Dst[("Destination shard")]
+    P5 -.->|"on diff"| P3

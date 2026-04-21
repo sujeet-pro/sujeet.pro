@@ -1,0 +1,25 @@
+%% Diagram: Property trees decouple animation properties from the layer tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Legacy["Legacy: monolithic layer tree"]
+        L1[Layer A<br/>transform + clip + opacity + scroll]
+        L2[Layer B<br/>transform + clip + opacity + scroll]
+        L3[Layer C<br/>transform + clip + opacity + scroll]
+        L1 --> L2 --> L3
+    end
+
+    subgraph Modern["RenderingNG: 4 property trees + layer refs"]
+        direction TB
+        TT[Transform tree]
+        CT[Clip tree]
+        ET[Effect tree<br/>opacity, filter, mask]
+        ST[Scroll tree]
+        LayerList[Composited layer list<br/>each layer references node IDs<br/>in the four trees]
+        TT --> LayerList
+        CT --> LayerList
+        ET --> LayerList
+        ST --> LayerList
+    end
+
+    Legacy ==>|RenderingNG| Modern

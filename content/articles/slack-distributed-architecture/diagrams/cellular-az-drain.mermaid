@@ -1,0 +1,46 @@
+%% Diagram: Cellular architecture — AZ drain via Rotor + RTDS
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Slack clients"]
+    EdgeLB["Edge Envoy LB<br/>weighted clusters"]
+    Rotor["Rotor (xDS)<br/>control plane"]
+    RTDS["RTDS runtime<br/>weight push"]
+
+    subgraph AZ_A["AZ A (cell)"]
+        A_GS["Gateway"]
+        A_WA["Webapp"]
+        A_DB["Vitess local"]
+    end
+    subgraph AZ_B["AZ B (cell)"]
+        B_GS["Gateway"]
+        B_WA["Webapp"]
+        B_DB["Vitess local"]
+    end
+    subgraph AZ_C["AZ C — degraded"]
+        C_GS["Gateway"]
+        C_WA["Webapp"]
+        C_DB["Vitess local"]
+    end
+
+    Client --> EdgeLB
+    EdgeLB -- "33% (was)" --> A_GS
+    EdgeLB -- "33% (was)" --> B_GS
+    EdgeLB -- "0% (drain)" --> C_GS
+    A_GS --> A_WA --> A_DB
+    B_GS --> B_WA --> B_DB
+    C_GS --> C_WA --> C_DB
+
+    Rotor -- "1% steps" --> RTDS
+    RTDS -- "no Envoy restart" --> EdgeLB
+
+    Note1["AZ-bound traffic only<br/>cross-AZ calls forbidden"]
+    A_WA -.- Note1
+    B_WA -.- Note1
+    C_WA -.- Note1
+
+    style C_GS fill:#fca5a5,stroke:#991b1b,color:#7f1d1d
+    style C_WA fill:#fca5a5,stroke:#991b1b,color:#7f1d1d
+    style C_DB fill:#fca5a5,stroke:#991b1b,color:#7f1d1d
+    style EdgeLB fill:#818cf8,stroke:#4338ca,color:#ffffff
+    style Rotor fill:#fb923c,stroke:#c2410c,color:#ffffff

@@ -1,0 +1,24 @@
+%% Diagram: CompositorFrameSink BeginFrame ↔ SubmitFrame loop
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Display as Display (VSync)
+    participant Viz as Viz (Display Compositor)
+    participant Sink as CompositorFrameSink
+    participant CC as Compositor Thread
+    participant Main as Main Thread
+
+    Display->>Viz: VSync tick
+    Viz->>Sink: BeginFrame(args)
+    Sink->>CC: BeginImplFrame
+    CC->>Main: BeginMainFrame (if needed)
+    Main-->>CC: ReadyToCommit + Commit
+    CC->>CC: Activate (NOW tiles ready)
+    CC->>CC: Build CompositorFrame
+    CC->>Sink: SubmitCompositorFrame(frame)
+    Sink->>Viz: SubmitCompositorFrame
+    Viz->>Viz: SurfaceAggregator merges all surfaces
+    Viz->>Display: GPU draw + present
+    Viz-->>Sink: DidReceiveCompositorFrameAck
+    Sink-->>CC: Recycle resources

@@ -1,0 +1,15 @@
+%% Diagram: Device token lifecycle
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Active: App install / token register
+    Active --> Active: App launch refresh\n(< 7 days old)
+    Active --> Active: Token refresh callback
+    Active --> Stale: 30 days inactive
+    Stale --> Active: User opens app\n(token re-validated)
+    Active --> Invalid: 404 UNREGISTERED on send
+    Stale --> Invalid: 404 UNREGISTERED on send
+    Active --> Expired: 270 days inactive\n(Android FCM)
+    Stale --> Expired: 270 days inactive\n(Android FCM)
+    Invalid --> [*]: Purge from registry
+    Expired --> [*]: Purge from registry

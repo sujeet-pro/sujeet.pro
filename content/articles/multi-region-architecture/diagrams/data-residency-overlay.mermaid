@@ -1,0 +1,29 @@
+%% Diagram: Data residency overlay
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    EUUser["EU user"]
+    USUser["US user"]
+    Edge["Global edge / GeoDNS<br/>(tenant -> home region)"]
+
+    subgraph EEA["EEA boundary (Schrems II scope)"]
+        EURegion["EU region<br/>(eu-west-1)"]
+        EUKMS["Customer-managed<br/>HSM / KMS (EU only)"]
+        EURegion --- EUKMS
+    end
+
+    subgraph US["US boundary (CLOUD Act scope)"]
+        USRegion["US region<br/>(us-east-1)"]
+        USKMS["Customer-managed<br/>HSM / KMS (US)"]
+        USRegion --- USKMS
+    end
+
+    Analytics[("Cross-region analytics<br/>(redacted / aggregated only)")]
+
+    EUUser --> Edge --> EURegion
+    USUser --> Edge --> USRegion
+
+    EURegion -.->|"Pseudonymized stream"| Analytics
+    USRegion -.->|"Aggregated metrics"| Analytics
+
+    EURegion -. "No raw PII export" .-> USRegion

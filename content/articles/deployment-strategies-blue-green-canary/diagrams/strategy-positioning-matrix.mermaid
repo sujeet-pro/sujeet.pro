@@ -1,0 +1,16 @@
+%% Diagram: Strategy positioning — rollback speed vs infrastructure cost
+%% Type: quadrantChart
+quadrantChart
+    title Deployment strategy positioning
+    x-axis "Higher infra cost" --> "Lower infra cost"
+    y-axis "Slower rollback" --> "Faster rollback"
+    quadrant-1 "Cheap & fast"
+    quadrant-2 "Costly but instant"
+    quadrant-3 "Costly & slow"
+    quadrant-4 "Cheap but slow"
+    "Blue-Green": [0.20, 0.92]
+    "Canary (mesh-routed)": [0.55, 0.78]
+    "Feature flag rollout": [0.85, 0.95]
+    "Rolling update": [0.78, 0.30]
+    "Recreate (downtime)": [0.88, 0.10]
+    "Shadow / dark launch": [0.35, 0.85]

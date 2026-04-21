@@ -1,0 +1,25 @@
+%% Diagram: LSM tree write and read paths
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Writes["Write path"]
+        direction TB
+        W[Client write] --> WAL[WAL append]
+        WAL --> Mem[Active memtable]
+        Mem -->|"fills"| Imm[Immutable memtable]
+        Imm -->|"flush"| L0[L0 SSTables]
+        L0 -->|"compaction"| L1[L1 SSTables]
+        L1 -->|"compaction"| Ln[L2..Ln SSTables]
+    end
+
+    subgraph Reads["Read path"]
+        direction TB
+        R[Client read] --> RMem[Probe active memtable]
+        RMem -->|"miss"| RImm[Probe immutable memtable]
+        RImm -->|"miss"| RL0[Probe L0]
+        RL0 -->|"miss"| Bloom{"Bloom filter\nfor next SSTable"}
+        Bloom -->|"definitely absent"| Skip[Skip SSTable]
+        Bloom -->|"maybe present"| RLn[Read SSTable + index]
+        Skip --> Bloom
+        RLn --> Result[Return value]
+    end

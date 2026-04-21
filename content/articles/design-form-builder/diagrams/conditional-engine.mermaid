@@ -1,0 +1,18 @@
+%% Diagram: Conditional engine
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Build["Build phase"]
+        Rules["Conditional rules<br/>(visibility, required, options)"] --> Graph["Dependency graph<br/>(field -> dependents)"]
+    end
+
+    subgraph Runtime["Per value change"]
+        Change["Value change on field A"] --> Notify["Notify dependents of A"]
+        Notify --> Eval["Evaluate predicate"]
+        Eval -->|now visible| Mount["Mount field B"]
+        Eval -->|now hidden| Unmount["Unmount field B<br/>+ reset stored value"]
+        Mount --> Revalidate["Re-run cross-field validators"]
+        Unmount --> Revalidate
+    end
+
+    Graph --> Notify

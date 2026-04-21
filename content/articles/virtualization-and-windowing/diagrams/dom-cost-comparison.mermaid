@@ -1,0 +1,17 @@
+%% Diagram: DOM cost with vs without virtualization
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Without virtualization"
+        direction TB
+        A1[1,000 items] --> A2[1,000 DOM nodes]
+        A2 --> A3[Layout: hundreds of ms]
+        A3 --> A4[Dropped frames / freeze]
+    end
+
+    subgraph "With virtualization"
+        direction TB
+        B1[1,000 items] --> B2[~30 DOM nodes]
+        B2 --> B3[Layout: 1-3 ms]
+        B3 --> B4[Steady 60 fps scroll]
+    end

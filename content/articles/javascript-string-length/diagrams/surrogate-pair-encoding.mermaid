@@ -1,0 +1,23 @@
+%% Diagram: Surrogate pair encoding for supplementary plane code points
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    CP["Code point cp<br/>U+10000 .. U+10FFFF"]
+
+    subgraph "Encode (cp -> two UTF-16 units)"
+        S1["temp = cp - 0x10000<br/>(0 .. 0xFFFFF, 20 bits)"]
+        S2["high = (temp >> 10) + 0xD800<br/>range D800 .. DBFF"]
+        S3["low  = (temp &amp; 0x3FF) + 0xDC00<br/>range DC00 .. DFFF"]
+    end
+
+    Pair["Surrogate pair<br/>(high, low)"]
+
+    subgraph "Decode (pair -> cp)"
+        D1["cp = ((high - 0xD800) << 10)<br/>      + (low - 0xDC00)<br/>      + 0x10000"]
+    end
+
+    CP --> S1 --> S2
+    S1 --> S3
+    S2 --> Pair
+    S3 --> Pair
+    Pair --> D1

@@ -1,0 +1,19 @@
+%% Diagram: Hybrid ABR decision loop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START[Segment downloaded] --> EWMA[Update throughput EWMA<br/>recent N segments]
+    START --> BUF[Read buffer level<br/>seconds queued]
+    EWMA --> COMBINE[Combine signals]
+    BUF --> COMBINE
+    COMBINE --> DECIDE{Buffer state}
+    DECIDE -->|under low watermark<br/>< 5s| DROP[Drop to lowest rung<br/>do not adapt up]
+    DECIDE -->|low to mid<br/>5-15s| THROUGHPUT[Throughput-dominant<br/>0.7 x EWMA cap]
+    DECIDE -->|mid to high<br/>15-30s| HYBRID[BOLA-style utility<br/>buffer-weighted]
+    DECIDE -->|near full<br/>> 30s| HOLD[Hold or step up<br/>if next rung fits]
+    DROP --> EMIT[Choose next rung]
+    THROUGHPUT --> EMIT
+    HYBRID --> EMIT
+    HOLD --> EMIT
+    EMIT --> CONSTRAIN[Apply constraints<br/>min dwell 10s<br/>max drop 2 rungs]
+    CONSTRAIN --> NEXT[Request next segment]

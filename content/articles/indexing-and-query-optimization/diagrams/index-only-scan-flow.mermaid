@@ -1,0 +1,22 @@
+%% Diagram: Index-Only Scan with visibility map check
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Index-Only Scan candidate])
+    Q1{"Query columns all<br/>covered by index?"}
+    Q2{"AM supports IOS?<br/>(B-tree, GiST, SP-GiST)"}
+    Walk[Walk B-tree to matching index tuples]
+    VM{"Visibility-map bit<br/>for the heap page<br/>= all-visible?"}
+    ReturnFromIdx[Return tuple from index — no heap touch]
+    HeapVisit[Visit heap page to check tuple visibility]
+    ReturnFromHeap[Return tuple if visible]
+
+    NotIOS[Plain Index Scan or Seq Scan]
+
+    Start --> Q1
+    Q1 -->|"no"| NotIOS
+    Q1 -->|"yes"| Q2
+    Q2 -->|"no — e.g. GIN"| NotIOS
+    Q2 -->|"yes"| Walk --> VM
+    VM -->|"set"| ReturnFromIdx
+    VM -->|"unset"| HeapVisit --> ReturnFromHeap

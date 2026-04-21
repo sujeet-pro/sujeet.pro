@@ -1,0 +1,17 @@
+%% Diagram: Quick update path decision flow for transform/opacity changes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start(["Style change detected<br/>in PaintLayer::StyleDidChange"])
+    Start --> Q1{"Affects only<br/>transform or opacity?"}
+    Q1 -- no --> Full["Full PrePaintTreeWalk<br/>rebuild property trees<br/>+ paint invalidation"]
+    Q1 -- yes --> Q2{"Causes layout?<br/>(width / left / etc.)"}
+    Q2 -- yes --> Full
+    Q2 -- no --> Pending["Add to pending updates list"]
+    Pending --> Walk["PrePaintTreeWalk::WalkTree<br/>applies pending updates<br/>without full traversal"]
+    Walk --> Done(["Compositor receives<br/>updated property tree node"])
+    Full --> Done
+
+    style Pending fill:#e8f5e9,stroke:#2e7d32
+    style Walk fill:#e8f5e9,stroke:#2e7d32
+    style Full fill:#ffebee,stroke:#c62828

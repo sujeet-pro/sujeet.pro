@@ -1,0 +1,17 @@
+%% Diagram: SurfaceAggregator merges per-process compositor frames
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    BUI["Browser UI<br/>CompositorFrame"]
+    Main["Main Page Renderer<br/>CompositorFrame"]
+    IFA["Cross-origin iframe A<br/>CompositorFrame"]
+    IFB["Cross-origin iframe B<br/>CompositorFrame"]
+    SA["SurfaceAggregator<br/>(walks SurfaceDrawQuads)"]
+    Agg["Aggregated Frame<br/>(single render-pass tree)"]
+    Disp["DirectRenderer → GPU → Display"]
+
+    BUI --> SA
+    Main --> SA
+    IFA --> SA
+    IFB --> SA
+    SA --> Agg --> Disp

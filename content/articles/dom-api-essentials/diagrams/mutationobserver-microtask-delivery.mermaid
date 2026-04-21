@@ -1,0 +1,21 @@
+%% Diagram: MutationObserver Microtask Delivery
+%% Type: sequence
+sequenceDiagram
+  autonumber
+  participant Script as Script (sync task)
+  participant Tree as DOM tree
+  participant Queue as Observer record queues
+  participant Mt as Microtask queue
+  participant Cb as MO callback
+
+  Script->>Tree: appendChild(a)
+  Tree->>Queue: queue mutation record (childList)
+  Tree->>Mt: queue a mutation observer microtask (dedup'd per agent)
+  Script->>Tree: setAttribute("class", ...)
+  Tree->>Queue: queue mutation record (attributes)
+  Script->>Tree: appendChild(b)
+  Tree->>Queue: queue mutation record (childList)
+  Note over Script: synchronous task ends
+  Mt->>Cb: notify mutation observers
+  Cb->>Queue: takeRecords() — drains all 3 records in one call
+  Cb-->>Script: callback returns

@@ -1,0 +1,41 @@
+%% Diagram: Query fan-out and scatter-gather across document-partitioned shards, with hedged requests and partial-results merge
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q["Query processor\n(after spell / intent / expand)"]
+    AGG["Aggregator\nmerge top-K, re-rank, deadline-bounded"]
+    OUT["Final top-10"]
+
+    subgraph Replicas1["Shard 1 (replicas)"]
+        S1A["Replica A"]
+        S1B["Replica B (hedged)"]
+    end
+    subgraph Replicas2["Shard 2 (replicas)"]
+        S2A["Replica A"]
+        S2B["Replica B"]
+    end
+    subgraph ReplicasN["Shard N (replicas)"]
+        SNA["Replica A"]
+        SNB["Replica B"]
+    end
+
+    Q -- "fan-out (broadcast)" --> S1A
+    Q -- "+ hedge after p95" --> S1B
+    Q --> S2A
+    Q --> S2B
+    Q --> SNA
+    Q --> SNB
+
+    S1A -- "top-K, latency" --> AGG
+    S1B -.-> AGG
+    S2A --> AGG
+    S2B -.-> AGG
+    SNA --> AGG
+    SNB -.-> AGG
+
+    AGG --> OUT
+
+    note["p99 = max over N shards;\npartial results returned\nif a shard misses deadline."]:::noteCls
+    AGG -.- note
+
+    classDef noteCls fill:#fffbe6,stroke:#d4a017,color:#665100

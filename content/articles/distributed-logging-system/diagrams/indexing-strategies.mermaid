@@ -1,0 +1,35 @@
+%% Diagram: Indexing Strategies — Inverted vs Label-only vs Columnar
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Inverted["Inverted Index (Elasticsearch)"]
+        direction TB
+        I1["Term dictionary"]
+        I2["Postings lists\nterm -> doc ids"]
+        I3["O(log n) per term\nIndex 1-3x raw"]
+        I1 --> I2 --> I3
+    end
+
+    subgraph Labels["Label-only Index (Loki)"]
+        direction TB
+        L1["Stream key\n{service, env, level}"]
+        L2["Compressed chunks"]
+        L3["Filter labels,\nthen scan content"]
+        L1 --> L2 --> L3
+    end
+
+    subgraph Columnar["Columnar (ClickHouse)"]
+        direction TB
+        C1["Sorted columns\nby primary key"]
+        C2["Granule metadata\n+ skip indexes"]
+        C3["Skip non-matching\nblocks; read needed cols"]
+        C1 --> C2 --> C3
+    end
+
+    classDef invStyle fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef labelStyle fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef colStyle fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class I1,I2,I3 invStyle
+    class L1,L2,L3 labelStyle
+    class C1,C2,C3 colStyle

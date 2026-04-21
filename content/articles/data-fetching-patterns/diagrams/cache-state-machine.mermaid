@@ -1,0 +1,22 @@
+%% Diagram: Query cache state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Pending: useQuery mounts\nno cache entry
+    Pending --> Fresh: fetch resolves\nstore data + timestamp
+    Fresh --> Stale: age > staleTime
+    Stale --> Refetching: trigger\n(focus / mount / interval)
+    Refetching --> Fresh: 200 OK
+    Refetching --> Stale: error\n(retry policy decides)
+    Fresh --> Inactive: last subscriber unmounts
+    Stale --> Inactive: last subscriber unmounts
+    Inactive --> Fresh: subscriber mounts\nbefore gcTime
+    Inactive --> Stale: subscriber mounts\nafter staleTime
+    Inactive --> [*]: gcTime elapsed\nentry evicted
+
+    classDef live fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef cold fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class Fresh live
+    class Stale,Refetching warn
+    class Inactive cold

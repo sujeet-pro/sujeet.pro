@@ -6,10 +6,12 @@ description: >-
   trillions of messages — solving JVM GC pauses, hot partitions, and tombstone storms
   with Rust data services and request coalescing.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - data
+  - databases
+  - distributed-systems
   - migrations
 ---
 
@@ -59,7 +61,7 @@ The critical property: the read/write ratio is approximately 50/50, and reads ar
 
 ### The Architecture
 
-Discord's message storage sits behind an API monolith (originally Python, later Elixir for real-time features). Messages flow through WebSocket gateways for real-time delivery, but every message is also persisted to the message store for retrieval. The persistence path — the focus of this case study — evolved through three database systems over 8 years.
+Discord's message storage sits behind an API monolith (originally Python, with Elixir for real-time gateway features). Messages flow through WebSocket gateways for real-time delivery, but every message is also persisted to the message store for retrieval. The persistence path — the focus of this case study — evolved through three database systems between 2015 and 2022, chronicled in two Discord engineering blog posts: ["How Discord Stores Billions of Messages"](https://discord.com/blog/how-discord-stores-billions-of-messages) (Stanislav Vishnevskiy, January 2017) and ["How Discord Stores Trillions of Messages"](https://discord.com/blog/how-discord-stores-trillions-of-messages) (Bo Ingram, March 2023).
 
 ## Phase 1: MongoDB (2015–2016)
 
@@ -73,7 +75,7 @@ Messages were indexed on a compound key of `(channel_id, created_at)`, and the e
 
 By November 2015 — six months after launch — Discord had stored 100 million messages. At this point, the data and indexes could no longer fit in RAM. MongoDB's performance became unpredictable: random reads that previously completed in milliseconds now hit disk, and latencies spiked erratically.
 
-The team had anticipated this. Discord's co-founder Stanislav Vishnevskiy had designed the MongoDB schema to be migration-friendly from the start. The question wasn't whether to migrate — it was where.
+The team had anticipated this. Discord CTO and co-founder Stanislav Vishnevskiy had explicitly designed against MongoDB sharding ("complicated to use and not known for stability") and kept the schema portable from day one. The question wasn't whether to migrate — it was where.
 
 ### Requirements for the Next Database
 
@@ -138,9 +140,12 @@ The bucket value is derived from the message timestamp relative to a `DISCORD_EP
 
 **The trade-off**: Fetching 50 messages from an inactive channel might require querying multiple buckets sequentially — the query generates bucket ranges from the timestamp and scans them in reverse chronological order until it collects enough messages. For active channels (the common case), a single bucket query returns results immediately. Discord accepted this trade-off: the vast majority of reads hit recent messages in active channels.
 
+![Bucketed partitioning: the channel ID alone produces an unbounded partition; adding a 10-day bucket caps each partition's size and lets buckets distribute across nodes.](./diagrams/bucketed-partitioning-light.svg "Bucketing the partition key bounds partition size and lets independent buckets land on different nodes.")
+![Bucketed partitioning: the channel ID alone produces an unbounded partition; adding a 10-day bucket caps each partition's size and lets buckets distribute across nodes.](./diagrams/bucketed-partitioning-dark.svg)
+
 ### Production at 12 Nodes
 
-By early 2017, Discord's Cassandra cluster ran on 12 nodes with a replication factor of 3, storing approximately 1 TB of compressed data per node. Write latency was sub-millisecond; read latency was under 5 milliseconds. The team of 4 backend engineers managed the cluster without dedicated operations staff.
+By early 2017, Discord's Cassandra cluster ran on 12 nodes with a replication factor of 3, storing approximately 1 TB of compressed data per node. Write latency was sub-millisecond; read latency was under 5 milliseconds. A team of 4 backend engineers — with no dedicated DevOps staff at the time — managed the cluster, per the [2017 Discord post](https://discord.com/blog/how-discord-stores-billions-of-messages).
 
 ### Production Issues
 
@@ -282,6 +287,12 @@ This transforms N concurrent reads for the same channel into 1 database query, d
 
 Each request to the data service includes a routing key (the `channel_id`). The system uses consistent hashing to route all requests for the same channel to the same data service instance. This concentrates coalescing opportunities — if requests for the same channel were spread across multiple instances, each instance would issue its own database query.
 
+![Request coalescing: three concurrent reads for the same channel are routed to one data service instance, where the second and third subscribe to the first request's worker and receive the same result.](./diagrams/request-coalescing-sequence-light.svg "Consistent-hash routing concentrates traffic for one channel on one data service instance, where coalescing collapses N concurrent identical reads into one DB query.")
+![Request coalescing: three concurrent reads for the same channel are routed to one data service instance, where the second and third subscribe to the first request's worker and receive the same result.](./diagrams/request-coalescing-sequence-dark.svg)
+
+![Hot partition pressure before vs after: without coalescing, every concurrent reader translates 1:1 into an identical SELECT against the same replica set; with consistent-hash routing into the data service, N concurrent reads collapse to one DB query.](./diagrams/hot-partition-before-after-light.svg "Before vs after the data services layer: consistent-hash routing concentrates traffic per channel onto one DS instance, where coalescing absorbs the read amplification that no database alone could handle.")
+![Hot partition pressure before vs after: without coalescing, every concurrent reader translates 1:1 into an identical SELECT against the same replica set; with consistent-hash routing into the data service, N concurrent reads collapse to one DB query.](./diagrams/hot-partition-before-after-dark.svg)
+
 #### Design Constraints
 
 Data services are intentionally thin:
@@ -297,20 +308,29 @@ ScyllaDB's key architectural difference from Cassandra is its **shard-per-core**
 
 For Discord, this meant a hot partition on one core did not degrade performance for queries served by other cores on the same node — a fundamental improvement over Cassandra, where GC pauses and lock contention affected the entire JVM process.
 
+![Cassandra's shared JVM heap vs ScyllaDB's shard-per-core: in Cassandra one GC pause or hot partition stalls every core on the node; in ScyllaDB each core owns its own memtable, cache, and SSTables and communicates only via explicit message passing.](./diagrams/shard-per-core-light.svg "Why ScyllaDB's shard-per-core architecture isolates hot partitions: each core has dedicated memory and storage, so workload pressure on one shard does not propagate.")
+![Cassandra's shared JVM heap vs ScyllaDB's shard-per-core: in Cassandra one GC pause or hot partition stalls every core on the node; in ScyllaDB each core owns its own memtable, cache, and SSTables and communicates only via explicit message passing.](./diagrams/shard-per-core-dark.svg)
+
 ### Super-Disk: Hybrid Storage on GCP
 
-Discord runs on Google Cloud Platform (GCP). Standard Persistent Disks deliver 1–2ms latency per I/O operation — adequate for many workloads, but insufficient for a database serving 2 million requests per second. Local SSDs offer ~0.5ms latency but are ephemeral: if the instance migrates or restarts, Local SSD data is lost.
+Discord runs on Google Cloud Platform (GCP). Standard Persistent Disks deliver roughly 1–2 ms latency per I/O operation — adequate for many workloads, but insufficient for a database serving around 2 million requests per second. Local SSDs offer ~0.5 ms latency but are ephemeral: if any Local SSD fails GCP migrates the host and all Local SSD data on that host is gone.
 
-Discord engineered a **super-disk** configuration combining both:
+Discord engineered a **super-disk** configuration combining both, leveraging the Linux kernel's `md` software RAID:
 
-1. **RAID0** across multiple Local SSDs (375 GB each, NVMe) for aggregated capacity and parallel read throughput
-2. **RAID1** (mirror) between the RAID0 array and a Persistent Disk, with the Persistent Disk marked `write-mostly` to exclude it from read balancing
+1. **RAID0** across multiple Local SSDs (375 GB each, NVMe on GCP) for aggregated capacity and parallel read throughput
+2. **RAID1** (mirror) between the RAID0 array and a Persistent Disk, with the Persistent Disk marked `write-mostly` so the kernel excludes it from normal read balancing and only reads from it when the fast leg has no data
 
-This gives reads the latency of Local SSDs (~0.5ms) while writes propagate to the Persistent Disk for durability and snapshot capability. If Local SSD data is lost during a host migration (GCP replaces the entire host if any Local SSD fails), the node can rebuild from the Persistent Disk mirror and Cassandra/ScyllaDB's replication.
+This gives reads the latency of Local SSDs while writes still propagate to the Persistent Disk for durability and snapshot capability. If Local SSD data is lost during a host migration, the node rebuilds the RAID0 leg from the Persistent Disk mirror and ScyllaDB's cluster-level replication.
 
-**Impact**: I/O wait dropped 50–75% compared to Persistent Disk alone, eliminating the query queueing that occurred during traffic peaks.
+![Super-disk topology: ScyllaDB writes flow through an md RAID1 mirror; reads come from a RAID0 stripe over Local SSDs while a write-mostly Persistent Disk leg keeps a durable, snapshottable copy.](./diagrams/super-disk-raid-light.svg "Super-disk: a RAID0 stripe of Local SSDs gives near-NVMe read latency; a write-mostly Persistent Disk mirror via RAID1 supplies durability and snapshots.")
+![Super-disk topology: ScyllaDB writes flow through an md RAID1 mirror; reads come from a RAID0 stripe over Local SSDs while a write-mostly Persistent Disk leg keeps a durable, snapshottable copy.](./diagrams/super-disk-raid-dark.svg)
+
+**Impact**: Discord reported that the database stopped queueing disk operations at peak load, eliminating the cascading I/O backlog they had seen on Persistent-Disk-only nodes — without sacrificing the snapshotting and replication properties that depend on the Persistent Disk leg.
 
 ### Migration Strategy
+
+![Dual-write topology during migration: the API monolith talks to the data services, which dual-write new messages to both Cassandra and ScyllaDB while the Rust migrator firehoses historical token ranges from Cassandra into ScyllaDB; reads stay on Cassandra until cutover.](./diagrams/dual-write-topology-light.svg "Dual-write topology during the Cassandra to ScyllaDB migration. The data services layer makes the database swap transparent to the API monolith.")
+![Dual-write topology during migration: the API monolith talks to the data services, which dual-write new messages to both Cassandra and ScyllaDB while the Rust migrator firehoses historical token ranges from Cassandra into ScyllaDB; reads stay on Cassandra until cutover.](./diagrams/dual-write-topology-dark.svg)
 
 #### Phase 1: Dual Writes (New Data)
 
@@ -318,24 +338,24 @@ Discord established a cutover timestamp. All new messages after this timestamp w
 
 #### Phase 2: Historical Migration (The Bottleneck)
 
-The initial plan used Apache Spark to read token ranges from Cassandra and write them to ScyllaDB. Estimated timeline: **3 months**.
+The initial plan used **ScyllaDB's Spark migrator** (`scylla-migrator`) to read token ranges from Cassandra and write them to ScyllaDB. After tuning, the estimated timeline was **3 months**.
 
-The team rejected this timeline and built a custom migrator in Rust. The Rust migrator:
+The team rejected this timeline and extended their existing Rust data services library into a purpose-built migrator. The Rust migrator:
 
-- Read token ranges directly from Cassandra
+- Read token ranges directly from Cassandra using their existing driver
 - Checkpointed progress via SQLite (enabling restarts without re-scanning)
-- Wrote to ScyllaDB with high-throughput concurrent inserts
-- Achieved **3.2 million messages per second** migration throughput
+- "Firehosed" rows into ScyllaDB with high-throughput concurrent inserts
+- Achieved **up to 3.2 million messages per second** migration throughput
 
-Estimated timeline with the Rust migrator: **9 days**.
+Estimated timeline with the Rust migrator: **9 days**. Discord engineers describe extending the data service library to do this as roughly an afternoon's work — the heavy lifting (concurrent driver, scheduling, retries) was already in their library; the migrator was a thin orchestrator on top.
 
 #### Challenge: Tombstone Compaction
 
-During migration, the team discovered that gigantic tombstone ranges in Cassandra — accumulated over years — had to be compacted before data could be cleanly read and transferred. The migrator handled this by triggering targeted compaction on specific token ranges before reading them.
+The migration appeared stuck at 99.9999% complete: the last few token ranges contained gigantic tombstone ranges in Cassandra — accumulated over years and never compacted away — that timed out the migrator's reads. The team manually triggered compaction on the offending token range, and the backfill completed seconds later (per Bo Ingram's [account](https://discord.com/blog/how-discord-stores-trillions-of-messages)).
 
 #### Phase 3: Validation
 
-Discord mirrored a percentage of live read traffic to both databases simultaneously, comparing responses. Discrepancies were logged and investigated. This ran for weeks before switching reads to ScyllaDB.
+Discord mirrored a small percentage of live read traffic to both databases simultaneously and compared responses; discrepancies were logged and investigated. The Bo Ingram blog post calls this an "automated data validation" step before flipping the primary.
 
 #### Cutover
 
@@ -383,6 +403,9 @@ In December 2022, the FIFA World Cup Final generated massive concurrent traffic 
 | World Cup Final validation                 | December 2022 |
 | Second blog post (72 ScyllaDB nodes)       | March 2023    |
 
+![Gantt timeline of the 2022 migration: super-disk infra and Rust data services land first, dual-writes begin, the Spark migrator is rejected after a 3-month estimate, the Rust migrator is built in an afternoon and completes the backfill in roughly 9 days at up to 3.2M msgs/sec, mirrored-read validation precedes the May 2022 cutover, and the World Cup Final later that year stress-tests the new cluster.](./diagrams/migration-timeline-light.svg "Migration timeline: the Rust migrator collapsed a 3-month Spark plan into ~9 days; the team manually compacted the final tombstone-heavy token range to unblock the last 0.0001% of the backfill.")
+![Gantt timeline of the 2022 migration: super-disk infra and Rust data services land first, dual-writes begin, the Spark migrator is rejected after a 3-month estimate, the Rust migrator is built in an afternoon and completes the backfill in roughly 9 days at up to 3.2M msgs/sec, mirrored-read validation precedes the May 2022 cutover, and the World Cup Final later that year stress-tests the new cluster.](./diagrams/migration-timeline-dark.svg)
+
 ## Lessons Learned
 
 ### Technical Lessons
@@ -413,7 +436,7 @@ In December 2022, the FIFA World Cup Final generated massive concurrent traffic 
 
 #### 3. Migration Tooling Can Be the Bottleneck
 
-**The insight**: The standard approach (Apache Spark migrator) would have taken 3 months. The custom Rust migrator completed the same work in 9 days — a 10x improvement that took approximately one day to build. The Rust migrator's advantage was simple: high-throughput concurrent I/O without framework overhead.
+**The insight**: The standard approach (`scylla-migrator` running on Spark) would have taken 3 months. The custom Rust migrator completed the same work in 9 days — a 10x improvement built in roughly an afternoon by extending an existing in-house data service library. The migrator's advantage was simple: high-throughput concurrent I/O on the same driver the production data services already used, with no framework overhead.
 
 **How it applies elsewhere**: Before committing to a multi-month migration timeline, evaluate whether a purpose-built migration tool could drastically reduce the window. A shorter migration means less time running dual systems, less risk of divergence, and faster rollback if needed.
 
@@ -508,7 +531,7 @@ The pattern is reproducible. If you're running a JVM-based database at scale and
 - Rust data services with request coalescing and consistent hash routing transformed thousands of concurrent identical reads into single database queries — the most impactful architectural change
 - A custom Rust migrator achieved 3.2M messages/second, completing the migration in 9 days instead of the 3-month Spark estimate
 - ScyllaDB's shard-per-core model eliminated GC pauses and provided workload isolation that Cassandra could not — reducing the cluster from 177 to 72 nodes while improving p99 read latency from 125ms to 15ms
-- The super-disk architecture (Local SSD + Persistent Disk RAID) reduced I/O latency by 50–75% on GCP
+- The super-disk architecture (Local SSD RAID0 + Persistent Disk write-mostly mirror via Linux `md`) eliminated the disk-operation queueing that made Persistent-Disk-only nodes the bottleneck at peak load on GCP
 
 ### References
 

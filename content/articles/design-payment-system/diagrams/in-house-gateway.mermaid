@@ -1,0 +1,27 @@
+%% Diagram: In-house payment gateway (Path A)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Client app"]
+    subgraph InHouse["In-house build"]
+        GW["Payment gateway"]
+        RISK["Risk / fraud engine"]
+        VAULT[("PCI vault")]
+        PROC["Processor integration"]
+        LEDGER[("Ledger")]
+    end
+
+    subgraph External["External rails"]
+        ACQ["Acquiring bank"]
+        VISA["VisaNet"]
+        MC["Banknet (Mastercard)"]
+    end
+
+    Client --> GW
+    GW --> RISK
+    GW --> VAULT
+    RISK --> PROC
+    PROC --> ACQ
+    ACQ --> VISA
+    ACQ --> MC
+    GW --> LEDGER

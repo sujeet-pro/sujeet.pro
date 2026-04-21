@@ -1,0 +1,17 @@
+%% Diagram: Open vs closed workload models
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CLOSED["Closed model<br/>(fixed users, think time)"]
+        C1["N virtual users"] --> C2["Send request"]
+        C2 --> C3["Wait for response<br/>(SUT slowdown throttles load)"]
+        C3 --> C4["Think time"]
+        C4 --> C2
+    end
+    subgraph OPEN["Open model<br/>(arrival rate λ, independent)"]
+        O1["Arrival generator at λ rps"] --> O2["Schedule next request<br/>(independent of SUT)"]
+        O2 --> O3["Send request<br/>(queue grows when SUT slows)"]
+        O3 --> O2
+    end
+    NOTE1["Coordinated omission risk:<br/>missing samples during stalls<br/>(Tene, HdrHistogram)"] -.-> CLOSED
+    NOTE2["Models real-world traffic:<br/>marketing spikes, public APIs<br/>(Schroeder & Wierman, NSDI 2006)"] -.-> OPEN

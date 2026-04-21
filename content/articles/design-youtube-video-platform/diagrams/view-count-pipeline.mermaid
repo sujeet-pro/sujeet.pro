@@ -1,0 +1,12 @@
+%% Diagram: View counting pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    PLAYER[Video player] -->|playback heartbeat| INGEST[Event ingestion<br/>Kafka topic]
+    INGEST --> VALIDATE[Validate<br/>min watch time, replay window]
+    VALIDATE --> DEDUP[Dedup<br/>Bloom filter on hash<br/>video + user + IP + UA]
+    DEDUP --> AGG[Stream aggregator<br/>Flink / Spark<br/>per-video counters]
+    AGG --> WRITE[Counter store<br/>Cassandra / Bigtable]
+    WRITE --> CACHE[Hot read cache<br/>Redis]
+    CACHE --> READ[API: GET /videos/v/views]
+    AGG --> FRAUD[Fraud signals<br/>same-IP rate, watch-time outliers]

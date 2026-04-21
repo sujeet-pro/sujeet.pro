@@ -1,0 +1,24 @@
+%% Diagram: AWS Service Dependency Cascade from the Kinesis Outage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    KIN["Kinesis Data Streams<br/>(US-EAST-1 front-end fleet)"]:::root
+
+    KIN --> CW["CloudWatch<br/>metric + log ingestion"]
+    KIN --> COG["Cognito<br/>analytics buffer<br/>(latent block-on-full bug)"]
+    KIN --> EVB["CloudWatch Events /<br/>EventBridge"]
+    KIN --> FH["Amazon Data Firehose"]
+
+    CW --> AS["AutoScaling<br/>(reactive policies stalled)"]
+    CW --> LAM["Lambda invoke hosts<br/>(metric buffer → memory contention)"]
+    CW --> ALARM["Customer alarms<br/>→ INSUFFICIENT_DATA"]
+
+    COG --> AUTH["External user auth /<br/>temporary AWS credentials"]
+    COG --> SHD["Service Health Dashboard<br/>publishing tool<br/>(operators couldn't post updates)"]
+
+    EVB --> ECS["ECS / EKS workflows<br/>(provision, scale, de-provision)"]
+    EVB --> S3EV["S3 event notifications"]
+
+    classDef root fill:#B43A3A,stroke:#8E2828,color:#ffffff;
+    classDef impacted fill:#FBE6E6,stroke:#B43A3A,color:#1f2937;
+    class CW,COG,EVB,FH,AS,LAM,ALARM,AUTH,SHD,ECS,S3EV impacted;

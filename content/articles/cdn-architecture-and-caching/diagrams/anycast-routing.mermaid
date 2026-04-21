@@ -1,0 +1,28 @@
+%% Diagram: Anycast routing — same IP, BGP picks the topologically nearest PoP
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    U1["User AS — Tokyo"]
+    U2["User AS — Frankfurt"]
+    U3["User AS — São Paulo"]
+
+    subgraph BGP["Internet — BGP route propagation"]
+        direction TB
+        R1["Tokyo router\nbest path to 198.51.100.0/24"]
+        R2["Frankfurt router\nbest path to 198.51.100.0/24"]
+        R3["São Paulo router\nbest path to 198.51.100.0/24"]
+    end
+
+    subgraph PoPs["CDN PoPs — all announce 198.51.100.0/24"]
+        direction TB
+        P1["PoP NRT"]
+        P2["PoP FRA"]
+        P3["PoP GRU"]
+    end
+
+    U1 --> R1 --> P1
+    U2 --> R2 --> P2
+    U3 --> R3 --> P3
+
+    P1 -. "withdraw on PoP failure" .-> R1
+    R1 -. "reconverges to next-best" .-> P2

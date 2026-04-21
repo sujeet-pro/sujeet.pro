@@ -1,0 +1,18 @@
+%% Diagram: False-positive triage decision tree for incoming CSP reports
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start(["Incoming CSP report"]) --> Q1{"blocked-uri or<br/>source-file scheme?"}
+    Q1 -->|"chrome-extension://<br/>moz-extension://<br/>safari-web-extension://<br/>ms-browser-extension://"| DROP1["Drop<br/>(extension noise)"]
+    Q1 -->|"about: / data: with no source"| DROP2["Drop<br/>(speculative parser)"]
+    Q1 -->|"http(s) URL"| Q2{"blocked-host<br/>on noise allowlist?"}
+
+    Q2 -->|"yes — known AV / proxy<br/>injection host"| DROP3["Drop<br/>(AV / corporate proxy)"]
+    Q2 -->|"no"| Q3{"blocked-uri 'inline'<br/>or 'eval'<br/>without source-file?"}
+
+    Q3 -->|"yes"| DROP4["Drop or quarantine<br/>(bookmarklet / userscript)"]
+    Q3 -->|"no"| Q4{"Correlates with a<br/>recent deploy?"}
+
+    Q4 -->|"yes"| ALERT1["Page on-call<br/>(policy regression)"]
+    Q4 -->|"no, repeated across<br/>distinct UAs + IPs"| ALERT2["Surface as<br/>real violation"]
+    Q4 -->|"no, single UA"| QUAR["Quarantine for<br/>manual review"]

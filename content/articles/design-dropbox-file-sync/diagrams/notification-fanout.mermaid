@@ -1,0 +1,27 @@
+%% Diagram: Notification fan-out — clients use cursor to fetch deltas
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CA as Client A (writer)
+    participant API as API gateway
+    participant Meta as Metadata service
+    participant Notify as Notification service
+    participant CB as Client B (reader)
+    participant CC as Client C (reader)
+
+    CB->>Notify: open long-poll / WebSocket<br/>(namespace=N, cursor=12)
+    CC->>Notify: open long-poll / WebSocket<br/>(namespace=N, cursor=12)
+
+    CA->>API: commit (file edit, namespace=N)
+    API->>Meta: append SFJ row, JID=13
+    Meta->>Notify: publish(namespace=N, JID=13)
+
+    Notify-->>CB: hint: namespace=N has updates
+    Notify-->>CC: hint: namespace=N has updates
+
+    CB->>API: list_folder/continue(cursor=12)
+    API->>Meta: rows where JID > 12
+    Meta-->>API: row JID=13
+    API-->>CB: changes + cursor=13
+
+    Note over CC: Same flow on CC<br/>(payload contains no file content)

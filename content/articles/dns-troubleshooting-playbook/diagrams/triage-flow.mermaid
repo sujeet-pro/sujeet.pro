@@ -1,0 +1,40 @@
+%% Diagram: DNS triage flow — symptom to diagnostic to layer
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Symptoms["1. Symptom"]
+        S1["No answers from any resolver"]
+        S2["SERVFAIL"]
+        S3["NXDOMAIN for a known name"]
+        S4["Intermittent / regional"]
+        S5["Slow first byte (DNS time)"]
+    end
+
+    subgraph Probes["2. Diagnostic probe"]
+        D1["dig @ns1 NAME +norecurse<br/>check AA flag, RCODE"]
+        D2["dig NAME +cd<br/>+ read EDE in OPT"]
+        D3["dig NAME @auth +norecurse<br/>vs cached resolver"]
+        D4["for ns in NS list:<br/>dig @ns SOA +short<br/>dig @8.8.8.8 +nsid"]
+        D5["dig +trace +stats<br/>delv +rtrace"]
+    end
+
+    subgraph Layers["3. Layer at fault"]
+        R1["Authoritative reachability<br/>or lame delegation"]
+        R2["DNSSEC validation<br/>(zone or chain)"]
+        R3["Negative cache or<br/>parent delegation gone"]
+        R4["Replication / anycast /<br/>upstream packet loss"]
+        R5["Long delegation, retries,<br/>or DNSKEY/DS fetches"]
+    end
+
+    S1 --> D1 --> R1
+    S2 --> D2 --> R2
+    S3 --> D3 --> R3
+    S4 --> D4 --> R4
+    S5 --> D5 --> R5
+
+    classDef sym fill:#eef,stroke:#446,color:#113;
+    classDef diag fill:#efe,stroke:#363,color:#131;
+    classDef layer fill:#fee,stroke:#933,color:#511;
+    class S1,S2,S3,S4,S5 sym;
+    class D1,D2,D3,D4,D5 diag;
+    class R1,R2,R3,R4,R5 layer;

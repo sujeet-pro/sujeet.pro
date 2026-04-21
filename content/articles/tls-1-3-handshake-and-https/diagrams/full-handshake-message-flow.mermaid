@@ -1,0 +1,21 @@
+%% Diagram: TLS 1.3 full handshake message flow (1-RTT)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Phase 1 — plaintext (necessary for key agreement)
+    C->>S: ClientHello + key_share + supported_versions
+    S->>C: ServerHello + key_share
+
+    Note over C,S: Phase 2 — encrypted with handshake keys
+    S->>C: EncryptedExtensions
+    S->>C: Certificate (optional CertificateRequest)
+    S->>C: CertificateVerify
+    S->>C: Finished
+    C->>S: Finished
+
+    Note over C,S: Phase 3 — encrypted with application keys
+    C->>S: Application Data
+    S->>C: Application Data

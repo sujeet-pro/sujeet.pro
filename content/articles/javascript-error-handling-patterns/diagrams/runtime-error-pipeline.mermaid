@@ -1,0 +1,23 @@
+%% Diagram: Runtime error pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    THROW(["throw / Promise reject"]) --> KIND{"sync or<br/>async?"}
+
+    KIND -->|sync throw| TRY{"in a<br/>try / catch?"}
+    KIND -->|promise reject| AW{"awaited or<br/>.catch chained?"}
+
+    TRY -->|yes| LOCAL["local catch handles"]
+    TRY -->|no| GERR["dispatch global<br/>'error' / uncaughtException"]
+
+    AW -->|yes| LOCAL
+    AW -->|no| URJ["dispatch<br/>'unhandledrejection' /<br/>'unhandledRejection'"]
+
+    GERR --> BR{"runtime?"}
+    URJ --> BR
+
+    BR -->|browser| BRWeb["window.addEventListener<br/>(error, unhandledrejection)<br/>preventDefault to silence"]
+    BR -->|Node.js 15+| NODE["process.on(uncaughtException,<br/>unhandledRejection)<br/>default: log + exit 1"]
+
+    BRWeb --> RUM["Sentry / RUM<br/>error reporter"]
+    NODE --> SUP["graceful shutdown<br/>+ supervisor restart"]

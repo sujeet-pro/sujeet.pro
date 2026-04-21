@@ -1,0 +1,25 @@
+%% Diagram: TAO invalidation and versioning
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant F1 as Follower 1 (originator)
+    participant L as Leader
+    participant F2 as Follower 2 (other tier)
+
+    F1->>L: write x (v1 -> v2)
+    L->>L: persist via MySQL write-through
+    L-->>F1: changeset incl. v2
+    Note over F1: F1 caches v2 (read-after-write)
+
+    L--)F2: async invalidate {key=x, version=v2}
+
+    alt F2 has v1 cached
+        Note over F2: cached version < v2 -> drop entry
+    else F2 has v2 or newer
+        Note over F2: ignore (idempotent, out-of-order safe)
+    else F2 has nothing
+        Note over F2: no-op
+    end
+
+    Note over F1,F2: Association lists use 'refill' instead of invalidate<br/>so followers query the leader for the updated prefix.

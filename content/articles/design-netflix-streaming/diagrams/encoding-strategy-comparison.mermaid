@@ -1,0 +1,25 @@
+%% Diagram: Encoding strategy comparison — fixed ladder vs per-title vs shot-based
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph FIXED["Fixed ladder (pre-2015)"]
+        F1["1080p @ 5800 kbps<br/>same for every title"]
+        F2["VMAF varies wildly:<br/>over-served on simple<br/>under-served on action"]
+        F1 --> F2
+    end
+
+    subgraph PERTITLE["Per-title (2015)"]
+        P1["Convex-hull search<br/>across resolutions and QPs"]
+        P2["Custom ladder per title<br/>e.g. OINTB 1080p @ 4640 kbps"]
+        P3["~20% bitrate savings<br/>at the same VMAF"]
+        P1 --> P2 --> P3
+    end
+
+    subgraph SHOT["Shot-based / Dynamic Optimizer (2018+)"]
+        S1["Detect shot boundaries"]
+        S2["Allocate bits per shot<br/>complex shots more, simple less"]
+        S3["4K avg ~8 Mbps vs prior 16 Mbps<br/>HDR ladder 58% of fixed storage"]
+        S1 --> S2 --> S3
+    end
+
+    FIXED --> PERTITLE --> SHOT

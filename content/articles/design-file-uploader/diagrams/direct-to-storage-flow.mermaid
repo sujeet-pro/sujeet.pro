@@ -1,0 +1,22 @@
+%% Diagram: Direct-to-storage two-phase upload (presigned URL)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant A as App API
+    participant S as Object store
+
+    C->>A: POST /uploads
+    A->>A: sign URL (short TTL)
+    A-->>C: upload_url, upload_id
+
+    Note over C,S: Bytes flow direct,\nbypassing API
+    loop per chunk
+        C->>S: PUT bytes
+        S-->>C: 2xx + ETag
+    end
+
+    C->>A: complete(upload_id)
+    A->>S: verify object
+    S-->>A: 200 OK
+    A-->>C: 201 Created

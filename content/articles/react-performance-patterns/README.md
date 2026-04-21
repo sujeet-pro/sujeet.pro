@@ -1,114 +1,111 @@
 ---
-title: 'React Performance Patterns: Rendering, Memoization, and Scheduling'
-linkTitle: 'React Performance'
+title: "React Performance Patterns: Rendering, Memoization, and Scheduling"
+linkTitle: "React Performance"
 description: >-
-  Practical patterns for keeping React apps fast — understanding the render pipeline, applying memo/useMemo/useCallback correctly, leveraging concurrent features like useTransition, virtualizing large lists, and profiling with React DevTools.
+  Practical patterns for keeping React apps fast — understanding the render pipeline, applying memo / useMemo / useCallback correctly, leveraging concurrent features like useTransition, virtualizing large lists with react-window v2, and profiling with React DevTools.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - react
-  - design-systems
+  - performance
+  - optimization
   - frontend
   - components
 ---
 
 # React Performance Patterns: Rendering, Memoization, and Scheduling
 
-Patterns for keeping React applications fast as they scale: understanding the render pipeline, applying memoization correctly, leveraging concurrent features, and profiling effectively. Covers React 18+ with explicit callouts where examples rely on React 19 features like `use()` or the React Compiler.
+React performance is mostly a question of **which components React calls and how often**. Once you can answer that for any frame, the rest of the work — memoization, transitions, virtualization, profiling — falls into place. This article is the model and the toolkit, written against React 18.x and React 19.x with explicit notes where 19-only features (`use()`, `useDeferredValue` initial value, the React Compiler 1.0 release) change the answer.
 
-![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.](./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter-light.svg "React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.")
-![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase is synchronous.](./diagrams/react-s-three-phase-update-cycle-trigger-render-commit-the-render-phase-is-inter-dark.svg)
+![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase runs to completion.](./diagrams/render-pipeline-light.svg "React's three-phase update cycle. The render phase is interruptible in concurrent mode; the commit phase is synchronous.")
+![React's three-phase update cycle: trigger → render → commit. The render phase is interruptible in concurrent mode; the commit phase runs to completion.](./diagrams/render-pipeline-dark.svg)
 
-## Abstract
+## Mental model
 
-React performance optimization reduces to one question: **which components render, and how often?**
+Three ideas carry the rest of the article:
 
-The render phase calls component functions and diffs the virtual DOM (VDOM). Memoization (`memo`, `useMemo`, `useCallback`) skips renders when inputs haven't changed—but only if those inputs are referentially stable. Object.is comparison means new object/function references break memoization.
+1. **Render is not paint.** A render is React calling your component function and producing a virtual DOM tree. The DOM only changes if reconciliation produces a diff. Rendering can be cheap or catastrophic; profiling tells you which.
+2. **Reference equality drives memoization.** `React.memo`, `useMemo`, and `useCallback` all use [`Object.is`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is) on each prop or dependency ([memo](https://react.dev/reference/react/memo), [useMemo](https://react.dev/reference/react/useMemo)). A new object literal in render breaks the comparison the same way a deep change would.
+3. **Concurrent rendering reorders work, it doesn't make work cheaper.** `useTransition` and `useDeferredValue` mark updates as interruptible so the scheduler can keep urgent work (typing, clicks) on time, but the total CPU cost is the same. They trade latency on one update for responsiveness on another.
 
-React 18's concurrent rendering makes the render phase interruptible. Transitions (`useTransition`, `useDeferredValue`) let you mark updates as non-urgent so user interactions remain responsive during expensive renders.
+Everything below is an application of those three ideas.
 
-For large lists, virtualization renders only visible items, keeping DOM size constant regardless of data size.
+## The render pipeline
 
-Profile with React DevTools Profiler to find actual bottlenecks—measure before optimizing.
+### When a component renders
 
-## The Render Pipeline
+A component re-renders when:
 
-### When Components Render
+1. Its own state changes via a `set`-style updater.
+2. A parent renders and the child is not bailed out by `memo` with referentially stable props.
+3. A context value it subscribes to via `useContext` changes.
 
-A component renders when:
+That's the entire trigger surface. Hooks like `useEffect` run as a side effect of a render; they don't cause the render. A React render is just `Component(props)` being called — pure computation that produces a tree, with the work split across two phases.
 
-1. **Its state changes** via a `set` function
-2. **Its parent re-renders** (unless memoized with stable props)
-3. **A context it consumes changes**
+### Render vs. commit
 
-Rendering means React calls your component function. It does not necessarily mean DOM updates—that happens only if the reconciliation diff finds changes.
+| Phase | What runs | Interruptible (concurrent mode) |
+| ---------- | ---- | --- |
+| **Render** | Component functions, `useMemo`, `useReducer` reducers, key matching, reconciliation | Yes |
+| **Commit** | DOM mutations, `useLayoutEffect`, refs, `useEffect` (scheduled afterward) | No |
 
-### Render vs. Commit
+The render phase is a pure computation that React may run, pause, restart, or discard. The commit phase applies the chosen result to the DOM in a single synchronous pass and then yields to the browser for paint. This split is what makes interruption safe: nothing observable has happened to the DOM until commit.
 
-React separates work into two phases:
+> [!IMPORTANT]
+> Render must be pure. React may call your component twice in development (Strict Mode) and may discard a render mid-way in concurrent mode. Side effects belong in event handlers or effects, never in the render body.
 
-| Phase      | What Happens                                       | Interruptible (React 18+) |
-| ---------- | -------------------------------------------------- | ------------------------- |
-| **Render** | Call components, build VDOM, diff against previous | Yes                       |
-| **Commit** | Apply DOM mutations, run effects                   | No                        |
+### Reconciliation: the O(n) diff
 
-The render phase is pure computation. React may call components multiple times, pause rendering, or discard work entirely. The commit phase applies changes to the DOM synchronously—once React starts committing, it runs to completion.
+A general tree diff is O(n³). React reaches O(n) with two assumptions documented in the official [reconciliation algorithm spec](https://legacy.reactjs.org/docs/reconciliation.html):
 
-### Reconciliation: The O(n) Diff
+1. **Different element types produce different trees.** Swapping `<div>` for `<span>` (or `<Article>` for `<Comment>`) tears down the entire subtree, including all DOM nodes and component state, and rebuilds it.
+2. **Stable keys identify children across renders.** Without keys, React matches list children by position. With keys, it matches by identity, which lets it move, insert, or delete with minimal DOM work.
 
-Comparing arbitrary trees is O(n³). React uses two heuristics to achieve O(n):
-
-1. **Different element types produce different trees.** Changing `<div>` to `<span>` unmounts the entire subtree and rebuilds from scratch.
-2. **Keys identify stable children.** Without keys, React matches children by position—reordering causes unnecessary unmount/remount cycles.
-
-```tsx title="Key behavior" mark={5}
-// Without keys: inserting at index 0 remounts ALL items
+```tsx title="Key behavior" mark={5,11}
 <ul>
-  {items.map(item => <li>{item.name}</li>)}
+  {items.map((item) => (
+    <li>{item.name}</li>
+  ))}
 </ul>
 
-// With keys: React matches by identity, only new items mount
 <ul>
-  {items.map(item => <li key={item.id}>{item.name}</li>)}
+  {items.map((item) => (
+    <li key={item.id}>{item.name}</li>
+  ))}
 </ul>
 ```
 
-**Key gotcha:** Using array index as key breaks when items reorder or filter. Component state stays with the index, not the data. Use stable IDs from your data.
+> [!WARNING]
+> Using array index as a `key` reuses the same DOM node and component state for whatever data lands at that position. Reorder the list and the state moves with the index, not with the row. Always key by a stable identity from the data itself.
 
-### Fiber Architecture
+### Fiber and double buffering
 
-React Fiber (introduced in React 16) represents components as a linked list of "fiber" nodes rather than a recursive call stack. Each fiber holds:
+React 16 replaced the recursive stack reconciler with **Fiber**: a linked list of nodes, each one a unit of work that the scheduler can pause and resume. Every fiber holds the component type, props, the corresponding DOM node, and pointers to its parent, child, and sibling. The architecture is documented in Andrew Clark's [react-fiber-architecture](https://github.com/acdlite/react-fiber-architecture) note.
 
-- Component type and props
-- Corresponding DOM node
-- Links to parent, child, and sibling fibers
-- Pending work and priority
+Fiber renders against a **work-in-progress (WIP) tree** that mirrors the **current tree** on screen. Each fiber points at its counterpart through the `alternate` field. When commit happens, React swaps the pointer — the WIP tree becomes current, and the previous current is reused as the next WIP. That is the double-buffering:
 
-This structure enables **incremental rendering**: React can pause mid-render, handle a higher-priority update, then resume. It uses double-buffering—maintaining a "current" tree (on screen) and a "work-in-progress" tree (being built)—and swaps pointers on commit.
+![Fiber double-buffering: React builds the work-in-progress tree alongside the current tree on screen, then swaps pointers at commit time.](./diagrams/fiber-double-buffering-light.svg "Fiber double-buffering. The render phase mutates the WIP tree only; commit atomically swaps it with the current tree.")
+![Fiber double-buffering: React builds the work-in-progress tree alongside the current tree on screen, then swaps pointers at commit time.](./diagrams/fiber-double-buffering-dark.svg)
 
-> **Prior to React 16:** Reconciliation was synchronous and recursive. Once a render started, it blocked the main thread until completion. Deep component trees caused frame drops.
+> **Pre-Fiber (React ≤ 15):** the stack reconciler walked the tree recursively and ran to completion once started. Long subtrees blocked the main thread for one or many frames; there was no scheduler to yield to higher-priority work.
 
-## Memoization Patterns
+## Memoization patterns
 
-### When Memoization Helps
+### When memoization helps (and when it costs)
 
-Memoization skips work when inputs haven't changed. It helps when:
+Memoization caches the result of a computation by remembering the inputs. Caching has a price: storing the cached value, comparing the new inputs against the old. Skip it unless one of these is true:
 
-1. A component re-renders frequently with identical props
-2. The component's render is expensive (complex calculations, many children)
-3. You're passing callbacks to memoized children
+- A component **re-renders frequently** with props that are mostly stable.
+- The render or computation is **measurably expensive** (≥ ~1 ms in the profiler under realistic data).
+- You're passing **callbacks or objects to a memoized child** and need referential stability for the child's `memo` to bail out.
 
-It doesn't help when:
+If none of those hold, manual memoization usually slows the app down more than it saves.
 
-- Props always change (new objects/functions every render)
-- Render cost is negligible
-- The component rarely re-renders anyway
+### `React.memo`: skip identical re-renders
 
-### `React.memo`: Skipping Re-renders
+`memo` wraps a component so that React compares each prop with `Object.is` and skips the render when every prop matches ([react.dev: `memo`](https://react.dev/reference/react/memo)).
 
-`memo` wraps a component to skip re-rendering when props are shallowly equal:
-
-```tsx title="memo usage" collapse={1-3,15-20}
+```tsx title="memo usage"
 import { memo } from "react"
 
 interface ChartProps {
@@ -116,85 +113,62 @@ interface ChartProps {
   color: string
 }
 
-// Only re-renders if data or color reference changes
 const Chart = memo(function Chart({ data, color }: ChartProps) {
-  // Expensive rendering logic
-  return <canvas>{/* ... */}</canvas>
+  return <canvas>{/* expensive draw */}</canvas>
 })
-
-// Parent component
-function Dashboard() {
-  const [filter, setFilter] = useState("all")
-  // ...
-}
 ```
 
-**How it works:** React compares each prop using `Object.is`. For primitives, this compares values. For objects and functions, it compares references—a new object `{}` is never equal to a previous `{}`.
+For primitives this is free. For objects and functions you need referential stability — a fresh `{}` or `() => {}` literal in the parent breaks the comparison every render.
 
-**Custom comparison:** For deep comparisons, pass a second argument:
+A second argument lets you supply a custom comparator:
 
-```tsx title="Custom comparison" mark={3-7}
+```tsx title="Custom comparator" mark={5-10}
 const Chart = memo(
   function Chart({ dataPoints }: { dataPoints: Point[] }) {
     /* ... */
   },
-  (prevProps, nextProps) => {
-    // Return true to skip re-render, false to re-render
-    return (
-      prevProps.dataPoints.length === nextProps.dataPoints.length &&
-      prevProps.dataPoints.every((p, i) => p.x === nextProps.dataPoints[i].x && p.y === nextProps.dataPoints[i].y)
-    )
-  },
+  (prev, next) =>
+    prev.dataPoints.length === next.dataPoints.length &&
+    prev.dataPoints.every((p, i) => p.x === next.dataPoints[i].x && p.y === next.dataPoints[i].y),
 )
 ```
 
-**Danger:** Custom comparers must compare _all_ props. Skipping a callback prop causes stale closures—the component sees outdated state.
+> [!CAUTION]
+> A custom comparator must consider **every prop**, including callbacks. Comparing only `dataPoints` and ignoring an `onClick` prop bakes in the closure from the first render — the chart will keep calling stale state for the rest of its life.
 
-### `useMemo`: Caching Computed Values
+### `useMemo`: cache a value
 
-`useMemo` caches a calculated value, recomputing only when dependencies change:
+`useMemo` caches a computed value and recomputes it only when one of its dependencies fails an `Object.is` check ([react.dev: `useMemo`](https://react.dev/reference/react/useMemo)).
 
-```tsx title="useMemo for expensive computation" collapse={1-5,17-20}
-import { useMemo, useState } from "react"
-
-interface Todo {
-  id: string
-  text: string
-  completed: boolean
-}
-
+```tsx title="useMemo for an expensive derivation"
 function TodoList({ todos, filter }: { todos: Todo[]; filter: string }) {
-  // filterTodos only runs when todos or filter changes
   const visibleTodos = useMemo(() => filterTodos(todos, filter), [todos, filter])
-
   return <List items={visibleTodos} />
 }
 ```
 
-**Dependency comparison:** React uses `Object.is` on each dependency. If you create a new object in the component body and use it as a dependency, `useMemo` recalculates every render—defeating its purpose.
+The most common bug is creating a fresh object inside the component body and listing it as a dependency:
 
-```tsx title="Dependency trap" mark={4-5,8-9}
+```tsx title="The dependency trap" mark={5,9}
 function Search({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("")
 
-  // ❌ Bad: options object is new every render
+  // ❌ new object every render → useMemo always recomputes
   const options = { caseSensitive: false, query }
 
   const results = useMemo(
-    // Recalculates every render because options changed
     () => searchItems(items, options),
     [items, options],
   )
 }
 ```
 
-**Fix:** Move the object creation inside `useMemo`, or memoize the options object separately:
+The fix is to lift only the primitives into the dependency list and reconstruct the object inside the callback:
 
-```tsx title="Fixed dependency" mark={4-5}
+```tsx title="Stable dependency list" mark={4-7}
 function Search({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("")
 
-  // ✅ Object created inside useMemo, dependencies are primitives
   const results = useMemo(() => {
     const options = { caseSensitive: false, query }
     return searchItems(items, options)
@@ -202,13 +176,11 @@ function Search({ items }: { items: Item[] }) {
 }
 ```
 
-### `useCallback`: Stable Function References
+### `useCallback`: stable function references
 
-`useCallback` returns the same function reference across renders when dependencies haven't changed:
+`useCallback` returns the same function reference across renders as long as its dependencies are equal. It is exactly `useMemo(() => fn, deps)`, specialized for functions.
 
-```tsx title="useCallback for stable callbacks" collapse={1-3,13-15}
-import { useCallback, useState } from "react"
-
+```tsx title="useCallback for memoized children"
 const MemoizedChild = memo(function Child({ onClick }: { onClick: () => void }) {
   return <button onClick={onClick}>Click</button>
 })
@@ -216,88 +188,77 @@ const MemoizedChild = memo(function Child({ onClick }: { onClick: () => void }) 
 function Parent() {
   const [count, setCount] = useState(0)
 
-  // Same function reference as long as count hasn't changed
   const handleClick = useCallback(() => {
-    console.log("Count:", count)
+    console.log("count:", count)
   }, [count])
 
   return <MemoizedChild onClick={handleClick} />
 }
 ```
 
-**Relationship to `useMemo`:** `useCallback(fn, deps)` is equivalent to `useMemo(() => fn, deps)`. Both cache values; `useCallback` is specialized for functions.
+A frequent footgun: capturing the wrong closure with an empty dependency array.
 
-**Common mistake—stale closures:**
-
-```tsx title="Stale closure trap" mark={3-5,8-10}
+```tsx title="Stale closure trap" mark={4-6,9-11}
 function Counter() {
   const [count, setCount] = useState(0)
 
-  // ❌ Bad: empty deps means count is always 0 in the closure
+  // ❌ count is captured at mount and never updates
   const increment = useCallback(() => {
-    setCount(count + 1) // Always sets to 1
+    setCount(count + 1)
   }, [])
 
-  // ✅ Good: use updater function to avoid dependency
-  const increment = useCallback(() => {
-    setCount((c) => c + 1) // Works correctly
+  // ✅ functional update sidesteps the closure entirely
+  const increment2 = useCallback(() => {
+    setCount((c) => c + 1)
   }, [])
 }
 ```
 
-### When NOT to Memoize
+### React Compiler: automatic memoization
 
-Memoization has overhead: storing cached values, comparing dependencies. For cheap operations, the overhead exceeds the savings.
+The [React Compiler 1.0 release on 2025-10-07](https://react.dev/blog/2025/10/07/react-compiler-1) marked the compiler stable and production-ready. It analyzes your components at build time and inserts memoization equivalent to manually-placed `memo`, `useMemo`, and `useCallback`, while avoiding the dependency-array footguns by tracking real data flow.
 
-**Skip memoization when:**
-
-- The operation is fast (most operations are)
-- Props always change anyway
-- You're optimizing without measuring
-- The component rarely re-renders
-
-**Rule of thumb:** If you're not passing the value to a memoized child or the calculation doesn't measurably impact performance (1ms+ in profiler), skip the memoization.
-
-### React Compiler: Automatic Memoization
-
-React Compiler (stable as of the React Compiler 1.0 release in October 2025) analyzes your code at build time and automatically inserts memoization. It makes manual `memo`, `useMemo`, and `useCallback` largely unnecessary:
-
-```tsx title="With React Compiler"
-// No manual memoization needed—compiler handles it
+```tsx title="With React Compiler — no manual memoization"
 function TodoList({ todos, filter }) {
   const visibleTodos = filterTodos(todos, filter)
   return <List items={visibleTodos} />
 }
 ```
 
-The compiler applies memoization correctly based on data flow analysis, avoiding the pitfalls of manual dependency arrays. It requires code to follow React's rules (components are pure, hooks follow the rules of hooks). Codebases with impure components may need fixes before the compiler works correctly.
+Two practical notes for adoption:
 
-## Concurrent Rendering
+- The compiler requires components to follow [the rules of React](https://react.dev/reference/rules) (pure renders, hooks called unconditionally). Codebases with mutating renders or conditional hooks will see the compiler **silently bail out** on those files rather than break the build.
+- Compiler-aware lint rules are now part of `eslint-plugin-react-hooks`; the standalone `eslint-plugin-react-compiler` is deprecated as of 1.0.
 
-### What Changed in React 18
+Once the compiler is on, treat manual `memo`/`useMemo`/`useCallback` as legacy: keep them where they exist, prefer compiler output for new code, and remove the manual ones when you can confirm via the profiler that the compiler covers them.
 
-React 18 introduced concurrent rendering—the render phase can be interrupted, paused, and resumed. This is opt-in: you only get concurrent behavior when using concurrent features (`useTransition`, `useDeferredValue`, Suspense for data).
+## Concurrent rendering
 
-| React 17                                               | React 18+                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------- |
-| Synchronous rendering—once started, runs to completion | Interruptible rendering—can pause for urgent updates                |
-| Updates processed in order                             | Updates have priority—urgent updates interrupt transitions          |
-| Batching only in React event handlers                  | Automatic batching everywhere (promises, setTimeout, native events) |
+### What React 18 actually changed
 
-### Transitions: Urgent vs. Non-Urgent Updates
+Three things, all opt-in via `createRoot`:
 
-`useTransition` marks state updates as non-urgent. React handles urgent updates (typing, clicking) first, then resumes transition updates:
+1. **Interruptible render phase.** The scheduler can pause an in-progress render to handle a higher-priority update and resume afterward.
+2. **Update priorities.** Updates from event handlers, mouse moves, and typing are urgent; updates wrapped in `startTransition` or read through `useDeferredValue` are not. Urgent updates pre-empt non-urgent ones.
+3. **Automatic batching everywhere.** In React 17, batching only applied to React-managed event handlers. React 18 [batches updates inside promises, `setTimeout`, native event handlers, and any other async source](https://react.dev/blog/2022/03/29/react-v18#new-feature-automatic-batching), reducing the number of renders triggered by async code. `flushSync` from `react-dom` opts an individual update out.
 
-```tsx title="useTransition for tab switching" collapse={1-4,24-30}
-import { useState, useTransition } from "react"
+| React 17 | React 18+ (with `createRoot`) |
+| ---- | --- |
+| Synchronous render — once started, runs to completion | Interruptible render — the scheduler can pause for urgent updates |
+| Updates processed in arrival order | Updates have priority; urgent updates pre-empt transitions |
+| Batching only inside React event handlers | Automatic batching inside promises, timers, and native handlers |
 
+### Transitions: marking work as non-urgent
+
+`useTransition` returns an `isPending` flag and a `startTransition` function. Updates dispatched inside `startTransition` are scheduled at transition priority — React keeps urgent work on time and resumes the transition when it's idle.
+
+```tsx title="useTransition for tab switching"
 function TabContainer() {
   const [tab, setTab] = useState("home")
   const [isPending, startTransition] = useTransition()
 
   function selectTab(nextTab: string) {
     startTransition(() => {
-      // This update is non-urgent
       setTab(nextTab)
     })
   }
@@ -313,41 +274,36 @@ function TabContainer() {
 }
 ```
 
-**How it works:**
+The flow:
 
-1. User clicks a tab → `startTransition` called
-2. `isPending` becomes `true` immediately
-3. React starts rendering the new tab in the background
-4. If user types in an input, React interrupts the tab render to handle the urgent input update
-5. Once the tab render completes and no urgent updates are pending, React commits
+1. Click → `startTransition` schedules the new tab at low priority. `isPending` flips to `true` synchronously.
+2. React renders the new tab in the background, yielding to the browser between chunks.
+3. Any urgent update (typing, hover, click) interrupts the in-flight transition and runs first.
+4. When the transition completes, React commits and `isPending` flips back to `false`.
 
-**Critical limitation:** Don't use transitions for controlled input state. The input value must update synchronously for the input to feel responsive:
+> [!WARNING]
+> The official react.dev docs are explicit: [transition updates can't be used to control text inputs](https://react.dev/reference/react/useTransition). The input value must update at urgent priority, otherwise typing feels laggy. Split into two state variables — synchronous for the input, deferred for the derived work — or use `useDeferredValue`.
 
-```tsx title="Transition limitation" mark={4-5,9-10}
+```tsx title="Splitting input vs. derived state" mark={6-7,11-12}
 function SearchForm() {
-  const [query, setQuery] = useState("")
-
-  // ❌ Bad: input feels laggy
-  const handleChange = (e) => startTransition(() => setQuery(e.target.value))
-
-  // ✅ Good: separate state for input vs. results
   const [inputValue, setInputValue] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [isPending, startTransition] = useTransition()
 
-  const handleChange = (e) => {
-    setInputValue(e.target.value) // Urgent
-    startTransition(() => setSearchQuery(e.target.value)) // Deferred
+  function handleChange(e) {
+    setInputValue(e.target.value)
+    startTransition(() => setSearchQuery(e.target.value))
   }
+
+  return <input value={inputValue} onChange={handleChange} />
 }
 ```
 
-### `useDeferredValue`: Deferring Derived State
+### `useDeferredValue`: deferring values you don't own
 
-`useDeferredValue` defers updating a value, showing stale content while fresh content renders in the background:
+`useDeferredValue` defers updating a value, returning the previous one until React has time to render the new one in the background. Use it when you receive a prop or read a hook value you can't wrap in `startTransition` ([react.dev: `useDeferredValue`](https://react.dev/reference/react/useDeferredValue)).
 
-```tsx title="useDeferredValue for search" collapse={1-4,20-25}
-import { useState, useDeferredValue, Suspense } from "react"
-
+```tsx title="useDeferredValue for search results"
 function SearchPage() {
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
@@ -366,168 +322,155 @@ function SearchPage() {
 }
 ```
 
-**Difference from `useTransition`:**
+React 19 added an optional second argument, `useDeferredValue(value, initialValue)`, which controls what the hook returns on the **initial** render — useful for SSR'd pages where you want the deferred branch to render server-side without flashing the urgent value first.
 
-- `useTransition`: You control the state setter. Wrap the update in `startTransition`.
-- `useDeferredValue`: You receive a prop/value you don't control. Defer the value itself.
+| Debouncing (`setTimeout`) | `useDeferredValue` |
+| --- | --- |
+| Fixed delay (e.g. 300 ms) regardless of device speed | No fixed delay; defers only as long as React is busy |
+| Blocks until the timer fires | Background render is itself interruptible |
+| Same on a high-end laptop and a budget phone | Fast devices commit faster than slow ones |
 
-**Difference from debouncing:**
+![Decision tree for choosing useTransition, useDeferredValue, or neither based on whether you own the setter and whether the update drives a controlled text input.](./diagrams/transition-vs-deferred-decision-light.svg "Decision tree: choose useTransition, useDeferredValue, or neither based on who owns the setter.")
+![Decision tree for choosing useTransition, useDeferredValue, or neither based on whether you own the setter and whether the update drives a controlled text input.](./diagrams/transition-vs-deferred-decision-dark.svg)
 
-| Debouncing                   | `useDeferredValue`                    |
-| ---------------------------- | ------------------------------------- |
-| Fixed delay (e.g., 300ms)    | No fixed delay—adapts to device speed |
-| Blocks during delay          | Background render is interruptible    |
-| Same behavior on all devices | Fast devices see less delay           |
+### Suspense for data
 
-### Suspense for Data Fetching
+Suspense lets a component "wait" for an async resource and render a fallback meanwhile. The unit of suspension is whatever the data layer throws — historically a thrown promise from a route loader or a Suspense-aware client (Relay, TanStack Query with `useSuspenseQuery`). React 19 added the [`use()` hook](https://react.dev/reference/react/use) as a first-party way to unwrap a promise during render.
 
-Suspense lets components "wait" for data, showing a fallback until ready. The `use()` example below assumes React 19 or a framework-managed Suspense data source; in React 18, reach for route loaders or a library that explicitly integrates with Suspense.
+```tsx title="Suspense with the React 19 use() hook"
+import { Suspense, use } from "react"
 
-```tsx title="Suspense boundaries" collapse={1-3,16-20}
-import { Suspense } from "react"
-
-function ProfilePage({ userId }: { userId: string }) {
+function ProfilePage({ userPromise, postsPromise }) {
   return (
     <Suspense fallback={<ProfileSkeleton />}>
-      <ProfileDetails userId={userId} />
+      <ProfileDetails promise={userPromise} />
       <Suspense fallback={<PostsSkeleton />}>
-        <ProfilePosts userId={userId} />
+        <ProfilePosts promise={postsPromise} />
       </Suspense>
     </Suspense>
   )
 }
 
-// React 19+ or framework-managed Suspense data fetching
-function ProfileDetails({ userId }) {
-  const user = use(fetchUser(userId)) // Suspends until resolved
+function ProfileDetails({ promise }) {
+  const user = use(promise)
   return <h1>{user.name}</h1>
 }
 ```
 
-**Nested Suspense boundaries** create a reveal sequence:
+> [!IMPORTANT]
+> Don't construct the promise inline in a client component. `use(fetch(url))` recreates a fresh promise on every render and either suspends forever or thrashes the cache. Promises must be created by something with stable identity — a server component, a router loader, or a query library that caches by key.
 
-1. Show `ProfileSkeleton` while `ProfileDetails` loads
-2. Once `ProfileDetails` ready, show it + `PostsSkeleton` for posts
-3. Once posts ready, show everything
+Nested boundaries reveal content top-down: the outer fallback shows until `ProfileDetails` resolves, then the inner fallback shows until `ProfilePosts` resolves. Without a transition, suspending hides whatever was on screen and shows the fallback. **With a transition wrapping the navigation**, React keeps the current page visible until the new page is ready:
 
-**Transitions + Suspense:** Without a transition, suspending hides already-shown content and shows the fallback. With a transition, React keeps showing the current content until the new content is ready:
-
-```tsx title="Transition preserves visible content" mark={4-6}
+```tsx title="Transition keeps the previous view visible during navigation"
 function Router() {
   const [page, setPage] = useState("/")
+  const [isPending, startTransition] = useTransition()
 
   function navigate(url: string) {
-    startTransition(() => setPage(url)) // Keeps current page visible
+    startTransition(() => setPage(url))
   }
 }
 ```
 
-## List Virtualization
+## List virtualization
 
-### The Problem with Large Lists
+### The cost model
 
-Rendering 10,000 list items creates 10,000 DOM nodes. Each node consumes memory, and the browser must calculate layout/styles for all of them. Scrolling triggers repaints across the entire tree.
+Rendering 10,000 list items mounts 10,000 DOM nodes. Each one consumes memory, takes part in style recalc, and contributes to the next paint. Scroll, resize, or theme changes amplify the cost. Virtualization keeps the DOM size constant by mounting only the items that intersect the viewport (plus a small overscan band) and computing the absolute positions of the rest from `rowHeight` and the scroll offset.
 
-Virtualization renders only visible items (plus a small buffer), maintaining a constant DOM size regardless of list length.
+![List virtualization: only items inside the viewport plus a small overscan band are mounted; everything else is computed from row heights but never enters the DOM.](./diagrams/virtualization-window-light.svg "List virtualization. The mounted band tracks the viewport plus overscan; the rest of the data array is positioned by offset arithmetic but never mounted.")
+![List virtualization: only items inside the viewport plus a small overscan band are mounted; everything else is computed from row heights but never enters the DOM.](./diagrams/virtualization-window-dark.svg)
 
-### react-window
+### react-window v2
 
-`react-window` is a lightweight virtualization library. Two main components:
+The [react-window v2 release in 2025](https://github.com/bvaughn/react-window) reshaped the API. The previous `FixedSizeList` / `VariableSizeList` / `FixedSizeGrid` / `VariableSizeGrid` quartet collapsed into two components — `List` and `Grid` — that take the row component as a prop instead of as `children`. The library now ships native TypeScript types and handles automatic sizing without an external `AutoSizer`. The current API surface is documented at [react-window.vercel.app/list/props](https://react-window.vercel.app/list/props).
 
-**`FixedSizeList`**: For items with uniform heights
-
-```tsx title="FixedSizeList" collapse={1-6,23-28}
-import { FixedSizeList } from "react-window"
+```tsx title="react-window v2 List"
+import { List, type RowComponentProps } from "react-window"
 
 interface RowProps {
-  index: number
-  style: React.CSSProperties
-  data: string[]
+  items: string[]
 }
 
-function Row({ index, style, data }: RowProps) {
-  return <div style={style}>{data[index]}</div>
+function Row({ index, style, items }: RowComponentProps<RowProps>) {
+  return <div style={style}>{items[index]}</div>
 }
 
 function VirtualizedList({ items }: { items: string[] }) {
   return (
-    <FixedSizeList
-      height={400}
-      width="100%"
-      itemCount={items.length}
-      itemSize={50} // Each row is 50px tall
-      itemData={items}
-      overscanCount={5} // Render 5 extra items above/below viewport
-    >
-      {Row}
-    </FixedSizeList>
+    <List
+      rowComponent={Row}
+      rowCount={items.length}
+      rowHeight={50}
+      rowProps={{ items }}
+      overscanCount={5}
+      style={{ height: 400 }}
+    />
   )
 }
 ```
 
-**`VariableSizeList`**: For items with dynamic heights
+Variable-height rows pass a function for `rowHeight`, taking the same `index` and `rowProps` the row component sees:
 
-```tsx title="VariableSizeList" collapse={1-4,15-20}
-import { VariableSizeList } from "react-window"
-
-function getItemSize(index: number): number {
-  // Return height for item at index
-  return items[index].isExpanded ? 200 : 50
-}
-
-function VirtualizedList({ items }) {
-  return (
-    <VariableSizeList height={400} width="100%" itemCount={items.length} itemSize={getItemSize}>
-      {Row}
-    </VariableSizeList>
-  )
-}
+```tsx title="Variable-height rows in v2"
+<List
+  rowComponent={Row}
+  rowCount={items.length}
+  rowHeight={(index, { items }) => (items[index].isExpanded ? 200 : 50)}
+  rowProps={{ items }}
+/>
 ```
 
-**The `style` prop is mandatory**—it positions items absolutely within the scroll container.
+For genuinely dynamic content (rows that resize after mount), v2 exposes a `useDynamicRowHeight` hook that measures and caches heights so the layout stays stable as content settles.
+
+> [!NOTE]
+> v1 (`FixedSizeList`, `VariableSizeList`, `itemSize`, `itemData`) is no longer the active API. Existing v1 code keeps working until you upgrade, but new code and migrations should target v2; the v1 quartet was removed from the v2 export surface.
 
 ### Overscan
 
-`overscanCount` renders items outside the visible window to prevent white flashes during fast scrolling. Higher values improve smoothness but reduce performance gains. Start with 2-5 and increase if you see flashing.
+`overscanCount` (default `3` in v2) renders extra rows on either side of the viewport so a fast scroll doesn't flash an unmounted gap. Increasing it trades render cost for smoothness. Start at the default and bump to 5–10 only if you actually see flicker on representative hardware.
 
-### Limitations
+### What virtualization breaks
 
-- **Browser search (Ctrl+F) doesn't find non-rendered items.** Implement custom search that calculates positions and scrolls to matches.
-- **Accessibility:** Screen readers may not announce off-screen items. Test with assistive technology.
-- **Dynamic heights:** Variable-size lists must know item heights upfront. For truly dynamic content, measure heights and cache them.
+- **Browser find (`Ctrl+F`) only matches mounted DOM.** If text-search across the whole list matters, build it in user space and scroll the matching row into view.
+- **Screen readers traverse the same DOM the browser does.** Items outside the mounted band are invisible to assistive tech. Keep the list semantics correct (`role="list"` / `role="listitem"`, `aria-setsize`, `aria-posinset` — all four of which v2 wires up by default) and test with VoiceOver / NVDA.
+- **Anchor links and intra-page focus jumps** can land on unmounted rows. Resolve target rows to scroll offsets and call the imperative `scrollToRow` on the list ref.
 
 ## Profiling
 
 ### React DevTools Profiler
 
-The Profiler records component renders and timing:
+The DevTools Profiler records every commit during a session and shows them as flame graphs and ranked charts. Workflow:
 
-1. Open React DevTools → Profiler tab
-2. Click record, interact with your app, click stop
-3. Review the flame graph
+1. Open React DevTools → **Profiler** tab.
+2. Click **Record**, drive the interaction you care about, click stop.
+3. Step through commits; the flame graph color encodes per-commit render time, and the ranked chart sorts components by self-time so the worst single offender surfaces immediately.
 
-**Flame graph reading:**
+Enabling **"Record why each component rendered while profiling"** in DevTools settings adds a per-component reason — `Props changed` (with the prop names), `Hook 1 changed`, `Context changed`, or `Parent rendered` — which is usually the fastest path to "why is this thing re-rendering at all?".
 
-- Each bar = one component render
-- Width = time spent rendering (component + children)
-- Color: blue (fast), yellow (medium), red (slow)
-- Gray = component didn't render
+### The `<Profiler>` component
 
-**Ranked chart:** Shows components sorted by self-time (excluding children). Use this to find individual slow components.
+For programmatic measurement (RUM, regression suites, dashboards), wrap a subtree in `<Profiler>`. The [`onRender` callback signature on react.dev](https://react.dev/reference/react/Profiler) is six arguments — the legacy `interactions` parameter that older tutorials reference was removed when the Interaction Tracking API was retired:
 
-### The `<Profiler>` Component
+```tsx title="Programmatic profiling"
+import { Profiler, type ProfilerOnRenderCallback } from "react"
 
-For programmatic measurement:
-
-```tsx title="Profiler component" collapse={1-4,20-25}
-import { Profiler, ProfilerOnRenderCallback } from "react"
-
-const onRender: ProfilerOnRenderCallback = (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
-  console.log({
-    id, // Profiler id prop
+const onRender: ProfilerOnRenderCallback = (
+  id,
+  phase,
+  actualDuration,
+  baseDuration,
+  startTime,
+  commitTime,
+) => {
+  reportToTelemetry({
+    id,
     phase, // "mount" | "update" | "nested-update"
-    actualDuration, // Time spent rendering (with memoization)
-    baseDuration, // Time without any memoization (worst case)
+    actualDuration, // time spent rendering this commit (with memoization)
+    baseDuration, // time it would have taken without any memoization
+    startTime,
+    commitTime,
   })
 }
 
@@ -540,108 +483,93 @@ function App() {
 }
 ```
 
-Compare `actualDuration` to `baseDuration` to verify memoization effectiveness. If they're similar, memoization isn't helping.
+The `actualDuration` vs. `baseDuration` ratio is the cleanest signal for "is memoization actually saving work here?". When they converge, the memoization isn't paying off and you can usually remove it.
 
-### Profiling in Production
+### Profiling in production
 
-Development builds include extra checks that slow rendering. Production builds are often substantially faster, so always profile with production settings before drawing conclusions:
+Development builds carry checks (extra `Object.freeze`, dev warnings, dispatcher swaps) that make rendering noticeably slower than production. Always confirm wins against a production build before declaring victory.
 
-1. Use a **profiling build**: `react-dom/profiling` instead of `react-dom`
-2. Measure in production-like conditions
-3. Test on representative hardware (not just developer machines)
+To run the React DevTools Profiler against a production-flavored build, swap `react-dom` for the `react-dom/profiling` entry point at bundle time. The classic recipe — alias `react-dom` to `react-dom/profiling` and `scheduler/tracing` to `scheduler/tracing-profiling` — still applies.
 
-### "Why Did This Render?"
+> [!CAUTION]
+> React 19 changed the `react-dom` package `exports` map; a naive bundler alias of just `react-dom → react-dom/profiling` can fail at runtime ([facebook/react#32992](https://github.com/facebook/react/issues/32992)). Match the new sub-path exports (`react-dom/client`, `react-dom/server`, etc.) and verify the profiler attaches before relying on the numbers.
 
-Enable "Record why each component rendered while profiling" in DevTools settings. After recording, select a component to see why it re-rendered:
+Also: profile on hardware your real users own. A flame graph captured on an M-series MacBook is a misleading proxy for a mid-range Android.
 
-- "Props changed" (lists which props)
-- "State changed"
-- "Context changed"
-- "Parent re-rendered"
-
-This pinpoints unnecessary renders immediately.
-
-## Performance Checklist
+## Performance checklist
 
 ### Rendering
-
-- [ ] Use `key` with stable, unique IDs (not array index)
-- [ ] Keep state as local as possible
-- [ ] Split large components so state changes affect smaller subtrees
+- [ ] Key list children by stable identity, not array index.
+- [ ] Keep state as local as possible — colocate it with the component that reads it.
+- [ ] Split components so that frequent state changes only re-render small subtrees.
 
 ### Memoization
+- [ ] Apply `memo` to components that re-render often with the same props **and** receive referentially stable inputs (or are wrapped by the React Compiler).
+- [ ] Reach for `useMemo` only when the calculation is measurably expensive.
+- [ ] Reach for `useCallback` only when the callback is consumed by a memoized child or by an effect dependency array.
+- [ ] Use the React Compiler for new codebases; remove manual memoization once profiling confirms the compiler covers it.
 
-- [ ] Apply `memo` to components that re-render frequently with same props
-- [ ] Ensure memoized components receive stable references (primitives or memoized objects/functions)
-- [ ] Use `useMemo` for expensive calculations with stable dependencies
-- [ ] Use `useCallback` for callbacks passed to memoized children
+### Concurrent features
+- [ ] Wrap non-urgent updates in `startTransition`; show an `isPending` cue.
+- [ ] Use `useDeferredValue` for values you don't own (props, query results); never wrap a controlled input setter.
+- [ ] Pair Suspense with transitions for navigation so the previous view stays visible during the load.
 
-### Concurrent Features
-
-- [ ] Wrap expensive, non-urgent updates in `startTransition`
-- [ ] Use `useDeferredValue` for values that don't need immediate updates
-- [ ] Show visual feedback (`isPending`, opacity reduction) during transitions
-
-### Large Lists
-
-- [ ] Virtualize lists with 100+ items using `react-window`
-- [ ] Set appropriate `overscanCount` (2-5 typically)
-- [ ] Implement custom search if users need Ctrl+F functionality
+### Large lists
+- [ ] Virtualize lists once item counts exceed a few hundred; use `react-window` v2's `List` / `Grid` components.
+- [ ] Set `overscanCount` to taste (default 3 is usually right; raise only if you see flicker).
+- [ ] Provide an explicit search affordance — `Ctrl+F` won't find unmounted items.
 
 ### Profiling
+- [ ] Profile a production build before optimizing; dev numbers lie.
+- [ ] Use the **why did this render** option to find unintended renders fast.
+- [ ] Watch `actualDuration` vs. `baseDuration` to verify memoization is actually paying for itself.
 
-- [ ] Profile with React DevTools before optimizing
-- [ ] Use production profiling builds for accurate measurements
-- [ ] Enable "why did this render" to find unnecessary re-renders
-- [ ] Verify memoization helps by comparing `actualDuration` vs `baseDuration`
+## Heuristics
 
-## Conclusion
+React performance work has a hierarchy. Apply it top-down — each rung makes the next cheaper:
 
-React performance follows a hierarchy:
+1. **Reduce render frequency.** Local state, narrow context providers, stable keys.
+2. **Skip unnecessary renders.** Memoization (manual or compiler-driven) where profiling shows benefit.
+3. **Make remaining work interruptible.** Transitions and deferred values for non-urgent updates.
+4. **Reduce DOM size.** Virtualize anything large; trim deeply nested wrappers.
 
-1. **Minimize render frequency.** Keep state local, lift only what's necessary, use proper keys.
-2. **Skip unnecessary renders.** Apply memoization where profiling shows benefit.
-3. **Make renders interruptible.** Use transitions for non-urgent updates.
-4. **Reduce DOM size.** Virtualize large lists.
-
-Measure before optimizing. Most React apps don't need aggressive optimization—the framework is fast by default. When you do optimize, profile to find actual bottlenecks rather than guessing.
+Most React apps don't need aggressive optimization — the framework is fast by default and the compiler is closing the gap on what manual memoization used to buy you. When you do need to optimize, profile first, change one thing at a time, and confirm against a production build on real hardware.
 
 ## Appendix
 
 ### Prerequisites
-
-- React component model (props, state, effects)
-- JSX and rendering basics
-- JavaScript reference equality (`===`, `Object.is`)
+- React component model (props, state, hooks, effects).
+- JavaScript reference equality (`===`, `Object.is`).
 
 ### Terminology
-
-- **VDOM (Virtual DOM):** In-memory representation of the UI that React diffs against the previous version to determine minimal DOM updates.
-- **Reconciliation:** The process of diffing the old and new VDOM trees to compute the minimal set of changes.
-- **Fiber:** React's unit of work representing a component instance; enables incremental rendering.
-- **Commit:** The phase where React applies changes to the actual DOM.
-- **Transition:** A non-urgent update that can be interrupted by urgent updates.
+- **VDOM (Virtual DOM):** in-memory representation of the UI that React diffs against the previous version to compute minimal DOM updates.
+- **Reconciliation:** the diff/match step inside the render phase that turns the new VDOM into a list of DOM mutations.
+- **Fiber:** React's unit of work — one node per component instance — linked together to form the WIP and current trees.
+- **Commit:** the synchronous phase that applies the chosen WIP tree to the DOM and runs effects.
+- **Transition:** a state update marked as non-urgent so the scheduler can pre-empt it for higher-priority work.
 
 ### Summary
-
-- **Render frequency** is the primary performance lever—reduce unnecessary component calls
-- **Memoization** (`memo`, `useMemo`, `useCallback`) works only with referentially stable inputs
-- **Concurrent features** (`useTransition`, `useDeferredValue`) keep UI responsive during expensive updates
-- **Virtualization** renders only visible items, maintaining constant DOM size
-- **Profile first**, optimize second—React DevTools shows where time is actually spent
+- **Render frequency** is the primary lever — reduce unnecessary component calls.
+- **Memoization** (`memo`, `useMemo`, `useCallback`) only works with referentially stable inputs; the React Compiler now does most of this for you.
+- **Concurrent features** keep the UI responsive by reordering work, not by making work cheaper.
+- **Virtualization** keeps the DOM size constant; react-window v2 is the current API surface.
+- **Profile a production build first** — React DevTools tells you where time is actually spent.
 
 ### References
 
-- [React: Render and Commit](https://react.dev/learn/render-and-commit) - Official docs on the render pipeline
-- [Reconciliation (Legacy Docs)](https://legacy.reactjs.org/docs/reconciliation.html) - O(n) diffing algorithm details
-- [React.memo](https://react.dev/reference/react/memo) - Component memoization API
-- [useMemo](https://react.dev/reference/react/useMemo) - Value memoization hook
-- [useCallback](https://react.dev/reference/react/useCallback) - Callback memoization hook
-- [useTransition](https://react.dev/reference/react/useTransition) - Transition hook API
-- [useDeferredValue](https://react.dev/reference/react/useDeferredValue) - Deferred value hook API
-- [Suspense](https://react.dev/reference/react/Suspense) - Suspense component API
-- [React 18 Release Notes](https://react.dev/blog/2022/03/29/react-v18) - Concurrent features announcement
-- [React Fiber Architecture](https://github.com/acdlite/react-fiber-architecture) - Andrew Clark's explanation of Fiber
-- [react-window](https://github.com/bvaughn/react-window) - List virtualization library
-- [Virtualize long lists with react-window](https://web.dev/articles/virtualize-long-lists-react-window) - web.dev guide
-- [Profiler API](https://react.dev/reference/react/Profiler) - Programmatic profiling component
+- [React: Render and Commit](https://react.dev/learn/render-and-commit) — official docs on the render pipeline.
+- [Reconciliation (legacy docs)](https://legacy.reactjs.org/docs/reconciliation.html) — O(n) diffing algorithm and key heuristic.
+- [`memo`](https://react.dev/reference/react/memo) — component memoization API.
+- [`useMemo`](https://react.dev/reference/react/useMemo) — value memoization hook.
+- [`useCallback`](https://react.dev/reference/react/useCallback) — callback memoization hook.
+- [`useTransition`](https://react.dev/reference/react/useTransition) — transitions and the controlled-input caveat.
+- [`useDeferredValue`](https://react.dev/reference/react/useDeferredValue) — deferred values and the React 19 `initialValue` argument.
+- [`Suspense`](https://react.dev/reference/react/Suspense) — boundary semantics, fallback reveal order.
+- [`use`](https://react.dev/reference/react/use) — React 19 promise/context unwrap hook.
+- [`<Profiler>`](https://react.dev/reference/react/Profiler) — programmatic profiling component and `onRender` signature.
+- [React 18 release notes](https://react.dev/blog/2022/03/29/react-v18) — automatic batching and concurrent features.
+- [React Compiler 1.0](https://react.dev/blog/2025/10/07/react-compiler-1) — the stable compiler announcement.
+- [react-fiber-architecture](https://github.com/acdlite/react-fiber-architecture) — Andrew Clark's primary-source design note.
+- [react-window](https://github.com/bvaughn/react-window) — the virtualization library; see also the [v2 List props reference](https://react-window.vercel.app/list/props).
+- [Virtualize long lists with react-window (web.dev)](https://web.dev/articles/virtualize-long-lists-react-window) — note: still documents the v1 API.
+- [facebook/react#32992 — `<Profiler>` in React 19 production builds](https://github.com/facebook/react/issues/32992) — current status of the production-profiling alias caveat.

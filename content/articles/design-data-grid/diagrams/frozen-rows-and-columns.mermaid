@@ -1,0 +1,27 @@
+%% Diagram: Frozen rows and columns produce a 9-region scroll layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Grid["Data Grid"]
+        direction TB
+        subgraph TopRow["Top Pinned Rows (sticky header + frozen rows)"]
+            TL[TL: pinned-left x pinned-top]
+            TC[TC: scroll-x x pinned-top]
+            TR[TR: pinned-right x pinned-top]
+        end
+        subgraph MidRow["Scrollable Body"]
+            ML[ML: pinned-left x scroll-y]
+            MC[MC: scroll-x x scroll-y]
+            MR[MR: pinned-right x scroll-y]
+        end
+        subgraph BotRow["Bottom Pinned Rows (totals / footer)"]
+            BL[BL: pinned-left x pinned-bottom]
+            BC[BC: scroll-x x pinned-bottom]
+            BR[BR: pinned-right x pinned-bottom]
+        end
+    end
+
+    TC <-->|"shared scrollLeft"| MC
+    MC <-->|"shared scrollLeft"| BC
+    ML <-->|"shared scrollTop"| MC
+    MR <-->|"shared scrollTop"| MC

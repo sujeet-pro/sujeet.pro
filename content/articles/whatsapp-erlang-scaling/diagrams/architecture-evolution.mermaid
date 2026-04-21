@@ -1,0 +1,39 @@
+%% Diagram: WhatsApp Architecture Evolution
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Foundation["Foundation\n(2009-2011)"]
+        EJ["ejabberd\nXMPP server"]
+        ER["Erlang/OTP R14"]
+        FB["FreeBSD 8.x"]
+        EJ --> ER --> FB
+    end
+
+    subgraph Scale["Scaling Phase\n(2012-2014)"]
+        BEAM["BEAM patches\n(timer wheels,\nGC throttle, pg2)"]
+        FX["FunXMPP\nbinary protocol"]
+        MN["Mnesia + MySQL\n2 TB / 18 B records"]
+        HW["Bare metal\n~550 servers"]
+        BEAM --- FX
+        BEAM --- MN
+        BEAM --- HW
+    end
+
+    subgraph Meta["Post-Acquisition\n(2014+)"]
+        DC["Facebook data centers\nLinux migration 2017-19"]
+        E2E["End-to-end encryption\nSignal Protocol, Apr 2016"]
+        MD["Multi-device\nper-device identity keys, 2021"]
+        WARTS["WARTS\nWhatsApp's Erlang runtime fork"]
+        DC --- E2E --- MD
+        DC --- WARTS
+    end
+
+    Foundation -->|"1M -> 2M conn/server\n100M MAU"| Scale
+    Scale -->|"$19 B acquisition\n465M MAU"| Meta
+
+    classDef found fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef scaleC fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef meta fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class EJ,ER,FB found
+    class BEAM,FX,MN,HW scaleC
+    class DC,E2E,MD,WARTS meta

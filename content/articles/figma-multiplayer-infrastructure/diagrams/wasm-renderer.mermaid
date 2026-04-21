@@ -1,0 +1,36 @@
+%% Diagram: Wasm renderer interaction (C++ engine + WebGPU/WebGL)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Source["Shared C++ source"]
+        Engine["Figma rendering engine<br/>+ scene graph<br/>(C++)"]
+        Shaders["Shaders authored in WebGL 1<br/>GLSL; auto-translated to WGSL<br/>via custom processor + naga"]
+    end
+
+    subgraph Web["Browser build"]
+        direction TB
+        Emcc["Emscripten compiler"]
+        Wasm["WebAssembly module<br/>(loaded once, cached translation)"]
+        JSI["JS interop layer<br/>(WebGPU C++ API → JS bindings,<br/>moving to emdawnwebgpu)"]
+        WGPU["WebGPU<br/>(Chromium 2023+; Dawn-backed)"]
+        WGL["WebGL fallback<br/>(legacy 2D path)"]
+        Fallback{"Device test +<br/>mid-session<br/>device-loss handler"}
+    end
+
+    subgraph Native["Native build"]
+        direction TB
+        Bin["x64 / arm64 binary<br/>(server-side rendering,<br/>tests, debugging)"]
+        DawnNative["Dawn native →<br/>D3D12 / Metal / Vulkan"]
+    end
+
+    Engine --> Emcc --> Wasm --> JSI
+    Engine --> Bin --> DawnNative
+    Shaders --> JSI
+    Shaders --> DawnNative
+
+    JSI --> Fallback
+    Fallback -->|"WebGPU OK"| WGPU
+    Fallback -->|"WebGPU lost /<br/>blocklisted device"| WGL
+    WGPU --> GPU["GPU<br/>(tile-based 2D compositing,<br/>blend modes, masks, blurs)"]
+    WGL --> GPU
+    DawnNative --> GPU

@@ -1,0 +1,9 @@
+%% Diagram: Inventory reservation state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Available: Pre-sale stock loaded
+    Available --> Reserved: Checkout start (atomic decrement)
+    Reserved --> Confirmed: Payment success
+    Reserved --> Available: Timeout or abandonment (return to pool)
+    Confirmed --> [*]: Order durable

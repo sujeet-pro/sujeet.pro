@@ -1,0 +1,12 @@
+%% Diagram: Storage tiering lifecycle
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Hot: upload + transcode
+    Hot --> Warm: views/day drops below threshold<br/>(typically after 30 days)
+    Warm --> Cold: views/day approaches zero<br/>(typically after 90 days)
+    Cold --> Archive: original raw bytes only<br/>(retention copy)
+    Hot --> Hot: trending re-promote
+    Warm --> Hot: rediscovered<br/>(viral re-share)
+    Cold --> Hot: traffic spike<br/>(promote on miss)
+    Cold --> [*]: deleted by lifecycle<br/>(zero views > 365 days)

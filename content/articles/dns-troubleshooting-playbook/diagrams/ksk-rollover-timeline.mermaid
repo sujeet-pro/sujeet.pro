@@ -1,0 +1,23 @@
+%% Diagram: KSK Double-DS Rollover Timeline
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Op as Operator
+    participant Signer as Zone Signer
+    participant Auth as Authoritative NS
+    participant Reg as Registrar / Parent
+    participant Res as Validating Resolver
+
+    Op->>Signer: Generate new KSK (KSK_new)
+    Signer->>Auth: Publish DNSKEY RRset (KSK_old + KSK_new + ZSK)
+    Note over Auth,Res: Wait DNSKEY TTL + propagation,<br/>so resolvers see both KSKs.
+    Op->>Reg: Submit DS for KSK_new
+    Reg->>Reg: Add DS_new alongside DS_old
+    Note over Reg,Res: Wait parent DS TTL,<br/>so resolvers see both DS records.
+    Op->>Reg: Remove DS_old
+    Note over Reg,Res: Wait parent DS TTL again,<br/>so DS_old falls out of caches.
+    Op->>Signer: Retire KSK_old
+    Signer->>Auth: Publish DNSKEY RRset (KSK_new + ZSK)
+    Res->>Auth: Validate via KSK_new → DS_new chain
+    Note over Op,Res: RFC 6781 §4.1.2 Double-DS rollover.<br/>Skip a wait step → SERVFAIL outage.

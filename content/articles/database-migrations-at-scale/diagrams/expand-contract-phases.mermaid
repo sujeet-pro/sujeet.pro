@@ -1,0 +1,18 @@
+%% Diagram: Expand-Contract migration phases
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Expand["1. Expand"]
+        direction TB
+        A["Add new column<br/>full_name"] --> B["Deploy v2:<br/>dual-write old + new"]
+    end
+    subgraph Migrate["2. Migrate"]
+        direction TB
+        C["Backfill in batches"] --> D["Deploy v3:<br/>read from new column"]
+    end
+    subgraph Contract["3. Contract"]
+        direction TB
+        E["Deploy v4:<br/>write only new"] --> F["DROP first_name,<br/>last_name"]
+    end
+    B --> C
+    D --> E

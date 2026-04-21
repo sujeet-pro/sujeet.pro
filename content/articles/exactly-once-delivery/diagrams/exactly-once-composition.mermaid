@@ -1,0 +1,22 @@
+%% Diagram: Exactly-once composition
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph delivery["At-least-once delivery"]
+        direction TB
+        P[Producer] -->|"msg + ID"| B[Broker]
+        B -->|"msg + ID\n(may redeliver)"| C[Consumer]
+    end
+
+    subgraph dedup["Idempotent consumption"]
+        direction TB
+        C -->|"Check ID"| D[("Dedup\nstore")]
+        D --> E{Duplicate?}
+        E -->|Yes| F[Skip]
+        E -->|No| G["Process + store ID"]
+    end
+
+    classDef skipNode fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef successNode fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class F skipNode
+    class G successNode

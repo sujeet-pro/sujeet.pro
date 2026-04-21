@@ -2,261 +2,225 @@
 title: Design a Payment System
 linkTitle: 'Payment System'
 description: >-
-  Architecting a payment processing platform with idempotent authorization,
-  edge tokenization for PCI compliance, real-time fraud scoring under 100ms,
-  double-entry ledger accounting, and multi-gateway smart routing.
+  Architecting a payment platform: edge tokenization for PCI scope, idempotent
+  authorization, sub-100ms fraud scoring, double-entry ledgering, smart routing,
+  3D Secure 2, and idempotent webhook consumption — grounded in published Stripe,
+  Adyen, Visa, Nacha, and PCI SSC sources.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - payments
+  - fraud-detection
+  - pci-dss
 ---
 
 # Design a Payment System
 
-Building a payment processing platform that handles card transactions, bank transfers, and digital wallets with PCI DSS compliance, idempotent processing, and real-time fraud detection. Payment systems operate under unique constraints: zero tolerance for duplicate charges, regulatory mandates (PCI DSS), and sub-second fraud decisions. This design covers the complete payment lifecycle—authorization, capture, settlement—plus reconciliation, refunds, and multi-gateway routing.
+A payment platform has to take one customer intent — "charge $99.99 for order 12345" — and turn it into a settled, reconciled, audit-ready movement of money across the merchant, an acquirer, a card network, and an issuer, while never charging twice and never losing a cent. This article designs that platform end-to-end, with the constraints that actually drive the architecture: PCI scope, idempotency, fraud-scoring latency, the network's authorization-to-clearing window, double-entry accounting, and reconciliation against external settlement reports.
 
-![Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.](./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap-light.svg "Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.")
-![Payment system architecture: Client apps submit payments through an idempotent API, fraud engine scores in real-time, smart router selects optimal processor, authorization flows through card networks, and all movements are recorded in a double-entry ledger.](./diagrams/payment-system-architecture-client-apps-submit-payments-through-an-idempotent-ap-dark.svg)
+![Payment system architecture: clients tokenize the payment method at the edge, the API serves idempotent operations, fraud scores in <100ms, the smart router selects a processor, the ledger and event stream record every movement, and a webhook consumer reconciles async events.](./diagrams/payment-system-architecture-light.svg "Payment system architecture: clients tokenize at the edge, an idempotent API fronts fraud scoring, smart routing, authorization, and capture, with every movement recorded in a double-entry ledger and emitted to an event stream.")
+![Payment system architecture: clients tokenize the payment method at the edge, the API serves idempotent operations, fraud scores in <100ms, the smart router selects a processor, the ledger and event stream record every movement, and a webhook consumer reconciles async events.](./diagrams/payment-system-architecture-dark.svg)
 
-## Abstract
+## Mental model
 
-Payment system design revolves around four competing constraints:
+Four constraints dominate every other decision:
 
-1. **Exactly-once processing** — Network failures and retries must never result in duplicate charges. Idempotency keys + request fingerprinting make every operation safely retriable.
+1. **Exactly-once processing.** Network failures and client retries must never produce duplicate charges. Idempotency keys with request-body fingerprints make every state-changing call safely retriable; [Stripe's API documents the canonical pattern with a 24-hour key window](https://docs.stripe.com/api/idempotent_requests).
+2. **PCI scope reduction.** Cardholder data (PAN, CVV) should never touch your servers when avoidable. Tokenizing at the edge keeps you on [SAQ A](https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf) instead of the full SAQ D.
+3. **Latency under fraud scrutiny.** Fraud scoring is inline with authorization. It has to evaluate hundreds of signals in well under a checkout second; Stripe Radar [documents using "hundreds" of signals per transaction](https://docs.stripe.com/radar/risk-evaluation) on this budget.
+4. **Financial accuracy.** Every fund movement — auth hold, capture, refund, chargeback, payout — must land in a double-entry ledger whose balance reconciles daily against external settlement reports.
 
-2. **PCI compliance scope reduction** — Cardholder data (PAN, CVV) must never touch your servers if avoidable. Tokenization at the edge (via Stripe Elements, Adyen Web Components) keeps sensitive data out of your environment.
+The pipeline is **tokenize → authorize → capture → settle → reconcile**. Each stage has distinct timing, failure modes, and rollback procedures; later sections expand each one.
 
-3. **Latency under fraud scrutiny** — Fraud decisions must complete in <100ms to avoid checkout abandonment, while evaluating 1000+ signals per transaction.
-
-4. **Financial accuracy** — Every fund movement (authorization hold, capture, refund, chargeback) must be recorded in a double-entry ledger. Reconciliation ensures external settlements match internal records.
-
-The mental model: **tokenize → authorize → capture → settle → reconcile**. Each stage has distinct timing, failure modes, and rollback procedures.
-
-| Design Decision     | Trade-off                                               |
-| ------------------- | ------------------------------------------------------- |
-| Edge tokenization   | Removes PAN from scope; adds client SDK complexity      |
-| Idempotency keys    | Safe retries; requires key management and storage       |
-| Smart routing       | Higher auth rates; multi-processor operational overhead |
-| Async settlement    | Handles scale; delayed confirmation visibility          |
-| Double-entry ledger | Audit-ready; write amplification                        |
+| Design decision     | Trade-off                                                  |
+| ------------------- | ---------------------------------------------------------- |
+| Edge tokenization   | Removes PAN from scope; adds client SDK + 3DS UX surface   |
+| Idempotency keys    | Safe retries; requires key/lock storage and conflict rules |
+| Smart routing       | Higher auth rate / lower cost; multi-PSP operational drag  |
+| Async settlement    | Handles scale; payout is T+1 to T+3, not real-time         |
+| Double-entry ledger | Audit-ready and reconcilable; write amplification          |
 
 ## Requirements
 
 ### Functional Requirements
 
-| Feature                 | Scope    | Notes                                    |
-| ----------------------- | -------- | ---------------------------------------- |
-| Card payments           | Core     | Visa, Mastercard, Amex via card networks |
-| Bank transfers          | Core     | ACH (US), SEPA (EU), wire transfers      |
-| Digital wallets         | Core     | Apple Pay, Google Pay (tokenized)        |
-| Authorization + Capture | Core     | Separate or combined (auth-capture)      |
-| Refunds                 | Core     | Full and partial, with reason codes      |
-| Recurring payments      | Core     | Subscription billing with retry logic    |
-| Multi-currency          | Extended | FX conversion at capture time            |
-| Split payments          | Extended | Marketplace payouts                      |
-| Disputes/Chargebacks    | Extended | Evidence submission, representment       |
-| 3D Secure               | Core     | SCA compliance for EU/PSD2               |
+| Feature                 | Scope    | Notes                                          |
+| ----------------------- | -------- | ---------------------------------------------- |
+| Card payments           | Core     | Visa, Mastercard, Amex via card networks       |
+| Bank transfers          | Core     | ACH (US), SEPA (EU), wire transfers            |
+| Digital wallets         | Core     | Apple Pay, Google Pay (network-tokenized)      |
+| Authorization + capture | Core     | Auth-then-capture or single-message auth-cap   |
+| Refunds                 | Core     | Full and partial, with reason codes            |
+| Recurring payments      | Core     | Subscription billing with retry / dunning      |
+| 3D Secure 2 (SCA)       | Core     | PSD2 SCA in EU/UK; recommended elsewhere       |
+| Multi-currency          | Extended | FX conversion at capture time                  |
+| Split payments          | Extended | Marketplace payouts (Stripe Connect / Adyen)   |
+| Disputes / chargebacks  | Extended | Evidence submission, representment             |
 
 ### Non-Functional Requirements
 
-| Requirement            | Target      | Rationale                                        |
-| ---------------------- | ----------- | ------------------------------------------------ |
-| Availability           | 99.99%      | Revenue-critical; Stripe maintains 99.999%       |
-| Authorization latency  | p99 < 2s    | Card network round-trip + fraud scoring          |
-| Fraud decision latency | p99 < 100ms | Inline with authorization; cannot delay checkout |
-| Duplicate charge rate  | 0%          | Non-negotiable; idempotency required             |
-| Data consistency       | Strong      | Financial data requires ACID guarantees          |
-| PCI DSS compliance     | Level 1     | Required for >6M transactions/year               |
-| Settlement accuracy    | 100%        | Reconciliation must match external records       |
+| Requirement            | Target      | Rationale                                                                                                                                              |
+| ---------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Availability           | 99.99%+     | Revenue-critical. Stripe has [publicly reported 99.999% historical uptime](https://stripe.dev/blog/how-stripes-document-databases-supported-99.999-uptime-with-zero-downtime-data-migrations) (note: not a contractual SLA). |
+| Authorization latency  | p99 < 2 s   | Card-network round-trip dominates                                                                                                                     |
+| Fraud decision latency | p99 < 100 ms | Inline with authorization; cannot delay checkout                                                                                                      |
+| Duplicate charge rate  | 0           | Non-negotiable; idempotency required                                                                                                                  |
+| Data consistency       | Strong      | Money requires ACID guarantees                                                                                                                        |
+| PCI DSS compliance     | Level 1     | [Required for >6M card transactions/year](https://pcidssguide.com/pci-dss-compliance-levels/) on Visa, Mastercard, Discover (>2.5M for Amex)         |
+| Settlement accuracy    | 100%        | Reconciliation must match external records                                                                                                            |
 
 ### Scale Estimation
 
-**Traffic Profile:**
+A mid-size processor running ~10M transactions/day spends most of the day at modest TPS, with seasonal peaks (Black Friday, ticket on-sales) that drive the capacity envelope. As a reference point, [Visa's own fact sheet states VisaNet can process over 65,000 transaction messages per second](https://www.visa.co.uk/dam/VCOM/download/corporate/media/visanet-technology/aboutvisafactsheet.pdf), and [Visa's FY2024 annual report](https://s29.q4cdn.com/385744025/files/doc_downloads/2024/Visa-Fiscal-2024-Annual-Report.pdf) reports 233.8 billion transactions processed across the network — about 7,400 average TPS over the year, far below the network's peak capacity.
 
 | Metric            | Typical   | Peak (Black Friday) |
 | ----------------- | --------- | ------------------- |
 | Transactions/day  | 10M       | 50M                 |
-| TPS (average)     | 115 TPS   | 580 TPS             |
-| TPS (peak)        | 500 TPS   | 2,000 TPS           |
-| Auth requests/sec | 1,000 RPS | 5,000 RPS           |
+| TPS (average)     | 115       | 580                 |
+| TPS (peak)        | 500       | 2,000               |
+| Auth requests/sec | 1,000     | 5,000               |
 
-**Reference: Visa processes 1,700-8,500 TPS average, with peak capacity of 65,000+ TPS.**
+**Storage rough cut:**
 
-**Storage:**
-
-```
-Transactions: 10M/day × 2KB = 20GB/day
-Yearly: 7.3TB
-With 7-year retention: ~50TB
-
-Ledger entries: 10M × 4 entries (avg) × 500B = 20GB/day
-Event stream: 10M × 1KB = 10GB/day
+```text
+Transactions:    10M/day × 2 KB        =  20 GB/day  →   7.3 TB/year
+Ledger entries:  10M × 4 entries × 0.5 KB = 20 GB/day →   7.3 TB/year
+Event stream:    10M × 1 KB           =  10 GB/day  →   3.7 TB/year
+7-year retention: ~50 TB on transactions alone
 ```
 
-**Latency Budget:**
+**Latency budget for a single authorization (p99 ≤ 2 s):**
 
+```text
+API processing:            50 ms
+Fraud scoring:            100 ms
+Tokenization lookup:       20 ms
+Network to processor:      50 ms
+Processor to card network: 500 ms
+Issuer decision:           800 ms
+Response path:             480 ms
 ```
-Total authorization: 2000ms budget
-├── API processing: 50ms
-├── Fraud scoring: 100ms
-├── Tokenization lookup: 20ms
-├── Network to processor: 50ms
-├── Processor to card network: 500ms
-├── Issuer decision: 800ms
-├── Response path: 480ms
-```
+
+The fraud, idempotency, and tokenization budgets are the only ones we directly control; the rest is dominated by the network.
 
 ## Design Paths
 
-### Path A: Integrated Payment Gateway (Build In-House)
+There are three viable shapes for a payment platform. Pick by volume, regulatory profile, and the number of payments engineers you can hire.
 
-**Best when:**
+### Path A: Build in-house
 
-- High transaction volume (>$1B annually)—interchange savings justify engineering cost
-- Regulatory requirements demand data residency
-- Unique payment flows that don't fit third-party APIs
+Best when transaction volume is high enough that interchange savings dominate engineering cost (typically >$1B annually), data residency is mandated, or unique flows don't fit third-party APIs.
 
-**Architecture:**
-
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
-
-**Key characteristics:**
-
-- Direct acquiring bank relationships
-- Full control over routing decisions
-- In-house tokenization and vault
-- Custom fraud rules and ML models
+![In-house payment gateway: a self-built gateway integrates risk, vault, and processor adapters, talking directly to acquiring banks and card networks.](./diagrams/in-house-gateway-light.svg "Path A — in-house: you own the gateway, the PCI vault, the risk engine, and the acquirer integration. Highest control, highest fixed cost, longest time to market.")
+![In-house payment gateway: a self-built gateway integrates risk, vault, and processor adapters, talking directly to acquiring banks and card networks.](./diagrams/in-house-gateway-dark.svg)
 
 **Trade-offs:**
 
-- ✅ Lower per-transaction cost at scale (save 0.1-0.3%)
-- ✅ Full customization of payment flows
-- ✅ Data residency control
-- ❌ PCI DSS Level 1 scope (audit, penetration testing, quarterly scans)
-- ❌ 12-18 month build time minimum
-- ❌ Requires dedicated security and compliance team
+- Lower per-transaction cost at scale (often saves 0.1–0.3% on processing)
+- Full control over routing, retries, and fraud rules
+- Data residency control
+- Full PCI DSS Level 1 scope: annual ROC by a QSA, quarterly ASV scans, penetration testing
+- 12–18 month build minimum; needs dedicated security and compliance staff
 
-**Real-world example:** Shopify built Shop Pay in-house, processing $12B+ in GMV (2023). Justified by volume and unique merchant financing features. Required dedicated payments engineering team of 50+.
+A familiar example is Shopify's own checkout — Shop Pay is built on Shopify's in-house payments stack and now [accounts for ~46% of Shopify-powered payments and ~$75B in lifetime volume, with ~48% CAGR since 2021](https://finance.yahoo.com/news/shopify-quietly-became-payments-giant-093001617.html). That kind of investment only makes sense at GMV scale where interchange and conversion lift on cumulative volume justify a dedicated payments organization.
 
-### Path B: Third-Party Payment Platform (Stripe, Adyen)
+### Path B: Third-party platform (Stripe, Adyen, Braintree)
 
-**Best when:**
+Best when speed to market matters, transaction volume is below the interchange-savings threshold, and engineering effort should go into product instead of payments infrastructure.
 
-- Speed to market is critical
-- Transaction volume <$500M annually
-- Engineering focus should be on product, not payments infrastructure
-
-**Architecture:**
-
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
-
-**Key characteristics:**
-
-- PCI scope reduced to SAQ-A (minimal questionnaire)
-- Built-in fraud detection (Stripe Radar)
-- Payment method coverage (cards, wallets, BNPL)
-- Automatic card network compliance updates
+![Third-party payment platform: client uses a vendor SDK to tokenize, the application calls the vendor API, the vendor handles fraud and the PCI vault, and a webhook consumer keeps the internal ledger in sync.](./diagrams/third-party-platform-light.svg "Path B — third-party: tokenization, fraud, and the PCI vault live in the vendor. Your code is a thin payment API plus an idempotent webhook consumer feeding your own ledger.")
+![Third-party payment platform: client uses a vendor SDK to tokenize, the application calls the vendor API, the vendor handles fraud and the PCI vault, and a webhook consumer keeps the internal ledger in sync.](./diagrams/third-party-platform-dark.svg)
 
 **Trade-offs:**
 
-- ✅ Days to integrate, not months
-- ✅ PCI compliance handled by provider
-- ✅ Built-in fraud detection
-- ✅ Global payment method coverage
-- ❌ Higher per-transaction fees (2.9% + $0.30 typical)
-- ❌ Less control over routing and failover
-- ❌ Vendor lock-in risk
+- Days to integrate
+- PCI scope reduced to SAQ A (see [PCI DSS v4.0 SAQ A](https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf))
+- Built-in fraud (Radar, Adyen RevenueProtect)
+- Broad coverage of cards, wallets, BNPL, local methods
+- Higher per-transaction fee — Stripe's [posted US standard rate is 2.9% + $0.30](https://stripe.com/pricing) for online card payments
+- Less control over routing; vendor lock-in on tokens and APIs
 
-**Real-world example:** Figma uses Stripe for all payments. At their scale (~$600M ARR), the 2.9% fee is acceptable given engineering leverage—zero payment engineers needed on staff.
+### Path C: Orchestration (multi-PSP)
 
-### Path C: Hybrid with Payment Orchestration
+Best when you need regional acquirer coverage, redundancy, or auth-rate optimization, or are migrating between providers.
 
-**Best when:**
-
-- Multiple payment providers needed (regional coverage, redundancy)
-- Authorization rate optimization is critical
-- Gradual migration from one provider to another
-
-**Architecture:**
-
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
-
-**Key characteristics:**
-
-- Single API, multiple backend processors
-- Intelligent routing based on card type, geography, cost
-- Automatic failover on processor outage
-- A/B testing payment flows
+![Payment orchestration: a single API fronts a smart router with rules and ML, a universal token vault, and failover across multiple PSPs and acquirers.](./diagrams/orchestration-layer-light.svg "Path C — orchestration: one API, multiple processors. The router picks per-transaction; failover lets you survive any single PSP outage.")
+![Payment orchestration: a single API fronts a smart router with rules and ML, a universal token vault, and failover across multiple PSPs and acquirers.](./diagrams/orchestration-layer-dark.svg)
 
 **Trade-offs:**
 
-- ✅ Redundancy and failover
-- ✅ Route optimization (Adyen reports 26% cost savings with smart routing)
-- ✅ Gradual provider migration
-- ❌ Additional integration layer complexity
-- ❌ Token portability challenges between providers
-- ❌ Orchestration platform cost
+- Redundancy and per-transaction failover
+- Route optimization. Adyen reports [an average 26% cost saving and 0.22% authorization-rate uplift](https://www.adyen.com/press-and-media/adyens-intelligent-payment-routing-usdebit) in its US-debit intelligent routing pilot with 20+ enterprise merchants (eBay, 24 Hour Fitness, Microsoft); some merchants saw 52–55% cost savings and up to 1.15% auth-rate uplift on the same dataset.
+- Gradual migration between providers
+- Extra integration layer
+- Token portability headaches across PSPs
+- Orchestration platform cost (build or buy)
 
-**Real-world example:** eBay uses Adyen's intelligent payment routing, achieving 26% average cost savings on US debit transactions and 0.22% uplift in authorization rates.
+### Path comparison
 
-### Path Comparison
-
-| Factor               | Path A (Build)            | Path B (Third-Party) | Path C (Orchestration)   |
+| Factor               | Path A (build)            | Path B (third-party) | Path C (orchestration)   |
 | -------------------- | ------------------------- | -------------------- | ------------------------ |
-| Time to market       | 12-18 months              | Days-weeks           | 1-3 months               |
-| PCI scope            | Level 1 (full)            | SAQ-A (minimal)      | SAQ-A (minimal)          |
-| Per-transaction cost | Lowest at scale           | Highest (2.9%+)      | Middle                   |
-| Engineering effort   | High (50+ FTEs)           | Low (1-2 FTEs)       | Medium (5-10 FTEs)       |
+| Time to market       | 12–18 months              | Days–weeks           | 1–3 months               |
+| PCI scope            | Level 1 (SAQ D)           | SAQ A                | SAQ A (per PSP)          |
+| Per-transaction cost | Lowest at scale           | Highest (~2.9%+)     | Middle (rules-dependent) |
+| Engineering effort   | High (50+ FTEs)           | Low (1–2 FTEs)       | Medium (5–10 FTEs)       |
 | Customization        | Full                      | Limited              | Medium                   |
-| Best for             | High-volume, unique needs | Startups, SMBs       | Enterprise, multi-region |
+| Best for             | High-volume, unique needs | Startups, SMBs       | Multi-region enterprise  |
 
-### This Article's Focus
-
-This article focuses on **Path B (Third-Party) with elements of Path C (Smart Routing)** because:
-
-1. Most engineering teams should not build payment infrastructure
-2. Third-party platforms handle PCI compliance, fraud, and card network changes
-3. Smart routing concepts apply regardless of implementation
-
-The architecture sections show how to integrate third-party providers while maintaining control over critical concerns like idempotency, reconciliation, and ledger accuracy.
+The remaining sections assume **Path B with selective Path C elements**: a third-party PSP for tokenization, fraud, and acquiring; your own idempotent API, ledger, reconciliation, and webhook consumer; and a smart-routing layer when a second PSP is on the roadmap. The architecture transfers cleanly to Path A if you eventually swap the PSP for a direct acquirer.
 
 ## High-Level Design
 
 ### Component Overview
 
-| Component              | Responsibility                | Technology                       |
-| ---------------------- | ----------------------------- | -------------------------------- |
-| Payment API            | Idempotent payment operations | REST API + Idempotency keys      |
-| Token Service          | Map payment methods to tokens | Stripe.js / Adyen Web Components |
-| Smart Router           | Select optimal processor      | Rule engine + ML routing         |
-| Fraud Engine           | Real-time risk scoring        | ML model (Stripe Radar)          |
-| Authorization Service  | Card network communication    | Processor SDK                    |
-| Capture Service        | Settlement initiation         | Async job processor              |
-| Ledger Service         | Double-entry bookkeeping      | PostgreSQL + event sourcing      |
-| Reconciliation Service | Match internal vs external    | Batch jobs + anomaly detection   |
-| Webhook Handler        | Process async events          | Idempotent consumer              |
+| Component              | Responsibility                | Typical implementation                   |
+| ---------------------- | ----------------------------- | ---------------------------------------- |
+| Payment API            | Idempotent payment operations | REST + Idempotency-Key header            |
+| Token Service          | Map payment methods to tokens | Stripe.js / Adyen Web Components         |
+| Smart Router           | Pick a processor              | Rule engine (+ ML for cost / auth-rate)  |
+| Fraud Engine           | Real-time risk scoring        | PSP (Radar) or in-house ML               |
+| Authorization Service  | Card network communication    | PSP SDK                                  |
+| Capture Service        | Settlement initiation         | Async job + scheduled retries            |
+| Ledger Service         | Double-entry bookkeeping      | PostgreSQL append-only entries           |
+| Reconciliation Service | Match internal vs external    | Daily batch + anomaly detection          |
+| Webhook Handler        | Idempotent async event sink   | Signed receiver + dedupe key + DLQ       |
 
 ### Payment Lifecycle
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+The happy path on a card payment is four logical stages — authorization, capture, settlement, reconciliation — and the same key (`payment_id`) threads through all of them.
+
+![Payment lifecycle sequence: client posts a payment, API checks idempotency and fraud, processor authorizes through network and issuer, ledger records the auth, later capture flows the same way, and the eventual settlement webhook updates the ledger.](./diagrams/payment-lifecycle-sequence-light.svg "Payment lifecycle: idempotent authorization, deferred capture, async settlement, and ledger updates at every step.")
+![Payment lifecycle sequence: client posts a payment, API checks idempotency and fraud, processor authorizes through network and issuer, ledger records the auth, later capture flows the same way, and the eventual settlement webhook updates the ledger.](./diagrams/payment-lifecycle-sequence-dark.svg)
+
+The same payment is also a finite-state machine. The states the API exposes are the contract; transitions out of them are gated by webhook receipts, manual capture, refund, or dispute resolution.
+
+![Payment state machine: pending transitions to requires_action, requires_capture, processing, or failed; processing terminates in succeeded or failed; succeeded can be partially_refunded, refunded, or disputed; disputed resolves to succeeded (won) or refunded (lost).](./diagrams/payment-state-machine-light.svg "Payment lifecycle as a state machine: every API status is a node, every webhook or operator action a transition; refunded / canceled / failed are the terminal sinks.")
+![Payment state machine: pending transitions to requires_action, requires_capture, processing, or failed; processing terminates in succeeded or failed; succeeded can be partially_refunded, refunded, or disputed; disputed resolves to succeeded (won) or refunded (lost).](./diagrams/payment-state-machine-dark.svg)
 
 ### Authorization vs Capture Timing
 
-| Pattern                   | Use Case                        | Auth Window                     |
-| ------------------------- | ------------------------------- | ------------------------------- |
-| Auth + immediate capture  | Digital goods, subscriptions    | N/A (single request)            |
-| Auth then capture         | E-commerce (ship then charge)   | 7 days (Visa), 30 days (others) |
-| Auth with delayed capture | Hotels, car rentals             | Up to 31 days                   |
-| Incremental auth          | Hotels (room service additions) | Within original auth window     |
+Effective **April 13, 2024**, [Visa standardized its authorization-to-clearing time frames](https://corporate.visa.com/content/dam/VCOM/regional/na/us/support-legal/documents/authorization-framework-will-be-updated-to-simplify-authorization-processing-time-frames.pdf). The clock starts at a valid authorization and ends when the transaction must be cleared:
 
-**Design note:** Visa shortened online Merchant-Initiated Transaction (MIT) windows from 7 to 5 days as of April 2024. Always capture within the network's window or risk auth expiration.
+| Pattern                           | Visa window (post-April-2024) | Typical use case                        |
+| --------------------------------- | ----------------------------- | --------------------------------------- |
+| Card-not-present (CIT)            | 10 calendar days              | E-commerce checkout                     |
+| All card-present (CP)             | 5 calendar days               | In-store / POS                          |
+| All merchant-initiated (MIT)      | 5 calendar days               | Recurring, subscriptions, COF reuse     |
+| Lodging / cruise / vehicle rental | 30 calendar days (with EAI)   | Hotels, car rental, cruise lines        |
+
+> [!IMPORTANT]
+> Older blog posts still cite a "7-day Visa window". That guidance pre-dates the April 2024 framework. Capturing outside the new window risks a Visa Dispute Condition 11.3 ("No Authorization") chargeback and the loss of dispute rights. Mastercard, Amex, and Discover have similar but not identical windows — codify them per network.
+
+The auth-then-capture, settlement, and reconciliation deadlines line up like this:
+
+![Auth, capture, settle, reconcile timeline: e-commerce CIT has a 10-day capture window with payout at T+2 and reconciliation at T+3; card-present and MIT collapse to 5 days; lodging/rental extend to 30 days.](./diagrams/auth-capture-settle-timeline-light.svg "Authorization-to-clearing windows by transaction type after Visa's April 2024 framework, with the typical T+2 payout and T+3 reconciliation deadlines.")
+![Auth, capture, settle, reconcile timeline: e-commerce CIT has a 10-day capture window with payout at T+2 and reconciliation at T+3; card-present and MIT collapse to 5 days; lodging/rental extend to 30 days.](./diagrams/auth-capture-settle-timeline-dark.svg)
 
 ## API Design
+
+The public surface is small and uniform: every state-changing operation accepts an `Idempotency-Key` header.
 
 ### Create Payment
 
@@ -275,12 +239,11 @@ Content-Type: application/json
   "metadata": {
     "order_id": "ord_789",
     "customer_email": "user@example.com"
-  },
-  "idempotency_key": "pay_abc123_user_456"
+  }
 }
 ```
 
-**Response (201 Created):**
+**Response (`201 Created`):**
 
 ```json
 {
@@ -301,23 +264,21 @@ Content-Type: application/json
   },
   "captured": true,
   "receipt_url": "https://pay.example.com/receipts/pay_xyz789",
-  "created_at": "2024-03-15T10:00:00Z",
-  "metadata": {
-    "order_id": "ord_789"
-  }
+  "created_at": "2026-03-15T10:00:00Z",
+  "metadata": { "order_id": "ord_789" }
 }
 ```
 
-**Error Responses:**
+**Error responses:**
 
-| Code                    | Condition                                    | Response                                                                     |
-| ----------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| `400 Bad Request`       | Invalid amount, currency                     | `{"error": {"code": "invalid_amount"}}`                                      |
-| `402 Payment Required`  | Card declined                                | `{"error": {"code": "card_declined", "decline_code": "insufficient_funds"}}` |
-| `409 Conflict`          | Idempotency key reused with different params | `{"error": {"code": "idempotency_conflict"}}`                                |
-| `429 Too Many Requests` | Rate limit exceeded                          | `{"error": {"code": "rate_limited"}}`                                        |
+| Code                    | Condition                                    | Body                                                                          |
+| ----------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `400 Bad Request`       | Invalid amount or currency                   | `{"error": {"code": "invalid_amount"}}`                                       |
+| `402 Payment Required`  | Card declined                                | `{"error": {"code": "card_declined", "decline_code": "insufficient_funds"}}`  |
+| `409 Conflict`          | Idempotency key reused with different params | `{"error": {"code": "idempotency_conflict"}}`                                 |
+| `429 Too Many Requests` | Rate limit exceeded                          | `{"error": {"code": "rate_limited"}}`                                         |
 
-### Authorize Only (Separate Capture)
+### Authorize-only and capture
 
 ```http
 POST /api/v1/payments
@@ -331,31 +292,27 @@ Idempotency-Key: auth_abc123
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
   "id": "pay_xyz789",
   "status": "requires_capture",
   "amount_capturable": 9999,
-  "capture_before": "2024-03-22T10:00:00Z"
+  "capture_before": "2026-03-25T10:00:00Z"
 }
 ```
 
-### Capture Payment
+Capture (full or partial — partial automatically releases the remaining hold):
 
 ```http
 POST /api/v1/payments/{payment_id}/capture
 Idempotency-Key: cap_abc123
 
-{
-  "amount_to_capture": 9999
-}
+{ "amount_to_capture": 9999 }
 ```
 
-**Partial capture:** Capture less than authorized amount. Remaining authorization is automatically released.
-
-### Refund Payment
+### Refund
 
 ```http
 POST /api/v1/payments/{payment_id}/refunds
@@ -364,13 +321,11 @@ Idempotency-Key: ref_abc123
 {
   "amount": 2500,
   "reason": "customer_request",
-  "metadata": {
-    "support_ticket": "TKT-456"
-  }
+  "metadata": { "support_ticket": "TKT-456" }
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
@@ -379,11 +334,11 @@ Idempotency-Key: ref_abc123
   "amount": 2500,
   "status": "pending",
   "reason": "customer_request",
-  "estimated_arrival": "2024-03-20"
+  "estimated_arrival": "2026-03-20"
 }
 ```
 
-**Refund timing:** Card refunds take 5-10 business days to appear on customer statement. ACH refunds take 3-5 business days.
+Refund timing varies by issuer; 5–10 business days for cards is a reasonable customer-facing estimate. ACH refunds usually surface in 3–5 business days for the originator, plus the standard return window discussed in [ACH and bank transfers](#ach-and-bank-transfers).
 
 ### Webhook Events
 
@@ -394,32 +349,28 @@ Stripe-Signature: t=1234567890,v1=abc123...
 {
   "id": "evt_123",
   "type": "payment_intent.succeeded",
-  "data": {
-    "object": {
-      "id": "pi_xyz",
-      "amount": 9999,
-      "status": "succeeded"
-    }
-  },
+  "data": { "object": { "id": "pi_xyz", "amount": 9999, "status": "succeeded" } },
   "created": 1234567890
 }
 ```
 
-**Critical webhook events:**
+The events your ledger really cares about:
 
-| Event                           | Action Required                         |
-| ------------------------------- | --------------------------------------- |
-| `payment_intent.succeeded`      | Mark order as paid, trigger fulfillment |
-| `payment_intent.payment_failed` | Notify customer, retry logic            |
-| `charge.refunded`               | Update order status, adjust inventory   |
-| `charge.dispute.created`        | Alert fraud team, gather evidence       |
-| `payout.paid`                   | Reconcile settlement                    |
+| Event                           | Action                                                    |
+| ------------------------------- | --------------------------------------------------------- |
+| `payment_intent.succeeded`      | Mark order paid, trigger fulfillment                      |
+| `payment_intent.payment_failed` | Notify customer, schedule dunning retry                   |
+| `charge.refunded`               | Update order status, adjust inventory, ledger refund      |
+| `charge.dispute.created`        | Open chargeback case, gather evidence                     |
+| `payout.paid`                   | Reconcile settlement, post bank entry                     |
+
+Webhook handling is non-trivial — see [Webhook reliability](#webhook-reliability) for the failure-mode breakdown.
 
 ## Data Modeling
 
-### Payment Schema (PostgreSQL)
+### Payment schema (PostgreSQL)
 
-```sql collapse={1-5, 45-55}
+```sql collapse={1-5, 45-55} title="payments.sql"
 -- Core payment record
 CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -463,46 +414,43 @@ CREATE TABLE payments (
     captured_at TIMESTAMPTZ,
     canceled_at TIMESTAMPTZ,
 
-    -- Constraints
     CONSTRAINT valid_status CHECK (status IN (
         'pending', 'requires_action', 'requires_capture',
         'processing', 'succeeded', 'failed', 'canceled'
     ))
 );
 
--- Indexes for common queries
 CREATE INDEX idx_payments_customer ON payments(customer_id, created_at DESC);
 CREATE INDEX idx_payments_status ON payments(status, created_at DESC);
 CREATE INDEX idx_payments_processor ON payments(processor_payment_id);
 CREATE INDEX idx_payments_idempotency ON payments(idempotency_key);
 ```
 
-### Double-Entry Ledger Schema
+### Double-entry ledger schema
 
-```sql
--- Accounts in the chart of accounts
+```sql title="ledger.sql"
+-- Chart of accounts
 CREATE TABLE accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(20) NOT NULL,  -- asset, liability, revenue, expense
+    type VARCHAR(20) NOT NULL,  -- asset | liability | revenue | expense
     currency VARCHAR(3) NOT NULL,
     is_active BOOLEAN DEFAULT true
 );
 
--- Ledger entries (immutable)
+-- Immutable journal entries — every ledger row is debit XOR credit
 CREATE TABLE ledger_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     transaction_id UUID NOT NULL,
     account_id UUID NOT NULL REFERENCES accounts(id),
-    entry_type VARCHAR(10) NOT NULL,  -- debit or credit
+    entry_type VARCHAR(10) NOT NULL,            -- 'debit' | 'credit'
     amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
     currency VARCHAR(3) NOT NULL,
     description TEXT,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
 
-    -- Reference to source
     payment_id UUID REFERENCES payments(id),
     refund_id UUID REFERENCES refunds(id),
     payout_id UUID REFERENCES payouts(id)
@@ -513,11 +461,18 @@ CREATE INDEX idx_ledger_account ON ledger_entries(account_id, created_at DESC);
 CREATE INDEX idx_ledger_payment ON ledger_entries(payment_id);
 ```
 
-### Ledger Entry Examples
+The invariant: for every `transaction_id`, `SUM(debits) = SUM(credits)` per currency. Enforce it with a deferred constraint or a periodic check; never let a single transaction post unbalanced.
+
+The write path itself is the part most teams get wrong. Every state-changing operation atomically updates the `payments` row, inserts the balanced ledger pair, and records a domain event in an outbox table — all in a single database transaction. A separate relay process drains the outbox to Kafka. This is the [transactional outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html); it gives you at-least-once delivery without dual-write inconsistency between the ledger and the event stream.
+
+![Ledger write path: each operation (auth, capture, settle, refund) issues debit/credit pairs in a single ACID transaction with the payment row update and an outbox row, which a relay drains to Kafka for downstream consumers.](./diagrams/ledger-write-path-light.svg "Ledger write path: payment row, balanced ledger pair, and outbox row commit atomically; the relay turns the outbox into a Kafka event stream for analytics, fraud, and reconciliation.")
+![Ledger write path: each operation (auth, capture, settle, refund) issues debit/credit pairs in a single ACID transaction with the payment row update and an outbox row, which a relay drains to Kafka for downstream consumers.](./diagrams/ledger-write-path-dark.svg)
+
+### Ledger entry examples
 
 **Authorization (hold funds):**
 
-```
+```text
 Transaction: AUTH-001
 ├── DEBIT  accounts_receivable  $100.00
 └── CREDIT authorization_hold   $100.00
@@ -525,54 +480,51 @@ Transaction: AUTH-001
 
 **Capture (recognize revenue):**
 
-```
+```text
 Transaction: CAP-001
 ├── DEBIT  authorization_hold   $100.00
 └── CREDIT revenue              $100.00
 ```
 
-**Settlement (receive cash):**
+**Settlement (cash less fees):**
 
-```
+```text
 Transaction: SET-001
-├── DEBIT  cash                 $97.10  (after fees)
+├── DEBIT  cash                 $97.10  (payout net of fees)
 ├── DEBIT  processing_fees      $2.90
 └── CREDIT accounts_receivable  $100.00
 ```
 
 **Refund:**
 
-```
+```text
 Transaction: REF-001
 ├── DEBIT  revenue              $50.00
 └── CREDIT accounts_receivable  $50.00
 ```
 
-### Token Vault Schema
+### Token vault schema
 
-```sql
--- Minimal schema for tokenized payment methods
--- Actual PAN/CVV stored in PCI-compliant vault (Stripe, external)
+```sql title="payment_methods.sql"
+-- Minimal schema: only tokens + non-sensitive metadata.
+-- Raw PAN/CVV are stored by the PSP in their PCI-compliant vault.
 CREATE TABLE payment_methods (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES customers(id),
     processor VARCHAR(30) NOT NULL,
-    processor_token VARCHAR(100) NOT NULL,  -- Stripe pm_xxx
+    processor_token VARCHAR(100) NOT NULL,  -- e.g. Stripe pm_xxx
 
-    -- Non-sensitive metadata
-    type VARCHAR(20) NOT NULL,  -- card, bank_account, wallet
-    card_brand VARCHAR(20),     -- visa, mastercard, amex
+    type VARCHAR(20) NOT NULL,  -- card | bank_account | wallet
+    card_brand VARCHAR(20),
     card_last4 VARCHAR(4),
     card_exp_month INTEGER,
     card_exp_year INTEGER,
-    card_funding VARCHAR(20),   -- credit, debit, prepaid
+    card_funding VARCHAR(20),   -- credit | debit | prepaid
 
-    -- Billing
     billing_name VARCHAR(100),
     billing_country VARCHAR(2),
     billing_postal_code VARCHAR(20),
 
-    -- Status
     is_default BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
 
@@ -583,86 +535,79 @@ CREATE TABLE payment_methods (
 );
 ```
 
-**PCI scope note:** This schema stores only tokens and non-sensitive metadata. The actual card numbers (PAN) are stored by Stripe/Adyen in their PCI-compliant vaults. Your database never sees or stores raw card data.
+This schema stores only opaque tokens and non-sensitive descriptors. The actual PAN lives in the PSP's vault, which is what keeps you on SAQ A instead of SAQ D.
 
-### Database Selection Matrix
+### Database selection
 
 | Data                     | Store              | Rationale                                 |
 | ------------------------ | ------------------ | ----------------------------------------- |
 | Payments                 | PostgreSQL         | ACID, complex queries, audit requirements |
 | Ledger entries           | PostgreSQL         | Strong consistency, immutable append-only |
 | Idempotency keys         | Redis + PostgreSQL | Fast lookup (Redis), durable record (PG)  |
-| Payment method tokens    | PostgreSQL         | Referential integrity with customers      |
+| Payment method tokens    | PostgreSQL         | FK integrity with customers               |
 | Event stream             | Kafka              | High throughput, replay capability        |
 | Reconciliation snapshots | S3 + Parquet       | Cost-effective analytics storage          |
 | Rate limiting            | Redis              | Sub-ms counters                           |
 
 ## Low-Level Design
 
-### Idempotency Implementation
+### Idempotency
 
-Idempotency prevents duplicate charges when clients retry failed requests. Stripe's implementation serves as the industry reference.
+Idempotency keys turn an at-least-once retry world into an effectively-once charge world. The contract is simple:
 
-**Request flow:**
+- Same key + same request body = single execution; subsequent calls return the cached response.
+- Same key + different request body = `409 idempotency_conflict`.
+- Same key while the first call is still running = `409 request_in_progress` (client retries with backoff).
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+Stripe's reference implementation [pins the key window at 24 hours and persists the request hash plus response](https://docs.stripe.com/api/idempotent_requests).
 
-**Implementation:**
+![Idempotent request flow: incoming Idempotency-Key is checked, missing keys lock and execute, matching keys replay the cached response, and conflicting bodies or in-flight states return 409.](./diagrams/idempotency-flow-light.svg "Idempotency flow: lock with SETNX, hash the body to detect conflicts, persist response in Redis (fast) and PostgreSQL (durable).")
+![Idempotent request flow: incoming Idempotency-Key is checked, missing keys lock and execute, matching keys replay the cached response, and conflicting bodies or in-flight states return 409.](./diagrams/idempotency-flow-dark.svg)
 
-```typescript collapse={1-15, 65-80}
-// idempotency-service.ts
+```ts collapse={1-15, 65-80} title="idempotency-service.ts"
 import { Redis } from "ioredis"
 import { createHash } from "crypto"
 
 interface IdempotencyRecord {
   key: string
   request_hash: string
-  response: any
+  response: unknown
   status: "processing" | "complete" | "error"
   created_at: Date
   expires_at: Date
 }
 
 const redis = new Redis(process.env.REDIS_URL)
-const IDEMPOTENCY_TTL = 24 * 60 * 60 // 24 hours (Stripe's window)
+const IDEMPOTENCY_TTL = 24 * 60 * 60 // 24 hours, mirrors Stripe
 
 export async function checkIdempotency(
   key: string,
   requestBody: object,
-): Promise<{ exists: boolean; response?: any; conflict?: boolean }> {
+): Promise<{ exists: boolean; response?: unknown; conflict?: boolean }> {
   const requestHash = hashRequest(requestBody)
 
-  // Check Redis first (fast path)
   const cached = await redis.get(`idem:${key}`)
-
-  if (!cached) {
-    // Key doesn't exist, allow processing
-    return { exists: false }
-  }
+  if (!cached) return { exists: false }
 
   const record: IdempotencyRecord = JSON.parse(cached)
 
-  // Key exists, check if parameters match
   if (record.request_hash !== requestHash) {
-    // Same key, different request = conflict
     return { exists: true, conflict: true }
   }
 
-  // Same key, same request
   if (record.status === "processing") {
-    // Request in flight, return 409 to trigger retry
     return { exists: true, conflict: true }
   }
 
-  // Return cached response
   return { exists: true, response: record.response }
 }
 
-export async function startIdempotentRequest(key: string, requestBody: object): Promise<boolean> {
+export async function startIdempotentRequest(
+  key: string,
+  requestBody: object,
+): Promise<boolean> {
   const requestHash = hashRequest(requestBody)
 
-  // Atomic set-if-not-exists
   const result = await redis.set(
     `idem:${key}`,
     JSON.stringify({
@@ -673,7 +618,7 @@ export async function startIdempotentRequest(key: string, requestBody: object): 
     }),
     "EX",
     IDEMPOTENCY_TTL,
-    "NX", // Only set if not exists
+    "NX",
   )
 
   return result === "OK"
@@ -681,7 +626,7 @@ export async function startIdempotentRequest(key: string, requestBody: object): 
 
 export async function completeIdempotentRequest(
   key: string,
-  response: any,
+  response: unknown,
   status: "complete" | "error",
 ): Promise<void> {
   const cached = await redis.get(`idem:${key}`)
@@ -693,7 +638,6 @@ export async function completeIdempotentRequest(
 
   await redis.setex(`idem:${key}`, IDEMPOTENCY_TTL, JSON.stringify(record))
 
-  // Also persist to PostgreSQL for durability
   await db.idempotency_records.upsert({
     key,
     request_hash: record.request_hash,
@@ -708,101 +652,107 @@ function hashRequest(body: object): string {
 }
 ```
 
-**Payment controller with idempotency:**
-
-```typescript collapse={1-8, 50-60}
-// payment-controller.ts
-import { checkIdempotency, startIdempotentRequest, completeIdempotentRequest } from "./idempotency-service"
+```ts collapse={1-8, 50-60} title="payment-controller.ts"
+import {
+  checkIdempotency,
+  startIdempotentRequest,
+  completeIdempotentRequest,
+} from "./idempotency-service"
 
 export async function createPayment(req: Request): Promise<Response> {
   const idempotencyKey = req.headers.get("Idempotency-Key")
+  if (!idempotencyKey) return errorResponse(400, "idempotency_key_required")
 
-  if (!idempotencyKey) {
-    return errorResponse(400, "idempotency_key_required")
-  }
-
-  // Check for existing request
   const check = await checkIdempotency(idempotencyKey, req.body)
 
-  if (check.conflict) {
-    return errorResponse(409, "idempotency_conflict")
-  }
+  if (check.conflict) return errorResponse(409, "idempotency_conflict")
 
   if (check.exists && check.response) {
-    // Return cached response (including errors)
     return new Response(JSON.stringify(check.response), {
-      status: check.response.status_code || 200,
+      status: (check.response as { status_code?: number }).status_code ?? 200,
       headers: { "Idempotent-Replayed": "true" },
     })
   }
 
-  // Start processing (atomic lock)
   const acquired = await startIdempotentRequest(idempotencyKey, req.body)
-  if (!acquired) {
-    // Another request is processing, retry later
-    return errorResponse(409, "request_in_progress")
-  }
+  if (!acquired) return errorResponse(409, "request_in_progress")
 
   try {
-    // Process payment
     const payment = await processPayment(req.body)
-
-    // Cache successful response
     await completeIdempotentRequest(idempotencyKey, payment, "complete")
-
     return successResponse(201, payment)
   } catch (error) {
-    // Cache error response (prevents retry storms)
-    await completeIdempotentRequest(idempotencyKey, { error: error.message }, "error")
-
+    await completeIdempotentRequest(
+      idempotencyKey,
+      { error: (error as Error).message },
+      "error",
+    )
     throw error
   }
 }
 ```
 
-**Design decisions:**
-
-| Decision           | Rationale                                                                 |
+| Decision           | Why                                                                       |
 | ------------------ | ------------------------------------------------------------------------- |
-| 24-hour TTL        | Matches Stripe; long enough for debugging, short enough to not accumulate |
-| Hash request body  | Detects different requests with same key                                  |
-| Cache errors too   | Prevents retry storms for permanent failures                              |
-| Redis + PostgreSQL | Redis for speed, PostgreSQL for durability and audit                      |
+| 24-hour TTL        | Mirrors Stripe; long enough for client retries, short enough to bound RAM |
+| Hash request body  | Detects clients reusing keys with different parameters                    |
+| Cache errors too   | Prevents retry storms against permanent failures                          |
+| Redis + PostgreSQL | Redis for sub-ms reads; PostgreSQL for durability and audit               |
 
 ### Fraud Detection Pipeline
 
-Real-time fraud scoring must complete within 100ms to avoid impacting checkout latency.
+Fraud scoring is inline with authorization, so the budget is single-digit hundred milliseconds. The pipeline pulls signals from the transaction, the card, the device, and behavioral telemetry; computes velocity and historical features; runs a model; and applies rule overrides on top.
 
-**Scoring architecture:**
+![Fraud scoring pipeline: transaction, card, device, behavioral signals feed velocity, historical, geo, and card features into a model with rule overrides, producing a 0-99 score routed to allow, review, block, or step-up.](./diagrams/fraud-scoring-pipeline-light.svg "Fraud scoring pipeline: a target p99 of 100ms drives most of the architectural choices — feature precomputation, in-memory model serving, and rule overrides.")
+![Fraud scoring pipeline: transaction, card, device, behavioral signals feed velocity, historical, geo, and card features into a model with rule overrides, producing a 0-99 score routed to allow, review, block, or step-up.](./diagrams/fraud-scoring-pipeline-dark.svg)
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+**Feature families** (each typically tens to a few hundred concrete features):
 
-**Feature examples (1000+ per transaction):**
+| Category    | Example features                                            |
+| ----------- | ----------------------------------------------------------- |
+| Velocity    | Transactions / hour from this card, IP, device, customer    |
+| Historical  | Days since first txn, average ticket, lifetime fraud rate   |
+| Geolocation | Distance from billing address, IP-to-billing mismatch       |
+| Card        | BIN country, funding type (credit / debit / prepaid)        |
+| Device      | Browser fingerprint, screen resolution, timezone, headless  |
+| Behavioral  | Time on page before purchase, mouse / keystroke dynamics    |
 
-| Category    | Features                                               |
-| ----------- | ------------------------------------------------------ |
-| Velocity    | Transactions/hour from this card, IP, device           |
-| Historical  | Days since first transaction, avg transaction amount   |
-| Geolocation | Distance from billing address, IP geolocation mismatch |
-| Card        | BIN country, funding type (credit/debit/prepaid)       |
-| Device      | Browser fingerprint, screen resolution, timezone       |
-| Behavioral  | Time on page before purchase, mouse movement patterns  |
+**Stripe Radar reference points** (all from Stripe's own documentation and engineering posts):
 
-**Stripe Radar reference:**
+- Risk score 0–99; [default block at >= 75 and elevated risk at >= 65](https://docs.stripe.com/radar/risk-evaluation), with a newer "risk settings" abstraction (Maximize protection / Balance / Maximize revenue) that adapts thresholds automatically.
+- Evaluates [hundreds of signals per transaction](https://docs.stripe.com/radar/risk-evaluation), drawn from the cross-merchant Stripe network.
+- [Continuous retraining on recent fraud patterns; the team has reported recall improvements of up to 0.5% per month from faster model release cadence](https://stripe.dev/blog/how-we-built-it-stripe-radar).
 
-- 0-99 risk score (0 = lowest risk)
-- Default block threshold: 75
-- Elevated risk threshold: 65
-- Decision time: <100ms
-- False positive rate: ~0.1%
-- Evaluates 1000+ characteristics per transaction
-- Models retrained monthly (0.5% recall improvement per retraining)
+> [!NOTE]
+> "False positive rate" numbers from PSPs are contextual to a merchant's traffic mix and risk tolerance — there is no universal Radar FPR you can plan against. Tune thresholds against your own block / allow / review counts.
 
-**3D Secure integration:**
+#### AML, sanctions, and KYC
 
-```typescript collapse={1-10, 45-55}
-// 3ds-service.ts
+Fraud scoring sits next to a separate but adjacent control plane: AML (anti-money-laundering) screening and KYC (know-your-customer). The two have different obligations and different latency budgets:
+
+| Control                | Trigger                          | Latency        | Authority                                                                                                                                                                                                                |
+| ---------------------- | -------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sanctions screening    | Every payment, every payout      | Inline (< 100 ms) | [OFAC SDN list](https://ofac.treasury.gov/sanctions-list-service), EU consolidated list, UN — match the buyer, the seller, the bank, and the IP geolocation against the lists at every fund movement.                  |
+| Transaction monitoring | All transactions, post-auth      | Near-real-time | FinCEN BSA / [Suspicious Activity Report (SAR)](https://www.fincen.gov/resources/filing-information) thresholds: file SARs on $5,000+ transactions with no apparent lawful purpose, structuring, or sanctioned-party links. |
+| KYC / CIP              | Account opening, onboarding      | Out of band    | FinCEN Customer Identification Program rule (US); EU AMLD6 + national transposition; varies by jurisdiction.                                                                                                            |
+
+Marketplaces and Connect-style platforms inherit money-services-business obligations from the moment they touch funds on behalf of a third party — the PSP usually performs the underlying KYC, but the platform still owns the screening on the outbound payout side. Treat the sanctions check as part of the authorization-time critical path, not a batch job.
+
+### 3D Secure 2 and SCA
+
+3D Secure 2 (EMV 3DS) shifts CNP fraud liability to the issuer when authentication succeeds and is mandatory in the EU/UK under PSD2 SCA. Most low-risk traffic completes "frictionless": the issuer's Access Control Server (ACS) makes a risk decision off the device and transaction context with no user interaction. High-risk or SCA-required traffic gets a challenge — typically biometric, OTP, or app push.
+
+![3D Secure 2 sequence: cardholder submits payment, merchant sends AReq to its 3DS server, routed via the directory server to the issuer ACS; ACS returns frictionless ARes, or requires a CReq challenge handled by the cardholder before the merchant authorizes.](./diagrams/3ds2-frictionless-vs-challenge-light.svg "3DS 2 frictionless vs challenge: ~95% of low-risk traffic clears off the device fingerprint alone; the rest gets a biometric/OTP/push challenge.")
+![3D Secure 2 sequence: cardholder submits payment, merchant sends AReq to its 3DS server, routed via the directory server to the issuer ACS; ACS returns frictionless ARes, or requires a CReq challenge handled by the cardholder before the merchant authorizes.](./diagrams/3ds2-frictionless-vs-challenge-dark.svg)
+
+| Flow         | Description                                       | UX                  |
+| ------------ | ------------------------------------------------- | ------------------- |
+| Frictionless | Risk-based authentication off device fingerprint  | Instant (invisible) |
+| Challenge    | Biometric, OTP, or push notification required     | 10–30 seconds       |
+
+[Visa publishes that 3DS 2 reduces cart abandonment by ~70% and checkout time by ~85%](https://www.visa.ca/dam/VCOM/regional/na/canada/security/security-documents/3ds-2-0-infographic.pdf) compared to 3DS 1, primarily by replacing static-password challenges with risk-based frictionless authentication on most transactions.
+
+```ts collapse={1-10, 30-40} title="3ds-service.ts"
 interface ThreeDSResult {
   authentication_status: "success" | "failed" | "attempted" | "not_supported"
   liability_shift: boolean
@@ -816,7 +766,6 @@ export async function handle3DSChallenge(
   const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
 
   if (pi.status === "requires_action") {
-    // 3DS challenge required
     return {
       requires_action: true,
       redirect_url: pi.next_action?.redirect_to_url?.url,
@@ -827,28 +776,14 @@ export async function handle3DSChallenge(
 }
 ```
 
-**3D Secure 2.0 flows:**
+### Reconciliation
 
-| Flow         | Description                        | User Experience     |
-| ------------ | ---------------------------------- | ------------------- |
-| Frictionless | Risk-based auth, no user input     | Instant (invisible) |
-| Challenge    | Biometrics, OTP, push notification | 10-30 seconds       |
+Reconciliation matches your internal ledger against the processor's settlement report and (eventually) the bank statement. Discrepancies are how you find missed webhooks, partial captures, FX drift, duplicate charges, and processor errors before finance does.
 
-**3DS benefits:** Visa research shows 85% reduction in checkout times and 75% reduction in cart abandonment compared to 3DS 1.0. Required for PSD2 SCA compliance in EU.
+![Reconciliation pipeline: ledger, PSP settlement reports, and bank statements are fetched, normalized, three-way matched, and break entries flow to alerts and an exception ledger.](./diagrams/reconciliation-pipeline-light.svg "Daily reconciliation: three-way match between internal ledger, PSP settlement, and bank statement; breaks become alerts and exception ledger entries.")
+![Reconciliation pipeline: ledger, PSP settlement reports, and bank statements are fetched, normalized, three-way matched, and break entries flow to alerts and an exception ledger.](./diagrams/reconciliation-pipeline-dark.svg)
 
-### Reconciliation Service
-
-Reconciliation ensures internal ledger matches external settlements. Discrepancies indicate bugs, fraud, or processor errors.
-
-**Reconciliation process:**
-
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
-
-**Implementation:**
-
-```typescript collapse={1-15, 70-85}
-// reconciliation-service.ts
+```ts collapse={1-15, 70-85} title="reconciliation-service.ts"
 interface SettlementRecord {
   external_id: string
   amount_cents: number
@@ -865,30 +800,29 @@ interface ReconciliationResult {
   amount_discrepancy_cents: number
 }
 
-export async function reconcileSettlement(date: Date, processor: string): Promise<ReconciliationResult> {
-  // 1. Fetch processor settlement report
+export async function reconcileSettlement(
+  date: Date,
+  processor: string,
+): Promise<ReconciliationResult> {
   const externalRecords = await fetchSettlementReport(processor, date)
-
-  // 2. Fetch internal ledger entries
   const internalRecords = await fetchLedgerEntries(date, processor)
 
-  // 3. Match by external ID
   const matched: string[] = []
   const unmatchedExternal: SettlementRecord[] = []
   const unmatchedInternal: SettlementRecord[] = []
 
-  const internalMap = new Map(internalRecords.map((r) => [r.external_id, r]))
+  const internalMap = new Map(
+    internalRecords.map((r) => [r.external_id, r]),
+  )
 
   for (const ext of externalRecords) {
     const internal = internalMap.get(ext.external_id)
 
     if (!internal) {
-      // Transaction in processor report but not in our ledger
       unmatchedExternal.push(ext)
       continue
     }
 
-    // Verify amounts match
     if (internal.amount_cents !== ext.amount_cents) {
       unmatchedExternal.push(ext)
       unmatchedInternal.push(internal)
@@ -899,14 +833,18 @@ export async function reconcileSettlement(date: Date, processor: string): Promis
     internalMap.delete(ext.external_id)
   }
 
-  // Remaining internal records not in processor report
   for (const [, record] of internalMap) {
     unmatchedInternal.push(record)
   }
 
-  // Calculate total discrepancy
-  const externalTotal = externalRecords.reduce((sum, r) => sum + r.amount_cents, 0)
-  const internalTotal = internalRecords.reduce((sum, r) => sum + r.amount_cents, 0)
+  const externalTotal = externalRecords.reduce(
+    (sum, r) => sum + r.amount_cents,
+    0,
+  )
+  const internalTotal = internalRecords.reduce(
+    (sum, r) => sum + r.amount_cents,
+    0,
+  )
 
   return {
     matched: matched.length,
@@ -916,8 +854,9 @@ export async function reconcileSettlement(date: Date, processor: string): Promis
   }
 }
 
-// Alert on discrepancies
-export async function handleReconciliationBreaks(result: ReconciliationResult): Promise<void> {
+export async function handleReconciliationBreaks(
+  result: ReconciliationResult,
+): Promise<void> {
   if (result.unmatched_external.length > 0) {
     await alertFinanceTeam({
       type: "unmatched_external",
@@ -927,7 +866,6 @@ export async function handleReconciliationBreaks(result: ReconciliationResult): 
   }
 
   if (Math.abs(result.amount_discrepancy_cents) > 100) {
-    // $1 threshold
     await alertFinanceTeam({
       type: "amount_discrepancy",
       amount_cents: result.amount_discrepancy_cents,
@@ -936,27 +874,40 @@ export async function handleReconciliationBreaks(result: ReconciliationResult): 
 }
 ```
 
-**Common reconciliation breaks:**
+| Break                | Cause                                | Resolution                          |
+| -------------------- | ------------------------------------ | ----------------------------------- |
+| Missing in ledger    | Webhook missed / consumed late       | Replay webhook, post manual entry   |
+| Missing in processor | Auth expired or voided               | Close internal record               |
+| Amount mismatch      | Partial capture, FX rounding         | Verify capture amount, re-mark      |
+| Duplicate            | Idempotency key collision            | Refund the duplicate                |
+| Timing               | Settlement date rollover (TZ)        | Verify dates against processor cutoff |
 
-| Break Type           | Cause                          | Resolution                   |
-| -------------------- | ------------------------------ | ---------------------------- |
-| Missing in ledger    | Webhook missed, race condition | Replay webhook, manual entry |
-| Missing in processor | Auth expired, voided           | Close internal record        |
-| Amount mismatch      | Partial capture, FX            | Verify capture amount        |
-| Duplicate            | Idempotency failure            | Refund duplicate             |
-| Timing               | Settlement date rollover       | Verify dates                 |
+### Webhook Reliability
 
-### Smart Routing Implementation
+Webhooks are the only path you have for events that happen *after* the synchronous response — captures, payouts, refunds, disputes, declines from offline issuers. They are at-least-once, sometimes out-of-order, sometimes delayed by hours, and occasionally never delivered. The consumer has to be idempotent on the event ID, ordered on per-resource sequence numbers (when present), and dead-lettered on unrecoverable schema or domain failures.
 
-Smart routing optimizes for authorization rate, cost, or both by selecting the best processor per transaction.
+![Webhook consumer state machine: received events validate signature, dedupe by event_id, lock and apply or retry on transient failures, dead-letter on max attempts or schema failures, and replay from the DLQ on operator action.](./diagrams/webhook-consumer-state-light.svg "Webhook consumer state machine: signature → dedupe → lock → apply, with bounded retries, a DLQ, and an operator replay path.")
+![Webhook consumer state machine: received events validate signature, dedupe by event_id, lock and apply or retry on transient failures, dead-letter on max attempts or schema failures, and replay from the DLQ on operator action.](./diagrams/webhook-consumer-state-dark.svg)
 
-```typescript collapse={1-12, 55-70}
-// smart-router.ts
+The non-negotiable rules:
+
+- **Verify the signature** on every request before parsing the body.
+- **Reject events older than the replay window** (5 minutes is typical) to defeat replay attacks.
+- **Dedupe by `event.id`** in a persistent store (not just in-memory) — PSPs replay events for ~72 hours on delivery failures.
+- **Lock per resource** when applying side effects; never let two events for the same payment race.
+- **Return 2xx immediately** after enqueueing, not after applying. The PSP retries on any non-2xx.
+- **Dead-letter and alert** when retries exceed the budget; never silently swallow.
+
+### Smart Routing
+
+Smart routing picks a processor per transaction by card type, geography, ticket size, and live processor health. The deterministic core is a rule engine; the optimization layer (cost vs auth-rate) is usually a model trained on historical PSP outcomes.
+
+```ts collapse={1-12, 55-70} title="smart-router.ts"
 interface RoutingDecision {
   processor: "stripe" | "adyen" | "paypal"
   reason: string
   expected_auth_rate: number
-  expected_cost_bps: number // basis points
+  expected_cost_bps: number
 }
 
 interface TransactionContext {
@@ -969,29 +920,25 @@ interface TransactionContext {
 }
 
 export function routeTransaction(ctx: TransactionContext): RoutingDecision {
-  // Rule 1: US debit cards - route to lowest-cost network
   if (ctx.card_country === "US" && ctx.card_funding === "debit") {
     return {
-      processor: "adyen", // Intelligent routing for US debit
+      processor: "adyen",
       reason: "us_debit_cost_optimization",
       expected_auth_rate: 0.96,
-      expected_cost_bps: 50, // vs 150+ for credit
+      expected_cost_bps: 50,
     }
   }
 
-  // Rule 2: European cards - route to Adyen for local acquiring
   if (["DE", "FR", "GB", "NL", "ES", "IT"].includes(ctx.card_country)) {
     return {
       processor: "adyen",
       reason: "eu_local_acquiring",
       expected_auth_rate: 0.94,
-      expected_cost_bps: 180, // Lower cross-border fees
+      expected_cost_bps: 180,
     }
   }
 
-  // Rule 3: High-value transactions - route to processor with best auth rate
   if (ctx.amount_cents > 100000) {
-    // > $1000
     return {
       processor: "stripe",
       reason: "high_value_auth_optimization",
@@ -1000,7 +947,6 @@ export function routeTransaction(ctx: TransactionContext): RoutingDecision {
     }
   }
 
-  // Default: Stripe
   return {
     processor: "stripe",
     reason: "default",
@@ -1009,8 +955,10 @@ export function routeTransaction(ctx: TransactionContext): RoutingDecision {
   }
 }
 
-// Failover on processor error
-export async function processWithFailover(ctx: TransactionContext, paymentData: PaymentData): Promise<PaymentResult> {
+export async function processWithFailover(
+  ctx: TransactionContext,
+  paymentData: PaymentData,
+): Promise<PaymentResult> {
   const primary = routeTransaction(ctx)
   const processors = [primary.processor, ...getFailoverProcessors(primary.processor)]
 
@@ -1018,10 +966,8 @@ export async function processWithFailover(ctx: TransactionContext, paymentData: 
     try {
       return await processPayment(processor, paymentData)
     } catch (error) {
-      if (isRetryableError(error)) {
-        continue // Try next processor
-      }
-      throw error // Non-retryable (e.g., card declined)
+      if (isRetryableError(error)) continue
+      throw error // permanent failure (e.g. card declined) — do not failover
     }
   }
 
@@ -1029,64 +975,63 @@ export async function processWithFailover(ctx: TransactionContext, paymentData: 
 }
 ```
 
-**Routing optimization results (Adyen reference):**
+> [!CAUTION]
+> Failing over after a `card_declined` will not improve auth rates and risks duplicate auth holds on the cardholder. Failover is for `processor_error`, `network_timeout`, and other transient infrastructure failures only.
 
-- US debit routing: 26% average cost savings
-- Authorization rate uplift: 0.22%
-- Some merchants: 55% cost savings
+[Adyen reports an average 26% cost saving and 0.22% auth-rate uplift on US-debit smart routing](https://www.adyen.com/press-and-media/adyens-intelligent-payment-routing-usdebit), with some merchants seeing 52–55% savings and up to 1.15% auth-rate uplift.
 
 ## Frontend Considerations
 
-### PCI Scope Reduction
+### PCI scope reduction at the edge
 
-The primary frontend concern is keeping card data out of your servers entirely.
+The single highest-leverage frontend decision is to never let the card number reach your origin server. The PSP's hosted iframe (Stripe Elements, Adyen Web Components) tokenizes the card directly with the PSP, and your backend only ever sees an opaque token like `pm_xxx`.
 
-**Tokenization at edge:**
+```tsx collapse={1-8, 40-50} title="checkout.tsx"
+import { loadStripe } from "@stripe/stripe-js"
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js"
 
-```typescript collapse={1-8, 40-50}
-// payment-form.tsx (React example)
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY!)
 
 function CheckoutForm() {
-  const stripe = useStripe();
-  const elements = useElements();
+  const stripe = useStripe()
+  const elements = useElements()
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
-    // Card data goes directly to Stripe, never touches your server
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
+    // Card data goes directly to Stripe; never touches your backend.
+    const { error, paymentMethod } = await stripe!.createPaymentMethod({
       type: "card",
-      card: elements.getElement(CardElement),
-      billing_details: {
-        name: "Customer Name",
-      },
-    });
+      card: elements!.getElement(CardElement)!,
+      billing_details: { name: "Customer Name" },
+    })
 
     if (error) {
-      setError(error.message);
-      return;
+      setError(error.message)
+      return
     }
 
-    // Only the token (pm_xxx) goes to your backend
-    const response = await fetch("/api/payments", {
+    // Only the token (pm_xxx) goes to your backend.
+    await fetch("/api/payments", {
       method: "POST",
       body: JSON.stringify({
         payment_method_token: paymentMethod.id,
         amount: 9999,
       }),
-    });
-  };
+    })
+  }
 
   return (
     <form onSubmit={handleSubmit}>
       <CardElement />
       <button type="submit">Pay $99.99</button>
     </form>
-  );
+  )
 }
 
 export function CheckoutPage() {
@@ -1094,54 +1039,50 @@ export function CheckoutPage() {
     <Elements stripe={stripePromise}>
       <CheckoutForm />
     </Elements>
-  );
+  )
 }
 ```
 
-**PCI scope impact:**
+| Approach                | PCI surface                                | Effort                    |
+| ----------------------- | ------------------------------------------ | ------------------------- |
+| Direct card handling    | SAQ D (~329 questions in v4.0)             | Months of compliance work |
+| PSP iframe tokenization | SAQ A (22 questions) — see [SAQ A][saq-a]  | Hours                     |
+| Redirect to hosted page | SAQ A                                      | Minimal                   |
 
-| Approach                | PCI Level              | Effort                    |
-| ----------------------- | ---------------------- | ------------------------- |
-| Direct card handling    | SAQ-D (400+ questions) | Months of compliance work |
-| Stripe.js iframe        | SAQ-A (22 questions)   | Hours                     |
-| Redirect to hosted page | SAQ-A                  | Minimal                   |
+[saq-a]: https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf
 
-### 3D Secure Challenge Handling
+The SAQ A vs D delta is verified directly: the [PCI SSC's SAQ A is 22 questions](https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf), while [SAQ D in v4.0 covers ~329 questions across the full PCI control set](https://sprinto.com/blog/what-is-pci-saq/).
 
-```typescript collapse={1-10, 45-55}
-// 3ds-handler.ts
+### 3D Secure challenge handling
+
+```ts collapse={1-10, 30-40} title="3ds-handler.ts"
 import { loadStripe } from "@stripe/stripe-js"
 
-export async function handle3DSChallenge(clientSecret: string): Promise<{ success: boolean; error?: string }> {
-  const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY)
+export async function handle3DSChallenge(
+  clientSecret: string,
+  paymentMethodId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY!)
 
-  // This opens the 3DS challenge in a modal/redirect
-  const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-    payment_method: paymentMethodId,
-  })
+  const { error, paymentIntent } = await stripe!.confirmCardPayment(
+    clientSecret,
+    { payment_method: paymentMethodId },
+  )
 
-  if (error) {
-    // 3DS failed or user canceled
-    return { success: false, error: error.message }
-  }
+  if (error) return { success: false, error: error.message }
+  if (paymentIntent?.status === "succeeded") return { success: true }
 
-  if (paymentIntent.status === "succeeded") {
-    return { success: true }
-  }
-
-  if (paymentIntent.status === "requires_action") {
-    // Additional action needed (rare edge case)
-    return await handle3DSChallenge(paymentIntent.client_secret)
+  if (paymentIntent?.status === "requires_action") {
+    return await handle3DSChallenge(paymentIntent.client_secret!, paymentMethodId)
   }
 
   return { success: false, error: "Unexpected payment status" }
 }
 ```
 
-### Error Handling UX
+### Error UX
 
-```typescript
-// payment-errors.ts
+```ts title="payment-errors.ts"
 const ERROR_MESSAGES: Record<string, string> = {
   card_declined: "Your card was declined. Please try a different card.",
   insufficient_funds: "Insufficient funds. Please try a different card.",
@@ -1152,57 +1093,54 @@ const ERROR_MESSAGES: Record<string, string> = {
 }
 
 export function getErrorMessage(declineCode: string): string {
-  return ERROR_MESSAGES[declineCode] || "Payment failed. Please try again."
+  return ERROR_MESSAGES[declineCode] ?? "Payment failed. Please try again."
 }
 ```
 
 ## Infrastructure Design
 
-### Cloud-Agnostic Components
+### Cloud-agnostic components
 
 | Component           | Purpose                   | Requirements                       |
 | ------------------- | ------------------------- | ---------------------------------- |
-| API Gateway         | Rate limiting, auth       | High availability, DDoS protection |
+| API gateway         | Rate limiting, auth, WAF  | High availability, DDoS protection |
 | Application servers | Payment processing        | Horizontal scaling, idempotent     |
 | Primary database    | Payments, ledger          | ACID, strong consistency           |
 | Cache               | Idempotency, sessions     | Sub-ms latency                     |
-| Message queue       | Async processing          | Exactly-once, durable              |
+| Message queue       | Async processing          | Exactly-once or idempotent consumers |
 | Event stream        | Audit, analytics          | High throughput, retention         |
 | Secrets manager     | API keys, encryption keys | HSM-backed, audit logging          |
 
-### AWS Reference Architecture
+### AWS reference architecture
 
-![Diagram](./diagrams/diagram-8-light.svg)
-![Diagram](./diagrams/diagram-8-dark.svg)
-
-**Service configuration:**
+![AWS reference architecture: CloudFront + WAF + Shield front the ALB, ECS Fargate runs the payment API, RDS PostgreSQL Multi-AZ holds the ledger, ElastiCache Redis backs idempotency, SQS FIFO feeds Lambda webhook consumers, Kinesis archives to S3, KMS and Secrets Manager underpin security.](./diagrams/aws-reference-architecture-light.svg "AWS reference architecture: CloudFront + WAF/Shield at the edge, ECS Fargate compute, RDS Multi-AZ + ElastiCache for state, SQS FIFO + Lambda for webhooks, KMS + Secrets Manager + CloudWatch for security and observability.")
+![AWS reference architecture: CloudFront + WAF + Shield front the ALB, ECS Fargate runs the payment API, RDS PostgreSQL Multi-AZ holds the ledger, ElastiCache Redis backs idempotency, SQS FIFO feeds Lambda webhook consumers, Kinesis archives to S3, KMS and Secrets Manager underpin security.](./diagrams/aws-reference-architecture-dark.svg)
 
 | Service           | Configuration                      | Rationale                |
 | ----------------- | ---------------------------------- | ------------------------ |
 | RDS PostgreSQL    | db.r6g.xlarge, Multi-AZ, encrypted | ACID, HA, compliance     |
 | ElastiCache Redis | r6g.large, cluster mode, 3 nodes   | Idempotency, low latency |
-| ECS Fargate       | 2 vCPU, 4GB, auto-scaling 2-20     | Predictable performance  |
-| SQS FIFO          | 3000 msg/sec                       | Exactly-once webhooks    |
-| KMS               | Customer-managed keys              | Encryption key control   |
+| ECS Fargate       | 2 vCPU, 4 GB, autoscale 2–20       | Predictable performance  |
+| SQS FIFO          | 3,000 msg/sec content dedup        | Idempotent webhook ingest |
+| KMS               | Customer-managed CMKs              | Encryption key control   |
 | CloudWatch        | 1-minute metrics, alarms           | Observability            |
 
-### Self-Hosted Alternatives
+### Self-hosted alternatives
 
-| Managed Service | Self-Hosted          | Trade-off                          |
+| Managed         | Self-hosted          | Trade-off                          |
 | --------------- | -------------------- | ---------------------------------- |
 | RDS PostgreSQL  | PostgreSQL on EC2    | More control, operational burden   |
 | ElastiCache     | Redis Cluster on EC2 | Cost at scale                      |
-| SQS FIFO        | Kafka                | Higher throughput, complexity      |
-| Secrets Manager | HashiCorp Vault      | Full control, operational overhead |
+| SQS FIFO        | Kafka                | Higher throughput, more complexity |
+| Secrets Manager | HashiCorp Vault      | Full control, more ops overhead    |
 
 ## Variations
 
-### ACH/Bank Transfer Processing
+### ACH and bank transfers
 
-ACH has fundamentally different timing and failure modes than cards.
+ACH has fundamentally different timing and failure modes than cards. It's a batch network, not real-time, and "settled" doesn't mean "irrevocable" — returns can come back days later.
 
-```typescript
-// ach-payment.ts
+```ts title="ach-payment.ts"
 interface ACHPayment {
   routing_number: string
   account_number: string // tokenized
@@ -1213,7 +1151,6 @@ export async function initiateACHPayment(
   payment: ACHPayment,
   amount: number,
 ): Promise<{ status: string; estimated_settlement: Date }> {
-  // ACH is batch-processed, not real-time
   const transfer = await stripe.paymentIntents.create({
     amount,
     currency: "usd",
@@ -1230,29 +1167,52 @@ export async function initiateACHPayment(
 
   return {
     status: "processing",
-    estimated_settlement: addBusinessDays(new Date(), 3), // Same-day ACH: same day
+    estimated_settlement: addBusinessDays(new Date(), 1),
   }
 }
 ```
 
-**ACH timing:**
+[Nacha's Same-Day ACH program runs three processing windows](https://www.frbservices.org/resources/resource-centers/same-day-ach/fedach-processing-schedule.html); the per-transaction limit was [raised to $1 million effective March 18, 2022](https://www.nacha.org/rules/expanding-same-day-ach):
 
-| Type         | Submission Deadline | Settlement        |
-| ------------ | ------------------- | ----------------- |
-| Same-Day ACH | 4:45 PM ET          | Same day by 5 PM  |
-| Next-Day ACH | 2:15 PM ET          | Next business day |
-| Standard ACH | Varies              | 2-3 business days |
+| Window | ODFI submission cutoff (ET) | Settlement (ET) |
+| ------ | --------------------------- | --------------- |
+| First  | 10:30 a.m.                  | 1:00 p.m.       |
+| Second | 2:45 p.m.                   | 5:00 p.m.       |
+| Third  | 4:45 p.m.                   | 6:00 p.m.       |
 
-**ACH failure modes:**
+Standard (next-day) ACH typically settles in 2–3 business days from origination.
 
-- NSF (Non-Sufficient Funds): Returns after 2-3 days
-- Account closed: Returns after settlement attempt
-- Invalid account: Returns within 24 hours
+**Failure modes (a partial list of [Nacha return codes](https://ramp.com/blog/ach-return-codes)):**
 
-### Subscription/Recurring Billing
+| Return code | Reason                          | RDFI return window         |
+| ----------- | ------------------------------- | -------------------------- |
+| R01         | Insufficient funds (NSF)        | 2 banking days             |
+| R09         | Uncollected funds               | 2 banking days             |
+| R02 / R03 / R04 | Account closed / no account / invalid number | 2 banking days   |
+| R05 / R07 / R10 / R11 | Unauthorized debit (consumer claim) | 60 calendar days  |
 
-```typescript collapse={1-12, 50-65}
-// subscription-service.ts
+> [!WARNING]
+> Treat ACH as "provisional" until at least the unauthorized-return window closes. Do not ship goods or release funds for high-value ACH receipts until you accept the credit risk that an R10 may surface up to 60 calendar days later.
+
+#### Real-time rails
+
+Real-time payment rails settle in seconds with finality, not days, and use ISO 20022 messaging end-to-end. They are push-only, irrevocable, and rapidly displacing card and ACH for account-to-account use cases.
+
+| Rail                    | Region | Settlement       | Limit / cap (current)                                                                                                                              | Notes                                                                                                                                                                    |
+| ----------------------- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RTP                     | US     | < 15 s, 24/7/365 | [$10M per transaction effective Feb 9, 2025](https://www.theclearinghouse.org/payment-systems/Articles/2025/02/BNY_$10M_Payment_RTP-Network_02-10-2025) | Run by The Clearing House; ISO 20022 native. Previous limit was $1M (raised April 2022).                                                                                  |
+| FedNow                  | US     | < 20 s, 24/7/365 | [$10M effective November 2025](https://www.frbservices.org/news/fed360/issues/091625/fednow-service-10-million-transaction-limit) (institutions can set lower) | Federal Reserve, launched July 2023; complements RTP, not a replacement. Default limit was $100,000 at launch, with banks opt-in to higher caps.                          |
+| SEPA Instant (SCT Inst) | EU/EEA | < 10 s, 24/7/365 | The €100,000 scheme cap was [removed under the EU Instant Payments Regulation](https://www.ecb.europa.eu/paym/retail/instant_payments/html/instant_payments_regulation.en.html); effective limit is the SEPA Regulation cap | Eurozone PSPs must **receive** SCT Inst from Jan 9, 2025 and **send** by Oct 9, 2025; non-eurozone EEA states have until 2027.                                            |
+| UPI                     | India  | < 5 s, 24/7/365  | ₹1L–₹5L tiered by use case (NPCI rules)                                                                                                            | NPCI-operated; [131 billion transactions in FY2023–24](https://www.business-standard.com/finance/news/upi-transactions-cross-100-billion-mark-in-fy24-clock-131-billion-124040100655_1.html), value ≈ ₹199.89 trillion. |
+| Pix                     | Brazil | < 10 s, 24/7/365 | No scheme-level cap; banks set per-customer limits                                                                                                  | BCB-operated; ISO 20022 with BR-specific extensions.                                                                                                                      |
+
+Engineering implications: no chargeback equivalent (fraud loss falls on the originator), so the fraud check has to be inline and tight; settlement is final inside the SLA, so the ledger must record the credit immediately and the reconciliation feed becomes near-real-time instead of nightly.
+
+### Subscriptions and dunning
+
+Subscription billing is just `createPayment` on a schedule, plus a deterministic retry ladder when a renewal fails.
+
+```ts collapse={1-12, 50-65} title="subscription-service.ts"
 interface Subscription {
   id: string
   customer_id: string
@@ -1262,9 +1222,11 @@ interface Subscription {
   payment_method_id: string
 }
 
-const RETRY_SCHEDULE = [1, 3, 5, 7] // Days after failure
+const RETRY_SCHEDULE = [1, 3, 5, 7] // days after failure (smart retries refine this)
 
-export async function processSubscriptionRenewal(subscription: Subscription): Promise<void> {
+export async function processSubscriptionRenewal(
+  subscription: Subscription,
+): Promise<void> {
   const plan = await getPlan(subscription.plan_id)
 
   try {
@@ -1273,7 +1235,8 @@ export async function processSubscriptionRenewal(subscription: Subscription): Pr
       currency: plan.currency,
       customer_id: subscription.customer_id,
       payment_method_id: subscription.payment_method_id,
-      idempotency_key: `sub_${subscription.id}_${subscription.current_period_end.toISOString()}`,
+      idempotency_key:
+        `sub_${subscription.id}_${subscription.current_period_end.toISOString()}`,
     })
 
     if (payment.status === "succeeded") {
@@ -1288,7 +1251,10 @@ export async function processSubscriptionRenewal(subscription: Subscription): Pr
   }
 }
 
-async function handleRetry(subscriptionId: string, attemptNumber: number): Promise<void> {
+async function handleRetry(
+  subscriptionId: string,
+  attemptNumber: number,
+): Promise<void> {
   const subscription = await getSubscription(subscriptionId)
 
   try {
@@ -1297,7 +1263,6 @@ async function handleRetry(subscriptionId: string, attemptNumber: number): Promi
     if (attemptNumber < RETRY_SCHEDULE.length) {
       await scheduleRetry(subscriptionId, RETRY_SCHEDULE[attemptNumber])
     } else {
-      // Final attempt failed
       await cancelSubscription(subscriptionId, "payment_failed")
       await notifyCustomerCanceled(subscription.customer_id)
     }
@@ -1305,10 +1270,9 @@ async function handleRetry(subscriptionId: string, attemptNumber: number): Promi
 }
 ```
 
-### Multi-Currency and FX
+### Multi-currency and FX
 
-```typescript
-// fx-service.ts
+```ts title="fx-service.ts"
 interface FXQuote {
   from_currency: string
   to_currency: string
@@ -1316,24 +1280,29 @@ interface FXQuote {
   expires_at: Date
 }
 
-export async function getQuote(fromCurrency: string, toCurrency: string, amount: number): Promise<FXQuote> {
-  // FX rates are volatile, quote expires quickly
+export async function getQuote(
+  fromCurrency: string,
+  toCurrency: string,
+  amount: number,
+): Promise<FXQuote> {
   const rate = await fetchCurrentRate(fromCurrency, toCurrency)
 
   return {
     from_currency: fromCurrency,
     to_currency: toCurrency,
     rate,
-    expires_at: new Date(Date.now() + 60 * 1000), // 60 second quote
+    expires_at: new Date(Date.now() + 60 * 1000), // 60-second quote
   }
 }
 
-export async function captureWithFX(paymentId: string, quote: FXQuote): Promise<void> {
+export async function captureWithFX(
+  paymentId: string,
+  quote: FXQuote,
+): Promise<void> {
   if (new Date() > quote.expires_at) {
     throw new Error("FX quote expired")
   }
 
-  // Lock in rate at capture time
   await capturePayment(paymentId, {
     fx_rate: quote.rate,
     settlement_currency: quote.to_currency,
@@ -1343,80 +1312,88 @@ export async function captureWithFX(paymentId: string, quote: FXQuote): Promise<
 
 ## Conclusion
 
-Payment system design requires balancing competing concerns across multiple dimensions:
+Payment system design balances five non-negotiables:
 
-1. **Idempotency is non-negotiable** — Every payment operation must be safely retriable. Idempotency keys with request hashing prevent duplicate charges during network failures or client retries.
-
-2. **PCI scope reduction saves engineering effort** — Edge tokenization (Stripe.js, Adyen Web Components) keeps card data off your servers, reducing PCI questionnaire from 400+ questions to 22.
-
-3. **Fraud decisions must be fast** — Sub-100ms scoring using ML models (Stripe Radar processes 1000+ features per transaction) balances security with checkout conversion.
-
-4. **Double-entry ledger ensures audit readiness** — Every fund movement (auth, capture, refund, settlement) recorded with debits equaling credits enables reconciliation and compliance.
-
-5. **Smart routing optimizes cost and auth rates** — Multi-processor setups with intelligent routing can achieve 26%+ cost savings (Adyen US debit routing) while improving authorization rates.
+1. **Idempotency is the only honest answer to retries.** Idempotency keys with request-body hashing make every payment operation safely retriable; Stripe's 24-hour window is a sound default to copy.
+2. **Edge tokenization is the highest-leverage compliance decision.** It moves you from SAQ D (~329 questions) to SAQ A (22 questions) for a few hours of integration work.
+3. **Fraud has to fit in the latency budget.** Sub-100 ms scoring on hundreds of features per transaction is the working assumption — anything slower starts moving conversion.
+4. **Double-entry is how you stay reconcilable.** Every fund movement (auth, capture, refund, settlement, fee, FX) becomes a balanced journal entry; reconciliation runs nightly against PSP and bank reports.
+5. **Smart routing is real money.** Adyen's published 26% average cost saving and 0.22% auth uplift on US debit is what the multi-PSP investment buys you, before you count the resilience of cross-PSP failover.
 
 **What this design optimizes for:**
 
-- Zero duplicate charges (idempotency)
-- PCI scope minimization (edge tokenization)
-- High authorization rates (smart routing)
-- Financial accuracy (double-entry ledger)
-- Operational resilience (failover, reconciliation)
+- Zero duplicate charges (idempotency + dedupe-on-event-id)
+- Minimum PCI scope (edge tokenization)
+- High auth rates (smart routing, 3DS 2 frictionless authentication, network tokenization)
+- Financial accuracy (double-entry ledger + daily reconciliation)
+- Operational resilience (failover, idempotent webhook consumer, DLQ)
 
 **What it sacrifices:**
 
-- Simplicity (multi-processor complexity)
-- Latency (fraud scoring adds ~100ms)
-- Cost (third-party processor fees vs in-house)
+- Simplicity — multi-PSP and an internal ledger are real ongoing cost.
+- Latency — fraud and 3DS routing add real time on the checkout path.
+- Per-transaction fee — you're paying the PSP markup for SAQ-A and built-in fraud.
 
 **Known limitations:**
 
-- Webhook reliability depends on processor—implement webhook replay mechanisms
-- FX rates are volatile—quote expiration must be enforced
-- Chargeback handling requires manual evidence gathering
-- ACH failures surface days after initiation
+- Webhook reliability depends on the PSP — keep an idempotent consumer with a DLQ and a manual replay path.
+- FX is volatile and quotes expire — never settle on a stale rate.
+- Chargeback evidence has to be gathered manually and quickly (network deadlines).
+- ACH returns surface days after the deposit — treat ACH receipts as provisional until the return window closes.
 
 ## Appendix
 
 ### Prerequisites
 
-- RESTful API design principles
-- Database transactions and ACID guarantees
-- Distributed systems basics (idempotency, exactly-once delivery)
-- Basic understanding of card payment networks
+- REST API design and HTTP semantics ([RFC 9110](https://www.rfc-editor.org/rfc/rfc9110)).
+- Database transactions and ACID guarantees.
+- Distributed-systems basics: idempotency, at-least-once delivery, exactly-once semantics in practice.
+- Working familiarity with the card payment ecosystem (issuer, acquirer, network, processor).
 
 ### Terminology
 
-- **PAN** (Primary Account Number): The 16-digit card number
-- **PCI DSS** (Payment Card Industry Data Security Standard): Security standard for card data handling
-- **SAQ** (Self-Assessment Questionnaire): PCI compliance verification form
-- **Interchange**: Fee paid by acquirer to issuer on each transaction (1.4-2.6% typical)
-- **Authorization**: Hold placed on cardholder's available credit
-- **Capture**: Finalization of authorized transaction for settlement
-- **Settlement**: Transfer of funds from issuer to acquirer to merchant
-- **3D Secure**: Protocol for authenticating card-not-present transactions
-- **SCA** (Strong Customer Authentication): EU PSD2 requirement for two-factor auth
-- **ACH** (Automated Clearing House): US bank-to-bank transfer network
-- **Chargeback**: Disputed transaction reversed by card network
+- **PAN** (Primary Account Number) — the 16-digit card number.
+- **PCI DSS** (Payment Card Industry Data Security Standard) — the security standard for card data handling.
+- **SAQ** (Self-Assessment Questionnaire) — PCI compliance verification form; SAQ A is the smallest, SAQ D the largest.
+- **Interchange** — the per-transaction fee the acquirer pays the issuer; varies hugely by card brand, MCC, and region.
+- **Authorization** — a hold placed on the cardholder's available credit.
+- **Capture** — finalization of an authorized transaction for settlement.
+- **Settlement** — transfer of funds from issuer to acquirer to merchant.
+- **3D Secure (3DS)** — protocol for authenticating card-not-present transactions; 3DS 2 (EMV 3DS) is the current generation.
+- **SCA** (Strong Customer Authentication) — the EU PSD2 requirement for two-factor authentication on most CNP transactions.
+- **CIT / MIT** — cardholder-initiated transaction / merchant-initiated transaction.
+- **ACH** (Automated Clearing House) — US bank-to-bank batch transfer network.
+- **Chargeback** — a disputed transaction reversed by the card network.
+- **EAI** — Estimated Authorization Indicator (used by lodging, cruise, and rental for extended capture windows).
 
 ### Summary
 
-- Payment systems require **idempotent operations** with 24-hour key retention (Stripe's standard)
-- **Edge tokenization** (Stripe.js/Adyen Web Components) reduces PCI scope from SAQ-D to SAQ-A
-- **Fraud scoring** must complete in <100ms, evaluating 1000+ features per transaction
-- **Double-entry ledger** tracks every fund movement: authorization holds, captures, refunds, settlements
-- **Smart routing** across multiple processors can achieve 26% cost savings on US debit
-- **Reconciliation** matches internal ledger against processor settlements daily
-- **3D Secure 2.0** enables frictionless authentication with 85% checkout time reduction
+- Idempotent operations with a 24-hour key window make retries safe.
+- Edge tokenization (Stripe.js / Adyen Web Components) moves you to SAQ A and keeps the PAN out of your environment.
+- Fraud scoring sits inline with auth on a sub-100 ms budget; Stripe Radar's published model evaluates hundreds of signals per transaction.
+- A double-entry ledger records every movement (auth, capture, refund, payout, fee, FX) and is reconciled daily against processor and bank reports.
+- Smart routing across multiple PSPs can deliver double-digit cost savings and auth-rate uplift (Adyen's published US-debit pilot averaged 26% cost savings and 0.22% auth uplift).
+- 3D Secure 2 enables frictionless authentication for low-risk traffic; Visa publishes ~70% reduction in cart abandonment and ~85% reduction in checkout time vs 3DS 1.
+- Webhook consumers must be signature-verified, deduped on event ID, and dead-lettered on permanent failure.
 
 ### References
 
-- [Stripe API Documentation](https://docs.stripe.com/api) - Comprehensive payment API reference
-- [Stripe: Designing robust APIs with idempotency](https://stripe.com/blog/idempotency) - Idempotency key implementation patterns
-- [Stripe Radar: Machine learning for fraud detection](https://stripe.com/guides/primer-on-machine-learning-for-fraud-protection) - ML fraud scoring architecture
-- [PCI Security Standards Council](https://www.pcisecuritystandards.org/) - PCI DSS 4.0 requirements
-- [Adyen: Intelligent Payment Routing](https://www.adyen.com/press-and-media/adyens-intelligent-payment-routing-usdebit) - Smart routing cost savings data
-- [Stripe: 3D Secure 2 Guide](https://stripe.com/guides/3d-secure-2) - 3DS implementation patterns
-- [Nacha: How ACH Payments Work](https://www.nacha.org/content/how-ach-payments-work) - ACH network specifications
-- [Visa: Credit Card Processing](https://usa.visa.com/support/small-business/regulations-fees.html) - Card network processing details
-- [Martin Fowler: Patterns of Enterprise Application Architecture](https://martinfowler.com/eaaCatalog/) - Double-entry accounting patterns
+- [Stripe API Documentation](https://docs.stripe.com/api) — comprehensive payment API reference.
+- [Stripe: Idempotent Requests](https://docs.stripe.com/api/idempotent_requests) — canonical idempotency key contract and 24-hour window.
+- [Stripe: Designing robust APIs with idempotency](https://stripe.com/blog/idempotency) — engineering rationale.
+- [Stripe Radar: Risk evaluations](https://docs.stripe.com/radar/risk-evaluation) — score scale, default thresholds, signal count.
+- [Stripe Engineering: How we built Stripe Radar](https://stripe.dev/blog/how-we-built-it-stripe-radar) — model retraining cadence and recall improvements.
+- [PCI SSC: SAQ A v4.0](https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf) — outsourced-tokenization questionnaire.
+- [PCI SSC: PCI Compliance levels](https://pcidssguide.com/pci-dss-compliance-levels/) — Level 1 = >6M card transactions/year.
+- [Visa: Authorization framework changes (April 13, 2024)](https://corporate.visa.com/content/dam/VCOM/regional/na/us/support-legal/documents/authorization-framework-will-be-updated-to-simplify-authorization-processing-time-frames.pdf) — updated MIT, CIT, CP, and lodging windows.
+- [Visa: 3D Secure 2 — your guide to safer transactions](https://corporate.visa.com/en/solutions/visa-protect/insights/3d-secure.html) — 3DS 2 overview.
+- [Visa Canada: 3-D Secure 2.0 infographic](https://www.visa.ca/dam/VCOM/regional/na/canada/security/security-documents/3ds-2-0-infographic.pdf) — published 70% / 85% metrics.
+- [Adyen: Intelligent Payment Routing — US debit](https://www.adyen.com/press-and-media/adyens-intelligent-payment-routing-usdebit) — 26% / 0.22% pilot results, 52–55% top-end savings.
+- [Nacha: Expanding Same Day ACH](https://www.nacha.org/rules/expanding-same-day-ach) — third-window addition (March 2021), $1M limit (March 2022).
+- [Federal Reserve: FedACH processing schedule](https://www.frbservices.org/resources/resource-centers/same-day-ach/fedach-processing-schedule.html) — submission and settlement times.
+- [Nacha: How ACH Payments Work](https://www.nacha.org/content/how-ach-payments-work) — ACH network specifications.
+- [Visa Annual Report FY2024](https://s29.q4cdn.com/385744025/files/doc_downloads/2024/Visa-Fiscal-2024-Annual-Report.pdf) — 233.8B network transactions in FY2024.
+- [Visa Inc. fact sheet](https://www.visa.co.uk/dam/VCOM/download/corporate/media/visanet-technology/aboutvisafactsheet.pdf) — 65,000+ TPS peak network capacity.
+- [Stripe Engineering: 99.999% uptime with zero-downtime data migrations](https://stripe.dev/blog/how-stripes-document-databases-supported-99.999-uptime-with-zero-downtime-data-migrations) — published historical uptime.
+- [Stripe pricing](https://stripe.com/pricing) — 2.9% + $0.30 standard US online card fee.
+- [Martin Fowler: Patterns of Enterprise Application Architecture](https://martinfowler.com/eaaCatalog/) — double-entry accounting patterns.

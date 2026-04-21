@@ -1,0 +1,16 @@
+%% Diagram: Node.js libuv phase order with per-callback drain points
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph Tick[One libuv tick]
+    direction TB
+    T["timers\n(expired setTimeout / setInterval)"] --> P["pending callbacks\n(deferred I/O errors, e.g. ECONNREFUSED)"]
+    P --> I["idle / prepare\n(internal libuv only)"]
+    I --> PO["poll\n(retrieve I/O events;\nblock if no due timers)"]
+    PO --> C["check\n(setImmediate callbacks)"]
+    C --> CL["close callbacks\n(socket.on('close'), etc.)"]
+  end
+  CL -->|loop alive?| T
+  Drain["After EVERY user callback in any phase:\n1. drain process.nextTick queue\n2. drain V8 microtask queue\n   (Promise reactions, queueMicrotask)"]
+  Tick -.->|per-callback drain| Drain
+  Drain -.->|return to phase| Tick

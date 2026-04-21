@@ -1,0 +1,28 @@
+%% Diagram: Transactionally-staged job drain
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant API as API process
+    participant DB as Postgres (ACID)
+    participant ENQ as Enqueuer (drain)
+    participant Q as Redis / Sidekiq
+    participant W as Worker
+
+    API->>DB: BEGIN
+    API->>DB: INSERT ride
+    API->>DB: INSERT staged_jobs(send_ride_receipt)
+    API->>DB: COMMIT
+
+    Note over DB: Both rows now visible<br/>to other transactions
+
+    loop every poll interval
+        ENQ->>DB: BEGIN (REPEATABLE READ)
+        ENQ->>DB: SELECT ... FROM staged_jobs LIMIT N
+        ENQ->>Q: ENQUEUE jobs
+        ENQ->>DB: DELETE selected staged_jobs
+        ENQ->>DB: COMMIT
+    end
+
+    Q-->>W: dequeue job
+    W->>W: send receipt email

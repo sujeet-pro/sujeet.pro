@@ -1,0 +1,28 @@
+%% Diagram: Delivery Semantics Decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start([Pick a delivery contract]):::start
+    loss{"Is message loss\nacceptable?"}:::decision
+    side{"Are downstream\neffects idempotent?"}:::decision
+
+    amo["At-most-once\nfire-and-forget,\nacks=0"]:::amo
+    alo["At-least-once\nretries + manual commits,\nacks=all"]:::alo
+    eo["Exactly-once\nKafka transactions or SQS FIFO\nplus app idempotency"]:::eo
+
+    start --> loss
+    loss -- "yes (telemetry,\nheartbeats)" --> amo
+    loss -- "no" --> side
+    side -- "yes" --> alo
+    side -- "no" --> eo
+
+    note["Brokers cover the wire;\napplication idempotency\ncovers side effects."]:::neutral
+    eo -.-> note
+    alo -.-> note
+
+    classDef start fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef decision fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef amo fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef alo fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef eo fill:#1F6E68,stroke:#155752,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

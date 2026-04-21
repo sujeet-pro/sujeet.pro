@@ -1,0 +1,19 @@
+%% Diagram: HDFS Federation — independent namespaces, shared block pool
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Federation["NameNode tier"]
+        NN1["NameNode 1\n(Namespace A)"]
+        NN2["NameNode 2\n(Namespace B)"]
+        NN3["NameNode 3\n(Namespace C)"]
+    end
+
+    subgraph SharedStorage["Shared DataNodes (multi-block-pool)"]
+        DN1["DataNode 1\nBlock Pool A,B"]
+        DN2["DataNode 2\nBlock Pool A,C"]
+        DN3["DataNode 3\nBlock Pool B,C"]
+    end
+
+    NN1 --> DN1 & DN2
+    NN2 --> DN1 & DN3
+    NN3 --> DN2 & DN3

@@ -1,0 +1,36 @@
+%% Diagram: Packaging topologies for component libraries
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SINGLE["Single package (@acme/ui)"]
+        direction LR
+        S_ENTRY["package.json<br/>main + module + exports['.']"]
+        S_BARREL["src/index.ts<br/>(barrel)"]
+        S_COMP["Button, Dialog,<br/>Input, Table, ..."]
+        S_ENTRY --> S_BARREL --> S_COMP
+        S_NOTE["Tree-shaking depends on<br/>sideEffects flag + ESM build"]
+    end
+
+    subgraph SUBPATH["Single package, subpath exports"]
+        direction LR
+        SP_ENTRY["package.json exports<br/>'.', './button', './dialog'"]
+        SP_BTN["dist/button/*"]
+        SP_DLG["dist/dialog/*"]
+        SP_ROOT["dist/index.js<br/>(thin barrel)"]
+        SP_ENTRY --> SP_BTN
+        SP_ENTRY --> SP_DLG
+        SP_ENTRY --> SP_ROOT
+        SP_NOTE["Consumer:<br/>import Button from '@acme/ui/button'"]
+    end
+
+    subgraph PER["Per-component packages"]
+        direction LR
+        P_BTN["@acme/button"]
+        P_DLG["@acme/dialog"]
+        P_INPUT["@acme/input"]
+        P_TOK["@acme/tokens"]
+        P_NOTE["Independent versions<br/>+ explicit peer deps"]
+    end
+
+    SINGLE -. "scale up<br/>(many consumers, mixed needs)" .-> SUBPATH
+    SUBPATH -. "scale up further<br/>(diverging cadences)" .-> PER

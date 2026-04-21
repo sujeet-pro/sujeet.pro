@@ -4,20 +4,21 @@ linkTitle: 'TLS 1.3 & HTTPS'
 description: >-
   How TLS 1.3 achieves 1-RTT handshakes through speculative key shares, mandates forward secrecy via ephemeral (EC)DHE, and what production HTTPS hardening requires — from HSTS preload and certificate transparency to 0-RTT replay risks.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - networking
   - http
   - dns
   - tls
+  - security
 ---
 
 # TLS 1.3 Handshake and HTTPS Hardening
 
 How TLS 1.3 achieves 1-RTT handshakes, enforces forward secrecy by design, and what production HTTPS hardening actually requires—from certificate chains and OCSP stapling to HSTS preload and 0-RTT replay risks.
 
-![TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.](./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th-light.svg "TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.")
-![TLS 1.3 handshake flow, key derivation hierarchy, and the HTTPS hardening stack that protects production deployments.](./diagrams/tls-1-3-handshake-flow-key-derivation-hierarchy-and-the-https-hardening-stack-th-dark.svg)
+![TLS 1.3 handshake, key derivation, and the HTTPS hardening stack that protects production deployments.](./diagrams/handshake-and-hardening-overview-light.svg "TLS 1.3 handshake, key derivation, and the HTTPS hardening stack that protects production deployments.")
+![TLS 1.3 handshake, key derivation, and the HTTPS hardening stack that protects production deployments.](./diagrams/handshake-and-hardening-overview-dark.svg)
 
 ## Abstract
 
@@ -44,8 +45,8 @@ Since the set of acceptable curves is small and well-known (X25519, P-256, P-384
 
 ### Message Sequence: What Crosses the Wire
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![TLS 1.3 full handshake message flow, with shading for plaintext, handshake-encrypted, and application-encrypted phases.](./diagrams/full-handshake-message-flow-light.svg "TLS 1.3 full handshake message flow, with shading for plaintext, handshake-encrypted, and application-encrypted phases.")
+![TLS 1.3 full handshake message flow, with shading for plaintext, handshake-encrypted, and application-encrypted phases.](./diagrams/full-handshake-message-flow-dark.svg)
 
 **Phase 1: Key Exchange (Plaintext)**
 
@@ -110,9 +111,9 @@ This is devastating against nation-state adversaries who archive encrypted traff
 
 TLS 1.3 mandates ephemeral (EC)DHE for every connection:
 
-```
+```text
 Session Key = HKDF(
-  ECDHE_shared_secret,  // Ephemeral—discarded after use
+  ECDHE_shared_secret,  // Ephemeral - discarded after use
   handshake_transcript, // Binds to this specific connection
   context_labels        // Domain separation
 )
@@ -124,8 +125,8 @@ Both client and server generate fresh key pairs per connection. Even if the serv
 
 TLS 1.3 derives multiple independent keys from a single handshake using HKDF (HMAC-based Key Derivation Function) with different labels:
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![TLS 1.3 HKDF key schedule: Early, Handshake, and Master secrets feed independent traffic and resumption keys.](./diagrams/key-schedule-light.svg "TLS 1.3 HKDF key schedule: Early, Handshake, and Master secrets feed independent traffic and resumption keys.")
+![TLS 1.3 HKDF key schedule: Early, Handshake, and Master secrets feed independent traffic and resumption keys.](./diagrams/key-schedule-dark.svg)
 
 Each derived key is cryptographically independent. Compromising one doesn't compromise others. This is why handshake encryption uses different keys than application data encryption.
 
@@ -147,7 +148,7 @@ TLS 1.3 defines exactly five cipher suites, all using Authenticated Encryption w
 
 TLS 1.2 cipher suites were monolithic, specifying everything in one identifier:
 
-```
+```text
 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 └─────┬────┘ └─┬─┘     └────┬────┘ └───┬──┘
   Key Exch   Auth      Encryption   MAC
@@ -174,16 +175,16 @@ After a successful handshake, the server sends NewSessionTicket messages contain
 
 The client stores this and includes the PSK identity in subsequent ClientHello messages via the `pre_shared_key` extension.
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![PSK resumption with optional 0-RTT early data sent before the server's first response.](./diagrams/psk-resumption-and-0-rtt-light.svg "PSK resumption with optional 0-RTT early data sent before the server's first response.")
+![PSK resumption with optional 0-RTT early data sent before the server's first response.](./diagrams/psk-resumption-and-0-rtt-dark.svg)
 
 ### PSK Binder: Cryptographic Binding
 
 The PSK binder prevents attackers from replaying ClientHello messages with different PSKs:
 
-```
+```text
 binder = HMAC(
-  binder_key,           // Derived from PSK
+  binder_key,                         // Derived from PSK
   Transcript(ClientHello[:-binders])  // Everything except binders
 )
 ```
@@ -315,8 +316,8 @@ CT (RFC 9162, replacing RFC 6962) makes all certificate issuance publicly audita
 
 ### How CT Works
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Certificate Transparency: CAs submit precertificates and embed SCTs; monitors continuously query logs for unexpected issuance.](./diagrams/certificate-transparency-flow-light.svg "Certificate Transparency: CAs submit precertificates and embed SCTs; monitors continuously query logs for unexpected issuance.")
+![Certificate Transparency: CAs submit precertificates and embed SCTs; monitors continuously query logs for unexpected issuance.](./diagrams/certificate-transparency-flow-dark.svg)
 
 **Components**:
 
@@ -324,13 +325,17 @@ CT (RFC 9162, replacing RFC 6962) makes all certificate issuance publicly audita
 2. **SCTs** (Signed Certificate Timestamps): Promises to include certificate within Maximum Merge Delay (24 hours)
 3. **Monitors**: Watch logs for certificates issued to specific domains
 
-**Browser enforcement**:
+**Browser enforcement** (Chrome CT policy, current as of 2026-Q2):
 
-- Chrome requires SCTs from 2+ independent logs
+- Embedded SCTs: 2 from distinct logs for certificates ≤180 days, 3 for longer-lived certificates.
+- Across that set, at least 2 must come from distinct CT log _operators_ — so a single operator running multiple logs cannot satisfy the requirement.
 - SCTs can be delivered via:
-  - X.509 extension (embedded by CA)
+  - X.509 extension (embedded by the CA at issuance)
   - TLS extension (`signed_certificate_timestamp`)
-  - OCSP response
+  - OCSP response (deprecated path; Chrome stops counting these in May 2026)
+
+> [!NOTE]
+> The "≥1 SCT from an RFC 6962 log" requirement was removed in Chrome 144 (April 2026). SCTs from `static-ct-api` logs now count on their own.
 
 ### What CT Doesn't Do
 
@@ -360,8 +365,8 @@ When a certificate's private key is compromised, revocation should invalidate it
 
 OCSP stapling (RFC 6066) lets servers fetch OCSP responses and bundle them with the TLS handshake:
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![OCSP stapling: the server periodically fetches a signed status response and bundles it inside the TLS handshake.](./diagrams/ocsp-stapling-flow-light.svg "OCSP stapling: the server periodically fetches a signed status response and bundles it inside the TLS handshake.")
+![OCSP stapling: the server periodically fetches a signed status response and bundles it inside the TLS handshake.](./diagrams/ocsp-stapling-flow-dark.svg)
 
 **Benefits**:
 
@@ -402,7 +407,7 @@ Rather than fixing revocation, the industry moved to certificates valid for days
 - **Automated renewal**: Certbot, ACME protocol
 - **Limited exposure**: Compromised key is useful for short window
 
-Let's Encrypt announced OCSP service shutdown (August 2025) because revocation checking provides no real security benefit.
+Let's Encrypt [shut down its OCSP responders on 2025-08-06](https://letsencrypt.org/2025/08/06/ocsp-service-has-reached-end-of-life), citing privacy risk and the fact that browser soft-fail makes revocation checking provide no real security benefit. New Let's Encrypt certificates have not contained OCSP URLs since 2025-05-07.
 
 ## CAA Records: Authorization Before Issuance
 
@@ -432,14 +437,17 @@ The CA/Browser Forum Baseline Requirements mandate CAA checking before issuance.
 
 **Limitation**: CAA is preventive only. It doesn't invalidate already-issued certificates.
 
-### DNSSEC Integration (2026)
+### DNSSEC integration (March 2026)
 
-Starting February 2026 (CA/Browser Forum Ballot SC-085v2), CAs must validate DNSSEC for:
+Starting **2026-03-15**, [CA/Browser Forum Ballot SC-085v2](https://cabforum.org/2025/06/18/ballot-sc-085v2-require-validation-of-dnssec-when-present-for-caa-and-dcv-lookups/) requires CAs to perform DNSSEC validation back to the IANA root for:
 
-- Domain control verification
-- CAA checks
+- Domain control verification (DCV)
+- CAA record lookups
 
-If DNSSEC is deployed but validation fails, CAs must refuse issuance. This prevents DNS hijacking attacks on CAA.
+If a domain publishes DNSSEC and validation fails (`SERVFAIL`, `BOGUS`), the CA must refuse issuance — `BOGUS` cannot be treated as "no DNSSEC". This closes the long-standing window where an attacker who could spoof DNS responses to the CA could also spoof CAA records and obtain a misissued certificate.
+
+> [!IMPORTANT]
+> DNSSEC remains opt-in for domain owners. The ballot only affects domains that already publish DNSSEC records. Unsigned domains see no change in CAA processing.
 
 ## Operational Hardening Checklist
 

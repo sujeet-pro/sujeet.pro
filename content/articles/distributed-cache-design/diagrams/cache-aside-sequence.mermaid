@@ -1,0 +1,23 @@
+%% Diagram: Cache-aside read and write paths
+%% Type: sequence
+sequenceDiagram
+    participant App
+    participant Cache
+    participant DB
+
+    Note over App,DB: Read path (look-aside)
+    App->>Cache: GET key
+    alt Cache hit
+        Cache-->>App: value
+    else Cache miss
+        Cache-->>App: nil
+        App->>DB: SELECT row
+        DB-->>App: value
+        App->>Cache: SET key value EX ttl_with_jitter
+    end
+
+    Note over App,DB: Write path: delete, do not update
+    App->>DB: UPDATE row
+    DB-->>App: ack
+    App->>Cache: DEL key
+    Note right of Cache: Next read repopulates from authoritative DB

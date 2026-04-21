@@ -1,0 +1,29 @@
+%% Diagram: Where each Node.js async API actually runs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  entry["JavaScript async call"]
+
+  decide{"OS has a\nnon-blocking\nprimitive"}
+
+  pool["libuv thread pool\ndefault 4, max 1024\nUV_THREADPOOL_SIZE"]
+  osio["OS async I/O\nepoll / kqueue / IOCP"]
+  cares["c-ares\nuser-space DNS"]
+
+  entry --> decide
+  decide -- "No\nfs, dns.lookup,\ncrypto, zlib" --> pool
+  decide -- "Yes\nTCP, UDP, pipes" --> osio
+  decide -- "Yes\ndns.resolve" --> cares
+
+  pool --> done["I/O callback\nin poll phase"]
+  osio --> done
+  cares --> done
+
+  classDef api fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef path fill:#8B5E15,stroke:#6E4810,color:#ffffff
+  classDef fast fill:#1F6E68,stroke:#155752,color:#ffffff
+  classDef sink fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+  class entry api
+  class pool path
+  class osio,cares fast
+  class done sink

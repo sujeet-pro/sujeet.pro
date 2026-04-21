@@ -1,0 +1,12 @@
+%% Diagram: Tail amplification under fan-out — probability that at least one of N parallel calls
+%% exceeds the single-call p99 threshold, assuming independent latencies. Source: Dean & Barroso,
+%% "The Tail at Scale", CACM 2013.
+%% Type: xy
+%%{init: {'htmlLabels': false}}%%
+xychart-beta
+    title "Fan-out tail amplification: P(slowest of N > single-call p99)"
+    x-axis "Fan-out width N (parallel sub-requests)" [1, 5, 10, 20, 50, 100, 200, 500, 1000]
+    y-axis "P(at least one tail) %" 0 --> 100
+    line "single-call p99 (1% slow)" [1, 5, 10, 18, 39, 63, 87, 99, 100]
+    line "single-call p99.9 (0.1% slow)" [0.1, 0.5, 1, 2, 5, 10, 18, 39, 63]
+    line "single-call p99.99 (0.01% slow)" [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10]

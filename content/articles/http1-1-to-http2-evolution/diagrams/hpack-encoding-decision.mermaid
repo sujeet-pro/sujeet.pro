@@ -1,0 +1,26 @@
+%% Diagram: HPACK Encoding Decision for One Header
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start(["Encode header (name, value)"]) --> staticHit{"Exact match in<br/>static table (61 entries)?"}
+    staticHit -->|"Yes"| idx["Indexed Header Field<br/>(1 byte for low indices)"]
+    staticHit -->|"No"| dynHit{"Exact match in<br/>dynamic table?"}
+    dynHit -->|"Yes"| idx
+    dynHit -->|"No"| sensitive{"Sensitive header?<br/>(Authorization, Cookie, ...)"}
+
+    sensitive -->|"Yes"| neverIdx["Literal Never Indexed<br/>(intermediaries must not store)"]
+    sensitive -->|"No"| nameHit{"Header name<br/>indexed already?"}
+
+    nameHit -->|"Yes"| litWith["Literal w/ Indexing<br/>(name index + value)"]
+    nameHit -->|"No"| litWithName["Literal w/ Indexing<br/>(name string + value)"]
+
+    litWith --> addDyn["Append to dynamic table<br/>(FIFO eviction over 4 KiB)"]
+    litWithName --> addDyn
+
+    classDef ok fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class idx ok
+    class neverIdx warn
+    class addDyn neutral

@@ -1,26 +1,34 @@
-%% Diagram: Discord S Message Storage Evolution Across Three Phases From A Mongodb Replica S
+%% Diagram: Discord message storage evolution across three phases
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Phase1["Phase 1: MongoDB (2015–2016)"]
-        Mongo["Single MongoDB<br/>Replica Set"]
-        Rails1["Python/Elixir API"]
+    subgraph Phase1["Phase 1: MongoDB (2015-2016)"]
+        Mongo["Single MongoDB\nreplica set\n(messages + everything else)"]:::storage
+        Rails1["Python API monolith\n(+ Elixir gateway)"]:::neutral
         Rails1 --> Mongo
     end
 
-    subgraph Phase2["Phase 2: Cassandra (2017–2021)"]
-        Cass["Cassandra Cluster<br/>12 → 177 nodes"]
-        Model["Bucketed Partitions<br/>(channel_id, bucket)"]
+    subgraph Phase2["Phase 2: Cassandra (2017-2022)"]
+        Rails2["Python API monolith"]:::neutral
+        Cass["cassandra-messages\n12 -> 177 nodes\nRF=3, quorum reads/writes"]:::storage
+        Model["((channel_id, bucket),\nmessage_id DESC)\n10-day buckets"]:::secondary
+        Rails2 --> Cass
         Cass --- Model
     end
 
-    subgraph Phase3["Phase 3: ScyllaDB + Rust (2020–2022)"]
-        DS["Rust Data Services<br/>(request coalescing)"]
-        Scylla["ScyllaDB<br/>72 nodes, 9 TB/node"]
-        SuperDisk["Super-Disk<br/>(Local SSD + PD RAID)"]
-        DS --> Scylla
+    subgraph Phase3["Phase 3: ScyllaDB + Rust data services (2022+)"]
+        Rails3["Python API monolith"]:::neutral
+        DS["Rust data services\n(Tokio, gRPC,\nrequest coalescing,\nconsistent-hash routing)"]:::primary
+        Scylla["scylladb-messages\n72 nodes, ~9 TB/node\nshard-per-core, no GC"]:::storage
+        SuperDisk["Super-disk\nLocal SSD RAID0 +\nPersistent Disk write-mostly\nvia md RAID1"]:::secondary
+        Rails3 --> DS --> Scylla
         Scylla --- SuperDisk
     end
 
-    Phase1 -->|"100M messages:<br/>index > RAM,<br/>unpredictable latency"| Phase2
-    Phase2 -->|"Trillions of messages:<br/>GC pauses, compaction<br/>backlog, hot partitions"| Phase3
+    Phase1 ==>|"~100M msgs in Nov 2015:\nindex exceeds RAM,\nlatency unpredictable"| Phase2
+    Phase2 ==>|"trillions of msgs by 2022:\nJVM GC pauses, compaction\nbacklog, hot partitions"| Phase3
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

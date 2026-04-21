@@ -1,0 +1,18 @@
+%% Diagram: Upload pipeline overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    SEL["File selection\n(input / drop / FS Access API)"] --> VAL["Client validation\nmagic bytes + size"]
+    VAL --> SIZE{"Size / network"}
+    SIZE -->|"small + stable"| ONE["Single XHR + FormData"]
+    SIZE -->|"large or mobile"| LOOP["Chunk loop\nBlob.slice -> PATCH/PUT"]
+    LOOP --> SRV["Server / object store\nappend chunk + ack offset"]
+    SRV --> ACK{"Ack OK?"}
+    ACK -->|"no (5xx / drop)"| RES["HEAD for offset\nbackoff + jitter"]
+    RES --> LOOP
+    ACK -->|"yes"| MORE{"More chunks?"}
+    MORE -->|"yes"| LOOP
+    MORE -->|"no"| FIN["Finalize / commit"]
+    ONE --> FIN
+    FIN --> SCAN["Server: AV scan,\nmagic-byte recheck,\nmetadata extract"]
+    SCAN --> OK["Available to user"]

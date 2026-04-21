@@ -1,0 +1,37 @@
+%% Diagram: Dynamo-style write path with vector-clock siblings and semantic merge
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Phone
+    participant Coord1 as Coordinator A
+    participant Coord2 as Coordinator B
+    participant N1 as Replica 1
+    participant N2 as Replica 2
+    participant N3 as Replica 3
+    participant Laptop
+
+    Note over N1,N3: Network partition isolates N3
+    Phone->>Coord1: PUT cart += {Headphones x1}
+    Coord1->>N1: write [Headphones x1] vc:{A:1}
+    Coord1->>N2: write [Headphones x1] vc:{A:1}
+    Coord1-->>Phone: 200 OK (W=2 met)
+
+    Laptop->>Coord2: PUT cart += {Keyboard x1}
+    Coord2->>N3: write [Keyboard x1] vc:{B:1}
+    Coord2-->>Laptop: 200 OK (sloppy quorum, W=1)
+
+    Note over N1,N3: Partition heals, replicas gossip
+    N3->>N1: anti-entropy sync
+    N1->>N3: anti-entropy sync
+
+    Phone->>Coord1: GET cart
+    Coord1->>N1: read R=2
+    Coord1->>N2: read R=2
+    N1-->>Coord1: [Headphones x1] vc:{A:1}
+    N2-->>Coord1: [Keyboard x1] vc:{B:1}
+    Note over Coord1: vc:{A:1} and vc:{B:1} are concurrent — return siblings
+    Coord1-->>Phone: [siblings: v1, v2]
+    Note over Phone: Application merges<br/>union(items), max(qty per SKU)
+    Phone->>Coord1: PUT merged cart vc:{A:1,B:1}
+    Coord1->>N1: write [Headphones x1, Keyboard x1] vc:{A:2,B:1}
+    Coord1->>N2: write [Headphones x1, Keyboard x1] vc:{A:2,B:1}

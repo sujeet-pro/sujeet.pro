@@ -1,0 +1,12 @@
+%% Diagram: Rendering Strategy Decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start["Picking a rendering strategy"] --> SEO{"Needs SEO\nor fast first paint?"}
+    SEO -- No --> CSR["CSR\nDashboards, internal tools,\nauthed SPAs"]
+    SEO -- Yes --> Fresh{"Content changes\nper request?"}
+    Fresh -- "No\n(builds nightly)" --> SSG["SSG\nMarketing, docs, blogs"]
+    Fresh -- "Sometimes\n(can stale-while-revalidate)" --> ISR["ISR / SWR caching\nNext.js, SvelteKit, Astro,\nNuxt via adapters"]
+    Fresh -- "Yes" --> Bundle{"Large client bundle\nor leaky data access?"}
+    Bundle -- "No" --> SSR["Traditional SSR\nPage-level data fetching"]
+    Bundle -- "Yes" --> RSC["RSC + SSR\nServer components do\nthe heavy lifting;\nclient islands hydrate"]

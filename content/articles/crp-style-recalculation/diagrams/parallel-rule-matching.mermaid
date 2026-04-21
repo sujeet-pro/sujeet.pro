@@ -1,0 +1,38 @@
+%% Diagram: Stylo / Quantum CSS parallel style recalc with work stealing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    root["DOM root\npre-order traversal"] --> split["Split children into work units\nrayon work-stealing scheduler"]
+
+    subgraph workers["Worker pool (one per core)"]
+        direction TB
+        w1["Worker 1\nsubtree A"]
+        w2["Worker 2\nsubtree B"]
+        w3["Worker 3\nsubtree C"]
+        w4["Worker 4\nidle - steals from queue"]
+    end
+
+    split --> w1
+    split --> w2
+    split --> w3
+    split --> w4
+
+    w1 --> ssc["Style sharing cache\nsame rules + parent style?"]
+    w2 --> ssc
+    w3 --> ssc
+    w4 --> ssc
+
+    ssc -- "hit" --> reuse["Reuse ComputedStyle\nshare style structs"]
+    ssc -- "miss" --> rt["Rule tree lookup\nappend selectors per specificity"]
+    rt --> compute["Compute final ComputedStyle\nfor this element"]
+    reuse --> done(["Element done\nyield work back to scheduler"])
+    compute --> done
+
+    classDef start fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef worker fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef accept fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class root,done start
+    class split,ssc,rt,compute stage
+    class w1,w2,w3,w4 worker
+    class reuse accept

@@ -1,0 +1,34 @@
+%% Diagram: CloudFront Continuous Deployment — staging distribution + traffic split
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    viewer(["Viewer request"])
+    prim["Primary distribution\nproduction config"]
+    policy{"Continuous deployment\npolicy"}
+    stg["Staging distribution\ncandidate config"]
+    s3prod["S3 origin\n/build_001/"]
+    s3new["S3 origin\n/build_002/"]
+    metrics["Monitor\n4xx, 5xx, latency, CWV"]
+    promote["Promote staging\nto primary"]
+    rollback["Discard staging\nkeep primary"]
+
+    viewer --> policy
+    policy -- "weight 95% or cookie miss" --> prim
+    policy -- "weight 5% or session-sticky header" --> stg
+    prim --> s3prod
+    stg --> s3new
+    prim --> metrics
+    stg --> metrics
+    metrics -- healthy --> promote
+    metrics -- regression --> rollback
+
+    classDef primaryC fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storageC fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutralC fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef alertC fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef successC fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class prim,stg primaryC
+    class s3prod,s3new storageC
+    class viewer,metrics neutralC
+    class rollback alertC
+    class promote successC

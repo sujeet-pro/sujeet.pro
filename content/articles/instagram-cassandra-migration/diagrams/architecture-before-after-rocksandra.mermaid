@@ -1,0 +1,27 @@
+%% Diagram: Cassandra (Java engine) vs Rocksandra (RocksDB engine) — side-by-side
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Before["Before — stock Cassandra (all on JVM)"]
+        direction TB
+        BC["CQL client"] --> BCoord["Coordinator (JVM)<br/>gossip · routing · consistency"]
+        BCoord --> BMem["Memtable (Java heap)"]
+        BMem --> BSST["SSTables<br/>(Java heap buffers,<br/>frequent allocation)"]
+        BSST --> BComp["Compaction (JVM threads,<br/>large short-lived objects)"]
+        BGC{{"Java GC pressure<br/>P99 25-60 ms · stalls 1.25-2.5 %"}}
+        BMem -. "object churn" .-> BGC
+        BSST -. "object churn" .-> BGC
+        BComp -. "object churn" .-> BGC
+    end
+
+    subgraph After["After — Rocksandra (storage offloaded to C++)"]
+        direction TB
+        AC["CQL client"] --> ACoord["Coordinator (JVM)<br/>gossip · routing · consistency"]
+        ACoord --> AAPI[["StorageEngine API<br/>CASSANDRA-13474"]]
+        AAPI --> AEnc["Schema encode/decode<br/>CASSANDRA-13476"]
+        AEnc --> ARDB[("RocksDB engine (C++ via JNI)<br/>memtable · SST · compaction<br/>off-heap, no Java GC")]
+        AGC{{"Storage hot path produces<br/>no Java garbage<br/>P99 ~20 ms · stalls 0.3 %"}}
+        ARDB -. "no churn" .-> AGC
+    end
+
+    Before -- "swap storage layer<br/>distribution layer unchanged" --> After

@@ -1,0 +1,13 @@
+%% Diagram: Storage quota and eviction lifecycle across browsers
+%% Type: stateDiagram
+stateDiagram-v2
+    [*] --> BestEffort: first write to IDB / Cache / OPFS
+    BestEffort --> NearQuota: usage approaches origin quota
+    NearQuota --> Eviction: quota exceeded -> QuotaExceededError
+    BestEffort --> Eviction: group cap (~80%% disk) hit, browser evicts LRU origin
+    BestEffort --> Persistent: navigator.storage.persist() granted
+    Persistent --> Persistent: protected from automatic eviction (Chromium / Firefox)
+    BestEffort --> SafariITP: 7 days of Safari use without site interaction
+    Persistent --> SafariITP: persist() is a no-op in Safari
+    SafariITP --> Eviction: ITP wipes script-writable storage
+    Eviction --> [*]: re-sync from server on next visit

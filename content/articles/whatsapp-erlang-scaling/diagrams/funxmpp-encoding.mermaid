@@ -1,0 +1,26 @@
+%% Diagram: XMPP vs FunXMPP wire encoding
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph XMPP["XMPP\n~180 B / msg"]
+        X1["XML preamble +\nnamespace decls"]
+        X2["Open tags +\nattributes"]
+        X3["UTF-8 payload"]
+        X4["Closing tags"]
+        X1 --> X2 --> X3 --> X4
+    end
+
+    subgraph FunXMPP["FunXMPP\n~20 B / msg"]
+        F1["Token byte for\nstanza name"]
+        F2["Token bytes for\nknown values"]
+        F3["Length-prefixed\nliterals"]
+        F4["Item count\n(no closers)"]
+        F1 --> F2 --> F3 --> F4
+    end
+
+    XMPP -->|"50-70%\nreduction"| FunXMPP
+
+    classDef heavy fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef light fill:#1F6E68,stroke:#155752,color:#ffffff
+    class X1,X2,X3,X4 heavy
+    class F1,F2,F3,F4 light

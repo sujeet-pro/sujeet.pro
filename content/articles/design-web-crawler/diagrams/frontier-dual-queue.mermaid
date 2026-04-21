@@ -1,0 +1,35 @@
+%% Diagram: Mercator-style dual-queue URL frontier
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph In["Inputs"]
+        Seeds[Seeds]
+        Links[Discovered links]
+    end
+
+    subgraph Front["F front queues<br/>priority partitioning"]
+        F0[Q0 priority 0.0-0.2]
+        F1[Q1 priority 0.2-0.4]
+        F2[Q2 priority 0.4-0.6]
+        F3[Q3 priority 0.6-0.8]
+        F4[Q4 priority 0.8-1.0]
+    end
+
+    Bias[Biased random pick<br/>weighted by priority]
+
+    subgraph Back["B back queues<br/>one host per queue<br/>B ≈ 3 × threads"]
+        B1[host A FIFO]
+        B2[host B FIFO]
+        B3[host C FIFO]
+        BN[...]
+    end
+
+    Heap[Min-heap on<br/>next_allowed_time]
+
+    Worker[Worker thread pool]
+
+    Seeds --> Front
+    Links --> Front
+    Front --> Bias --> Back
+    Back --> Heap --> Worker
+    Worker -->|host empty?<br/>refill from front queues| Back

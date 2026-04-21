@@ -1,0 +1,28 @@
+%% Diagram: AWS Reference Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    R53["Route 53\nGeoDNS"]
+    NLB["Network Load Balancer\nTLS termination"]
+    WS["WebSocket Pods\nFargate / EKS"]
+    MSG["Message Service\nFargate"]
+    SYNC["Sync Service\nFargate"]
+    FANOUT["Fan-out + Push Workers\nFargate Spot"]
+    MSK["MSK Kafka"]
+    REDIS["ElastiCache Redis\npresence + dedup + sessions"]
+    KEYS["Keyspaces or ScyllaDB Cloud\nmessages"]
+    RDS["RDS PostgreSQL\nusers + groups"]
+    S3["S3 + CloudFront\nmedia"]
+    SNS["SNS\nmobile push -> APNs/FCM"]
+
+    R53 --> NLB --> WS
+    WS --> MSG
+    WS --> SYNC
+    MSG --> MSK --> FANOUT --> WS
+    FANOUT --> SNS
+    MSG --> KEYS
+    MSG --> RDS
+    SYNC --> KEYS
+    MSG --> REDIS
+    WS --> REDIS
+    MSG --> S3

@@ -1,36 +1,47 @@
 ---
 title: Component Architecture Blueprint for Scalable UI
-linkTitle: 'Component Architecture'
+linkTitle: "Component Architecture"
 description: >-
-  A layered component architecture using SDK abstractions, Primitives/Blocks/Widgets boundaries,
-  and dependency injection via React Context — designed for testability and framework migration.
+  A layered React component architecture — SDK abstractions, Primitives/Blocks/Widgets
+  boundaries, dependency injection via Context, and lint-enforced layering — for
+  testability and framework migration.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - architecture
   - patterns
+  - react
+  - design-systems
+  - testing
 ---
 
 # Component Architecture Blueprint for Scalable UI
 
-Modern frontend applications face a common challenge: as codebases grow, coupling between UI components, business logic, and framework-specific APIs creates maintenance nightmares and testing friction. This architecture addresses these issues through strict layering, dependency injection via React Context, and boundary enforcement via ESLint.
+This article is a complete blueprint for a layered React frontend that survives multi-team growth and framework migration. The shape is: a thin _SDK layer_ wraps all framework- and platform-specific APIs behind plain TypeScript interfaces; a strictly layered _Primitives → Blocks → Widgets_ stack composes UI from those interfaces; `eslint-plugin-boundaries` makes the layering a CI failure rather than a code-review debate; and tests inject mocked SDK implementations through React Context instead of mocking framework internals. The cost is roughly 15% more boilerplate and one extra mental layer for new contributors. The payoff is that business logic stays portable across Next.js, Remix, or Vite, and components remain testable without `jest.mock("next/navigation")` whack-a-mole.
 
-![Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.](./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit-light.svg "Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.")
-![Architecture overview: SDK Layer and Design System (Primitives) are independent with no dependencies. The Application Shell initializes SDK implementations, which are then injected via React Context into Blocks and Widgets. Each page type has its own widget registry for code splitting.](./diagrams/architecture-overview-sdk-layer-and-design-system-primitives-are-independent-wit-dark.svg)
+![Component architecture overview: an Application Shell initializes SDK implementations and injects them via Context into Blocks and Widgets, while the Design System provides Primitives. Each page type owns a registry that lazy-loads widgets.](./diagrams/architecture-overview-light.svg "How an Application Shell wires the SDK layer, Design System, Blocks, Widgets, and per-page registries.")
+![Component architecture overview: an Application Shell initializes SDK implementations and injects them via Context into Blocks and Widgets, while the Design System provides Primitives. Each page type owns a registry that lazy-loads widgets.](./diagrams/architecture-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-![Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.](./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr-light.svg "Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.")
-![Core mental model: Inversion of Control enables testability, layered boundaries prevent coupling, and SDK abstractions enable framework migration.](./diagrams/core-mental-model-inversion-of-control-enables-testability-layered-boundaries-pr-dark.svg)
+![Three pillars of the architecture: Inversion of Control via Context for testability, layered boundaries for coupling control, and SDK abstractions for framework isolation.](./diagrams/mental-model-light.svg "The three pillars: Inversion of Control, Layered Boundaries, Framework Isolation.")
+![Three pillars of the architecture: Inversion of Control via Context for testability, layered boundaries for coupling control, and SDK abstractions for framework isolation.](./diagrams/mental-model-dark.svg)
 
-The architecture answers three questions:
+Three orthogonal ideas hold the architecture together. Read them in this order — every later section is an instance of one of these.
 
-1. **How do I test components without mocking framework internals?** → Inject all external dependencies via React Context. Tests provide mock implementations.
-2. **How do I prevent "spaghetti" imports across layers?** → Define architectural boundaries (Primitives → Blocks → Widgets) and enforce them with `eslint-plugin-boundaries`.
-3. **How do I migrate between frameworks (Next.js ↔ Remix)?** → Wrap framework APIs in SDK interfaces. Business logic uses SDKs, never framework code directly.
+1. **Inversion of Control via Context.** Components declare _what_ they need (typed SDK interfaces) and let an outer provider decide _how_ to satisfy it. React's [`createContext`](https://react.dev/reference/react/createContext) is the wiring; the test wrapper and the production app shell are two implementations of the same contract.
+2. **Layered boundaries.** Each layer (Primitives, Blocks, Widgets, Registries, Layout) only imports from layers strictly below it. The rule is enforced by [`eslint-plugin-boundaries`](https://github.com/javierbrea/eslint-plugin-boundaries) (v5.x introduced ESLint 9 flat-config support; v6.x is the current major), so a pull request that violates the diagram fails CI.
+3. **Framework isolation.** Business logic never imports `next/navigation`, `@remix-run/react`, or `react-router-dom` directly. Those imports are quarantined to a single `app/providers.tsx` file that builds the SDK implementation. A framework swap becomes a re-implementation of the SDK, not a rewrite of the components.
 
-**When this pattern pays off:** Multi-team applications, component libraries shared across apps, or codebases expecting framework migration. For single-team apps with no migration plans, the indirection may not be worth the complexity.
+The architecture answers three concrete questions:
+
+1. **How do I test components without mocking framework internals?** Inject all external dependencies via Context; tests provide a mock implementation through `TestSdkProvider`.
+2. **How do I prevent "spaghetti" imports across layers?** Express the layers as boundary elements and let `eslint-plugin-boundaries` reject illegal imports at lint time.
+3. **How do I migrate between frameworks?** Replace the SDK implementation in the application shell. Component code does not change.
+
+> [!IMPORTANT]
+> When this pattern pays off: multi-team apps, component libraries shared across apps, or codebases that expect framework migration. For single-team apps with no migration plans and no shared component library, the indirection is likely overkill — adopt the SDK abstraction only for the dependencies you actually mock most often (usually routing or HTTP) and skip the rest.
 
 ---
 
@@ -97,70 +108,33 @@ Every module exposes its public API through a barrel file (`index.ts`). Internal
 
 Without explicit exports, any file can import any internal function. Over time, internal helpers get used externally, making refactoring break consumers. Barrel files create a contract: only exported symbols are public API.
 
-> **⚠️ Trade-off: Barrel Files and Performance**
+> [!WARNING]
+> **Barrel files and dev-mode performance**
 >
-> Barrel files can negatively impact development performance. As of Vite 5.x (2024+) and Webpack 5.x:
+> Barrel files preserve a public API surface, but they have well-documented dev-mode costs:
 >
-> - **Development mode:** Vite does NOT tree-shake in dev mode. Large barrel files cause 5-10 second HMR (Hot Module Replacement) delays as the entire module graph reloads.
-> - **Production builds:** Tree-shaking works correctly with `"sideEffects": false` in `package.json`. Production bundles are unaffected.
+> - **Vite dev** does not tree-shake on demand — its dev server transforms files on request and only Rollup tree-shakes during the production build ([Vite performance guide](https://vite.dev/guide/performance)). A deep barrel forces the dev server to chain through every re-exported module, and practitioners regularly report multi-second HMR penalties on barrels of any non-trivial size ([vite#16100](https://github.com/vitejs/vite/issues/16100), [TkDodo: Please Stop Using Barrel Files](https://tkdodo.eu/blog/please-stop-using-barrel-files)).
+> - **Production builds** with Rollup, esbuild, Webpack 5, or Turbopack tree-shake barrels correctly when the package declares `"sideEffects": false`. The bundle penalty is usually zero.
 >
-> **Mitigations:**
+> Mitigations, in order of preference:
 >
-> - For SDK/internal packages (loaded at app root): Barrel files are acceptable—dev performance hit is minimal since they're imported once.
-> - For component libraries: Use `package.json` `exports` field with multiple entry points instead of barrel files.
-> - For Next.js 14+: Enable `optimizePackageImports` in `next.config.js` to auto-optimize barrel imports.
->
-> See [TkDodo's analysis](https://tkdodo.eu/blog/please-stop-using-barrel-files) for detailed benchmarks.
+> 1. For SDK / internal packages imported once at the app root, a single shallow barrel is fine.
+> 2. For shared component libraries, prefer the `package.json` [`exports`](https://nodejs.org/api/packages.html#package-entry-points) field with multiple entry points (e.g. `@blocks/product-card`) instead of one mega-barrel.
+> 3. On Next.js, enable [`optimizePackageImports`](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports) (introduced in Next.js 13.5; many common packages such as `lucide-react`, `lodash-es`, `@mui/icons-material`, and `react-icons/*` are already in the auto-optimised default list).
+> 4. Keep an automated guardrail: lint barrel-only re-exports out of hot paths with `eslint-plugin-barrel-files` or the equivalent Biome / Oxlint rule.
 
 ---
 
 ## Architecture Overview
 
-### Layer Diagram
+### Allowed dependency flow
 
-```txt
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Application Shell (Next.js / Remix / Vite)                             │
-│  • Routing, SSR/SSG, Build configuration                                │
-│  • Provides SDK implementations                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼ provides implementations
-┌─────────────────────────────────────────────────────────────────────────┐
-│  SDK Layer (@sdk/*)                                                     │
-│  • Defines interfaces for cross-cutting concerns                        │
-│  • Analytics, Routing, HTTP, State, Experiments                         │
-│  • Framework-agnostic contracts                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-          │                         │                         │
-          ▼                         ▼                         ▼
-┌─────────────────┐    ┌─────────────────────┐    ┌──────────────────────┐
-│  Design System  │    │  Blocks Layer       │    │  Widgets Layer       │
-│  (@company-name │◄───│  (@blocks/*)        │◄───│  (@widgets/*)        │
-│  /design-system)│    │                     │    │                      │
-│                 │    │  Business logic     │    │  BFF contract impl   │
-│  Pure UI        │    │  Domain components  │    │  Page sections       │
-└─────────────────┘    └─────────────────────┘    └──────────────────────┘
-                                                             │
-                                                             ▼
-                                              ┌──────────────────────────┐
-                                              │  Registries              │
-                                              │  (@registries/*)         │
-                                              │                          │
-                                              │  Page-specific widget    │
-                                              │  mappings                │
-                                              └──────────────────────────┘
-```
+The dependency arrow always points from a more general layer to a more specific one. Primitives know nothing about your domain. Blocks compose Primitives and consume SDK hooks. Widgets compose Blocks. Registries are the only place that knows about Widgets. Pages know about Registries through the Layout Engine. SDKs are the one orthogonal axis: they are injected via Context and may be consumed at any layer that does work.
 
-### Dependency Flow
+![Layer dependency flow: Primitives compose into Blocks, then Widgets, then Registries, then Layout Engine, then Pages. SDKs are injected via Context and consumed by Blocks, Widgets, and the Layout Engine.](./diagrams/layer-dependency-flow-light.svg "Allowed dependency flow between layers; SDKs are an orthogonal injection axis.")
+![Layer dependency flow: Primitives compose into Blocks, then Widgets, then Registries, then Layout Engine, then Pages. SDKs are injected via Context and consumed by Blocks, Widgets, and the Layout Engine.](./diagrams/layer-dependency-flow-dark.svg)
 
-```txt
-Primitives ← Blocks ← Widgets ← Registries ← Layout Engine ← Pages
-                ↑         ↑
-                └─────────┴──── SDKs (injectable at all levels)
-```
-
-### Import Rules Matrix
+### Import rules matrix
 
 | Source Layer                    | Can Import                                    | Cannot Import                                   |
 | ------------------------------- | --------------------------------------------- | ----------------------------------------------- |
@@ -267,7 +241,176 @@ Primitives ← Blocks ← Widgets ← Registries ← Layout Engine ← Pages
 - Page-specific (different widgets on different pages)
 - Lazy-loaded components for code splitting
 - Configurable error boundaries and loading states
-- Simple Record<string, WidgetConfig> structure
+- Simple `Record<string, WidgetConfig>` structure
+
+---
+
+## Composition primitives
+
+Layers describe _where_ code lives. Composition primitives describe _how_ a single component exposes itself to its consumer. The same five or six primitives keep recurring at every layer; picking the wrong one is the most common source of "this component is impossible to reuse" pain. The map below decides between them.
+
+![Decision map for component composition primitives — props, compound components, headless hooks, render props, context, HOCs — with concrete examples of each.](./diagrams/composition-primitives-map-light.svg "When to reach for props vs. compound components vs. headless hooks vs. render props vs. context.")
+![Decision map for component composition primitives — props, compound components, headless hooks, render props, context, HOCs — with concrete examples of each.](./diagrams/composition-primitives-map-dark.svg)
+
+### Composition over inheritance
+
+React has no inheritance story for components — the docs explicitly recommend composition through `props.children` and explicit prop forwarding instead ([Passing JSX as children — react.dev](https://react.dev/learn/passing-props-to-a-component#passing-jsx-as-children); [legacy "Composition vs Inheritance" — legacy.reactjs.org](https://legacy.reactjs.org/docs/composition-vs-inheritance.html)). Two practical rules fall out of this:
+
+1. **Take a `children` slot before you take a render-content prop.** A `Card` with `children` composes anything; a `Card` with `<Card title="…" body="…" />` composes nothing else.
+2. **Forward unknown props to the underlying primitive when you wrap it.** `Button` should spread `…rest` onto its `<button>` so `aria-*`, `data-*`, `id`, and event handlers all keep working without you re-declaring each one.
+
+The legacy "Container / Presentational" split (Dan Abramov, 2015) was a manual, HOC-era version of this. Abramov [retired the recommendation in 2019](https://medium.com/@dan_abramov/smart-and-dumb-components-7ca2f9a7c7d0): hooks make the split mechanical — the `.hooks.ts` files in the [Block Implementation Example](#block-implementation-example) above are the modern replacement, and the `.view.tsx` is the still-useful presentational half.
+
+### Controlled vs. uncontrolled
+
+Form-like primitives (`Input`, `Select`, `Combobox`, `Slider`, `Checkbox`) have to choose where the value lives. React's [forms guide](https://react.dev/reference/react-dom/components/input#controlling-an-input-with-a-state-variable) draws the line precisely: a value is _controlled_ when React state is the source of truth and the DOM is a reflection; it is _uncontrolled_ when the DOM is the source of truth and React only reads it on submit (via `name` + `defaultValue` + `FormData`, or a `ref`).
+
+![State flow comparison: controlled component round-trips every keystroke through React state and re-renders, while uncontrolled keeps state in the DOM and React reads on submit.](./diagrams/controlled-vs-uncontrolled-flow-light.svg "Where the source of truth lives, and the keystroke→re-render cost that follows.")
+![State flow comparison: controlled component round-trips every keystroke through React state and re-renders, while uncontrolled keeps state in the DOM and React reads on submit.](./diagrams/controlled-vs-uncontrolled-flow-dark.svg)
+
+| Concern                                        | Controlled                                          | Uncontrolled                                                                                |
+| :--------------------------------------------- | :-------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+| Source of truth                                | React state                                         | DOM                                                                                         |
+| Cost per keystroke                             | One re-render of the owning component               | None                                                                                        |
+| Validate / format / mask while typing          | Trivial                                             | Hard (need refs + manual DOM writes)                                                        |
+| Sync with external state (URL, store, server)  | Trivial                                             | Awkward                                                                                     |
+| Plain HTML form submit                         | Need to mirror state into hidden inputs             | Native — pair `name` + `defaultValue` with `<form action={…}>` (React 19 [`useActionState`](https://react.dev/reference/react/useActionState) collects `FormData`) |
+| File inputs (`<input type="file">`)            | Always uncontrolled                                 | Default                                                                                     |
+
+> [!TIP]
+> Build the **primitive** to support both modes (`value` _or_ `defaultValue`, `onChange` _or_ `onValueChange`) — Radix UI and React Aria do this for every form primitive. Build the **block** above it as controlled when it needs derived UI, uncontrolled when it just needs to ship the value to a server action.
+
+### Compound components
+
+When one parent owns shared state and several related children need to read or mutate it, expose the children as static properties of the parent and share state through a private `Context`. This is how Radix Primitives, React Aria Components, Headless UI, and Reach UI all model `Tabs`, `Menu`, `Select`, `Combobox`, `Dialog`, and `Accordion` — and it's the structure the [WAI-ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/patterns/) describes for every compound widget.
+
+![Compound component structure: a Tabs parent owns state and Context, and Tabs.List, Tabs.Trigger, and Tabs.Panel consume that context to render the right ARIA roles.](./diagrams/compound-component-structure-light.svg "How a compound component shares private state via Context and exposes a small public surface.")
+![Compound component structure: a Tabs parent owns state and Context, and Tabs.List, Tabs.Trigger, and Tabs.Panel consume that context to render the right ARIA roles.](./diagrams/compound-component-structure-dark.svg)
+
+```typescript title="src/primitives/tabs/tabs.tsx" showLineNumbers
+import { createContext, useContext, useId, useState, type FC, type PropsWithChildren } from 'react';
+
+interface TabsContextValue {
+  activeId: string;
+  setActiveId: (id: string) => void;
+  rootId: string;
+}
+
+const TabsContext = createContext<TabsContextValue | null>(null);
+const useTabs = (): TabsContextValue => {
+  const ctx = useContext(TabsContext);
+  if (!ctx) throw new Error('Tabs.* must be rendered inside <Tabs>.');
+  return ctx;
+};
+
+interface TabsProps extends PropsWithChildren {
+  defaultActiveId: string;
+  value?: string;
+  onValueChange?: (id: string) => void;
+}
+
+const TabsRoot: FC<TabsProps> = ({ defaultActiveId, value, onValueChange, children }) => {
+  const [internal, setInternal] = useState(defaultActiveId);
+  const activeId = value ?? internal;
+  const setActiveId = (id: string): void => {
+    if (value === undefined) setInternal(id);
+    onValueChange?.(id);
+  };
+  return (
+    <TabsContext.Provider value={{ activeId, setActiveId, rootId: useId() }}>
+      {children}
+    </TabsContext.Provider>
+  );
+};
+
+const List: FC<PropsWithChildren> = ({ children }) => (
+  <div role="tablist">{children}</div>
+);
+
+const Trigger: FC<PropsWithChildren<{ id: string }>> = ({ id, children }) => {
+  const { activeId, setActiveId, rootId } = useTabs();
+  const selected = activeId === id;
+  return (
+    <button
+      role="tab"
+      id={`${rootId}-trigger-${id}`}
+      aria-selected={selected}
+      aria-controls={`${rootId}-panel-${id}`}
+      tabIndex={selected ? 0 : -1}
+      onClick={() => setActiveId(id)}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Panel: FC<PropsWithChildren<{ id: string }>> = ({ id, children }) => {
+  const { activeId, rootId } = useTabs();
+  if (activeId !== id) return null;
+  return (
+    <div
+      role="tabpanel"
+      id={`${rootId}-panel-${id}`}
+      aria-labelledby={`${rootId}-trigger-${id}`}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const Tabs = Object.assign(TabsRoot, { List, Trigger, Panel });
+```
+
+The two non-obvious bits:
+
+1. **The component is dual-mode** — pass `value` to make it controlled, omit it to make it uncontrolled. Three lines of code (the `value ?? internal` resolution and the `if (value === undefined)` guard) avoid forcing every consumer to manage state.
+2. **Roving tabindex and `Arrow` / `Home` / `End` / `Enter` keyboard handling** belong in `Tabs.List` for full APG conformance ([Tabs pattern — APG](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/)). The example above omits them for brevity; in production, prefer Radix `Tabs` or React Aria `Tabs` rather than re-implementing.
+
+### Render props vs. hooks vs. context — a decision matrix
+
+The same "give consumers behaviour, let them control rendering" goal can be met three different ways. Pick the lightest one that satisfies the reuse story.
+
+| Mechanism                    | Best for                                                   | Strengths                                                          | Weaknesses                                                                                              |
+| :--------------------------- | :--------------------------------------------------------- | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+| **Hook** (`useThing()`)      | Headless behaviour with no required JSX shape              | Composes naturally; testable in isolation; no wrapper component    | Caller must wire up the JSX; can't carry implicit children                                              |
+| **Render prop / FaC**        | Headless behaviour where the library needs to control _when_ to render (e.g. virtualised list, error boundary fallback) | Inversion of control over rendering                                | Extra wrapper component in the tree; nested render props get hard to read; partly superseded by hooks   |
+| **Context provider**         | Cross-cutting service (DI, theme, auth) shared by many components in a subtree  | Decouples consumer from provider; one source of truth per subtree  | Wrong tool for component _state_ that doesn't need to be shared — re-renders every consumer on change   |
+| **Compound components**      | A parent + a small set of named children that share state  | Natural API surface; ARIA roles map cleanly; state stays private   | More files; harder to discover by autocomplete than a single component                                  |
+| **Higher-order component**   | Almost never in 2026 — kept for legacy code or framework wrappers     | Wrap behaviour around an existing component without changing it    | Static composition; obscures props; mostly superseded by hooks ([HOCs vs hooks — react.dev](https://react.dev/learn/reusing-logic-with-custom-hooks)) |
+
+The historical arc: React 0.14 had mixins → React 16.3 had HOCs and render props → React 16.8 introduced hooks, which made most HOCs and most render props redundant. Render props survive in libraries that need to control rendering (TanStack Virtual, React Hook Form's `Controller`, error boundary fallbacks); HOCs survive in framework adapters (`React.forwardRef`-wrapping legacy code, `next/dynamic`).
+
+### Headless components and accessibility hooks
+
+A "headless" library exposes _behaviour_ — state machines, ARIA wiring, keyboard handlers, focus management — and lets you bring your own DOM and styling. In a layered architecture, headless libraries sit at the **Primitives** layer; you compose them into your design-system primitives and never re-implement the keyboard logic.
+
+| Library                                                                                                                              | Surface                                                                                  | When to reach for it                                                                                                                       |
+| :----------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+| [Radix Primitives](https://www.radix-ui.com/primitives)                                                                              | Compound components (`Dialog.Root`, `Tabs.Trigger`, …) with built-in ARIA + focus        | You want fully styled-from-scratch UI, JSX-shaped APIs, and good defaults for the common WAI-ARIA APG patterns.                            |
+| [React Aria / React Aria Components (Adobe)](https://react-spectrum.adobe.com/react-aria/)                                           | Hooks (`useButton`, `useComboBox`, `useFocusRing`, …) and a parallel component layer     | You need the broadest accessibility coverage (RTL, mobile screen readers, locale-aware date/number components) and tight control over DOM. |
+| [Headless UI (Tailwind Labs)](https://headlessui.com/)                                                                               | Compound components for the most common widgets, originally designed to pair with Tailwind | You're standardising on Tailwind and want a small, focused set of compound primitives.                                                     |
+| [Reach UI](https://reach.tech/)                                                                                                      | Compound components (older, predates Radix)                                              | Legacy projects only — Reach UI is in maintenance mode; new work should pick Radix or React Aria.                                          |
+| [TanStack Form / Combobox / Virtual](https://tanstack.com/)                                                                          | Hooks for behaviour that's awkward to express as JSX (form state, virtualisation)        | Anything where JSX-shaped APIs would force the library to control rendering you actually want to own.                                      |
+
+The accessibility primitives every primitive eventually needs:
+
+- **Focus management** — modern projects should reach for the [Focus Trap APIs in React Aria's `useFocusManager` / `FocusScope`](https://react-spectrum.adobe.com/react-aria/FocusScope.html) or Radix's `<FocusScope>` rather than hand-rolling. The classic standalone `focus-trap` and `focus-trap-react` libraries (originally by David Clark, now maintained by `focus-trap`) are still the canonical implementation if you can't take a heavier dep.
+- **Keyboard handling** — defer to APG patterns. For roving tabindex, follow the [APG roving tabindex guidance](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_roving_tabindex); for `Escape`/`Enter`/`Space`/arrow keys per widget, the [APG Patterns index](https://www.w3.org/WAI/ARIA/apg/patterns/) is the canonical map.
+- **ARIA roles, names, and relationships** — `aria-labelledby` over `aria-label` when a visible label exists; `aria-controls` over `aria-owns` for connecting a control to the popup it opens (per the [APG Combobox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/)); `aria-live="polite"` for the kind of error region the [`AddToCartButtonView`](#block-implementation-example) above uses.
+- **`prefers-reduced-motion`** — gate any non-trivial animation, including [View Transitions](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API), behind a media-query check. View Transitions for same-document SPAs reached Baseline Newly Available in [October 2025](https://web.dev/blog/same-document-view-transitions-are-now-baseline-newly-available); cross-document transitions are still Chromium + Safari 18.2 only.
+
+> [!IMPORTANT]
+> Treat WCAG 2.2 AA + APG conformance as a build-time constraint at the Primitives layer. If `Button`, `Combobox`, `Dialog`, and `Tabs` are correct, every Block above them inherits the keyboard and screen-reader behaviour for free. Auditing 200 Blocks is intractable; auditing 20 Primitives is a one-week sprint.
+
+### State locality vs. lifting
+
+Three rules cover 90% of "where should this state live?" decisions:
+
+1. **Default to local.** A primitive that owns its own value (an open/closed state for a `Disclosure`, a hover state for a `Tooltip`) starts with `useState` inside the component.
+2. **Lift only when two siblings need to read it.** [React's "Sharing State Between Components"](https://react.dev/learn/sharing-state-between-components) is the canonical guide — promote the state up to the lowest common ancestor.
+3. **Reach for Context only when many descendants need the same value, _and_ that value changes infrequently.** Mark Erikson's ["Context is not a state-management tool"](https://blog.isquaredsoftware.com/2021/01/blogged-answers-why-react-context-is-not-a-state-management-tool-and-why-it-doesnt-replace-redux/) is still the best argument for this — every consumer of a context re-renders when the value identity changes, which is fine for SDK services (stable for the app's lifetime) but disastrous for "active tab" or "current cart contents".
+
+The SDK pattern in the [Internal SDKs](#internal-sdks) section is the steady-state Context use case: services are constructed once at app boot, the object identity is stable, no consumer re-renders unnecessarily. Treating that as a precedent for storing _data_ in Context — current user, cart contents, theme — is the most common failure mode and explains why teams who try it usually end up reaching for Redux, Zustand, Jotai, or TanStack Query within the year.
 
 ---
 
@@ -275,9 +418,12 @@ Primitives ← Blocks ← Widgets ← Registries ← Layout Engine ← Pages
 
 SDKs are the key to framework agnosticism. They define **what** your components need, while the application shell provides **how** it's implemented.
 
-> **Version Context (React 18+):** This pattern uses React Context for dependency injection. As of React 18 and React 19 (December 2024), Context remains the recommended approach for injecting services (not state). React 19's Compiler can auto-memoize context values, but the `useMemo` pattern shown below remains compatible and is required for React 18.
+> [!NOTE]
+> **Version context (React 16.3 → 19)**
 >
-> **Prior approach:** Before React 16.3 (2018), prop drilling or third-party DI containers (InversifyJS, tsyringe) were common. Context made DI a first-class React pattern.
+> The current Context API was introduced in [React 16.3 (March 2018)](https://legacy.reactjs.org/blog/2018/03/29/react-v-16-3.html); before that, prop drilling or third-party DI containers (InversifyJS, tsyringe) were the workaround. As of [React 19 (released 2024-12-05)](https://react.dev/blog/2024/12/05/react-19), Context is still the recommended way to inject _services_ (per the API reference for [`createContext`](https://react.dev/reference/react/createContext); see also Mark Erikson's [Context is not a state management tool](https://blog.isquaredsoftware.com/2021/01/blogged-answers-why-react-context-is-not-a-state-management-tool-and-why-it-doesnt-replace-redux/)). React 19 also lets you render `<MyContext value={…}>` directly without `.Provider`, which can simplify the wrappers shown below — the `.Provider` form still works on React 18.
+>
+> The [React Compiler](https://react.dev/learn/react-compiler) shipped its 1.0 release in October 2025 and is now a stable opt-in (Babel plugin / framework-specific flag); it can auto-memoise hook return values and narrow Context subscriptions ([reactwg/react-compiler #6](https://github.com/reactwg/react-compiler/discussions/6)), so the explicit `useMemo` around the SDK services object becomes redundant under the compiler. On React 18 without the compiler, keep the `useMemo` to avoid re-broadcasting a fresh services object on every render.
 
 ### SDK Structure
 
@@ -618,7 +764,7 @@ const createSdkServices = (): SdkServices => ({
     },
   },
 
-  state: createStateAdapter(), // Implement based on your state management choice
+  state: createStateAdapter(), // Implement against your state library (Zustand, Jotai, Redux, …)
 });
 
 // Application root wires up concrete implementations
@@ -1298,7 +1444,10 @@ export const ProductCarouselWidget: FC<ProductCarouselWidgetProps> = ({ payload 
 
 ### Registry Implementation
 
-> **Version Context (React 18+):** `React.lazy()` with dynamic imports remains the standard code-splitting pattern. React 19 introduces `use()` for suspending on promises, but `lazy()` continues to work and is preferred for component-level splitting.
+> [!NOTE]
+> **Version context (`React.lazy` vs `use`)**
+>
+> [`React.lazy`](https://react.dev/reference/react/lazy) with dynamic imports remains the standard pattern for component-level code splitting in React 19. React 19 also introduces [`use(promise)`](https://react.dev/reference/react/use) for suspending on arbitrary promises, but it is not a drop-in replacement for `lazy` at the component boundary — use `lazy` for splitting and `use` inside a component when you need to await per-render data.
 
 ```typescript title="src/registries/home.registry.ts" collapse={1-4}
 // src/registries/home.registry.ts
@@ -1373,7 +1522,10 @@ export const getRegistryByPageType = (pageType: string): WidgetRegistry => {
 
 ### ESLint Configuration
 
-> **Version Context:** This configuration uses ESLint's flat config format (`eslint.config.js`), the default since ESLint 9 (April 2024). The `eslint-plugin-boundaries` package (5.x+) fully supports flat config. Legacy `.eslintrc.*` files work but are deprecated.
+> [!NOTE]
+> **Version context (ESLint 9 + `eslint-plugin-boundaries` 5.x / 6.x)**
+>
+> This configuration uses ESLint's flat config format (`eslint.config.js`), the default since [ESLint v9.0.0 (released 2024-04-05)](https://eslint.org/blog/2024/04/eslint-v9.0.0-released/). Legacy `.eslintrc.*` files still work but are deprecated and slated for removal in ESLint 10. `eslint-plugin-boundaries` added flat-config support in v5.0; v6.x is the current major and is what new projects should pin to ([npm](https://www.npmjs.com/package/eslint-plugin-boundaries)). Both versions accept the rule shape shown below.
 
 ```javascript title="eslint.config.js" collapse={1-5, 49-74, 95-120, 123-162}
 // eslint.config.js
@@ -1549,7 +1701,57 @@ export default [
 
 ---
 
+## React Server Components and the architecture
+
+[React Server Components](https://react.dev/reference/rsc/server-components) reshape what each layer does, but they do not invalidate the layering. The single rule that matters: the [`'use client'`](https://react.dev/reference/rsc/use-client) directive marks the boundary where the bundler stops tree-shaking server-only code and starts shipping JavaScript. Every transitive import from a `'use client'` file is a Client Component — so the directive's _placement_ becomes the most important architectural decision the team makes.
+
+| Layer        | Default rendering mode                | When it has to be a Client Component (`'use client'`)                                                                                                                |
+| :----------- | :------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primitives   | Mixed — split per primitive           | Anything that uses state, effects, refs, browser APIs, or event handlers (`Dialog`, `Tabs`, `Combobox`, `Carousel`). Stateless primitives (`Card`, `Stack`, `Text`) stay server. |
+| SDKs         | Client (almost always)                | The whole `SdkProvider` is necessarily client-side — Context lives in the React tree, and most SDK methods (router, analytics, http) only work in the browser.       |
+| Blocks       | Mostly Client                          | Anything that calls `useSdk()` or any state hook is client. _Pure_ blocks (a static `ProductPriceLabel` that just formats a number) can be Server Components if they take serialisable props. |
+| Widgets      | Server-Component shell, Client islands | The widget's data fetching and serialisable rendering can be Server; the interactive parts (carousel, filters, "Add to cart" button) are Client. Pass Server Components into Client Components as `children` props to keep the seam thin. |
+| Layout / page | Server                                 | The page itself orchestrates data; the registry's lazy-loaded widgets become async server components or client islands depending on the widget.                      |
+
+Two practical consequences for this architecture:
+
+1. **The `'use client'` boundary belongs at the highest possible layer.** Every consumer of `useSdk` must be inside a Client subtree, so `SdkProvider` lives inside the root client boundary in `app/providers.tsx`. Pages that don't need the SDK can stay as Server Components and simply not import `SdkProvider`.
+2. **Blocks that need to be islands should accept `children` as a serialisable prop.** This is the [server-into-client composition pattern](https://react.dev/reference/rsc/use-client#interleaving-server-and-client-components) — a Client Component cannot import a Server Component, but it _can_ render any `children` you pass it. So a `<ProductCarousel>` (Client) renders its `<ProductCard>` children that come from a Server Component, and the cards never get bundled into the client JS.
+
+> [!NOTE]
+> The `eslint-plugin-boundaries` rules above stay correct for RSC, but you will want to add a second-axis rule that prevents Server Components from importing the `'use client'` boundary directly. Next.js's [`server-only`](https://nextjs.org/docs/app/getting-started/server-and-client-components#preventing-environment-poisoning) and [`client-only`](https://www.npmjs.com/package/client-only) packages are the standard guard.
+
+---
+
+## Anti-patterns and failure modes
+
+The architecture has a small set of failure modes that surface predictably as the codebase grows. They're worth naming so reviewers can flag them by name rather than re-arguing the principle each time.
+
+| Anti-pattern                                                              | What goes wrong                                                                                                          | Fix                                                                                                                              |
+| :------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| **Framework imports leak into Blocks/Widgets**                            | `next/navigation` reappears in a Block "for one quick PR" and the SDK boundary stops being load-bearing.                 | The `no-restricted-imports` rule in the [ESLint config](#eslint-configuration) above must be `error`, not `warn`, and CI must block on it. |
+| **One mega-`SdkContext` value with mutable state inside**                 | Every consumer of any SDK re-renders when any field changes; performance collapses on busy pages.                        | Keep service _identities_ stable for the app's lifetime; put per-render data in a separate Context or a state library.                |
+| **Compound component reading parent state via prop drilling**             | `Tabs.Trigger` accepts a giant `parentTabsApi` prop instead of using `useTabs()`; consumers can no longer reorder children. | Always share compound state via Context; never expose internals as props.                                                          |
+| **Controlled input with no `value`/`defaultValue` distinction**           | Switching from controlled to uncontrolled (or vice versa) triggers React's "A component is changing an uncontrolled input to be controlled" warning and the DOM resets unexpectedly. | Pick one mode at mount and never switch — when both `value` and `defaultValue` are accepted, treat `value === undefined` as the uncontrolled signal. |
+| **Nested render-prop pyramids**                                           | `<A>{a => <B>{b => <C>{c => …}</C>}</B>}</A>` becomes unreadable; reviewers stop catching bugs.                            | Convert each render prop to a hook — that's exactly what hooks were introduced for in 16.8.                                       |
+| **Ad-hoc widget registries inside page files**                            | Each page builds its own `switch (type) {}`; widgets stop being lazy-loaded; bundle size balloons.                      | Centralise registries per page-type as in [Registry Implementation](#registry-implementation); enforce via `boundaries/element-types`. |
+| **Missing error / suspense boundaries around lazy widgets**               | One widget throws → the whole page errors → pixel-perfect designs become a server-rendered error page.                   | Default `withErrorBoundary: true` and `withSuspense: true` in the registry; use [error boundaries](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary) and `<Suspense>` per the docs. |
+| **`'use client'` on the application root**                                | Marking `app/layout.tsx` as `'use client'` opts the entire tree out of Server Components and ships everything as JS.     | Keep `'use client'` at the smallest viable subtree; use the children-prop seam to interleave Server Components inside Client Components. |
+| **Reaching into a barrel's internals (`@blocks/x/internal-helper`)**     | Dev-mode HMR collapses; refactors break consumers; the barrel stops being a contract.                                    | The `no-restricted-imports` patterns rule in the [ESLint config](#eslint-configuration) blocks `@blocks/*/*` imports.              |
+
+The two operational failure modes worth monitoring after launch:
+
+1. **HMR latency on Vite for any Block / Widget under active development.** Symptoms: a one-line edit takes 2–5 s to reflect. Cause: deep barrels in the dependency graph. Fix: subpath `package.json` `exports`, or `optimizePackageImports` on Next.js (see the [warning callout](#5-explicit-public-apis) above).
+2. **Test files mocking framework code anyway.** Symptoms: a `vi.mock("next/navigation")` appears in PRs despite the SDK pattern being in place. Cause: a Block or Widget bypassed the SDK. Treat any such mock as a code-smell and trace it back to the import that should have gone through `useSdk()`.
+
+---
+
 ## Testability
+
+The whole point of the Context-based DI is that a test never has to mock framework code. A `TestSdkProvider` wraps the component under test, builds a `createMockSdk()` services object (Vitest spies by default), and feeds it to the same `SdkContext.Provider` the production app uses. The component reads from `useSdk()`, gets back the spies, and the test asserts against those spies — no `vi.mock("next/navigation")`, no JSDOM patches.
+
+![Sequence: a Vitest test renders TestSdkProvider, which creates mock SDK services, mounts SdkContext.Provider with them, the component calls useSdk and receives the spies, and the test asserts on them.](./diagrams/test-injection-sequence-light.svg "How a test injects a mocked SDK into a component without touching framework internals.")
+![Sequence: a Vitest test renders TestSdkProvider, which creates mock SDK services, mounts SdkContext.Provider with them, the component calls useSdk and receives the spies, and the test asserts on them.](./diagrams/test-injection-sequence-dark.svg)
 
 ### Test SDK Provider
 
@@ -1739,7 +1941,10 @@ describe('AddToCartButton', () => {
 
 ### TypeScript Configuration
 
-> **Version Context (TypeScript 5.x):** All strict flags shown are current as of TypeScript 5.6 (2024). TypeScript 6.0 (unreleased) will enable `--strict` by default, making this configuration the baseline.
+> [!NOTE]
+> **Version context (TypeScript 6.0 makes strict the default)**
+>
+> All strict flags shown were the recommended baseline through the TypeScript 5.x line. As of [TypeScript 6.0 (released 2026-03-23)](https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/), `"strict": true` is the default — explicitly setting it remains valid and is recommended for clarity. TypeScript 7.0 will be the new Go-based compiler ([release notes](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html)); options deprecated in 6.0 (`baseUrl`, `outFile`, `alwaysStrict: false`, …) will be removed there, so audit your `tsconfig` before upgrading past 6.0.
 
 ```jsonc
 // tsconfig.json
@@ -1842,13 +2047,20 @@ describe('AddToCartButton', () => {
 
 ---
 
-## Conclusion
+## Practical takeaways
 
-This architecture inverts control at every layer: components declare dependencies via interfaces, the application shell provides implementations, and tests inject mocks. The result is a codebase where business logic is portable across frameworks and testable without framework mocking.
+The architecture inverts control at every layer: components declare dependencies via TypeScript interfaces, the application shell provides implementations, and tests inject mocks through the same Context. The result is a codebase where business logic is portable across frameworks and testable without `jest.mock("next/navigation")` or its Remix / react-router equivalents.
 
-The trade-offs are real: additional boilerplate (~15% more code), a steeper learning curve for developers unfamiliar with DI patterns, and slower initial development velocity. These costs pay off in long-lived codebases with multiple teams or expected framework migrations.
+The trade-offs are real and worth naming up front: an extra ~10–15% of boilerplate at the file level, a steeper learning curve for developers unfamiliar with DI patterns, and slower initial velocity for the first few features. They pay off in long-lived codebases that ship across multiple teams, share components across apps, or anticipate a framework migration in the next two to three years.
 
-**Start incrementally:** Begin with the SDK abstraction for your most-mocked dependency (usually routing or HTTP). Add boundary enforcement when you see cross-layer imports creeping in. The full architecture emerges from solving real problems, not upfront design.
+Adopt it incrementally rather than in one sweep:
+
+1. Start with the SDK abstraction for the dependency you mock most. In our experience, routing and HTTP are the usual culprits.
+2. Land the `boundaries/element-types` rule with `default: "disallow"` _before_ you start adding many widgets — adding it later means a painful one-shot refactor.
+3. Wire `TestSdkProvider` into your existing test helpers; convert the tests that currently mock framework code first, since those break the most often.
+4. Add the per-page Widget Registry only when you actually have a BFF or server-driven UI driving page composition. Pure-React apps with statically composed pages do not need this layer.
+
+The full architecture emerges from solving real problems, not from upfront design.
 
 ---
 
@@ -1892,34 +2104,61 @@ Architectural context:
 
 ### Summary
 
-- **Inversion of Control** via React Context enables testability without framework mocking
-- **Layered boundaries** (Primitives → Blocks → Widgets) prevent coupling; `eslint-plugin-boundaries` enforces at build time
-- **SDK abstractions** wrap framework APIs, enabling migration by swapping implementations
-- **Barrel files** define public APIs but require `sideEffects: false` and awareness of dev-mode HMR performance
-- **TypeScript strict mode** is non-negotiable for large codebases; all flags shown become defaults in TS 6.0
-- This pattern trades initial velocity for long-term maintainability—best suited for multi-team apps or expected framework migrations
+- **Inversion of Control via React Context** removes the need for framework mocking; tests inject a `TestSdkProvider` instead.
+- **Layered boundaries** (Primitives → Blocks → Widgets → Registries → Layout) keep coupling under control; `eslint-plugin-boundaries` makes violations CI failures.
+- **SDK abstractions** quarantine framework imports to a single `app/providers.tsx` so a Next.js → Remix migration is a re-implementation, not a rewrite.
+- **Barrel files** are fine at the app root but penalise dev HMR if used deep in the tree; prefer subpath `exports`, `optimizePackageImports`, or a barrel-files lint rule for component libraries.
+- **TypeScript strict mode** stops being a discussion in TS 6.0+ — it becomes the default; keep the flags explicit in `tsconfig.json` for forward compatibility.
+- The pattern is overkill for a single-team app with no migration plans; adopt it incrementally, starting with the SDK for the dependency you mock most.
 
 ### References
 
-**Specifications and Official Documentation:**
+Official specifications and documentation:
 
-- [React Context - Official Documentation](https://react.dev/reference/react/createContext) - API reference for Context, the foundation of this DI pattern
-- [TypeScript TSConfig Reference](https://www.typescriptlang.org/tsconfig/) - Official documentation on strict mode and compiler options
-- [Vite Performance Guide](https://vite.dev/guide/performance) - Official guidance on optimizing builds and dev server performance
-- [ESLint Flat Config](https://eslint.org/docs/latest/use/configure/configuration-files-new) - ESLint 9+ configuration format used in this article
+- [`createContext` reference — react.dev](https://react.dev/reference/react/createContext) — API contract for the DI substrate; React 19 also allows `<Context value={…}>` directly.
+- [`React.lazy` reference — react.dev](https://react.dev/reference/react/lazy) — code-splitting primitive used by the registries.
+- [Passing JSX as children — react.dev](https://react.dev/learn/passing-props-to-a-component#passing-jsx-as-children) — current canonical "composition over inheritance" guidance.
+- [Sharing State Between Components — react.dev](https://react.dev/learn/sharing-state-between-components) — the "lift state up" pattern and when to apply it.
+- [Server Components — react.dev](https://react.dev/reference/rsc/server-components) and [`'use client'` — react.dev](https://react.dev/reference/rsc/use-client) — RSC runtime semantics and the client-boundary rule.
+- [`useActionState` — react.dev](https://react.dev/reference/react/useActionState) — React 19 form action hook used for the uncontrolled-input recommendation.
+- [Catching rendering errors with an error boundary — react.dev](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary) — the canonical error-boundary contract used by the registry.
+- [React 19 release notes — react.dev (2024-12-05)](https://react.dev/blog/2024/12/05/react-19) — current stable React reference.
+- [React Compiler — react.dev](https://react.dev/learn/react-compiler) — auto-memoisation; 1.0 stable since October 2025.
+- [TypeScript 6.0 release notes — typescriptlang.org](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html) — strict-by-default and deprecation list.
+- [TypeScript `tsconfig` reference — typescriptlang.org](https://www.typescriptlang.org/tsconfig/) — every compiler option used above.
+- [ESLint v9.0.0 release post — eslint.org (2024-04-05)](https://eslint.org/blog/2024/04/eslint-v9.0.0-released/) — flat config becomes the default.
+- [Vite performance guide — vite.dev](https://vite.dev/guide/performance) — explains why dev mode is on-demand transforms, not tree-shaking.
+- [Next.js `optimizePackageImports` — nextjs.org](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports) — Next.js 13.5+ barrel-file optimisation, current default-list.
 
-**Core Maintainer Content:**
+Accessibility (W3C / WAI):
 
-- [React Context for Dependency Injection](https://testdouble.com/insights/react-context-for-dependency-injection-not-state-management) - Test Double on using Context for DI instead of state management
-- [Please Stop Using Barrel Files](https://tkdodo.eu/blog/please-stop-using-barrel-files) - TkDodo (TanStack Query maintainer) on barrel file trade-offs and tree-shaking
+- [WAI-ARIA Authoring Practices Guide — Patterns index](https://www.w3.org/WAI/ARIA/apg/patterns/) — canonical map from widget pattern to ARIA roles, states, and keyboard interaction.
+- [APG: Combobox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) and [Tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) — the two compound widgets cited in the Composition primitives section.
+- [APG: Roving tabindex guidance](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_roving_tabindex) — the keyboard pattern every list-of-controls primitive needs.
+- [View Transition API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API) and [Same-document view transitions are now Baseline Newly available — web.dev (2025-10-14)](https://web.dev/blog/same-document-view-transitions-are-now-baseline-newly-available) — current support snapshot for SPA transitions.
 
-**Tools and Libraries:**
+Headless component libraries (Primitives layer reference):
 
-- [eslint-plugin-boundaries](https://github.com/javierbrea/eslint-plugin-boundaries) - ESLint plugin (5.x+) for enforcing architectural boundaries
-- [Next.js optimizePackageImports](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports) - Next.js 14+ configuration for barrel file optimization
-- [Vitest](https://vitest.dev/) - Testing framework compatible with Vite and React, used in examples
+- [Radix Primitives — radix-ui.com](https://www.radix-ui.com/primitives) — compound primitives with built-in ARIA, focus, and keyboard handling.
+- [React Aria / React Aria Components — react-spectrum.adobe.com](https://react-spectrum.adobe.com/react-aria/) — Adobe's accessibility hooks plus a parallel component layer; broadest screen-reader and locale coverage.
+- [Headless UI — headlessui.com](https://headlessui.com/) — Tailwind Labs' compound-component set.
+- [Reach UI — reach.tech](https://reach.tech/) — the predecessor to Radix; in maintenance mode.
+- [`focus-trap-react` — github.com/focus-trap/focus-trap-react](https://github.com/focus-trap/focus-trap-react) — minimal focus-trap implementation when you can't take a Radix or React Aria dep.
 
-**Industry Expert Blogs:**
+Maintainer and primary-source practitioner content:
 
-- [Dependency Injection in React](https://blog.logrocket.com/dependency-injection-react/) - LogRocket guide covering props, Context, and custom hooks patterns
-- [React Patterns](https://krasimir.gitbooks.io/react-in-patterns/content/) - Krasimir Tsonev's guide to React patterns including dependency injection
+- [React Context is not a state management tool — Mark Erikson (Redux maintainer)](https://blog.isquaredsoftware.com/2021/01/blogged-answers-why-react-context-is-not-a-state-management-tool-and-why-it-doesnt-replace-redux/) — the canonical "Context is for DI, not state" essay.
+- [Presentational and Container Components — Dan Abramov (2015 + 2019 update)](https://medium.com/@dan_abramov/smart-and-dumb-components-7ca2f9a7c7d0) — the original framing and the explicit retirement note that hooks subsume the split.
+- [Please Stop Using Barrel Files — TkDodo (TanStack Query maintainer)](https://tkdodo.eu/blog/please-stop-using-barrel-files) — the barrel-files dev-cost survey cited above.
+- [How we optimized package imports in Next.js — Vercel engineering blog](https://vercel.com/blog/how-we-optimized-package-imports-in-next-js) — primary source on `optimizePackageImports` (introduced in 13.5).
+
+Tools and libraries:
+
+- [`eslint-plugin-boundaries` — github.com/javierbrea/eslint-plugin-boundaries](https://github.com/javierbrea/eslint-plugin-boundaries) — boundary plugin used in the lint config above (v5.0+ for flat config; v6.x current major).
+- [`server-only` — Next.js docs](https://nextjs.org/docs/app/getting-started/server-and-client-components#preventing-environment-poisoning) and [`client-only` — npm](https://www.npmjs.com/package/client-only) — RSC environment-poisoning guards.
+- [Vitest — vitest.dev](https://vitest.dev/) — Vite-native testing framework used in the test examples.
+
+Wider community context (treat as leads, not evidence):
+
+- [React Context for Dependency Injection — Test Double](https://testdouble.com/insights/react-context-for-dependency-injection-not-state-management) — practitioner write-up that mirrors the framing here.
+- [Dependency Injection in React — LogRocket](https://blog.logrocket.com/dependency-injection-react/) — props / Context / custom-hook variants in one place.

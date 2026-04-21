@@ -1,0 +1,16 @@
+%% Diagram: Outbound message lifecycle state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Queued: enqueue (after 202)
+    Queued --> Sending: worker picks up
+    Sending --> Delivered: 2xx from MX
+    Sending --> Deferred: 4xx (timeout, throttle)
+    Sending --> Bounced: 5xx (mailbox unknown, policy)
+    Deferred --> Sending: backoff elapsed
+    Deferred --> Bounced: give-up timer hit ~5d RFC 5321
+    Deferred --> DelayedDSN: >4h still deferred
+    DelayedDSN --> Sending: continue retrying
+    Bounced --> Suppressed: hard bounce -> add to suppression list
+    Delivered --> [*]
+    Suppressed --> [*]

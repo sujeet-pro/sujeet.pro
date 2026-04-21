@@ -1,0 +1,21 @@
+%% Diagram: BeginImplFrame → Activate → Draw → Swap → Present timeline (mapped to Life-of-a-Frame steps).
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    BIF["[1] BeginImplFrame<br/>(VSync N)"] --> BMF["[3] BeginMainFrame<br/>(if main-thread damage)"]
+    BMF --> COMMIT["[5] Commit<br/>(blocks main thread)"]
+    COMMIT --> RAS["[6] Wait for raster<br/>(may be async / OOP-R)"]
+    RAS --> ACT["[7] Activate<br/>(pending → active tree)"]
+    ACT --> SUBMIT["[9] SubmitCompositorFrame"]
+    SUBMIT --> AGG["[10] AggregateSurfaces<br/>(SurfaceAggregator)"]
+    AGG --> DRAW["[11] Draw Frame<br/>(SkiaRenderer records DDLs)"]
+    DRAW --> RSWAP["[12] RequestSwap"]
+    RSWAP --> GPUDRAW["[15] GPU Draw<br/>(replay on GPU)"]
+    GPUDRAW --> SWAP["[16] Swap<br/>(may block on queued swaps)"]
+    SWAP --> PRES["[17] Presentation<br/>(scanout at VBlank N+1 or N+2)"]
+
+    classDef impl fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef viz fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef gpu fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    class BIF,BMF,COMMIT,RAS,ACT,SUBMIT impl
+    class AGG,DRAW,RSWAP viz
+    class GPUDRAW,SWAP,PRES gpu

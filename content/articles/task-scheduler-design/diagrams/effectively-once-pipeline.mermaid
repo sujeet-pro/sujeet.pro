@@ -1,0 +1,18 @@
+%% Diagram: Effectively-once = at-least-once delivery + idempotent processing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    P["Producer<br/>scheduler"] --> Q[("Durable<br/>queue")]
+    Q --> W1["Worker A<br/>attempt 1"]
+    Q --> W2["Worker B<br/>attempt 2 (retry)"]
+    W1 --> DB[("State store<br/>UNIQUE on key")]
+    W2 --> DB
+    DB --> ACT["First call:<br/>charge card"]
+    DB --> NOOP["Second call:<br/>unique violation,<br/>treat as success"]
+    ACT --> ACK["ACK to queue"]
+    NOOP --> ACK
+
+    classDef ok fill:#d5e8d4,stroke:#82b366,color:#000
+    classDef warn fill:#fff2cc,stroke:#d6b656,color:#000
+    class ACK,ACT ok
+    class NOOP warn

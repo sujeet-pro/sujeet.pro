@@ -1,0 +1,35 @@
+%% Diagram: Picture and srcset Selection Algorithm
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    START(["Browser parses\n<picture>"])
+    SRC{"For each <source>\nin document order"}
+    MEDIA{"media query matches\nAND type supported?"}
+    SKIP["Skip this source"]
+    PICKED["Adopt this source's\nsrcset + sizes"]
+    FALLBACK["No source matched\nUse <img> srcset/src"]
+    PARSE["Parse 'sizes'\nfirst matching media\ncondition wins"]
+    SLOT["Slot width = chosen\n'sizes' length"]
+    DPR["Required pixels\n= slot * devicePixelRatio"]
+    PICK["Pick smallest 'srcset'\ncandidate >= required"]
+    FETCH(["Fetch & decode"])
+
+    START --> SRC
+    SRC --> MEDIA
+    MEDIA -->|no| SKIP
+    SKIP --> SRC
+    MEDIA -->|yes| PICKED
+    SRC -->|exhausted| FALLBACK
+    PICKED --> PARSE
+    FALLBACK --> PARSE
+    PARSE --> SLOT
+    SLOT --> DPR
+    DPR --> PICK
+    PICK --> FETCH
+
+    classDef step fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef terminal fill:#1F6E68,stroke:#155752,color:#ffffff
+    class PARSE,SLOT,DPR,PICK,PICKED,FALLBACK,SKIP step
+    class SRC,MEDIA decision
+    class START,FETCH terminal

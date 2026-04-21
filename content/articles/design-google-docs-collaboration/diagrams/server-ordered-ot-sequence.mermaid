@@ -1,0 +1,18 @@
+%% Diagram: Server-ordered OT sequence (Jupiter style)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client 1
+    participant S as Server
+    participant C2 as Client 2
+
+    Note over C1,C2: Both clients start at revision 5
+    C1->>S: Op1 — insert "x" at 0 (base rev 5)
+    C2->>S: Op2 — delete at 4 (base rev 5)
+    S->>S: Apply Op1 → rev 6
+    S->>S: Transform Op2 against Op1 → Op2'
+    S->>C1: Ack Op1 (rev 6)
+    S->>C2: Op1 (rev 6)
+    S->>S: Apply Op2' → rev 7
+    S->>C1: Op2' — delete at 5 (rev 7)
+    S->>C2: Ack Op2' (rev 7)

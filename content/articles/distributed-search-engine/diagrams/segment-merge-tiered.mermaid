@@ -1,0 +1,31 @@
+%% Diagram: Tiered Segment Merge Lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    BUF["In-memory buffer\nrefresh every 1s"]
+    BUF -->|flush| T0
+
+    subgraph T0["Tier 0 - small segments (~1-10 MB)"]
+        S0a["seg-1"]
+        S0b["seg-2"]
+        S0c["seg-3"]
+        S0d["seg-4"]
+        S0e["seg-5"]
+    end
+
+    subgraph T1["Tier 1 - medium segments (~10-500 MB)"]
+        S1a["seg-A"]
+        S1b["seg-B"]
+        S1c["seg-C"]
+    end
+
+    subgraph T2["Tier 2 - large segments (~500 MB - 5 GB)"]
+        S2a["seg-X"]
+        S2b["seg-Y"]
+    end
+
+    T0 -->|"merge when count ≥ segments_per_tier"| T1
+    T1 -->|"merge"| T2
+    T2 -.->|"capped at max_merged_segment (5 GB)"| T2
+
+    DEL[".liv tombstone bitmap"] -.->|"deletes physically removed during merge"| T1

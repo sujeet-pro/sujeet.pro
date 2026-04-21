@@ -2,188 +2,153 @@
 title: Image Loading Optimization
 linkTitle: 'Image Loading'
 description: >-
-  Balancing fast LCP, bandwidth efficiency, and layout stability through native
-  lazy loading, responsive images, modern formats (AVIF/WebP), priority hints,
-  and CLS prevention techniques with real-world browser threshold data.
+  How to deliver images on the web without trading LCP for CLS or bandwidth for
+  fidelity — native lazy loading, responsive images, AVIF/WebP negotiation,
+  fetchpriority, preload, and the layout-shift mechanics behind width/height.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
-  - system-design
-  - architecture
+  - performance
+  - web-vitals
+  - browser
 ---
 
 # Image Loading Optimization
 
-Client-side strategies for optimizing image delivery: lazy loading, responsive images, modern formats, and Cumulative Layout Shift (CLS) prevention. Covers browser mechanics, priority hints, and real-world implementation patterns.
+Image delivery on the web is a four-axis optimization: load the [LCP](https://web.dev/articles/lcp) candidate fast, defer everything else, ship the smallest format the client can decode, and reserve space before pixels arrive so the page does not jump under the user's finger. Almost every "slow site" investigation that ends in an image fix lands on one of those four axes; the platform now exposes good primitives for each, but they are easy to combine wrong.
 
-![Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.](./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter-light.svg "Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.")
-![Image loading pipeline: from discovery through rendering. Priority decisions determine load timing; format selection happens at request time; space reservation prevents layout shift.](./diagrams/image-loading-pipeline-from-discovery-through-rendering-priority-decisions-deter-dark.svg)
+This article is for senior frontend engineers who want a single mental model for the mechanics — the [preload scanner](https://web.dev/articles/preload-scanner), [`loading`](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#lazy-loading-attributes), [`fetchpriority`](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fetch-priority-attribute), [`<picture>`](https://html.spec.whatwg.org/multipage/embedded-content.html#the-picture-element), [`srcset`/`sizes`](https://html.spec.whatwg.org/multipage/images.html#sizes-attributes), and the implicit [`aspect-ratio`](https://html.spec.whatwg.org/multipage/rendering.html#map-to-the-aspect-ratio-property-(using-dimension-rules)) mapping — plus the trade-offs you only see at production scale (CDNs, format negotiation, placeholders, accessibility).
 
-## Abstract
+![Image loading pipeline: discovery, scheduling, network, and render. The preload scanner and fetchpriority decide when a request fires; format negotiation picks the bytes; width/height reserves the box before decode finishes.](./diagrams/image-loading-pipeline-light.svg "Image loading pipeline: discovery, scheduling, network, and render. The preload scanner and fetchpriority decide when a request fires; format negotiation picks the bytes; width/height reserves the box before decode finishes.")
+![Image loading pipeline: discovery, scheduling, network, and render.](./diagrams/image-loading-pipeline-dark.svg)
 
-Image loading optimization balances three competing goals: **fast LCP** (load critical images early), **bandwidth efficiency** (defer non-critical images, serve optimal formats), and **layout stability** (prevent CLS by reserving space).
+## Mental model
 
-The browser's resource scheduler prioritizes images based on viewport position and explicit hints (`fetchpriority`, `loading`). Native lazy loading defers off-screen images using browser-determined thresholds that vary by vendor and connection type—Chrome uses 1250-2500px, Firefox 600-800px, Safari ~100px. You cannot customize these thresholds.
+Three browser subsystems and two HTML attributes do almost all of the work. Hold these in your head and the rest of the article is a tour of failure modes.
 
-Modern format delivery (`<picture>` with AVIF/WebP sources, or Accept-header content negotiation) reduces payload by 30-60% over JPEG. CLS prevention requires either explicit `width`/`height` attributes (browser calculates aspect ratio) or CSS `aspect-ratio`—both reserve space before image data arrives.
+| Subsystem | What it does | What you control |
+| :--- | :--- | :--- |
+| Preload scanner | Speculatively parses HTML ahead of the main parser to discover `src`, `srcset`, `<link rel=preload>`, etc. ([web.dev](https://web.dev/articles/preload-scanner)) | Anything in HTML — not in CSS or runtime JS |
+| Resource scheduler | Assigns each fetch a priority based on resource type, position, and `fetchpriority` ([WHATWG](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fetch-priority-attribute)) | `fetchpriority="high"`, `<link rel=preload>` |
+| Layout / paint pipeline | Reserves a box for each replaced element, paints once decode completes ([web.dev — CLS](https://web.dev/articles/cls)) | `width`/`height` attributes, CSS `aspect-ratio` |
 
-The highest-impact optimization: preload LCP images with `fetchpriority="high"`, serve modern formats via CDN, and always specify dimensions.
+The two attributes that gate the most user-visible behavior:
 
-## The Challenge
+- **`loading="lazy"`** — defers the request until the image is "about to intersect the viewport". The exact distance is browser-defined and varies by connection ([WHATWG HTML — lazy loading attribute](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#lazy-loading-attributes)).
+- **`fetchpriority="high|low|auto"`** — a hint, not a directive, that nudges the resource scheduler ([web.dev — Fetch Priority](https://web.dev/articles/fetch-priority)).
 
-### Browser Constraints
+> [!IMPORTANT]
+> The single highest-impact rule: **never `loading="lazy"` on the LCP image**, and always declare its dimensions. Everything else in this article tunes the long tail.
 
-Images compete for limited resources during page load:
+## The constraint surface
 
-| Resource            | Budget                   | Image Impact                                |
-| ------------------- | ------------------------ | ------------------------------------------- |
-| Network connections | 6 per origin (HTTP/1.1)  | Large images block other requests           |
-| Main thread         | 16ms per frame           | Decode can block rendering                  |
-| Memory              | 50-500MB practical limit | Uncompressed bitmaps consume ~4 bytes/pixel |
-| Bandwidth           | Variable                 | Dominant payload on most pages              |
+Images compete for every constrained resource on the page-load path:
 
-**Main thread blocking**: Image decoding historically ran on the main thread. A 4K image (3840×2160) requires ~33MB uncompressed, blocking the thread for 50-200ms during decode. Modern browsers decode asynchronously by default, but `decoding="sync"` forces blocking behavior.
+| Resource | Budget | Image impact |
+| :--- | :--- | :--- |
+| Network connections | 6 per origin on HTTP/1.1 (Chromium, hardcoded[^chromium-conns]) | Large images block other GETs on the same host |
+| Frame budget | ~16.7 ms at 60 Hz | Synchronous decode of a hero image easily blows it |
+| Memory | Mobile devices commonly cap a process at hundreds of MB | A 4K image in RGBA is ~33 MB uncompressed (3840 × 2160 × 4 bytes[^web-dev-compress]) |
+| Bandwidth | Variable; the 90th percentile site ships > 5 MB of images[^http-archive] | Dominant payload on most pages |
 
-### Competing Goals
+[^chromium-conns]: Chromium ships a hardcoded `kMaxSocketsPerGroup = 6` for HTTP/1.1; see the long-running configurability discussion at [Chromium issue 40580943](https://issues.chromium.org/issues/40580943).
+[^web-dev-compress]: [web.dev — Choose the correct level of compression](https://web.dev/articles/compress-images) walks through the bytes-per-pixel math.
+[^http-archive]: [HTTP Archive — Page Weight](https://httparchive.org/reports/page-weight) reports that images remain the largest payload on most sites.
 
-| Goal              | Strategy                  | Trade-off                   |
-| ----------------- | ------------------------- | --------------------------- |
-| Fast LCP          | Preload, high priority    | Delays other resources      |
-| Bandwidth savings | Lazy load, modern formats | Slower off-screen discovery |
-| Layout stability  | Reserve space             | Requires known dimensions   |
-| Device adaptation | Responsive images         | Increased markup complexity |
+Three goals are in tension and you can only optimize for two at a time per image:
 
-### Scale Factors
+| Goal | Lever | What it costs |
+| :--- | :--- | :--- |
+| Fast LCP | Preload, `fetchpriority="high"` | Bandwidth and contention for other above-the-fold assets |
+| Bandwidth efficiency | `loading="lazy"`, modern formats, responsive variants | Slightly later off-screen image discovery, server/build complexity |
+| Layout stability | `width`/`height` or `aspect-ratio` | Markup discipline; sometimes cropping |
 
-| Metric            | Small Scale | Large Scale     |
-| ----------------- | ----------- | --------------- |
-| Images per page   | < 10        | > 100           |
-| Total payload     | < 500KB     | > 5MB           |
-| Viewport coverage | Hero only   | Infinite scroll |
-| Format variants   | 1           | 3-5 per image   |
+The right answer is per-image, not per-site. The decision tree later in [§ Priority hints and preloads](#priority-hints-and-preloads) makes it concrete.
 
-## Design Paths
+## Native lazy loading
 
-### Path 1: Native Lazy Loading
+`loading="lazy"` defers the request until the browser's heuristic decides the image is close enough to the viewport to matter. It is the simplest, most cache-friendly option and is correct for every below-the-fold image that is not the LCP candidate.
 
-**How it works:**
-
-The `loading="lazy"` attribute defers image loading until the element approaches the viewport. The browser tracks scroll position and begins fetching when the image crosses a distance threshold.
-
-```html
+```html title="lazy.html"
 <img src="photo.jpg" loading="lazy" width="640" height="480" alt="Description" />
 ```
 
-**Browser thresholds (distance from viewport):**
+### What "about to intersect" actually means
 
-| Browser     | Fast connection (4G+) | Slow connection (3G) |
-| ----------- | --------------------- | -------------------- |
-| Chrome/Edge | 1250px                | 2500px               |
-| Firefox     | 600-800px             | 600-800px            |
-| Safari      | ~100px                | ~100px               |
+The HTML spec deliberately leaves the threshold to the user agent ([WHATWG — will lazy load image steps](https://html.spec.whatwg.org/#will-lazy-load-image-steps)). Each engine picks its own:
 
-These thresholds are hardcoded—you cannot customize them via JavaScript or CSS. Chrome adjusts based on the reported connection type; Firefox and Safari use fixed values.
+| Browser | Behavior | Source |
+| :--- | :--- | :--- |
+| Chromium | Distance from viewport: **1250 px on 4G**, **2500 px on slow connections** (down from 3000/4000 in July 2020) | [web.dev](https://web.dev/articles/browser-level-image-lazy-loading#improved-data-savings-and-distance-from-viewport-thresholds), pulled from [`settings.json5`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/frame/settings.json5) |
+| Firefox | Loads when the image intersects the viewport (effectively zero margin); configurable via `dom.image-lazy-loading.root-margin.*` prefs | [Bugzilla 1618240 — RESOLVED WORKSFORME](https://bugzilla.mozilla.org/show_bug.cgi?id=1618240) |
+| Safari | "When the user scrolls near the image" — no public threshold; in practice closer to Firefox's behavior than Chromium's | [WebKit blog — Safari 15.4](https://webkit.org/blog/12445/new-webkit-features-in-safari-15-4/) |
 
-**Critical requirement**: Always include `width` and `height` attributes. Without dimensions:
+Treat the threshold as opaque. If you need a guaranteed margin (e.g. "load the next two screens of an infinite feed"), drop down to Intersection Observer — see the next section.
 
-1. Browser cannot reserve space → CLS occurs
-2. Browser may assume image fits in viewport → loads immediately regardless of `loading="lazy"`
+Browser support is universal in modern browsers: Chrome 77+, Edge 79+, Firefox 75+, Safari 15.4+ ([web.dev](https://web.dev/articles/browser-level-image-lazy-loading)).
 
-**Edge cases:**
+### Failure modes
 
-- **Print stylesheets**: Lazy images may not load when printing; consider `@media print { img { loading: eager; } }` workaround (requires JavaScript to toggle)
-- **Search engines**: Googlebot executes JavaScript and triggers lazy loading, but some crawlers don't wait—test with Google Search Console
-- **`display: none` images**: Browsers may still load them; `loading="lazy"` behavior is inconsistent here
-- **Dynamic insertion**: Images added via JavaScript after DOMContentLoaded are evaluated against current scroll position
+> [!CAUTION]
+> Lazy-loading the LCP image directly delays it. The browser must complete layout to decide the image is in-viewport before requesting it; that pushes the GET past the critical path and tanks LCP. The web.dev page on lazy loading [calls this out explicitly](https://web.dev/articles/browser-level-image-lazy-loading#eager-load-first-images).
 
-**Browser support**: Chrome 77+ (2019), Firefox 75+ (2020), Safari 15.4+ (2022). ~95%+ global coverage. Unsupported browsers ignore the attribute and load immediately.
+Two more sharp edges that bite in production:
 
-**Best for:**
+- **Missing dimensions promote to eager.** Without `width`/`height`, Chromium cannot determine whether the image fits in the initial viewport and may load it immediately, defeating `loading="lazy"`. Always declare dimensions.
+- **Print stylesheets defer too.** Lazy images may not render in print. If print fidelity matters, force eager via JS before `window.print()`.
+- **`display: none` is implementation-defined.** Engines disagree on whether to skip the request. Don't rely on `loading="lazy"` as a way to suppress hidden images; gate the markup itself.
 
-- Below-the-fold images
-- Long-form content with many images
-- Infinite scroll implementations
+Browsers without support simply ignore the attribute and load eagerly — a safe degradation.
 
-**Not for:**
+## Intersection Observer for finer control
 
-- LCP candidates (hero images, above-the-fold content)
-- Images that must be visible immediately
+Native lazy loading covers ~95% of cases. Reach for [Intersection Observer](https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API) when you need behavior the platform doesn't expose: a custom `rootMargin`, lazy loading inside a non-viewport scroll container, or pre-warming images in the user's scroll direction.
 
-### Path 2: Intersection Observer (Custom Lazy Loading)
+```typescript title="lazy-observer.ts" collapse={1-3}
+const loaded = new WeakSet<HTMLImageElement>()
 
-**How it works:**
-
-JavaScript-based lazy loading using Intersection Observer API for fine-grained control over loading thresholds and behavior.
-
-```typescript collapse={1-3}
-// Track which images have been loaded
-const loadedImages = new WeakSet<HTMLImageElement>()
-
-function lazyLoadImages(options: IntersectionObserverInit = {}) {
+export function lazyLoadImages(options: IntersectionObserverInit = {}) {
   const observer = new IntersectionObserver(
     (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const img = entry.target as HTMLImageElement
-          const src = img.dataset.src
-          if (src && !loadedImages.has(img)) {
-            img.src = src
-            loadedImages.add(img)
-            observer.unobserve(img)
-          }
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const img = entry.target as HTMLImageElement
+        const src = img.dataset.src
+        if (src && !loaded.has(img)) {
+          img.src = src
+          loaded.add(img)
+          observer.unobserve(img)
         }
-      })
+      }
     },
     {
-      rootMargin: "200px 0px", // Start loading 200px before viewport
-      threshold: 0.01, // Trigger when 1% visible
+      rootMargin: "200px 0px",
+      threshold: 0.01,
       ...options,
     },
   )
 
-  document.querySelectorAll("img[data-src]").forEach((img) => {
-    observer.observe(img)
-  })
-
+  document.querySelectorAll<HTMLImageElement>("img[data-src]").forEach((img) => observer.observe(img))
   return observer
 }
 ```
 
-**Customizable parameters:**
+| Capability | `loading="lazy"` | Intersection Observer |
+| :--- | :--- | :--- |
+| Distance threshold | Browser-defined, opaque | `rootMargin` — any value |
+| Visibility trigger | Browser-defined | `threshold` — 0 to 1 |
+| Scroll root | Viewport only | Any scrollable element |
+| Connection awareness | Chrome only | Manual via `navigator.connection` |
+| JS required | No | Yes |
 
-| Parameter            | Native             | Intersection Observer    |
-| -------------------- | ------------------ | ------------------------ |
-| Distance threshold   | Fixed per browser  | `rootMargin` (any value) |
-| Visibility trigger   | Browser-determined | `threshold` (0-1)        |
-| Root element         | Viewport only      | Any scrollable container |
-| Connection awareness | Chrome only        | Manual implementation    |
+If you go this route, set the placeholder `src` to a 1×1 transparent SVG (or omit it and rely on `data-src`) so the browser does not issue a request before the observer fires.
 
-**When to use over native:**
+## Responsive images: srcset and sizes
 
-- Need consistent cross-browser threshold
-- Lazy loading within a scrollable container (not viewport)
-- Complex loading sequences (e.g., prioritize images in current scroll direction)
-- Fallback for browsers without native support (increasingly rare)
+`srcset` + `sizes` lets the user agent pick the smallest candidate that satisfies the rendered width and DPR — the single biggest win for image bandwidth on a multi-device site.
 
-**Trade-offs:**
-
-- ✅ Full control over loading behavior
-- ✅ Consistent thresholds across browsers
-- ✅ Works with any scrollable container
-- ❌ Requires JavaScript
-- ❌ More code to maintain
-- ❌ Slightly higher initial payload
-
-### Path 3: Responsive Images with srcset/sizes
-
-**How it works:**
-
-Browser selects optimal image variant based on viewport width and device pixel ratio. Two approaches: resolution switching and art direction.
-
-**Resolution switching (same image, different sizes):**
-
-```html
+```html title="resolution-switching.html"
 <img
   srcset="photo-320w.jpg 320w, photo-640w.jpg 640w, photo-1280w.jpg 1280w, photo-1920w.jpg 1920w"
   sizes="(max-width: 600px) 100vw,
@@ -196,53 +161,50 @@ Browser selects optimal image variant based on viewport width and device pixel r
 />
 ```
 
-**How `sizes` works:**
+### How the browser resolves a candidate
 
-The `sizes` attribute tells the browser the rendered width at each breakpoint:
+The selection algorithm is in the [WHATWG sizes attribute](https://html.spec.whatwg.org/multipage/images.html#sizes-attributes) section. The shape of it:
 
-1. Browser reads `sizes` before layout completes
-2. Matches current viewport against media conditions
-3. Calculates effective pixel width (e.g., `50vw` on 1200px viewport = 600px)
-4. Multiplies by device pixel ratio (e.g., 600px × 2 = 1200px for 2x display)
-5. Selects smallest `srcset` candidate ≥ calculated width
+![How the browser resolves srcset + sizes: parse the sizes media list, compute the rendered width, multiply by device pixel ratio, then pick the smallest srcset candidate that meets the effective width — or reuse a cached larger one.](./diagrams/srcset-sizes-resolution-light.svg "How the browser resolves srcset + sizes: parse the sizes media list, compute the rendered width, multiply by device pixel ratio, then pick the smallest srcset candidate that meets the effective width — or reuse a cached larger one.")
+![How the browser resolves srcset + sizes.](./diagrams/srcset-sizes-resolution-dark.svg)
 
-**Why `sizes` is required with width descriptors**: Without `sizes`, the browser doesn't know the rendered width and defaults to `100vw`, often selecting larger-than-necessary images.
+Two consequences worth internalizing:
 
-**Art direction (different images for different contexts):**
+- **`sizes` is required when you use `w` descriptors.** If you omit it, the browser assumes `100vw` and almost always overshoots, which wastes the entire point of `srcset`. The spec [defines this default explicitly](https://html.spec.whatwg.org/multipage/images.html#sizes-attribute).
+- **The browser will reuse a larger cached candidate.** Once it has the 1920w version, it will not re-request the 640w version on a smaller viewport. This means `srcset` saves bytes on first load, not on subsequent navigations.
 
-```html
-<picture>
-  <source media="(min-width: 1200px)" srcset="hero-landscape.jpg" />
-  <source media="(min-width: 600px)" srcset="hero-square.jpg" />
-  <img src="hero-portrait.jpg" alt="Product showcase" width="400" height="600" />
-</picture>
-```
+### Resolution switching vs art direction vs format switching
 
-Use `<picture>` with `media` queries when you need different compositions—cropped versions, different aspect ratios, or entirely different images for mobile vs desktop.
+Three separate use cases, three different markup patterns:
 
-**Decision matrix:**
+| Goal | Markup | Why |
+| :--- | :--- | :--- |
+| Same image, different sizes | `<img srcset="...w" sizes="...">` | One alt text, one composition; UA picks the variant |
+| Same image, different DPRs | `<img srcset="hero@1x 1x, hero@2x 2x">` (with explicit DPR descriptors) | Cleaner than `w` when you really mean DPR |
+| Different compositions per breakpoint | `<picture><source media="..."></picture>` | Crops, aspect ratios, or wholly different images |
+| Different formats (AVIF, WebP) | `<picture><source type="..."></picture>` | Server-side branchless format negotiation |
 
-| Scenario                              | Use                                 |
-| ------------------------------------- | ----------------------------------- |
-| Same image, different resolutions     | `srcset` with width descriptors     |
-| Same image, different pixel densities | `srcset` with `1x`/`2x` descriptors |
-| Different compositions per breakpoint | `<picture>` with `media`            |
-| Different formats (WebP, AVIF)        | `<picture>` with `type`             |
+`<picture>` evaluates `<source>` elements top-to-bottom and uses the first one whose `media` matches and whose `type` is supported ([WHATWG](https://html.spec.whatwg.org/multipage/embedded-content.html#the-picture-element)). The fallback `<img>` carries `alt`, `width`, `height`, and the default `src`.
 
-### Path 4: Modern Format Delivery
+## Format negotiation: AVIF, WebP, JPEG XL
 
-**Format characteristics:**
+The format gap is large enough that picking the right one is usually a bigger win than tuning loading. Compression numbers come from the original Google and Netflix studies; in practice they vary by content type, so always validate on your own corpus.
 
-| Format  | Compression vs JPEG | Browser Support                       | Best For               |
-| ------- | ------------------- | ------------------------------------- | ---------------------- |
-| AVIF    | 50-60% smaller      | Chrome 85+, Firefox 93+, Safari 16.4+ | Photos, complex images |
-| WebP    | 25-35% smaller      | Chrome 23+, Firefox 65+, Safari 14.1+ | Broad compatibility    |
-| JPEG XL | 30-60% smaller      | Safari 17+, Chrome behind flag        | Future consideration   |
-| JPEG    | Baseline            | Universal                             | Fallback               |
+| Format | Vs. JPEG (typical) | Browser support | Best for |
+| :--- | :--- | :--- | :--- |
+| AVIF | ~50 % smaller at equivalent quality ([Netflix Tech Blog](https://netflixtechblog.com/avif-for-next-generation-image-coding-b1d75675fe4)) | Chrome 85+, Firefox 93+, Safari 16.4+ ([caniuse](https://caniuse.com/avif)) | Photos, complex images |
+| WebP | ~25–34 % smaller ([Google study](https://developers.google.com/speed/webp/docs/webp_study)) | Chrome 23+, Firefox 65+, Safari 14+ ([caniuse](https://caniuse.com/webp)) | Broad compatibility floor |
+| JPEG XL | ~30–60 % smaller (informal) | Safari 17+ ([WebKit](https://webkit.org/blog/14445/webkit-features-in-safari-17-0/)); returned to Chrome 145 (Feb 2026) behind `chrome://flags/#enable-jxl-image-format` via a memory-safe Rust decoder ([Chrome Status](https://chromestatus.com/feature/5114042131808256)) | Worth shipping behind `<picture>` + `image/jxl` for Safari today; Chrome rollout is flag-gated, so always provide an AVIF / WebP / JPEG fallback |
+| JPEG | Baseline | Universal | Fallback |
 
-**Approach 1: `<picture>` with type attribute (recommended)**
+> [!NOTE]
+> AVIF decode is meaningfully slower than JPEG decode on low-end mobile, especially for very large images. The bandwidth win usually outweighs it on the first-load LCP path, but if your hero image is 4K AVIF on a $50 Android, profile before you assume.
 
-```html
+### Two ways to deliver multiple formats
+
+**Approach 1 — `<picture>` with `type`** (markup-driven, CDN-agnostic):
+
+```html title="picture-format.html"
 <picture>
   <source srcset="photo.avif" type="image/avif" />
   <source srcset="photo.webp" type="image/webp" />
@@ -250,125 +212,114 @@ Use `<picture>` with `media` queries when you need different compositions—crop
 </picture>
 ```
 
-Browser evaluates sources top-to-bottom, selecting first supported type. Order matters—put smallest format first.
+Sources are tried top-to-bottom; put the most efficient first. Each source can also carry its own `srcset` and `sizes`.
 
-**Approach 2: Content negotiation via Accept header**
+**Approach 2 — `Accept`-header content negotiation** (server- or CDN-driven). Chrome sends `Accept: image/avif,image/webp,...` and the server returns the best match. This requires `Vary: Accept` so caches do not serve the wrong format to the wrong client ([RFC 9110 § 12.5.5](https://www.rfc-editor.org/rfc/rfc9110#field.vary)).
 
-Server inspects `Accept` header and serves appropriate format:
+| Approach | Control | Complexity | CDN compat |
+| :--- | :--- | :--- | :--- |
+| `<picture>` with `type` | Client-side | Markup per image | Universal — every URL is its own cache key |
+| `Accept` negotiation | Server-side | Server / CDN config + `Vary: Accept` | Requires Vary-aware caches; many image CDNs do this for you |
 
-```
-# Chrome sends:
-Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8
+Most teams should use `<picture>` for one-offs and let the image CDN do `Accept` negotiation for everything else.
 
-# Server responds with Content-Type based on Accept
-```
+### Picking a format from a single source
 
-**Critical**: Set `Vary: Accept` header so CDNs cache format-specific responses correctly.
+The decision is mostly mechanical once you classify the asset.
 
-| Approach           | Control     | Complexity        | CDN Compatibility    |
-| ------------------ | ----------- | ----------------- | -------------------- |
-| `<picture>`        | Client-side | Markup per image  | Universal            |
-| Accept negotiation | Server-side | Server/CDN config | Requires Vary header |
+![Format decision tree: vector geometry routes to SVG, photographic content uses an AVIF / WebP / JPEG picture stack, alpha-sensitive UI chrome uses lossless variants, and an Accept-negotiating CDN collapses the markup to a single f=auto URL with Vary: Accept.](./diagrams/format-decision-tree-light.svg "Picking the right format from a single source asset: SVG for vector, picture stack for raster, CDN Accept negotiation when available.")
+![Format decision tree from a single source asset.](./diagrams/format-decision-tree-dark.svg)
 
-**Why `<picture>` is preferred:**
+## Priority hints and preloads
 
-1. No server configuration required
-2. Works with static hosting
-3. Explicit control over format priority
-4. CDN caches each URL separately (no Vary complexity)
+`fetchpriority` and `<link rel="preload">` are how you tell the resource scheduler what matters. `fetchpriority` is a [hint, not a directive](https://web.dev/articles/fetch-priority): it influences priority but does not guarantee it. The two work together.
 
-### Path 5: Priority Hints
-
-**How it works:**
-
-The `fetchpriority` attribute influences the browser's resource scheduler. Combined with `loading`, it controls both timing and priority.
-
-```html
-<!-- LCP image: load immediately with high priority -->
+```html title="priority.html"
+<!-- LCP hero: load immediately, high priority -->
 <img src="hero.jpg" fetchpriority="high" width="1920" height="1080" alt="Hero" />
 
 <!-- Decorative: defer and deprioritize -->
 <img src="decoration.jpg" loading="lazy" fetchpriority="low" alt="" />
 ```
 
-**Priority matrix:**
+Combinations and what they mean:
 
-| `loading`       | `fetchpriority` | Behavior                                         |
-| --------------- | --------------- | ------------------------------------------------ |
-| eager (default) | high            | Immediate, high priority                         |
-| eager           | low             | Immediate, low priority                          |
-| lazy            | high            | Deferred until near viewport, then high priority |
-| lazy            | low             | Deferred, low priority                           |
+| `loading` | `fetchpriority` | Behavior |
+| :--- | :--- | :--- |
+| `eager` (default) | `high` | Immediate fetch, high priority. Default for the LCP candidate. |
+| `eager` | `low` | Immediate fetch, deprioritized. Use for above-the-fold-but-not-critical assets. |
+| `lazy` | `high` | Deferred, then high once near viewport. Rarely useful — see web.dev caveat below. |
+| `lazy` | `low` | Deferred, low priority. The right default for footer / decorative images. |
 
-**Preload for LCP images:**
+> [!NOTE]
+> web.dev points out that `loading="lazy" fetchpriority="high"` is mostly redundant: when the lazy image becomes eligible, the browser would have raised its priority anyway ([Fetch Priority article](https://web.dev/articles/fetch-priority)).
 
-```html
-<head>
-  <link rel="preload" as="image" href="hero.jpg" fetchpriority="high" />
-</head>
+### Preloading the LCP image
+
+When the LCP image is referenced from CSS, JS, or late in the HTML, the preload scanner cannot find it in time. A `<link rel="preload">` in `<head>` makes the request kick off during HTML parsing instead.
+
+```html title="preload-lcp.html"
+<link rel="preload" as="image" href="hero.jpg" fetchpriority="high" />
 ```
 
-Preload hints start the request before the browser discovers the `<img>` element. Critical for images referenced in CSS or discovered late in HTML parsing.
+For responsive heroes, preload the same `srcset`/`sizes` the `<img>` will use — otherwise you race two GETs:
 
-**Preload with responsive images:**
-
-```html
+```html title="preload-responsive.html"
 <link
   rel="preload"
   as="image"
-  href="hero.jpg"
   imagesrcset="hero-400.jpg 400w, hero-800.jpg 800w, hero-1200.jpg 1200w"
   imagesizes="(max-width: 600px) 100vw, 50vw"
+  fetchpriority="high"
 />
 ```
 
-**When to use `fetchpriority="high"`:**
+`imagesrcset` and `imagesizes` are standardized on `<link rel="preload" as="image">` and have the same semantics as on `<img>` ([web.dev — Preload responsive images](https://web.dev/articles/preload-responsive-images)). Omit `href` so non-supporting browsers do not download a fallback you do not want.
 
-- LCP candidate images
-- Above-the-fold hero images
-- Critical product images
+### What the waterfall actually looks like
 
-**When to use `fetchpriority="low"`:**
+The mechanism is easier to internalize as a timeline. Without a preload, the LCP image is not discovered until the parser reaches the `<img>` deep in the body — and any blocking CSS in `<head>` widens that gap. With `<link rel="preload" as="image" fetchpriority="high">` the preload scanner queues the request alongside the first CSS / font fetches, so it can finish well before first contentful paint instead of after it.
 
-- Footer images
-- Decorative backgrounds
-- Below-the-fold thumbnails
+![LCP image waterfall: in the baseline timeline the hero GET fires after HTML parse reaches the img, missing the preload-scanner window; with link rel=preload as=image fetchpriority=high in the head, the same GET kicks off during initial parse and lands hundreds of milliseconds earlier.](./diagrams/lcp-waterfall-light.svg "LCP image waterfall: baseline late discovery vs. preload + fetchpriority=high firing the hero GET during initial HTML parse.")
+![LCP image waterfall: baseline vs. preload with fetchpriority high.](./diagrams/lcp-waterfall-dark.svg)
 
-## CLS Prevention
+In production, a single `fetchpriority="high"` on the LCP `<img>` (or matching `<link rel="preload">`) commonly moves LCP by 0.5–2 s when the image was being discovered late ([web.dev — Fetch Priority](https://web.dev/articles/fetch-priority)). It is a hint, so do not stack it on more than the single LCP element — handing out `high` to many resources just demotes them all back to neutral.
 
-Layout shift occurs when content moves after initial paint. Images without dimensions are the primary cause of image-related CLS.
+### Decision tree
 
-### Mechanism
+For each image on a page, the right combination falls out of three editorial questions: is it the LCP candidate, is it above the fold, and is it decorative?
 
-When the browser encounters an image:
+![Decision tree mapping LCP candidate, above-the-fold, and decorative inputs onto the right loading and fetchpriority pair, including when to add a preload hint for late-discovered LCP images.](./diagrams/lcp-loading-decision-light.svg "Decision tree mapping LCP candidate, above-the-fold, and decorative inputs onto the right loading and fetchpriority pair, including when to add a preload hint for late-discovered LCP images.")
+![Decision tree for image loading strategy.](./diagrams/lcp-loading-decision-dark.svg)
 
-1. **Without dimensions**: Renders placeholder (0×0 or replaced element default), then reflows when image loads
-2. **With dimensions**: Calculates aspect ratio from `width`/`height`, reserves space immediately
+## Preventing layout shift
 
-### Solution 1: width and height Attributes
+[Cumulative Layout Shift](https://web.dev/articles/cls) is a Core Web Vital with a "good" threshold of 0.1 ([web.dev — Web Vitals](https://web.dev/articles/vitals)). Images without reserved space are the dominant cause of image-related CLS.
+
+![With width and height, the layout engine reserves a box at first paint and the image fills it when bytes arrive — zero CLS. Without them, the box collapses to zero, content paints below, and a reflow shifts everything down when the image loads.](./diagrams/cls-with-vs-without-dimensions-light.svg "With width and height, the layout engine reserves a box at first paint and the image fills it when bytes arrive — zero CLS. Without them, the box collapses to zero, content paints below, and a reflow shifts everything down when the image loads.")
+![CLS with vs. without width and height attributes.](./diagrams/cls-with-vs-without-dimensions-dark.svg)
+
+### How the implicit aspect ratio actually works
+
+A long-standing piece of folklore says modern browsers add `aspect-ratio: attr(width) / attr(height)` to the UA stylesheet. They do not — `attr()` does not work on non-`content` properties in any current browser ([Jake Archibald, Chrome team](https://jakearchibald.com/2022/img-aspect-ratio/)).
+
+What actually happens, per the [HTML rendering spec](https://html.spec.whatwg.org/multipage/rendering.html#map-to-the-aspect-ratio-property-(using-dimension-rules)):
+
+> If the element has both a `width` and `height` attribute … the user agent is expected to use the parsed dimensions as a presentational hint for the `aspect-ratio` property of the form `auto w / h`.
+
+The `auto` keyword matters. For replaced elements like `<img>`, once the natural aspect ratio is known (i.e. the image bytes have arrived), it overrides the hint. So if you specify `width="4" height="3"` on a 16:9 image, the browser uses 4:3 to reserve space initially, then corrects to 16:9 once the image loads — much better than a stretched render. This shipped in Chrome and Firefox in 2019 and Safari 14 in late 2020.
+
+### Solution 1 — `width` and `height` attributes
 
 ```html
 <img src="photo.jpg" width="800" height="600" alt="Description" />
 ```
 
-Browser calculates intrinsic aspect ratio: 800÷600 = 1.33. With CSS `width: 100%`, the height scales proportionally.
+This is the right default for content images. Combine with `width: 100%; height: auto;` in CSS to make it responsive without losing the reserved space.
 
-**How modern browsers handle this:**
+### Solution 2 — CSS `aspect-ratio`
 
-Since 2019, browsers use `width` and `height` to compute a default aspect ratio in the UA stylesheet:
-
-```css
-/* Browser's internal stylesheet */
-img {
-  aspect-ratio: attr(width) / attr(height);
-}
-```
-
-This means `width="800" height="600"` automatically reserves space even with responsive CSS.
-
-### Solution 2: CSS aspect-ratio
-
-```css
+```css title="aspect-ratio.css"
 .responsive-image {
   width: 100%;
   height: auto;
@@ -378,27 +329,19 @@ This means `width="800" height="600"` automatically reserves space even with res
 
 Use when:
 
-- Image dimensions aren't known at markup time
-- Dynamic images from APIs without dimension metadata
-- Consistent aspect ratio across a gallery
+- The intrinsic dimensions are not known at markup time (e.g. user-uploaded images without metadata in the API response).
+- You want a consistent layout aspect across a gallery, regardless of the source image.
+- The aspect ratio is a design constraint and you are willing to crop with `object-fit: cover`.
 
-**Browser support**: Chrome 88+, Firefox 89+, Safari 15+.
+Browser support: Chrome 88+, Firefox 89+, Safari 15+ ([MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio)).
 
-### Solution 3: Padding-bottom Hack (Legacy)
+### Solution 3 — padding-bottom hack
 
-```html
-<div style="position: relative; padding-bottom: 56.25%; height: 0;">
-  <img src="photo.jpg" style="position: absolute; width: 100%; height: 100%;" alt="Description" />
-</div>
-```
+Pre-2021 baseline browsers needed a `padding-bottom: 56.25%` wrapper to reserve aspect ratio. There is no reason to write this today; CSS `aspect-ratio` is supported everywhere modern lazy loading is.
 
-The padding percentage is relative to container width, creating a fixed aspect ratio (56.25% = 9÷16 = 16:9).
+### Measuring CLS
 
-**Avoid this approach** unless supporting browsers without `aspect-ratio` support.
-
-### CLS Measurement
-
-```javascript
+```javascript title="cls-observer.js"
 new PerformanceObserver((list) => {
   for (const entry of list.getEntries()) {
     if (!entry.hadRecentInput) {
@@ -408,91 +351,60 @@ new PerformanceObserver((list) => {
 }).observe({ type: "layout-shift", buffered: true })
 ```
 
-Target: CLS < 0.1 for "good" Core Web Vitals score.
+`entry.sources` is the most useful field — it tells you which DOM node moved, so you can attribute the shift to a specific image.
 
-## Placeholder Strategies
+## Placeholder strategies
 
-Placeholders improve perceived performance by providing visual feedback while images load.
+Placeholders smooth perceived latency between layout reservation and pixel paint. Pick by payload-vs-fidelity, not by aesthetic.
 
-### Dominant Color
+| Strategy | Payload | JS required | Visual fidelity |
+| :--- | :--- | :--- | :--- |
+| Dominant color | ~7 bytes (hex) | No | Low |
+| LQIP (tiny base64) | 200–500 bytes | No | Medium |
+| BlurHash | ~20–30 bytes | Yes (decode + canvas) | Medium |
+| CSS skeleton | 0 (CSS only) | No | Structural only |
 
-Extract the dominant color and display as background:
+### Dominant color
 
-```html
+Extract a single representative color server-side or at build-time, set it as `background-color` on the `<img>`:
+
+```html title="dominant-color.html"
 <img src="photo.jpg" style="background-color: #d4a574;" alt="Description" width="800" height="600" />
 ```
 
-**Implementation:**
+Lowest-effort option. Good for grids where the visual loss of detail is invisible.
 
-- Server-side: Extract during upload with ImageMagick, Sharp, or similar
-- Build-time: Generate with image processing plugins
-- Runtime: Embed in API response
+### LQIP (low-quality image placeholder)
 
-**Trade-offs:**
-
-- ✅ Minimal overhead (6-7 bytes for hex color)
-- ✅ No JavaScript required
-- ❌ No visual detail
-
-### LQIP (Low Quality Image Placeholder)
-
-Inline a tiny blurred version:
-
-```html
-<img
-  src="photo.jpg"
-  style="background-image: url('data:image/jpeg;base64,/9j/4AAQ...');"
-  alt="Description"
-  width="800"
-  height="600"
-/>
-```
-
-**Sizing guidelines:**
-
-- 20-40 pixels wide, heavily compressed
-- ~200-500 bytes base64 encoded
-- Apply CSS blur to smooth pixelation
+Inline a heavily compressed thumbnail as a data URI. 20–40 px wide, blurred via CSS `filter: blur(...)`. The user sees a recognizable approximation almost immediately. Cloudinary's [LQIP write-up](https://cloudinary.com/blog/low_quality_image_placeholders_lqip_explained) covers the encoding choices.
 
 ### BlurHash
 
-Compact representation (~20-30 bytes) that decodes to a gradient:
+[BlurHash](https://blurha.sh/) is a ~20-byte string that decodes into a soft gradient via a small canvas operation. The result looks better than a flat color but worse than LQIP. Use when you need a low-payload placeholder that travels in JSON API responses.
 
-```typescript collapse={1-5, 15-20}
+```typescript title="blurhash.ts" collapse={1-5, 12-18}
 import { decode } from "blurhash"
 
-// Server provides hash during SSR or in API response
 const hash = "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
-
-// Decode to pixels
 const pixels = decode(hash, 32, 32)
 
-// Render to canvas or use as CSS background
 const canvas = document.createElement("canvas")
 canvas.width = 32
 canvas.height = 32
-const ctx = canvas.getContext("2d")
+const ctx = canvas.getContext("2d")!
 const imageData = ctx.createImageData(32, 32)
 imageData.data.set(pixels)
 ctx.putImageData(imageData, 0, 0)
 
-// Apply as background
 img.style.backgroundImage = `url(${canvas.toDataURL()})`
 img.style.backgroundSize = "cover"
 ```
 
-**Trade-offs:**
+### Skeleton
 
-- ✅ Excellent compression (~20-30 bytes)
-- ✅ Pleasing gradient approximation
-- ❌ Requires JavaScript to decode
-- ❌ Computation cost (~1-2ms per decode)
+CSS-only animated placeholder, sized to the reserved box. Good for card grids where you do not have per-image color metadata and BlurHash adds too much pipeline work.
 
-### Skeleton Placeholder
-
-CSS-only placeholder matching expected dimensions:
-
-```css
+```css title="skeleton.css"
 .image-skeleton {
   background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
   background-size: 200% 100%;
@@ -500,60 +412,41 @@ CSS-only placeholder matching expected dimensions:
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 ```
 
-**Best for:**
+## Image CDNs
 
-- Consistent layouts (cards, grids)
-- When dominant color/LQIP unavailable
-- Framework integration (many UI libraries provide skeleton components)
+An image CDN moves resizing, format conversion, and quality tuning out of the build pipeline and into the URL. Most teams running serious image traffic should be on one — the operational savings dwarf the per-asset cost.
 
-### Comparison
+### Capabilities
 
-| Strategy       | Payload       | JavaScript Required | Visual Fidelity   |
-| -------------- | ------------- | ------------------- | ----------------- |
-| Dominant color | 6-7 bytes     | No                  | Low               |
-| LQIP           | 200-500 bytes | No                  | Medium            |
-| BlurHash       | 20-30 bytes   | Yes                 | Medium            |
-| Skeleton       | 0 (CSS)       | No                  | None (structural) |
+| Capability | Why it matters |
+| :--- | :--- |
+| On-demand resize | One source asset, infinite delivery sizes; no build-time fan-out |
+| Format negotiation | Serve AVIF / WebP / JPEG by `Accept` header without per-image markup |
+| Quality optimization | Adjust compression by content type, content-aware encoders |
+| Edge caching | Variants cached close to the user; cold-start cost amortizes quickly |
+| URL-based transforms | Reproducible without infra access |
 
-## Image CDN Integration
+### URL pattern
 
-Image CDNs optimize and deliver images on-the-fly, eliminating the need to pre-generate variants.
-
-### Core Capabilities
-
-| Feature              | Benefit                            |
-| -------------------- | ---------------------------------- |
-| On-demand resizing   | Generate any dimension from source |
-| Format conversion    | Serve WebP/AVIF automatically      |
-| Quality optimization | Compress based on content type     |
-| Global caching       | Low latency delivery               |
-| URL-based transforms | No build step required             |
-
-### URL Pattern Example
-
-```
+```text
 https://cdn.example.com/images/photo.jpg?w=800&h=600&f=webp&q=75
 ```
 
-| Parameter | Purpose                   |
-| --------- | ------------------------- |
-| `w`       | Width                     |
-| `h`       | Height                    |
-| `f`       | Format (webp, avif, auto) |
-| `q`       | Quality (1-100)           |
+| Parameter | Purpose |
+| :--- | :--- |
+| `w` | Width |
+| `h` | Height |
+| `f` | Format (`webp`, `avif`, `auto`) |
+| `q` | Quality (1–100) |
 
-### Integration with Responsive Images
+### Drop-in with responsive images
 
-```html
+```html title="cdn-responsive.html"
 <img
   srcset="
     https://cdn.example.com/photo.jpg?w=400   400w,
@@ -568,235 +461,161 @@ https://cdn.example.com/images/photo.jpg?w=800&h=600&f=webp&q=75
 />
 ```
 
-**Auto-format negotiation**: Many CDNs support `f=auto`, inspecting the `Accept` header to serve optimal format:
+`f=auto` lets the CDN pick the best format from the `Accept` header. Make sure the CDN sets `Vary: Accept` on the response so downstream caches do not poison.
 
-```html
-<!-- CDN serves AVIF, WebP, or JPEG based on Accept header -->
-<img src="https://cdn.example.com/photo.jpg?f=auto&q=75" alt="Description" />
-```
+### Cache strategy
 
-### Cache Strategy
+| Header | Value | Purpose |
+| :--- | :--- | :--- |
+| `Cache-Control` | `public, max-age=31536000, immutable` | Long cache; images at content-hashed URLs do not change |
+| `Vary` | `Accept` (only when format-negotiating) | Cache per format ([RFC 9110 § 12.5.5](https://www.rfc-editor.org/rfc/rfc9110#field.vary)) |
+| `ETag` | Hash of source + transforms | Conditional revalidation |
 
-| Header          | Recommended Value                | Purpose                           |
-| --------------- | -------------------------------- | --------------------------------- |
-| `Cache-Control` | `public, max-age=31536000`       | Long cache (images rarely change) |
-| `Vary`          | `Accept` (if format negotiation) | Cache per format                  |
-| `ETag`          | Hash of source + transforms      | Cache invalidation                |
+Invalidation strategies:
 
-**Cache invalidation approaches:**
+- **Content-hashed filenames** — `photo-a1b2c3.jpg`. Simplest; no CDN purge required.
+- **Version query string** — `photo.jpg?v=2`. Cheap, but cache-key handling depends on the CDN.
+- **Purge API** — vendor-specific; use sparingly.
 
-- Content hash in filename: `photo-a1b2c3.jpg`
-- Version query param: `photo.jpg?v=2`
-- Purge API (CDN-specific)
+### Vendors
 
-### Major CDN Providers
+| Vendor | Notable |
+| :--- | :--- |
+| Cloudinary | Largest transformation API, content-aware optimization |
+| Imgix | Performance focus, strong responsive image tooling |
+| Cloudflare Images | Tight integration with the Cloudflare CDN |
+| Fastly Image Optimizer | Edge compute for custom transform logic |
+| Vercel / Next.js Image | Framework-native; Vercel hosting only |
 
-| Provider               | Strengths                                      |
-| ---------------------- | ---------------------------------------------- |
-| Cloudinary             | Rich transformation API, ML-based optimization |
-| Imgix                  | Performance focus, responsive images           |
-| Cloudflare Images      | Integrated with Cloudflare CDN                 |
-| Fastly Image Optimizer | Edge compute, custom logic                     |
-| Vercel/Next.js Image   | Framework integration                          |
+## Patterns from real systems
 
-## Real-World Implementations
+### Instagram — prefetch the next page
 
-### Instagram: Aggressive Compression
+Instagram's web team [documented their image-loading pipeline](https://instagram-engineering.com/making-instagram-com-faster-part-1-62cc0c327538) (Glenn Conner, Instagram Engineering): `srcset` to right-size each image, prioritized prefetch of the next page of feed posts, and `<link rel="preload">` for above-the-fold media. Progressive JPEG remains in their delivery mix because perceived performance on slow links matters more than peak bytes saved by AVIF.
 
-**Challenge**: Billions of images, mobile-first users on varying connections.
+### Pinterest — constrained aspect ratio for masonry
 
-**Approach:**
+Pinterest's masonry feed depends on a predictable aspect ratio per card. The platform specifies a [2:3 standard pin](https://help.pinterest.com/en/business/article/pinterest-product-specs) (e.g. 1000 × 1500); pins outside that ratio are truncated in the feed. The lesson is structural: enforce an aspect-ratio contract at the data layer so the layout engine never has to reflow.
 
-- Compress all uploads regardless of source quality
-- Multiple size variants: 150×150 (thumbnail), 320×320, 480×480, 640×640, 1080×1080
-- Progressive JPEG for gradual loading
-- Dominant color placeholders
+### Unsplash — store full, serve resized
 
-**Key insight**: Instagram accepts quality loss for smaller payloads. Users tolerate compression artifacts on mobile; the speed gain outweighs visual fidelity.
+Unsplash stores high-resolution originals and resizes on the edge. Third parties consume the same CDN with query-param transforms — `imix.net/photo-xxx?w=1200&fit=crop`. The pattern generalizes: for any image you might re-crop, store the source at maximum fidelity and let the CDN absorb the variant explosion.
 
-**Result**: Sub-second image loads on 3G connections.
+### Figma — bypass the DOM
 
-### Pinterest: Vertical Scroll Optimization
+For images at design-tool scale (100K+ objects, real-time collaboration), DOM-based image handling is the bottleneck. Figma renders to `<canvas>` via WebGL, with a recently announced [WebGPU upgrade](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/) and a custom shader translation pipeline. Worth knowing exists; not worth reaching for unless you're building a similarly extreme product.
 
-**Challenge**: Infinite scroll masonry grid with variable-height images.
+## Operational implications
 
-**Approach:**
+### LCP optimization checklist
 
-- Preferred 2:3 aspect ratio (vertical orientation suits scroll direction)
-- Height estimation for unseen images (prevents scroll position jumps)
-- Aggressive lazy loading with large threshold
-- BlurHash placeholders for visual continuity
-
-**Key insight**: Consistent aspect ratio simplifies layout calculations and reduces CLS in masonry grids.
-
-### Unsplash: High-Resolution Source, Multiple Delivery Sizes
-
-**Challenge**: Photographers upload 20-50MB originals; pages need optimized delivery.
-
-**Approach:**
-
-- Store original at full resolution
-- On-demand CDN transformation for any requested size
-- Prominent download options (small/medium/large/original)
-- LQIP with blur for preview
-
-**Integration pattern for third-party use:**
-
-```html
-<img
-  srcset="
-    https://images.unsplash.com/photo-xxx?w=400   400w,
-    https://images.unsplash.com/photo-xxx?w=800   800w,
-    https://images.unsplash.com/photo-xxx?w=1200 1200w
-  "
-  sizes="(max-width: 600px) 100vw, 50vw"
-  src="https://images.unsplash.com/photo-xxx?w=800"
-  alt="Description"
-/>
-```
-
-### Figma: Canvas Rendering (Non-DOM)
-
-**Challenge**: Design files with 100K+ objects, real-time collaboration.
-
-**Approach:**
-
-- WebGL rendering (bypasses DOM entirely)
-- Spatial indexing (R-tree) for visible object query
-- Level-of-detail: simplify distant objects
-- Incremental rendering prioritizing viewport center
-
-**Key insight**: At extreme scale, DOM-based image handling becomes the bottleneck. WebGL provides full control over what renders.
-
-## Performance Optimization
-
-### LCP Optimization Checklist
-
-1. **Identify LCP element**: Use DevTools Performance panel or web-vitals library
-2. **Preload if image**: `<link rel="preload" as="image" href="..." fetchpriority="high">`
-3. **Remove lazy loading**: Never `loading="lazy"` on LCP candidates
-4. **Optimize format/size**: Serve smallest sufficient variant
-5. **Minimize request chain**: Avoid CSS background-image (discovered late)
+1. **Identify the LCP element** in the field, not in your local DevTools — [`web-vitals`](https://github.com/GoogleChrome/web-vitals) attributes LCP to a specific node in production.
+2. **If it is an image, preload it** with `fetchpriority="high"` and the same `srcset`/`sizes` the `<img>` will use.
+3. **Never `loading="lazy"` it.** This is the single most common LCP regression we see in code review.
+4. **Serve the smallest sufficient variant** — usually AVIF or WebP at `q=75–80` for hero photos.
+5. **Avoid CSS background-image for the LCP element.** The preload scanner cannot find it; you pay a full stylesheet round-trip before the request fires.
 
 ### Monitoring
 
-```typescript collapse={1-2, 12-15}
+```typescript title="vitals.ts" collapse={1-2, 12-15}
 import { onLCP, onCLS, onINP } from "web-vitals"
 
 onLCP((metric) => {
-  const entry = metric.entries[metric.entries.length - 1]
-  if (entry.element?.tagName === "IMG") {
-    console.log("LCP image:", entry.element.src)
+  const entry = metric.entries[metric.entries.length - 1] as LargestContentfulPaint | undefined
+  if (entry?.element?.tagName === "IMG") {
+    console.log("LCP image:", (entry.element as HTMLImageElement).src)
     console.log("LCP time:", metric.value)
-    // Report to analytics
   }
 })
 
 onCLS((metric) => {
-  console.log("CLS:", metric.value)
+  console.log("CLS:", metric.value, metric.entries)
 })
 ```
 
-### Image Size Budget
+### Image size budget
 
-| Viewport         | Target Total Images | Per-Image Target (LCP) |
-| ---------------- | ------------------- | ---------------------- |
-| Mobile (360px)   | < 500KB             | < 100KB                |
-| Tablet (768px)   | < 1MB               | < 200KB                |
-| Desktop (1920px) | < 2MB               | < 400KB                |
+Treat as starting points, not policy:
 
-These are guidelines—actual budgets depend on page type and user expectations.
+| Viewport | Total images | LCP target |
+| :--- | :--- | :--- |
+| Mobile (360 px) | < 500 KB | < 100 KB |
+| Tablet (768 px) | < 1 MB | < 200 KB |
+| Desktop (1920 px) | < 2 MB | < 400 KB |
 
-## Browser Constraints
+### `decoding` attribute
 
-### Decoding Attribute
+Off-main-thread decoding is the default in Chromium ([Addy Osmani — Image Decoding in Blink](https://gist.github.com/addyosmani/ffa9706d8d354e5354a33ac9f17e9689)) and other modern engines. The `decoding` attribute primarily controls whether the browser is allowed to *paint-hold* an in-DOM image while async decode finishes:
 
-Controls synchronous vs asynchronous image decoding:
+| Value | Behavior | When to use |
+| :--- | :--- | :--- |
+| `async` | Decode off-thread; do not block adjacent updates on its completion | The right default for most images |
+| `sync` | Wait for decode before showing this paint, to keep image in lockstep with surrounding content | Animations/sprites where a partial frame would tear |
+| `auto` (default) | UA decides | Leave as default unless you have a reason to override |
 
-```html
-<img src="photo.jpg" decoding="async" alt="Description" />
+If you need the image to be fully decoded before insertion, prefer the [`HTMLImageElement.decode()` Promise API](https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/decode) — it gives you a hook to await without holding up other paints.
+
+### `content-visibility: auto` for long image feeds
+
+For long, scroll-heavy pages with many off-screen images (feeds, archives, gallery grids), wrapping each card in `content-visibility: auto` lets the browser skip layout, paint, *and* image decode for off-screen subtrees until they enter the viewport ([CSS Containment Module Level 2](https://drafts.csswg.org/css-contain-2/#content-visibility), [web.dev](https://web.dev/articles/content-visibility)).
+
+```css title="feed-card.css"
+.feed-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
 ```
 
-| Value   | Behavior            | Use Case                |
-| ------- | ------------------- | ----------------------- |
-| `async` | Non-blocking decode | Default for most images |
-| `sync`  | Blocking decode     | Rarely needed           |
-| `auto`  | Browser decides     | Default behavior        |
+`contain-intrinsic-size` is mandatory — without it the off-screen boxes collapse to zero and you reintroduce the same layout-shift problem `width`/`height` solve for individual images. This composes with `loading="lazy"`: native lazy loading skips the network fetch, `content-visibility: auto` additionally skips the rendering work for already-loaded images you have scrolled past.
 
-Modern browsers default to async decoding for off-main-thread performance. Explicit `decoding="async"` ensures this behavior.
+### Connection-aware delivery
 
-### Memory Considerations
+```typescript title="connection.ts"
+type Quality = "high" | "medium" | "low"
 
-| Image Dimensions | Uncompressed Memory | Impact           |
-| ---------------- | ------------------- | ---------------- |
-| 640×480 (VGA)    | ~1.2MB              | Negligible       |
-| 1920×1080 (FHD)  | ~8MB                | Moderate         |
-| 3840×2160 (4K)   | ~33MB               | Significant      |
-| 8192×8192        | ~268MB              | Can crash mobile |
-
-**Mitigation:**
-
-- Serve appropriately-sized images (never 4K to mobile)
-- Lazy load to avoid simultaneous decode
-- Release references to allow garbage collection
-
-### Connection-Aware Loading
-
-```typescript
-const connection = navigator.connection
-
-function getImageQuality(): "high" | "medium" | "low" {
-  if (!connection) return "medium"
-
-  if (connection.saveData) return "low"
-  if (connection.effectiveType === "4g") return "high"
-  if (connection.effectiveType === "3g") return "medium"
+export function getImageQuality(): Quality {
+  const c = (navigator as Navigator & { connection?: { saveData: boolean; effectiveType: string } }).connection
+  if (!c) return "medium"
+  if (c.saveData) return "low"
+  if (c.effectiveType === "4g") return "high"
+  if (c.effectiveType === "3g") return "medium"
   return "low"
 }
 ```
 
-**Caveats:**
-
-- `navigator.connection` is not available in Safari
-- `effectiveType` can be inaccurate
-- Consider this a hint, not a guarantee
+Caveats: `navigator.connection` is not in Safari; `effectiveType` is itself a heuristic. Treat it as a hint, not a contract.
 
 ## Accessibility
 
-### Alt Text Requirements
-
-```html
+```html title="alt.html"
 <!-- Informative image: describe content -->
-<img src="chart.png" alt="Q4 revenue increased 23% to $4.2M" />
+<img src="chart.png" alt="Q4 revenue increased 23% to $4.2M" width="600" height="400" />
 
 <!-- Decorative image: empty alt -->
-<img src="divider.png" alt="" />
+<img src="divider.png" alt="" width="600" height="2" />
 
 <!-- Complex image: detailed description -->
-<img src="architecture.png" alt="System architecture diagram" aria-describedby="arch-details" />
+<img
+  src="architecture.png"
+  alt="System architecture diagram"
+  aria-describedby="arch-details"
+  width="800"
+  height="500"
+/>
 <p id="arch-details">The system consists of three layers...</p>
 ```
 
-### Reduced Motion
+The [WAI Image Tutorial](https://www.w3.org/WAI/tutorials/images/decision-tree/) is the canonical decision tree for `alt`. Two often-missed patterns:
 
-```css
+```css title="reduced-motion.css"
 @media (prefers-reduced-motion: reduce) {
-  .image-transition {
-    transition: none;
-  }
-
+  .image-transition { transition: none; }
   .skeleton-loader {
     animation: none;
     background: var(--skeleton-base);
   }
 }
-```
 
-### High Contrast Mode
-
-Ensure placeholder backgrounds don't disappear:
-
-```css
 @media (forced-colors: active) {
   .image-placeholder {
     forced-color-adjust: none;
@@ -806,17 +625,19 @@ Ensure placeholder backgrounds don't disappear:
 }
 ```
 
-## Conclusion
+`forced-colors` (Windows High Contrast Mode) is the case where your placeholder backgrounds will silently disappear unless you explicitly opt out.
 
-Image optimization is the highest-impact intervention for Core Web Vitals. The browser provides powerful primitives—native lazy loading, priority hints, responsive images, and format negotiation—but requires correct usage.
+## Practical takeaways
 
-**Priorities by impact:**
+In rough order of impact:
 
-1. **Always specify dimensions**: `width`/`height` or CSS `aspect-ratio` eliminate CLS
-2. **Preload LCP images**: `<link rel="preload">` with `fetchpriority="high"`
-3. **Serve modern formats**: AVIF/WebP via `<picture>` or CDN
-4. **Lazy load below-fold**: Native `loading="lazy"` for simplicity
-5. **Right-size images**: Responsive `srcset`/`sizes` for device-appropriate delivery
+1. **Always reserve space.** `width`/`height` on every `<img>`, or CSS `aspect-ratio` when intrinsic dimensions are unknown.
+2. **Preload the LCP image.** `<link rel="preload" as="image" fetchpriority="high">`, with `imagesrcset`/`imagesizes` if responsive. Never `loading="lazy"` it.
+3. **Serve modern formats** through `<picture>` or `f=auto` on a CDN. AVIF for photos, WebP as the floor.
+4. **Right-size with `srcset`/`sizes`.** Always set `sizes` when you use `w` descriptors.
+5. **Lazy-load the rest** with native `loading="lazy"`. Drop to Intersection Observer only when you need a custom threshold or scroll root.
+6. **Pick a placeholder strategy that matches the API surface.** Dominant color in JSON, BlurHash if you need detail, skeletons for chrome.
+7. **Push variant generation onto a CDN.** It eliminates an entire class of build-time complexity.
 
 ## Appendix
 
@@ -824,27 +645,24 @@ Image optimization is the highest-impact intervention for Core Web Vitals. The b
 
 - HTML image element semantics
 - CSS layout fundamentals
-- HTTP caching basics
-- Core Web Vitals metrics (LCP, CLS, INP)
-
-### Summary
-
-- Native lazy loading (`loading="lazy"`) defers off-screen images with browser-determined thresholds; always include `width`/`height`
-- Responsive images (`srcset`/`sizes`) let browsers select optimal variants; use `<picture>` for art direction or format switching
-- Modern formats (AVIF, WebP) reduce payload 30-60% over JPEG; serve via `<picture>` type attribute or CDN auto-negotiation
-- CLS prevention requires explicit dimensions or CSS `aspect-ratio`—browsers calculate intrinsic ratio from `width`/`height` attributes
-- Priority hints (`fetchpriority`, preload) control resource scheduling; use `high` for LCP images, `low` for decorative
-- Image CDNs provide on-demand transformation, eliminating pre-generation of size/format variants
+- HTTP caching basics ([RFC 9111](https://www.rfc-editor.org/rfc/rfc9111))
+- Core Web Vitals (LCP, CLS, INP)
 
 ### References
 
-- [WHATWG HTML Living Standard - Images](https://html.spec.whatwg.org/multipage/images.html) - Authoritative spec for `loading`, `decoding`, `srcset`, `sizes`
-- [WHATWG HTML Living Standard - fetchpriority](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fetch-priority-attribute) - Priority hints specification
-- [CSS Images Module Level 4](https://drafts.csswg.org/css-images-4/) - `aspect-ratio` and image-set specifications
-- [MDN - Responsive Images](https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images) - Comprehensive guide
-- [web.dev - Browser-Level Image Lazy Loading](https://web.dev/articles/browser-level-image-lazy-loading) - Chrome team implementation details
-- [web.dev - Optimize LCP](https://web.dev/articles/optimize-lcp) - LCP optimization strategies
-- [web.dev - Optimize CLS](https://web.dev/articles/optimize-cls) - CLS prevention techniques
-- [Addy Osmani - Native Image Lazy Loading](https://addyosmani.com/blog/lazy-loading/) - In-depth analysis from Chrome team
-- [BlurHash](https://blurha.sh/) - Placeholder algorithm specification
-- [Cloudinary - LQIP Explained](https://cloudinary.com/blog/low_quality_image_placeholders_lqip_explained) - Placeholder implementation guide
+- [WHATWG HTML — Images](https://html.spec.whatwg.org/multipage/images.html) — authoritative spec for `srcset`, `sizes`, `loading`, `decoding`
+- [WHATWG HTML — Fetch priority attribute](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fetch-priority-attribute)
+- [WHATWG HTML — Mapping to aspect-ratio](https://html.spec.whatwg.org/multipage/rendering.html#map-to-the-aspect-ratio-property-(using-dimension-rules))
+- [CSS Sizing Level 4 — `aspect-ratio`](https://drafts.csswg.org/css-sizing-4/#aspect-ratio)
+- [web.dev — Browser-level image lazy loading](https://web.dev/articles/browser-level-image-lazy-loading)
+- [web.dev — Optimize LCP](https://web.dev/articles/optimize-lcp)
+- [web.dev — Optimize CLS](https://web.dev/articles/optimize-cls)
+- [web.dev — Fetch Priority](https://web.dev/articles/fetch-priority)
+- [web.dev — Preload responsive images](https://web.dev/articles/preload-responsive-images)
+- [web.dev — `content-visibility`](https://web.dev/articles/content-visibility)
+- [Chrome Status — JPEG XL decoding (image/jxl) in Blink](https://chromestatus.com/feature/5114042131808256)
+- [Jake Archibald — Avoiding `<img>` layout shifts](https://jakearchibald.com/2022/img-aspect-ratio/)
+- [Addy Osmani — Image Decoding in Blink](https://gist.github.com/addyosmani/ffa9706d8d354e5354a33ac9f17e9689)
+- [Netflix Tech Blog — AVIF for Next-Generation Image Coding](https://netflixtechblog.com/avif-for-next-generation-image-coding-b1d75675fe4)
+- [BlurHash](https://blurha.sh/)
+- [Cloudinary — LQIP explained](https://cloudinary.com/blog/low_quality_image_placeholders_lqip_explained)

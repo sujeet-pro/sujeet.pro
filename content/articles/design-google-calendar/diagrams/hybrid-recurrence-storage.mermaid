@@ -1,0 +1,26 @@
+%% Diagram: Hybrid recurrence storage — master row + materialized window + on-demand expansion
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Master["events row<br/>RRULE + DTSTART;TZID<br/>EXDATE / RDATE"]
+
+    subgraph Window["Materialized window (rolling 90d)"]
+        I1["instance n"]
+        I2["instance n+1"]
+        I3["instance n+2"]
+        Iex["exception<br/>recurringEventId<br/>originalStartTime"]
+    end
+
+    subgraph Future["Beyond window"]
+        Lazy["expand on read<br/>RRULE.between(t1, t2)"]
+    end
+
+    Past["Past instances<br/>aged out / archived"]
+
+    Master -->|nightly job<br/>materialize next 90d| Window
+    Master -->|client query > 90d| Lazy
+    Window -->|aged > 90d| Past
+    Iex -->|merged at read time| I2
+
+    Reader(["Calendar view query"]) --> Window
+    Reader --> Lazy

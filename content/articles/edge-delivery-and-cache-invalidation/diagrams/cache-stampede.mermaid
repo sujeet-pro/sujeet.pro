@@ -1,0 +1,21 @@
+%% Diagram: Cache stampede on TTL expiry vs. mitigated path with request coalescing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Clients as N concurrent clients
+    participant CDN
+    participant Origin
+
+    Note over CDN: Hot key TTL just expired
+    Clients->>CDN: GET /popular (xN)
+    CDN->>Origin: GET /popular (xN, no coalescing)
+    Note over Origin: Spike: load proportional to N
+    Origin-->>CDN: 200 OK (xN)
+    CDN-->>Clients: 200 OK
+
+    Note over CDN: Same scenario with request coalescing
+    Clients->>CDN: GET /popular (xN)
+    CDN->>Origin: GET /popular (x1)
+    Note over CDN: N-1 requests held until single fetch returns
+    Origin-->>CDN: 200 OK (x1)
+    CDN-->>Clients: 200 OK (xN)

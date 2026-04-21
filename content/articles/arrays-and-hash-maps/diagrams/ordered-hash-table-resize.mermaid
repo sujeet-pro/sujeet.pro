@@ -1,0 +1,23 @@
+%% Diagram: OrderedHashTable resize / rehash sequence
+%% Type: sequenceDiagram
+sequenceDiagram
+    autonumber
+    participant Caller as Map.set(k, v)
+    participant Old as Old table<br/>(numBuckets = N)
+    participant Alloc as Allocator
+    participant New as New table<br/>(numBuckets = 2N)
+
+    Caller->>Old: insert (k, v)
+    Old->>Old: present + tombstones >= capacity?
+    alt below capacity
+        Old-->>Caller: append to data table, link chain
+    else at capacity
+        Old->>Alloc: request 2N buckets,<br/>4N data-table slots
+        Alloc->>New: allocate
+        loop each live entry in insertion order
+            Old->>New: re-mask key into new bucket
+            Old->>New: copy entry, drop tombstones
+        end
+        New-->>Caller: append (k, v) into new table
+        Note over Old: discarded (GC)
+    end

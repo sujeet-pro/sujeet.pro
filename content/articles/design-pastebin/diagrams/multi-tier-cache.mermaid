@@ -1,0 +1,17 @@
+%% Diagram: Multi-tier cache hierarchy for paste reads
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    USER["Reader"]
+    CDN["CDN edge<br/>TTL 300s · ~5 ms"]
+    REDIS["Redis cluster<br/>TTL 1h · ~1 ms"]
+    PG[("PostgreSQL<br/>metadata · ~5 ms")]
+    S3["Object storage<br/>compressed body · ~30 ms"]
+
+    USER --> CDN
+    CDN -->|miss| REDIS
+    REDIS -->|miss| PG
+    PG --> S3
+    S3 -->|decompress + populate| REDIS
+    REDIS -->|response + populate| CDN
+    CDN -->|response| USER

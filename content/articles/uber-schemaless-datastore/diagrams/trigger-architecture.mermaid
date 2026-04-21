@@ -1,0 +1,30 @@
+%% Diagram: Trigger architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Schemaless["Schemaless instance (per-shard log)"]
+        S1[("Shard 1<br/>cells ordered by added_id")]
+        S2[("Shard 2")]
+        S3[("Shard 3")]
+        S4[("Shard 4")]
+    end
+
+    subgraph Workers["Trigger workers (up to 4096 per instance)"]
+        W1["Worker 1<br/>handles shard 1"]
+        W2["Worker 2<br/>handles shards 2,5"]
+        W3["Worker 3<br/>handles shards 3,4"]
+    end
+
+    Coord[("Coordinator<br/>ZooKeeper or<br/>Schemaless itself")]
+
+    S1 --> W1
+    S2 --> W2
+    S3 --> W3
+    S4 --> W3
+
+    W1 -->|"persist last added_id"| Coord
+    W2 -->|"persist last added_id"| Coord
+    W3 -->|"persist last added_id"| Coord
+
+    Leader{"Leader worker"} -.->|"reassigns shards on failure"| Workers
+    Coord -.->|"leader election +<br/>worker discovery"| Leader

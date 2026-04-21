@@ -1,0 +1,29 @@
+%% Diagram: Retry with exponential backoff + jitter, classified by status
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant S as Server / Storage
+
+    C->>S: PATCH chunk (attempt 1)
+    S--xC: network drop
+    Note over C: wait 1s + jitter (20%)
+
+    C->>S: PATCH (attempt 2)
+    S-->>C: 503 Retry-After: 4
+    Note over C: wait max(2s + jitter, 4s)
+
+    C->>S: PATCH (attempt 3)
+    S-->>C: 409 offset mismatch
+    C->>S: HEAD upload (re-sync)
+    S-->>C: Upload-Offset: K'
+    Note over C: rebase chunk\nfrom K'
+
+    C->>S: PATCH (attempt 4)
+    S-->>C: 204 No Content
+    Note over C: reset backoff window
+
+    C->>S: PATCH next chunk
+    S-->>C: 4xx (400/413/415)
+    Note over C: do NOT retry\nsurface to UI

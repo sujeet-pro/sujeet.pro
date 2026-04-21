@@ -1,0 +1,30 @@
+%% Diagram: Bucketed Partitioning Layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph naive["Original: PRIMARY KEY (channel_id, message_id)"]
+        direction TB
+        chN["channel_id = 42\n(years of history)"]:::accent --> partN["Single partition\ngrows unbounded\n→ 100 MB+ → GC pressure"]:::storage
+        partN --> nodeN["Replica set on 3 nodes\n(hot when channel popular)"]:::neutral
+    end
+
+    subgraph bucketed["Bucketed: PRIMARY KEY ((channel_id, bucket), message_id)"]
+        direction TB
+        chB["channel_id = 42"]:::accent
+        chB --> b0["bucket 0\ndays 0–9"]:::storage
+        chB --> b1["bucket 1\ndays 10–19"]:::storage
+        chB --> bN["bucket N\ncurrent window"]:::storage
+        b0 --> n0["nodes A B C"]:::neutral
+        b1 --> n1["nodes D E F"]:::neutral
+        bN --> nN["nodes J K L"]:::neutral
+    end
+
+    naive ==>|"add bucket\nto partition key"| bucketed
+
+    query["Read path:\n1. derive bucket from now()\n2. scan latest bucket\n3. fall back to older buckets\n   only if 50 messages\n   not yet collected"]:::primary
+    bucketed -.-> query
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

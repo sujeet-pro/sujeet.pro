@@ -1,0 +1,23 @@
+%% Diagram: Client-side ABR decision loop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    A[Segment finished downloading] --> B[Update throughput estimate<br/>EWMA / harmonic mean]
+    B --> C[Read buffer level]
+    C --> D{Buffer below<br/>panic threshold?}
+    D -- yes --> E[Drop to lowest<br/>safe variant]
+    D -- no --> F{Throughput &gt;&gt;<br/>current bitrate?}
+    F -- yes --> G[Step up one rung<br/>at next segment boundary]
+    F -- no --> H{Throughput &lt;<br/>current bitrate?}
+    H -- yes --> I[Step down to fit<br/>throughput - safety margin]
+    H -- no --> J[Hold current variant]
+    E --> K[Request next segment]
+    G --> K
+    I --> K
+    J --> K
+    K --> A
+
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class E,I warn
+    class G,J ok

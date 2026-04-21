@@ -1,0 +1,24 @@
+%% Diagram: Content script injection timing relative to the document lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Nav["Navigation start"] --> HTML["HTML response received"]
+    HTML --> Parse["Parser starts"]
+    Parse --> DocStart{"document_start"}
+    DocStart --> DOM["DOM construction"]
+    DOM --> DCL["DOMContentLoaded"]
+    DCL --> DocEnd{"document_end"}
+    DocEnd --> Sub["Subresources loading<br/>(images, iframes)"]
+    Sub --> DocIdle{"document_idle<br/>(default)"}
+    DocIdle --> Load["window.load"]
+
+    DocStart -. "documentElement may be null" .-> Note1[/"Use for early hooks: fetch shim, anti-flicker"/]
+    DocEnd -. "DOM ready, no subresources" .-> Note2[/"Use for synchronous DOM rewrites"/]
+    DocIdle -. "browser-chosen optimal moment" .-> Note3[/"Default; minimal page-load impact"/]
+
+    style DocStart fill:#fce4ec
+    style DocEnd fill:#fff3e0
+    style DocIdle fill:#e8f5e8
+    style Note1 fill:#f3e5f5,stroke-dasharray: 4 4
+    style Note2 fill:#f3e5f5,stroke-dasharray: 4 4
+    style Note3 fill:#f3e5f5,stroke-dasharray: 4 4

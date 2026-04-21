@@ -1,0 +1,34 @@
+%% Diagram: Backend lifecycle in a load balancer pool
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Joining
+    Joining --> Healthy: passes N consecutive probes
+    Healthy --> SlowStart: just promoted<br/>weight ramps from 0
+    SlowStart --> Healthy: ramp window elapsed
+    Healthy --> Outlier: passive signal<br/>(5xx rate, latency p99)
+    Outlier --> Healthy: error budget recovered
+    Healthy --> Unhealthy: fails N consecutive probes
+    Unhealthy --> Healthy: passes N consecutive probes
+    Healthy --> Draining: deregister / scale-in
+    Outlier --> Draining: deregister
+    Unhealthy --> Draining: deregister
+    Draining --> [*]: drain timeout reached<br/>or in-flight = 0
+
+    note right of SlowStart
+        HAProxy: server slowstart=60s
+        NGINX Plus: slow_start=60s
+        Envoy: SLOW_START LB config
+    end note
+    note right of Outlier
+        Envoy outlier detection
+        AWS unhealthy_threshold + targets_health
+        Used as passive complement
+        to active probes.
+    end note
+    note right of Draining
+        New requests stop.
+        Existing connections finish.
+        HTTP/2: GOAWAY frame (RFC 9113)
+        AWS deregistration_delay default 300s.
+    end note

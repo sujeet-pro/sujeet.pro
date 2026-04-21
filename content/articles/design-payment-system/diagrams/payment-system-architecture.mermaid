@@ -1,0 +1,29 @@
+%% Diagram: Payment system architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients (Web / Mobile / POS)"]
+    API["Idempotent Payment API"]
+    FRAUD["Fraud Engine"]
+    ROUTER["Smart Router"]
+    AUTH["Authorization Service"]
+    CAPTURE["Capture Service"]
+    REFUND["Refund Service"]
+    NETWORKS["Card networks / wallets / ACH"]
+    LEDGER[("Double-entry ledger")]
+    VAULT[("Token Vault (PCI scope)")]
+    EVENTS["Event stream (Kafka)"]
+    WEBHOOKS["Webhook handler"]
+
+    CLIENTS -->|tokenized payment method| API
+    API -->|score| FRAUD
+    FRAUD -->|allow / review / block| ROUTER
+    ROUTER --> AUTH
+    AUTH --> NETWORKS
+    AUTH --> CAPTURE
+    CAPTURE --> LEDGER
+    CAPTURE --> EVENTS
+    API --> VAULT
+    REFUND --> LEDGER
+    NETWORKS -. async events .-> WEBHOOKS
+    WEBHOOKS --> LEDGER

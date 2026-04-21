@@ -1,0 +1,19 @@
+%% Diagram: CLS session window model
+%% Type: timeline-as-flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph W1["Session window 1 (sum = 0.18)"]
+        S1["t=0.4s<br/>shift 0.05"]
+        S2["t=0.9s<br/>shift 0.08"]
+        S3["t=1.6s<br/>shift 0.05"]
+    end
+    GAP1["gap > 1s<br/>window closes"]
+    INPUT["t=4.2s<br/>user click<br/>(next 500ms: hadRecentInput=true)"]
+    EXP["t=4.4s<br/>shift 0.30<br/>EXCLUDED (expected)"]
+    subgraph W2["Session window 2 (sum = 0.07)"]
+        S4["t=6.1s<br/>shift 0.07"]
+    end
+
+    S1 --> S2 --> S3 --> GAP1 --> INPUT --> EXP --> S4
+    W1 --> CLS["CLS = max(window) = 0.18<br/>(>0.1 → needs improvement)"]
+    W2 --> CLS

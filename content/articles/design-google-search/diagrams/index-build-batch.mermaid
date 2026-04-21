@@ -1,0 +1,31 @@
+%% Diagram: Index build — MapReduce sketch (initial / batch path)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Input["Input"]
+        DOCS[Crawled docs<br/>from Bigtable]
+    end
+
+    subgraph Map["Map phase"]
+        direction TB
+        TOKENIZE[Tokenize]
+        NORMALIZE[Normalize<br/>lowercase / stem]
+        EMIT[Emit<br/>term → doc_id, pos, freq]
+    end
+
+    subgraph Shuffle["Shuffle"]
+        direction TB
+        PARTITION[Partition by term]
+        SORT[Sort by doc_id]
+    end
+
+    subgraph Reduce["Reduce phase"]
+        direction TB
+        MERGE[Merge posting lists]
+        COMPRESS[Delta encode<br/>+ compress]
+        WRITE[Write to shard]
+    end
+
+    DOCS --> TOKENIZE --> NORMALIZE --> EMIT
+    EMIT --> PARTITION --> SORT
+    SORT --> MERGE --> COMPRESS --> WRITE

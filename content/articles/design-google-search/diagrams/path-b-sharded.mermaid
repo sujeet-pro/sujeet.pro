@@ -1,0 +1,31 @@
+%% Diagram: Path B — geo-distributed sharded index
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Global["Global infrastructure"]
+        DNS[GeoDNS]
+    end
+
+    subgraph DC1["Datacenter 1 (US)"]
+        LB1[Load balancer]
+        QP1[Query processors]
+        subgraph Index1["Index shards"]
+            S1A[(Shard 1)]
+            S1B[(Shard 2)]
+            S1N[(Shard N)]
+        end
+    end
+
+    subgraph DC2["Datacenter 2 (EU)"]
+        LB2[Load balancer]
+        QP2[Query processors]
+        subgraph Index2["Index shards"]
+            S2A[(Shard 1)]
+            S2B[(Shard 2)]
+            S2N[(Shard N)]
+        end
+    end
+
+    DNS --> LB1 & LB2
+    LB1 --> QP1 --> S1A & S1B & S1N
+    LB2 --> QP2 --> S2A & S2B & S2N

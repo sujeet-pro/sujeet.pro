@@ -1,0 +1,34 @@
+%% Diagram: Redlock clock-jump failure — quorum split-brain via skewed expiry
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client 1
+    participant A as Redis A
+    participant B as Redis B
+    participant C as Redis C
+    participant D as Redis D
+    participant E as Redis E
+    participant C2 as Client 2
+
+    Note over A,E: TTL = 30 s on every instance
+    C1->>A: SET NX PX 30000
+    A-->>C1: OK
+    C1->>B: SET NX PX 30000
+    B-->>C1: OK
+    C1->>C: SET NX PX 30000
+    C-->>C1: OK
+    Note over D,E: D, E unreachable
+    Note over C1: Quorum (A,B,C) — lock held
+
+    Note over C: Wall clock on C jumps +25 s (NTP step)
+    Note over C: C expires the key early
+
+    C2->>C: SET NX PX 30000
+    C-->>C2: OK
+    C2->>D: SET NX PX 30000
+    D-->>C2: OK
+    C2->>E: SET NX PX 30000
+    E-->>C2: OK
+    Note over C2: Quorum (C,D,E) — also "holds" lock
+
+    Note over C1,C2: Split-brain — both quora overlap on C

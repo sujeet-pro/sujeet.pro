@@ -1,0 +1,29 @@
+%% Diagram: InvalidationSet propagation in Blink
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    mut["DOM mutation\nclass / attr / state change"] --> rfs["RuleFeatureSet lookup\nbuilt from style rules"]
+    rfs --> kind{"Self vs descendant\ncriterion?"}
+
+    kind -- "Self only" --> direct["SetNeedsStyleRecalc\nkLocalStyleChange"]
+    kind -- "Descendant" --> pend["PendingInvalidationsMap\nappend descendant set"]
+    kind -- "Sibling +/~" --> sib["Sibling InvalidationSet\nschedule on later siblings"]
+    kind -- "Has ancestor" --> hasflag["Probe HasInvalidationFlags\nwalk up only when flag set"]
+
+    pend --> read["Style about to be read"]
+    sib  --> read
+    hasflag --> read
+    direct --> read
+
+    read --> dfs["StyleInvalidator::Invalidate\ndepth-first traversal"]
+    dfs --> mark["Mark matching nodes dirty"]
+    mark --> recalc["Recalc only dirty subtrees\nrest reuse cached ComputedStyle"]
+
+    classDef start fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef accept fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class mut start
+    class rfs,pend,sib,hasflag,direct,read,dfs,mark stage
+    class kind decision
+    class recalc accept

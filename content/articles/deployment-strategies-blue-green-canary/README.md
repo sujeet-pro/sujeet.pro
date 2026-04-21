@@ -6,35 +6,71 @@ description: >-
   covering traffic shifting mechanics, database migration coordination, automated
   rollback criteria, and operational failure modes encountered during incident response.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - platform-engineering
   - devops
   - infrastructure
+  - cicd
+  - reliability-engineering
+  - migrations
 ---
 
 # Deployment Strategies: Blue-Green, Canary, and Rolling
 
 Production deployment strategies for balancing release velocity against blast radius. Covers the architectural trade-offs between blue-green, canary, and rolling deployments—with specific focus on traffic shifting mechanics, database migration coordination, automated rollback criteria, and operational failure modes that senior engineers encounter during incident response.
 
-![Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-light.svg "Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.")
-![Deployment strategy landscape: each strategy connects to traffic management and data layer concerns. Blue-green and canary require explicit schema migration coordination; rolling updates assume backward compatibility.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-dark.svg)
+![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-light.svg "Each deployment strategy meets the user through traffic management and is constrained by data-layer compatibility. Blue-green and canary require explicit schema-migration coordination; rolling updates assume backward compatibility from day one.")
+![Deployment strategy landscape connecting each strategy to its traffic-management primitives and data-layer concerns.](./diagrams/deployment-strategy-landscape-each-strategy-connects-to-traffic-management-and-d-dark.svg)
 
-## Abstract
+## Strategy taxonomy
 
-Deployment strategy selection reduces to three variables: **blast radius** (percentage of users exposed to failures), **rollback speed** (time to restore previous behavior), and **infrastructure cost** (resource overhead during deployment).
+Before comparing trade-offs, fix the vocabulary. Practitioners conflate at least seven distinct patterns; the rest of the article uses these definitions.
 
-| Strategy       | Blast Radius             | Rollback Speed            | Infrastructure Cost          | Complexity |
-| -------------- | ------------------------ | ------------------------- | ---------------------------- | ---------- |
-| **Blue-Green** | 100% (all at once)       | Instant (traffic switch)  | 2x (parallel environments)   | Moderate   |
-| **Canary**     | Configurable (1-100%)    | Fast (stop traffic shift) | Minimal (small canary fleet) | High       |
-| **Rolling**    | Growing (during rollout) | Slow (reverse rollout)    | Minimal (surge capacity)     | Low        |
+| Pattern                     | Mechanism                                                                          | User exposure on bad version            | Rollback unit          |
+| :-------------------------- | :--------------------------------------------------------------------------------- | :-------------------------------------- | :--------------------- |
+| **Recreate**                | Stop old, start new                                                                | 100% after downtime window              | Redeploy old           |
+| **Rolling update**          | Replace pods incrementally (Kubernetes default)                                    | Grows linearly during rollout           | Reverse rolling update |
+| **Blue-Green**              | Two parallel environments, atomic router switch                                    | 100% after switch (0% before)           | Flip router back       |
+| **Canary**                  | Small percentage of real traffic to new version, gated on metrics                  | Bounded to canary share (e.g. 1–25%)    | Stop traffic shift     |
+| **Shadow / mirrored**       | Edge proxy or mesh duplicates requests to candidate; response discarded            | None (response not returned)            | Disable mirror policy  |
+| **Dark launch**             | Code is in production but the user-visible path is gated by a flag                 | None (flag off) until enable            | Toggle flag off        |
+| **Feature-flagged release** | Deployed code's user-visible behavior is conditional on a runtime flag             | Bounded by flag's targeting rule        | Toggle flag off        |
 
-**Key architectural insight**: The choice isn't which strategy is "best"—it's which failure mode is acceptable. Blue-green trades cost for instant rollback. Canary trades complexity for controlled exposure. Rolling trades rollback speed for simplicity.
+Shadow and dark launch are often conflated; the practical difference is where the new code runs and what happens to its output. Shadow traffic is request _mirroring_ at the proxy/mesh — Envoy's `request_mirror_policy` is the canonical primitive, and Google's CRE team named the response-discarded variant "[dark launch](https://cloud.google.com/blog/products/gcp/cre-life-lessons-what-is-a-dark-launch-and-what-does-it-do-for-me)" in their original write-up. Dark launch in the Honeycomb / Charity Majors sense is application-layer: the new code runs inline but is gated behind a flag. Both leave user experience unchanged; only one duplicates load on the candidate.
 
-**Feature flags** decouple deployment from release: code reaches production with features disabled, then gradually enabled independent of infrastructure changes. This shifts blast radius control from infrastructure to application layer.
+![Shadow traffic mirrors requests at the edge with the response discarded; dark launch runs the new code path inline behind an off flag.](./diagrams/shadow-vs-dark-launch-light.svg "Shadow traffic mirrors requests at the edge proxy and discards the candidate's response. Dark launch runs the new code path inline but keeps the user-visible behavior gated behind an off flag.")
+![Shadow traffic mirrors requests at the edge with the response discarded; dark launch runs the new code path inline behind an off flag.](./diagrams/shadow-vs-dark-launch-dark.svg)
 
-**Database migrations** constrain all strategies: schema changes must be backward-compatible during the transition window, or you lose the ability to rollback without data loss.
+## Mental model: blast radius, rollback, cost
+
+Strategy selection reduces to three variables: **blast radius** (percentage of users exposed to failures), **rollback speed** (time to restore previous behavior), and **infrastructure cost** (resource overhead during deployment). A fourth variable, **operational complexity**, decides whether your team can actually run the strategy on a Tuesday at 4 p.m.
+
+| Strategy                | Blast radius             | Rollback speed            | Infrastructure cost          | Complexity |
+| :---------------------- | :----------------------- | :------------------------ | :--------------------------- | :--------- |
+| **Recreate**            | 100% (with downtime)     | Slow (redeploy old)       | 1x (no parallel)             | Low        |
+| **Rolling**             | Growing (during rollout) | Slow (reverse rollout)    | Minimal (surge capacity)     | Low        |
+| **Blue-Green**          | 100% (after cutover)     | Instant (traffic switch)  | 2x (parallel environments)   | Moderate   |
+| **Canary**              | Configurable (1–100%)    | Fast (stop traffic shift) | Minimal (small canary fleet) | High       |
+| **Shadow / dark**       | None (no user impact)    | N/A (no user surface)     | Variable (replay overhead)   | High       |
+| **Feature-flagged**     | Bounded by flag rule     | Milliseconds (toggle)     | Minimal                      | Moderate   |
+
+![Strategy positioning by rollback speed against infrastructure cost; feature flags and shadow launches occupy the cheap-and-fast quadrant by paying complexity instead of compute.](./diagrams/strategy-positioning-matrix-light.svg "Each strategy occupies a different point on the rollback-speed vs infrastructure-cost plane. Feature flags trade engineering complexity for the cheap-and-fast quadrant; blue-green pays for instant rollback with a parallel environment; recreate is cheap, slow, and disruptive.")
+![Strategy positioning by rollback speed against infrastructure cost; feature flags and shadow launches occupy the cheap-and-fast quadrant by paying complexity instead of compute.](./diagrams/strategy-positioning-matrix-dark.svg)
+
+**Key architectural insight**: The choice isn't which strategy is "best" — it's which failure mode is acceptable. Blue-green trades cost for instant rollback. Canary trades complexity for controlled exposure. Rolling trades rollback speed for simplicity. Recreate trades availability for everything else.
+
+## Deployment vs release
+
+The single most useful lens for this article is Charity Majors' framing — first published as ["Deploys Are The Wrong Way To Change User Experience"](https://charity.wtf/2023/03/08/deploys-are-the-%E2%9C%A8wrong%E2%9C%A8-way-to-change-user-experience/) on the Honeycomb blog in 2023:
+
+- A **deploy** is an engineering event: building, testing, and rolling out a new artifact to production. Deploys should be small, frequent, and ideally invisible to users.
+- A **release** is a product event: the moment a user-visible behavior changes. Releases should be timed, targeted, and reversible without a redeploy.
+
+Confusing the two is what makes "deploy on Friday" terrifying. Decoupling them — usually with a feature flag — turns rollback from a 3-hour rebuild into a millisecond toggle and lets a product manager run the launch instead of a release engineer. Every deployment strategy in this article should be evaluated against whether it preserves this decoupling: blue-green and canary control the **deploy** side, feature flags control the **release** side, and the strongest pipelines combine both.
+
+> [!IMPORTANT]
+> Almost every "instant rollback" promise from blue-green or canary tooling assumes the schema is backward-compatible **and** the user-visible behavior change is flag-gated. Strip either property and rollback silently degrades to redeploy-old-binary, which can take hours.
 
 ## Blue-Green Deployments
 
@@ -53,8 +89,8 @@ The core requirement: a routing layer that can instantly redirect 100% of traffi
 
 **Why atomic switching matters**: Partial deployments create version skew—users might receive HTML from v2 but JavaScript from v1. Blue-green eliminates this by ensuring all requests hit one environment or the other, never both simultaneously.
 
-![Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-light.svg "Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.")
-![Blue-green deployment sequence: traffic switches atomically after health checks pass on the green environment. Blue remains available for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-dark.svg)
+![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-light.svg "Blue-green sequence: green is fully provisioned and validated before the load balancer flips target groups. Blue stays warm so rollback is the same atomic operation in reverse.")
+![Blue-green deployment sequence — traffic switches atomically after green's health checks pass; blue remains warm for instant rollback.](./diagrams/blue-green-deployment-sequence-traffic-switches-atomically-after-health-checks-p-dark.svg)
 
 ### AWS Implementation
 
@@ -119,9 +155,9 @@ spec:
 
 **Session handling**: In-flight requests during switch may fail. Mitigations:
 
-- Connection draining: ALB waits for existing connections to complete (configurable timeout)
-- Session affinity: Sticky sessions prevent mid-session switches (but complicate rollback)
-- Stateless design: Store session state externally (Redis, DynamoDB)
+- Connection draining: ALB target groups wait for existing connections to complete via [`deregistration_delay.timeout_seconds`](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-target-group-attributes.html) (default 300 s, configurable 0–3600 s). Tune it down for short-RTT services or up for long-running connections.
+- Session affinity: Sticky sessions prevent mid-session switches but complicate rollback because a sticky cookie may keep users pinned to the old environment.
+- Stateless design: Store session state externally (Redis, DynamoDB, JWT). Removes the constraint entirely and is the only option that scales cleanly to canary and rolling.
 
 **Database schema compatibility**: The critical constraint. If green requires schema changes incompatible with blue, rollback becomes impossible without data loss. See [Database Migration Coordination](#database-migration-coordination).
 
@@ -145,8 +181,8 @@ Traffic progression follows predefined stages with metric evaluation at each gat
 
 From [Google SRE Workbook Chapter 16](https://sre.google/workbook/canarying-releases/): manual graph inspection is insufficient for detecting canary issues. Automated analysis comparing canary metrics against baseline is required for reliable detection.
 
-![Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-light.svg "Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.")
-![Canary progression with metric gates: each stage evaluates success criteria before advancing. Any failure triggers immediate rollback to stable.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-dark.svg)
+![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-light.svg "Canary progression with metric gates: every stage waits long enough to accumulate statistically meaningful samples, then either promotes or rolls the canary back to stable.")
+![Canary progression with metric gates — each stage evaluates success criteria before advancing; any failure triggers rollback to the stable version.](./diagrams/canary-progression-with-metric-gates-each-stage-evaluates-success-criteria-befor-dark.svg)
 
 ### Metrics-Driven Release Gates
 
@@ -166,9 +202,22 @@ Effective canary analysis requires comparing canary cohort metrics against basel
 | p99 latency | 200ms    | > 300ms          | Rollback           |
 | p50 latency | 50ms     | > 75ms           | Pause, investigate |
 
-**Statistical significance**: Google's canary analysis guidance recommends minimum 50 data points per metric before drawing conclusions. At 10 requests/second to canary, this requires at least 5 seconds of observation—but metrics like memory leaks require hours to manifest.
+**Statistical significance**: [Google Cloud's joint guidance with Waze](https://cloud.google.com/blog/products/devops-sre/canary-analysis-lessons-learned-and-best-practices-from-google-and-waze) — formalised in [Spinnaker's Kayenta best practices](https://spinnaker.io/docs/guides/user/canary/best-practices/) — recommends a minimum of 50 time-series data points per metric per canary run for the analysis to be statistically meaningful. The default `marginal` / `pass` thresholds are 75 and 95, with a starting canary lifetime of 3 hours split across three 1-hour runs. At 10 requests/second to the canary cohort, that's 5 seconds for fast-moving signals (errors, latency) — but slow-burn issues like memory leaks or connection-pool exhaustion still need hours to manifest. Plan for a multi-stage canary that lasts hours, not minutes.
 
-From [Google Cloud's canary analysis best practices](https://cloud.google.com/blog/products/devops-sre/canary-analysis-lessons-learned-and-best-practices-from-google-and-waze): defining acceptable thresholds is iterative. Being too strict causes false positives (unnecessary rollbacks); too loose misses real issues. When uncertain, err on the conservative side.
+From the same guidance: defining acceptable thresholds is iterative. Too strict causes false positives (unnecessary rollbacks); too loose misses real issues. When uncertain, err on the conservative side.
+
+### Kayenta-style automated canary analysis
+
+Netflix's [Kayenta](https://netflixtechblog.com/automated-canary-analysis-at-netflix-with-kayenta-3260bc7acc69) — open-sourced jointly with Google in 2018 and now the canary judge inside Spinnaker — is the canonical implementation of automated canary analysis (ACA). Two design choices in Kayenta have become industry defaults:
+
+1. **Three clusters, not two.** Production runs the stable version at full scale. A separate **baseline** cluster is spun up on the same code as production but at the canary's size, and a **canary** cluster runs the candidate. Comparing canary-vs-baseline (instead of canary-vs-production) controls for cache warm-up, heap size, and the long-tail effects of long-running processes; this is also the [first line of the Spinnaker best-practices doc](https://spinnaker.io/docs/guides/user/canary/best-practices/).
+2. **Mann-Whitney U judgment.** Each metric is classified `Pass`, `High`, or `Low` using the Mann-Whitney U test at 98% confidence; the canary's score is the ratio of `Pass` metrics. Spinnaker promotes when the score is ≥ `pass` and aborts when it is ≤ `marginal`.
+
+![Kayenta-style automated canary analysis loop with three clusters feeding a Mann-Whitney judge that emits a 0–100 score driving promotion or rollback.](./diagrams/kayenta-canary-analysis-loop-light.svg "Kayenta-style ACA loop: production, baseline, and canary clusters all serve the same traffic at different shares; their metrics are compared by a Mann-Whitney judge whose 0–100 score drives promotion or rollback.")
+![Kayenta-style automated canary analysis loop with three clusters feeding a Mann-Whitney judge that emits a 0–100 score driving promotion or rollback.](./diagrams/kayenta-canary-analysis-loop-dark.svg)
+
+> [!TIP]
+> If false positives haunt you, run an "AA analysis" — point the canary judge at two slices of the **same** version and confirm the score sits at 100. A noisy AA result means your metrics, not your candidate, are the problem.
 
 ### Kubernetes Implementation with Argo Rollouts
 
@@ -234,14 +283,14 @@ spec:
 
 ### Service Mesh Traffic Splitting
 
-Istio provides fine-grained traffic control via VirtualService:
+Istio provides fine-grained traffic control via [VirtualService](https://istio.io/latest/docs/reference/config/networking/virtual-service/). The `networking.istio.io/v1` API was promoted to stable in [Istio 1.22](https://istio.io/latest/blog/2024/v1-apis/) and is now preferred over the older `v1beta1`:
 
 ```yaml title="istio-canary.yaml" collapse={1-4}
 # Istio VirtualService for canary traffic splitting
 # Routes 90% to stable, 10% to canary based on subset labels
-# Requires DestinationRule defining stable/canary subsets
+# Requires a DestinationRule defining stable/canary subsets
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: my-app
@@ -398,10 +447,10 @@ Feature flags separate **deployment** (code reaching production) from **release*
 
 ### Architectural Pattern
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Feature flags decouple deployment from release: code reaches production with the flag off, then a percentage rollout exposes users gradually. Rollback becomes a flag toggle in milliseconds rather than a redeploy.](./diagrams/feature-flag-deploy-vs-release-light.svg "Feature flags decouple deployment from release: code reaches production with the flag off, then a percentage rollout exposes users gradually. Rollback becomes a flag toggle in milliseconds rather than a redeploy.")
+![Feature flags decouple deployment from release: code reaches production with the flag off, then a percentage rollout exposes users gradually. Rollback becomes a flag toggle in milliseconds rather than a redeploy.](./diagrams/feature-flag-deploy-vs-release-dark.svg)
 
-**Key insight**: Rollback becomes a flag toggle (milliseconds) rather than a deployment (minutes to hours). Even if the underlying deployment strategy is rolling update, feature flags provide instant rollback for the specific feature.
+**Key insight**: Rollback becomes a flag toggle (milliseconds) rather than a deployment (minutes to hours). Even if the underlying deployment strategy is a rolling update, feature flags still provide instant rollback for the specific feature.
 
 ### Implementation Considerations
 
@@ -443,9 +492,9 @@ function shouldEnableFeature(userId, percentage) {
 
 ## Database Migration Coordination
 
-Database schema changes constrain all deployment strategies. If the new code version requires schema changes incompatible with the old version, rollback becomes impossible without data loss.
+Database schema changes constrain all deployment strategies. If the new code version requires schema changes incompatible with the old version, rollback becomes impossible without data loss. Martin Fowler [calls this out explicitly in the original blue-green write-up](https://martinfowler.com/bliki/BlueGreenDeployment.html): "first apply a database refactoring to change the schema to support both the new and old version of the application, deploy that, check everything is working fine so you have a rollback point, then deploy the new version of the application."
 
-### The Compatibility Problem
+### The compatibility problem
 
 Consider adding a required column:
 
@@ -466,8 +515,8 @@ ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT false;
 
 The expand-contract pattern (also called parallel change) from [Martin Fowler](https://martinfowler.com/bliki/ParallelChange.html) solves this by splitting migrations into backward-compatible phases:
 
-![Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-light.svg "Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.")
-![Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after confirming the expand phase is complete.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-dark.svg)
+![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-light.svg "Expand-contract migration phases: each phase is independently deployable and rollback-safe. The contract phase only executes after the expand phase has been confirmed under real production load.")
+![Expand-contract migration phases — each phase is independently deployable and rollback-safe; contract only runs after expand is fully observed in production.](./diagrams/expand-contract-migration-phases-each-phase-is-independently-deployable-and-roll-dark.svg)
 
 **Phase 1 - Expand**:
 
@@ -596,9 +645,11 @@ Effective automated rollback requires metrics that:
 | Error rate  | Absolute increase | > 1% increase over baseline  |
 | p99 latency | Relative increase | > 50% increase over baseline |
 | p50 latency | Absolute value    | > 200ms                      |
-| Apdex score | Absolute value    | < 0.9                        |
+| Apdex score | Absolute value    | < 0.85 ("Good" floor)        |
 
-**Baseline comparison**: Compare canary/new version metrics against stable version, not absolute thresholds. A service with 0.5% baseline error rate triggering on > 1% error rate will fire immediately; triggering on > 0.5% increase is appropriate.
+The standard Apdex bands ([apdex.org technical specification](https://www.apdex.org/wp-content/uploads/2020/09/Apdex_Technical_Specification.pdf)) place 0.85–0.93 in "Good" and 0.94–1.00 in "Excellent"; rolling back the moment a service drops below 0.85 catches regressions before they leak into the "Fair" band.
+
+**Baseline comparison**: Compare canary/new version metrics against the stable version, not absolute thresholds. A service with a 0.5% baseline error rate triggering on > 1% absolute error rate will fire immediately; triggering on > 0.5% _increase_ relative to stable is appropriate.
 
 ### Argo Rollouts Analysis
 
@@ -674,14 +725,14 @@ groups:
 
 **Avoid single-metric triggers**: Combine multiple signals to reduce false positives.
 
-```yaml
-# Rollback when ANY of these conditions is true:
+```yaml title="rollback-policy.yaml"
+# Rollback when ANY of these conditions is true
 conditions:
   - error_rate_increase > 1%
   - p99_latency_increase > 100ms
   - apdex < 0.85
 
-# But NOT if:
+# But suppress rollback if any of these gating exceptions hold
 exceptions:
   - traffic_volume < 100_requests_per_minute # Insufficient data
   - baseline_error_rate > 5% # Already unhealthy
@@ -811,10 +862,12 @@ The mature approach: combine strategies based on change risk. Routine dependency
 
 **Foundational Articles**
 
-- [Martin Fowler - Blue Green Deployment](https://martinfowler.com/bliki/BlueGreenDeployment.html) - Original definition and architecture
-- [Martin Fowler - Canary Release](https://martinfowler.com/bliki/CanaryRelease.html) - Progressive traffic shifting concept
-- [Martin Fowler - Parallel Change](https://martinfowler.com/bliki/ParallelChange.html) - Expand-contract migration pattern
-- [Google SRE Workbook - Canarying Releases](https://sre.google/workbook/canarying-releases/) - Automated canary analysis requirements
+- [Martin Fowler - Blue Green Deployment](https://martinfowler.com/bliki/BlueGreenDeployment.html) - Original definition and architecture, plus the database refactoring guidance
+- [Martin Fowler - Canary Release](https://martinfowler.com/bliki/CanaryRelease.html) - Progressive traffic shifting concept; also defines IMVU's "cluster immune system"
+- [Martin Fowler - Parallel Change](https://martinfowler.com/bliki/ParallelChange.html) - Expand–migrate–contract pattern (Joshua Kerievsky, 2006)
+- [Google SRE Workbook - Canarying Releases](https://sre.google/workbook/canarying-releases/) - Manual graph-staring is insufficient; automated analysis is required
+- [Charity Majors - Deploys Are The Wrong Way to Change User Experience](https://charity.wtf/2023/03/08/deploys-are-the-%E2%9C%A8wrong%E2%9C%A8-way-to-change-user-experience/) - The deploy-vs-release distinction and the "feature flags as scalpel" framing
+- [Google CRE - What is a dark launch and what does it do for me?](https://cloud.google.com/blog/products/gcp/cre-life-lessons-what-is-a-dark-launch-and-what-does-it-do-for-me) - The original definition of dark launch as response-discarded mirroring
 
 **Kubernetes Documentation**
 
@@ -828,6 +881,9 @@ The mature approach: combine strategies based on change risk. Routine dependency
 - [Argo Rollouts Analysis](https://argo-rollouts.readthedocs.io/en/stable/analysis/prometheus/) - Prometheus integration
 - [Flagger](https://docs.flagger.app/) - Automated canary with service mesh integration
 - [Istio Traffic Management](https://istio.io/latest/docs/concepts/traffic-management/) - VirtualService and DestinationRule
+- [Istio v1 APIs (1.22)](https://istio.io/latest/blog/2024/v1-apis/) - `networking.istio.io/v1` promotion rationale
+- [Spinnaker Canary Best Practices](https://spinnaker.io/docs/guides/user/canary/best-practices/) - 50 data points, marginal/pass thresholds, baseline-vs-canary
+- [Netflix - Automated Canary Analysis with Kayenta](https://netflixtechblog.com/automated-canary-analysis-at-netflix-with-kayenta-3260bc7acc69) - Three-cluster model, Mann-Whitney judgment
 
 **AWS Documentation**
 

@@ -1,0 +1,30 @@
+%% Diagram: S3 multipart parallel parts flow with bounded concurrency
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client (worker pool)
+    participant A as App API
+    participant S as S3 / R2 / GCS
+
+    C->>A: POST /uploads { key, size }
+    A->>S: CreateMultipartUpload
+    S-->>A: UploadId
+    A-->>C: UploadId + presigned PUT URLs (per part)
+
+    Note over C: Schedule parts on a bounded pool\n(typ. 3-6 in flight)
+    par Worker 1
+        C->>S: PUT part 1 (5+ MiB)
+        S-->>C: 200 OK + ETag1
+    and Worker 2
+        C->>S: PUT part 2
+        S-->>C: 200 OK + ETag2
+    and Worker N
+        C->>S: PUT part N
+        S-->>C: 200 OK + ETagN
+    end
+
+    Note over C: Failed parts re-queued\nOther workers keep draining
+    C->>A: POST /complete { UploadId, [(n, ETag)] }
+    A->>S: CompleteMultipartUpload
+    S-->>A: 200 + final ETag
+    A-->>C: 201 + canonical object URL

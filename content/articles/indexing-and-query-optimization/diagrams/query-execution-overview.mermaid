@@ -1,0 +1,18 @@
+%% Diagram: Query execution overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q[SQL query] --> Parser[Parser + rewriter]
+    Parser --> Planner["Planner / optimizer<br/>(cost-based, uses pg_statistic)"]
+    Planner --> Plan[Lowest-cost plan]
+
+    Plan --> SeqScan[Seq Scan]
+    Plan --> IdxScan[Index Scan]
+    Plan --> IdxOnly[Index-Only Scan]
+    Plan --> BmpAnd["Bitmap Index Scan<br/>+ BitmapAnd / BitmapOr"]
+
+    SeqScan --> Heap[(Heap)]
+    IdxScan -->|"heap fetch by ctid"| Heap
+    BmpAnd --> BmpHeap[Bitmap Heap Scan] --> Heap
+    IdxOnly -->|"visibility map<br/>all-visible bit set"| Result[Result rows]
+    Heap --> Result

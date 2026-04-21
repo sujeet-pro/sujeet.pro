@@ -1,0 +1,49 @@
+%% Diagram: End-to-end web video playback pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Prep["Content Preparation"]
+        direction TB
+        SRC[Mezzanine Source] --> ENC["Encode<br/>H.264 / HEVC / AV1"]
+        ENC --> PKG["Package<br/>fMP4 / CMAF"]
+        PKG --> ENCRYPT["Encrypt<br/>CENC (cenc / cbcs)"]
+    end
+
+    subgraph Origin["Origin and Manifests"]
+        direction TB
+        STORE[(Object Store)]
+        MAN["Manifest<br/>HLS .m3u8 / DASH .mpd"]
+        STORE --- MAN
+    end
+
+    subgraph Edge["Delivery"]
+        direction TB
+        CDN["CDN PoPs"]
+        LIC["DRM License<br/>Servers"]
+    end
+
+    subgraph Client["Playback"]
+        direction TB
+        ABR["ABR Logic<br/>(throughput + buffer)"]
+        MSE["MSE / ManagedMediaSource"]
+        CDM["CDM<br/>Widevine / FairPlay / PlayReady"]
+        DEC[Decoder]
+        OUT[HTMLMediaElement]
+        ABR --> MSE --> DEC --> OUT
+        CDM --> DEC
+    end
+
+    ENCRYPT --> STORE
+    STORE --> CDN
+    MAN --> CDN
+    CDN --> ABR
+    LIC --> CDM
+
+    classDef prep fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef secure fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef deliver fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef play fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class SRC,ENC,PKG prep
+    class ENCRYPT,LIC,CDM secure
+    class STORE,MAN,CDN deliver
+    class ABR,MSE,DEC,OUT play

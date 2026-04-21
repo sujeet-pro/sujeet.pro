@@ -1,0 +1,39 @@
+%% Diagram: High-level architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Mobile + Web Clients"]
+    CDN["CDN (static + photos)"]
+    LB["Edge Load Balancer + WAF"]
+    Gateway["API Gateway"]
+
+    subgraph Services["Application Services"]
+      Search["Search Service"]
+      Ranking["Ranking Service"]
+      BizUser["Business + User Service"]
+      Review["Review Service"]
+    end
+
+    subgraph DataPlane["Data Plane"]
+      PG[("PostgreSQL primary + replicas")]
+      ES[("Elasticsearch / Lucene shards")]
+      Redis[("Redis: rate limit + geohash cache")]
+      S3[("Object storage (photos)")]
+    end
+
+    Kafka[["Kafka"]]
+    Workers["Async Workers (moderation, ML, indexer)"]
+
+    Clients --> CDN --> LB --> Gateway
+    Gateway --> Search
+    Gateway --> BizUser
+    Gateway --> Review
+    Search --> ES
+    Search --> Redis
+    Search --> Ranking
+    BizUser --> PG
+    BizUser --> Redis
+    Review --> PG
+    Review --> Kafka --> Workers
+    Workers --> ES
+    Workers --> S3

@@ -1,0 +1,31 @@
+%% Diagram: AWS reference deployment
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Upload
+        ALB[Application Load Balancer] --> ECS[ECS Fargate<br/>upload service]
+        ECS --> S3_RAW[(S3 - raw videos)]
+        ECS --> SQS[SQS - job queue]
+    end
+
+    subgraph Transcoding
+        SQS --> BATCH[AWS Batch<br/>GPU / custom encoder fleet]
+        SQS --> ELEMENTAL[MediaConvert<br/>managed transcoding]
+        BATCH --> S3_ENC[(S3 - encoded segments)]
+        ELEMENTAL --> S3_ENC
+    end
+
+    subgraph Metadata
+        RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+        ES[OpenSearch<br/>multi-node]
+        REDIS[ElastiCache Redis<br/>cluster mode]
+    end
+
+    subgraph Delivery
+        S3_ENC --> CF[CloudFront<br/>Origin Shield enabled]
+        CF --> VIEWER[Viewers]
+    end
+
+    ECS --> RDS
+    RDS --> ES
+    RDS --> REDIS

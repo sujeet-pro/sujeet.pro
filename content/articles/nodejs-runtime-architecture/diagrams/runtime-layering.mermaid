@@ -1,0 +1,43 @@
+%% Diagram: Node.js runtime layering
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph JS["JavaScript space"]
+    user["User code"]
+    core["Node.js core APIs (JavaScript)"]
+  end
+
+  subgraph Native["Native boundary"]
+    bindings["C++ bindings / internals"]
+    napi["Node-API addons"]
+  end
+
+  subgraph Engines["Runtime engines"]
+    v8["V8\nECMAScript + GC"]
+    libuv["libuv\nevent loop + thread pool"]
+  end
+
+  subgraph Deps["Native deps"]
+    http["llhttp"]
+    tls["OpenSSL"]
+    dns["c-ares"]
+    comp["zlib"]
+  end
+
+  os["OS: epoll / kqueue / IOCP"]
+
+  user --> core --> bindings
+  bindings --> v8
+  bindings --> libuv
+  napi --> v8
+  napi --> libuv
+  libuv --> Deps
+  v8 --> os
+  libuv --> os
+
+  classDef engine fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef dep fill:#1F6E68,stroke:#155752,color:#ffffff
+  classDef plat fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+  class v8,libuv engine
+  class http,tls,dns,comp dep
+  class os plat

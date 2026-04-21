@@ -1,0 +1,23 @@
+%% Diagram: setImmediate vs setTimeout(0) ordering inside vs outside an I/O callback
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+  participant App as Script
+  participant Poll as poll phase
+  participant Check as check phase
+  participant Timers as timers phase
+
+  Note over App,Timers: Outside any I/O callback (non-deterministic)
+  App->>Timers: schedule setTimeout 0ms
+  App->>Check: schedule setImmediate
+  App->>Poll: enter loop
+  Poll-->>Timers: enter if 1ms threshold elapsed first
+  Poll-->>Check: enter immediate fires
+  Note right of Check: Order varies by startup speed
+
+  Note over App,Timers: Inside an I/O callback (deterministic)
+  App->>Poll: fs.readFile path with ioCb
+  Poll->>Poll: ioCb queues setTimeout 0 plus setImmediate
+  Poll->>Check: enter setImmediate fires first
+  Check->>Timers: enter setTimeout fires after
+  Note right of Timers: setImmediate ALWAYS first

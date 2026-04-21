@@ -1,0 +1,19 @@
+%% Diagram: Preload scanner racing ahead while the main parser is blocked
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Main as Main Parser
+    participant Scan as Preload Scanner
+    participant Net as Network
+
+    Main->>Main: Parse <head>
+    Main->>Net: Fetch app.js
+    Note over Main: Parser blocked on app.js
+    Scan->>Scan: Scan ahead through remaining HTML
+    Scan->>Net: Fetch styles.css (link rel=stylesheet)
+    Scan->>Net: Fetch hero.jpg (img src)
+    Scan->>Net: Fetch analytics.js (script src)
+    Note over Scan: Scanner only collects URLs<br/>does not build DOM
+    Net-->>Main: app.js arrives
+    Main->>Main: Execute and resume
+    Note over Main: When parser reaches these tags,<br/>resources may already be in cache

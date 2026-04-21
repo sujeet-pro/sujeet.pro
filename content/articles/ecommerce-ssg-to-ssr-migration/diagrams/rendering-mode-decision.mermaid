@@ -1,0 +1,14 @@
+%% Diagram: rendering-mode-decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start([Page request]) --> Q1{Per-user content?}
+    Q1 -->|Whole page| SSR[SSR no-cache<br/>account, cart, checkout]
+    Q1 -->|Only some<br/>regions| PPR[PPR / Cache Components<br/>static shell + dynamic holes]
+    Q1 -->|No| Q2{Changes more often<br/>than once an hour?}
+    Q2 -->|Yes| Q3{Tolerable to serve<br/>stale for seconds?}
+    Q2 -->|No| Q4{Total page count<br/>fits in build budget?}
+    Q3 -->|Yes| ISR[ISR / SWR<br/>PDP, search, listings]
+    Q3 -->|No| SSRC[SSR + tag-based<br/>invalidation]
+    Q4 -->|Yes| SSG[SSG<br/>blog, marketing, legal]
+    Q4 -->|No| ISRB[ISR with build-time<br/>fallback blocking]

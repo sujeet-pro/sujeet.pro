@@ -1,0 +1,20 @@
+%% Diagram: Shortest path algorithm selection
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start(("Shortest path?")):::terminal
+    start --> q1{"Edges weighted?"}
+
+    q1 -- "No" --> bfs["BFS\nO(V + E)"]:::primary
+    q1 -- "Yes" --> q2{"Negative\nedge weights?"}
+
+    q2 -- "No" --> q3{"Single source\nor all-pairs?"}
+    q3 -- "Single source" --> dijkstra["Dijkstra\nO(E + V log V)"]:::primary
+    q3 -- "All-pairs" --> apsp["Sparse: Johnson's\nDense: Floyd-Warshall O(V^3)"]:::secondary
+
+    q2 -- "Yes" --> bf["Bellman-Ford\nO(VE)\ndetects negative cycles"]:::accent
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef terminal fill:#5A5A5A,stroke:#3D3D3D,color:#fff

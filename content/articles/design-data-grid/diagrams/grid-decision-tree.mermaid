@@ -1,0 +1,15 @@
+%% Diagram: Grid library decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start[Need a data grid] --> Size{Dataset size?}
+    Size -->|under 1K rows| Simple[Plain semantic table]
+    Size -->|1K to 100K| Mid{Control requirements?}
+    Size -->|over 100K| Large{Update frequency?}
+
+    Mid -->|Full control| TanStack[TanStack Table plus react-virtual]
+    Mid -->|Quick setup| MUI[MUI X DataGrid]
+    Mid -->|Enterprise features| AG[AG Grid]
+
+    Large -->|Static or paginated| ServerSide[Server-side row model]
+    Large -->|Real-time updates| Canvas[Canvas-based or AG Grid Viewport]

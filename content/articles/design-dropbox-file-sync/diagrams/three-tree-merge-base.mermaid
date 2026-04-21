@@ -1,0 +1,22 @@
+%% Diagram: Nucleus three-tree model — Synced tree as merge base
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Trees["Nucleus persists three filesystem observations"]
+        Local["Local tree<br/>(last observed disk state)"]
+        Synced["Synced tree<br/>(last fully-synced state)"]
+        Remote["Remote tree<br/>(last observed server state)"]
+    end
+
+    Local --- |"diff"| Synced
+    Synced --- |"diff"| Remote
+
+    subgraph Planner["Planner derives operations"]
+        D1["Local == Synced, Remote != Synced<br/>=> apply remote change locally"]
+        D2["Local != Synced, Remote == Synced<br/>=> apply local change to server"]
+        D3["Local != Synced, Remote != Synced<br/>=> conflict (preserve both)"]
+        D4["Local == Remote (any state)<br/>=> already converged"]
+    end
+
+    Trees --> Planner
+    Planner --> Done["Sync complete when all three converge"]

@@ -1,0 +1,11 @@
+%% Diagram: Inventory reservation lifecycle
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Available
+    Available --> SoftReserved: Add to cart
+    SoftReserved --> Available: TTL expires / item removed
+    SoftReserved --> HardReserved: Payment authorized + saga commits
+    HardReserved --> Allocated: Pick ticket created (warehouse)
+    Allocated --> Shipped: Shipment dispatched
+    HardReserved --> Available: Order cancelled (compensating action)

@@ -1,0 +1,11 @@
+%% Diagram: JSON Schema rendering pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    JS["JSON Schema<br/>(data shape + constraints)"] --> Validator["AJV / ajv-formats<br/>(runtime validator)"]
+    JS --> Renderer["Renderer<br/>(JSON Forms / RJSF)"]
+    UI["UI Schema<br/>(widgets + layout hints)"] --> Renderer
+    Renderer --> Form["Rendered Form"]
+    Form --> Data["Form Data"]
+    Data --> Validator
+    Validator -->|errors| Form

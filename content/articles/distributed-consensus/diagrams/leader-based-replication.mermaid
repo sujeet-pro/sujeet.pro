@@ -1,0 +1,29 @@
+%% Diagram: Leader-based replication round (5-node cluster, majority = 3)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant L as Leader
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+    participant F3 as Follower 3
+    participant F4 as Follower 4
+
+    C->>L: write(x = 7)
+    L->>L: append(term, idx, x = 7) to local log + fsync
+    par AppendEntries
+        L->>F1: AppendEntries(term, idx, x = 7)
+        L->>F2: AppendEntries(term, idx, x = 7)
+        L->>F3: AppendEntries(term, idx, x = 7)
+        L->>F4: AppendEntries(term, idx, x = 7)
+    end
+    F1-->>L: ack(term, idx)
+    F2-->>L: ack(term, idx)
+    Note over L: Majority (3/5: L + F1 + F2) -> commit
+    L->>L: advance commitIndex
+    L-->>C: ok
+    L->>F1: heartbeat(commitIndex)
+    L->>F2: heartbeat(commitIndex)
+    L->>F3: heartbeat(commitIndex)
+    L->>F4: heartbeat(commitIndex)
+    Note over F3,F4: Late acks accepted; followers learn commitIndex on next heartbeat

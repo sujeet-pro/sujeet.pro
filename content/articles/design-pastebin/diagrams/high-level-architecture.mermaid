@@ -1,0 +1,43 @@
+%% Diagram: High-level architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Clients<br/>Web · CLI · API"]
+    CDN["CDN edge<br/>(immutable paste cache)"]
+    LB["Load balancer + WAF"]
+
+    subgraph App["Application tier"]
+        WRITE["Paste Write Service"]
+        READ["Paste Read Service"]
+        KGS["Key Generation Service"]
+        SCAN["Abuse / Content Scanner"]
+    end
+
+    subgraph Async["Async tier"]
+        QUEUE["Job queue"]
+        HL["Highlight workers"]
+        EXP["Expiration sweeper"]
+    end
+
+    subgraph Data["Storage tier"]
+        REDIS["Redis cluster<br/>hot pastes + rate limits"]
+        PG[("PostgreSQL<br/>metadata + key pool")]
+        S3["Object storage<br/>compressed bodies + HTML"]
+    end
+
+    Clients --> CDN
+    CDN -->|miss| LB
+    LB --> WRITE & READ
+    WRITE --> KGS
+    WRITE --> SCAN
+    WRITE --> PG
+    WRITE --> S3
+    WRITE --> QUEUE
+    READ --> REDIS
+    READ -->|cache miss| PG
+    READ -->|cache miss| S3
+    QUEUE --> HL
+    HL --> S3
+    EXP --> PG
+    EXP --> S3
+    EXP --> REDIS

@@ -1,0 +1,32 @@
+%% Diagram: Presence pipeline — cursor / selection broadcast
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Source["Editor (sender)"]
+        CARET["caret / selection event<br/>(every keystroke / mouse move)"]
+        THROTTLE["throttle<br/>(≤ 20 updates/sec)"]
+        COALESCE["coalesce 50 ms window<br/>(keep last position only)"]
+    end
+
+    subgraph Wire["Wire"]
+        WS_OUT["WebSocket frame<br/>(separate channel from ops)"]
+    end
+
+    subgraph SVC["Presence service (per document)"]
+        ROUTER["per-doc router<br/>(no transform, no log)"]
+        STORE["in-memory map<br/>clientId → cursor + TTL 60s"]
+        FANOUT["fan-out<br/>(exclude sender)"]
+    end
+
+    subgraph Recv["Editors (receivers)"]
+        WS_IN["WebSocket frames"]
+        OVERLAY["cursor overlay<br/>(absolute layer, CSS transform)"]
+    end
+
+    CARET --> THROTTLE --> COALESCE --> WS_OUT --> ROUTER
+    ROUTER --> STORE
+    STORE --> FANOUT --> WS_IN --> OVERLAY
+
+    DROP["drop on disconnect:<br/>TTL expires → 'left' event"]
+    STORE -.-> DROP
+    DROP -.-> FANOUT

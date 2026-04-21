@@ -1,0 +1,21 @@
+%% Diagram: Allowed Layer Dependency Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    PRIMITIVES["Primitives\n(@design-system)"] --> BLOCKS["Blocks\n(@blocks/*)"]
+    BLOCKS --> WIDGETS["Widgets\n(@widgets/*)"]
+    WIDGETS --> REGISTRIES["Registries\n(@registries/*)"]
+    REGISTRIES --> LAYOUT["Layout Engine\n(@layout/*)"]
+    LAYOUT --> PAGES["Pages\n(framework routes)"]
+
+    SDKS(["SDKs\n(@sdk/* - injected via Context)"])
+    SDKS -.->|hooks| BLOCKS
+    SDKS -.->|hooks| WIDGETS
+    SDKS -.->|hooks| LAYOUT
+
+    classDef layer fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef sdk fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef shell fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    class PRIMITIVES,BLOCKS,WIDGETS,REGISTRIES,LAYOUT layer
+    class SDKS sdk
+    class PAGES shell

@@ -1,0 +1,28 @@
+%% Diagram: Component Composition Primitives Map
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q{What are you<br/>composing?}
+
+    Q -->|Same component shape,<br/>different content| PROPS["Props + children<br/>(static composition)"]
+    Q -->|One parent, many<br/>related children| COMPOUND["Compound components<br/>(shared state via Context)"]
+    Q -->|Behaviour without UI| HEADLESS["Hooks / Headless components<br/>(Radix, Headless UI, React Aria)"]
+    Q -->|Same behaviour,<br/>different rendering| RENDER["Render props /<br/>function-as-children"]
+    Q -->|Cross-cutting service<br/>or DI| CTX["Context provider<br/>(SDK injection)"]
+    Q -->|Wrap many components<br/>with the same chrome| HOC["Higher-order component<br/>(legacy; prefer hooks)"]
+
+    PROPS --> EX1["Card title prop<br/>Layout children"]
+    COMPOUND --> EX2["Tabs.List / Tabs.Panel<br/>Menu.Item / Select.Option"]
+    HEADLESS --> EX3["useCombobox()<br/>Dialog.Root / Dialog.Trigger"]
+    RENDER --> EX4["Virtualised list<br/>FormField render={...}"]
+    CTX --> EX5["SdkProvider<br/>ThemeProvider"]
+    HOC --> EX6["withErrorBoundary<br/>(rare; hook variant preferred)"]
+
+    classDef question fill:#3D3D3D,stroke:#1F1F1F,color:#fff
+    classDef pattern fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef example fill:#1F6E68,stroke:#155752,color:#fff
+    classDef legacy fill:#7A4A2D,stroke:#5A3520,color:#fff
+    class Q question
+    class PROPS,COMPOUND,HEADLESS,RENDER,CTX pattern
+    class HOC legacy
+    class EX1,EX2,EX3,EX4,EX5,EX6 example

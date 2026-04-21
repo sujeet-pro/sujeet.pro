@@ -1,0 +1,28 @@
+%% Diagram: V8 representation hierarchy for arrays and objects
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Arrays["Arrays - elements kinds"]
+        direction TB
+        A1["PACKED_SMI_ELEMENTS<br/>fastest, all small ints"]
+        A2["PACKED_DOUBLE_ELEMENTS<br/>unboxed 64-bit doubles"]
+        A3["PACKED_ELEMENTS<br/>boxed, mixed values"]
+        A4["HOLEY_*_ELEMENTS<br/>has gaps, prototype walk"]
+        A5["DICTIONARY_ELEMENTS<br/>sparse, hash table"]
+        A1 --> A2 --> A3 --> A4 --> A5
+    end
+
+    subgraph Objects["Objects - hidden classes and IC state"]
+        direction TB
+        O1["Monomorphic IC<br/>1 shape, direct load"]
+        O2["Polymorphic IC<br/>2-4 shapes, table lookup"]
+        O3["Megamorphic IC<br/>many shapes, no IC"]
+        O4["Dictionary properties<br/>NameDictionary fallback"]
+        O1 --> O2 --> O3 --> O4
+    end
+
+    note["Transitions are essentially one-way<br/>You cannot return to a faster mode"]
+    A4 -.-> note
+    A5 -.-> note
+    O3 -.-> note
+    O4 -.-> note

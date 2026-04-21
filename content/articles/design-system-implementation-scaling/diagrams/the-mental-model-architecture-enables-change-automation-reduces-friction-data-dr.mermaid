@@ -1,17 +1,32 @@
-%% Diagram: The Mental Model Architecture Enables Change Automation Reduces Friction Data Dr
+%% Diagram: The mental model — three forces that compound or undermine each other
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph Core["Core Decisions"]
-        A[Hybrid Architecture] -->|"Tokens + Framework Wrappers"| B[Change Resilience]
+flowchart LR
+    subgraph Architecture["1. Architecture (anticipates change)"]
+        A1[Platform-agnostic tokens]
+        A2[Framework wrappers]
+        A3[Headless a11y primitives]
     end
 
-    subgraph Adoption["Adoption Multipliers"]
-        C[Codemods] -->|"Automated Migration"| D[Low Friction Upgrades]
-        E[Usage Analytics] -->|"Data-Driven"| F[Targeted Investment]
+    subgraph Distribution["2. Distribution (reduces friction)"]
+        D1[Tree-shakeable bundles]
+        D2[Codemods]
+        D3[Shared CDN assets]
     end
 
-    subgraph Scale["Scale Enablers"]
-        G[Shared CDN Assets] -->|"Cross-App Caching"| H[Performance]
-        I[Version Policies] -->|"Compatibility Windows"| J[Consistency]
+    subgraph Operations["3. Operations (drives decisions with data)"]
+        O1[Usage analytics]
+        O2[Version compatibility windows]
+        O3[Visual / a11y / perf CI]
     end
+
+    Architecture -->|"survives framework swaps"| Distribution
+    Distribution -->|"upgrade pressure that doesn't break apps"| Operations
+    Operations -.->|"feedback into next architecture cycle"| Architecture
+
+    classDef arch fill:#dbeafe,stroke:#1e40af,color:#1f2937
+    classDef dist fill:#dcfce7,stroke:#166534,color:#1f2937
+    classDef ops fill:#fef3c7,stroke:#92400e,color:#1f2937
+    class A1,A2,A3 arch
+    class D1,D2,D3 dist
+    class O1,O2,O3 ops

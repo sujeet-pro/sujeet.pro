@@ -1,0 +1,16 @@
+%% Diagram: Keyboard drag state machine
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Idle
+    Idle: focused item
+    Idle: announce instructions on focus
+    Idle --> Grabbed: Enter or Space
+    Grabbed: target = current index
+    Grabbed: announce "Grabbed item N of M"
+    Grabbed --> Grabbed: ArrowUp / ArrowDown / ArrowLeft / ArrowRight
+    Grabbed --> Idle: Escape
+    Grabbed --> Dropped: Enter or Space
+    Dropped: commit reorder fromIndex to toIndex
+    Dropped: announce "Dropped at position N"
+    Dropped --> Idle

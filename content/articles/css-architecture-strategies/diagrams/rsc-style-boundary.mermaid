@@ -1,0 +1,32 @@
+%% Diagram: React Server Components style boundary — which strategies cross the line
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Server["Server Component (no JS, no hooks, no Context)"]
+        ServerOK["OK at server render:\n- Tailwind / UnoCSS classes\n- CSS Modules\n- vanilla-extract\n- StyleX\n- Pigment CSS\n- Plain stylesheets / @layer"]
+        ServerLimited["Limited (v6.3 plus):\nstyled-components inline injection\nwithout ThemeProvider Context"]
+    end
+
+    Boundary{{"\"use client\" boundary\nReact Context, hooks, effects available"}}
+
+    subgraph Client["Client Component"]
+        ClientOK["OK at hydration:\n- Runtime CSS-in-JS\n  (styled-components, Emotion)\n- ThemeProvider Context\n- useInsertionEffect-driven\n  style injection\n- Dynamic per-render styles"]
+    end
+
+    subgraph Theming["Theming bridge that crosses freely"]
+        Vars["CSS custom properties\nset on html or layout root\nread by server and client trees"]
+    end
+
+    Server --> Boundary --> Client
+    Vars -. "consumed by both" .-> Server
+    Vars -. "consumed by both" .-> Client
+
+    classDef server fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef client fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef boundary fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef theme fill:#5A4A8A,stroke:#3D3163,color:#ffffff
+
+    class ServerOK,ServerLimited server
+    class ClientOK client
+    class Boundary boundary
+    class Vars theme

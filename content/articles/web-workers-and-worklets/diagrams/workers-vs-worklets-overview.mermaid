@@ -1,0 +1,44 @@
+%% Diagram: Workers vs Worklets overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph main["Main Thread"]
+        direction TB
+        js["JavaScript\n(event loop)"]
+        paint["Paint"]
+        composite["Composite"]
+    end
+
+    subgraph workers["Worker Threads (async)"]
+        direction TB
+        dw["Dedicated\nWorker"]
+        sw["Shared\nWorker"]
+        svcw["Service\nWorker"]
+    end
+
+    subgraph worklets["Worklet Contexts (sync)"]
+        direction TB
+        pw["Paint Worklet"]
+        aw["Animation Worklet"]
+        audiow["Audio Worklet"]
+    end
+
+    audio_graph[("Web Audio Graph")]
+
+    js <-->|"postMessage"| dw
+    js <-->|"MessagePort"| sw
+    js <-->|"register"| svcw
+
+    paint -->|"sync"| pw
+    composite -->|"sync"| aw
+    audio_graph -->|"sync per\n128-sample frame"| audiow
+
+    classDef threadColor fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef workerColor fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef workletColor fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef ext fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class js,paint,composite threadColor
+    class dw,sw,svcw workerColor
+    class pw,aw,audiow workletColor
+    class audio_graph ext

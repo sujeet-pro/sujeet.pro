@@ -1,0 +1,48 @@
+%% Diagram: Google Search architecture overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    USERS["Users\nWeb / Mobile / API"]
+
+    subgraph QP["Query Processing"]
+        SPELL["Spell"]
+        INTENT["Intent"]
+        EXPAND["Expansion"]
+    end
+
+    subgraph Serving["Serving"]
+        ROUTER["Query Router"]
+        CACHE[(Query Cache)]
+        AGG["Aggregator"]
+    end
+
+    SHARDS[(Index Shards\nDoc-partitioned)]
+
+    subgraph Ranking["Ranking"]
+        PAGERANK["PageRank"]
+        BERT["BERT / MUM"]
+        RANKBRAIN["RankBrain"]
+    end
+
+    subgraph Crawl["Crawl + Index"]
+        FRONTIER["Frontier"]
+        CRAWLER["Crawler"]
+        PARSER["Parser"]
+        CAFFEINE["Caffeine\n(Percolator)"]
+    end
+
+    BIGTABLE[(Bigtable)]
+    COLOSSUS[(Colossus)]
+
+    USERS --> SPELL --> INTENT --> EXPAND --> ROUTER
+    ROUTER --> CACHE
+    ROUTER --> SHARDS
+    SHARDS --> AGG
+    AGG --> PAGERANK & BERT & RANKBRAIN
+    PAGERANK --> USERS
+    BERT --> USERS
+    RANKBRAIN --> USERS
+
+    FRONTIER --> CRAWLER --> PARSER --> BIGTABLE
+    BIGTABLE --> CAFFEINE --> SHARDS
+    BIGTABLE --> COLOSSUS

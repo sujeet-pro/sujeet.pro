@@ -1,0 +1,32 @@
+%% Diagram: Orchestrated saga with compensating transactions on failure
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Orch as Saga Orchestrator
+    participant Order as Order Service
+    participant Pay as Payment Service
+    participant Inv as Inventory Service
+    participant Ship as Shipping Service
+
+    Client->>Orch: place order
+
+    Orch->>Order: create order (PENDING)
+    Order-->>Orch: ok
+
+    Orch->>Pay: reserve payment
+    Pay-->>Orch: ok
+
+    Orch->>Inv: reserve items
+    Inv--xOrch: FAIL (out of stock)
+
+    rect rgb(255, 232, 232)
+    note over Orch,Ship: Compensate in reverse order\n(idempotent, semantic — not mechanical undo)
+    Orch->>Pay: release payment hold
+    Pay-->>Orch: ok
+    Orch->>Order: cancel order
+    Order-->>Orch: ok
+    end
+
+    Orch-->>Client: order failed,\ncompensations applied

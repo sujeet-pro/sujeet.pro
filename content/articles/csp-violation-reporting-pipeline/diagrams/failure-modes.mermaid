@@ -1,0 +1,15 @@
+%% Diagram: Failure-mode decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start["Component failure"] --> Q1{"Which layer?"}
+
+    Q1 -->|"Kafka"| K1["Producer send fails"] --> K2["API still returns 204"] --> K3["Report dropped<br/>(acceptable telemetry loss)"]
+
+    Q1 -->|"Valkey"| V1["Dedup lookup fails"] --> V2["Skip dedup,<br/>write everything"] --> V3["Storage cost spike<br/>(alert on Redis errors)"]
+
+    Q1 -->|"Snowflake"| S1["Ingest lag grows"] --> S2{"Lag &lt; 24h?"}
+    S2 -->|"yes"| S3["Buffered in Kafka<br/>(no data loss)"]
+    S2 -->|"no"| S4["Oldest messages<br/>truncated by retention"]
+
+    Q1 -->|"API"| A1["WebFlux pod failure"] --> A2["LB drains pod"] --> A3["Browser retries on next<br/>violation (no replay)"]

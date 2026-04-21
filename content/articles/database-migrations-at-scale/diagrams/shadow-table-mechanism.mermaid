@@ -1,0 +1,31 @@
+%% Diagram: Shadow Table Mechanism (pt-osc and gh-ost)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph App["Application traffic"]
+        direction TB
+        W["Reads / writes"]
+    end
+
+    subgraph Primary["MySQL primary"]
+        direction TB
+        O["Original table<br/>orders"]
+        S["Shadow table<br/>_orders_new"]
+        BL["Binary log"]
+        O -- "DML rows" --> BL
+    end
+
+    subgraph Sync["Change-capture path"]
+        direction TB
+        T["Triggers<br/>(pt-osc, sync)"]
+        BLR["Binlog reader<br/>(gh-ost, async)"]
+    end
+
+    W --> O
+    O -. "INSERT / UPDATE / DELETE" .-> T
+    T -- "REPLACE INTO" --> S
+    BL --> BLR
+    BLR -- "Apply DML" --> S
+
+    O == "Batched copy<br/>by primary key" ==> S
+    S == "Atomic RENAME<br/>at cut-over" ==> O

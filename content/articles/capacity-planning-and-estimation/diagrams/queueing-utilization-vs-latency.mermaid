@@ -1,0 +1,25 @@
+%% Diagram: M/M/1 utilization zones — safe operating range, knee, and saturation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Safe["Safe operating range (rho &lt;= 0.7)"]
+        direction TB
+        S1["rho = 0.5<br/>R = 2 x S<br/>linear cost"]
+        S2["rho = 0.7<br/>R = 3.3 x S<br/>still tolerable"]
+    end
+
+    subgraph Knee["The knee (0.7 &lt; rho &lt; 0.9)"]
+        direction TB
+        K1["rho = 0.8<br/>R = 5 x S<br/>headroom shrinks"]
+        K2["rho = 0.9<br/>R = 10 x S<br/>tail latency explodes"]
+    end
+
+    subgraph Saturation["Saturation (rho &gt; 0.95)"]
+        direction TB
+        T1["rho = 0.95<br/>R = 20 x S<br/>queues build"]
+        T2["rho = 0.99<br/>R = 100 x S<br/>collapse"]
+    end
+
+    Safe --> Knee --> Saturation
+
+    Note["R = S / (1 - rho)<br/>M/M/1 average response time<br/>S = service time, rho = utilization"]

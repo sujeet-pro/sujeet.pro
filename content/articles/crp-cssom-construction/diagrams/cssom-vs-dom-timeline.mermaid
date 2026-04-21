@@ -1,0 +1,19 @@
+%% Diagram: CSSOM vs DOM construction timeline
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Net as Network
+    participant HP as HTML parser
+    participant CP as CSS parser
+    participant R as Renderer (style recalc + paint)
+
+    Net-->>HP: HTML chunk 1
+    HP-->>R: Partial DOM exposed (incremental)
+    Net-->>CP: CSS bytes (chunk 1)
+    Note over CP: Buffered; partial CSSOM not exposed
+    Net-->>HP: HTML chunk 2
+    HP-->>R: More DOM nodes (still incremental)
+    Net-->>CP: CSS bytes (last chunk)
+    CP->>CP: Tokenize, parse, build CSSOM
+    CP-->>R: CSSOM ready (atomic)
+    Note over R: Style recalc + First Contentful Paint may proceed

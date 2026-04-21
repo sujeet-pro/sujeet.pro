@@ -1,0 +1,13 @@
+%% Diagram: Migration approach decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    A["Need a schema<br/>or data change"] --> B{"Data transformation<br/>required?"}
+    B -- "No, schema only" --> C{"Operation supported<br/>by INSTANT DDL?"}
+    C -- "Yes" --> C1["MySQL ALGORITHM=INSTANT<br/>(milliseconds)"]
+    C -- "No" --> D{"Table size and<br/>write load?"}
+    D -- "Small table,<br/>low writes" --> D1["Direct ALTER<br/>(INPLACE/COPY)"]
+    D -- "Large table,<br/>moderate writes,<br/>FK present" --> D2["pt-osc<br/>(triggers, REPLACE INTO)"]
+    D -- "Large table,<br/>high writes,<br/>no FK" --> D3["gh-ost or Spirit<br/>(binlog)"]
+    B -- "Yes, data + schema" --> E["Expand / Contract<br/>+ throttled backfill"]
+    B -- "Cross-database<br/>or sharding" --> F["CDC + strangler fig<br/>(Vitess, custom proxy)"]

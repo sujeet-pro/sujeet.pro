@@ -1,0 +1,33 @@
+%% Diagram: PACELC Configuration Quadrants
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph PARTITION["Partition (P): A vs C"]
+        direction LR
+        PA["PA — Availability\nKeep serving;\naccept stale reads"]:::ap
+        PC["PC — Consistency\nReject requests;\npreserve invariants"]:::cp
+    end
+
+    subgraph NORMAL["Else (E): L vs C — every request"]
+        direction LR
+        EL["EL — Latency\nLocal read; async\nreplication"]:::ap
+        EC["EC — Consistency\nQuorum coordination;\nadds RTT"]:::cp
+    end
+
+    PA --- EL
+    PA --- EC
+    PC --- EL
+    PC --- EC
+
+    PAEL["PA/EL\nCassandra (default)\nDynamoDB (eventual)"]:::ap
+    PAEC["PA/EC\nMongoDB (default)"]:::cp
+    PCEL["PC/EL\nPNUTS, Cosmos DB\n(bounded staleness)"]:::cp
+    PCEC["PC/EC\nSpanner, CockroachDB\nClassic RDBMS"]:::cp
+
+    PA --> PAEL
+    PA --> PAEC
+    PC --> PCEL
+    PC --> PCEC
+
+    classDef ap fill:#1F6E68,stroke:#155752,color:#fff
+    classDef cp fill:#2E5A88,stroke:#1F4870,color:#fff

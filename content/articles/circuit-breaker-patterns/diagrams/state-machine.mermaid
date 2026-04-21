@@ -1,0 +1,22 @@
+%% Diagram: Circuit breaker state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> Closed
+
+    Closed: Closed\nrequests pass through\nfailures recorded in sliding window
+    Open: Open\nfast-fail every request\nno calls reach dependency
+    HalfOpen: Half-Open\nlimited probe traffic\nmeasures recovery
+
+    Closed --> Open: failure rate or slow-call rate\nexceeds threshold\n(after minimum call volume)
+    Open --> HalfOpen: wait duration elapses
+    HalfOpen --> Closed: probe success rate\nbelow failure threshold
+    HalfOpen --> Open: any probe failure\nor slow-call ratio breach
+
+    classDef closed fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef open fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef halfopen fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class Closed closed
+    class Open open
+    class HalfOpen halfopen

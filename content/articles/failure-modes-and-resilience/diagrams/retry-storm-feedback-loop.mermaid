@@ -1,0 +1,30 @@
+%% Diagram: Retry storm feedback loop
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Clients
+    participant LB as Load balancer
+    participant S as Service
+    participant D as Dependency
+
+    Note over S,D: Steady state — latency normal
+    C->>LB: 100 req/s
+    LB->>S: 100 req/s
+    S->>D: 100 req/s
+    D-->>S: OK (10 ms)
+
+    Note over D: Dependency degrades
+    C->>LB: 100 req/s
+    LB->>S: 100 req/s
+    S->>D: 100 req/s
+    D-->>S: Slow / 5xx
+    S-->>LB: Timeout / error
+
+    Note over C,S: Retry without backoff
+    C->>LB: +200 retry req/s
+    LB->>S: 300 req/s
+    S->>D: 300 req/s
+    Note over D: Load amplified 3x
+    D-->>S: Worse: timeouts cascade
+    Note over C,D: Loop continues until <br/> retries exhaust budget or<br/> circuit breaker opens

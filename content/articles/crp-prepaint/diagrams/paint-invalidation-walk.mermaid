@@ -1,0 +1,19 @@
+%% Diagram: paint invalidation operates at chunk and display-item granularity
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start(["PaintInvalidator visits LayoutObject"])
+    Start --> Cmp["Compare current vs cached:<br/>computed style, paint offset,<br/>visual rect, PropertyTreeState"]
+    Cmp --> Q1{"PropertyTreeState changed<br/>OR chunk order changed?"}
+    Q1 -- yes --> Chunk["Invalidate whole<br/>PaintChunk"]
+    Q1 -- no --> Q2{"Display item content<br/>(geometry / style) changed?"}
+    Q2 -- yes --> Item["Mark single<br/>DisplayItemClient dirty"]
+    Q2 -- no --> Reuse["Reuse from PaintController cache"]
+
+    Chunk --> Paint["Paint stage re-records<br/>the chunk's display items"]
+    Item --> Paint
+    Reuse --> Skip["Paint stage skips re-record;<br/>cached display items reused"]
+
+    style Chunk fill:#ffebee,stroke:#c62828
+    style Item fill:#fff9c4,stroke:#f9a825
+    style Reuse fill:#e8f5e9,stroke:#2e7d32

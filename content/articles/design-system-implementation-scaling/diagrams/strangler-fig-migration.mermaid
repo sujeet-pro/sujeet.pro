@@ -1,0 +1,36 @@
+%% Diagram: Strangler Fig migration for design system adoption
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    User((User request))
+
+    User --> Facade{"Facade<br/>router"}
+
+    subgraph Legacy["Legacy UI (shrinks)"]
+        direction LR
+        L1[Header]
+        L2[Checkout]
+        L3[Settings]
+    end
+
+    subgraph New["Design-system UI (grows)"]
+        direction LR
+        N1[Header]
+        N2[Checkout]
+        N3[Settings]
+    end
+
+    Facade -->|"unmigrated"| Legacy
+    Facade -->|"migrated"| New
+
+    L1 -.->|"replaced"| N1
+    L2 -.->|"replaced"| N2
+    L3 -.->|"replaced"| N3
+
+    classDef legacy fill:#fee2e2,stroke:#991b1b,color:#1f2937
+    classDef new fill:#dcfce7,stroke:#166534,color:#1f2937
+    classDef facade fill:#fef3c7,stroke:#92400e,color:#1f2937
+
+    class L1,L2,L3 legacy
+    class N1,N2,N3 new
+    class Facade facade

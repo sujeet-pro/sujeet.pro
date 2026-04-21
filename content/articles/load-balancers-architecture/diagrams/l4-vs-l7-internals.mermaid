@@ -1,0 +1,24 @@
+%% Diagram: L4 vs L7 internals — what each layer touches in a request
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph L4["L4 load balancer (per-packet)"]
+        direction TB
+        L4P["Packet arrives"]
+        L4H["Hash 5-tuple<br/>(proto, src IP/port, dst IP/port)"]
+        L4M["Lookup table /<br/>flow table → backend"]
+        L4F["Forward at L3/L2<br/>(NAT / DSR / tunnel)"]
+        L4P --> L4H --> L4M --> L4F
+        L4N1["No TLS termination<br/>No HTTP parse<br/>No header rewrite<br/>No retry / shadow / shed"]
+    end
+
+    subgraph L7["L7 load balancer (per-request)"]
+        direction TB
+        L7C["Accept TCP +<br/>terminate TLS<br/>(RFC 8446)"]
+        L7P["Parse HTTP/1.1, HTTP/2,<br/>HTTP/3, gRPC, WebSocket"]
+        L7R["Match route<br/>(path, host, header,<br/>method, JWT claims)"]
+        L7A["Pick backend via<br/>algorithm (RR / LC / P2C /<br/>ring / Maglev)"]
+        L7U["Forward on pooled<br/>upstream connection<br/>+ rewrite headers"]
+        L7T["Stream response,<br/>apply transforms,<br/>retries, shadowing"]
+        L7C --> L7P --> L7R --> L7A --> L7U --> L7T
+    end

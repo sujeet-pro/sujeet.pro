@@ -1,0 +1,22 @@
+%% Diagram: CRDT convergence overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Mechanism["CRDT convergence"]
+        direction LR
+        R1["Replica 1<br/>local state"] -->|"state or op"| M(("merge ⊔"))
+        R2["Replica 2<br/>local state"] -->|"state or op"| M
+        R3["Replica 3<br/>local state"] -->|"state or op"| M
+        M -->|"identical result"| C["Converged state<br/>on every replica"]
+    end
+
+    subgraph Properties["Required properties of merge ⊔"]
+        direction TB
+        P1["Commutative<br/>A ⊔ B = B ⊔ A"]
+        P2["Associative<br/>(A ⊔ B) ⊔ C = A ⊔ (B ⊔ C)"]
+        P3["Idempotent<br/>A ⊔ A = A"]
+    end
+
+    C -.->|"guaranteed by"| P1
+    C -.->|"guaranteed by"| P2
+    C -.->|"guaranteed by"| P3

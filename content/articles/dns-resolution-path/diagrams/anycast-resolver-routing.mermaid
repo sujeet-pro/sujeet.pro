@@ -1,0 +1,30 @@
+%% Diagram: Anycast Routing for Public Resolvers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Clients["Clients in different regions"]
+        C1["Client (Tokyo)"]
+        C2["Client (Frankfurt)"]
+        C3["Client (Sao Paulo)"]
+    end
+
+    subgraph BGP["Single anycast IP advertised globally (1.1.1.1, 8.8.8.8)"]
+        direction TB
+        AS["Resolver operator AS announces /24 from many PoPs"]
+    end
+
+    subgraph PoPs["Anycast instances (each runs full recursive)"]
+        P1["PoP: Tokyo"]
+        P2["PoP: Frankfurt"]
+        P3["PoP: Sao Paulo"]
+    end
+
+    C1 -->|"BGP best path"| P1
+    C2 -->|"BGP best path"| P2
+    C3 -->|"BGP best path"| P3
+
+    AS -.-> P1
+    AS -.-> P2
+    AS -.-> P3
+
+    P1 --> Note["Cache shared per PoP, not globally;<br/>BGP shortest AS-path, not geography,<br/>decides which PoP a client hits"]

@@ -1,0 +1,21 @@
+%% Diagram: Lease lifecycle — acquire, work, release or expire
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant L as Lock Service
+    participant R as Resource
+
+    C->>L: Acquire(resource, TTL=30s)
+    L-->>C: Granted (expires at T+30s)
+    Note over C: Work begins
+    C->>R: Read / mutate
+    R-->>C: Ack
+    Note over C: Work continues...
+    alt Releases before TTL
+        C->>L: Release
+        L-->>C: Released
+    else TTL expires first
+        Note over L: Lease auto-expires at T+30s
+        Note over C: Stale holder may still be working
+    end

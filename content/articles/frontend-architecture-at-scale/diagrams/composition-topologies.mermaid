@@ -1,0 +1,48 @@
+%% Diagram: Composition Topologies
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph monolith["A. Modular monolith"]
+    mUser(["User"])
+    mShell["Single deployable<br/>(shell + domain modules,<br/>shared bundle)"]
+    mUser --> mShell
+  end
+
+  subgraph buildTime["B. Build-time composition"]
+    bUser(["User"])
+    bShell["App shell"]
+    bPkgA["@org/catalog<br/>(versioned package)"]
+    bPkgB["@org/checkout<br/>(versioned package)"]
+    bUser --> bShell
+    bShell --> bPkgA
+    bShell --> bPkgB
+  end
+
+  subgraph server["C. Server-side composition"]
+    sUser(["User"])
+    sEdge["Edge / origin shell<br/>(Next.js RSC, Remix,<br/>Astro, ESI fragments)"]
+    sFragA["Catalog fragment<br/>(server-rendered)"]
+    sFragB["Checkout fragment<br/>(server-rendered)"]
+    sUser --> sEdge
+    sEdge -. streamed HTML<br/>+ RSC payload .-> sFragA
+    sEdge -. streamed HTML<br/>+ RSC payload .-> sFragB
+  end
+
+  subgraph runtime["D. Runtime composition"]
+    rUser(["User"])
+    rShell["Host shell<br/>(single-spa root or<br/>Module Federation host)"]
+    rRemoteA["catalog remote<br/>(remoteEntry.js,<br/>independent deploy)"]
+    rRemoteB["checkout remote<br/>(remoteEntry.js,<br/>independent deploy)"]
+    rUser --> rShell
+    rShell -. dynamic import .-> rRemoteA
+    rShell -. dynamic import .-> rRemoteB
+  end
+
+  classDef mono fill:#eef3ff,stroke:#3a4f9f,color:#1c2d6b;
+  classDef build fill:#e8f5e9,stroke:#2e7d32,color:#1b3a1d;
+  classDef srv fill:#fff8e1,stroke:#b08900,color:#5f4b00;
+  classDef rt fill:#fde2e1,stroke:#b03a2e,color:#5a1812;
+  class mShell mono;
+  class bShell,bPkgA,bPkgB build;
+  class sEdge,sFragA,sFragB srv;
+  class rShell,rRemoteA,rRemoteB rt;

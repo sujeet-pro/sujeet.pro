@@ -1,0 +1,35 @@
+%% Diagram: Schema evolution strategies and deployment ordering
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph BC["BACKWARD (default in Confluent)"]
+        direction TB
+        BC1[New consumer reads<br/>old + new events]
+        BC2[Deploy consumer first,<br/>then producer]
+    end
+
+    subgraph FC["FORWARD"]
+        direction TB
+        FC1[Old consumer reads<br/>new events<br/>ignores unknown fields]
+        FC2[Deploy producer first,<br/>then consumer]
+    end
+
+    subgraph FL["FULL"]
+        direction TB
+        FL1[Both directions<br/>add optional fields only]
+        FL2[Deploy in any order]
+    end
+
+    subgraph BR["Breaking change?"]
+        direction TB
+        BR1[Introduce new event type<br/>EventV2 alongside EventV1]
+        BR2[Run both, drain V1<br/>over migration window]
+        BR3[Retire V1 after consumers<br/>have caught up]
+    end
+
+    BC --> FC --> FL --> BR
+
+    style BC fill:#d5e8d4,stroke:#82b366
+    style FC fill:#dae8fc,stroke:#6c8ebf
+    style FL fill:#fff2cc,stroke:#d6b656
+    style BR fill:#f8cecc,stroke:#b85450

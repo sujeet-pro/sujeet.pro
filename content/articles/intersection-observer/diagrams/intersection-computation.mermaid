@@ -2,24 +2,28 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-  subgraph geometry["Geometry inputs"]
-    root["root (viewport or element)"]
-    margin["rootMargin expands/contracts root intersection rectangle"]
-    target["target.getBoundingClientRect() (after other layout)"]
-  end
-  subgraph derive["Intersection computation"]
-    rir["Root intersection rectangle"]
-    clip["Clip target to root's overflow box"]
-    ratio["intersectionRatio vs target area"]
-  end
-  subgraph notify["Notification"]
-    thr["Compare prior ratio to threshold list"]
-    batch["If a threshold crossed → append entry; run callback later"]
-  end
+  root["root<br/>(viewport or Element)"]
+  rmargin["+ rootMargin<br/>(grow/shrink)"]
+  smargin["+ scrollMargin<br/>(per nested scrollport)"]
+  target["target.getBoundingClientRect()<br/>(post-transform)"]
+
+  rir["Root intersection<br/>rectangle"]
+  walk["Walk containing-block chain;<br/>clip by overflow / clip-path"]
+  inter["Intersect with root<br/>intersection rectangle"]
+  ratio["intersectionRatio =<br/>intersectionRect.area /<br/>boundingClientRect.area"]
+  idx["thresholdIndex"]
+  cmp{"thresholdIndex or<br/>isIntersecting changed?"}
+  queue["Queue<br/>IntersectionObserverEntry"]
+  skip["No notification"]
+
   root --> rir
-  margin --> rir
-  rir --> clip
-  target --> clip
-  clip --> ratio
-  ratio --> thr
-  thr --> batch
+  rmargin --> rir
+  smargin --> walk
+  target --> walk
+  rir --> inter
+  walk --> inter
+  inter --> ratio
+  ratio --> idx
+  idx --> cmp
+  cmp -->|"yes"| queue
+  cmp -->|"no"| skip

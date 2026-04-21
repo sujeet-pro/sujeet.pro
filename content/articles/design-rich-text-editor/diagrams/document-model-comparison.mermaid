@@ -1,0 +1,32 @@
+%% Diagram: Document model comparison — Delta vs Marks-on-tree vs Custom node tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Delta["Quill Delta — linear ops"]
+        D1["{ insert: 'Hello ' }"]
+        D2["{ insert: 'World',\nattributes: { bold: true } }"]
+        D3["{ insert: '\\n' }"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph PM["ProseMirror — node tree + flat marks"]
+        P1["doc"]
+        P2["paragraph"]
+        P3["text 'Hello '"]
+        P4["text 'World' marks=[bold]"]
+        P1 --> P2
+        P2 --> P3
+        P2 --> P4
+    end
+
+    subgraph LX["Lexical / Slate — typed node tree"]
+        L1["RootNode"]
+        L2["ParagraphNode"]
+        L3["TextNode 'Hello '"]
+        L4["TextNode 'World' format=BOLD"]
+        L5["DecoratorNode (mention, embed)"]
+        L1 --> L2
+        L2 --> L3
+        L2 --> L4
+        L2 --> L5
+    end

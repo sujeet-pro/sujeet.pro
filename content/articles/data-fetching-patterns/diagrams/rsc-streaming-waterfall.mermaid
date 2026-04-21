@@ -1,0 +1,35 @@
+%% Diagram: RSC streaming with parallel fetches and progressive Suspense flush
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant B as Browser
+    participant SR as Server Renderer
+    participant DB as Database / API
+    participant Cache as Per-request fetch cache
+
+    B->>SR: GET /dashboard
+    SR->>SR: render Page (RSC)
+    par Parallel server fetches
+        SR->>Cache: fetch(/users/me)
+        Cache->>DB: query
+        DB-->>Cache: user
+        Cache-->>SR: user (memoised)
+    and
+        SR->>Cache: fetch(/orders, suspended)
+        Cache->>DB: query (slow)
+    and
+        SR->>Cache: fetch(/feed, suspended)
+        Cache->>DB: query (slow)
+    end
+
+    SR-->>B: chunk 1 (HTML shell + header + user)
+    Note over B: TTFB / first paint
+
+    DB-->>Cache: orders ready
+    Cache-->>SR: orders
+    SR-->>B: chunk 2 (Suspense reveal: orders)
+
+    DB-->>Cache: feed ready
+    Cache-->>SR: feed
+    SR-->>B: chunk 3 (Suspense reveal: feed)
+    SR-->>B: closing chunk

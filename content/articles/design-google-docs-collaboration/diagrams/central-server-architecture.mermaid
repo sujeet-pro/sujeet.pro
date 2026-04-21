@@ -1,0 +1,33 @@
+%% Diagram: Central-server OT architecture — Jupiter shape
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph A_Side["Client A"]
+        A_DOC["local document<br/>(rev N + buffered ops)"]
+        A_PEND["pending op<br/>(awaiting ack)"]
+        A_BUF["buffered op<br/>(composed locally)"]
+    end
+
+    subgraph B_Side["Client B"]
+        B_DOC["local document<br/>(rev N + buffered ops)"]
+        B_PEND["pending op<br/>(awaiting ack)"]
+    end
+
+    subgraph SVR["Authoritative server (per document owner)"]
+        SREV["canonical revision counter"]
+        SXFORM["transform engine<br/>(transform incoming op against<br/>every op since its baseRev)"]
+        SLOG["append-only op log<br/>(rev → op, monotonic)"]
+        SSNAP["latest snapshot<br/>(rev_k, content_k)"]
+        SBCAST["broadcaster<br/>(fan-out to all but sender)"]
+    end
+
+    A_PEND -- "send (op, baseRev)" --> SXFORM
+    B_PEND -- "send (op, baseRev)" --> SXFORM
+    SXFORM --> SLOG
+    SLOG --> SREV
+    SLOG --> SBCAST
+    SSNAP -.->|rehydrate on cold load| SXFORM
+    SBCAST -- "ack to sender (transformed op + new rev)" --> A_PEND
+    SBCAST -- "broadcast op + new rev" --> B_DOC
+    SBCAST -- "broadcast op + new rev" --> A_DOC
+    A_DOC --> A_BUF

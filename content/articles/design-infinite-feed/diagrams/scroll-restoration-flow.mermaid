@@ -1,0 +1,30 @@
+%% Diagram: Scroll restoration on back-navigation
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User
+    participant Feed as Feed Page
+    participant Router as SPA Router
+    participant Store as sessionStorage
+    participant API as Backend
+
+    Note over Feed: history.scrollRestoration = "manual"
+    User->>Feed: scrolls; opens an item
+    Feed->>Store: save { pageCount, scrollY,<br/>anchorItemId, timestamp }
+    Feed->>Router: navigate("/post/123")
+    Router-->>User: detail view rendered
+
+    User->>Router: browser Back
+    Router-->>Feed: popstate (manual mode:<br/>browser does not auto-restore)
+    Feed->>Store: read scroll state
+    alt state present and < 5 min old
+        Feed->>API: refetch pages 1..pageCount<br/>(or hydrate from cache)
+        API-->>Feed: items
+        Feed->>Feed: scrollToIndex(anchorItemId)
+        Feed->>Feed: nudge by measured offset
+        Feed->>Store: clear key
+    else state missing or stale
+        Feed->>Feed: render top of feed
+    end
+    Feed-->>User: visible position restored

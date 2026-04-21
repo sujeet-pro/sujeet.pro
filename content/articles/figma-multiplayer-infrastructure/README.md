@@ -6,11 +6,12 @@ description: >-
   rejecting both OT and pure CRDTs in favor of server-authoritative
   last-writer-wins at the property level, backed by Rust and DynamoDB.
 publishedDate: 2026-02-09T00:00:00.000Z
-lastUpdatedOn: 2026-02-09T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
-  - data
-  - migrations
+  - system-design
+  - distributed-systems
+  - reliability
 ---
 
 # Figma: Building Multiplayer Infrastructure for Real-Time Design Collaboration
@@ -39,17 +40,17 @@ Figma's multiplayer system is a case study in choosing the simplest conflict res
 
 Figma is a browser-based design tool where multiple users edit the same document simultaneously. Unlike Google Docs (sequential text) or Miro (spatial canvas with independent objects), Figma edits affect a deeply nested tree structure — frames contain groups, groups contain shapes, shapes have hundreds of properties (position, rotation, fill, stroke, constraints, auto-layout rules). This tree structure makes real-time collaboration fundamentally harder than text editing.
 
-| Metric                                              | Value                                    |
-| --------------------------------------------------- | ---------------------------------------- |
-| Max concurrent editors per file                     | 200                                      |
-| Max total participants per file (editors + viewers) | 500                                      |
-| Max visible multiplayer cursors                     | 200                                      |
-| Client update frequency                             | ~33ms (30 FPS)                           |
-| Journal changes received per day                    | >2.2 billion                             |
-| Change persistence (p95)                            | ~600ms                                   |
-| Data loss target on crash                           | <1 second                                |
-| Client rendering engine                             | C++ compiled to WebAssembly              |
-| Multiplayer server language                         | Rust (rewritten from TypeScript in 2018) |
+| Metric                                              | Value                                    | Source                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Max concurrent editors per file                     | 200                                      | [Figma Help Center](https://help.figma.com/hc/en-us/articles/1500006775761-How-many-people-can-be-in-a-file-at-once)    |
+| Max total participants per file (editors + viewers) | 500                                      | [Figma Help Center](https://help.figma.com/hc/en-us/articles/1500006775761-How-many-people-can-be-in-a-file-at-once)    |
+| Max visible multiplayer cursors                     | 200                                      | [Figma Help Center](https://help.figma.com/hc/en-us/articles/1500006775761-How-many-people-can-be-in-a-file-at-once)    |
+| Client update frequency                             | ~33ms (30 FPS)                           | [Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/)                        |
+| Journal changes received per day                    | >2.2 billion                             | [Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/)                        |
+| Change persistence (p95)                            | ~600ms                                   | [Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/)                        |
+| Data loss target on crash                           | <1 second                                | [Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/)                        |
+| Client rendering engine                             | C++ compiled to WebAssembly              | [WebAssembly cut Figma's load time by 3x](https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/)           |
+| Multiplayer server language                         | Rust (rewritten from TypeScript in 2018) | [Rust in Production at Figma](https://www.figma.com/blog/rust-in-production-at-figma/)                                  |
 
 ### The Access Pattern
 
@@ -76,7 +77,7 @@ When Figma shipped multiplayer editing in September 2016, the team had to decide
 
 ### Why Operational Transformation Was Rejected
 
-Evan Wallace, Figma's co-founder and CTO, explained the reasoning in 2019: OT causes a combinatorial explosion of transform functions. Every new operation type must define how it transforms against every other operation type. For a design tool with dozens of operation types (move, resize, reparent, change fill, change stroke, modify text, adjust constraints, update auto-layout parameters), the number of transform pairs grows quadratically.
+Evan Wallace, Figma's co-founder and CTO, explained the reasoning in [How Figma's multiplayer technology works (2019)](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/): OT causes a combinatorial explosion of transform functions. Every new operation type must define how it transforms against every other operation type. For a design tool with dozens of operation types (move, resize, reparent, change fill, change stroke, modify text, adjust constraints, update auto-layout parameters), the number of transform pairs grows quadratically.
 
 OT was designed for text editing — insert and delete on a linear sequence — where the transform functions are well-understood. Adapting it to tree-structured documents with rich property sets would have been an enormous engineering investment for a startup.
 
@@ -123,7 +124,7 @@ The core insight: when you have a central server and your domain has a natural p
 
 Every Figma document is a tree of objects. Conceptually, the data structure is:
 
-```
+```text
 Map<ObjectID, Map<Property, Value>>
 ```
 
@@ -144,11 +145,37 @@ This is analogous to the HTML DOM — a tree where each node has an identity and
 
 Each delta is a property change: "set property P on object O to value V." Clients batch changes and send them approximately every 33ms (matching the 30 FPS rendering loop). The server applies each delta to the authoritative state and broadcasts it to all other connected clients.
 
+![Steady-state multiplayer message flow: a client batches edits at ~30 FPS, the per-document Rust process applies them in arrival order and assigns a sequence number, then fan-out broadcasts the delta to all other clients while a parallel async path appends the same delta to the journal.](./diagrams/multiplayer-message-flow-light.svg "Steady-state multiplayer message flow: a client batches edits at ~30 FPS, the per-document Rust process applies them in arrival order and assigns a sequence number, then fan-out broadcasts the delta to all other clients while a parallel async path appends the same delta to the journal.")
+![Steady-state multiplayer message flow: a client batches edits at ~30 FPS, the per-document Rust process applies them in arrival order and assigns a sequence number, then fan-out broadcasts the delta to all other clients while a parallel async path appends the same delta to the journal.](./diagrams/multiplayer-message-flow-dark.svg)
+
 #### Optimistic Local Updates
 
 Clients apply their own changes immediately — before server acknowledgment — for zero-latency local editing. When the server broadcasts changes from other clients, the local client follows a critical rule: **discard incoming server changes that conflict with unacknowledged local property changes**. This prevents flickering where an older acknowledged value would temporarily overwrite a newer local change.
 
 Once the server acknowledges a client's change (by broadcasting it back), the client removes it from its unacknowledged set. If the server rejects a change (e.g., a reparent that would create a cycle), the client reverts the local state.
+
+![Optimistic local apply with server reconciliation: Client A's optimistic edit is preserved while the unacknowledged flag is set, even if Client B's later-arriving edit is broadcast back first.](./diagrams/optimistic-update-sequence-light.svg "Optimistic local apply with server reconciliation: Client A's optimistic edit is preserved while the unacknowledged flag is set, even if Client B's later-arriving edit is broadcast back first.")
+![Optimistic local apply with server reconciliation: Client A's optimistic edit is preserved while the unacknowledged flag is set, even if Client B's later-arriving edit is broadcast back first.](./diagrams/optimistic-update-sequence-dark.svg)
+
+### Presence: Cursors, Selection, and Viewport
+
+The 2019 architecture post is explicit that Figma's multiplayer system "[only syncs] changes to Figma documents" and that other state — comments, users, teams — uses a separate system ([How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)). **Presence** — pointer cursor, current selection, and viewport rectangle for every connected editor — sits in between: it is broadcast through the same WebSocket connection as document deltas, but it is treated as **ephemeral** and is never appended to the journal or written to S3.
+
+The launch post ([Multiplayer Editing in Figma](https://www.figma.com/blog/multiplayer-editing-in-figma/)) calls out exactly which fields presence carries: "We show the cursor and selection of all active participants because it provides important context. Who else is here? Where are they working?" The avatar strip in the top-right corner derives from the same presence stream, and clicking an avatar to "follow" a presenter is implemented entirely on top of presence — the follower's viewport is slaved to the presenter's broadcast viewport rectangle.
+
+The properties of the presence channel that matter at staff-level review:
+
+- **Coalescing, not buffering.** A pointer that moves through 200 pixels in one frame is collapsed to a single sample at the next ~33 ms tick before it is sent. This bounds the upstream rate per client and keeps each presence frame small enough to ride on the document WebSocket without head-of-line blocking it.
+- **Receiver-side interpolation.** Receiving clients render cursors inside `requestAnimationFrame`, interpolating between the last two samples. This is why other users' cursors look smooth at 60 Hz even though the wire rate is closer to 30 Hz.
+- **Hard cap at 200 visible cursors per file.** Above that, cursors are hidden by the editor — the same 200 cap that limits concurrent editors per file ([Figma Help Center](https://help.figma.com/hc/en-us/articles/1500006775761-How-many-people-can-be-in-a-file-at-once)).
+- **No conflict resolution.** Last-write-wins is not even a question for presence; each client owns its own `(cursor, selection, viewport)` triple, the server stores it in memory keyed by client ID, and the only "merge" is overwriting the previous tick.
+- **Disconnect = remove.** When a WebSocket closes, the per-document Rust process drops that client's presence entry and broadcasts the removal so other editors' avatar strips and cursor overlays update immediately.
+
+> [!NOTE]
+> Treating presence as ephemeral is the design move that lets the journal stay small. At ~30 FPS, persisting cursor positions for every participant in every active document would dominate the >2.2 billion daily journal writes — and would carry zero recovery value, since cursor history a few seconds old has no semantic meaning.
+
+![Presence pipeline: client samples and coalesces cursor, selection, and viewport at ~30 FPS, the Rust process fans out the frame over WebSockets, and receivers interpolate inside requestAnimationFrame; nothing here is journaled or checkpointed.](./diagrams/presence-pipeline-light.svg "Presence pipeline: client samples and coalesces cursor, selection, and viewport at ~30 FPS, the Rust process fans out the frame over WebSockets, and receivers interpolate inside requestAnimationFrame; nothing here is journaled or checkpointed.")
+![Presence pipeline: client samples and coalesces cursor, selection, and viewport at ~30 FPS, the Rust process fans out the frame over WebSockets, and receivers interpolate inside requestAnimationFrame; nothing here is journaled or checkpointed.](./diagrams/presence-pipeline-dark.svg)
 
 ### Tree Operations: The Hard Part
 
@@ -166,6 +193,9 @@ An object's position among its parent's children is represented as a **fraction 
 To prevent precision loss after many insertions (repeated averaging can produce numbers with many decimal places), Figma uses **arbitrary-precision fractions** rather than 64-bit floating-point numbers. These fractions are encoded as strings using **base-95** (the entire printable ASCII range) for compact representation. String averaging is performed via string manipulation to maintain full precision.
 
 **Why base-95?** Standard base-10 encoding wastes entropy. With base-95, each character carries ~6.6 bits of information versus ~3.3 bits for base-10. This halves the string length for equivalent precision.
+
+![Fractional indexing: midpoint inserts, server-resolved key collisions when two clients pick the same midpoint, and the accepted interleaving trade-off for concurrent bulk inserts at the same position.](./diagrams/fractional-indexing-light.svg "Fractional indexing: midpoint inserts, server-resolved key collisions when two clients pick the same midpoint, and the accepted interleaving trade-off for concurrent bulk inserts at the same position.")
+![Fractional indexing: midpoint inserts, server-resolved key collisions when two clients pick the same midpoint, and the accepted interleaving trade-off for concurrent bulk inserts at the same position.](./diagrams/fractional-indexing-dark.svg)
 
 #### Atomic Parent + Position Updates
 
@@ -185,13 +215,16 @@ When two clients simultaneously insert between the same two siblings, they gener
 
 ### Undo/Redo in Multiplayer Context
 
-Multiplayer undo is one of the most nuanced aspects of the system. The guiding invariant: if you undo several times, copy something, then redo back to the present, the document should not change. This is a common design workflow and must be preserved.
+Multiplayer undo is one of the most nuanced aspects of the system. The guiding invariant, stated by Wallace in both the 2016 launch post and the 2019 architecture post: **"if you undo a lot, copy something, and redo back to the present, the document should not change."** That sentence drives every design choice below.
 
-**The problem**: In single-player mode, undo history is a simple linear stack. In multiplayer, other users may have edited the same objects between your actions. Should undo revert your change and silently overwrite their subsequent edits?
+**The problem**: In single-player mode, undo history is a simple linear stack. In multiplayer, the single-player meaning of redo — "put back what I did" — would silently overwrite later edits made by other users between your undo and your redo. There is no globally shared undo stack; instead, each client owns its own.
 
-**Figma's approach**: An undo operation **modifies the redo history** at the time of the undo, and a redo **modifies the undo history** at the time of the redo. The undo/redo stacks are actively rewritten to account for concurrent changes, preventing undo from silently overwriting other users' work.
+**Figma's approach**: Undo and redo are **per-author** local operations expressed as new deltas, not as time-travel on a shared history. To preserve the invariant against concurrent edits, "an undo operation modifies redo history at the time of the undo, and likewise a redo operation modifies undo history at the time of the redo" ([How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)). The stacks are actively rewritten so that a Redo only reasserts your own past edits, never reverts a peer's later edit on the same property.
 
-**Deleted object recovery**: When objects are deleted, their property data is stored in the **client's local undo buffer** — not on the server. This avoids the unbounded server-side storage that CRDT tombstones require. Individual clients can still recover deleted objects through their local undo stack, but other clients cannot recover objects deleted by someone else.
+**Deleted object recovery**: When an object is deleted, the server drops all of its property data — there is no tombstone on the server. The deleted object's properties live only in the **deleting client's local undo buffer**, so that client (and only that client) can resurrect it via Undo. This is the deliberate trade-off Wallace calls out: it keeps long-lived documents from growing unbounded the way CRDT tombstone tables do, at the cost of not being able to undo someone else's delete.
+
+![Per-author undo: each client maintains its own undo and redo stacks; an Undo emits an inverse delta and rewrites that client's redo stack so a later Redo never overwrites a peer's intervening edit.](./diagrams/undo-per-author-light.svg "Per-author undo: each client maintains its own undo and redo stacks; an Undo emits an inverse delta and rewrites that client's redo stack so a later Redo never overwrites a peer's intervening edit.")
+![Per-author undo: each client maintains its own undo and redo stacks; an Undo emits an inverse delta and rewrites that client's redo stack so a later Redo never overwrites a peer's intervening edit.](./diagrams/undo-per-author-dark.svg)
 
 ### The Rust Rewrite (2018)
 
@@ -225,12 +258,46 @@ The Rust rewrite enabled per-document parallelism — the single most important 
 
 #### Continued Rust Optimizations (2024)
 
-Figma continued optimizing the Rust multiplayer server six years after the initial rewrite:
+Figma continued optimizing the Rust multiplayer server six years after the initial rewrite[^memopt]:
 
-- **Data structure change**: Switched from `BTreeMap` to a **flat sorted vector** for representing object property maps. The average Figma object has ~60 properties out of a constrained key space of fewer than 200 fields — small enough that linear search over a sorted vector outperforms tree traversal due to cache locality.
-- **File deserialization improvement**: 20% faster at p99
-- **Memory savings**: ~5% reduction in RSS across the entire multiplayer fleet
-- **Pointer stuffing**: Used the top 16 bits of 64-bit pointers (only 48 bits are used for virtual addressing on x86-64) to store field IDs, packing both a field identifier and a pointer into a single 64-bit value
+- **Data structure change**: Switched the property-map representation from `BTreeMap<u16, pointer>` to a **flat sorted `Vec<(u16, pointer)>`**. The average Figma object has roughly 60 properties out of a constrained key space of fewer than 200 fields — small enough that linear search over a sorted vector outperforms tree traversal due to cache locality. Before the change, the `BTreeMap` accounted for **over 60 % of an in-memory file's footprint**.
+- **File deserialization**: ~20 % faster at p99.
+- **Memory savings**: per-process RSS dropped only ~5 % (less than the 20 % suggested by the data-structure delta — Figma attributes the gap to allocator behavior), but the equivalent change to a `Vec`-based file representation yielded roughly a **20 % reduction in fleet-wide memory cost** across the multiplayer service.
+
+> [!NOTE]
+> Figma also prototyped **bit-stuffing** — packing a 16-bit field ID into the unused top bits of a 64-bit pointer (x86-64 currently uses only the low 48 bits for virtual addressing) — and reported a further ~5 % memory win in benchmarks. They explicitly chose **not to ship it**: the marginal saving did not justify the additional complexity and the long-tail risk that future CPU/OS changes (e.g. 5-level paging, ARM tagged addresses) could reclaim those high bits[^memopt].
+
+[^memopt]: [Supporting Faster File Load Times with Memory Optimizations in Rust](https://www.figma.com/blog/supporting-faster-file-load-times-with-memory-optimizations-in-rust/) — Figma Engineering, 2024.
+
+### The Wasm Renderer and GPU Compositing
+
+The multiplayer protocol is only half of what makes a Figma session feel real-time; the other half is the renderer that has to draw every concurrent edit at frame rate. The renderer is a **C++ rendering engine plus the document scene graph**, compiled twice from the same source: to **WebAssembly** for the browser via Emscripten, and to **native x64 / arm64** for server-side rendering, internal tests, and debugging ([Figma rendering: Powered by WebGPU](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/)).
+
+#### Why a custom engine, not the DOM
+
+The original 2015 design bet was that a browser-only design tool needed direct GPU access — the DOM, SVG, and Canvas 2D were not going to deliver 60 FPS on documents with thousands of vector layers, blend modes, masks, and blurs ([Building a professional design tool on the web](https://www.figma.com/blog/building-a-professional-design-tool-on-the-web/)). Figma therefore built a **tile-based 2D engine** in C++ that talks to the GPU through a thin graphics-interface layer; the browser sees only the WebSocket, the WebAssembly module, and the GPU surface.
+
+#### Why WebAssembly mattered (2017)
+
+Before Wasm shipped in browsers, Figma's C++ engine ran in the browser as **asm.js** — a typed JavaScript subset. Switching to WebAssembly cut **end-to-end load time by ~3× regardless of document size**, and removed the dependency between application size and load time, because browsers cache the Wasm-to-native translation across sessions ([WebAssembly cut Figma's load time by 3x](https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/)). The same post explains why the gain was so large: Wasm parses ~20× faster than asm.js, native 64-bit integers eliminate JavaScript's `Number`-emulation tax, and LLVM-emitted code skips the JIT's optimization tiers entirely.
+
+> [!IMPORTANT]
+> The Wasm boundary is opaque to the multiplayer server. Deltas arrive at the JS layer, get handed into the Wasm heap, and are applied to the in-Wasm scene graph. The renderer never round-trips through the DOM, so per-frame edit cost is dominated by GPU draw-call setup, not JavaScript ↔ C++ marshalling.
+
+#### From WebGL to WebGPU (2025)
+
+In September 2025 Figma migrated the rendering backend from **WebGL** (the original 2015 choice) to **WebGPU**, while keeping WebGL as a runtime fallback ([Figma rendering: Powered by WebGPU](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/)). The migration was structurally non-trivial:
+
+- **Graphics interface refactor.** The old C++ interface mapped 1:1 to WebGL's bind-then-draw model. Bindings stayed live across draw calls, which made it easy to forget to update one. The new interface makes every input — vertex buffer, framebuffer, textures, material, uniforms — an **explicit argument to `draw()`**, which both WebGPU expects and which fixed several latent WebGL bugs along the way.
+- **Shader translation.** Existing shaders are still authored in **WebGL 1 GLSL**. A custom shader processor parses them, modernizes them to a newer GLSL, then runs the open-source **naga** translator to emit **WGSL** for WebGPU. Engineers still write one shader, not two.
+- **Uniform batching.** WebGPU requires uniforms to be uploaded as a single buffer. Naively emulating WebGL's per-uniform setters on top of WebGPU would have been slower than the system it replaced, so the interface was redesigned around `encodeDraw` + `submit` so that uniforms for many draws share one upload.
+- **Native parity via Dawn.** Both the Wasm build and the native build call into **Dawn**, the WebGPU implementation Chromium ships, so the same rendering code drives WebGPU in the browser and D3D12 / Metal / Vulkan on the server.
+- **Dynamic mid-session fallback.** Some Windows GPUs lose the WebGPU device mid-session and cannot reacquire one. Figma ships a runtime fallback that detects this (mirroring its existing WebGL context-loss path) and **swaps the rendering backend to WebGL without reloading the document**, then blocklists devices whose fallback rate stays high.
+
+The performance result, per Figma's own rollout data, was **a perf improvement on some device classes and neutral on the rest, with no regressions** — which is the explicit gate they used to ship. The architectural payoff is the unlock: WebGPU compute shaders, MSAA, and `RenderBundles` are all now reachable for future blur, anti-aliasing, and CPU-side draw-submission optimizations.
+
+![Wasm renderer interaction: a single C++ engine compiles to WebAssembly for the browser and to a native binary for server-side rendering; both targets drive the GPU through Dawn-backed WebGPU, with a runtime fallback to WebGL when WebGPU is lost or blocklisted.](./diagrams/wasm-renderer-light.svg "Wasm renderer interaction: a single C++ engine compiles to WebAssembly for the browser and to a native binary for server-side rendering; both targets drive the GPU through Dawn-backed WebGPU, with a runtime fallback to WebGL when WebGPU is lost or blocklisted.")
+![Wasm renderer interaction: a single C++ engine compiles to WebAssembly for the browser and to a native binary for server-side rendering; both targets drive the GPU through Dawn-backed WebGPU, with a runtime fallback to WebGL when WebGPU is lost or blocklisted.](./diagrams/wasm-renderer-dark.svg)
 
 ### Persistence: From Checkpoints to Journal
 
@@ -261,6 +328,9 @@ Figma introduced a **write-ahead log (journal)** backed by **Amazon DynamoDB** t
 
 **Deployment safety**: During deployments, the system closes all WebSocket connections and waits for unsaved changes to be persisted to the journal. At p99, this drain takes less than 1 second.
 
+![End-to-end persistence flow: every delta is appended to the DynamoDB journal at sub-second cadence and a full S3 checkpoint is taken every 30-60s. On crash recovery, the new process loads the latest checkpoint and replays journal entries with higher sequence numbers.](./diagrams/persistence-flow-light.svg "End-to-end persistence flow: every delta is appended to the DynamoDB journal at sub-second cadence and a full S3 checkpoint is taken every 30-60s. On crash recovery, the new process loads the latest checkpoint and replays journal entries with higher sequence numbers.")
+![End-to-end persistence flow: every delta is appended to the DynamoDB journal at sub-second cadence and a full S3 checkpoint is taken every 30-60s. On crash recovery, the new process loads the latest checkpoint and replays journal entries with higher sequence numbers.](./diagrams/persistence-flow-dark.svg)
+
 ### LiveGraph: The Other Sync System
 
 Figma has **two** real-time sync systems, often conflated:
@@ -287,7 +357,26 @@ As Figma's user base tripled and page views grew 5x, LiveGraph required a comple
 2. **Read-through cache**: Stores database query results, sharded by query hash
 3. **Invalidator**: Reads database mutation logs (distributed via Kafka), determines which cache entries are affected, and marks them invalid
 
-**The key architectural shift**: Moving from **Incremental View Maintenance (IVM)** — where the system tried to incrementally update cached query results as the database changed — to an **invalidation-and-refetch** model. The insight was that most database writes don't affect most cached queries, so invalidation signals are sparse, and refetching on invalidation is cheap relative to maintaining incremental update logic.
+**The key architectural shift**: Moving from **Incremental View Maintenance (IVM)** — where the system tried to incrementally update cached query results as the database changed — to an **invalidation-and-refetch** model. The insight was that most database writes don't affect most cached queries, so invalidation signals are sparse, and refetching on invalidation is cheap relative to maintaining incremental update logic. The cache uses **Cuckoo filters** to forward only the invalidations that match a subscribed query, and the invalidator is the **only service aware of database topology** so the edge and cache stay sharding-agnostic.
+
+![LiveGraph 100x: the Edge expands client subscriptions into queries against a sharded read-through cache; a stateless Invalidator tails the Postgres WAL via Kafka and signals affected cache shards to invalidate, prompting the Edge to refetch and reconstruct the result.](./diagrams/livegraph-100x-light.svg "LiveGraph 100x: the Edge expands client subscriptions into queries against a sharded read-through cache; a stateless Invalidator tails the Postgres WAL via Kafka and signals affected cache shards to invalidate, prompting the Edge to refetch and reconstruct the result.")
+![LiveGraph 100x: the Edge expands client subscriptions into queries against a sharded read-through cache; a stateless Invalidator tails the Postgres WAL via Kafka and signals affected cache shards to invalidate, prompting the Edge to refetch and reconstruct the result.](./diagrams/livegraph-100x-dark.svg)
+
+### Component Instances and Library Propagation
+
+Library propagation is a third sync axis, distinct from both the multiplayer document protocol and LiveGraph's product-data subscriptions. A **main component** lives in a library file; **instances** of it live in many other files. When a designer publishes a change to the main component, every instance — possibly in thousands of consumer files, often deeply nested under variants, auto-layout, and variable modes — has to update without recomputing the entire instance subtree from scratch.
+
+The original architecture, called the **Instance Updater**, walked the instance tree and re-derived overrides by re-running the instance from its main component on every relevant change. As features piled on (variants, auto-layout, modes, code components for Figma Sites), this linear walker became the dominant cost in many large files.
+
+Figma replaced it in March 2026 with a reactive framework called **Materializer** ([How We Rebuilt the Foundations of Component Instances](https://www.figma.com/blog/how-we-rebuilt-the-foundations-of-component-instances/)). Two properties matter at staff level:
+
+- **Push-based, dependency-tracked invalidation.** Materializer is a generic mechanism for *derived subtrees* — instances are one consumer; auto-layout, variables, and other features can hook into the same machinery. While a node is being materialized, the framework records which inputs it read; when those inputs later change, only the dependent subtrees are marked dirty and re-materialized. The old recursive cascade is replaced by an explicit dependency graph.
+- **Unidirectional flow with a shared orchestrator.** Materializer is sequenced with other runtime systems (layout engine, variable resolver) by a shared orchestration layer. The published change → instance refresh path is unidirectional, which eliminates the "back-dirty" cycles that the old system had to defend against.
+
+Per Figma, the result is **40–50% faster operations on large design systems** for tasks like swapping instances or changing variable modes — i.e., a structural fix, not a constant-factor optimization.
+
+> [!NOTE]
+> Cross-file library updates remain a **publish-and-accept** workflow, not a silent push: consumer files surface a "library update available" indicator and the designer chooses when to apply it ([Publish a library, Figma Help Center](https://help.figma.com/hc/en-us/articles/360025508373-Publish-a-library)). Materializer accelerates the *application* of the update inside a file once accepted; it does not change the cross-file consent model.
 
 ## Outcome
 
@@ -299,26 +388,26 @@ As Figma's user base tripled and page views grew 5x, LiveGraph required a comple
 | Sub-frame latency for local edits      | Optimistic local updates; server acknowledgment is async                |
 | <1 second worst-case data loss         | DynamoDB journal with ~0.5s write frequency                             |
 | Full document recovery after crash     | Checkpoint (S3) + journal replay (DynamoDB)                             |
-| Real-time cursors for all participants | Cursor position broadcast via the same WebSocket connection             |
+| Real-time cursors and selection for all participants | Ephemeral presence frames (cursor, selection, viewport) coalesced at ~30 FPS and fan-out broadcast over the document WebSocket; never journaled |
 | Offline editing with reconnection      | Client redownloads full state on reconnect, reapplies local changes     |
 
-### Scale Metrics (2024)
+### Scale Metrics (2024 / early 2025)
 
-- **Journal throughput**: >2.2 billion changes per day
-- **Database growth**: ~100x since 2020 (driving PostgreSQL horizontal sharding)
-- **Users**: Over 20 million total; nearly 95% of Fortune 500 companies
-- **Revenue**: $749 million in 2024 (48% increase from 2023)
+- **Journal throughput**: >2.2 billion changes per day ([Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/))
+- **Database growth**: ~100x since 2020, which drove the move from a single Postgres instance to vertically partitioned services and then horizontal sharding ([Figma's databases team scaling story](https://www.figma.com/blog/how-figmas-databases-team-lived-to-tell-the-scale/))
+- **Monthly active users**: ~13 million as of March 2025; **95 % of the Fortune 500** use Figma ([Figma S-1 / IPO filing, 2025](https://www.sec.gov/Archives/edgar/data/1579878/000162828025033742/figma-sx1.htm))
+- **Revenue**: $749.0 million in FY 2024, +48 % year over year ([Figma S-1 / IPO filing, 2025](https://www.sec.gov/Archives/edgar/data/1579878/000162828025033742/figma-sx1.htm))
 
 ### Remaining Limitations
 
-- **Single datacenter**: As of 2024, Figma's infrastructure runs primarily in AWS Oregon, with over 80% of users outside the US experiencing latency proportional to their round-trip time to that region
+- **Single primary region**: As of 2024, Figma's primary infrastructure runs in AWS `us-west-2` (Oregon). Over 80 % of weekly active users are outside the US and pay the round-trip latency to that region; Figma has begun pushing edge proxies and copies of the multiplayer service closer to those users ([Under the hood of Figma's infrastructure](https://www.figma.com/blog/under-the-hood-of-figmas-infrastructure/))
 - **WebAssembly constraints**: WASM supports only 32-bit addressing (4 GB max memory), and memory is grow-only — growing at runtime is unreliable on mobile devices
 - **Text collaboration limits**: Property-level last-writer-wins does not support character-level merging for text fields. Two users editing the same text layer simultaneously will see one user's entire text change overwrite the other's
 - **Interleaving on concurrent inserts**: Fractional indexing can produce interleaved ordering when users simultaneously insert elements at the same position
 
 ### Evolution: Eg-walker for Code Layers (2025)
 
-When Figma introduced code layers for Figma Sites — which require actual text/code editing where property-level last-writer-wins is insufficient — they adopted the **Eg-walker (Event Graph Walker)** algorithm by Joseph Gentle and Martin Kleppmann. Eg-walker represents edits as a directed acyclic event graph (analogous to git history) and merges concurrent edits via an algorithm analogous to git rebase. It temporarily builds a CRDT structure during merge, then discards it afterward, combining the memory efficiency of OT with the correctness guarantees of CRDTs. This demonstrates that Figma's approach was always domain-specific — when the domain changed (text editing), they adopted a different algorithm.
+When Figma introduced code layers for Figma Sites — which require actual text/code editing where property-level last-writer-wins is insufficient — they adopted the **Eg-walker (Event Graph Walker)** algorithm by Joseph Gentle and Martin Kleppmann ([EuroSys 2025 paper](https://arxiv.org/abs/2409.14252); [Building Figma's code layers, June 2025](https://www.figma.com/blog/building-figmas-code-layers/)). Eg-walker represents edits as a directed acyclic event graph (analogous to git history) and merges concurrent edits via an algorithm analogous to git rebase. It temporarily builds a CRDT-like structure only during merge and discards it afterward, achieving the steady-state memory cost of OT with merge correctness comparable to existing CRDTs. This demonstrates that Figma's approach was always domain-specific — when the domain changed (text editing), they adopted a different algorithm.
 
 ## Lessons Learned
 
@@ -416,6 +505,9 @@ The proof that this approach works is in its longevity. The 2016 conflict resolu
 | **LiveGraph**                                 | Figma's real-time data subscription system for non-document data (files, teams, comments), backed by PostgreSQL.                                                        |
 | **Kiwi**                                      | Figma's custom schema-based binary serialization format, inspired by Protocol Buffers, used for the .fig file format.                                                   |
 | **Eg-walker**                                 | Event Graph Walker — an algorithm by Gentle and Kleppmann that merges concurrent text edits using a temporary CRDT structure. Adopted by Figma for code layers in 2025. |
+| **Presence**                                  | The ephemeral per-client `(cursor, selection, viewport)` state, broadcast over the same WebSocket as document deltas but never persisted to the journal or to S3.       |
+| **Materializer**                              | Figma's reactive, push-based framework for derived subtrees, introduced March 2026 to replace the linear Instance Updater behind component instance propagation.        |
+| **Dawn**                                      | Chromium's WebGPU implementation; used by Figma for both the browser (Wasm) and the native server-side renderer to map WebGPU calls down to D3D12 / Metal / Vulkan.     |
 
 ### Summary
 
@@ -425,6 +517,9 @@ The proof that this approach works is in its longevity. The 2016 conflict resolu
 - The 2018 Rust rewrite of the multiplayer server eliminated GC pauses and enabled per-document process isolation, with >10x faster serialization
 - A DynamoDB-backed journal (WAL) reduced worst-case data loss from 60 seconds to under 1 second, processing >2.2 billion changes daily
 - LiveGraph (Go, PostgreSQL WAL) handles non-document real-time data separately from the multiplayer server, with an invalidation-and-refetch architecture after the 100x redesign
+- Presence (cursors, selection, viewport) rides on the same WebSocket as document deltas but is treated as ephemeral — coalesced at ~30 FPS, fan-out broadcast, never journaled or checkpointed
+- The renderer is a single C++ engine compiled to WebAssembly (browser) and to a native binary (server-side rendering), driving WebGPU through Dawn with a runtime fallback to WebGL since the September 2025 migration
+- Component instance propagation moved in March 2026 from the linear Instance Updater to **Materializer**, a reactive push-based framework that makes 40–50% faster instance / variable updates in large design systems
 
 ### References
 
@@ -440,6 +535,9 @@ The proof that this approach works is in its longevity. The 2016 conflict resolu
 - [The growing pains of database architecture](https://www.figma.com/blog/how-figma-scaled-to-multiple-databases/) — Figma Engineering, 2022
 - [Under the hood of Figma's infrastructure](https://www.figma.com/blog/under-the-hood-of-figmas-infrastructure/) — Figma Engineering, April 2024
 - [WebAssembly cut Figma's load time by 3x](https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/) — Evan Wallace, June 2017
+- [Building a professional design tool on the web](https://www.figma.com/blog/building-a-professional-design-tool-on-the-web/) — Figma Engineering
+- [Figma rendering: Powered by WebGPU](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/) — Alex Ringlein and Luke Anderson, September 2025
+- [How We Rebuilt the Foundations of Component Instances](https://www.figma.com/blog/how-we-rebuilt-the-foundations-of-component-instances/) — Figma Engineering, March 2026
 - [Canvas, Meet Code: Building Figma's Code Layers](https://www.figma.com/blog/building-figmas-code-layers/) — Alex Kern, June 2025
 - [Collaborative Text Editing with Eg-walker](https://arxiv.org/abs/2409.14252) — Joseph Gentle and Martin Kleppmann, EuroSys 2025
 - [The Hard Things About Sync](https://expertofobsolescence.substack.com/p/the-hard-things-about-sync) — Joy Gao (ex-Figma), April 2025

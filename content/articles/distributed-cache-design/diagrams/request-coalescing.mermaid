@@ -1,0 +1,30 @@
+%% Diagram: Request coalescing (single-flight) collapses concurrent misses to one DB query
+%% Type: sequence
+sequenceDiagram
+    participant C1 as Caller 1
+    participant C2 as Caller 2
+    participant CN as Caller N
+    participant SF as Single-flight group
+    participant Cache
+    participant DB
+
+    C1->>Cache: GET key
+    Cache-->>C1: miss
+    C1->>SF: Do(key, fetch)
+    Note over SF: Records key as in-flight; first caller becomes the leader
+
+    C2->>Cache: GET key
+    Cache-->>C2: miss
+    C2->>SF: Do(key, fetch)
+    Note right of SF: Caller 2 attaches to the existing leader; no DB call issued
+
+    CN->>SF: Do(key, fetch)
+    Note right of SF: Caller N attaches; still one in-flight request
+
+    SF->>DB: SELECT key
+    DB-->>SF: value
+    SF->>Cache: SET key value
+    SF-->>C1: value
+    SF-->>C2: value
+    SF-->>CN: value
+    Note over SF: 10K concurrent missers, 1 DB query, 9999 waiters share the result

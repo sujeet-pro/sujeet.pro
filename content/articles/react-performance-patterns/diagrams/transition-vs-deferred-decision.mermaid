@@ -1,0 +1,22 @@
+%% Diagram: Choosing between useTransition, useDeferredValue, and neither
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    start(["A state update\nfeels slow"]) --> own{"Do you own\nthe setter?"}
+
+    own -- "No\n(prop, context, query)" --> deferred["Wrap the value with\nuseDeferredValue(value)"]
+    own -- "Yes" --> input{"Is the setter\nfor a controlled\ntext input?"}
+
+    input -- "Yes" --> split["Split state:\nurgent input value\n+ deferred query"]
+    split --> trans["Wrap derived setter\nin startTransition"]
+    input -- "No" --> trans
+
+    trans --> feedback["Show isPending\nUI hint"]
+    deferred --> stale["Use value !== deferredValue\nto show stale styling"]
+
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef action fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef hint fill:#1F6E68,stroke:#155752,color:#ffffff
+    class own,input decision
+    class split,trans,deferred action
+    class feedback,stale hint

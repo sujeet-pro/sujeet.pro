@@ -1,0 +1,13 @@
+%% Diagram: Snapshot and compaction lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    OP["New operation<br/>(rev N)"] --> APPEND["Append to op log<br/>(DynamoDB)"]
+    APPEND --> APPLY["Apply to in-memory<br/>document state"]
+    APPLY --> BCAST["Broadcast to clients"]
+
+    APPEND --> COUNT{"Ops since<br/>last snapshot<br/>≥ 1000?<br/>or ≥ 1h?"}
+    COUNT -- "no" --> WAIT["Continue accepting ops"]
+    COUNT -- "yes" --> SNAP["Snapshot worker:<br/>replay from last snapshot,<br/>write new snapshot to S3"]
+    SNAP --> TTL["Mark old ops with TTL<br/>(keep last 100 for replay)"]
+    TTL --> WAIT

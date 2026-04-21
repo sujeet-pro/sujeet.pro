@@ -1,0 +1,35 @@
+%% Diagram: Quadtree tile pyramid (Web Mercator, EPSG:3857)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Z0["Zoom 0 — 1 tile, ~156,543 m/px"]
+        T0["(0,0)"]
+    end
+
+    subgraph Z1["Zoom 1 — 4 tiles"]
+        T10["(0,0)"]
+        T11["(1,0)"]
+        T12["(0,1)"]
+        T13["(1,1)"]
+    end
+
+    subgraph Z2["Zoom 2 — 16 tiles"]
+        T20["(0,0)..(3,3)"]
+    end
+
+    subgraph Zn["Zoom z — 4^z tiles, m/px = 156,543 / 2^z"]
+        Tz["..."]
+    end
+
+    T0 --> T10
+    T0 --> T11
+    T0 --> T12
+    T0 --> T13
+    T10 --> T20
+    T11 --> T20
+    T12 --> T20
+    T13 --> T20
+    T20 --> Tz
+
+    Note["Slippy Map / XYZ: Y grows southward.<br/>TMS: Y grows northward (y_tms = 2^z - 1 - y_xyz)."]
+    Tz -.-> Note

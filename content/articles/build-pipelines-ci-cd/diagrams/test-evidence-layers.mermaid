@@ -1,0 +1,25 @@
+%% Diagram: Test Evidence Layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph fast["PR pipeline: cheap, parallel, every keystroke"]
+    direction TB
+    U[Unit tests: pure logic, parallel and sharded]
+    C[Contract tests: provider and consumer expectations]
+    U --> C
+  end
+
+  subgraph candidate["Candidate pipeline: runs against the artifact you intend to ship"]
+    direction TB
+    I[Integration tests: real DBs, queues, network with controlled fixtures]
+    S[Smoke tests: critical paths against a deployed candidate]
+    I --> S
+  end
+
+  subgraph rare["Reserved: expensive, brittle, high signal"]
+    direction TB
+    E[Targeted e2e: critical user journeys only]
+  end
+
+  fast --> candidate
+  candidate --> rare

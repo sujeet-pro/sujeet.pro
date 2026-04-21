@@ -1,0 +1,25 @@
+%% Diagram: Resource Discovery Order for LCP Images
+%% Type: sequence
+sequenceDiagram
+    participant U as User
+    participant B as Browser
+    participant N as Network (HTTP/2)
+    participant S as Server
+
+    U->>B: Navigate
+    B->>S: GET /index.html
+    S-->>B: HTML stream
+    B->>B: Preload scanner reads <link rel=preload> + <img>
+    par LCP image (fetchpriority=high)
+        B->>N: GET hero.avif (priority: HIGH)
+    and Other above-fold assets
+        B->>N: GET hero.css (priority: HIGH)
+        B->>N: GET app.js (priority: HIGH)
+    and Below-fold lazy images
+        B-->>B: Hold loading=lazy candidates
+    end
+    N->>S: Multiplexed streams
+    S-->>N: Bytes (hero.avif streamed first)
+    N-->>B: hero.avif decoded sync
+    B-->>U: Paint LCP element
+    Note over B,N: Lazy images stay queued until\nIntersectionObserver fires

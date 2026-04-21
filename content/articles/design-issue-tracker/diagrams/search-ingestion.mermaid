@@ -1,0 +1,18 @@
+%% Diagram: Search ingestion pipeline — CDC from Postgres to OpenSearch with alias swap
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    PG[(Postgres\nissues, comments)]
+    OUTBOX["Outbox table\n(transactional)"]
+    DEBEZ["CDC\n(Debezium / logical replication)"]
+    KAFKA["Kafka\nissue.changes"]
+    INDEXER["Indexer worker\n(denormalize + project to doc)"]
+    OS_LIVE[("OpenSearch\nissues_v42 (alias: issues)")]
+    OS_NEW[("OpenSearch\nissues_v43 (rebuild)")]
+    QUERY["Search API\n(BM25 + filters + facets)"]
+
+    PG --> OUTBOX --> DEBEZ --> KAFKA --> INDEXER
+    INDEXER -->|incremental| OS_LIVE
+    INDEXER -.->|reindex job| OS_NEW
+    OS_NEW -.->|atomic alias swap| OS_LIVE
+    QUERY --> OS_LIVE

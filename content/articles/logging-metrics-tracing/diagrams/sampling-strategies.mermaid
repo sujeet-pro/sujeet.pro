@@ -1,0 +1,16 @@
+%% Diagram: Hybrid head + tail sampling pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Req["Inbound 100%"] --> Head{"Head sampler 10%"}
+    Head -->|"no, 90%"| HeadDrop["Dropped before spans"]
+    Head -->|"yes"| Buffer["Collector buffers per-trace"]
+    Buffer --> Policy{"Tail policy: error / slow / 5%"}
+    Policy -->|"match"| Keep["Persist (~5% normal, ~10% errors)"]
+    Policy -->|"no match"| TailDrop["Drop trace"]
+    Keep --> Sink["Storage: Tempo / Jaeger"]
+
+    classDef drop fill:#fee,stroke:#c33,color:#900
+    classDef keep fill:#efe,stroke:#393,color:#063
+    class HeadDrop,TailDrop drop
+    class Keep,Sink keep

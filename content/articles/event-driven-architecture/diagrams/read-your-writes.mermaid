@@ -1,0 +1,37 @@
+%% Diagram: Read-your-writes pattern in eventually-consistent systems
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant API as API
+    participant W as Write Store
+    participant B as Event Broker
+    participant R as Read Store
+
+    Note over U,R: Naive flow — user sees stale read
+    U->>API: PUT /profile (write)
+    API->>W: persist
+    W-->>API: ok
+    API->>B: publish ProfileUpdated
+    API-->>U: 200 OK
+    U->>API: GET /profile (read)
+    API->>R: query
+    R-->>API: stale value
+    API-->>U: stale data 😕
+
+    Note over U,R: Mitigation — read-your-writes via session token
+    U->>API: PUT /profile (write)
+    API->>W: persist
+    W-->>API: write_version=v42
+    API->>B: publish ProfileUpdated
+    API-->>U: 200 OK + write_version=v42
+    U->>API: GET /profile (If-Min-Version: v42)
+    API->>R: query, ensure version >= v42
+    alt projection caught up
+        R-->>API: fresh value (v42)
+        API-->>U: fresh data
+    else projection lagging
+        API->>W: fall back to write store
+        W-->>API: fresh value
+        API-->>U: fresh data
+    end

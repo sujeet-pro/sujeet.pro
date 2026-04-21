@@ -1,0 +1,30 @@
+%% Diagram: Sync vs async vs semi-sync replication timing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant L as Leader
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+
+    Note over C,F2: Async — leader acks before followers replicate
+    C->>L: write(x)
+    L-->>C: ack
+    L->>F1: replicate(x)
+    L->>F2: replicate(x)
+
+    Note over C,F2: Semi-sync — wait for at least one follower
+    C->>L: write(x)
+    L->>F1: replicate(x)
+    L->>F2: replicate(x)
+    F1-->>L: ack
+    L-->>C: ack
+    F2-->>L: ack (background)
+
+    Note over C,F2: Sync — wait for quorum or all followers
+    C->>L: write(x)
+    L->>F1: replicate(x)
+    L->>F2: replicate(x)
+    F1-->>L: ack
+    F2-->>L: ack
+    L-->>C: ack

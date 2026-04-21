@@ -1,0 +1,40 @@
+%% Diagram: Retry Evolution
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph evolution["Strategy Evolution"]
+        direction TB
+        NAIVE["Naive Retry\nfixed delay, immediate"]
+        EXP["Exponential Backoff\ndelay = base x 2^attempt"]
+        JITTER["+ Jitter\nrandom in window"]
+        BUDGET["+ Retry Budget\n10 percent ratio cap"]
+        BREAKER["+ Circuit Breaker\nfast-fail when host is down"]
+
+        NAIVE -->|"retries cluster\nthundering herd"| EXP
+        EXP -->|"deterministic timing\nstill correlates"| JITTER
+        JITTER -->|"deep call chains\namplify load"| BUDGET
+        BUDGET -->|"persistent failure\nneeds short-circuit"| BREAKER
+    end
+
+    subgraph window["First-Attempt Delay Window (base = 100 ms)"]
+        direction TB
+        D1["attempt 1\n100 ms"]
+        D2["attempt 2\n200 ms"]
+        D3["attempt 3\n400 ms"]
+        D4["attempt 4\n800 ms"]
+        D1 --> D2 --> D3 --> D4
+    end
+
+    classDef naive fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef exp fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef jitter fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef budget fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef breaker fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class NAIVE naive
+    class EXP exp
+    class JITTER jitter
+    class BUDGET budget
+    class BREAKER breaker
+    class D1,D2,D3,D4 neutral

@@ -1,0 +1,48 @@
+%% Diagram: CSS methodology lattice — historical lineage of naming and atomic systems
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Roots["Roots (2009 to 2011)"]
+        OOCSS["OOCSS (2009)\nNicole Sullivan\nstructure vs skin"]
+        BEM["BEM (2010)\nYandex\nblock__element--modifier"]
+        SMACSS["SMACSS (2011)\nJonathan Snook\nbase / layout / module / state / theme"]
+    end
+
+    subgraph Layered["Layered organisation (2014+)"]
+        ITCSS["ITCSS (Harry Roberts)\nspecificity pyramid\nsettings - tools - generic - elements -\nobjects - components - utilities"]
+        Atomic["Atomic CSS (2013+)\nThierry Koblentz\none class per declaration"]
+    end
+
+    subgraph Modern["Modern hybrids (2017+)"]
+        Tachyons["Tachyons (2014)\nfunctional CSS"]
+        Tailwind["Tailwind (2017)\nutility-first DSL\nv4 ships native @layer"]
+        Uno["UnoCSS (2021)\nextensible atomic engine"]
+        CUBE["CUBE CSS (2020)\nAndy Bell\nutilities + BEM blocks"]
+    end
+
+    subgraph Tooling["Tooling-enforced (2015+)"]
+        Modules["CSS Modules (2015)\nlocal scope via hashing"]
+        Styled["styled-components (2016)\nEmotion (2017)\nruntime CSS-in-JS"]
+        ZeroRT["vanilla-extract (2021)\nStyleX (2023)\nPigment CSS (2024)\nzero-runtime extraction"]
+    end
+
+    OOCSS --> Atomic
+    OOCSS --> CUBE
+    BEM --> ITCSS
+    BEM --> CUBE
+    SMACSS --> ITCSS
+    Atomic --> Tachyons
+    Tachyons --> Tailwind
+    Tailwind --> Uno
+    Modules --> ZeroRT
+    Styled --> ZeroRT
+
+    classDef root fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef layered fill:#5A4A8A,stroke:#3D3163,color:#ffffff
+    classDef modern fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef tooling fill:#1F6E68,stroke:#155752,color:#ffffff
+
+    class OOCSS,BEM,SMACSS root
+    class ITCSS,Atomic layered
+    class Tachyons,Tailwind,Uno,CUBE modern
+    class Modules,Styled,ZeroRT tooling

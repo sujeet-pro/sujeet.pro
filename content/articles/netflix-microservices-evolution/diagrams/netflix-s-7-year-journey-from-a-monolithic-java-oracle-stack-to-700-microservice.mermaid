@@ -16,11 +16,11 @@ flowchart TB
         P1 --> P2 --> P3 --> P4
     end
 
-    subgraph After["2016: Microservices"]
+    subgraph After["2016: Microservices on AWS"]
         Client2["Clients"] --> Zuul["Zuul\n(API Gateway)"]
-        Zuul --> MS1["700+ Microservices"]
-        MS1 --> Cass["Cassandra\n(Distributed)"]
-        MS1 --> EVC["EVCache\n(Memcached)"]
+        Zuul --> MS1["Hundreds of microservices\n(commonly cited as ~700)"]
+        MS1 --> Cass["Cassandra\n(50+ clusters, 750+ nodes)"]
+        MS1 --> EVC["EVCache\n(~400M ops/sec)"]
     end
 
     Before -->|"2008 DB corruption\ntriggers migration"| Migration

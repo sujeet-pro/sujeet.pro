@@ -1,0 +1,36 @@
+%% Diagram: TAO architecture overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Clients["Web/PHP clients"]
+        C[App server]
+    end
+
+    subgraph MasterRegion["Master region (per shard)"]
+        direction TB
+        FA1["Follower tier A1<br/>(read-only)"]
+        FA2["Follower tier A2<br/>(read-only)"]
+        LA["Leader tier<br/>(write coordinator)"]
+        DBA[("MySQL master<br/>shards")]
+        FA1 --> LA
+        FA2 --> LA
+        LA --> DBA
+    end
+
+    subgraph SlaveRegion["Slave region (per shard)"]
+        direction TB
+        FB1["Follower tier B1<br/>(read-only)"]
+        LB["Leader tier<br/>(forwards writes)"]
+        DBB[("MySQL slave<br/>shards")]
+        FB1 --> LB
+        LB --> DBB
+    end
+
+    C -- read/write --> FA1
+    C -- read/write --> FB1
+
+    LB -- forward write --> LA
+    DBA == async replication<br/>w/ embedded invalidations ==> DBB
+    LA -. async invalidate/refill .-> FA1
+    LA -. async invalidate/refill .-> FA2
+    LB -. async invalidate/refill .-> FB1

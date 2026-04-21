@@ -1,0 +1,17 @@
+%% Diagram: SELECT FOR UPDATE SKIP LOCKED claim race
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant W1 as Worker A
+    participant W2 as Worker B
+    participant DB as Postgres / MySQL 8.0.1+
+    Note over DB: tasks(id, status, scheduled_at) — rows 101 and 102 ready
+    W1->>DB: SELECT next pending row FOR UPDATE SKIP LOCKED LIMIT 1
+    W2->>DB: SELECT next pending row FOR UPDATE SKIP LOCKED LIMIT 1
+    DB-->>W1: returns row 101 (locks it)
+    DB-->>W2: skips locked 101, returns row 102
+    W1->>DB: UPDATE row 101 SET status=running, picked_by=A
+    W2->>DB: UPDATE row 102 SET status=running, picked_by=B
+    W1->>DB: COMMIT
+    W2->>DB: COMMIT
+    Note over W1,W2: No blocking, no duplicate claim. Throughput scales with index selectivity, not consensus round-trips.

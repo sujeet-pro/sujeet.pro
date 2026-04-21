@@ -1,0 +1,26 @@
+%% Diagram: OAuth 2.1 flow selection decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start{Who is acting?}
+    Start -->|End user present| HasUI{Can the device<br/>render a browser?}
+    Start -->|No user — service to service| CC[Client Credentials<br/>RFC 6749 section 4.4]
+
+    HasUI -->|Yes — browser, mobile,<br/>desktop, SPA| AC[Authorization Code<br/>+ PKCE<br/>RFC 6749 section 4.1 plus RFC 7636]
+    HasUI -->|No / input-constrained<br/>TV, CLI, IoT| DC[Device Authorization Grant<br/>RFC 8628]
+
+    AC --> Refresh{Need long-lived<br/>session?}
+    DC --> Refresh
+    Refresh -->|Yes| RT[Refresh Token + rotation<br/>or sender-constraint<br/>OAuth 2.1]
+    Refresh -->|No| Done([Issue access token only])
+
+    AC -. Identity needed .-> OIDC[Add openid scope —<br/>OIDC Core 1.0 ID Token]
+    DC -. Identity needed .-> OIDC
+
+    Implicit[Implicit grant]
+    ROPC[Resource Owner Password]
+    Implicit -. Removed in OAuth 2.1 .-> AC
+    ROPC -. Removed in OAuth 2.1 .-> AC
+
+    classDef removed stroke:#c33,stroke-width:2px,stroke-dasharray: 4 2
+    class Implicit,ROPC removed

@@ -1,38 +1,39 @@
 ---
-title: 'Browser Storage APIs: localStorage, IndexedDB, and Beyond'
-linkTitle: 'Browser Storage APIs'
+title: "Browser Storage APIs: localStorage, IndexedDB, and Beyond"
+linkTitle: "Browser Storage APIs"
 description: >-
   Browser-side persistence from localStorage through IndexedDB, OPFS, and the Cache API — comparing quota models, transaction semantics, threading guarantees, and eviction behavior under the unified WHATWG Storage Standard.
 publishedDate: 2026-02-09T00:00:00.000Z
-lastUpdatedOn: 2026-02-09T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - browser
   - web-apis
   - javascript
-  - accessibility
+  - storage
+  - performance
 ---
 
 # Browser Storage APIs: localStorage, IndexedDB, and Beyond
 
-A deep dive into browser-side persistence, examining the design trade-offs behind each storage API, their quota models, transaction semantics, and eviction behavior. The [WHATWG Storage Standard](https://storage.spec.whatwg.org/) (Living Standard) unifies quota management under a single bucket model, while individual APIs—[Web Storage](https://html.spec.whatwg.org/multipage/webstorage.html) (localStorage/sessionStorage), [IndexedDB](https://www.w3.org/TR/IndexedDB-3/) (W3C, version 3.0), and the [Cache API](https://w3c.github.io/ServiceWorker/#cache-interface) (W3C)—each optimize for different access patterns. Choosing the right API depends on data shape, access frequency, thread requirements, and durability guarantees—not just capacity limits.
+A deep dive into browser-side persistence: design trade-offs behind each storage API, the quota model that ties them together, transaction semantics, and eviction behavior. The [WHATWG Storage Standard](https://storage.spec.whatwg.org/) (Living Standard) defines a unified per-origin quota for the asynchronous APIs, while individual specs — [Web Storage](https://html.spec.whatwg.org/multipage/webstorage.html) (localStorage/sessionStorage), [IndexedDB 3.0](https://www.w3.org/TR/IndexedDB-3/), the [Cache interface](https://w3c.github.io/ServiceWorker/#cache-interface), and the [File System Standard](https://fs.spec.whatwg.org/) (OPFS) — each optimize for a different access pattern. The right API depends on data shape, threading constraints, and durability needs, not just capacity.
 
-![Browser storage APIs and their relationship to the unified quota system](./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system-light.svg "Browser storage APIs and their relationship to the unified quota system")
-![Browser storage APIs and their relationship to the unified quota system](./diagrams/browser-storage-apis-and-their-relationship-to-the-unified-quota-system-dark.svg)
+![Browser storage APIs and the unified quota model](./diagrams/storage-apis-overview-light.svg "How the storage APIs share a per-origin quota under the WHATWG Storage Standard.")
+![Browser storage APIs and the unified quota model](./diagrams/storage-apis-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-Browser storage is not one system—it's five APIs with different serialization models, threading guarantees, and eviction behaviors, all sharing a per-origin quota.
+Browser storage is not one system. It is five APIs with different serialization models, threading guarantees, and eviction behaviors, sharing a per-origin quota for the asynchronous ones and a separate small budget for Web Storage.
 
-![Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model](./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego-light.svg "Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model")
-![Storage APIs split into synchronous (main-thread blocking) and asynchronous categories, all governed by the Storage Standard's quota model](./diagrams/storage-apis-split-into-synchronous-main-thread-blocking-and-asynchronous-catego-dark.svg)
+![Sync vs async storage APIs and how they map to the quota model](./diagrams/sync-vs-async-storage-light.svg "Web Storage is synchronous on the main thread; IndexedDB, Cache, and OPFS are asynchronous and share a per-origin quota.")
+![Sync vs async storage APIs and how they map to the quota model](./diagrams/sync-vs-async-storage-dark.svg)
 
-**Core mental model:**
+The quick mental model:
 
-- **localStorage/sessionStorage** store DOMString key-value pairs synchronously on the main thread—fast for small reads, dangerous for large data. localStorage persists across sessions; sessionStorage dies with the tab
-- **IndexedDB** is an asynchronous, transactional object store using the structured clone algorithm—handles complex objects and binary data at scale, but its transaction model has subtle lifetime rules that break naively async code
-- **Cache API** stores `Request` → `Response` pairs and is optimized for service worker integration (covered in depth in the [Service Workers and Cache API](../service-workers-and-cache-api/README.md) article)
-- **Origin Private File System (OPFS)** provides raw file system access with synchronous I/O in workers—the fastest storage option for compute-heavy workloads
-- **Quota** is per-origin and varies dramatically by browser (Chrome: ~60% of disk, Firefox: up to 2 GiB per group, Safari: 1 GiB with 7-day eviction). All script-writable storage shares this budget
+- **localStorage / sessionStorage** store DOMString key/value pairs synchronously on the main thread — fine for small reads, dangerous for large data. localStorage persists across sessions; sessionStorage dies with the tab.
+- **IndexedDB** is an asynchronous, transactional object store using the structured clone algorithm — handles complex objects and binary data at scale, but its transaction lifetime rules break naively async code.
+- **Cache API** stores `Request` → `Response` pairs and is optimized for service-worker integration (covered in depth in the [Service Workers and Cache API](../service-workers-and-cache-api/README.md) article).
+- **Origin Private File System (OPFS)** provides a sandboxed file system per origin, with synchronous I/O via `FileSystemSyncAccessHandle` in dedicated workers — the fastest storage option for compute-heavy workloads.
+- **Quota** is per-origin, calculated from total disk size for fingerprinting reasons. Concrete numbers vary dramatically by browser; the asynchronous APIs share a single budget while Web Storage has its own ~5 MiB allowance.
 
 ---
 
@@ -40,64 +41,59 @@ Browser storage is not one system—it's five APIs with different serialization 
 
 ### Choosing the Right API
 
-| Criteria        | localStorage             | sessionStorage            | IndexedDB             | Cache API           | OPFS                 |
-| --------------- | ------------------------ | ------------------------- | --------------------- | ------------------- | -------------------- |
-| **Data model**  | String KV                | String KV                 | Structured objects    | Request/Response    | Raw bytes            |
-| **Capacity**    | ~5 MiB                   | ~5 MiB                    | Origin quota (GBs)    | Origin quota (GBs)  | Origin quota (GBs)   |
-| **Threading**   | Sync, blocks main thread | Sync, blocks main thread  | Async (event/promise) | Async (promise)     | Sync in workers only |
-| **Persistence** | Cross-session            | Tab lifetime              | Cross-session         | Cross-session       | Cross-session        |
-| **Indexing**    | Key only                 | Key only                  | Multi-column indexes  | URL matching        | None                 |
-| **Use case**    | User prefs, tokens       | Wizard state, form drafts | App data, offline DB  | HTTP response cache | SQLite, Wasm state   |
+| Criteria        | localStorage             | sessionStorage            | IndexedDB             | Cache API           | OPFS                   |
+| --------------- | ------------------------ | ------------------------- | --------------------- | ------------------- | ---------------------- |
+| **Data model**  | String KV                | String KV                 | Structured objects    | Request/Response    | Raw bytes              |
+| **Capacity**    | ~5 MiB                   | ~5 MiB                    | Origin quota (GiBs)   | Origin quota (GiBs) | Origin quota (GiBs)    |
+| **Threading**   | Sync, blocks main thread | Sync, blocks main thread  | Async (event/promise) | Async (promise)     | Async; sync in workers |
+| **Persistence** | Cross-session            | Tab lifetime              | Cross-session         | Cross-session       | Cross-session          |
+| **Indexing**    | Key only                 | Key only                  | Multi-column indexes  | URL matching        | None                   |
+| **Use case**    | User prefs, tokens       | Wizard state, form drafts | App data, offline DB  | HTTP response cache | SQLite, Wasm state     |
 
-**Design insight**: The split between synchronous and asynchronous APIs reflects a fundamental tension. Web Storage (localStorage/sessionStorage) was designed in 2009 for simple needs—synchronous access made the API trivial to use. But synchronous storage on the main thread doesn't scale. IndexedDB (first spec 2011, current version 3.0) was designed as the scalable replacement, trading simplicity for async transactions, structured data, and indexing.
+The split between synchronous and asynchronous APIs reflects a fundamental tension. Web Storage was specified early in the WHATWG era when storage needs were small and the main thread was less contended; the synchronous API made it trivial to use. But synchronous storage on the main thread does not scale, and the spec itself recommends a conservative ~5 MiB cap precisely because larger writes would jank the page. IndexedDB was designed as the scalable replacement, trading simplicity for asynchronous transactions, structured data, and indexes.
 
 ### When Cookies Still Win
 
-Storage APIs don't replace cookies for all use cases:
+Storage APIs do not replace cookies for every use case:
 
-- **Authentication tokens**: `HttpOnly` cookies can't be read by JavaScript, preventing XSS (Cross-Site Scripting) token theft. localStorage tokens are always vulnerable
-- **Server-side access**: Cookies are sent with every HTTP request; storage APIs are client-only
-- **Expiration control**: `Expires` and `Max-Age` provide server-controlled TTL (Time to Live). Storage APIs have no built-in expiration
-- **Security attributes**: `Secure`, `SameSite`, and `HttpOnly` have no storage API equivalents
+- **Authentication tokens**: `HttpOnly` cookies cannot be read by JavaScript, blocking XSS-based token theft. localStorage tokens are always exfiltratable.
+- **Server-side access**: Cookies are sent on every same-origin HTTP request; storage APIs are client-only.
+- **Expiration control**: `Expires` and `Max-Age` provide server-controlled TTLs. Storage APIs have no built-in expiration.
+- **Security attributes**: `Secure`, `SameSite`, and `HttpOnly` have no storage-API equivalents.
 
 ---
 
 ## Web Storage: localStorage and sessionStorage
 
-The [Web Storage specification](https://html.spec.whatwg.org/multipage/webstorage.html) (WHATWG HTML Standard) defines two Storage objects that share an identical interface but differ in lifetime and scope.
+The [Web Storage section of the HTML spec](https://html.spec.whatwg.org/multipage/webstorage.html) defines two `Storage` objects that share an interface but differ in lifetime and scope.
 
-### Interface and Serialization
+### Interface and serialization
 
-Both APIs expose the same `Storage` interface:
+Both APIs expose the same `Storage` interface. Every value is coerced to a DOMString:
 
 ```typescript
-// All values are coerced to DOMString
-localStorage.setItem("count", "42") // Store
+localStorage.setItem("count", "42")
 localStorage.getItem("count") // "42" (always a string)
-localStorage.removeItem("count") // Delete single key
-localStorage.clear() // Delete all keys for this origin
-localStorage.key(0) // Get key name by index
-localStorage.length // Number of stored pairs
+localStorage.removeItem("count")
+localStorage.clear()
+localStorage.key(0)
+localStorage.length
 
-// Property-style access also works (but setItem/getItem is preferred)
-localStorage.username = "alice" // Same as setItem("username", "alice")
-delete localStorage.username // Same as removeItem("username")
+localStorage.username = "alice" // same as setItem("username", "alice")
+delete localStorage.username
 ```
 
-**Serialization trap**: Every value is coerced to a string via `toString()`. Objects become `"[object Object]"` unless explicitly serialized:
+The serialization trap: every value is stringified via the `ToString` abstract operation. Plain objects become `"[object Object]"` unless you serialize explicitly:
 
 ```typescript
-// ❌ Silent data loss
-localStorage.setItem("user", { name: "Alice" })
-localStorage.getItem("user") // "[object Object]"
+localStorage.setItem("user", { name: "Alice" } as unknown as string)
+localStorage.getItem("user") // "[object Object]" — silent data loss
 
-// ✅ Explicit serialization
 localStorage.setItem("user", JSON.stringify({ name: "Alice" }))
 JSON.parse(localStorage.getItem("user")!) // { name: "Alice" }
 
-// ⚠️ JSON.parse(null) returns null, but JSON.parse("undefined") throws
 const value = localStorage.getItem("missing") // null
-JSON.parse(value) // null (safe)
+JSON.parse(value as unknown as string) // null (safe)
 ```
 
 ### localStorage vs sessionStorage
@@ -107,79 +103,63 @@ JSON.parse(value) // null (safe)
 | **Lifetime**                | Persists until explicitly deleted or evicted | Deleted when tab/window closes                     |
 | **Scope**                   | Shared across all same-origin tabs/windows   | Isolated per tab (including duplicated tabs)       |
 | **Cross-tab visibility**    | Yes (via storage events)                     | No                                                 |
-| **Restored on tab restore** | N/A (always available)                       | Yes—browser restores sessionStorage on tab restore |
+| **Restored on tab restore** | N/A (always available)                       | Yes — browser restores sessionStorage on tab restore |
 | **Capacity**                | ~5 MiB per origin                            | ~5 MiB per origin                                  |
 
-**Design reasoning**: sessionStorage exists because localStorage's cross-tab sharing creates problems for multi-step workflows. A shopping cart checkout in two tabs would share state via localStorage, causing race conditions. sessionStorage provides tab-isolated state. The WHATWG spec notes sessionStorage is "intended to allow separate instances of the same web application to run in different windows without interfering with each other."
+sessionStorage exists because localStorage's cross-tab sharing creates problems for multi-step workflows. Two concurrent checkout tabs sharing cart state through localStorage is a race condition factory; sessionStorage gives each tab its own isolated state. The HTML spec frames this as letting "separate instances of the same web application … run in different windows without interfering with each other."[^web-storage-spec]
 
-### The Synchronous Problem
+### The synchronous problem
 
-Web Storage is **synchronous and blocks the main thread**. Every `getItem`/`setItem` call performs I/O on the UI thread:
+Web Storage is synchronous and runs on the main thread. Every `getItem` / `setItem` is I/O on the UI thread:
 
 ```typescript
-// ⚠️ Blocks UI during operation
-// For small data (< 100 keys, simple values), this is imperceptible
 localStorage.setItem("pref", "dark")
-
-// ❌ Blocking with large data causes jank
-// 5 MiB of JSON parsing on the main thread
 const bigData = JSON.parse(localStorage.getItem("cache")!)
-// User cannot scroll, click, or interact during this operation
 ```
 
-**Why synchronous?** The spec was written in 2009 when storage needs were simpler and the main thread was less contended. The synchronous API is also why the spec recommends a conservative 5 MiB limit—larger quotas would make blocking worse. The spec literally warns: "User agents should limit the total amount of space allowed for storage areas."
+For small values this is imperceptible. For megabytes of JSON it is enough to drop a long-task budget on the floor — the main thread parses the string, allocates a fresh object graph, and only then can the page paint again. The HTML spec acknowledges this directly: "User agents should limit the total amount of space allowed for storage areas, because hostile authors can use this feature to fill the user's hard disk."[^web-storage-spec]
 
-### Storage Events: Cross-Tab Communication
+### Storage events: cross-tab communication
 
-When localStorage changes, the browser fires a `storage` event on **every other same-origin window**—never on the originating tab:
+When localStorage changes, the browser fires a `storage` event on every other same-origin Document, but never on the originating one:[^storage-event-spec]
 
 ```typescript collapse={17-24}
-// Tab A: writes data
 localStorage.setItem("theme", "dark")
-// No storage event fires in Tab A
 
-// Tab B: receives the change
 window.addEventListener("storage", (event) => {
-  // event.key        - "theme"
-  // event.oldValue   - "light" (previous value, or null)
-  // event.newValue   - "dark" (new value, or null if removed)
-  // event.url        - URL of the tab that made the change
-  // event.storageArea - reference to localStorage or sessionStorage
-
   if (event.key === "theme") {
     applyTheme(event.newValue)
   }
 })
 
-// Cross-tab messaging pattern: broadcast via localStorage
 function broadcast(channel: string, data: unknown) {
   localStorage.setItem(`__msg_${channel}`, JSON.stringify({ data, timestamp: Date.now() }))
-  // Clean up to avoid filling storage
   localStorage.removeItem(`__msg_${channel}`)
 }
 ```
 
-**Edge case**: The `storage` event fires even when `newValue === oldValue`—setting a key to its current value still triggers events on other tabs. The event fires after the storage area changes, so by the time a listener runs, `localStorage.getItem(event.key)` may already reflect a subsequent change.
+By the time a listener runs in the receiving tab, `localStorage.getItem(event.key)` may already reflect a subsequent write; `event.newValue` captures the value at the time of the event but the storage area is shared mutable state.
 
-> **BroadcastChannel alternative**: For cross-tab messaging without touching storage, use `BroadcastChannel`. It doesn't persist data and avoids I/O overhead. localStorage storage events are a legacy workaround from before BroadcastChannel existed.
+> [!TIP]
+> For cross-tab messaging without touching storage, use [`BroadcastChannel`](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel). It does not persist data and avoids storage I/O. The localStorage-event idiom predates BroadcastChannel and survives mostly for backward compatibility.
 
-### Edge Cases and Failure Modes
+### Edge cases and failure modes
 
-**QuotaExceededError**: Thrown when `setItem()` exceeds the ~5 MiB limit. The spec says: "If it couldn't set the new value, the method must throw a 'QuotaExceededError' DOMException."
+**`QuotaExceededError`**: thrown when `setItem` would push a Storage area past its limit. The HTML spec mandates this DOMException name when the implementation refuses to store the new value:
 
 ```typescript
 try {
   localStorage.setItem("key", largeValue)
 } catch (e) {
   if (e instanceof DOMException && e.name === "QuotaExceededError") {
-    // Storage full—evict old entries or warn user
+    // evict your own old entries or warn the user
   }
 }
 ```
 
-**Private browsing**: In all modern browsers, localStorage works in private/incognito mode but data is ephemeral—deleted when the private window closes. Safari previously threw `QuotaExceededError` on any `setItem` in private mode (fixed in Safari 11+).
+**Private browsing**: in current browsers Web Storage works in private/incognito mode but the data is ephemeral. Older Safari (before Safari 11) threw `QuotaExceededError` on any `setItem` in private mode; that bug is long fixed.
 
-**Disabled storage**: Users can disable web storage entirely. Feature detection is required:
+**Disabled storage**: users can disable Web Storage entirely. Touching `localStorage` then throws synchronously, so feature-detect by writing:
 
 ```typescript
 function isStorageAvailable(): boolean {
@@ -194,41 +174,39 @@ function isStorageAvailable(): boolean {
 }
 ```
 
-**5 MiB is in UTF-16 code units**: The storage limit is typically measured in UTF-16 code units (2 bytes each), so 5 MiB allows ~2.5 million characters. Non-BMP characters consume two code units each.
+**Quota is in UTF-16 code units**: `DOMString` is UTF-16, so a 5 MiB limit allows roughly 2.5 million BMP characters. Astral-plane characters consume two code units each (one surrogate pair).
 
 ---
 
-## IndexedDB: Transactional Object Store
+## IndexedDB: transactional object store
 
-[IndexedDB](https://www.w3.org/TR/IndexedDB-3/) (W3C, version 3.0) is an asynchronous, transactional, indexed object store designed for structured data at scale. It uses the structured clone algorithm for serialization, supports multi-column indexes, and provides ACID-like (Atomicity, Consistency, Isolation, Durability) transactions within a single origin.
+[IndexedDB 3.0](https://www.w3.org/TR/IndexedDB-3/) is an asynchronous, transactional, indexed object store designed for structured data at scale. It uses the structured clone algorithm for serialization, supports multi-column indexes, and provides ACID-style transactions inside a single origin.
 
-### Data Model
+### Data model
 
-![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q-light.svg "IndexedDB data model: databases contain object stores, which contain indexes for query optimization")
-![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-databases-contain-object-stores-which-contain-indexes-for-q-dark.svg)
+![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-light.svg "IndexedDB data model: databases hold object stores; each store can declare multiple secondary indexes for query optimization.")
+![IndexedDB data model: databases contain object stores, which contain indexes for query optimization](./diagrams/indexeddb-data-model-dark.svg)
 
-- **Database**: Named container with a version number. Multiple databases per origin are allowed
-- **Object store**: Named collection of records (analogous to a table). Records are key-value pairs where values are structured-cloneable objects
-- **Index**: Secondary key path into an object store, enabling efficient queries on non-primary-key fields
-- **Key**: Every record has a key—either an explicit `keyPath` property, an out-of-line key, or an auto-incrementing key generator
+- **Database**: named container with an integer version. Multiple databases per origin are allowed.
+- **Object store**: named collection of records (analogous to a table). Records are key/value pairs where the value is anything structured-cloneable.
+- **Index**: secondary key path into an object store, enabling efficient queries on non-primary-key fields.
+- **Key**: every record has a key — an explicit `keyPath` property, an out-of-line key passed to `add`/`put`, or an auto-incrementing key generator.
 
-**Valid key types** (from the spec, in sort order): numbers (except NaN), Date objects (except invalid), strings, ArrayBuffer/typed arrays, and arrays (which sort element-by-element, enabling compound keys).
+Valid IndexedDB key types, in sort order: numbers (excluding `NaN`), `Date` objects (excluding invalid dates), strings, `ArrayBuffer` and typed arrays, and arrays — which sort element-by-element, enabling compound keys.[^idb-key]
 
-### Database Versioning and Schema Upgrades
+### Database versioning and schema upgrades
 
-IndexedDB uses an integer version scheme. Schema changes (creating/deleting object stores and indexes) can **only** happen inside an `upgradeneeded` event:
+IndexedDB uses an integer version scheme. Schema changes — creating or deleting object stores and indexes — can only happen inside an `upgradeneeded` event:
 
-```typescript collapse={1-3, 29-33}
-// Helper for promisifying (collapsed)
+```typescript collapse={1-3, 28-32}
 function openDB(name: string, version: number): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("myapp", 3)
+    const request = indexedDB.open(name, version)
 
     request.onupgradeneeded = (event) => {
       const db = request.result
       const oldVersion = event.oldVersion
 
-      // Incremental migrations based on old version
       if (oldVersion < 1) {
         const users = db.createObjectStore("users", { keyPath: "id" })
         users.createIndex("by-email", "email", { unique: true })
@@ -241,50 +219,46 @@ function openDB(name: string, version: number): Promise<IDBDatabase> {
         orders.createIndex("by-date", "createdAt")
       }
       if (oldVersion < 3) {
-        // Add index to existing store
         const users = request.transaction!.objectStore("users")
         users.createIndex("by-role", "role")
       }
     }
 
-    // Resolve/reject handlers (collapsed)
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
 }
 ```
 
-**Design reasoning**: The version-based upgrade mechanism exists because IndexedDB is a client-side database—you can't run migrations on all clients simultaneously like a server DB. Each client may be at any historical version. The `upgradeneeded` event fires with `oldVersion` so you can apply incremental migrations. The `versionchange` transaction has exclusive access to the database, preventing concurrent schema modifications.
+The version-based upgrade mechanism exists because IndexedDB is a client-side database: you cannot run migrations on every client at the same time the way you would on a server. Each client may be at any historical version, so `upgradeneeded` fires with `oldVersion` and `newVersion` and you apply incremental migrations. The implicit `versionchange` transaction has exclusive access to the database, preventing concurrent schema modifications.
 
-### The `blocked` / `versionchange` Problem
+### The `versionchange` / `blocked` handshake
 
-Version upgrades require exclusive database access. If other tabs have open connections, the upgrade can't proceed:
+Version upgrades require exclusive database access. If other tabs hold open connections, the upgrade cannot proceed until they close.
+
+![IndexedDB version upgrade handshake across tabs](./diagrams/version-upgrade-sequence-light.svg "Tab B's open at a higher version forces Tab A to receive a versionchange event and close; if Tab A holds on, Tab B receives a blocked event and waits.")
+![IndexedDB version upgrade handshake across tabs](./diagrams/version-upgrade-sequence-dark.svg)
 
 ```typescript
-// Tab A: has an open connection
 const db = await openDB("myapp", 2)
 
-// Tab B: tries to upgrade to version 3
 const request = indexedDB.open("myapp", 3)
 
-// Step 1: Tab A receives versionchange event
 db.onversionchange = () => {
-  db.close() // Must close to unblock Tab B
-  // Optionally: alert user to reload
+  db.close()
 }
 
-// Step 2: If Tab A doesn't close, Tab B receives blocked event
 request.onblocked = () => {
-  // Upgrade can't proceed until Tab A closes its connection
   console.warn("Database upgrade blocked by another tab")
 }
 ```
 
-**This is a common production bug**: If you don't handle `onversionchange`, your app silently blocks other tabs from upgrading. Always close the database on `versionchange`.
+> [!WARNING]
+> If you do not handle `onversionchange`, your app will silently block other tabs from upgrading the schema. Always close the connection on `versionchange` and treat it as "the data model under your feet has just changed".
 
 ### Transactions
 
-IndexedDB provides three transaction modes:
+IndexedDB defines three transaction modes:
 
 | Mode            | Concurrent Access     | Object Store Access  | Use Case           |
 | --------------- | --------------------- | -------------------- | ------------------ |
@@ -293,46 +267,42 @@ IndexedDB provides three transaction modes:
 | `versionchange` | Exclusive (entire DB) | Schema changes + R/W | Upgrades only      |
 
 ```typescript collapse={1-3}
-// Assume db is already opened (collapsed)
 const db = await openDB("myapp", 1)
 
 const tx = db.transaction(["users", "orders"], "readwrite")
 const users = tx.objectStore("users")
 const orders = tx.objectStore("orders")
 
-// All operations within this transaction are atomic
-await wrapRequest(users.put({ id: "u1", name: "Alice", role: "admin" }))
-await wrapRequest(orders.add({ userId: "u1", item: "Widget", createdAt: new Date() }))
+users.put({ id: "u1", name: "Alice", role: "admin" })
+orders.add({ userId: "u1", item: "Widget", createdAt: new Date() })
 
 tx.oncomplete = () => console.log("Transaction committed")
 tx.onerror = () => console.error("Transaction failed:", tx.error)
 tx.onabort = () => console.warn("Transaction aborted")
 ```
 
-#### Transaction Lifetime: The Critical Gotcha
+#### Transaction lifetime: the auto-commit trap
 
-Transactions auto-commit when the event loop returns to its idle state **after all pending requests are resolved**. This means inserting any async operation that yields to the event loop (like `fetch`, `setTimeout`, or `await`-ing a non-IDB promise) will cause the transaction to become inactive:
+A transaction is **active** when the task that created it is running and during the success/error event for any of its requests. As soon as control returns to the event loop with no pending requests, the transaction commits and any further request throws `TransactionInactiveError`.[^idb-tx-mdn][^idb-tx-spec]
+
+![IndexedDB transaction lifecycle and the auto-commit trap](./diagrams/idb-transaction-lifecycle-light.svg "Transactions stay active while requests are in-flight; awaiting a non-IDB promise yields control to the event loop and demotes the transaction to inactive.")
+![IndexedDB transaction lifecycle and the auto-commit trap](./diagrams/idb-transaction-lifecycle-dark.svg)
 
 ```typescript
 const tx = db.transaction("users", "readwrite")
 const store = tx.objectStore("users")
 
-// ✅ Works: back-to-back IDB operations keep transaction active
 store.put({ id: "1", name: "Alice" })
 store.put({ id: "2", name: "Bob" })
 
-// ❌ Breaks: fetch yields to the event loop, transaction becomes inactive
 store.put({ id: "1", name: "Alice" })
-const data = await fetch("/api/user/2") // Transaction dies here
-store.put(await data.json()) // TransactionInactiveError
+const data = await fetch("/api/user/2") // <- transaction goes inactive here
+store.put(await data.json()) // throws TransactionInactiveError
 ```
 
-**The spec says**: A transaction is active when it's first created, becomes inactive when "control returns to the event loop", and reactivates when a success/error event fires for one of its requests. Once all requests complete and control returns to the event loop with no pending requests, the transaction auto-commits.
-
-**Fix**: Gather all data before starting the transaction, or use separate transactions:
+The fix is structural: gather any external data before opening the transaction, or split the work across separate transactions.
 
 ```typescript
-// ✅ Fetch first, then transact
 const data = await fetch("/api/users").then((r) => r.json())
 
 const tx = db.transaction("users", "readwrite")
@@ -342,141 +312,137 @@ for (const user of data) {
 }
 ```
 
-### Durability Hints
+For long-running batch writes you can also call `tx.commit()` explicitly to skip waiting for the implicit auto-commit; the transaction commits as soon as in-flight requests resolve and any further write throws.[^idb-commit]
 
-IndexedDB 3.0 introduced durability hints via the `durability` option on transactions:
+### Durability hints
+
+IndexedDB 3.0 lets you declare durability per transaction via the `durability` option:
 
 ```typescript
-// "relaxed" (default in Chrome 121+, Firefox 40+, Safari): OS may buffer writes
 const tx = db.transaction("users", "readwrite", { durability: "relaxed" })
 
-// "strict": flush to persistent storage before reporting complete
 const tx2 = db.transaction("users", "readwrite", { durability: "strict" })
 ```
 
-**Performance impact**: Relaxed durability provides **3–30x throughput improvement** by deferring OS buffer flushes. The trade-off: data written in a relaxed transaction may be lost if the OS crashes (not just the browser—power failure or kernel panic). Browser crashes and tab crashes are still safe because the browser process commits to its WAL (Write-Ahead Log) before reporting success.
+- `relaxed`: the user agent reports the transaction committed once changes are written to the OS, without waiting for the OS to flush its buffers to disk.
+- `strict`: the user agent verifies all changes have been written to a persistent storage medium before reporting success.[^idb-durability]
 
-**Design reasoning**: Most web apps don't need `strict` durability—the data is a cache of server state. Relaxed durability matches what users expect: if the power goes out, losing the last few seconds of client-side data is acceptable. `strict` matters for apps where the browser is the primary data store (offline-first productivity tools, local databases).
+Chrome made `relaxed` the default for `readwrite` transactions in **Chrome 121** (January 2024). The Chrome team measured a **3–30× write-throughput improvement** on real workloads — `fsync` after every commit was the dominant cost on most platforms.[^chrome-durability] Firefox has never `fsync`-ed every IndexedDB commit, and the standardized `durability` hint reached cross-browser Baseline support in May 2024.[^idb-durability]
 
-### Structured Clone: What Can Be Stored
+The trade-off is narrow: with `relaxed`, data written in the last few seconds before a power loss or kernel panic may be lost. Browser crashes and tab crashes are still safe because the write has already gone through the browser's IPC boundary into the storage subsystem.
 
-IndexedDB serializes values using the [structured clone algorithm](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal), which supports more types than JSON:
+> [!NOTE]
+> For most apps the data in IndexedDB is a cache of server state, and `relaxed` is the right default. Reach for `strict` only when the browser is the system of record (offline-first productivity tools, local databases, drafts that have not yet round-tripped to a server).
 
-**Cloneable** (stored correctly):
+### Structured clone: what can be stored
 
-- Primitives (string, number, boolean, null, undefined, BigInt)
-- Date, RegExp (except `lastIndex`)
-- ArrayBuffer, typed arrays, DataView
-- Blob, File, FileList
-- ImageBitmap, ImageData
-- Map, Set
-- Array, plain objects (own enumerable properties)
+IndexedDB serializes values using the [structured clone algorithm](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal), which understands more types than JSON.
 
-**Not cloneable** (throws `DataCloneError`):
+**Cloneable** (round-trip without loss):
+
+- Primitives — string, number, boolean, null, undefined, BigInt
+- `Date`, `RegExp`
+- `ArrayBuffer`, typed arrays, `DataView`
+- `Blob`, `File`, `FileList`
+- `ImageBitmap`, `ImageData`
+- `Map`, `Set`
+- `Array`, plain objects (own enumerable properties)
+
+**Not cloneable** (throws `DataCloneError`):[^structured-clone]
 
 - Functions and closures
 - DOM nodes
 - Symbols
 - Property descriptors (getters, setters)
-- Prototype chains (class instances lose their prototype)
-- Error objects (in some older browsers)
+- `WeakMap` / `WeakSet`
+- Class instances **lose their prototype** — they round-trip as plain objects with the same enumerable data
 
 ```typescript
-// ✅ Rich objects survive structured clone
 store.put({
   id: "1",
-  created: new Date(), // Date preserved (JSON would stringify)
-  tags: new Set(["a", "b"]), // Set preserved (JSON would lose it)
-  binary: new Uint8Array([1, 2]), // Binary preserved (JSON can't do this)
+  created: new Date(),
+  tags: new Set(["a", "b"]),
+  binary: new Uint8Array([1, 2]),
 })
 
-// ❌ Class instances lose their prototype
 class User {
   greet() {
     return "hi"
   }
 }
 store.put({ id: "1", user: new User() })
-// Retrieved object has no greet() method—it's a plain object
 ```
 
-### Indexes and Querying
+### Indexes and querying
 
-Indexes enable efficient lookups on non-primary-key fields:
+Indexes enable efficient lookups on non-primary-key fields. A compound index over `[category, price]` lets you scan a contiguous range that covers an exact category and a price band:
 
 ```typescript collapse={1-5}
-// Schema setup (collapsed)
 const store = db.createObjectStore("products", { keyPath: "id" })
 store.createIndex("by-category", "category")
 store.createIndex("by-price", "price")
-store.createIndex("by-cat-price", ["category", "price"]) // Compound index
+store.createIndex("by-cat-price", ["category", "price"])
 
-// Query by index using key ranges
 const tx = db.transaction("products", "readonly")
 const index = tx.objectStore("products").index("by-price")
 
-// Exact match
 const request = index.get(29.99)
 
-// Range queries with IDBKeyRange
 index.getAll(IDBKeyRange.bound(10, 50)) // 10 ≤ price ≤ 50
 index.getAll(IDBKeyRange.bound(10, 50, true, false)) // 10 < price ≤ 50
 index.getAll(IDBKeyRange.lowerBound(100)) // price ≥ 100
 index.getAll(IDBKeyRange.upperBound(20)) // price ≤ 20
 
-// Compound index query: category="electronics" AND price 50-200
 const compoundIndex = tx.objectStore("products").index("by-cat-price")
 compoundIndex.getAll(IDBKeyRange.bound(["electronics", 50], ["electronics", 200]))
 ```
 
-**Cursor-based iteration** for large result sets:
+Cursors stream large result sets without materialising the whole array:
 
 ```typescript
 const tx = db.transaction("products", "readonly")
 const index = tx.objectStore("products").index("by-price")
 
-const cursor = index.openCursor(IDBKeyRange.lowerBound(50), "next")
+const cursorRequest = index.openCursor(IDBKeyRange.lowerBound(50), "next")
 
-cursor.onsuccess = () => {
-  const result = cursor.result
-  if (result) {
-    processProduct(result.value)
-    result.continue() // Move to next record
+cursorRequest.onsuccess = () => {
+  const cursor = cursorRequest.result
+  if (cursor) {
+    processProduct(cursor.value)
+    cursor.continue()
   }
 }
 ```
 
-### Edge Cases and Failure Modes
+### Edge cases and failure modes
 
-**Storage corruption**: Can occur from repeated clearing during active I/O operations, or from structured clone failures on upgrade. Recovery requires deleting and rebuilding the database:
+**Storage corruption**: rare, but can happen after kernel panics or crashes mid-write on some platforms. Recovery means deleting and rebuilding the database:
 
 ```typescript
 const deleteRequest = indexedDB.deleteDatabase("myapp")
 deleteRequest.onsuccess = () => {
-  // Recreate from server or defaults
+  // recreate from server or defaults
 }
 deleteRequest.onblocked = () => {
-  // Other tabs still have open connections
+  // other tabs still have open connections — ask the user to close them
 }
 ```
 
-**QuotaExceededError in IndexedDB**: Unlike localStorage, this can happen during any write operation—including during transactions. A failed write aborts the entire transaction:
+**`QuotaExceededError` inside a transaction**: unlike Web Storage, this can fire on any write inside a transaction. A failed write aborts the entire transaction:
 
 ```typescript
 tx.onerror = (event) => {
   if (tx.error?.name === "QuotaExceededError") {
-    // Entire transaction was rolled back
-    // Evict old data and retry
+    // entire transaction was rolled back; evict and retry
   }
 }
 ```
 
-**Private browsing limits**: Chrome limits IndexedDB to ~32 MiB per database and ~500 MiB total in incognito. All data is deleted when the incognito window closes.
+**Private browsing limits**: Chromium enforces a smaller per-origin quota in incognito and deletes everything when the window closes. The exact ceiling shifts with Chrome versions; treat it as "small and ephemeral" rather than memorising a number.
 
-**IDB on the main thread vs workers**: IndexedDB is available in web workers (including service workers and shared workers), which avoids main-thread I/O entirely. For large writes, always use a worker:
+**IDB on workers**: IndexedDB is available in dedicated, shared, and service workers. For bulk writes, always run them off the main thread:
 
 ```typescript title="worker.ts"
-// Heavy IndexedDB writes in a web worker—zero main thread impact
 self.onmessage = async (event) => {
   const db = await openDB("bulk", 1)
   const tx = db.transaction("data", "readwrite")
@@ -491,128 +457,127 @@ self.onmessage = async (event) => {
 
 ## Origin Private File System (OPFS)
 
-The [Origin Private File System](https://fs.spec.whatwg.org/#origin-private-file-system) (WHATWG File System Standard) provides a sandboxed file system per origin with **synchronous access in workers**—the fastest storage API available in browsers.
+The [Origin Private File System](https://fs.spec.whatwg.org/#origin-private-file-system) (WHATWG File System Standard) provides a sandboxed file system per origin. Its synchronous access mode in workers makes it the fastest storage primitive on the platform.
 
-### Why OPFS Exists
+### Why OPFS exists
 
-IndexedDB's structured clone overhead and transaction model add latency that matters for compute-heavy workloads. OPFS provides raw byte access:
+IndexedDB's structured-clone overhead and transaction lifetime add latency that matters for compute-heavy workloads. OPFS gives you raw byte access:
 
-- **SQLite in the browser**: Projects like [sql.js](https://github.com/nicholasgross/nicholasgross.github.io) and the official [SQLite Wasm](https://sqlite.org/wasm) build use OPFS as their backing store
-- **Wasm state persistence**: Emscripten and other Wasm toolchains map OPFS to a virtual filesystem
-- **Large binary data**: Image/video processing pipelines that need direct byte access without serialization overhead
+- **SQLite in the browser**: the official [SQLite Wasm](https://sqlite.org/wasm) build and community wrappers like [sql.js](https://github.com/sql-js/sql.js) use OPFS as a backing store.
+- **Wasm state persistence**: Emscripten-compiled toolchains map OPFS into a virtual filesystem.
+- **Large binary data**: image / video / audio pipelines that need direct byte access without a serialization tax.
 
-### API Surface
+### API surface
 
-OPFS has two access modes:
+OPFS exposes two access modes — async (everywhere) and sync (workers only):
 
 ```typescript
-// Async access (available on main thread and workers)
 const root = await navigator.storage.getDirectory()
 const fileHandle = await root.getFileHandle("data.bin", { create: true })
 
-// Async read/write via File and WritableStream
-const file = await fileHandle.getFile() // Returns a File (Blob subclass)
+const file = await fileHandle.getFile() // returns a File (Blob subclass)
 const writable = await fileHandle.createWritable()
 await writable.write(new Uint8Array([1, 2, 3]))
 await writable.close()
 ```
 
 ```typescript title="worker.ts"
-// Synchronous access (workers only)—MUCH faster
 const root = await navigator.storage.getDirectory()
 const fileHandle = await root.getFileHandle("data.bin", { create: true })
 
 const syncHandle = await fileHandle.createSyncAccessHandle()
 
-// Direct byte operations—no promises, no structured clone
 const buffer = new ArrayBuffer(1024)
-syncHandle.read(buffer, { at: 0 }) // Read 1024 bytes from offset 0
+syncHandle.read(buffer, { at: 0 })
 syncHandle.write(new Uint8Array([1, 2, 3]), { at: 0 })
-syncHandle.flush() // Ensure data is written to disk
-syncHandle.close() // Release the lock
+syncHandle.flush()
+syncHandle.close()
 ```
 
-**Design reasoning**: `createSyncAccessHandle()` is restricted to workers because synchronous I/O on the main thread would block user interaction—the same problem that makes large localStorage operations problematic. By limiting sync access to workers, the spec provides the performance of synchronous I/O without the main-thread penalty.
+`createSyncAccessHandle` is restricted to **dedicated workers**. Shared workers, service workers, and the main thread cannot use it.[^opfs-sync] The restriction exists because synchronous I/O on the main thread would block user interaction — the same reason Web Storage is small. By limiting sync access to dedicated workers, the spec gives you the throughput of synchronous I/O without the main-thread penalty. By default the handle takes an exclusive lock on the file; Chrome 121+ added a `mode: "readwrite-unsafe"` option for concurrent access, with the safety burden moved to the application.[^opfs-modes]
 
-**Limitations**: OPFS files are invisible to the user (no file picker), not shareable across origins, and count against the same origin quota as IndexedDB and Cache API.
+OPFS files are invisible to the user (no file picker), not shareable across origins, and count against the same per-origin quota as IndexedDB and Cache API.
 
 ---
 
 ## Storage Quotas and Eviction
 
-The [WHATWG Storage Standard](https://storage.spec.whatwg.org/) defines a unified quota model for all script-writable storage (IndexedDB, Cache API, OPFS). Web Storage (localStorage/sessionStorage) has its own separate ~5 MiB limit.
+The [WHATWG Storage Standard](https://storage.spec.whatwg.org/) defines a unified quota model for the asynchronous APIs (IndexedDB, Cache API, OPFS). Web Storage has its own, separate, ~5 MiB allowance.
 
-### Quota by Browser
+### Quota by browser
 
-| Browser     | Origin Quota                 | Eviction Trigger                 | Notes                                                                                             |
-| ----------- | ---------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Chrome**  | ~60% of total disk           | Storage pressure                 | Calculated as 80% disk × 75% per origin. Static—doesn't consider free space (anti-fingerprinting) |
-| **Firefox** | Up to 2 GiB per eTLD+1 group | Global limit: 50% of free disk   | Group limit is min(20% of global, 2 GiB). Minimum 10 MiB per group                                |
-| **Safari**  | 1 GiB initially              | Prompts user for more on desktop | Safari 17+: up to 80% in browser apps, 20% in WKWebView                                           |
+The numbers below come from the [MDN Storage quotas and eviction criteria](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) reference and the WebKit storage policy blog post. All quotas are calculated from total disk size — not free disk — for fingerprinting reasons, so an origin may not actually be able to reach its theoretical limit.[^webkit-storage]
+
+| Browser     | Per-origin quota (best-effort)                                       | Overall limit            | Eviction policy                                    |
+| ----------- | -------------------------------------------------------------------- | ------------------------ | -------------------------------------------------- |
+| **Chrome / Chromium** | Up to 60% of total disk                                       | Up to 80% of total disk  | LRU under storage pressure; persistent skipped     |
+| **Firefox** | smaller of (10% of total disk, 10 GiB group limit per eTLD+1)        | 50% of free disk         | LRU under pressure; persistent up to 50% / 8 TiB   |
+| **Safari (17+)** | Browser apps: 60% of total disk; embedded WebViews: 15% of disk | Browser: 80%; embedded: 20% | LRU under pressure **plus** ITP 7-day inactivity eviction |
+
+A Safari cross-origin iframe gets roughly 1/10 the parent origin's quota, in addition to storage partitioning by top-level site.[^webkit-storage] Older Safari (pre-17) gave each origin an initial 1 GiB quota and prompted the user before raising it; Safari 17+ no longer prompts and uses the disk-percentage model above.
 
 ### The StorageManager API
 
 ```typescript
-// Check current usage
 const estimate = await navigator.storage.estimate()
 console.log(`Used: ${(estimate.usage! / 1024 / 1024).toFixed(1)} MiB`)
 console.log(`Quota: ${(estimate.quota! / 1024 / 1024).toFixed(0)} MiB`)
 console.log(`Available: ${((estimate.quota! - estimate.usage!) / 1024 / 1024).toFixed(0)} MiB`)
 
-// Request persistent storage (prevents eviction under pressure)
 const persisted = await navigator.storage.persist()
 if (persisted) {
-  console.log("Storage marked persistent—won't be evicted automatically")
+  console.log("Storage marked persistent — won't be evicted automatically")
 } else {
   console.log("Browser denied persistence request")
 }
 
-// Check persistence status
 const isPersisted = await navigator.storage.persisted()
 ```
 
-**Persistent vs best-effort**: By default, all storage is "best-effort"—the browser can evict it under storage pressure without asking the user. Calling `navigator.storage.persist()` requests "persistent" mode, which requires user approval (explicit or implicit) before the browser can delete the data. Chrome auto-grants persistence for installed PWAs (Progressive Web Apps) and sites with high engagement; Firefox shows a permission prompt; Safari does not support the persistence API.
+By default all storage is best-effort: the browser may evict it under storage pressure without asking the user. Calling `navigator.storage.persist()` requests persistent mode, which exempts the origin from pressure eviction. Each engine grants the request differently:[^persistent-storage]
 
-### Safari's 7-Day Eviction (ITP)
+- **Chrome/Edge** auto-grants persistence for installed PWAs and origins with high engagement.
+- **Firefox** prompts the user explicitly.
+- **Safari** grants persistence based on heuristics like whether the site is opened as a Home Screen Web App.
 
-Since Safari 13.1 (March 2020), Intelligent Tracking Prevention (ITP) deletes **all** script-writable storage after 7 days without user interaction for a given origin. This affects localStorage, IndexedDB, Cache API, and service worker registrations.
+> [!IMPORTANT]
+> Persistent storage is not protection against bugs, deletion by the user, or ITP. It only opts the origin out of automatic pressure eviction. The data can still go away.
 
-**What counts as "user interaction"**: The user must tap or click on the site (not just visit via redirect). Navigation via `window.open()` or link decoration does not reset the timer.
+### Safari's 7-day eviction (ITP)
 
-**Exempt scenarios**:
+Since Safari 13.1 (March 2020) Intelligent Tracking Prevention deletes **all script-writable storage** for an origin after seven days of Safari use without first-party user interaction. The cap covers localStorage, sessionStorage, IndexedDB, the Cache API, service-worker registrations, MediaKeys, and JavaScript-set cookies. Server-set cookies are exempt.[^itp-cap]
 
-- PWAs added to the home screen
-- Sites the user has explicitly interacted with in the last 7 days
+What counts as user interaction: a tap, click, or keyboard input on the site in a first-party context. Navigation via `window.open`, link decoration, or referrer alone does not reset the timer. The "seven days" is seven days of *Safari use*, not seven calendar days.
 
-**Impact**: Any offline-first app on Safari that the user doesn't visit weekly will lose all client-side data. Server-side persistence is mandatory for Safari users.
+PWAs added to the Home Screen on iOS or to the Dock on macOS are exempt — their storage uses a different bucket and the ITP timer does not apply.
 
-### Storage Partitioning
+> [!CAUTION]
+> Any offline-first app on Safari that the user does not open weekly will lose its client-side data. For Safari users, server-side persistence is mandatory; design the offline cache to rebuild from the server, not as the system of record.
 
-Modern browsers partition storage by top-level site to prevent cross-site tracking:
+### Storage partitioning
 
-**Chrome (115+)**: Third-party storage is partitioned by the top-level site. An iframe from `cdn.example.com` embedded on `siteA.com` gets different storage than the same iframe on `siteB.com`. This affects IndexedDB, Cache API, localStorage, and service workers.
+Modern browsers partition storage by top-level site to prevent cross-site tracking, which changes the semantics for embedded contexts:
 
-**Firefox (103+)**: State Partitioning double-keys all storage by (resource origin, top-level eTLD+1). Enabled by default in Enhanced Tracking Protection.
+- **Chrome 115+** partitions third-party storage by top-level site. An iframe from `cdn.example.com` embedded on `siteA.com` gets a different storage bucket than the same iframe on `siteB.com`. The partition covers IndexedDB, Cache API, localStorage, sessionStorage, service workers, BroadcastChannel, and Web Locks.[^chrome-partitioning]
+- **Firefox 103+** ships State Partitioning by default as part of Total Cookie Protection, double-keying client-side state by `(resource origin, top-level site)`.[^firefox-partitioning]
+- **Safari** has partitioned third-party storage for years via ITP. The [Storage Access API](https://developer.mozilla.org/en-US/docs/Web/API/Storage_Access_API) lets embedded contexts request first-party storage access after a user gesture.
 
-**Safari**: Permanently blocks third-party storage access. The [Storage Access API](https://developer.mozilla.org/en-US/docs/Web/API/Storage_Access_API) allows embedded contexts to request first-party storage access after a user gesture.
-
-**Practical impact**: If your app uses iframes or third-party embeds that rely on shared storage, storage partitioning breaks those assumptions. Use the Storage Access API or `document.requestStorageAccess()` for legitimate cross-site storage needs.
+If your app embeds iframes that rely on shared storage, partitioning breaks those assumptions. The Storage Access API and `document.requestStorageAccess()` are the supported escape hatch for legitimate cross-site needs.
 
 ---
 
 ## Practical Patterns
 
-### Wrapper with Fallback
+### Wrapper with fallback
 
-```typescript collapse={1-4, 25-30}
-// Type definitions (collapsed)
+```typescript collapse={1-6, 27-30}
 type StorageValue = string | number | boolean | object | null
+
 interface StorageAdapter {
   get(key: string): Promise<StorageValue>
   set(key: string, value: StorageValue): Promise<void>
 }
 
-// localStorage adapter with quota handling
 const localStorageAdapter: StorageAdapter = {
   async get(key) {
     const raw = localStorage.getItem(key)
@@ -623,7 +588,7 @@ const localStorageAdapter: StorageAdapter = {
       localStorage.setItem(key, JSON.stringify(value))
     } catch (e) {
       if (e instanceof DOMException && e.name === "QuotaExceededError") {
-        // Evict oldest entries and retry, or fall back to IndexedDB
+        // evict oldest entries and retry, or fall back to IndexedDB
         throw new Error("localStorage quota exceeded")
       }
       throw e
@@ -631,14 +596,13 @@ const localStorageAdapter: StorageAdapter = {
   },
 }
 
-// Usage (collapsed)
 const adapter = isStorageAvailable() ? localStorageAdapter : indexedDBAdapter
 await adapter.set("prefs", { theme: "dark", lang: "en" })
 ```
 
-### IndexedDB Promise Wrapper
+### IndexedDB promise wrapper
 
-The raw IndexedDB API uses event callbacks. A thin promise wrapper reduces boilerplate:
+The raw IndexedDB API uses event callbacks. A thin promise wrapper removes most of the boilerplate without hiding the semantics that matter (transaction lifetime, abort, error vs complete):
 
 ```typescript
 function wrapRequest<T>(request: IDBRequest<T>): Promise<T> {
@@ -656,18 +620,17 @@ function wrapTransaction(tx: IDBTransaction): Promise<void> {
   })
 }
 
-// Usage
 const tx = db.transaction("users", "readwrite")
 tx.objectStore("users").put({ id: "1", name: "Alice" })
-await wrapTransaction(tx) // Resolves when transaction commits
+await wrapTransaction(tx)
 ```
 
-> **Consider libraries**: For production use, [idb](https://github.com/nicholasgross/nicholasgross.github.io) by Jake Archibald provides a well-tested promise wrapper. [Dexie.js](https://dexie.org/) adds query builder syntax and live queries. These eliminate the boilerplate without hiding important semantics.
+> [!TIP]
+> For production, use Jake Archibald's [`idb`](https://github.com/jakearchibald/idb) — a tiny, well-tested promise wrapper. [Dexie.js](https://dexie.org/) layers a query builder and live queries on top. Both keep the spec-level semantics visible instead of hiding them.
 
-### Cache Invalidation with Version Keys
+### Cache invalidation with TTL keys
 
 ```typescript
-// Simple TTL-based invalidation for localStorage
 function setWithTTL(key: string, value: unknown, ttlMs: number) {
   const entry = { value, expiry: Date.now() + ttlMs }
   localStorage.setItem(key, JSON.stringify(entry))
@@ -690,11 +653,14 @@ function getWithTTL<T>(key: string): T | null {
 
 ## Conclusion
 
-Browser storage APIs form a spectrum from simple-but-blocking (localStorage) to powerful-but-complex (IndexedDB) to raw-but-fast (OPFS). The right choice depends on your data shape, access patterns, and threading requirements—not just capacity.
+Browser storage APIs sit on a spectrum from simple-but-blocking (Web Storage) to powerful-but-complex (IndexedDB) to raw-but-fast (OPFS). The right choice is driven by data shape, access pattern, and threading constraint, not capacity headroom.
 
-localStorage works for small, string-serializable preferences that need cross-tab visibility. IndexedDB handles structured app data at scale, but its transaction lifetime rules, version upgrade protocol, and `blocked`/`versionchange` coordination require careful implementation. OPFS enables performance-critical workloads like client-side SQLite. The Cache API bridges service worker caching (covered in the [companion article](../service-workers-and-cache-api/README.md)).
+- **Web Storage** is for small, string-serializable preferences that need cross-tab visibility. Past a few KiB, move on.
+- **IndexedDB** handles structured app data at scale, but its transaction lifetime, version-upgrade protocol, and `versionchange` / `blocked` coordination demand careful implementation.
+- **OPFS** unlocks performance-critical workloads — client-side SQLite, Wasm state, raw bytes — through synchronous worker access.
+- **Cache API** belongs to the service-worker world and is covered in the [Service Workers and Cache API](../service-workers-and-cache-api/README.md) companion article.
 
-The quota model is the unifying constraint: all script-writable storage (except Web Storage's separate ~5 MiB) shares a per-origin budget that varies dramatically by browser. Safari's 7-day ITP eviction makes server-side persistence non-optional for any serious app. Storage partitioning changes the rules for third-party contexts. Design for eviction, not just persistence.
+The unifying constraint is the per-origin quota: every script-writable byte except Web Storage shares a single budget that varies dramatically by browser. Safari's 7-day ITP eviction makes server-side persistence non-optional for any serious app. Storage partitioning by top-level site changes the rules for third-party contexts. Design for eviction, not just persistence.
 
 ---
 
@@ -703,54 +669,74 @@ The quota model is the unifying constraint: all script-writable storage (except 
 ### Prerequisites
 
 - JavaScript Promises and async/await
-- Basic understanding of the same-origin policy
-- Familiarity with JSON serialization
+- Same-origin policy
+- JSON serialization
 
 ### Terminology
 
-- **Origin**: Scheme + host + port tuple (e.g., `https://example.com:443`). Storage is scoped per origin
-- **eTLD+1**: Effective Top-Level Domain plus one label (e.g., `example.com` for `sub.example.com`). Used for quota grouping in Firefox
-- **Structured clone**: Serialization algorithm that supports more types than JSON (Date, Map, Set, ArrayBuffer, Blob). Used by IndexedDB and `postMessage()`
-- **WAL (Write-Ahead Log)**: Journaling strategy where changes are written to a log before applying to the main data file. Used by IndexedDB implementations for crash recovery
-- **OPFS**: Origin Private File System—a sandboxed, per-origin virtual file system with synchronous access in workers
-- **ITP**: Intelligent Tracking Prevention—Safari's privacy feature that restricts cross-site tracking and evicts storage after 7 days without interaction
-- **best-effort storage**: Default storage mode where the browser can evict data under storage pressure without user consent
-- **persistent storage**: Storage mode (requested via `navigator.storage.persist()`) where user consent is required before eviction
+- **Origin**: scheme + host + port tuple (`https://example.com:443`). Storage is scoped per origin.
+- **eTLD+1**: effective Top-Level Domain plus one label (`example.com` for `sub.example.com`). Used for quota grouping in Firefox.
+- **Structured clone**: serialization algorithm that supports more types than JSON (Date, Map, Set, ArrayBuffer, Blob, ImageBitmap). Used by IndexedDB, `postMessage`, and `structuredClone()`.
+- **OPFS**: Origin Private File System — a sandboxed, per-origin virtual file system with synchronous access in dedicated workers.
+- **ITP**: Intelligent Tracking Prevention — Safari's privacy framework that restricts cross-site tracking and evicts script-writable storage after seven days without first-party user interaction.
+- **best-effort storage**: default mode where the browser may evict data under storage pressure without consent.
+- **persistent storage**: opt-in mode (requested via `navigator.storage.persist()`) that exempts the origin from pressure-driven eviction.
 
 ### Summary
 
-- **localStorage** is synchronous, blocks the main thread, stores DOMString KV pairs, has a ~5 MiB limit, and enables cross-tab communication via `storage` events
-- **sessionStorage** shares the same API but is scoped to a single tab and dies when the tab closes
-- **IndexedDB 3.0** provides async transactional storage with structured clone serialization, multi-column indexes, and cursor-based iteration. Transactions auto-commit when the event loop is idle—inserting non-IDB async operations kills them
-- **OPFS** offers the fastest storage via synchronous `FileSystemSyncAccessHandle` in workers—ideal for SQLite/Wasm workloads
-- **Quota** is per-origin: Chrome ~60% of disk, Firefox up to 2 GiB per group, Safari 1 GiB with 7-day ITP eviction. `navigator.storage.persist()` requests eviction protection
-- **Storage partitioning** (Chrome 115+, Firefox 103+, Safari) isolates third-party storage by top-level site, breaking cross-site storage sharing
+- **localStorage** is synchronous, blocks the main thread, stores DOMString KV pairs, has a ~5 MiB limit, and notifies other same-origin tabs via `storage` events.
+- **sessionStorage** shares the same API but is scoped to a single tab and dies when the tab closes.
+- **IndexedDB 3.0** provides asynchronous transactional storage with structured clone serialization, multi-column indexes, and cursor-based iteration. Transactions auto-commit when control returns to the event loop with no pending requests — `await`-ing a non-IDB promise mid-transaction throws `TransactionInactiveError`.
+- **OPFS** offers the fastest storage via `FileSystemSyncAccessHandle` in dedicated workers — ideal for SQLite/Wasm workloads.
+- **Quota** is per-origin and calculated from total disk: Chrome up to ~60% of disk, Firefox `min(10% disk, 10 GiB group)` best-effort, Safari 17+ ~60% of disk in browser apps. `navigator.storage.persist()` requests eviction protection.
+- **Storage partitioning** (Chrome 115+, Firefox 103+, Safari) isolates third-party storage by top-level site, breaking cross-site storage sharing.
 
 ### References
 
-**Specifications (Primary Sources)**
+**Specifications (primary sources)**
 
-- [Storage Standard](https://storage.spec.whatwg.org/) - WHATWG Living Standard (quota model, storage buckets, persistence)
-- [Web Storage - HTML Standard](https://html.spec.whatwg.org/multipage/webstorage.html) - WHATWG (localStorage, sessionStorage)
-- [Indexed Database API 3.0](https://www.w3.org/TR/IndexedDB-3/) - W3C (transactions, object stores, indexes, versioning)
-- [File System Standard](https://fs.spec.whatwg.org/) - WHATWG (OPFS, FileSystemSyncAccessHandle)
-- [Service Worker Specification](https://w3c.github.io/ServiceWorker/) - W3C (Cache interface, CacheStorage)
+- [Storage Standard](https://storage.spec.whatwg.org/) — WHATWG Living Standard (quota model, storage buckets, persistence)
+- [Web Storage — HTML Standard](https://html.spec.whatwg.org/multipage/webstorage.html) — WHATWG (localStorage, sessionStorage)
+- [Indexed Database API 3.0](https://www.w3.org/TR/IndexedDB-3/) — W3C (transactions, object stores, indexes, versioning)
+- [File System Standard](https://fs.spec.whatwg.org/) — WHATWG (OPFS, FileSystemSyncAccessHandle)
+- [Service Worker Specification — Cache interface](https://w3c.github.io/ServiceWorker/#cache-interface) — W3C
+- [Structured clone algorithm](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal) — HTML Standard
 
-**Official Documentation**
+**Official documentation**
 
-- [Storage quotas and eviction criteria - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
-- [IndexedDB API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
-- [Web Storage API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
-- [Origin Private File System - MDN](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system)
-- [Structured clone algorithm - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm)
-- [Storage Access API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_Access_API)
+- [Storage quotas and eviction criteria — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
+- [IndexedDB API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+- [IDBTransaction — MDN](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction)
+- [Web Storage API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
+- [Origin Private File System — MDN](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system)
+- [FileSystemSyncAccessHandle — MDN](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemSyncAccessHandle)
+- [Storage Access API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_Access_API)
 
-**Core Maintainer Content and Technical Resources**
+**Vendor engineering**
 
-- [Storage for the Web - web.dev](https://web.dev/articles/storage-for-the-web) - Chrome DevRel overview of storage APIs
-- [IndexedDB Durability Mode Now Defaults to Relaxed - Chrome Blog](https://developer.chrome.com/blog/indexeddb-durability-mode-now-defaults-to-relaxed)
-- [Storage Partitioning - Chrome Privacy Sandbox](https://developers.google.com/privacy-sandbox/cookies/storage-partitioning)
-- [Updates to Storage Policy - WebKit Blog](https://webkit.org/blog/14403/updates-to-storage-policy/)
-- [Full Third-Party Cookie Blocking and More - WebKit Blog](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) - Safari ITP storage cap details
-- [State Partitioning - MDN](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/State_Partitioning) - Firefox storage partitioning
-- [SQLite Wasm](https://sqlite.org/wasm) - Official SQLite WebAssembly build using OPFS
+- [Storage for the Web — web.dev](https://web.dev/articles/storage-for-the-web)
+- [A change to the default durability mode in IndexedDB — Chrome blog](https://developer.chrome.com/blog/indexeddb-durability-mode-now-defaults-to-relaxed)
+- [Storage Partitioning — Chrome Privacy Sandbox](https://privacysandbox.google.com/cookies/storage-partitioning)
+- [Updates to Storage Policy — WebKit blog](https://webkit.org/blog/14403/updates-to-storage-policy/)
+- [Full Third-Party Cookie Blocking and More — WebKit blog](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)
+- [State Partitioning — MDN](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/State_Partitioning)
+- [SQLite Wasm](https://sqlite.org/wasm) — official SQLite WebAssembly build
+- [`idb` library — Jake Archibald](https://github.com/jakearchibald/idb)
+- [Dexie.js](https://dexie.org/)
+
+[^web-storage-spec]: [Web Storage — WHATWG HTML Standard](https://html.spec.whatwg.org/multipage/webstorage.html)
+[^storage-event-spec]: [The storage event — WHATWG HTML Standard](https://html.spec.whatwg.org/multipage/webstorage.html#the-storage-event)
+[^idb-key]: [IDB key types and ordering — IndexedDB 3.0](https://www.w3.org/TR/IndexedDB-3/#key-construct)
+[^idb-tx-mdn]: [IDBTransaction — MDN](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction)
+[^idb-tx-spec]: [Transaction lifecycle — IndexedDB 3.0](https://w3c.github.io/IndexedDB/#transaction-lifecycle-concept)
+[^idb-commit]: [IDBTransaction.commit() — MDN](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit)
+[^idb-durability]: [IDBTransaction.durability — MDN](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/durability)
+[^chrome-durability]: [A change to the default durability mode in IndexedDB — Chrome blog](https://developer.chrome.com/blog/indexeddb-durability-mode-now-defaults-to-relaxed)
+[^structured-clone]: [The structured clone algorithm — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm)
+[^opfs-sync]: [FileSystemSyncAccessHandle — MDN](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemSyncAccessHandle)
+[^opfs-modes]: [createSyncAccessHandle — MDN](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileHandle/createSyncAccessHandle)
+[^webkit-storage]: [Updates to Storage Policy — WebKit blog](https://webkit.org/blog/14403/updates-to-storage-policy/)
+[^persistent-storage]: [Persistent storage — web.dev](https://web.dev/articles/persistent-storage)
+[^itp-cap]: [Full Third-Party Cookie Blocking and More — WebKit blog](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)
+[^chrome-partitioning]: [Storage Partitioning — Chrome Privacy Sandbox](https://privacysandbox.google.com/cookies/storage-partitioning)
+[^firefox-partitioning]: [State Partitioning — MDN](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/State_Partitioning)

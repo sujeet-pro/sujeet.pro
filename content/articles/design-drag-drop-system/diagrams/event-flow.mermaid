@@ -1,0 +1,32 @@
+%% Diagram: HTML5 drag-and-drop event flow
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User
+    participant Source as Source element
+    participant Target as Drop target
+    participant DT as DataTransfer
+
+    User->>Source: mousedown + drag
+    Source->>DT: dragstart (read/write)
+    Note over DT: setData / setDragImage<br/>only chance to write
+    Source-->>Source: drag (repeats)
+
+    User->>Target: pointer enters
+    Target->>DT: dragenter (protected)
+    Note over Target: preventDefault to accept
+
+    loop while over target
+        Target->>DT: dragover (protected)
+        Note over Target: preventDefault every time<br/>set dropEffect
+    end
+
+    alt user releases over target
+        Target->>DT: drop (read-only)
+        Note over DT: getData reads payload
+        Source->>Source: dragend
+    else user releases off-target or Esc
+        Source->>Source: dragend
+        Note over Source: dropEffect = none
+    end

@@ -1,0 +1,34 @@
+%% Diagram: Dependency direction across CSS strategies
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Semantic["Semantic / Naming Conventions"]
+        SHTML["HTML\nclass='author-bio'"]
+        SCSS["CSS\n.author-bio { ... }"]
+        SHTML -. "names define" .-> SCSS
+        SCSS -- "depends on\nmarkup structure" --> SHTML
+    end
+
+    subgraph Utility["Utility-First / Atomic"]
+        UCSS["CSS primitives\n.p-4 .text-lg .bg-blue-500"]
+        UHTML["HTML\nclass='p-4 text-lg bg-blue-500'"]
+        UCSS -- "fixed vocabulary" --> UHTML
+        UHTML -. "composes" .-> UCSS
+    end
+
+    subgraph Colocated["Co-located / CSS-in-JS / Modules"]
+        CTS["Component file\nButton.tsx + button.module.css"]
+        CTS --> CHTML["HTML output\nclass='button_x7f2a'"]
+        CTS --> CCSS["CSS output\n.button_x7f2a { ... }"]
+        note["Tooling generates the\nname; both sides hash-bound."]
+    end
+
+    classDef semantic fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef utility fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef colocated fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef noteCls fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class SHTML,SCSS semantic
+    class UCSS,UHTML utility
+    class CTS,CHTML,CCSS colocated
+    class note noteCls

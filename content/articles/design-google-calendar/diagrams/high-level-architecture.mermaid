@@ -1,0 +1,47 @@
+%% Diagram: High-level architecture for a Google Calendar-style system
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Clients<br/>Web · Mobile · Desktop · CalDAV · Email"]
+
+    subgraph Edge["Edge"]
+        LB["Load balancer"]
+        Auth["AuthN / AuthZ"]
+        RL["Rate limiter"]
+    end
+
+    subgraph Core["Core services"]
+        EventSvc["Event service<br/>CRUD + ETag"]
+        RecurrenceSvc["Recurrence service<br/>RRULE expansion"]
+        SchedulingSvc["Scheduling service<br/>free/busy + iTIP"]
+        SyncSvc["Sync service<br/>CalDAV / sync-token"]
+        NotifSvc["Notification service<br/>VALARM"]
+    end
+
+    subgraph Data["Data layer"]
+        PG[(PostgreSQL<br/>events + instances)]
+        Redis[(Redis<br/>free/busy + view cache)]
+        ES[(Elastic<br/>full-text search)]
+        S3[(Object store<br/>attachments)]
+    end
+
+    subgraph Async["Async"]
+        Queue["Message queue"]
+        Workers["Workers<br/>expansion · iMIP · push"]
+        Cron["Scheduler<br/>nightly window refresh"]
+    end
+
+    Clients --> LB --> Auth --> RL
+    RL --> EventSvc & RecurrenceSvc & SchedulingSvc & SyncSvc & NotifSvc
+    EventSvc --> PG
+    EventSvc --> ES
+    EventSvc --> S3
+    RecurrenceSvc --> PG
+    SchedulingSvc --> Redis
+    SchedulingSvc --> PG
+    SyncSvc --> PG
+    NotifSvc --> Queue
+    Queue --> Workers
+    Workers --> PG
+    Workers --> Redis
+    Cron --> Workers

@@ -1,0 +1,19 @@
+%% Diagram: Document-partitioned vs term-partitioned inverted index
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph DocPart["Document-partitioned (preferred at web scale)"]
+        Q1["Query"]
+        Q1 --> S1["Shard 1\nfull index of\ndoc subset 1"]
+        Q1 --> S2["Shard 2\nfull index of\ndoc subset 2"]
+        Q1 --> SN["Shard N\nfull index of\ndoc subset N"]
+        S1 & S2 & SN --> AGG1["Aggregator\nmerge top-K"]
+    end
+
+    subgraph TermPart["Term-partitioned"]
+        Q2["Query: 'distributed systems'"]
+        Q2 --> T1["Shard for 'distributed'"]
+        Q2 --> T2["Shard for 'systems'"]
+        T1 -.intersect.- T2
+        T1 & T2 --> AGG2["Aggregator"]
+    end

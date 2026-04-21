@@ -1,0 +1,23 @@
+%% Diagram: Content-addressed asset lifecycle — fingerprinted URLs make new versions cache misses by definition; old versions age out
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Build["Build"]
+        Src[Source CSS/JS] --> Hash["Hash content<br/>main.[hash].js"]
+        Hash --> NewURL[New immutable URL]
+    end
+
+    subgraph Deploy["Deploy"]
+        NewURL --> Upload[Upload to origin / object store]
+        Upload --> HTML[Render HTML referencing new URL]
+        HTML --> PurgeHTML[Short-TTL or purge HTML key only]
+    end
+
+    subgraph Edge["Edge cache"]
+        Visit[First visitor on new HTML] --> Miss[Cache MISS on new asset URL]
+        Miss --> Fill[Cache fill, 1y immutable]
+        Fill --> Hits[Subsequent visits = pure cache hits]
+        OldURL[Old hashed URL] --> Aging[No invalidation needed<br/>evicted under LRU pressure]
+    end
+
+    PurgeHTML --> Visit

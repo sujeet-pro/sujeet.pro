@@ -1,0 +1,31 @@
+%% Diagram: CSS containment scopes — what each `contain` value isolates
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Outside["Outside the contained subtree"]
+        Layout[Outer layout]
+        Paint[Outer paint]
+        Style[Outer style scope<br/>counters, quotes]
+        Size[Parent intrinsic-size queries]
+    end
+
+    subgraph Box["Containment box (contain: ...)"]
+        direction TB
+        L["layout — independent formatting context;<br/>internal layout cannot affect outside"]
+        P["paint — descendants clipped to border box;<br/>off-screen subtree skipped during paint"]
+        S["style — counters/quotes scoped to subtree"]
+        Z["size — element sized as if no children;<br/>pair with contain-intrinsic-size"]
+        IS["inline-size — only inline axis sized in isolation;<br/>used by container queries"]
+    end
+
+    Layout -. blocked by .-> L
+    Paint -. blocked by .-> P
+    Style -. blocked by .-> S
+    Size -. blocked by .-> Z
+
+    Note["Shorthands:<br/>content = layout + paint + style<br/>strict  = size + layout + paint + style<br/>content-visibility: auto implies layout + paint + style;<br/>off-screen also implies size."]
+    Box -.- Note
+
+    style Box fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Outside fill:#e1f5fe
+    style Note fill:#fffde7,stroke:#f9a825

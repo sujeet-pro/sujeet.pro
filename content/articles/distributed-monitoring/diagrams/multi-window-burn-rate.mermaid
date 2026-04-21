@@ -1,0 +1,25 @@
+%% Diagram: Multi-window multi-burn-rate alert decision (Google SRE Workbook)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Error budget for 99.9% SLO<br/>= 0.1% over 30 days"])
+
+    BR144{"Burn rate ≥ 14.4<br/>over 1 h AND 5 min?"}
+    BR6{"Burn rate ≥ 6<br/>over 6 h AND 30 min?"}
+    BR1{"Burn rate ≥ 1<br/>over 3 d AND 6 h?"}
+
+    Page1["PAGE<br/>2% of monthly budget<br/>burned in 1 hour"]
+    Page2["PAGE<br/>5% of monthly budget<br/>burned in 6 hours"]
+    Ticket["TICKET<br/>10% of monthly budget<br/>burned in 3 days"]
+    Quiet([No alert])
+
+    Start --> BR144
+    BR144 -- yes --> Page1
+    BR144 -- no --> BR6
+    BR6 -- yes --> Page2
+    BR6 -- no --> BR1
+    BR1 -- yes --> Ticket
+    BR1 -- no --> Quiet
+
+    Note["Why two windows?<br/>Long window catches sustained issues.<br/>Short window prevents alerts on already-recovered issues<br/>and resets faster after recovery."]
+    Page1 -.- Note

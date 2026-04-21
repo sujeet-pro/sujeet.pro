@@ -1,0 +1,27 @@
+%% Diagram: Pull (Prometheus) vs push (OTLP) collection sequencing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Prom as Prometheus
+    participant SD as Service discovery
+    participant App as Service / target
+    participant Coll as OTel Collector
+    participant TSDB as TSDB / backend
+
+    Note over Prom,TSDB: Pull model
+    Prom->>SD: list targets
+    SD-->>Prom: target set
+    loop every scrape_interval (15-60 s)
+        Prom->>App: GET /metrics
+        App-->>Prom: text exposition (200 OK)
+        Note over Prom: emit up{job="..."}=1
+        Prom->>TSDB: append samples
+    end
+
+    Note over Prom,TSDB: Push model
+    loop on flush interval / event
+        App->>Coll: OTLP gRPC export (metrics, logs, spans)
+        Coll-->>App: ack
+        Coll->>TSDB: forward (batched, possibly tail-sampled)
+    end
+    Note over App,Coll: target health needs separate signal<br/>(heartbeat, sidecar liveness)

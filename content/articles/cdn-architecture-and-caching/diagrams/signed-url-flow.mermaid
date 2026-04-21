@@ -1,0 +1,28 @@
+%% Diagram: Signed URL / signed cookie flow — sign at origin, verify at edge
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant User
+    participant App as Origin app\n(holds private key)
+    participant Edge as CDN edge PoP\n(holds public key /\nkey group)
+    participant Bucket as Origin storage
+
+    User->>App: GET /watch/123 (authenticated)
+    Note over App: Build policy:\nresource, expiry, IP, key-id
+    App->>App: Sign(policy, privateKey)\nRSA-2048 / ECDSA-P256\nSHA-256
+    App-->>User: 302 → cdn.example.com/...\n?Signature=...&Key-Pair-Id=...&Expires=...
+
+    User->>Edge: GET signed URL
+    Note over Edge: Lookup public key by Key-Pair-Id\nin trusted key group
+    Edge->>Edge: Verify signature, expiry,\noptional IP / referrer policy
+    alt Valid + cache hit
+        Edge-->>User: 200 + cached bytes
+    else Valid + cache miss
+        Edge->>Bucket: Authenticated origin pull
+        Bucket-->>Edge: 200 bytes
+        Edge-->>User: 200 bytes (cached)
+    else Invalid or expired
+        Edge-->>User: 403 Forbidden
+        Note over Edge: Never reaches origin
+    end

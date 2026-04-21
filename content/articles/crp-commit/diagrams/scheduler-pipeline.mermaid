@@ -1,0 +1,28 @@
+%% Diagram: cc::Scheduler pipeline and back-pressure
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant S as cc::Scheduler
+    participant MT as Main Thread<br/>(Blink + ProxyMain)
+    participant CT as Compositor Thread<br/>(ProxyImpl)
+
+    S->>MT: BeginImplFrame → BeginMainFrame
+    activate MT
+    Note over MT: rAF, style, layout,<br/>prepaint, paint
+    MT->>CT: NotifyReadyToCommit (mutex)
+
+    alt Pending tree already activated
+        Note over MT: Blocked briefly<br/>on mutex only
+        CT->>CT: ScheduledActionCommit<br/>(push to pending tree)
+        CT-->>MT: Release mutex
+        deactivate MT
+    else Pending tree NOT yet activated
+        Note over MT: Back-pressure:<br/>blocked until activation
+        CT->>CT: Finish raster
+        CT->>CT: Activate (pending → active)
+        CT->>CT: ScheduledActionCommit
+        CT-->>MT: Release mutex
+    end
+
+    Note over CT: ReadyToActivate → Activate<br/>→ ReadyToDraw → Draw
+    CT->>S: Frame submitted to Viz

@@ -1,0 +1,36 @@
+%% Diagram: Schemaless overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Client["Client services<br/>(Mezzanine, billing, ...)"]
+
+    subgraph Worker["Worker tier (stateless HTTP)"]
+        W1["Worker 1"]
+        W2["Worker N"]
+    end
+
+    Client --> W1
+    Client --> W2
+
+    subgraph ShardA["Shard A storage cluster"]
+        Ma[("Master")]
+        m1[("Minion DC2")]
+        m2[("Minion DC3")]
+        Ma -.->|"async repl"| m1
+        Ma -.->|"async repl"| m2
+    end
+
+    subgraph ShardB["Shard B storage cluster"]
+        Mb[("Master")]
+        m3[("Minion DC2")]
+        m4[("Minion DC3")]
+        Mb -.->|"async repl"| m3
+        Mb -.->|"async repl"| m4
+    end
+
+    W1 -->|"hash(row_key) % 4096"| Ma
+    W2 -->|"hash(row_key) % 4096"| Mb
+
+    Triggers["Trigger framework<br/>(per-shard offset, at-least-once)"]
+    Ma --> Triggers
+    Mb --> Triggers

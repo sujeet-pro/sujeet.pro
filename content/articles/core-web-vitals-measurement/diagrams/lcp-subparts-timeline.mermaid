@@ -1,0 +1,14 @@
+%% Diagram: LCP subparts timeline
+%% Type: gantt
+gantt
+    title LCP decomposed into four subparts
+    dateFormat  X
+    axisFormat  %L ms
+    section Network
+    TTFB (server response)              :ttfb,    0, 600
+    section Discovery
+    Resource load delay (preload scanner) :delay, after ttfb, 1290
+    section Transfer
+    Resource load time (download LCP image) :load, after delay, 400
+    section Render
+    Element render delay (paint LCP)    :render,  after load, 210

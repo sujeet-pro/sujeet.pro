@@ -2,18 +2,21 @@
 title: Multi-Tenant Pluggable Widget Framework
 linkTitle: 'Widget Framework'
 description: >-
-  Architectural decisions behind multi-tenant pluggable widget systems like VS Code extensions and Figma plugins — covering module loading (Module Federation, SystemJS), sandboxing (iframe, Shadow DOM, WASM), registry design, and tenant-aware orchestration.
+  Architectural decisions behind multi-tenant pluggable widget systems like VS Code extensions and Figma plugins — covering module loading (Module Federation 2.0, SystemJS), sandboxing (iframe, Shadow DOM, WASM), registry design, and tenant-aware orchestration.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - system-design
   - architecture
+  - shadow-dom
+  - web-security
+  - patterns
 ---
 
 # Multi-Tenant Pluggable Widget Framework
 
-Designing a frontend framework that hosts third-party extensions—dynamically loaded at runtime based on tenant configurations. This article covers the architectural decisions behind systems like VS Code extensions, Figma plugins, and Shopify embedded apps: module loading strategies (Webpack Module Federation vs SystemJS), sandboxing techniques (iframe, Shadow DOM, Web Workers, WASM), manifest and registry design, the host SDK API contract, and multi-tenant orchestration that resolves widget implementations per user or organization.
+Designing a frontend framework that hosts third-party extensions — dynamically loaded at runtime based on tenant configuration. This article covers the architectural decisions behind systems like VS Code extensions, Figma plugins, and Shopify embedded apps: module loading strategies (Module Federation 2.0 versus SystemJS / import maps), sandboxing techniques (iframe, Shadow DOM, Web Workers, WASM), manifest and registry design, the host SDK API contract, and multi-tenant orchestration that resolves widget implementations per user or organisation.
 
 ![Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.](./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load-light.svg "Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.")
 ![Widget framework architecture: tenant configuration determines which widgets load; registry provides manifests and URLs; loader mounts widgets into contribution points; SDK mediates communication.](./diagrams/widget-framework-architecture-tenant-configuration-determines-which-widgets-load-dark.svg)
@@ -23,8 +26,8 @@ Designing a frontend framework that hosts third-party extensions—dynamically l
 A pluggable widget framework is a **microkernel architecture**: minimal core system + dynamically loaded extensions. The core decisions are:
 
 1. **Loading strategy**: How does remote code enter the host?
-   - Module Federation: optimal sharing, webpack-only, trusted code
-   - SystemJS/import maps: standards-based, flexible, moderate performance
+   - Module Federation 2.0: optimal sharing of host dependencies; works across Webpack, Rspack, and (with caveats) Vite; trusted code only
+   - SystemJS / import maps: standards-based, flexible, moderate performance
    - iframe: complete isolation, highest security, communication overhead
 
 2. **Isolation boundary**: How much can widgets affect the host?
@@ -42,20 +45,22 @@ A pluggable widget framework is a **microkernel architecture**: minimal core sys
    - Registry resolution: widget ID → implementation URL
    - Feature flags: toggle widgets per tenant without redeployment
 
-**Key numbers:**
+**Key numbers (order-of-magnitude practitioner estimates — measure in your own environment):**
 
-| Aspect                | Module Federation   | iframe                    | WASM Sandbox             |
-| --------------------- | ------------------- | ------------------------- | ------------------------ |
-| Load overhead         | ~50ms (shared deps) | ~100-200ms (full context) | ~300-500ms (engine init) |
-| Memory per widget     | Shared with host    | Separate heap (~10-50MB)  | Separate (~5-20MB)       |
-| Communication latency | Microseconds        | ~1-5ms (postMessage)      | ~0.5-2ms (WASM boundary) |
-| Security              | Same origin trust   | Strong isolation          | Strongest isolation      |
+| Aspect                | Module Federation        | iframe                       | WASM Sandbox                    |
+| --------------------- | ------------------------ | ---------------------------- | ------------------------------- |
+| Load overhead         | Tens of ms (shared deps) | ~100-200 ms (new context)    | ~300-500 ms (engine init)       |
+| Memory per widget     | Shared with host         | Separate heap (~10-50 MB)    | Separate (~5-20 MB)             |
+| Communication latency | Microseconds (in-process)| ~1-5 ms (postMessage)        | Sub-ms to ~2 ms (WASM boundary) |
+| Security              | Same-origin trust        | Strong isolation             | Strongest isolation             |
 
 ## The Challenge
 
 ### Why Build a Widget Framework?
 
-**Extensibility without deployments**: Third parties add features without modifying host code. VS Code has 40,000+ extensions; the core team didn't build them.
+**Extensibility without deployments**: Third parties add features without modifying host code. The VS Code marketplace lists tens of thousands of extensions (roughly 55k as of 2026, per third-party trackers[^vscode-count]) — none of which the core team had to build, ship, or maintain.
+
+[^vscode-count]: Marketplace counts are not officially published; the [DEV Community 2026 guide](https://dev.to/_d7eb1c1703182e3ce1782/vs-code-extensions-for-productivity-in-2026-the-complete-developer-guide-2579) and similar trackers cite ~55k as of early 2026.
 
 **Multi-tenant customization**: Enterprise SaaS customers demand unique workflows. Widget A for Tenant X, Widget B for Tenant Y—without forking the codebase.
 
@@ -107,7 +112,7 @@ A pluggable widget framework is a **microkernel architecture**: minimal core sys
 
 **How it works:**
 
-Module Federation (Webpack 5+) allows separate webpack builds to share code at runtime. The host declares **remotes** (external builds to consume) and **shared** dependencies (libraries to deduplicate).
+Module Federation, originally introduced in [Webpack 5](https://webpack.js.org/concepts/module-federation/), lets separate builds share code at runtime. The host declares **remotes** (external builds to consume) and **shared** dependencies (libraries to deduplicate). [Module Federation 2.0](https://module-federation.io/blog/) — stable since February 2026 and maintained by the ByteDance Web Infra team — decouples the runtime from any single bundler, with first-class plugins for Webpack, [Rspack](https://rspack.rs/guide/features/module-federation), Rsbuild, and a [`@module-federation/vite`](https://module-federation.io/) plugin (still maturing — ESM-only remotes, weaker dev-server HMR than the Webpack/Rspack variants).
 
 ```typescript title="host/webpack.config.js" collapse={1-5, 25-30}
 const { ModuleFederationPlugin } = require("webpack").container
@@ -206,16 +211,24 @@ export function WidgetSlot({ widgetId }: { widgetId: string }) {
 
 **Real-world example:**
 
-**Shopify's Hydrogen** uses Module Federation for composable storefronts. Multiple teams build sections independently; the storefront shell loads them at runtime with shared Remix/React dependencies.
+**ByteDance** is the largest publicly-discussed Module Federation deployment: TikTok web, CapCut, Pico, and the [ModernJS](https://modernjs.dev/) meta-framework all run on it, with a "shared services platform" that lets specialised teams ship slices of an app independently.[^bytedance-mf] In the wider ecosystem, the [Module Federation 2.0 announcement](https://module-federation.io/blog/) tracks adopters across micro-frontend shells, design-system distribution, and white-labelled SaaS hosts.
+
+[^bytedance-mf]: [Syntax podcast — Module Federation Microfrontends with ByteDance's Zack Jackson](https://syntax.fm/show/860/module-federation-microfrontends-with-bytedance-s-zack-jackson/transcript), 2024.
+
+> [!NOTE]
+> Earlier versions of this article cited Shopify Hydrogen as a Module Federation user. Hydrogen actually runs on Vite + React Router (formerly Remix) and does **not** use Module Federation — corrected April 2026.[^hydrogen-vite]
+
+[^hydrogen-vite]: [Best-in-class developer experience with Vite and Hydrogen — Shopify Engineering](https://shopify.engineering/developer-experience-with-hydrogen-and-vite), 2024.
 
 **Trade-offs:**
 
-- Shared dependencies reduce duplicate downloads (30-50% smaller total payload)
-- Same JavaScript context—widgets can access host globals
-- Webpack-only (no native Vite support as of 2025; use `vite-plugin-federation`)
-- Version mismatches cause runtime errors
+- Sharing common dependencies through `singleton: true` can meaningfully cut payload, but the actual savings depend on overlap between host and remote bundles — measure on your own builds rather than assuming a fixed percentage.
+- Same JavaScript context — widgets can access host globals, prototype-pollute, and read DOM state. Treat as same-origin trust.
+- Vite and Rspack now have first-class support, but the upstream `@module-federation/vite` plugin still trails the Webpack/Rspack experience for HMR and development ergonomics.
+- Shared-version mismatches surface as runtime errors. Configure [`requiredVersion` and `strictVersion`](https://webpack.js.org/plugins/module-federation-plugin/) deliberately.
 
-**Security consideration:** Module Federation provides **no isolation**. Widgets execute in the same origin with full DOM access. Use only for trusted code or combine with additional sandboxing.
+> [!CAUTION]
+> Module Federation provides **no isolation**. Widgets execute in the same origin with full DOM access. Use only for trusted code or combine with additional sandboxing.
 
 ### Path 2: iframe Sandbox
 
@@ -224,7 +237,7 @@ export function WidgetSlot({ widgetId }: { widgetId: string }) {
 
 **How it works:**
 
-The `<iframe sandbox>` attribute creates a separate browsing context with restricted capabilities. By default, a sandboxed iframe:
+The [`<iframe sandbox>` attribute](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#attr-iframe-sandbox) creates a separate [browsing context](https://html.spec.whatwg.org/multipage/document-sequences.html#browsing-context) with all flags off by default. A sandboxed iframe:
 
 - Cannot execute scripts
 - Cannot submit forms
@@ -254,7 +267,10 @@ Capabilities are granted explicitly:
 | `allow-modals`         | alert(), confirm(), prompt()                                 |
 | `allow-top-navigation` | Navigate parent window                                       |
 
-**Security warning:** Never combine `allow-scripts` and `allow-same-origin` for untrusted content. The iframe can remove its own sandbox attribute and escape.
+> [!WARNING]
+> Never combine `allow-scripts` and `allow-same-origin` when the iframe content is **same-origin** as the parent. Because the iframe is treated as same-origin, scripts inside it can reach into the parent DOM, find their own `<iframe>` element, and remove the `sandbox` attribute; on the next navigation the sandbox is gone.[^iframe-escape] Cross-origin sandboxed iframes do not have this escape path (the same-origin policy still blocks parent DOM access), but the combination is widely flagged as a footgun and rejected by extension review tooling — host untrusted content on a separate origin.
+
+[^iframe-escape]: [`<iframe>` `sandbox` attribute — MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox).
 
 **Communication via postMessage:**
 
@@ -480,13 +496,15 @@ widget-container {
 
 **How it works:**
 
-Figma's approach: compile a JavaScript engine (QuickJS) to WebAssembly. Plugin code runs inside this embedded JS engine—completely isolated from the host JavaScript context.
+Figma's approach: compile a JavaScript engine ([QuickJS](https://bellard.org/quickjs/), originally Duktape — Figma swapped engines while keeping the architecture) to WebAssembly. Plugin code runs inside this embedded JS engine on the host page's main thread, completely isolated from the host's JavaScript globals and DOM.[^figma-plugin-arch]
+
+[^figma-plugin-arch]: [How plugins run — Figma developer docs](https://developers.figma.com/docs/plugins/how-plugins-run/) and [How we built the Figma plugin system](https://www.figma.com/blog/how-we-built-the-figma-plugin-system/).
 
 **Why QuickJS + WASM?**
 
-1. **No eval()**: Running untrusted JS usually requires `eval()` or `new Function()`, which CSP blocks. QuickJS interprets JS without these.
-2. **Capability-based security**: WASM provides no default I/O. Plugin only accesses what the host explicitly provides via API.
-3. **Deterministic execution**: Same code, same inputs → same outputs. Useful for collaborative features.
+1. **No `eval`**: Running untrusted JS in the host page would normally require `eval()` or `new Function()`, both blocked by a strict CSP. QuickJS evaluates plugin source itself, inside the WASM module — no host-side dynamic code.
+2. **Capability-based security**: A WASM module gets no I/O by default. Plugins reach the Figma document only through methods the host explicitly exposes on the sandboxed `figma` global; everything else (DOM, `fetch`, browser APIs) is unavailable until the host wires it through `postMessage` to the separate UI iframe.
+3. **Deterministic execution**: Same code, same inputs produce the same outputs — important for a collaborative editor where every plugin invocation must apply the same transformation on every client.
 
 ```typescript title="host/src/WasmSandbox.ts" collapse={1-5, 35-45}
 import { newQuickJSWASMModule, QuickJSWASMModule, QuickJSContext } from "quickjs-emscripten"
@@ -568,10 +586,12 @@ This separation prevents plugins from both manipulating the document AND accessi
 **Trade-offs:**
 
 - Strongest isolation (capability-based security)
-- 300-500ms initialization overhead (loading WASM module)
-- QuickJS performance ~10-30x slower than V8
-- Complex to implement; consider using existing libraries (quickjs-emscripten)
-- Plugin capabilities are exactly what you expose—no accidental surface
+- Hundreds of milliseconds of one-time initialisation overhead to instantiate the WASM module and warm the QuickJS context — amortise by reusing one sandbox across plugin invocations.
+- QuickJS is interpreter-only, so it runs roughly **20-100×** slower than V8 with JIT for compute-heavy code, and ~2-3× slower than V8 with the JIT disabled.[^quickjs-perf] Acceptable when document-API calls dominate; not acceptable for tight numeric loops.
+- Complex to implement from scratch; reach for existing libraries like [`quickjs-emscripten`](https://github.com/justjake/quickjs-emscripten) or its [`quickjs-emscripten-core`](https://github.com/justjake/quickjs-emscripten) split.
+- Plugin capabilities are exactly what you expose — no accidental surface. The flip side: every API addition is an irreversible commitment.
+
+[^quickjs-perf]: Practitioner benchmarks consistently land in the 20-100× range for compute-heavy workloads; see [QuickJS benchmark thread (godotjs/javascript#16)](https://github.com/godotjs/javascript/issues/16). The exact ratio depends heavily on workload — startup-bound or string-heavy code is much closer.
 
 ### Decision Matrix
 
@@ -1392,6 +1412,10 @@ async function* raceSettled<T>(promises: Promise<T>[]): AsyncGenerator<PromiseSe
 }
 ```
 
+`scheduler.yield()` ships in Chromium and in Firefox 142+, but Safari has not implemented the [Prioritized Task Scheduling API](https://developer.mozilla.org/en-US/docs/Web/API/Prioritized_Task_Scheduling_API) as of 2026-Q2 — so the `setTimeout(0)` fallback above still matters in production rather than being a defensive nicety.[^scheduler-yield]
+
+[^scheduler-yield]: [`Scheduler: yield()` — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield) and [Use scheduler.yield() to break up long tasks — Chrome for Developers](https://developer.chrome.com/blog/use-scheduler-yield).
+
 ### Memory Limits
 
 | Device Type      | Practical JS Heap Limit | Widget Budget       |
@@ -1461,13 +1485,13 @@ class WidgetMemoryManager {
 
 ### Storage Quotas
 
-Widgets need persistent storage but share quotas with the host:
+Widgets need persistent storage but share quotas with the host. Per [MDN's storage quotas reference](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria):
 
-| Storage Type | Quota                | Widget Strategy      |
-| ------------ | -------------------- | -------------------- |
-| localStorage | 5MB                  | Avoid; use IndexedDB |
-| IndexedDB    | 50% of disk (Chrome) | Namespace per widget |
-| Cache API    | 50% of disk          | Careful eviction     |
+| Storage Type | Quota                                                                              | Widget Strategy                          |
+| ------------ | ---------------------------------------------------------------------------------- | ---------------------------------------- |
+| localStorage | ~5 MiB per origin (synchronous, blocks the main thread)                            | Avoid; use IndexedDB                     |
+| IndexedDB    | Up to ~60% of disk in Chrome/Edge; ~10% best-effort and 50% persistent in Firefox; ~60% in Safari (browser tab) | Namespace per widget; request `persist`  |
+| Cache API    | Shares the same per-origin quota as IndexedDB (counted together by the Storage API) | Careful eviction; budget against quota   |
 
 ```typescript title="host/src/WidgetStorage.ts"
 class WidgetStorageManager {
@@ -1537,18 +1561,18 @@ class WidgetStorageManager {
 
 **Architecture:**
 
-- Extensions run in separate **Extension Host** process (Node.js)
-- UI extensions use **webview** (Chromium iframe with restricted API)
-- Communication via IPC (Inter-Process Communication)
+- Extensions run in a separate [**Extension Host**](https://code.visualstudio.com/api/advanced-topics/extension-host) process (Node.js).
+- UI extensions use [**webviews**](https://code.visualstudio.com/api/extension-guides/webview) (a Chromium iframe with a restricted API surface).
+- Communication is IPC (Inter-Process Communication) between the renderer and the extension host.
 
 **Key design decisions:**
 
-| Decision            | Rationale                                             |
-| ------------------- | ----------------------------------------------------- |
-| Separate process    | Misbehaving extensions can't crash editor             |
-| Activation events   | Lazy loading—extensions load only when needed         |
-| Contribution points | Declarative UI integration via `contributes` manifest |
-| Sandboxed webviews  | HTML panels isolated from VS Code DOM                 |
+| Decision            | Rationale                                                                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Separate process    | Misbehaving extensions can't crash the editor.                                                                                                                         |
+| Activation events   | Lazy loading — extensions load only when needed; since [VS Code 1.74+](https://code.visualstudio.com/api/references/activation-events), most events are auto-derived from `contributes`. |
+| Contribution points | Declarative UI integration via the `contributes` manifest section.                                                                                                     |
+| Sandboxed webviews  | HTML panels isolated from VS Code's DOM; communication strictly via `postMessage`.                                                                                     |
 
 **Manifest example:**
 
@@ -1606,43 +1630,42 @@ Plugin UI (iframe) ←→ postMessage ←→ Plugin Logic (WASM) ←→ Figma AP
 
 **Architecture:**
 
-- Apps run in **iframe** embedded in Shopify admin
-- Communication via **App Bridge** SDK (postMessage abstraction)
-- OAuth for authentication; session tokens for API access
+- Apps run in an **iframe** embedded in the Shopify admin.
+- Communication uses the **App Bridge** runtime — modern apps load it [from Shopify's CDN](https://shopify.dev/docs/api/app-bridge/migration-guide), which auto-initialises a global `shopify` object. The previous `createApp` factory from `@shopify/app-bridge` is deprecated.
+- OAuth for authentication; session tokens (JWT) for backend API access.
 
-**App Bridge SDK:**
+**App Bridge today:**
 
-```typescript
-import { createApp } from "@shopify/app-bridge"
-import { Redirect, Toast } from "@shopify/app-bridge/actions"
-
-const app = createApp({
-  apiKey: "api-key",
-  shopOrigin: "myshop.myshopify.com",
-})
-
-// Show toast notification (rendered by Shopify, not iframe)
-const toast = Toast.create(app, { message: "Order updated", duration: 5000 })
-toast.dispatch(Toast.Action.SHOW)
-
-// Navigate within Shopify admin
-const redirect = Redirect.create(app)
-redirect.dispatch(Redirect.Action.ADMIN_PATH, "/orders")
+```html title="index.html"
+<!-- Pulled from Shopify's CDN; auto-initialises window.shopify -->
+<meta name="shopify-api-key" content="%SHOPIFY_API_KEY%" />
+<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 ```
+
+```typescript title="app.ts"
+await shopify.toast.show("Order updated", { duration: 5000 })
+
+shopify.navigation.navigate("/orders")
+
+const sessionToken = await shopify.idToken()
+await fetch("/api/orders", {
+  headers: { Authorization: `Bearer ${sessionToken}` },
+})
+```
+
+In React, the [`useAppBridge`](https://shopify.dev/docs/api/app-bridge-library/react-hooks/useappbridge) hook returns the same `shopify` global; UI primitives (`<s-modal>`, `<s-app-window>`, etc.) ship as web components rendered by Shopify's chrome, not the embedded iframe.
 
 **Multi-tenancy model:**
 
-- Each Shopify store is a tenant
-- Apps install per-store with store-specific credentials
-- App Bridge passes shop context on every request
+- Each Shopify store is a tenant.
+- Apps install per-store with store-specific credentials.
+- App Bridge derives the shop context from the session token on every request.
 
 **Security properties:**
 
-- Apps cannot access other stores' data
-- OAuth scopes limit API access per app
-- iframe sandbox prevents DOM manipulation
-
-**Source:** [Shopify App Bridge Documentation](https://shopify.dev/docs/api/app-bridge)
+- Apps cannot access other stores' data.
+- OAuth scopes limit API access per app.
+- iframe sandbox prevents DOM manipulation against the admin shell.
 
 ### Salesforce Lightning Web Components
 
@@ -1936,33 +1959,40 @@ The frameworks that succeed (VS Code, Figma, Shopify) share a common pattern: **
 
 **Module Federation:**
 
-- [Webpack Module Federation Documentation](https://webpack.js.org/concepts/module-federation/) - Official webpack docs
-- [Module Federation Deep Dive](https://scriptedalchemy.medium.com/understanding-webpack-module-federation-a-deep-dive-efe5c55bf366) - Architecture details
+- [Webpack Module Federation Documentation](https://webpack.js.org/concepts/module-federation/) — original Webpack 5 docs
+- [Module Federation 2.0 announcement](https://module-federation.io/blog/) — stable release, cross-bundler runtime
+- [Rspack: Module Federation guide](https://rspack.rs/guide/features/module-federation) — first-class Rspack integration
+- [Syntax #860 — Module Federation Microfrontends with ByteDance's Zack Jackson (transcript)](https://syntax.fm/show/860/module-federation-microfrontends-with-bytedance-s-zack-jackson/transcript) — production usage notes
 
 **Browser Sandboxing:**
 
-- [iframe sandbox - MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox) - Sandbox attribute reference
-- [Content Security Policy - MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) - CSP documentation
-- [Playing Safely in Sandboxed IFrames - web.dev](https://web.dev/articles/sandboxed-iframes) - Security guidance
+- [WHATWG HTML — `iframe` `sandbox` attribute](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#attr-iframe-sandbox) — normative spec
+- [`<iframe>` `sandbox` — MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox) — author-facing reference
+- [Content Security Policy — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) — CSP documentation
+- [Playing safely in sandboxed iframes — web.dev](https://web.dev/articles/sandboxed-iframes) — security guidance
 
 **Shadow DOM:**
 
-- [Using Shadow DOM - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) - API reference
-- [Shadow DOM Encapsulation - CSS-Tricks](https://css-tricks.com/encapsulating-style-and-structure-with-shadow-dom/) - Practical guide
+- [Using Shadow DOM — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) — API reference
+- [DOM Living Standard — Shadow tree](https://dom.spec.whatwg.org/#shadow-trees) — normative spec
 
 **Production Implementations:**
 
-- [VS Code Extension Host](https://code.visualstudio.com/api/advanced-topics/extension-host) - Architecture documentation
-- [How Figma Built the Plugin System](https://www.figma.com/blog/how-we-built-the-figma-plugin-system/) - WASM sandbox approach
-- [Shopify App Bridge](https://shopify.dev/docs/api/app-bridge) - iframe + SDK pattern
-- [Salesforce Lightning Web Security](https://developer.salesforce.com/docs/platform/lwc/guide/security-lwsec-intro.html) - Namespace isolation
+- [VS Code Extension Host](https://code.visualstudio.com/api/advanced-topics/extension-host) — architecture documentation
+- [VS Code Activation Events](https://code.visualstudio.com/api/references/activation-events) — auto-derivation since 1.74
+- [How Figma built the plugin system](https://www.figma.com/blog/how-we-built-the-figma-plugin-system/) — WASM sandbox rationale
+- [How plugins run — Figma developer docs](https://developers.figma.com/docs/plugins/how-plugins-run/) — current main-thread + UI-iframe model
+- [Shopify App Bridge migration guide](https://shopify.dev/docs/api/app-bridge/migration-guide) — modern CDN script + global `shopify`
+- [Salesforce Lightning Web Security](https://developer.salesforce.com/docs/platform/lwc/guide/security-lwsec-intro.html) — namespace isolation
 
-**Multi-Tenancy:**
+**Browser platform APIs:**
 
-- [ConfigCat Multi-Tenant Feature Flags](https://configcat.com/blog/2022/07/22/how-to-target-features-by-tenants/) - Feature flag patterns
-- [AWS AppConfig Multi-Tenant Configuration](https://aws.amazon.com/blogs/mt/using-aws-appconfig-to-manage-multi-tenant-saas-configurations/) - Config service architecture
+- [Storage quotas and eviction criteria — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) — quota numbers per browser
+- [`Scheduler.yield()` — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield) — current support matrix
+- [Use scheduler.yield() to break up long tasks — Chrome for Developers](https://developer.chrome.com/blog/use-scheduler-yield) — practical guidance
+- [Window.postMessage — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) — API reference
 
-**Communication Patterns:**
+**Multi-tenancy:**
 
-- [Window.postMessage - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) - API reference
-- [Secure Cross-Window Communication](https://www.bindbee.dev/blog/secure-cross-window-communication) - Security best practices
+- [ConfigCat — multi-tenant feature flags](https://configcat.com/blog/2022/07/22/how-to-target-features-by-tenants/) — feature flag patterns
+- [AWS AppConfig multi-tenant configuration](https://aws.amazon.com/blogs/mt/using-aws-appconfig-to-manage-multi-tenant-saas-configurations/) — config service architecture

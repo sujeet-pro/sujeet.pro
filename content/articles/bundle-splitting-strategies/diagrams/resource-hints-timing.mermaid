@@ -1,0 +1,21 @@
+%% Diagram: Resource Hints Timing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant B as Browser
+    participant N as Network
+    participant V8 as JS engine
+    Note over B,V8: preload (high prio, fetch only)
+    B->>N: GET chunk.js
+    N-->>B: bytes
+    Note over B: HTTP cache, not parsed
+    B->>V8: parse + compile on first import
+    Note over B,V8: modulepreload (high prio, fetch + parse)
+    B->>N: GET module.js
+    N-->>B: bytes
+    B->>V8: parse, compile, store in module map
+    Note over B: import resolves instantly
+    Note over B,V8: prefetch (idle prio, fetch only)
+    B-->>N: GET next-route.js
+    N-->>B: bytes during idle
+    Note over B: warm cache for next nav

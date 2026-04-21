@@ -1,0 +1,22 @@
+%% Diagram: Response/Request body lifecycle states
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Unread: Response constructed<br/>body.stream available
+    Unread --> Locked: getReader() / pipeTo() / for await
+    Unread --> Cloned: response.clone()<br/>internal tee()
+    Cloned --> Unread: each branch is its own body
+    Locked --> Disturbed: read to EOF<br/>or reader.cancel()
+    Locked --> Unread: reader.releaseLock()<br/>(if not yet disturbed)
+    Disturbed --> [*]: body.json() / clone() now throws<br/>TypeError "body already used"
+
+    note right of Cloned
+        tee() buffers chunks for the
+        slower branch -- can grow
+        unboundedly if rates differ.
+    end note
+    note left of Disturbed
+        Stream "disturbed" once read
+        starts. Re-reading is forbidden
+        by the Fetch spec.
+    end note

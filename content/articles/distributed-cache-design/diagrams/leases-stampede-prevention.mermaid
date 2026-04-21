@@ -1,0 +1,23 @@
+%% Diagram: Facebook lease pattern for stampede prevention
+%% Type: sequence
+sequenceDiagram
+    participant C1 as Client 1
+    participant C2 as Client 2
+    participant Cache
+    participant DB
+
+    C1->>Cache: GET key
+    Cache-->>C1: miss + lease token L1
+    Note right of Cache: Lease throttles fetches per key
+    C2->>Cache: GET key
+    Cache-->>C2: hot-miss, wait or retry
+
+    C1->>DB: SELECT key
+    DB-->>C1: value
+    C1->>Cache: SET key value with lease L1
+    Cache-->>C1: stored
+
+    C2->>Cache: GET key (retry)
+    Cache-->>C2: value (populated)
+
+    Note over Cache,DB: A DELETE between fetch and SET invalidates the lease and rejects the stale write

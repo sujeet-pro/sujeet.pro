@@ -1,0 +1,27 @@
+%% Diagram: Thread-per-peer scaling — why a small capacity addition crossed the OS limit
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BEFORE["Before capacity addition (N servers)"]
+        direction TB
+        B1["Per-server threads ≈ (N-1) gossip<br/>+ request-handling threads"]
+        B2["Headroom remaining<br/>under OS thread limit"]
+        B1 --> B2
+    end
+
+    subgraph AFTER["After capacity addition (N + ΔN servers)"]
+        direction TB
+        A1["Per-server threads ≈ (N + ΔN - 1) gossip<br/>+ request-handling threads"]
+        A2["Per-server threads<br/>EXCEED OS limit"]
+        A3["Shard-map construction<br/>fails silently → 'useless' maps"]
+        A1 --> A2 --> A3
+    end
+
+    NOTE["Aggregate threads across the fleet ≈ N·(N-1) → O(N²).<br/>The hard ceiling is per-process, so adding capacity makes it WORSE per-server."]
+
+    BEFORE --> AFTER
+    AFTER --> NOTE
+
+    style A2 fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    style A3 fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    style NOTE fill:#FFF7E6,stroke:#92400e,color:#1f2937

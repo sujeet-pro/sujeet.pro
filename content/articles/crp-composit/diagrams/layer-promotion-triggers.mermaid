@@ -1,0 +1,35 @@
+%% Diagram: What triggers layer promotion (direct compositing reasons)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Author["Author hints"]
+        WC["will-change: transform / opacity / filter"]
+        T3D["transform: translateZ(0) /<br/>translate3d() / perspective"]
+        BF["backface-visibility: hidden"]
+    end
+
+    subgraph Animation["Animations / transitions"]
+        ANIM["@keyframes / transition on<br/>transform, opacity"]
+        SVA["CSS Scroll-driven /<br/>view transitions surfaces"]
+    end
+
+    subgraph Foreign["Foreign content (own GPU surface)"]
+        VIDEO["&lt;video&gt; (composited)"]
+        CANVAS["&lt;canvas&gt; 2D-accel / WebGL / WebGPU"]
+        IFRAME["cross-origin &lt;iframe&gt; (OOPIF)"]
+        PLUGIN["plugins"]
+    end
+
+    subgraph Scrolling["Scroll-related"]
+        FIXED["position: fixed<br/>(in scrollable overflow)"]
+        STICKY["position: sticky"]
+        SCROLLER["composited scroller<br/>(overflow scrolling)"]
+    end
+
+    subgraph Overlap["Implicit"]
+        OVL["overlap above a promoted layer<br/>(squashing-style cascade)"]
+    end
+
+    Author & Animation & Foreign & Scrolling & Overlap --> DCR["Direct compositing reason<br/>on PropertyTreeState"]
+    DCR --> LAYER["Own cc::Layer<br/>after layerization"]
+    LAYER --> COST["Costs:<br/>GPU memory ~ width × height × 4 × DPR²<br/>extra draw calls<br/>raster work on resize / scale change"]

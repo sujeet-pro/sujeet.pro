@@ -1,0 +1,37 @@
+%% Diagram: Theming token pipeline from design source of truth to platform outputs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Source["Source of truth"]
+        FIGMA[Figma variables<br/>via Tokens Studio / variables export]
+    end
+
+    subgraph Spec["Interchange format"]
+        DTCG["DTCG JSON (W3C 2025.10)<br/>$value / $type / $description"]
+    end
+
+    subgraph Build["Build engines"]
+        SD[Style Dictionary v4]
+        TZ[Terrazzo]
+    end
+
+    subgraph Outputs["Platform outputs"]
+        CSS["CSS variables<br/>+ @layer ordering"]
+        JS["ESM tokens.mjs<br/>(typed)"]
+        IOS["iOS Swift / SwiftUI"]
+        ANDROID["Android XML / Compose"]
+        TW["Tailwind preset"]
+    end
+
+    FIGMA --> DTCG
+    DTCG --> SD
+    DTCG --> TZ
+    SD --> CSS & JS & IOS & ANDROID
+    TZ --> CSS & JS & TW
+
+    classDef src fill:#fef3c7,stroke:#92400e,color:#1f2937
+    classDef spec fill:#dbeafe,stroke:#1e40af,color:#1f2937
+    classDef out fill:#dcfce7,stroke:#166534,color:#1f2937
+    class FIGMA src
+    class DTCG spec
+    class CSS,JS,IOS,ANDROID,TW out

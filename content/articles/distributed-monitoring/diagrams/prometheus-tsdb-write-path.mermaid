@@ -1,0 +1,26 @@
+%% Diagram: Prometheus TSDB write path - WAL, head block, mmap, compaction
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Scrape["Scrape sample (t, labels, value)"]
+
+    subgraph Memory["In memory"]
+        direction TB
+        Head["Head block: ~last 2 hours<br/>open chunk per series"]
+        Mmap["Memory-mapped chunks<br/>full chunks flushed (v2.19+)"]
+        Head -- chunk closes --> Mmap
+    end
+
+    subgraph Durable["On disk"]
+        direction TB
+        WAL["Write-Ahead Log<br/>128 MB segments, fsync on append"]
+        Block["Persistent block<br/>chunks/, index, meta.json<br/>roaring-bitmap inverted index"]
+        Compact["Compaction<br/>2h → 25h → 4d → ..."]
+        Block --> Compact
+        Compact -. merged blocks .-> Block
+    end
+
+    Scrape --> WAL
+    Scrape --> Head
+    Mmap -- 2h boundary --> Block
+    WAL -. crash recovery .-> Head

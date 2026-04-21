@@ -1,0 +1,26 @@
+%% Diagram: Quorum Overlap (R + W > N) Guarantees Read Sees Latest Write
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph N["N = 3 replicas"]
+        R1["Replica 1"]
+        R2["Replica 2"]
+        R3["Replica 3"]
+    end
+
+    subgraph WS["Write set (W = 2)"]
+        WR1["Replica 1 ACK"]
+        WR2["Replica 2 ACK"]
+    end
+
+    subgraph RS["Read set (R = 2)"]
+        RR2["Replica 2 read"]
+        RR3["Replica 3 read"]
+    end
+
+    R1 --- WR1
+    R2 --- WR2
+    R2 --- RR2
+    R3 --- RR3
+
+    WR2 == "overlap node guarantees read sees the write" ==> RR2

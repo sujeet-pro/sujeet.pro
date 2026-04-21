@@ -1,0 +1,17 @@
+%% Diagram: Admission funnel — from raw arrivals to confirmed orders
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    A["10M concurrent users<br/>(headline forecast)"] --> B[CDN waiting room: HTML + queue cookie]
+    B -->|edge absorbs polling| C["~1M unique arrivals/min<br/>(humans + bots)"]
+    C -->|WAF + bot scoring| D["~600K eligible humans"]
+    D -->|admission gate metered<br/>to backend capacity| E["~50K admitted users<br/>(over sale window)"]
+    E -->|reservation TTL holds stock| F["~12K start payment"]
+    F -->|payment success| G["~10K confirmed orders<br/>(= inventory)"]
+
+    classDef edge fill:#e3f2fd,stroke:#1565c0;
+    classDef gate fill:#fff3e0,stroke:#e65100;
+    classDef terminal fill:#e8f5e9,stroke:#2e7d32;
+    class A,B,C edge;
+    class D,E gate;
+    class F,G terminal;

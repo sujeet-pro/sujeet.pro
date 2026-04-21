@@ -4,7 +4,7 @@ linkTitle: 'Sorting Algorithms'
 description: >-
   Sorting algorithms from bubble sort through merge sort, quicksort, and radix sort — with TypeScript implementations, stability and complexity analysis, and the production hybrids (TimSort, pdqsort) that power real-world runtimes.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - algorithms
   - data-structures
@@ -15,15 +15,15 @@ tags:
 
 A comprehensive guide to sorting algorithms covering fundamental concepts, implementation details, performance characteristics, and real-world applications. Learn when to use each algorithm and understand the engineering trade-offs behind production sorting implementations.
 
-![Sorting algorithm taxonomy showing complexity classes and key characteristics](./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics-light.svg "Sorting algorithm taxonomy showing complexity classes and key characteristics")
-![Sorting algorithm taxonomy showing complexity classes and key characteristics](./diagrams/sorting-algorithm-taxonomy-showing-complexity-classes-and-key-characteristics-dark.svg)
+![Sorting algorithm taxonomy grouped by asymptotic class with the engineering trait that explains why each algorithm earns its place](./diagrams/sorting-taxonomy-light.svg "Three asymptotic classes — O(n²), O(n log n), and O(n) — each justified by a structural trait, not by Big-O alone.")
+![Sorting algorithm taxonomy grouped by asymptotic class with the engineering trait that explains why each algorithm earns its place](./diagrams/sorting-taxonomy-dark.svg)
 
 ## Abstract
 
 Sorting algorithms exist on a spectrum defined by three fundamental constraints:
 
-![Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.](./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi-light.svg "Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.")
-![Every sorting algorithm makes trade-offs between time, space, and stability—optimizing one often sacrifices another.](./diagrams/every-sorting-algorithm-makes-trade-offs-between-time-space-and-stability-optimi-dark.svg)
+![Sorting trade-off triangle: time, space, and stability — optimising one usually concedes another, and production sorts pick a position rather than a single corner.](./diagrams/sorting-tradeoffs-light.svg "Time, space, and stability form a tight triangle — every algorithm sits somewhere on its surface; production sorts blend approaches to balance the three.")
+![Sorting trade-off triangle: time, space, and stability — optimising one usually concedes another, and production sorts pick a position rather than a single corner.](./diagrams/sorting-tradeoffs-dark.svg)
 
 **Core mental model:**
 
@@ -131,7 +131,7 @@ function selectionSort(arr: number[]): number[] {
 
 **Why it's unstable**: When swapping the minimum with the current position, equal elements can change relative order. For example, sorting `[2a, 2b, 1]` swaps `2a` with `1`, producing `[1, 2b, 2a]`—the two 2s reversed.
 
-**When to use it**: Flash memory (EEPROM, NAND) with limited write cycles—Selection Sort's exactly n-1 writes can extend device lifespan. Also valuable in robotics or warehouse automation where physically moving objects is expensive. Database systems sometimes use it when updating index pointers costs more than comparisons.
+**When to use it**: Selection Sort earns its keep when each *write* is dramatically more expensive than each *comparison*. The textbook case is flash storage with bounded program/erase cycles — NAND blocks tolerate roughly 10³–10⁵ P/E cycles before wear-out, which is why wear-levelling is built into every modern flash translation layer ([JEDEC JESD218](https://www.jedec.org/standards-documents/docs/jesd218a)). On general-purpose data structures the comparison-heavy variant Cycle Sort (which performs the *theoretical* minimum number of writes) is preferred over Selection Sort; in practice both are niche compared to choosing a write-friendly storage layout in the first place.
 
 ### Insertion Sort
 
@@ -259,12 +259,13 @@ function partition(arr: number[], low: number, high: number): number {
 
 **Pivot selection strategies and their trade-offs**:
 
-| Strategy          | Worst Case Trigger          | Overhead | Use When                   |
-| ----------------- | --------------------------- | -------- | -------------------------- |
-| First/Last        | Sorted/reverse input        | O(1)     | Never in production        |
-| Random            | Astronomically unlikely     | O(1)     | Default choice             |
-| Median-of-three   | Crafted adversarial         | O(1)     | Known random input         |
-| Median-of-medians | None (guaranteed O(n lg n)) | O(n)     | Adversarial input possible |
+| Strategy          | Worst-case trigger                                           | Overhead   | Use when                                                            |
+| ----------------- | ------------------------------------------------------------ | ---------- | ------------------------------------------------------------------- |
+| First/Last        | Sorted or reverse-sorted input                               | O(1)       | Only as a fallback inside a smarter scheme (e.g. inside median-of-three) |
+| Random            | Vanishingly unlikely on any single input                     | O(1) + RNG | Reasonable default; what `rand_pivot` schemes assume                |
+| Median-of-three   | Adversaries that target the three sampled positions          | O(1)       | Common production default (e.g. classic `qsort`)                    |
+| Ninther / median-of-medians-of-three | Adversaries that target nine sampled positions    | O(1)       | Used by `pdqsort` and Bentley-McIlroy "engineering a sort function" |
+| True median-of-medians | None — guaranteed O(n log n)                            | O(n)       | Hard real-time and provably-bounded systems only — too slow for general use |
 
 **3-Way Partition (Dutch National Flag Problem)**: Essential for arrays with many duplicates. Standard 2-way partition degrades to O(n²) when all elements are equal; 3-way partition handles this in O(n) by grouping equal elements in the middle.
 
@@ -296,7 +297,7 @@ function quickSort3Way(arr: number[], low: number, high: number): void {
 }
 ```
 
-**Why Quick Sort dominates production sorting**: C++ `std::sort()` (Introsort), Go's `sort.Sort()` (pdqsort since Go 1.19), and Rust's `sort_unstable` all use Quick Sort variants. The combination of in-place sorting, cache-friendly access, and predictable branch behavior makes it 2-3× faster than alternatives on random data.
+**Why Quick Sort variants dominate unstable sorting**: C++'s `std::sort` (Introsort), Go's `sort.Sort` (pdqsort since Go 1.19), and Rust's `sort_unstable` (pdqsort 2017–2024, ipnsort from Rust 1.81 onward) all derive from the Quick Sort family. The combination of in-place partitioning, cache-friendly sequential access, and predictable branch behaviour makes them roughly 2–3× faster than non-Quick-Sort alternatives on random data ([Sedgewick & Wayne](https://algs4.cs.princeton.edu/)).
 
 ### Heap Sort
 
@@ -524,8 +525,8 @@ function bucketSort(arr: number[], bucketCount: number = 10): number[] {
 
 ### Decision Flowchart
 
-![Algorithm selection based on data constraints and requirements](./diagrams/algorithm-selection-based-on-data-constraints-and-requirements-light.svg "Algorithm selection based on data constraints and requirements")
-![Algorithm selection based on data constraints and requirements](./diagrams/algorithm-selection-based-on-data-constraints-and-requirements-dark.svg)
+![Decision tree that picks a sorting algorithm from data type, stability, and worst-case constraints](./diagrams/algorithm-selection-light.svg "Walk the tree: data type first, stability second, worst-case guarantees third. The leaves are defaults — your runtime's hybrid is almost always at least as good.")
+![Decision tree that picks a sorting algorithm from data type, stability, and worst-case constraints](./diagrams/algorithm-selection-dark.svg)
 
 ## Why Quick Sort Beats Heap Sort in Practice
 
@@ -584,13 +585,10 @@ Modern CPUs predict which way branches (if statements) will go. Mispredictions a
 
 **Quick Sort**: After a few iterations, the CPU learns the pattern. Elements mostly go one way based on their relation to the pivot.
 
-**Heap Sort**: The comparison `arr[left] > arr[largest]` vs `arr[right] > arr[largest]` is essentially random - the CPU can't predict which child is larger, causing frequent mispredictions.
+**Heap Sort**: The comparison `arr[left] > arr[largest]` vs `arr[right] > arr[largest]` is essentially random — the CPU can't predict which child is larger, causing frequent mispredictions.
 
-```
-Branch prediction success rate (approximate):
-- Quick Sort partition: 90-95%
-- Heap Sort heapify:    50-60%
-```
+> [!NOTE]
+> Branch-prediction hit rates are workload- and CPU-dependent. The often-quoted heuristic — partition predicts well (≈90 %+) and heapify predicts poorly (close to a coin flip) — is consistent with the published BlockQuicksort and pdqsort analyses, which were motivated specifically by recovering predictability inside partition. Treat it as direction, not a measurement.
 
 ### 4. Practical Worst Case is Avoidable
 
@@ -607,10 +605,10 @@ function partition(arr: number[], low: number, high: number): number {
 }
 ```
 
-**Probability analysis**:
+**Probability intuition**:
 
-- For O(n²) to occur, you need repeatedly unlucky pivot choices that create highly unbalanced partitions
-- Random pivots make that path dramatically less likely in practice, but the exact tail probability depends on the pivot model and is better treated qualitatively than as a hand-wavy `1/n!` rule
+- For O(n²) to occur, you need a long run of pivots that consistently land near the smallest or largest element, producing maximally-unbalanced partitions.
+- With a uniformly-random pivot the expected comparison count is ~1.39 n log₂ n ([Sedgewick 1977](https://algs4.cs.princeton.edu/videos/pdf/23Quicksort.pdf)), and concentration bounds make the bad-case probability shrink super-polynomially in n. The exact tail depends on the pivot scheme and is best reasoned about qualitatively rather than from a hand-wavy `1/n!` argument.
 
 **Median-of-three** is another practical defense:
 
@@ -684,15 +682,20 @@ Modern language runtimes don't use any single algorithm—they combine multiple 
 
 ### Tim Sort (Python, Java Objects, JavaScript)
 
-Tim Sort, developed by Tim Peters for Python in 2002, combines Merge Sort and Insertion Sort. It exploits a key observation: real-world data often contains pre-existing order ("runs").
+Tim Sort, developed by Tim Peters for Python in 2002 ([listsort.txt](https://github.com/python/cpython/blob/main/Objects/listsort.txt)), combines Merge Sort and Insertion Sort. It exploits a key observation: real-world data often contains pre-existing order ("runs").
 
 **How it works**:
 
-1. Scan the array for natural runs (already sorted sequences, including reversed ones which are flipped)
-2. Ensure minimum run length (typically 32-64) by extending short runs with Insertion Sort
-3. Merge runs using an optimized merge that includes "galloping mode" when one run dominates
+1. Scan the array for natural runs (already-sorted sequences, including descending runs which are reversed in place).
+2. Ensure a minimum run length (`minrun`, typically 32–64) by extending short runs with Binary Insertion Sort.
+3. Push runs onto a stack; whenever the stack invariant is violated, merge adjacent runs using an optimised merge that switches into "galloping mode" when one run dominates.
 
-**Why it's effective**: On random data, Tim Sort performs like Merge Sort. On partially sorted data (common in practice—appending to sorted lists, nearly-sorted databases), it approaches O(n) because natural runs require minimal merging.
+**Why it's effective**: On random data, Tim Sort performs like Merge Sort. On partially-sorted data (common in practice — appending to sorted lists, nearly-sorted databases), it approaches O(n) because natural runs require minimal merging.
+
+> [!NOTE]
+> Since Python 3.11 the merge policy is no longer Tim Peters' original "stack invariant" heuristic — CPython adopted **Powersort**[^powersort] (Munro & Wild, 2018), a near-optimal merge-ordering policy that fixes Timsort's known stack-depth blind spots while preserving the run-detection and galloping merge. Run detection, `minrun`, and the merging primitives are still the Timsort ones; only *which* runs to merge next changed.
+
+[^powersort]: [Munro & Wild — *Nearly-Optimal Mergesorts* (Powersort)](https://arxiv.org/abs/1805.04154); [CPython 3.11 release notes](https://docs.python.org/3/whatsnew/3.11.html#optimizations) and the [Powersort discussion in CPython issue gh-78742](https://github.com/python/cpython/issues/78742).
 
 ### Introsort (C++ STL)
 
@@ -700,22 +703,25 @@ Introsort (introspective sort), invented by David Musser in 1997, starts with Qu
 
 **Design insight**: Introsort gets Quick Sort's average-case speed (cache locality, low constant factors) with Heap Sort's worst-case guarantee—the best of both worlds.
 
-### Pattern-Defeating Quicksort (pdqsort) (Go, Rust unstable)
+### Pattern-Defeating Quicksort (pdqsort) (Go, Rust unstable until 1.81)
 
-pdqsort, created by Orson Peters, extends Introsort with pattern detection. It recognizes sorted, reverse-sorted, and equal-element sequences, handling them in O(n) time. It also uses BlockQuicksort's branchless partitioning for better branch prediction on random data.
+pdqsort, created by Orson Peters, extends Introsort with pattern detection. It recognises sorted, reverse-sorted, and equal-element sequences, handling them in O(n) time. It also uses [BlockQuicksort](https://drops.dagstuhl.de/opus/volltexte/2016/6389/)'s branchless partitioning to keep branch prediction healthy on random data.
 
-**Adoption**: Go switched to pdqsort in Go 1.19 (via `slices.Sort` in Go 1.22+). Rust uses pdqsort for `sort_unstable`. Benchmarks show 2-60× speedup over traditional Quick Sort on patterned data.
+**Adoption**:
+
+- **Go** switched the `sort` package to pdqsort in [Go 1.19](https://go.dev/doc/go1.19#sort), and the generic `slices.Sort` (also pdqsort-based) shipped in [Go 1.21](https://go.dev/doc/go1.21#slices). On patterned data Peters' [paper](https://arxiv.org/abs/2106.05123) reports speedups in the order of 2–60× over a traditional `std::sort`-style introsort, depending on the pattern.
+- **Rust**: `sort_unstable` was based on pdqsort from [RFC 1884 (2017)](https://rust-lang.github.io/rfcs/1884-unstable-sort.html) until [Rust 1.81](https://blog.rust-lang.org/2024/09/05/Rust-1.81.0/) (Sept 2024) replaced it with **ipnsort** (unstable) and replaced the Timsort-derived `sort` with **driftsort** (stable). Both new implementations were designed by [Lukas Bergdoll](https://github.com/Voultapher/sort-research-rs) and explicitly chosen for better behaviour on partially-sorted inputs and short types.
 
 ### Language Standard Library Implementations
 
-| Language   | Stable Sort        | Unstable Sort                      | Notes                                                                         |
-| ---------- | ------------------ | ---------------------------------- | ----------------------------------------------------------------------------- |
-| JavaScript | Tim Sort           | —                                  | Stable required since ES2019 ([V8 blog](https://v8.dev/features/stable-sort)) |
-| Python     | Tim Sort           | —                                  | `list.sort()` and `sorted()` both stable                                      |
-| Java       | Tim Sort (Objects) | Dual-pivot Quick Sort (primitives) | Objects need stability; primitives prioritize speed                           |
-| C++        | —                  | Introsort                          | `std::stable_sort` uses Merge Sort; `std::sort` uses Introsort                |
-| Go         | —                  | pdqsort                            | Since Go 1.19; `slices.Sort` in Go 1.22+                                      |
-| Rust       | Tim Sort           | pdqsort                            | `sort()` vs `sort_unstable()`                                                 |
+| Language   | Stable sort                  | Unstable sort                      | Notes                                                                                                             |
+| ---------- | ---------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| JavaScript | Tim Sort (V8 ≥ 7.0)          | —                                  | Stability mandated by ES2019 ([V8 blog](https://v8.dev/features/stable-sort), MDN `Array.prototype.sort`)         |
+| Python     | Tim Sort + Powersort merge   | —                                  | `list.sort()` / `sorted()`. Powersort merge policy adopted in CPython 3.11; runs and galloping inherited from Timsort |
+| Java       | Tim Sort (`Object[]`)        | Dual-Pivot Quicksort (primitives)  | Yaroslavskiy/Bentley/Bloch DPQS for primitives since JDK 7; Tim Sort for `Object[]`                               |
+| C++        | Merge Sort (`std::stable_sort`) | Introsort (`std::sort`)         | LLVM's libc++ adopted [BlockQuicksort partitioning](https://reviews.llvm.org/D122780) inside `std::sort` for arithmetic types in 2022 to recover branch-prediction performance |
+| Go         | `sort.Stable` (block-merge)  | pdqsort                            | pdqsort in Go 1.19; generic `slices.Sort` in Go 1.21                                                              |
+| Rust       | driftsort (1.81+)            | ipnsort (1.81+)                    | Replaced Timsort-derived `sort` and pdqsort-based `sort_unstable` in Rust 1.81 (Sept 2024)                        |
 
 **Key insight**: Every production implementation is a hybrid. The choice reflects trade-offs: stability (Tim Sort for objects), raw speed (pdqsort for unstable), or guaranteed worst-case (Introsort).
 
@@ -775,17 +781,24 @@ In practice, cache locality and branch prediction often matter more than asympto
 
 **Algorithm Papers and Design Documents:**
 
-- [Pattern-defeating Quicksort (pdqsort)](https://arxiv.org/abs/2106.05123) - Orson Peters' algorithm combining Quick Sort, Heap Sort, and pattern detection
-- [Introsort (Wikipedia)](https://en.wikipedia.org/wiki/Introsort) - David Musser's 1997 introspective sort combining Quick Sort and Heap Sort
-- [Tim Sort (Wikipedia)](https://en.wikipedia.org/wiki/Timsort) - Tim Peters' 2002 hybrid Merge Sort + Insertion Sort
+- [Pattern-defeating Quicksort (pdqsort)](https://arxiv.org/abs/2106.05123) — Orson Peters' algorithm combining Quick Sort, Heap Sort, and pattern detection
+- [BlockQuicksort: How Branch Mispredictions don't affect Quicksort (Edelkamp & Weiß, 2016)](https://drops.dagstuhl.de/opus/volltexte/2016/6389/) — branchless partitioning used inside pdqsort
+- [Nearly-Optimal Mergesorts: Powersort and Peeksort (Munro & Wild, 2018)](https://arxiv.org/abs/1805.04154) — the merge policy CPython 3.11 adopted
+- [Introsort (Wikipedia)](https://en.wikipedia.org/wiki/Introsort) — David Musser's 1997 introspective sort combining Quick Sort and Heap Sort
+- [Timsort (Wikipedia)](https://en.wikipedia.org/wiki/Timsort) and [`Objects/listsort.txt`](https://github.com/python/cpython/blob/main/Objects/listsort.txt) — Tim Peters' 2002 hybrid Merge Sort + Insertion Sort with the original design notes
+- [Engineering a Sort Function (Bentley & McIlroy, 1993)](https://cs.fit.edu/~pkc/classes/writing/samples/bentley93engineering.pdf) — origin of the median-of-three / ninther / 3-way-partition tooling that production sorts inherit
 
 **Implementation References:**
 
-- [V8 Array.sort() Implementation](https://v8.dev/blog/array-sort) - JavaScript engine Tim Sort implementation details
-- [V8 Stable Sort](https://v8.dev/features/stable-sort) - ECMAScript 2019 stable sort requirement
-- [Go pdqsort Issue #50154](https://github.com/golang/go/issues/50154) - Go 1.19 pdqsort adoption discussion
-- [pdqsort GitHub Repository](https://github.com/orlp/pdqsort) - Reference implementation
+- [V8: Stable `Array.prototype.sort`](https://v8.dev/features/stable-sort) — ECMAScript 2019 stability mandate
+- [V8: Getting things sorted](https://v8.dev/blog/array-sort) — V8 7.0 / Chrome 70 Tim Sort implementation
+- [CPython 3.11 release notes](https://docs.python.org/3/whatsnew/3.11.html#optimizations) — Powersort merge policy adoption
+- [Go 1.19 release notes](https://go.dev/doc/go1.19#sort) and [Go 1.21 `slices` package](https://go.dev/doc/go1.21#slices) — pdqsort adoption timeline
+- [pdqsort reference implementation](https://github.com/orlp/pdqsort)
+- [Rust 1.81 release notes](https://blog.rust-lang.org/2024/09/05/Rust-1.81.0/) and [Voultapher/sort-research-rs `driftsort` write-up](https://github.com/Voultapher/sort-research-rs/blob/main/writeup/driftsort_introduction/text.md) — driftsort + ipnsort replacing Timsort + pdqsort
+- [LLVM libc++ `std::sort` change to BlockQuicksort + pdqsort](https://reviews.llvm.org/D122780) — modern C++ unstable sort pipeline
 
 **Performance Analysis:**
 
-- [Intel 64 and IA-32 Architectures Optimization Reference Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html) - CPU cache behavior, memory latency, branch prediction
+- [Intel 64 and IA-32 Architectures Optimization Reference Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html) — CPU cache behaviour, memory latency, branch prediction
+- [JEDEC JESD218 — SSD endurance and write-cycle limits](https://www.jedec.org/standards-documents/docs/jesd218a) — context for "write-minimising" sorts on flash storage

@@ -1,0 +1,46 @@
+%% Diagram: NSEC vs NSEC3 authenticated denial — zone-walking exposure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph nsec["NSEC (RFC 4034) — clear-text chain"]
+        direction TB
+        N1["Zone names sorted in canonical order"]
+        N2["alpha → beta → gamma → ..."]
+        N3["Query nonexistent name →\nNSEC reveals neighbour names"]
+        N4["Walker iterates the chain →\nfull zone enumeration"]
+        N1 --> N2 --> N3 --> N4
+    end
+
+    subgraph nsec3["NSEC3 (RFC 5155) — hashed chain"]
+        direction TB
+        H1["Names hashed with salt + iterations"]
+        H2["1AVVQN... → J8DF92... → ..."]
+        H3["Query nonexistent name →\nNSEC3 reveals hashed neighbours"]
+        H4["Walker must crack hashes →\nfeasible for short labels"]
+        H5["RFC 9276 (BCP 236):\niterations = 0, empty salt"]
+        H1 --> H2 --> H3 --> H4
+        H4 -.-> H5
+    end
+
+    subgraph dos["NSEC3 footgun: CVE-2023-50868"]
+        direction TB
+        D1["Authoritative sets iterations >> 0"]
+        D2["Validator computes\nN × SHA-1 per query"]
+        D3["Random-subdomain attack →\nresolver CPU exhaustion"]
+        D4["BIND/Unbound treat\niterations > 150 as insecure"]
+        D1 --> D2 --> D3 --> D4
+    end
+
+    nsec -.->|"replaced by"| nsec3
+    nsec3 -.->|"misconfigured →"| dos
+
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class N1,N2 neutral
+    class N3,N4 warn
+    class H1,H2 neutral
+    class H3,H4 warn
+    class H5 ok
+    class D1,D2,D3 warn
+    class D4 ok

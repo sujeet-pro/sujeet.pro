@@ -1,0 +1,35 @@
+%% Diagram: High-level architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Upload["Upload Pipeline"]
+        U[User Upload] --> US[Upload Service<br/>Resumable / chunked]
+        US --> RAW[(Raw object store<br/>Originals)]
+        US --> Q[Transcoding queue]
+    end
+
+    subgraph Transcode["Transcoding"]
+        Q --> SEG_IN[Segmenter<br/>2-4s GOP-aligned chunks]
+        SEG_IN --> WORKERS[Worker pool<br/>parallel encode per chunk]
+        WORKERS --> ENC[Multi-codec encode<br/>H.264 / VP9 / AV1]
+        ENC --> ASSEMBLE[Assembler + CMAF packager]
+    end
+
+    subgraph Storage["Storage Layer"]
+        ASSEMBLE --> HOT[(Hot tier<br/>Recent / popular)]
+        HOT --> WARM[(Warm tier)]
+        WARM --> COLD[(Cold object store<br/>Long-tail)]
+        RAW --> ARCHIVE[(Archive<br/>Original DR copy)]
+    end
+
+    subgraph Delivery["Delivery"]
+        HOT --> ORIGIN[Origin Shield]
+        ORIGIN --> CDN[CDN edge PoPs]
+        CDN --> PLAYER[Video Player<br/>ABR algorithm]
+    end
+
+    subgraph Discovery["Metadata and Discovery"]
+        US --> META[(Metadata DB<br/>video records)]
+        META --> SEARCH[Search index]
+        META --> REC[Recommendation pipeline]
+    end

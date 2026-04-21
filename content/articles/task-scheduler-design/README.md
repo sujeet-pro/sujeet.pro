@@ -2,131 +2,116 @@
 title: Task Scheduler Design
 linkTitle: 'Task Scheduler'
 description: >-
-  Designing distributed task schedulers with the right coordination primitives — covering cron, interval, delay, and event-triggered models, database locks vs. consensus, delivery guarantees, and failure handling across Airflow, Celery, and Temporal.
+  Designing distributed task schedulers — coordination via database row locks vs. consensus, cron / interval / delay / event-triggered models, at-least-once + idempotency for effectively-once execution, heartbeat-based recovery, and how Airflow, Temporal, Celery, and Google's distributed cron actually solve these problems.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - distributed-systems
+  - reliability-engineering
+  - task-scheduler
 ---
 
 # Task Scheduler Design
 
-Designing reliable distributed task scheduling systems: understanding scheduling models, coordination mechanisms, delivery guarantees, and failure handling strategies across Airflow, Celery, Temporal, and similar platforms.
+Distributed task scheduling is fundamentally about **coordination without contention**: multiple scheduler instances must agree on which tasks to run, when to run them, and which worker executes each one — without becoming a bottleneck and without allowing duplicate execution. This article is a senior-engineer-level walk through the design space, the guarantees you can actually buy, and how production systems (Airflow, Temporal, Celery, Google's distributed cron) chose their trade-offs.
 
-![Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths](./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han-light.svg "Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths")
-![Task scheduler lifecycle showing submission, scheduling, execution, and failure handling paths](./diagrams/task-scheduler-lifecycle-showing-submission-scheduling-execution-and-failure-han-dark.svg)
+![Task scheduler lifecycle showing submission, claim, execution, retry, and DLQ paths layered with coordination and storage choices](./diagrams/task-lifecycle-light.svg "How a task moves through a distributed scheduler — coordination, storage, and recovery shown together.")
+![Task scheduler lifecycle showing submission, claim, execution, retry, and DLQ paths layered with coordination and storage choices](./diagrams/task-lifecycle-dark.svg)
 
-## Abstract
+## Mental model
 
-Distributed task scheduling is fundamentally about **coordination without contention**. The core challenge: multiple scheduler instances must agree on which tasks to run, when to run them, and which worker should execute them—without creating bottlenecks or allowing duplicate execution.
+Hold these four ideas before reading the rest:
 
-The key mental model:
+- **Scheduling and execution are separate concerns.** The scheduler decides _what_ runs and _when_; workers do the work. This separation is what lets you scale them independently and replace either one without rewriting the other.
+- **Exactly-once is impossible. Effectively-once is not.** Distributed systems can't deliver each task exactly once because of the [Two Generals Problem](https://en.wikipedia.org/wiki/Two_Generals%27_Problem). What they _can_ do is **at-least-once delivery + idempotent processing**, which is observably indistinguishable from exactly-once when handlers are designed for it.
+- **The database is a legitimate coordination primitive.** Modern schedulers (Airflow 2+, [`db-scheduler`](https://github.com/kagkarlsson/db-scheduler), Quartz JDBC) use `SELECT ... FOR UPDATE SKIP LOCKED` instead of Raft or Paxos. The operational simplicity often beats the theoretical elegance — Airflow's design document is explicit about this[^aip15].
+- **Time is unreliable.** Clocks drift, NTP corrects them in jumps, virtual machines pause, and leap seconds make minutes 59 or 61 seconds long. Robust schedulers use monotonic clocks for delays and event ordering rather than wall-clock arithmetic for correctness.
 
-- **Scheduling** is separate from **execution**. Schedulers determine _what_ runs and _when_; workers perform the actual computation. This separation enables independent scaling.
-- **Exactly-once execution is a lie**. In practice, systems provide **at-least-once delivery + idempotent handlers** = effectively once. True exactly-once requires distributed transactions with unacceptable overhead.
-- **The database is your coordination primitive**. Modern schedulers (Airflow, Quartz, db-scheduler) use `SELECT ... FOR UPDATE SKIP LOCKED` rather than consensus algorithms. The operational simplicity outweighs the theoretical elegance of Raft/Paxos.
-- **Time is unreliable**. Clock skew between nodes means "run at 3:00 PM" can trigger at 3:00:00.000 on one node and 3:00:00.500 on another. Robust schedulers detect clock anomalies and use logical ordering where physical time fails.
+The headline trade-off space:
 
-The trade-off space:
+| Guarantee     | Cost                                       | Use when                        |
+| ------------- | ------------------------------------------ | ------------------------------- |
+| At-most-once  | Lowest latency, no retries, no idempotency | Best-effort metrics, cache fill |
+| At-least-once | Requires idempotent handlers + dedup       | Most production workloads       |
+| Exactly-once  | Coordination overhead, lower throughput    | Billing, payments, ledger writes |
 
-| Guarantee     | Cost                  | Use When                        |
-| ------------- | --------------------- | ------------------------------- |
-| At-most-once  | Lowest latency        | Analytics, non-critical metrics |
-| At-least-once | Requires idempotency  | Most production workloads       |
-| Exactly-once  | 10-50% throughput hit | Financial transactions, billing |
+## Scheduling models
 
-## Scheduling Models
+### Cron-based (time-triggered)
 
-### Cron-Based (Time-Triggered)
+Tasks fire at specific times defined by cron expressions (`0 9 * * *` for 9 AM daily). The scheduler evaluates each expression against the current time and enqueues matching jobs. Cron has been the default since [Version 7 Unix in 1979](https://en.wikipedia.org/wiki/Cron#History) and the syntax has barely changed.
 
-**Mechanism:** Tasks fire at specific times defined by cron expressions (e.g., `0 9 * * *` for 9 AM daily). The scheduler evaluates expressions against current time and enqueues matching tasks.
-
-**Best when:**
-
-- Predictable, recurring workloads (daily reports, hourly aggregations)
-- Tasks align with business hours or calendar boundaries
-- Execution time doesn't drift based on previous run
+**Best when:** predictable, recurring workloads (daily reports, hourly aggregations) that align with calendar boundaries and where execution time should not drift based on the previous run.
 
 **Trade-offs:**
 
-- ✅ Human-readable schedules
-- ✅ Well-understood semantics (Unix cron since 1975)
-- ✅ Natural fit for business processes
-- ❌ Clock skew can cause missed or duplicate runs
-- ❌ "Catch-up" behavior varies by implementation
-- ❌ Overlapping runs if previous execution exceeds interval
+- ✅ Human-readable schedules, well-understood semantics.
+- ✅ Natural fit for business-process schedules (close-of-day, billing cycles).
+- ❌ Clock skew can cause duplicate or missed runs across replicas.
+- ❌ "Catch-up" behaviour after downtime varies by implementation (Airflow back-fills, most others skip).
+- ❌ Overlapping runs if a previous execution exceeds the interval — handled by an explicit overlap policy (see below).
 
-**Implementation detail:** Kubernetes CronJobs use 5-field cron syntax interpreted by kube-controller-manager. As of Kubernetes 1.27, `spec.timeZone` accepts IANA timezone names, eliminating UTC-only limitations.
+> [!NOTE]
+> Kubernetes CronJob `spec.timeZone` reached general availability in v1.27, accepting IANA zone names instead of inheriting `kube-controller-manager`'s local time[^k8sgaCron]. Older clusters silently treat all schedules as UTC, which is a common production trap when migrating from a non-UTC host cron.
 
-### Interval-Based (Fixed Delay)
+### Interval-based (fixed delay)
 
-**Mechanism:** Tasks run at fixed intervals _from the completion of the previous run_ (e.g., "every 30 minutes after last success"). The next execution time = previous completion + interval.
+Tasks run at a fixed interval _from the completion of the previous run_ ("every 30 minutes after last success"). The next execution time is `previous_completion + interval`.
 
-**Best when:**
-
-- Task duration varies significantly
-- You need guaranteed gaps between runs
-- Processing load should be spread evenly
+**Best when:** task duration varies significantly, you need a guaranteed gap between runs, or you want to spread load evenly without piling up.
 
 **Trade-offs:**
 
-- ✅ Prevents overlapping executions by design
-- ✅ Self-adjusting to task duration
-- ❌ Execution times drift over the day
-- ❌ Can't guarantee "run at 9 AM"
-- ❌ First run timing requires separate configuration
+- ✅ Prevents overlap by construction.
+- ✅ Self-adjusts to task duration.
+- ❌ Execution times drift through the day; no "9 AM" guarantee.
+- ❌ The first run requires separate configuration.
 
-**Real-world example:** Temporal Schedules support `every 30 minutes` with optional phase offset aligned to Unix epoch. If a workflow takes 5 minutes, the next run starts 30 minutes after completion—not 30 minutes after the scheduled time.
+Temporal Schedules support `every <duration>` with an optional phase offset aligned to the Unix epoch[^tsched]. If a workflow execution takes five minutes and the schedule is every 30 minutes, the next start is 30 minutes after completion — not 30 minutes after the original scheduled time.
 
-### Delay-Based (One-Shot Future)
+### Delay-based (one-shot future)
 
-**Mechanism:** Task executes once after a specified delay (e.g., "run in 30 seconds"). Common for deferred processing: send reminder email 24 hours after signup, retry failed payment in 1 hour.
+Task executes once after a specified delay ("run in 30 seconds"). Common for deferred processing: reminder email 24 hours after signup, retry a failed payment in 1 hour.
 
-**Best when:**
-
-- One-time future execution
-- Delay calculated dynamically per task
-- Implementing retry backoff
+**Best when:** one-time future execution where the delay is computed at submission time (e.g. retry backoff).
 
 **Trade-offs:**
 
-- ✅ Simple mental model
-- ✅ Dynamic scheduling (compute delay at submission time)
-- ❌ Clock adjustments can fire early or late
-- ❌ Long delays (days/weeks) require durable storage
+- ✅ Simple mental model, dynamic per task.
+- ❌ Wall-clock adjustments can fire early or late.
+- ❌ Long delays (days, weeks) require durable storage.
 
-**Implementation detail:** Use monotonic clocks or scheduler-native offsets rather than `current_wall_time + delay`. NTP corrections can shift wall clock time, causing premature or delayed execution.
+> [!IMPORTANT]
+> Compute deadlines using monotonic clocks or scheduler-relative offsets, not `time.time() + delay`. NTP corrections can step the wall clock forward or backward at any moment, which on a wall-clock implementation looks like a task firing minutes early or arriving minutes late.
 
-### Event-Triggered (Reactive)
+### Event-triggered (reactive)
 
-**Mechanism:** Tasks fire in response to external events: file uploads, database changes, webhook calls, message arrivals. No fixed schedule—execution is purely reactive.
+Tasks fire in response to external events: file uploads, database changes, webhook calls, message arrivals. There is no fixed schedule — execution is purely reactive.
 
-**Best when:**
-
-- Processing depends on external data availability
-- Workload is unpredictable
-- Near-real-time responsiveness required
+**Best when:** processing depends on external data availability, the workload is bursty or unpredictable, or you need near-real-time responsiveness.
 
 **Trade-offs:**
 
-- ✅ Minimal latency (process immediately when ready)
-- ✅ Natural fit for event-driven architectures
-- ✅ No wasted polling cycles
-- ❌ Thundering herd if many events arrive simultaneously
-- ❌ Requires robust event delivery infrastructure
-- ❌ Harder to reason about system load
+- ✅ Minimal latency; no wasted polling cycles.
+- ✅ Natural fit for event-driven architectures.
+- ❌ Thundering herd if many events arrive simultaneously.
+- ❌ Requires robust event-delivery infrastructure (durable broker, dead-letter handling).
 
-**Real-world example:** Airflow 3.0 introduces explicit event-based scheduling, departing from its purely time-based origins. Data-aware scheduling triggers DAGs when upstream datasets are updated rather than on fixed intervals.
+Airflow 3 (released 2025) added explicit event-driven scheduling on top of its renamed "Asset" concept (formerly Datasets). DAGs can now be scheduled on `AssetWatcher` triggers that listen to message queues such as SQS or Kafka, rather than only on time intervals[^airflow3event].
 
-## Design Choices: Coordination Mechanisms
+## Coordination mechanisms
 
-### Option 1: Database Locks (No Consensus)
+This is the core design decision: how do multiple scheduler instances agree on who runs what, without becoming the bottleneck themselves?
 
-**Mechanism:** Schedulers use database row-level locks (`SELECT ... FOR UPDATE SKIP LOCKED`) to claim tasks. No inter-scheduler communication; the database is the coordination primitive.
+![Decision tree for picking a coordination mechanism based on throughput, ordering needs, and worker affinity](./diagrams/coordination-decision-light.svg "Pick the simplest coordination primitive that still meets your throughput and ordering requirements.")
+![Decision tree for picking a coordination mechanism based on throughput, ordering needs, and worker affinity](./diagrams/coordination-decision-dark.svg)
 
-```sql
--- Worker claims next available task
+### Option 1: database row locks (no consensus)
+
+Schedulers use database row-level locks (`SELECT ... FOR UPDATE SKIP LOCKED`) to claim tasks. There is no inter-scheduler communication — the database _is_ the coordination primitive.
+
+```sql title="claim.sql"
 SELECT id, payload FROM tasks
 WHERE status = 'pending'
   AND scheduled_at <= NOW()
@@ -134,546 +119,497 @@ ORDER BY priority DESC, scheduled_at ASC
 LIMIT 1
 FOR UPDATE SKIP LOCKED;
 
--- If row returned, update status
-UPDATE tasks SET status = 'running', picked_by = $worker_id WHERE id = $task_id;
+UPDATE tasks
+SET status = 'running', picked_by = $worker_id, picked_at = NOW()
+WHERE id = $task_id;
 ```
 
-**Best when:**
+`SKIP LOCKED` is what makes this scale — without it, every concurrent claim would block on the same row at the head of the queue. With it, each transaction simply skips rows already locked by another transaction and grabs the next available one.
 
-- Operational simplicity is paramount
-- Already running PostgreSQL/MySQL
-- Throughput requirements < 10K tasks/second
-- Team lacks distributed systems expertise
+![Two workers concurrently claiming rows via SELECT FOR UPDATE SKIP LOCKED — neither blocks the other](./diagrams/skip-locked-claim-light.svg "SKIP LOCKED lets concurrent claims walk past each other without blocking — each worker takes the next free row.")
+![Two workers concurrently claiming rows via SELECT FOR UPDATE SKIP LOCKED — neither blocks the other](./diagrams/skip-locked-claim-dark.svg)
 
-**Trade-offs:**
-
-- ✅ No additional infrastructure (ZooKeeper, etcd)
-- ✅ Familiar SQL semantics
-- ✅ ACID guarantees on task state transitions
-- ✅ Scales horizontally by adding scheduler instances
-- ❌ Database becomes bottleneck at extreme scale
-- ❌ Requires PostgreSQL 9.5+ or MySQL 8+ for `SKIP LOCKED`
-- ❌ Lock contention under high concurrency
-
-**Real-world example:** Airflow 2.0+ uses active-active schedulers with database locking. From the design document: "By not using direct communication or consensus algorithm between schedulers (Raft, Paxos, etc.) nor another consensus tool we have kept the operational surface area to a minimum." PostgreSQL row-level locks prevent duplicate execution while allowing multiple schedulers to operate independently.
-
-### Option 2: Leader Election (Single Active Scheduler)
-
-**Mechanism:** One scheduler is elected leader; only the leader schedules tasks. If the leader fails, another instance takes over via consensus protocol (Raft) or coordination service (ZooKeeper, etcd).
-
-**Best when:**
-
-- Strict ordering requirements
-- Single scheduler can handle throughput
-- Already running ZooKeeper/etcd for other purposes
-- Need guaranteed single-writer semantics
+**Best when:** operational simplicity matters, you already run PostgreSQL or MySQL, throughput is below ~10K tasks/second, or your team does not want to operate ZooKeeper / etcd / Consul just for the scheduler.
 
 **Trade-offs:**
 
-- ✅ No duplicate execution by design
-- ✅ Simpler reasoning about task order
-- ✅ No lock contention
-- ❌ Single point of throughput (leader bottleneck)
-- ❌ Failover latency during leader election
-- ❌ Additional operational complexity (consensus service)
+- ✅ No additional infrastructure.
+- ✅ Familiar SQL semantics; ACID guarantees on state transitions.
+- ✅ Scales horizontally by adding scheduler instances.
+- ❌ Database becomes the bottleneck at extreme scale.
+- ❌ Requires PostgreSQL 9.5+[^pgskip] or MySQL 8.0.1+[^myskip] for `SKIP LOCKED`.
+- ❌ Lock contention under very high concurrency, especially with low-cardinality `ORDER BY` columns.
 
-**Implementation detail:** Leader election typically uses lease-based mechanisms. The leader holds a lease (e.g., 30 seconds) and must renew it before expiry. If renewal fails (leader crash, network partition), other candidates compete for the lease.
+> [!TIP]
+> Apache Airflow 2+ uses active-active schedulers backed exclusively by row-level locks. From the official scheduler docs: _"by not using direct communication or consensus algorithm between schedulers (Raft, Paxos, etc.) nor another consensus tool (Apache Zookeeper, or Consul for instance) we have kept the 'operational surface area' to a minimum"_[^aip15].
 
-### Option 3: Work Stealing (Distributed Load Balancing)
+### Option 2: leader election (single active scheduler)
 
-**Mechanism:** Each worker maintains a local task queue (deque). Idle workers become "thieves" and steal tasks from busy workers' queues. Enables dynamic load balancing without central coordination.
+One scheduler is elected leader; only the leader assigns tasks. If the leader fails, another instance takes over via a consensus protocol (Raft) or a coordination service (ZooKeeper, etcd).
 
-**Best when:**
-
-- Highly variable task durations
-- Workers have different capacities
-- Minimizing tail latency is critical
+**Best when:** you need strict global ordering, a single scheduler can handle the throughput, you already operate ZooKeeper or etcd for other purposes, or you require single-writer semantics for compliance reasons.
 
 **Trade-offs:**
 
-- ✅ Self-balancing without central coordinator
-- ✅ Excellent for heterogeneous workloads
-- ✅ Reduces idle time
-- ❌ Complex implementation
-- ❌ Stealing overhead for short tasks
-- ❌ Requires careful queue structure (lock-free deques)
+- ✅ No duplicate scheduling by construction.
+- ✅ Simpler reasoning about task order.
+- ❌ Single-leader bottleneck on throughput.
+- ❌ Failover latency during leader election.
+- ❌ Extra operational surface (the consensus service itself).
 
-**Real-world example:** Dask Distributed uses work stealing for its parallel computing framework. Workers steal from the tail of other workers' queues (LIFO for locality) while processing their own tasks from the head (FIFO for fairness).
+Leader election is usually lease-based: the leader holds a lease for a fixed window (often 10–30 s) and must renew before expiry. If renewal fails (crash, network partition, GC pause longer than the lease), other candidates compete for the lease. Set the lease longer than your worst-case stop-the-world pause to avoid pathological flapping.
 
-### Option 4: Consistent Hashing (Partitioned Scheduling)
+### Option 3: work stealing (distributed load balancing)
 
-**Mechanism:** Tasks are assigned to schedulers/workers based on hash of task ID. Each node is responsible for a partition of the task space. Adding/removing nodes only affects neighboring partitions.
+Each worker holds local task state; idle workers "steal" work from busier ones. Stealing rebalances load dynamically without a central assigner.
 
-**Best when:**
-
-- Task affinity matters (cache locality, state reuse)
-- Predictable task distribution needed
-- Horizontal scaling without reshuffling all tasks
+**Best when:** task durations are highly variable, workers have different capacities, or minimising tail latency matters.
 
 **Trade-offs:**
 
-- ✅ Deterministic assignment (same task → same worker)
-- ✅ Minimal disruption on cluster changes
-- ✅ Good cache utilization
-- ❌ Hot partitions if task IDs aren't uniformly distributed
-- ❌ Rebalancing needed when nodes join/leave
-- ❌ Doesn't handle variable task complexity
+- ✅ Self-balancing, good for heterogeneous workloads.
+- ✅ Reduces idle time on faster workers.
+- ❌ More complex to implement correctly than pull-from-queue.
+- ❌ Stealing has overhead — pure short-task workloads do not benefit.
 
-**Implementation detail:** Virtual nodes improve distribution—each physical node owns multiple positions on the hash ring. Discord uses 1,000 virtual nodes per physical node to achieve <5% load variance.
+Dask Distributed implements a centralised variant: the scheduler ranks each task by a computation-to-communication ratio and biases stealing toward saturated workers. Tasks that are cheap to move (high compute, low data) are stolen first; tasks dominated by data-transfer cost stay put[^daskwork]. This is closer to "rebalancing the rich" than to classical per-worker deque stealing.
 
-## Design Choices: Task Storage
+### Option 4: consistent hashing (partitioned scheduling)
 
-### Option 1: Database-Only (PostgreSQL/MySQL)
+Tasks are assigned to schedulers / workers by hashing the task ID. Each node owns a partition of the hash ring; adding or removing nodes only re-shuffles neighbouring partitions instead of the entire keyspace.
 
-**Schema pattern:**
+**Best when:** task affinity matters (cache locality, sticky session state), you need predictable distribution, or you want horizontal scaling without rehashing all in-flight work.
 
-```sql
+**Trade-offs:**
+
+- ✅ Deterministic assignment — same task always goes to the same node.
+- ✅ Minimal disruption when nodes join or leave.
+- ✅ Good cache utilisation.
+- ❌ Hot partitions if task IDs are not uniformly distributed.
+- ❌ Cluster changes still trigger some rebalancing.
+- ❌ Doesn't natively handle variable per-task complexity.
+
+Virtual nodes (each physical node owning many positions on the ring) significantly improve distribution. The exact ratio is workload-dependent — Cassandra ships with 256 vnodes per node by default, while many systems land in the 100–1000 range. Tune this with measured load variance, not a number copied from a blog post.
+
+## Task storage
+
+### Database-only (PostgreSQL or MySQL)
+
+A canonical pattern looks like this:
+
+```sql title="schema.sql" showLineNumbers
 CREATE TABLE scheduled_tasks (
     id              BIGSERIAL PRIMARY KEY,
     task_name       VARCHAR(255) NOT NULL,
     payload         JSONB,
-    scheduled_at    TIMESTAMP NOT NULL,
+    scheduled_at    TIMESTAMPTZ NOT NULL,
     priority        SMALLINT DEFAULT 0,
     status          VARCHAR(20) DEFAULT 'pending',
     picked_by       VARCHAR(255),
-    picked_at       TIMESTAMP,
+    picked_at       TIMESTAMPTZ,
     attempts        INT DEFAULT 0,
     max_attempts    INT DEFAULT 3,
-    last_heartbeat  TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT NOW()
+    last_heartbeat  TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_pending_tasks ON scheduled_tasks (scheduled_at, priority)
+CREATE INDEX idx_pending_tasks
+    ON scheduled_tasks (scheduled_at, priority)
     WHERE status = 'pending';
 ```
 
-**Best when:**
-
-- Durability is critical (cannot lose tasks)
-- Already have PostgreSQL operational expertise
-- Throughput < 10K tasks/second
-- Need transactional task creation (enqueue with business data atomically)
+**Best when:** durability is critical, you already run PostgreSQL, throughput is under ~10K tasks/second, and you want to enqueue tasks atomically with business writes (transactional outbox).
 
 **Trade-offs:**
 
-- ✅ Single source of truth
-- ✅ Atomic enqueue with business transactions
-- ✅ Built-in persistence and replication
-- ✅ SQL for ad-hoc queries and debugging
-- ❌ Higher latency than in-memory brokers
-- ❌ Connection pool exhaustion under high load
-- ❌ Index maintenance overhead
+- ✅ Single source of truth; SQL for ad-hoc queries and operational debugging.
+- ✅ Atomic enqueue together with business transactions.
+- ✅ Built-in persistence and replication.
+- ❌ Higher latency than in-memory brokers.
+- ❌ Connection pool exhaustion under high load.
+- ❌ Index maintenance overhead at high churn.
 
-**Real-world example:** The `db-scheduler` library uses a single-table design with heartbeat tracking. Workers update `last_heartbeat` during execution; stalled tasks (heartbeat older than threshold) are reclaimed by other workers.
+The [`db-scheduler`](https://github.com/kagkarlsson/db-scheduler) library is a clean reference implementation: a single table, a partial index on pending tasks, heartbeat tracking via `last_heartbeat`, and reclamation of stalled tasks by another worker.
 
-### Option 2: Message Broker (Redis/RabbitMQ/Kafka)
+### Message broker (Redis / RabbitMQ / Kafka)
 
-**Best when:**
-
-- High throughput required (> 10K tasks/second)
-- Fire-and-forget semantics acceptable
-- Existing broker infrastructure
-- Real-time task distribution matters
+**Best when:** throughput exceeds ~10K tasks/second, fire-and-forget semantics are acceptable, you already run a broker, or you need real-time fan-out to many consumers.
 
 **Trade-offs:**
 
-- ✅ Sub-millisecond latency
-- ✅ Built-in pub/sub patterns
-- ✅ Natural backpressure via queue depth
-- ❌ Separate durability story (Redis persistence, RabbitMQ clustering)
-- ❌ Two systems to operate
-- ❌ Task state lives outside primary database
+- ✅ Sub-millisecond latency.
+- ✅ Built-in pub/sub, fan-out, and partitioning.
+- ✅ Natural backpressure via queue depth.
+- ❌ Separate durability story (Redis RDB/AOF, RabbitMQ mirroring/quorum queues, Kafka replication).
+- ❌ Two systems to operate alongside the primary database.
 
-**Broker comparison:**
+| Broker       | Model                | Durability                | Typical throughput | Best for                     |
+| ------------ | -------------------- | ------------------------- | ------------------ | ---------------------------- |
+| **Redis**    | Push (lists/streams) | Optional (RDB/AOF)        | 100K+ ops/sec      | Low-latency, simple queues   |
+| **RabbitMQ** | Push (AMQP)          | Mirrored / quorum queues  | 50K+ msg/sec       | Complex routing, reliability |
+| **Kafka**    | Pull (log)           | Replicated partitions     | 1M+ msg/sec        | High volume, replayable log  |
 
-| Broker       | Model                | Durability            | Throughput    | Best For                     |
-| ------------ | -------------------- | --------------------- | ------------- | ---------------------------- |
-| **Redis**    | Push (lists/streams) | Optional (RDB/AOF)    | 100K+ ops/sec | Low-latency, simple queues   |
-| **RabbitMQ** | Push (AMQP)          | Mirrored queues       | 50K+ msg/sec  | Complex routing, reliability |
-| **Kafka**    | Pull (log)           | Replicated partitions | 1M+ msg/sec   | High-volume, replay needed   |
+### Hybrid (database + broker)
 
-### Option 3: Hybrid (Database + Broker)
+Database stores task definitions, history, and durable state; broker handles real-time distribution and worker fan-out.
 
-**Mechanism:** Database stores task definitions, history, and durable state. Broker handles real-time task distribution and worker communication.
-
-**Best when:**
-
-- Need both durability and low latency
-- Complex task workflows with state
-- Audit trail requirements
-- Scale requires broker performance
+**Best when:** you need both durability and low latency, workflows have complex state, you have audit-trail requirements, or scale demands broker-class throughput.
 
 **Trade-offs:**
 
-- ✅ Best of both worlds
-- ✅ Database for queries, broker for speed
-- ❌ Two systems to operate and synchronize
-- ❌ Consistency challenges between stores
-- ❌ More complex failure modes
+- ✅ Database for queries, broker for speed.
+- ❌ Two systems to operate _and_ keep consistent.
+- ❌ More failure modes (broker-DB skew, message-DB skew, partial failures).
 
-**Real-world example:** A hybrid architecture uses PostgreSQL for storing job definitions (partitioned by hour) with retry counts and history, while Redis Sorted Sets hold jobs by timestamp for fast polling and Redis Streams for worker distribution.
+A common shape: PostgreSQL holds job definitions and execution history (often time-partitioned), while Redis Sorted Sets index jobs by scheduled timestamp for fast polling and Redis Streams hand off to workers.
 
-## Delivery Guarantees
+## Delivery guarantees
 
-### At-Most-Once
+### At-most-once
 
-**Mechanism:** Fire task, don't track outcome. If worker crashes mid-execution, task is lost.
+Fire the task, do not track outcome. If the worker crashes mid-execution, the task is lost.
 
-**Implementation:** No acknowledgment, no retries, no persistence.
+**Implementation:** no acknowledgement, no retries, no persistence.
 
-**Use when:**
+**Use when:** task loss is acceptable (best-effort metrics, opportunistic cache warm-up), duplicate execution is worse than missed execution, or maximum throughput is the only goal.
 
-- Task loss is acceptable (best-effort metrics)
-- Duplicate execution is worse than missed execution
-- Maximum throughput required
+### At-least-once
 
-### At-Least-Once
+The task remains "in-flight" until the worker acknowledges completion. Crashes before acknowledgement trigger re-delivery.
 
-**Mechanism:** Task remains "in-flight" until worker acknowledges completion. Crashes before acknowledgment trigger re-delivery.
-
-**Implementation:**
-
-1. Worker claims task (status → `running`)
-2. Worker executes task
-3. Worker acknowledges (status → `completed`)
-4. If heartbeat missed or timeout, task returns to queue
-
-**The idempotency requirement:** At-least-once means tasks _may run multiple times_. Your handlers must be idempotent:
-
-```python
-# ❌ BAD: Creates duplicate charges
-def process_payment(order_id, amount):
-    charge_credit_card(order_id, amount)
-    mark_order_paid(order_id)
-
-# ✅ GOOD: Idempotent via unique constraint
-def process_payment(order_id, amount):
-    # INSERT fails if already processed
-    result = insert_payment_record(order_id, amount)
-    if result.inserted:
-        charge_credit_card(order_id, amount)
+```text title="at-least-once flow"
+1. Worker claims task   → status = 'running'
+2. Worker executes
+3. Worker acknowledges  → status = 'completed'
+4. If heartbeat missed or visibility timeout expires, task returns to queue
 ```
 
-### Exactly-Once (Effectively Once)
+At-least-once means tasks **may run more than once**. Handlers must be idempotent:
 
-**The truth:** True exactly-once delivery is impossible in distributed systems due to the Two Generals Problem. What systems provide is **at-least-once delivery + idempotent processing = effectively once**.
+```python title="payment_handler.py"
+def process_payment(order_id: str, amount_cents: int) -> None:
+    # idempotency_key uniquely identifies this payment intent
+    inserted = insert_payment_attempt(
+        idempotency_key=f"order:{order_id}",
+        amount_cents=amount_cents,
+    )
+    if not inserted:
+        return  # already processed, treat as success
+
+    charge_credit_card(order_id, amount_cents)
+    mark_order_paid(order_id)
+```
+
+The unique constraint on `idempotency_key` is what makes the second invocation a no-op rather than a duplicate charge. This pattern generalises: **state insert with a unique key, side effect, ack** — in that order — turns at-least-once into effectively-once.
+
+### Exactly-once (effectively-once)
+
+True exactly-once delivery is impossible in distributed systems; what production systems provide is **at-least-once delivery + idempotent processing**, which is observably equivalent.
+
+![Effectively-once pipeline showing duplicate retry resolved by a unique idempotency key in the state store](./diagrams/effectively-once-pipeline-light.svg "Two delivery attempts hit the state store. The unique key turns the second one into a no-op without losing the ack.")
+![Effectively-once pipeline showing duplicate retry resolved by a unique idempotency key in the state store](./diagrams/effectively-once-pipeline-dark.svg)
 
 **Implementation strategies:**
 
-1. **Idempotency keys**: Store processed task IDs; skip duplicates
-2. **Transactional outbox**: Atomically record task completion with business state change
-3. **Deduplication window**: Remember recent task IDs for a time window
+1. **Idempotency keys** — store processed task IDs and short-circuit duplicates.
+2. **Transactional outbox** — record completion atomically with business state.
+3. **Deduplication window** — remember recent task IDs for a TTL.
 
-**Cost:** Exactly-once semantics typically reduce throughput by 10-50% due to coordination overhead (two-phase commits, deduplication lookups).
+Exactly-once semantics typically cost throughput. Reported overhead varies wildly by workload — Confluent's Kafka EOS benchmarks land in the single-digit-percent range for streaming pipelines, while transaction-bounded RDBMS pipelines often see 10–30% reduction. Treat any number you see as workload-specific and measure your own.
 
-**Real-world examples:**
+Production examples worth knowing:
 
-- **Temporal**: Achieves effectively-once via event history replay. Every workflow step is recorded; replaying the history reconstructs exact state.
-- **Kafka**: Combines idempotent producers (PID + sequence numbers) with transactional consumers (atomic offset commits).
-- **AWS Step Functions Standard Workflows**: Exactly-once per step via internal state machine, up to 1-year execution duration.
+- **Temporal** — Workflow code achieves effectively-once via deterministic event-history replay. Every workflow step is recorded; replaying the history reconstructs exact state. Activities (external calls) remain at-least-once and require idempotent implementations.
+- **Kafka** — Combines idempotent producers (per-producer ID + per-partition sequence numbers) with transactions that atomically commit messages and consumer offsets[^kafkaeos].
+- **AWS Step Functions Standard Workflows** — Exactly-once execution per step in the internal state machine, up to one year of execution duration[^sfnstd].
 
-## Failure Handling
+## Failure handling
 
-### Heartbeat Mechanism
+### Heartbeat-based recovery
 
-**Purpose:** Detect stalled or crashed workers before task timeout.
+The scheduler must detect stalled or crashed workers before retrying — otherwise tasks sit forever in `running` state.
 
-**Configuration guidelines:**
+![Worker heartbeats every 2-3 seconds; janitor reclaims the row when heartbeat is older than the threshold](./diagrams/heartbeat-reclaim-light.svg "A janitor sweep reclaims rows whose heartbeat is older than the detection window.")
+![Worker heartbeats every 2-3 seconds; janitor reclaims the row when heartbeat is older than the threshold](./diagrams/heartbeat-reclaim-dark.svg)
 
-| Parameter          | Typical Value  | Rationale                                  |
-| ------------------ | -------------- | ------------------------------------------ |
-| Heartbeat interval | 2-3 seconds    | Frequent enough to detect failures quickly |
-| Failure threshold  | 3 missed beats | Avoid false positives from network hiccups |
-| Time to detection  | 6-9 seconds    | Interval × threshold                       |
+| Parameter          | Typical value  | Rationale                                            |
+| ------------------ | -------------- | ---------------------------------------------------- |
+| Heartbeat interval | 2–3 seconds    | Frequent enough to detect failures quickly           |
+| Failure threshold  | 3 missed beats | Avoids false positives from transient hiccups       |
+| Time to detection  | ~6–9 seconds   | Interval × threshold                                 |
 
-**Two models:**
+Two models exist:
 
-- **Push (worker → scheduler)**: Worker sends periodic "I'm alive" signals. Simpler, but scheduler must track all workers.
-- **Pull (scheduler → worker)**: Scheduler polls worker status. More control, but adds latency.
+- **Push (worker → scheduler):** worker sends periodic "I'm alive" updates. Simpler, but the scheduler must track every worker.
+- **Pull (scheduler → worker):** scheduler polls worker status. More control, but adds latency and a discovery problem.
 
-**Implementation:**
+A janitor sweep then reclaims stalled rows:
 
-```sql
--- Reclaim stalled tasks (heartbeat older than 30 seconds)
+```sql title="reclaim.sql"
 UPDATE tasks
-SET status = 'pending', picked_by = NULL, picked_at = NULL, attempts = attempts + 1
+SET status = 'pending',
+    picked_by = NULL,
+    picked_at = NULL,
+    attempts = attempts + 1
 WHERE status = 'running'
   AND last_heartbeat < NOW() - INTERVAL '30 seconds'
   AND attempts < max_attempts;
 ```
 
-### Retry Strategies
+> [!CAUTION]
+> Set the detection window comfortably larger than your worst-case GC pause (or VM live-migration freeze, or kubelet eviction grace period). A reclaim during a long pause produces a duplicate execution _while the original is still running_ — exactly the case your idempotency layer needs to handle.
+
+### Retry strategies
 
 **Exponential backoff with jitter:**
 
-```
-delay = min(base_delay * (2 ^ attempt) + random_jitter, max_delay)
-```
+$$
+\text{delay} = \min\bigl(\text{base} \cdot 2^{\text{attempt}} + \text{jitter},\; \text{max\_delay}\bigr)
+$$
 
-| Attempt | Base Delay | With Jitter (±20%) |
-| ------- | ---------- | ------------------ |
-| 1       | 1s         | 0.8-1.2s           |
-| 2       | 2s         | 1.6-2.4s           |
-| 3       | 4s         | 3.2-4.8s           |
-| 4       | 8s         | 6.4-9.6s           |
-| 5       | 16s        | 12.8-19.2s         |
+| Attempt | Base delay | With ±20% jitter |
+| ------- | ---------- | ---------------- |
+| 1       | 1s         | 0.8–1.2s         |
+| 2       | 2s         | 1.6–2.4s         |
+| 3       | 4s         | 3.2–4.8s         |
+| 4       | 8s         | 6.4–9.6s         |
+| 5       | 16s        | 12.8–19.2s       |
 
-**Why jitter matters:** Without jitter, all failed tasks retry at the same moment (thundering herd). Random jitter spreads retries over time, preventing synchronized load spikes.
+Jitter matters because without it, every task that failed in the same outage retries at the same instant — a synchronised thundering herd that often re-triggers the original failure. AWS's analysis of [exponential backoff and jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) is the canonical reference and includes simulation results.
 
-**Distinguishing error types:**
+**Distinguish error classes:**
 
-| Error Type    | Retryable        | Example                                                 |
-| ------------- | ---------------- | ------------------------------------------------------- |
-| **Transient** | Yes              | Network timeout, rate limit, temporary unavailability   |
-| **Permanent** | No               | Invalid input, missing resource, authentication failure |
-| **Unknown**   | Conservative yes | Unexpected exceptions, unclear error codes              |
+| Error class    | Retryable        | Example                                                 |
+| -------------- | ---------------- | ------------------------------------------------------- |
+| **Transient**  | Yes              | Network timeout, rate limit, temporary unavailability   |
+| **Permanent**  | No               | Invalid input, missing resource, authentication failure |
+| **Unknown**    | Conservative yes | Unexpected exceptions, ambiguous error codes            |
 
-### Dead Letter Queue (DLQ)
+Returning a typed result (or wrapping exceptions into transient / permanent buckets) is what makes the retry policy mechanical instead of ad-hoc.
 
-**Mechanism:** After exhausting retries, failed tasks move to a DLQ for manual inspection, debugging, or specialized reprocessing.
+### Dead-letter queue (DLQ)
+
+After exhausting retries, failed tasks move to a DLQ for inspection, replay, or specialised re-processing.
 
 **Best practices:**
 
-1. **Don't consume DLQ automatically**: Blindly retrying DLQ messages repeats the same failure. Only process after fixing the root cause.
-2. **Preserve context**: Store original payload, all error messages, attempt timestamps, and worker IDs.
-3. **Alert on growth**: DLQ accumulation indicates systemic issues, not isolated failures.
-4. **TTL for cleanup**: Old DLQ messages (weeks/months) are likely stale; archive or delete.
+1. **Don't auto-consume.** Blindly reprocessing the DLQ repeats the same failure; only drain it once you've fixed the root cause.
+2. **Preserve context.** Store the original payload, every error message, attempt timestamps, and worker IDs.
+3. **Alert on growth.** DLQ accumulation is a leading indicator of systemic issues.
+4. **Set a TTL.** Old DLQ entries (weeks or months) are usually stale; archive or delete.
 
-**DLQ schema:**
-
-```sql
+```sql title="dlq.sql"
 CREATE TABLE dead_letter_queue (
-    id              BIGSERIAL PRIMARY KEY,
-    original_task_id BIGINT,
-    task_name       VARCHAR(255),
-    payload         JSONB,
-    error_message   TEXT,
-    error_stack     TEXT,
-    attempts        INT,
-    failed_at       TIMESTAMP DEFAULT NOW(),
-    worker_id       VARCHAR(255),
-    metadata        JSONB  -- original timestamps, retry history
+    id                BIGSERIAL PRIMARY KEY,
+    original_task_id  BIGINT,
+    task_name         VARCHAR(255),
+    payload           JSONB,
+    error_message     TEXT,
+    error_stack       TEXT,
+    attempts          INT,
+    failed_at         TIMESTAMPTZ DEFAULT NOW(),
+    worker_id         VARCHAR(255),
+    metadata          JSONB
 );
 ```
 
-## Clock Skew and Time Synchronization
+## Clock skew and time synchronisation
 
-### The Problem
+Distributed systems have unreliable clocks for several reasons:
 
-Distributed systems have unreliable clocks:
+- **NTP accuracy.** Internet NTP commonly delivers tens of milliseconds of synchronisation in steady state, with worse spikes during reconvergence. Sub-millisecond accuracy needs PTP or dedicated hardware references.
+- **VM live migration.** Hypervisors may freeze a guest for hundreds of milliseconds and the wall clock skips forward when the guest unfreezes.
+- **NTP step corrections.** When drift exceeds the slew threshold, NTP corrects the wall clock instantly, which can move time backward.
+- **Leap seconds.** Real minutes can have 59 or 61 seconds; Google famously chose to "smear" leap seconds across a window to dodge bugs.
 
-- **NTP accuracy**: Theoretical 10ms, practical 100-250ms skew
-- **VM migrations**: Clock discontinuities during live migration
-- **NTP corrections**: Sudden jumps when drift is corrected
-- **Leap seconds**: 61 or 59 seconds in a minute
+The impact on schedulers:
 
-**Impact on scheduling:**
+- A task scheduled for `T` may execute at `T ± skew` across replicas.
+- Two scheduler replicas may both decide a cron job is due and run it twice.
+- Logs across nodes can show effects appearing before causes when sorted by wall clock.
 
-- Task scheduled for T executes at T±skew across nodes
-- Multiple schedulers may independently trigger the same cron job
-- Logs show effects before causes
+### Mitigation
 
-### Mitigation Strategies
+**Use monotonic clocks for delays:**
 
-**1. Use monotonic clocks for delays:**
+```python title="delay.py"
+import time
 
-```python
-# ❌ BAD: Wall clock can jump
-run_at = time.time() + 30  # "30 seconds from now"
-
-# ✅ GOOD: Monotonic clock
 start = time.monotonic()
-run_after = 30  # seconds
-# Check: time.monotonic() - start >= run_after
+deadline = start + 30  # seconds in monotonic time
+
+# never use time.time() + 30 for a deadline — wall clock can step
 ```
 
-**2. Detect clock anomalies:**
+**Detect clock anomalies and fail loudly:**
 
-```python
-def check_clock_health(last_timestamp):
+```python title="clock_health.py"
+def check_clock_health(last_timestamp: float, expected_interval: float) -> None:
     current = time.time()
     drift = current - last_timestamp
-
     if drift < 0:
-        # Clock moved backward
-        raise ClockSkewError(f"Clock regressed by {-drift}s")
+        raise ClockSkewError(f"clock regressed by {-drift:.3f}s")
     if drift > expected_interval * 2:
-        # Clock jumped forward suspiciously
-        log.warning(f"Large clock jump: {drift}s")
+        log.warning("large clock jump: %.3fs", drift)
 ```
 
-**3. Use event sourcing (Temporal approach):**
+**Use event sourcing instead of clocks for correctness.** Temporal records every workflow step as an immutable event; replay reconstructs state from the event log, making execution deterministic regardless of clock variations.
 
-Rather than depending on wall clock time, Temporal records every workflow step as an immutable event. Replay reconstructs state from the event log, making execution deterministic regardless of clock variations.
+**Use bounded-uncertainty time when consistency matters.** Google's Spanner uses GPS receivers and atomic clocks to bound clock uncertainty; the published 2012 paper reports the steady-state uncertainty `ε` as a sawtooth typically in the 1–7 ms range, with occasional spikes during master maintenance[^spanner]. TrueTime returns an interval `[earliest, latest]` and Spanner waits out the uncertainty before committing. This is infrastructure-heavy and impractical outside hyperscalers.
 
-**4. Distributed time consensus (Google TrueTime):**
+## Handling concurrent executions
 
-Google's Spanner uses GPS receivers and atomic clocks to bound clock uncertainty to ≤7ms globally. TrueTime returns an interval `[earliest, latest]` rather than a point in time, and transactions wait for uncertainty to pass before committing. This is infrastructure-heavy and impractical for most organizations.
+When a scheduled task runs longer than its interval, multiple instances may overlap. Schedulers expose explicit overlap policies so this isn't accidental:
 
-## Handling Concurrent Executions
+| Policy             | Behaviour                                       | Use when                              |
+| ------------------ | ----------------------------------------------- | ------------------------------------- |
+| **Allow**          | Multiple concurrent runs                        | Tasks are independent; parallel is OK |
+| **Forbid / Skip**  | Skip if previous still running                  | Idempotency concerns, resource limits |
+| **Replace / Cancel** | Cancel previous, start new                    | Latest data more important            |
+| **Buffer**         | Queue for after current finishes                | Must process every trigger            |
 
-When a scheduled task takes longer than its interval, multiple instances may overlap. Schedulers handle this differently:
+Temporal's overlap policies — directly from the docs[^tsched]:
 
-| Policy             | Behavior                         | Use When                              |
-| ------------------ | -------------------------------- | ------------------------------------- |
-| **Allow**          | Multiple concurrent runs         | Tasks are independent, parallel OK    |
-| **Forbid/Skip**    | Skip if previous running         | Idempotency concerns, resource limits |
-| **Replace/Cancel** | Stop previous, start new         | Latest data more important            |
-| **Buffer**         | Queue for after current finishes | Must process every trigger            |
+- `Skip` (default) — don't start if previous is still running.
+- `BufferOne` — buffer at most one execution to start after the current completes.
+- `BufferAll` — queue every missed execution; recommended when used together with backfill.
+- `CancelOther` — cancel the running execution, then start the new one.
+- `TerminateOther` — terminate (no graceful cancel) the running execution, then start the new one.
+- `AllowAll` — no limits on concurrent executions.
 
-**Temporal's overlap policies:**
+Kubernetes CronJob exposes a smaller set:
 
-- `Skip` (default): Don't start if previous is running
-- `BufferOne`: Queue one for after current finishes
-- `BufferAll`: Queue all missed executions
-- `CancelOther`: Cancel running before starting new
-- `AllowAll`: No limits on concurrent executions
-
-**Kubernetes CronJob:**
-
-```yaml
+```yaml title="cronjob.yaml"
 spec:
-  concurrencyPolicy: Forbid # Skip if previous job still running
-  startingDeadlineSeconds: 200 # Fail if can't start within 200s of schedule
+  concurrencyPolicy: Forbid       # Allow | Forbid | Replace
+  startingDeadlineSeconds: 200    # fail if can't start within 200s
+  timeZone: "America/New_York"    # GA in 1.27
 ```
 
-## Real-World Case Studies
+## Real-world case studies
 
-### Apache Airflow: Database-Centric HA
+### Apache Airflow — database-centric HA
 
-**Problem:** Run thousands of DAGs reliably without single points of failure.
+**Problem:** run thousands of DAGs reliably without single points of failure.
 
-**Architecture:**
+**Architecture:** multiple scheduler instances active-active, PostgreSQL or MySQL row-level locks for coordination, no inter-scheduler RPC; Celery or Kubernetes for execution.
 
-- Multiple scheduler instances (active-active)
-- PostgreSQL/MySQL for coordination (row-level locks)
-- No inter-scheduler communication
-- Celery or Kubernetes for task execution
+**Key insight:** "_by not using direct communication or consensus algorithm between schedulers (Raft, Paxos, etc.) ... we have kept the 'operational surface area' to a minimum_"[^aip15].
 
-**Key insight:** "By not using direct communication or consensus algorithm between schedulers (Raft, Paxos, etc.)... we have kept the operational surface area to a minimum."
+**Trade-off accepted:** the database is the bottleneck at extreme scale. Mitigation is replicas, partitioning, and accepting that horizontal scheduler scaling has a ceiling determined by your database tier.
 
-**Trade-off accepted:** Database becomes the bottleneck at extreme scale. Mitigation: run multiple metadatabase replicas, partition DAGs across multiple Airflow instances.
+**Operational guidance:** Astronomer recommends at least two schedulers in production for HA, scaling beyond that for throughput[^astro].
 
-**Scaling characteristics:** Airflow Scheduler scales nearly linearly. Astronomer recommends "at least two schedulers for any production deployment, three is better."
+### Temporal — durable execution via event sourcing
 
-### Temporal: Durable Execution via Event Sourcing
-
-**Problem:** Long-running workflows (hours to years) that must survive infrastructure failures.
+**Problem:** long-running workflows (hours to a year) that must survive infrastructure failures.
 
 **Architecture:**
 
-- **History Service**: Stores immutable event log per workflow execution
-- **Matching Service**: Manages task queues for worker polling
-- **Workers**: Stateless processes that execute workflow/activity code
+- **History service** stores an immutable event log per workflow execution.
+- **Matching service** manages task queues for worker polling.
+- **Workers** are stateless processes executing workflow / activity code.
 
-**Key insight:** Workflow state is reconstructed by replaying events, not stored explicitly. Code must be deterministic—same inputs always produce same outputs.
+**Key insight:** workflow state is reconstructed by replaying events, not stored explicitly. Code must be deterministic — identical inputs must always produce identical outputs.
 
-**Exactly-once guarantee:** Workflow code runs effectively once, even if replayed multiple times. Activities (external calls) are at-least-once; application handles idempotency.
+**Exactly-once guarantee:** workflow code is effectively-once even when replayed; activity code is at-least-once and must be made idempotent by the application.
 
-**Real-world use:** Stripe uses Temporal for subscription billing workflows that span months. Datadog uses it for incident response automation.
+**Production usage:** Stripe uses Temporal as a durability layer for payment workflows[^stripeTemp]; Datadog uses Temporal for Database Reliability Engineering — automating database operations and remediation that previously relied on hand-rolled scripts[^ddtemp].
 
-### Celery: Broker-Based Task Distribution
+### Celery — broker-based task distribution
 
-**Problem:** Distribute Python tasks across worker pools with minimal latency.
+**Problem:** distribute Python tasks across worker pools with minimal latency.
 
-**Architecture:**
+**Architecture:** clients submit tasks to a broker (Redis or RabbitMQ); workers poll the broker, execute, and return results to a result backend.
 
-- Client submits tasks to broker (Redis/RabbitMQ)
-- Workers poll broker, execute tasks, return results
-- Result backend stores outcomes
+**Trade-off:** simplicity over durability. Tasks held only in Redis can be lost on a Redis crash; for critical workloads, use RabbitMQ with persistent messages and explicit ACKs (or move the durable record to your primary database).
 
-**Trade-off:** Simplicity over durability. Tasks in Redis can be lost on crash. For critical tasks, use RabbitMQ with persistent messages and acknowledgments.
+**Manageability gap:** Celery is famously hard to introspect once a worker pool misbehaves — there is no first-class concept of workflow state to query. For complex workflow needs, either a workflow engine (Airflow, Temporal) or a durable-execution platform is usually a better fit.
 
-**Manageability challenge:** One team noted "The most significant problem encountered with Celery is the inability to manage it effectively. In the event of a potential error, it was challenging to intervene with workers." Airflow provides better observability for complex workflows.
+### Google's distributed cron — reliability via Paxos
 
-### Google Cron: Distributed Periodic Scheduling
+**Problem:** run millions of cron jobs reliably across global datacenters.
 
-**Problem:** Run millions of cron jobs reliably across global datacenters.
+**Key lessons from the Google SRE book**[^googcron]:
 
-**Key lessons from Google SRE:**
+1. **Idempotency or state lookup.** "When a leader replica dies after a scheduled launch starts but before completion notification, the system must handle this by ensuring all operations on external systems are either idempotent or their state can be looked up." Google chose to construct deterministic operation names ahead of time so a recovering leader can ask "did this name actually launch?" instead of risking a duplicate.
+2. **Store state in a Paxos-based system.** Cron configuration and execution state live in a globally consistent store so leader handover never loses state.
+3. **Decouple scheduling from execution.** The cron service decides _when_ to launch; separate infrastructure handles _how_ to run the work.
 
-1. **Idempotency or state lookup**: "When a leader replica dies after a scheduled launch starts but before completion notification, the system must handle this by ensuring all operations on external systems are either idempotent or their state can be looked up."
+## Common pitfalls
 
-2. **Store state in Paxos-based system**: Cron configuration and execution state live in a globally consistent store.
+### Pitfall 1 — Ignoring idempotency
 
-3. **Decouple scheduling from execution**: Cron service determines _when_ to launch; separate infrastructure handles _how_ to run.
+**Mistake:** assuming tasks run exactly once and writing non-idempotent handlers.
 
-## Common Pitfalls
+**Why it happens:** at-least-once semantics aren't obvious until the first duplicate execution in production.
 
-### Pitfall 1: Ignoring Idempotency
+**Consequence:** double charges, duplicate notifications, corrupted derived data.
 
-**The mistake:** Assuming tasks run exactly once, writing non-idempotent handlers.
+**Fix:** design every handler for re-execution. Idempotency keys, unique constraints, or check-then-act with proper locking.
 
-**Why it happens:** At-least-once semantics aren't obvious until the first duplicate execution in production.
+### Pitfall 2 — Unbounded retries
 
-**The consequence:** Double charges, duplicate notifications, corrupted data.
+**Mistake:** retrying indefinitely without backoff or attempt limits.
 
-**The fix:** Design every handler for re-execution. Use idempotency keys, database constraints, or check-then-act with proper locking.
+**Why it happens:** optimism that transient failures will resolve.
 
-### Pitfall 2: Unbounded Retry Loops
+**Consequence:** permanent failures consume worker capacity forever. The retry queue grows unbounded and the system grinds to a halt.
 
-**The mistake:** Retrying indefinitely without backoff or limits.
+**Fix:** exponential backoff, maximum retry count, DLQ for terminal failures, and a typed error model that classifies transient vs. permanent.
 
-**Why it happens:** Optimistic assumption that transient failures will resolve.
+### Pitfall 3 — Missing heartbeats
 
-**The consequence:** Permanent failures consume worker capacity forever. System grinds to a halt as retry queue grows unbounded.
+**Mistake:** no mechanism to detect stalled workers.
 
-**The fix:** Exponential backoff, maximum retry count, DLQ for terminal failures.
+**Why it happens:** happy-path testing rarely simulates mid-execution crashes.
 
-### Pitfall 3: Missing Heartbeats
+**Consequence:** tasks stuck in `running` forever; phantom workers holding work hostage.
 
-**The mistake:** No mechanism to detect stalled workers.
+**Fix:** worker heartbeats during execution, time-based reclamation, dashboards for worker health.
 
-**Why it happens:** Happy-path testing doesn't simulate mid-execution crashes.
+### Pitfall 4 — Wall-clock assumptions
 
-**The consequence:** Tasks stuck in "running" state forever. Phantom workers holding tasks hostage.
+**Mistake:** using wall-clock time for scheduling decisions without accounting for skew or steps.
 
-**The fix:** Heartbeat updates during execution, timeout-based reclamation, visibility into worker health.
+**Why it happens:** developer machines have well-synced clocks; production environments don't.
 
-### Pitfall 4: Clock Assumptions
+**Consequence:** duplicate cron runs, missed schedules, premature firings after NTP corrections.
 
-**The mistake:** Using wall clock time for scheduling decisions without accounting for skew.
+**Fix:** monotonic clocks for delays; clock-skew detection; tolerances in schedule matching; deterministic event sourcing where ordering matters for correctness.
 
-**Why it happens:** Developer machines have synced clocks; distributed environments don't.
+### Pitfall 5 — Overloading the scheduler
 
-**The consequence:** Duplicate cron executions, missed schedules, tasks firing at wrong times.
+**Mistake:** running heavy computation in the scheduler process.
 
-**The fix:** Monotonic clocks for delays, clock skew detection, tolerances in schedule matching.
+**Why it happens:** convenience — a small task feels easier to inline than to dispatch.
 
-### Pitfall 5: Overloading the Scheduler
+**Consequence:** scheduler becomes the bottleneck; scheduling latency rises; cascading delays show up everywhere downstream.
 
-**The mistake:** Running heavy computation in the scheduler process itself.
+**Fix:** schedulers schedule. Workers compute. Keep the scheduler process lightweight and responsive.
 
-**Why it happens:** Convenience—small tasks inline rather than distributed.
+## How to choose
 
-**The consequence:** Scheduler becomes bottleneck, scheduling latency increases, cascading delays.
+Start with these questions:
 
-**The fix:** Scheduler only schedules. All computation happens on workers. Keep scheduler lightweight and responsive.
-
-## How to Choose
-
-**Start with these questions:**
-
-1. **What's your throughput requirement?**
-   - < 1K tasks/min: Database-only (PostgreSQL)
-   - 1K-100K tasks/min: Database + broker hybrid
-   - > 100K tasks/min: Dedicated message broker, sharded scheduling
+1. **What is the throughput requirement?**
+   - < 1K tasks/min — database-only (PostgreSQL).
+   - 1K–100K tasks/min — database + broker hybrid.
+   - > 100K tasks/min — dedicated message broker, sharded scheduling.
 
 2. **How critical is task completion?**
-   - Best-effort OK: At-most-once, simple broker
-   - Must complete: At-least-once with idempotent handlers
-   - Financial/billing: Exactly-once semantics worth the overhead
+   - Best-effort — at-most-once on a simple broker.
+   - Must complete — at-least-once with idempotent handlers.
+   - Financial / billing — effectively-once via durable execution or transactional outbox.
 
 3. **How long do tasks run?**
-   - Seconds: Simple queue (Celery, RQ)
-   - Minutes to hours: Workflow engine with checkpointing
-   - Days to months: Durable execution (Temporal, AWS Step Functions)
+   - Seconds — simple queue (Celery, RQ, BullMQ).
+   - Minutes to hours — workflow engine with checkpointing.
+   - Days to a year — durable execution (Temporal, AWS Step Functions Standard).
 
-4. **What's your operational capacity?**
-   - Small team: Managed services (AWS Step Functions, Cloud Tasks)
-   - Dedicated SRE: Self-hosted Temporal, Airflow
-
-**Decision matrix:**
+4. **What operational capacity do you have?**
+   - Small team — managed services (AWS Step Functions, Cloud Tasks, Temporal Cloud).
+   - Dedicated SRE — self-hosted Temporal, Airflow.
 
 | Requirement            | Celery     | Airflow      | Temporal    | DB-only   |
 | ---------------------- | ---------- | ------------ | ----------- | --------- |
@@ -685,71 +621,67 @@ spec:
 
 ## Conclusion
 
-Task scheduler design reduces to three fundamental decisions:
+Task-scheduler design reduces to three decisions:
 
-1. **How do you coordinate?** Database locks (simple, lower scale) vs. consensus protocols (complex, higher guarantees) vs. partitioning (deterministic, requires uniform distribution).
-
-2. **What guarantees do you provide?** At-least-once with idempotent handlers is the pragmatic default. Exactly-once is achievable but costs throughput and complexity.
-
-3. **Where does state live?** Database-only for durability and simplicity; broker for throughput; hybrid for both at operational cost.
+1. **How do you coordinate?** Database row locks (simple, capped throughput), consensus / leader election (strict ordering, single-leader bottleneck), or partitioning (deterministic, requires uniform key distribution).
+2. **What guarantees do you provide?** At-least-once with idempotent handlers is the pragmatic default. Effectively-once is achievable; true exactly-once isn't.
+3. **Where does state live?** Database-only for durability and simplicity, broker for throughput, hybrid for both at the cost of operating two systems.
 
 The industry has converged on two patterns:
 
-- **Simple tasks**: Database as queue with `SELECT FOR UPDATE SKIP LOCKED`. PostgreSQL handles 10K+ tasks/second with proper indexing. No additional infrastructure.
-- **Complex workflows**: Durable execution engines (Temporal, AWS Step Functions) that provide exactly-once semantics, long-running support, and automatic failure recovery.
+- **Simple tasks** — database-as-queue with `SELECT FOR UPDATE SKIP LOCKED`. PostgreSQL handles >10K tasks/second with a partial index and disciplined connection pooling. No additional infrastructure.
+- **Complex workflows** — durable-execution engines (Temporal, AWS Step Functions Standard) that provide effectively-once execution, long-running support, and automatic recovery via event sourcing.
 
-The key insight from production systems: **operational simplicity beats theoretical optimality**. Airflow uses database locks instead of Raft. Temporal replays events instead of distributed transactions. Both work reliably at scale by choosing the simpler mechanism that still meets requirements.
+The key insight from production systems: **operational simplicity beats theoretical optimality**. Airflow uses database locks instead of Raft. Temporal replays events instead of distributed transactions. Both work reliably at scale by choosing the simplest mechanism that still meets the requirement.
 
 ## Appendix
 
 ### Prerequisites
 
-- Understanding of distributed systems fundamentals (CAP theorem, consensus)
-- Familiarity with database transactions and locking
-- Basic knowledge of message brokers (Redis, RabbitMQ, Kafka)
-- Experience with at least one task scheduling system
+- Distributed systems fundamentals (CAP, FLP, consensus).
+- Database transactions and locking.
+- Familiarity with at least one message broker (Redis, RabbitMQ, Kafka).
+- Experience operating at least one task scheduling system.
 
 ### Terminology
 
-- **DAG (Directed Acyclic Graph)**: Workflow representation where tasks are nodes and dependencies are edges; used by Airflow
-- **DLQ (Dead Letter Queue)**: Storage for messages that cannot be processed after exhausting retries
-- **Durable Execution**: Execution model where workflow state survives process/infrastructure failures via checkpointing or event sourcing
-- **Idempotent**: Operation that produces the same result regardless of how many times it's executed
-- **Heartbeat**: Periodic signal from worker to scheduler indicating liveness
-- **Work Stealing**: Load balancing technique where idle workers take tasks from busy workers' queues
+- **DAG (Directed Acyclic Graph)** — workflow representation where tasks are nodes and dependencies are edges; Airflow's primary unit of scheduling.
+- **DLQ (Dead Letter Queue)** — storage for messages that cannot be processed after exhausting retries.
+- **Durable execution** — execution model where workflow state survives infrastructure failures via checkpointing or event sourcing.
+- **Idempotent** — operation that produces the same result regardless of how many times it executes.
+- **Heartbeat** — periodic signal from worker to scheduler indicating liveness.
+- **Work stealing** — load-balancing technique where idle workers (or a central scheduler on their behalf) reassign work from saturated workers.
 
 ### Summary
 
-- **Database locks** (`SELECT FOR UPDATE SKIP LOCKED`) replace consensus algorithms for most scheduler coordination—simpler to operate with acceptable scale limits
-- **At-least-once + idempotency** achieves effectively-once execution without the overhead of true exactly-once guarantees
-- **Heartbeat mechanisms** detect stalled workers; reclaim tasks when heartbeat exceeds threshold
-- **Exponential backoff with jitter** prevents thundering herds during retry storms
-- **Clock skew is unavoidable**; use monotonic clocks for delays, event sourcing for ordering, and explicit timezone handling for cron
-- **Temporal/durable execution** is the modern answer for long-running workflows; event sourcing enables deterministic replay
+- **Database row locks** (`SELECT FOR UPDATE SKIP LOCKED`) replace consensus algorithms for most scheduler coordination — simpler to operate with acceptable scale limits.
+- **At-least-once + idempotency** delivers effectively-once execution without the cost of true exactly-once.
+- **Heartbeat mechanisms** detect stalled workers; reclaim tasks once heartbeats lapse beyond the detection window.
+- **Exponential backoff with jitter** prevents thundering herds during retry storms.
+- **Clock skew is unavoidable** — use monotonic clocks for delays, event sourcing for ordering, and explicit time zones for cron.
+- **Durable execution** is the modern answer for long-running workflows; event sourcing enables deterministic replay.
 
 ### References
 
-#### Design Documents and Architecture
+[^aip15]: ["Scheduler — Apache Airflow"](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/scheduler.html). Official scheduler docs covering AIP-15 (multi-scheduler HA without consensus).
+[^pgskip]: ["SELECT — PostgreSQL 9.5"](https://www.postgresql.org/docs/9.5/sql-select.html#SQL-FOR-UPDATE-SHARE). `FOR UPDATE SKIP LOCKED` was introduced in 9.5.
+[^myskip]: ["MySQL 8.0.1: Using SKIP LOCKED and NOWAIT to handle hot rows"](https://dev.mysql.com/blog-archive/mysql-8-0-1-using-skip-locked-and-nowait-to-handle-hot-rows/). MySQL added `SKIP LOCKED` to InnoDB in 8.0.1.
+[^k8sgaCron]: ["CronJob — Kubernetes"](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) and [KEP-3140](https://github.com/kubernetes/enhancements/issues/3140). `spec.timeZone` reached GA in v1.27.
+[^tsched]: ["Schedule — Temporal Platform Documentation"](https://docs.temporal.io/schedule). Overlap policies, catchup, and pause behaviour.
+[^kafkaeos]: ["Kafka Transactional Support"](https://developer.confluent.io/courses/architecture/transactions/) — Confluent's reference on EOS via idempotent producers and transactional commits.
+[^sfnstd]: ["Choosing workflow type in Step Functions"](https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html). Standard workflows: exactly-once execution, up to one year duration.
+[^googcron]: ["Distributed Periodic Scheduling with Cron — Google SRE Book"](https://sre.google/sre-book/distributed-periodic-scheduling/). Chapter 24 of the SRE book.
+[^spanner]: Corbett et al., ["Spanner: Google's Globally-Distributed Database" (OSDI 2012)](https://research.google.com/archive/spanner-osdi2012.pdf). TrueTime ε behaviour described in §5.3 and Figure 6.
+[^astro]: ["Benefits of the Airflow 2.0 Scheduler — Astronomer"](https://www.astronomer.io/blog/airflow-2-scheduler/) and [Astro deployment resources](https://www.astronomer.io/docs/astro/deployment-resources).
+[^stripeTemp]: ["Stripe Sessions: Payments Without Speed Bumps"](https://temporal.io/resources/on-demand/stripe-sessions). Stripe's use of Temporal as a resilience layer for payment workflows.
+[^ddtemp]: ["How Datadog Ensures Database Reliability with Temporal"](https://temporal.io/resources/case-studies/how-datadog-ensures-database-reliability-with-temporal). Datadog's use of Temporal for Database Reliability Engineering.
+[^airflow3event]: ["Event-driven scheduling — Airflow"](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/event-scheduling.html) and ["Asset-Aware Scheduling"](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/asset-scheduling.html).
+[^daskwork]: ["Work Stealing — Dask.distributed"](https://distributed.dask.org/en/stable/work-stealing.html). Computation-to-communication ratio binning and saturated-worker rebalancing.
 
-- [AIP-15: Support Multiple-Schedulers for HA](https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=103092651) - Apache Airflow's design document for active-active scheduler architecture using database locks
-- [Temporal Architecture Documentation](https://github.com/temporalio/temporal/blob/main/docs/architecture/README.md) - Official architecture overview of Temporal's durable execution engine
-- [Google SRE Book: Distributed Periodic Scheduling](https://sre.google/sre-book/distributed-periodic-scheduling/) - Google's production lessons on running distributed cron at scale
+#### Further reading
 
-#### Official Documentation
-
-- [Apache Airflow Scheduler](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/scheduler.html) - Scheduler configuration and high availability setup
-- [Temporal Schedules](https://docs.temporal.io/schedule) - Schedule configuration including overlap policies and catch-up behavior
-- [Kubernetes CronJobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) - CronJob specification including concurrency policies and time zones
-- [Celery Documentation](https://docs.celeryq.dev/) - Distributed task queue configuration and best practices
-
-#### Implementation References
-
-- [db-scheduler: Persistent Cluster-Friendly Scheduler](https://github.com/kagkarlsson/db-scheduler) - Java library demonstrating database-as-queue pattern with heartbeat tracking
-- [PostgreSQL Task Queue Design](https://gist.github.com/chanks/7585810) - Implementation achieving 10,000 jobs/second with PostgreSQL
-- [The Definitive Guide to Durable Execution](https://temporal.io/blog/what-is-durable-execution) - Temporal's explanation of event sourcing for workflow reliability
-
-#### Patterns and Best Practices
-
-- [Queue-Based Exponential Backoff](https://dev.to/andreparis/queue-based-exponential-backoff-a-resilient-retry-pattern-for-distributed-systems-37f3) - Retry pattern implementation using message queues
-- [Exactly-Once Semantics in Kafka](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/) - How Kafka achieves exactly-once via idempotent producers and transactional consumers
-- [Error Handling in Distributed Systems](https://temporal.io/blog/error-handling-in-distributed-systems) - Patterns for resilient error handling including durable execution
+- [`db-scheduler`](https://github.com/kagkarlsson/db-scheduler) — Java reference implementation of the database-as-queue pattern.
+- [PostgreSQL job queue gist (Chanks)](https://gist.github.com/chanks/7585810) — implementation hitting ~10K jobs/second with PostgreSQL.
+- [The Definitive Guide to Durable Execution](https://temporal.io/blog/what-is-durable-execution) — Temporal's own primer on event sourcing for workflows.
+- [AWS exponential backoff and jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) — analysis and simulations.
+- [Reliable Cron across the Planet (ACM Queue)](https://queue.acm.org/detail.cfm?id=2745840) — companion ACM Queue article to the SRE book chapter.

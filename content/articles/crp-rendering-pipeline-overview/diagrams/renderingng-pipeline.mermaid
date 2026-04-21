@@ -1,0 +1,43 @@
+%% Diagram: RenderingNG end-to-end pipeline with thread/process lanes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Parse["Parsing (renderer main thread)"]
+        direction LR
+        DOM["DOM construction"]
+        CSSOM["CSSOM construction"]
+    end
+
+    subgraph Main["Renderer main thread - document lifecycle"]
+        direction LR
+        Animate["1. Animate"]
+        Style["2. Style"]
+        Layout["3. Layout"]
+        Prepaint["4. Pre-paint"]
+        Scroll["5. Scroll"]
+        Paint["6. Paint"]
+        Commit["7. Commit"]
+        Animate --> Style --> Layout --> Prepaint --> Scroll --> Paint --> Commit
+    end
+
+    subgraph Comp["Renderer compositor thread (+ worker threads)"]
+        direction LR
+        Layerize["8. Layerize"]
+        Raster["9. Raster + decode"]
+        Activate["10. Activate"]
+        Layerize --> Raster --> Activate
+    end
+
+    subgraph Viz["Viz process (display compositor + GPU main)"]
+        direction LR
+        Aggregate["11. Aggregate"]
+        Draw["12. Draw"]
+        Aggregate --> Draw
+    end
+
+    DOM --> Style
+    CSSOM --> Style
+    Commit ==> Layerize
+    Activate ==> Aggregate
+    Animate -. compositor-only animation .-> Aggregate
+    Scroll -. compositor-only scroll .-> Aggregate

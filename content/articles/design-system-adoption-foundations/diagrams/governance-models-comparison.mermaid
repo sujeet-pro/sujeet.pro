@@ -1,0 +1,45 @@
+%% Diagram: Governance Models Comparison
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Centralized["Centralized"]
+        direction TB
+        CC["Core team\n(owns everything)"]
+        CT1["Product team A"]
+        CT2["Product team B"]
+        CT3["Product team C"]
+        CC ==> CT1
+        CC ==> CT2
+        CC ==> CT3
+    end
+
+    subgraph Federated["Federated (Curtis 2024)"]
+        direction TB
+        FC["Core team\n(tokens, primitives,\nreview process)"]
+        FCh1["Champion + team A"]
+        FCh2["Champion + team B"]
+        FCh3["Champion + team C"]
+        FC <==> FCh1
+        FC <==> FCh2
+        FC <==> FCh3
+        FCh1 -.contributes.-> FC
+        FCh2 -.contributes.-> FC
+        FCh3 -.contributes.-> FC
+    end
+
+    subgraph Hybrid["Hybrid (modal steady state)"]
+        direction TB
+        HC["Core team\n(foundations + standards)"]
+        HF["Foundations\n(tokens, primitives)"]
+        HD["Domain components\n(team-owned, reviewed)"]
+        HC ==> HF
+        HC -.gates.-> HD
+        HD -.contributes back.-> HC
+    end
+
+    classDef core fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef team fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef shared fill:#2E7D5A,stroke:#1F5C42,color:#ffffff
+    class CC,FC,HC core
+    class CT1,CT2,CT3,FCh1,FCh2,FCh3 team
+    class HF,HD shared

@@ -1,0 +1,28 @@
+%% Diagram: Quorum Overlap (W + R > N)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CFG["N = 3, W = 2, R = 2 (W + R > N => overlap guaranteed)"]
+        direction TB
+        N1["Replica 1"]:::write
+        N2["Replica 2"]:::both
+        N3["Replica 3"]:::read
+
+        WC(("Writer")):::actor
+        RC(("Reader")):::actor
+
+        WC -- "W=2 acks" --> N1
+        WC -- "W=2 acks" --> N2
+        RC -- "R=2 contacted" --> N2
+        RC -- "R=2 contacted" --> N3
+    end
+
+    OVERLAP["Replica 2 is in both quorums =>\nat least one read sees the latest write"]:::note
+
+    N2 -.-> OVERLAP
+
+    classDef actor fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef write fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef read fill:#1F6E68,stroke:#155752,color:#fff
+    classDef both fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef note fill:#8B5E15,stroke:#6E4810,color:#fff

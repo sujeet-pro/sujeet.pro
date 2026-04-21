@@ -1,0 +1,30 @@
+%% Diagram: Push fan-out — single change drives WebSocket, FCM/APNs, iMIP, and CalDAV watch channels
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Change["event.updated<br/>(write commits, sync_token bumped)"]
+    Topic["change topic<br/>Kafka / SQS"]
+    Fan["fan-out worker<br/>resolves attendees + subscriptions"]
+    Reg["device + channel registry<br/>(WebSockets, push tokens, watch channels)"]
+
+    subgraph Channels["Delivery channels"]
+        WS["WebSocket<br/>active web tabs"]
+        FCM["FCM push<br/>Android"]
+        APNs["APNs push<br/>iOS / macOS"]
+        Email["iMIP email<br/>REQUEST / CANCEL / REPLY"]
+        Watch["CalDAV / Google watch<br/>HTTPS POST to webhook"]
+    end
+
+    Reconcile["client GETs /events?syncToken=...<br/>applies delta, ACKs"]
+
+    Change --> Topic --> Fan
+    Reg --> Fan
+    Fan --> WS
+    Fan --> FCM
+    Fan --> APNs
+    Fan --> Email
+    Fan --> Watch
+    WS --> Reconcile
+    FCM --> Reconcile
+    APNs --> Reconcile
+    Watch --> Reconcile

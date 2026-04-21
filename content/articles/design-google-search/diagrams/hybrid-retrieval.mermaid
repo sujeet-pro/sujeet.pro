@@ -1,0 +1,43 @@
+%% Diagram: Hybrid retrieval — sparse (BM25 on inverted index) + dense (ANN on embeddings), fused before re-ranking
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Q["Query"]
+
+    subgraph Encode["Query encoding"]
+        direction TB
+        TOK["Tokenise / normalise"]
+        EMB["Bi-encoder\n(BERT-class)\n→ dense vector"]
+        TOK --> EMB
+    end
+
+    subgraph Sparse["Sparse retrieval"]
+        direction TB
+        INV[(Inverted index\nposting lists)]
+        BM25["BM25 / WAND\ntop-K_sparse"]
+        INV --> BM25
+    end
+
+    subgraph Dense["Dense retrieval"]
+        direction TB
+        ANN[(ANN index\nHNSW / IVF-PQ)]
+        KNN["k-NN by cosine\ntop-K_dense"]
+        ANN --> KNN
+    end
+
+    subgraph Fuse["Candidate fusion"]
+        direction TB
+        RRF["Reciprocal Rank Fusion\nor learned weighting"]
+        UNION["Union → dedup → top-K_combined"]
+        RRF --> UNION
+    end
+
+    RERANK["Cross-encoder re-rank\n(BERT/MUM)"]
+    OUT["Final results"]
+
+    Q --> TOK
+    Q --> INV
+    EMB --> KNN
+    BM25 --> RRF
+    KNN --> RRF
+    UNION --> RERANK --> OUT

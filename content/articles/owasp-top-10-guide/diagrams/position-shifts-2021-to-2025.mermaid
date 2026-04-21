@@ -1,0 +1,55 @@
+%% Diagram: Category position shifts from OWASP Top 10:2021 to Top 10:2025
+%% Type: flowchart (left = 2021 ranks, right = 2025 ranks, arrows show movement)
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph y2021["OWASP Top 10:2021"]
+        direction TB
+        T01["A01 Broken Access Control"]
+        T02["A02 Cryptographic Failures"]
+        T03["A03 Injection"]
+        T04["A04 Insecure Design"]
+        T05["A05 Security Misconfiguration"]
+        T06["A06 Vulnerable & Outdated Components"]
+        T07["A07 Identification & Auth Failures"]
+        T08["A08 Software & Data Integrity Failures"]
+        T09["A09 Security Logging & Monitoring Failures"]
+        T10["A10 Server-Side Request Forgery (SSRF)"]
+    end
+
+    subgraph y2025["OWASP Top 10:2025"]
+        direction TB
+        N01["A01 Broken Access Control (incl. SSRF)"]
+        N02["A02 Security Misconfiguration"]
+        N03["A03 Software Supply Chain Failures (new scope)"]
+        N04["A04 Cryptographic Failures"]
+        N05["A05 Injection"]
+        N06["A06 Insecure Design"]
+        N07["A07 Authentication Failures"]
+        N08["A08 Software or Data Integrity Failures"]
+        N09["A09 Security Logging & Alerting Failures"]
+        N10["A10 Mishandling of Exceptional Conditions (new)"]
+    end
+
+    T01 --> N01
+    T10 -. "consolidated" .-> N01
+    T05 == "+3" ==> N02
+    T06 == "expanded scope" ==> N03
+    T02 -- "−2" --> N04
+    T03 -- "−2" --> N05
+    T04 -- "−2" --> N06
+    T07 --> N07
+    T08 --> N08
+    T09 --> N09
+
+    classDef rose fill:#1f6f43,color:#ffffff,stroke:#0f3f25,stroke-width:1px
+    classDef fell fill:#7a3030,color:#ffffff,stroke:#3f1818,stroke-width:1px
+    classDef same fill:#26344a,color:#ffffff,stroke:#101828,stroke-width:1px
+    classDef newcat fill:#5a3a8a,color:#ffffff,stroke:#2c1c47,stroke-width:1px
+
+    class N02 rose
+    class N03 newcat
+    class N04 fell
+    class N05 fell
+    class N06 fell
+    class N10 newcat
+    class N01,N07,N08,N09 same

@@ -1,0 +1,26 @@
+%% Diagram: QUIC encryption levels and key derivation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Public["Publicly derivable"]
+        DCID["Destination Connection ID + version-specific salt"]
+        DCID --> InitKey["Initial keys (HKDF-Expand)"]
+        InitKey --> Initial["Initial packets — integrity only"]
+    end
+
+    subgraph PSK["From cached session ticket"]
+        Resume["Pre-Shared Key (PSK)"]
+        Resume --> EarlyKey["0-RTT (early data) keys"]
+        EarlyKey --> Zero["0-RTT packets — replayable, no PFS"]
+    end
+
+    subgraph Hand["From TLS 1.3 ECDHE"]
+        ECDHE["ECDHE shared secret"]
+        ECDHE --> HSKey["Handshake keys"]
+        HSKey --> Handshake["Handshake packets"]
+        ECDHE --> AppKey["1-RTT (application) keys"]
+        AppKey --> OneRTT["1-RTT packets — confidentiality + PFS"]
+    end
+
+    Initial --> Handshake
+    Handshake --> OneRTT

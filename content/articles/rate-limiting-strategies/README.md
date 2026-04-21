@@ -1,46 +1,51 @@
 ---
-title: 'Rate Limiting Strategies: Token Bucket, Leaky Bucket, and Sliding Window'
-linkTitle: 'Rate Limiting'
+title: "Rate Limiting Strategies: Token Bucket, Leaky Bucket, and Sliding Window"
+linkTitle: "Rate Limiting"
 description: >-
-  Five rate limiting algorithms compared — token bucket, leaky bucket, fixed window, sliding window log, and sliding window counter — with production implementations from AWS, Stripe, and Cloudflare, plus distributed coordination patterns using Redis.
+  Five rate limiting algorithms compared — token bucket, leaky bucket, fixed window, sliding window log, and sliding window counter — with how AWS API Gateway, Stripe, Cloudflare, GitHub, and NGINX deploy them, plus distributed coordination patterns using Redis and Lua.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - system-design
   - reliability
+  - http
+  - patterns
 ---
 
 # Rate Limiting Strategies: Token Bucket, Leaky Bucket, and Sliding Window
 
-Rate limiting protects distributed systems from abuse, prevents resource exhaustion, and ensures fair access. This article examines five core algorithms—their internal mechanics, trade-offs, and production implementations—plus distributed coordination patterns that make rate limiting work at scale.
+Rate limiting protects distributed systems from abuse, prevents resource exhaustion, and rations a finite backend across many callers. This article goes deep on five algorithms — their mechanics, memory and accuracy trade-offs, and how AWS, Stripe, Cloudflare, GitHub, NGINX, and Envoy actually deploy them — then shows the distributed coordination patterns that make any of them work past one node. For the full system-design exercise (capacity numbers, fail-open posture, multi-tenant quota tree), see the companion piece [Design an API Rate Limiter](../design-api-rate-limiter/README.md).
 
-![Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.](./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro-light.svg "Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.")
-![Rate limiting involves algorithm selection and distributed coordination. Most production systems use sliding window counter with Redis for the best accuracy-to-memory trade-off.](./diagrams/rate-limiting-involves-algorithm-selection-and-distributed-coordination-most-pro-dark.svg)
+![Rate limiting decomposes into algorithm choice, where state lives across instances, and how the limiter responds when it rejects.](./diagrams/rate-limiting-overview-light.svg "Rate limiting decomposes into three independent choices: algorithm, state location, and response payload. Most production systems combine sliding window counter or token bucket with Redis-backed shared state and IETF RateLimit headers.")
+![Rate limiting decomposes into algorithm choice, where state lives across instances, and how the limiter responds when it rejects.](./diagrams/rate-limiting-overview-dark.svg)
 
 ## Abstract
 
-Rate limiting answers one question: should this request proceed? The answer depends on counting requests within a time window—but how you count determines everything.
+Rate limiting answers one question per request: should this request proceed? Three choices determine the answer:
 
-**The core trade-off:** Precision costs memory. Storing every request timestamp (sliding window log) gives exact counts but O(n) memory. Storing only counters (fixed window) uses O(1) memory but allows boundary exploits where clients get 2× their limit. The sliding window counter approximates the log with O(1) memory—Cloudflare measured 0.003% error rate at 400M requests.
+1. **Algorithm.** Token bucket models burst capacity separately from sustained rate. Leaky bucket forces a smooth output regardless of input shape. Fixed window is the simplest counter and the only one with a well-known boundary exploit. Sliding window log is exact but pays O(n) memory. Sliding window counter approximates the log with O(1) memory and ~6% drift on average ([Cloudflare measured 0.003% wrong-decision rate across 400 M requests from 270 K sources](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/)).
+2. **State location.** Counters can live in each instance (fast, but `N` instances each enforcing limit `L` collectively allow `N×L`), in shared storage like Redis ([Stripe runs ten Redis Cluster nodes for this](https://brandur.org/redis-cluster)), or split between local approximation and periodic global reconciliation ([Envoy combines local token bucket with a global gRPC service](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting)).
+3. **Response.** A 429 alone is not enough. Clients need [`Retry-After`](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3) and ideally the IETF [`RateLimit-Policy` and `RateLimit`](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers-10) headers so they can self-throttle before they hit the wall.
 
-**Why token bucket dominates:** It's the only algorithm that explicitly models burst capacity separately from sustained rate. AWS API Gateway, Stripe, and Envoy all use token bucket because real traffic is bursty—users click, pause, click again. Token bucket lets you say "100 requests/second average, but allow 500 in a burst" with a single data structure.
-
-**The distributed problem:** Rate limiting only works if all instances agree on the count. Two approaches: shared state (Redis) with atomic operations, or local counting with periodic synchronization. Stripe started with single Redis, hit single-core saturation at 100K ops/sec, and migrated to Redis Cluster with 10 nodes. The key insight: use Lua scripts for atomic read-compute-write cycles to eliminate race conditions.
+The hardest part of production rate limiting is rarely the algorithm. It is the keying strategy (what gets a quota — IP, API key, user, endpoint, tenant, or a composite), the layering (per-second + per-minute + per-hour limits stacked together), and the failure mode when the counter store is unreachable.
 
 ## Token Bucket
 
 Token bucket is the most widely deployed algorithm because it explicitly separates two concerns: sustained rate and burst capacity.
 
-### How It Works
+### Mechanism
 
-A bucket holds tokens up to a maximum capacity. Tokens are added at a constant refill rate. Each request consumes tokens—if available, the request proceeds; if not, it's rejected.
+A bucket holds tokens up to a maximum capacity `C`. Tokens are added at a constant refill rate `r`. Each request consumes one or more tokens — if enough are available, the request proceeds; otherwise it is rejected.
 
-```
-tokens_available = min(capacity, tokens + elapsed_time × refill_rate)
-```
+$$
+\text{tokens}(t) = \min\bigl(C,\; \text{tokens}(t_\text{last}) + r \cdot (t - t_\text{last})\bigr)
+$$
 
-The dual-parameter design (capacity + rate) is intentional. Capacity controls burst size—how many requests can arrive simultaneously. Rate controls sustained throughput—the long-term average. A bucket with capacity 100 and rate 10/sec allows 100 requests instantly, then 10/sec thereafter until the bucket refills.
+The dual-parameter design is intentional. Capacity controls burst size — how many requests can arrive simultaneously. Rate controls sustained throughput — the long-term average. A bucket with capacity 100 and rate 10/s allows 100 requests instantly, then 10/s thereafter until the bucket refills.
+
+![Token bucket meters sustained rate via refill and burst via capacity; leaky bucket meters output by drain rate regardless of input shape.](./diagrams/bucket-mechanisms-light.svg "Token bucket admits a request when at least one token is present; refill happens lazily based on elapsed time. Leaky bucket admits when the queue has room and drains at a constant rate, smoothing input bursts into a steady output.")
+![Token bucket meters sustained rate via refill and burst via capacity; leaky bucket meters output by drain rate regardless of input shape.](./diagrams/bucket-mechanisms-dark.svg)
 
 ### Implementation
 
@@ -57,62 +62,52 @@ function tryConsume(
   const now = Date.now()
   const elapsed = (now - bucket.lastRefill) / 1000
 
-  // Lazy refill: calculate tokens that would have been added
+  // Lazy refill: calculate tokens that would have been added since last call.
   bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillRate)
   bucket.lastRefill = now
 
   if (bucket.tokens >= tokensRequested) {
     bucket.tokens -= tokensRequested
-    return true // Request allowed
+    return true
   }
-  return false // Request rejected
+  return false
 }
 
-// Usage
 const bucket: TokenBucket = { tokens: 100, lastRefill: Date.now() }
 const allowed = tryConsume(bucket, 100, 10, 1) // capacity=100, rate=10/s
 ```
 
-The lazy refill pattern avoids background timers. Instead of continuously adding tokens, calculate how many _would have been_ added since the last request. This makes token bucket O(1) time and O(1) space per client.
+Lazy refill is the only sane implementation in production: a background timer that ticks per bucket per second is unworkable at scale. Compute how many tokens *would have been* added since the last touch, clamp to capacity, then decide. This makes token bucket O(1) time and O(1) space per client.
 
-### Production Configurations
+### Production configurations
 
-**AWS API Gateway** uses hierarchical token buckets:
+**AWS API Gateway** uses a hierarchical token bucket with four levels of precedence, narrowest to broadest ([API Gateway docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html)):
 
-- Regional: 10,000 req/s baseline (AWS-managed)
-- Account: 10,000 req/s steady, 5,000 burst (configurable)
-- Stage/Method: Per-API limits
-- Client: Usage plan limits via API keys
+| Level | Default | Notes |
+| --- | --- | --- |
+| Per-client (usage plan) | configurable | Per API key |
+| Per-method (stage) | configurable | Per route + HTTP verb |
+| Account, per Region | 10,000 RPS / 5,000 burst | Some Regions default to 2,500 / 1,250; raisable via support ([quotas](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html)) |
+| Region (AWS-managed) | not configurable | Underlying capacity ceiling |
 
-The narrowest limit applies. A stage-level limit of 100 req/s overrides the account-level 10,000 req/s.
+The narrowest applicable limit applies — a stage-level 100 RPS overrides the account-level 10,000 RPS. A `429` response is returned when any bucket is empty.
 
-**Stripe** runs four distinct rate limiters, all token bucket:
+**Stripe** runs four token-bucket-based limiters in series, each addressing a different failure mode ([Stripe Engineering: *Scaling your API with rate limiters*](https://stripe.com/blog/rate-limiters)):
 
-1. **Request rate:** Maximum requests per second
-2. **Concurrent requests:** Maximum in-flight (e.g., 20 concurrent)
-3. **Fleet load shedder:** Reserves capacity for critical operations
-4. **Worker utilization:** Sheds traffic by priority tier when workers saturate
+1. **Request rate limiter** — caps requests per second per identity.
+2. **Concurrent requests limiter** — caps in-flight requests per identity (default ~20) to protect CPU-heavy endpoints.
+3. **Fleet usage load shedder** — system-state-based; reserves a percentage of fleet capacity (e.g., 20%) for critical methods like `Charges.create` and rejects non-critical traffic with `503` when the reserve is needed.
+4. **Worker utilization shedder** — sheds lower-priority traffic (GETs, test mode) when worker pools approach saturation.
 
-**NGINX** implements token bucket with the `burst` parameter:
+The first two count *what callers do*; the last two count *what the fleet can afford*. The split lets Stripe defend availability without conflating an abusive caller with an under-provisioned worker pool.
 
-```nginx title="nginx.conf"
-limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+**NGINX** uses leaky bucket — see the next section. Many NGINX guides label `limit_req` "token bucket" because adding `nodelay` makes the burst behave like one, but the underlying admission model is still leaky bucket per the [official module docs](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html).
 
-server {
-    location /api/ {
-        limit_req zone=api burst=20 nodelay;
-        # 10 req/s sustained, 20 burst, no queueing delay
-    }
-}
-```
+### Design rationale
 
-The `nodelay` directive processes burst requests immediately rather than spacing them. Without it, NGINX queues burst requests and releases them at the sustained rate.
+Token bucket exists because real traffic is bursty. Users do not send requests at uniform intervals — they click, read, click again. A strict rate limiter (leaky bucket without queue) would reject legitimate bursts that never threaten the backend.
 
-### Design Rationale
-
-Token bucket exists because real traffic is bursty. Users don't send requests at uniform intervals—they click, read, click again. A strict rate limit (like leaky bucket) would reject legitimate bursts that don't threaten the backend.
-
-The trade-off: token bucket allows temporary overload. A backend that can handle 100 req/s on average might struggle with 500 simultaneous requests. Capacity tuning requires understanding your backend's burst tolerance, not just its sustained capacity.
+The trade-off: token bucket allows temporary overload. A backend that handles 100 RPS comfortably on average might not survive 500 simultaneous requests. Capacity tuning requires understanding burst tolerance, not just sustained capacity. A reasonable default is `capacity = sustained_rate × max_acceptable_latency` — set the burst small enough that the worst-case queue time inside the backend stays under your latency budget.
 
 ## Leaky Bucket
 
@@ -120,18 +115,15 @@ Leaky bucket enforces smooth, constant-rate output regardless of input burstines
 
 ### Mechanism
 
-Requests enter a queue (the "bucket"). The queue drains at a fixed rate. If the queue is full, new requests are rejected.
+Requests enter a queue (the "bucket"). The queue drains at a fixed rate `r`. If the queue is full, new requests are rejected. Unlike token bucket, leaky bucket does not store burst capacity — it stores *pending* requests. A full bucket means requests are waiting, not that capacity is available.
 
-Unlike token bucket, leaky bucket doesn't store burst capacity—it stores _pending requests_. A full bucket means requests are waiting, not that capacity is available.
+### Two variants
 
-### Two Variants
+**Queue-based (original telecom formulation).** Maintains a FIFO queue with fixed capacity. Requests dequeue at rate `r`. This variant physically queues requests and adds latency that is bounded by `queue_size / r`.
 
-**Queue-based (original):** Maintains a FIFO queue with fixed capacity. Requests dequeue at a constant rate. This variant physically queues requests, adding latency.
-
-**Counter-based:** Tracks request count with timestamps. On each request, decrement the counter based on elapsed time, then check if incrementing would exceed capacity. This variant rejects excess requests immediately without queueing.
+**Counter-based.** Tracks a single counter with timestamps. On each request, decrement the counter based on elapsed time, then check whether incrementing would exceed capacity. Excess requests are rejected immediately without queueing.
 
 ```ts title="leaky-bucket-counter.ts" collapse={1-2}
-// Counter-based leaky bucket (no actual queue)
 type LeakyBucket = { count: number; lastLeak: number }
 
 function tryConsume(
@@ -142,7 +134,6 @@ function tryConsume(
   const now = Date.now()
   const elapsed = (now - bucket.lastLeak) / 1000
 
-  // "Leak" requests based on elapsed time
   bucket.count = Math.max(0, bucket.count - elapsed * leakRate)
   bucket.lastLeak = now
 
@@ -154,68 +145,75 @@ function tryConsume(
 }
 ```
 
-### When to Use
+### NGINX `limit_req` is leaky bucket
 
-Leaky bucket suits scenarios requiring predictable, smooth throughput:
+The most widely deployed leaky bucket implementation is NGINX's [`ngx_http_limit_req_module`](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html). The module documentation is explicit: it uses the leaky bucket algorithm.
 
-- **Network traffic shaping:** Original use case in telecommunications
-- **Database write batching:** Prevent write spikes from overwhelming storage
-- **Third-party API calls:** Stay within strict rate limits that don't allow bursts
+```nginx title="nginx.conf"
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
 
-NGINX's `limit_req` module without `burst` parameter implements leaky bucket semantics—excess requests are rejected immediately, producing smooth output.
+server {
+    location /api/ {
+        limit_req zone=api burst=20 nodelay;
+        # 10 r/s sustained, 20-request burst tolerance, no per-request queue delay
+    }
+}
+```
+
+- Without `burst`, excess requests are rejected immediately with `503` (configurable via `limit_req_status`).
+- With `burst=N`, up to `N` excess requests are queued and released at the configured rate.
+- `nodelay` releases the queued burst *immediately* without per-request spacing, while still consuming the burst slots; slots free up at the leak rate. The combination behaves like a token bucket from the caller's point of view.
+
+> [!TIP]
+> If you want true token-bucket semantics with NGINX, use `burst=N nodelay`. If you want strict pacing for a downstream that cannot absorb spikes, use `burst=N` without `nodelay`. If you want a hard rejection at the configured rate, omit `burst` entirely.
+
+### When to use
+
+Leaky bucket suits scenarios that need predictable output:
+
+- **Network traffic shaping** — the original telecommunications use case.
+- **Database write batching** — keeps write spikes from saturating storage.
+- **Third-party API calls** — staying within strict per-second limits that do not tolerate bursts (many bank, payments, and SMS APIs).
 
 ### Trade-offs
 
 - ✅ Smooth, predictable output rate
 - ✅ Protects backends from any burst
-- ✅ O(1) time and space
-- ❌ Rejects legitimate bursts
-- ❌ Queue-based variant adds latency
-- ❌ Old requests can starve recent ones in queue variant
+- ✅ O(1) time and space (counter variant) or O(`burst`) memory (queue variant)
+- ❌ Rejects legitimate bursts that the backend could absorb
+- ❌ Queue variant adds latency proportional to queue depth
+- ❌ Old requests can starve recent ones in the queue variant under sustained overload
 
 ## Fixed Window Counter
 
-Fixed window divides time into discrete intervals (e.g., each minute) and counts requests per interval.
+Fixed window divides time into discrete intervals (a minute, an hour) and counts requests per interval.
 
 ### Mechanism
 
-```
-window_id = floor(current_time / window_duration)
-count[window_id] += 1
-if count[window_id] > limit: reject
-```
-
-When the window changes, the counter resets. This is the simplest rate limiting algorithm—just increment and compare.
-
-### The Boundary Problem
-
-Fixed window's critical flaw: clients can achieve 2× the intended rate by timing requests at window boundaries.
-
-```
-Limit: 100 requests per minute
-
-Timeline:
-  Minute 1                    Minute 2
-  |-------------------------|--------------------------|
-                       ↑    ↑
-                  99 requests (end of minute 1)
-                       +
-                   100 requests (start of minute 2)
-
-Result: 199 requests in ~2 seconds, despite 100/minute limit
+```text
+window_id = floor(now / window_duration)
+counter[window_id] += 1
+if counter[window_id] > limit: reject
 ```
 
-This isn't theoretical—attackers actively exploit window boundaries. A 2020 analysis of GitHub's API found automated tools timing requests to maximize throughput at minute boundaries.
+When the window advances, the counter resets. This is the simplest rate limiting algorithm — increment and compare.
 
-### When Acceptable
+### The boundary problem
 
-Fixed window works when:
+Fixed window has one well-known flaw: a caller can achieve up to 2× the configured rate by timing requests at the window boundary.
 
-- Precision isn't critical (internal services, development)
-- Combined with finer-grained limits (2 req/s + 100 req/min)
-- Traffic is naturally distributed (no coordinated clients)
+![Fixed window boundary exploit: a caller crams the limit into the last second of one window and the first second of the next, doubling the effective rate.](./diagrams/fixed-window-boundary-exploit-light.svg "A caller times 100 requests at the end of window N and another 100 at the start of window N+1. Both pass the per-window check, but the backend sees 200 requests in roughly two seconds — twice the configured rate.")
+![Fixed window boundary exploit: a caller crams the limit into the last second of one window and the first second of the next, doubling the effective rate.](./diagrams/fixed-window-boundary-exploit-dark.svg)
 
-**Complexity:** O(1) time, O(1) space per window. The simplest to implement and debug.
+The exploit is mechanical, not theoretical: a script that polls the server clock and aligns its requests to the window edge can sustain `2 × limit / window_duration` over the boundary indefinitely.
+
+### When acceptable
+
+- Internal services where callers are trusted not to exploit the edge.
+- Combined with finer-grained limits — a per-second limit eliminates the per-minute boundary trick.
+- Naturally distributed traffic where coordinated bursts at the boundary are unlikely.
+
+**Complexity:** O(1) time, O(1) space per window. The simplest to implement and to debug.
 
 ## Sliding Window Log
 
@@ -223,15 +221,13 @@ Sliding window log stores the timestamp of every request, providing exact rate l
 
 ### Mechanism
 
-```ts title="sliding-window-log.ts" collapse={1-2, 20-25}
-// Sliding window log - exact counting
+```ts title="sliding-window-log.ts" collapse={1-2, 19-22}
 type SlidingWindowLog = { timestamps: number[] }
 
 function tryConsume(log: SlidingWindowLog, windowMs: number, limit: number): boolean {
   const now = Date.now()
   const windowStart = now - windowMs
 
-  // Remove timestamps outside window
   log.timestamps = log.timestamps.filter((t) => t > windowStart)
 
   if (log.timestamps.length < limit) {
@@ -241,61 +237,41 @@ function tryConsume(log: SlidingWindowLog, windowMs: number, limit: number): boo
   return false
 }
 
-// Usage: 100 requests per 60 seconds
+// 100 requests per 60 seconds
 const log: SlidingWindowLog = { timestamps: [] }
-const allowed = tryConsume(log, 60_000, 100)
+tryConsume(log, 60_000, 100)
 ```
 
-### Memory Cost
+### Memory cost
 
-The fatal flaw: O(n) memory where n is requests per window.
+The fatal flaw is O(n) memory where n is the request count inside the window. At 10,000 requests/second with a 60-second window, a single client needs ~600,000 timestamps; at 8 bytes each that is ~4.8 MB. A million such clients would need ~4.8 TB. Even Redis Sorted Sets, which implement this pattern efficiently with `ZADD` + `ZREMRANGEBYSCORE`, struggle at that scale.
 
-At 10,000 requests/second with a 60-second window:
+### When to use
 
-- 600,000 timestamps per client
-- 8 bytes per timestamp = 4.8 MB per client
-- 1 million clients = 4.8 TB
-
-This is why sliding window log is rarely used in production. Even Redis Sorted Sets (efficient for this pattern) struggle at scale.
-
-### When to Use
-
-- Low-volume, high-precision requirements
-- Audit logging where you need exact request history
-- Testing and verification of other algorithms
+- Low-volume, high-precision requirements (admin operations, financial settlement).
+- Audit logging where you already need exact request history.
+- Verification harness for testing approximate algorithms.
 
 ## Sliding Window Counter
 
-Sliding window counter approximates the sliding window log using O(1) memory. This is the production standard at Cloudflare, GitHub, and most large-scale APIs.
+Sliding window counter approximates the log using O(1) memory. This is the production standard at Cloudflare, GitHub, and most large-scale APIs.
 
 ### Mechanism
 
-Maintain counters for the current and previous windows. Weight the previous window's count by how much of it overlaps with the sliding window.
+Maintain counters for the current and previous windows. Weight the previous window's count by the fraction of it that overlaps the trailing portion of the sliding window.
 
-```
-current_weight = elapsed_time_in_current_window / window_duration
-previous_weight = 1 - current_weight
+$$
+\text{estimate} = \text{count}_{N-1} \cdot \frac{w - t_\text{elapsed}}{w} + \text{count}_N
+$$
 
-estimated_count = (previous_count × previous_weight) + current_count
+…where `w` is the window duration and `t_elapsed` is how far into window `N` we currently are.
 
-if estimated_count > limit: reject
-```
-
-Visually:
-
-```
-Window N-1          Window N (current)
-|---------|---------|
-     ↑         ↑
-  30% overlap  70% into current window
-
-Estimate = 0.3 × count(N-1) + count(N)
-```
+![Sliding window counter combines the fixed counter for the current window with a fractional contribution from the previous window's counter.](./diagrams/sliding-window-weighting-light.svg "At 70% into window N with previous count 80 and current count 30, the estimate is 0.30 × 80 + 30 = 54. The estimate decays smoothly as the previous window slides out, which is what eliminates the fixed-window boundary exploit.")
+![Sliding window counter combines the fixed counter for the current window with a fractional contribution from the previous window's counter.](./diagrams/sliding-window-weighting-dark.svg)
 
 ### Implementation
 
-```ts title="sliding-window-counter.ts" collapse={1-3, 30-35}
-// Sliding window counter - O(1) memory approximation
+```ts title="sliding-window-counter.ts" collapse={1-3, 25-30}
 type SlidingWindowCounter = {
   currentWindow: number
   currentCount: number
@@ -306,14 +282,12 @@ function tryConsume(counter: SlidingWindowCounter, windowMs: number, limit: numb
   const now = Date.now()
   const currentWindow = Math.floor(now / windowMs)
 
-  // Check if we've moved to a new window
   if (currentWindow !== counter.currentWindow) {
-    counter.previousCount = counter.currentCount
+    counter.previousCount = currentWindow === counter.currentWindow + 1 ? counter.currentCount : 0
     counter.currentCount = 0
     counter.currentWindow = currentWindow
   }
 
-  // Calculate weighted estimate
   const elapsedInWindow = now % windowMs
   const previousWeight = (windowMs - elapsedInWindow) / windowMs
   const estimate = counter.previousCount * previousWeight + counter.currentCount
@@ -326,142 +300,105 @@ function tryConsume(counter: SlidingWindowCounter, windowMs: number, limit: numb
 }
 ```
 
+> [!IMPORTANT]
+> When the window advances by more than one (e.g. an idle client), zero out the previous count rather than carrying forward the old `currentCount`. Otherwise a stale window-N count survives as window-N+2's "previous" and inflates the estimate.
+
 ### Accuracy
 
-Cloudflare tested sliding window counter against sliding window log on 400 million requests:
+Cloudflare measured the algorithm against an exact log on 400 million requests from 270,000 sources ([*Counting things, a lot of different things*](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/)):
 
-- **Error rate:** 0.003% of requests miscategorized
-- **Average difference:** 6% from true rate
+- 0.003% of requests were miscategorised (allowed when they should have been rejected, or vice versa).
+- The mean difference between estimated and true rate was 6%.
+- All miscategorised allow-decisions were within 15% of the true threshold; no source was rejected when it was below the threshold.
 
-The approximation works because most requests don't arrive exactly at window boundaries. The weighted average smooths out boundary effects that plague fixed windows.
+The approximation works because most requests do not arrive exactly at window boundaries. The weighted average smooths the boundary effects that plague fixed windows.
 
 ### Trade-offs
 
-- ✅ O(1) memory (just two counters)
+- ✅ O(1) memory (two counters per key)
 - ✅ O(1) time
-- ✅ High accuracy (0.003% error)
-- ✅ No boundary exploits
-- ❌ Slight undercount at window start (previous window count decays)
-- ❌ More complex than fixed window
+- ✅ ~99.997% correct decision rate at scale
+- ✅ No boundary exploit
+- ❌ Slight undercount immediately after a window flip (the previous count starts decaying from `t_elapsed = 0`)
+- ❌ Assumes the previous window's traffic was uniformly distributed — heavy-tailed bursts inside the previous window mute that assumption
 
-## Design Choices
+## Choosing an algorithm
 
-### Algorithm Selection Matrix
+### Selection matrix
 
-| Factor                     | Token Bucket | Leaky Bucket    | Fixed Window     | Sliding Window Counter |
-| -------------------------- | ------------ | --------------- | ---------------- | ---------------------- |
-| **Burst tolerance**        | Excellent    | None            | Boundary exploit | Good                   |
-| **Memory per client**      | O(1)         | O(1)            | O(1)             | O(1)                   |
-| **Accuracy**               | Burst-aware  | Strict          | Low              | High                   |
-| **Distributed complexity** | Medium       | Hard            | Easy             | Medium                 |
-| **Best for**               | APIs, CDNs   | Traffic shaping | Simple cases     | General purpose        |
+| Factor | Token Bucket | Leaky Bucket | Fixed Window | Sliding Window Log | Sliding Window Counter |
+| --- | --- | --- | --- | --- | --- |
+| **Burst tolerance** | Excellent (capacity controls it) | None | Up to 2× at boundary | Exact | Good |
+| **Memory per client** | O(1) | O(1) (counter) / O(burst) (queue) | O(1) | O(n) | O(1) |
+| **Accuracy** | Burst-aware | Strict pacing | Boundary-exploitable | Exact | ~99.997% |
+| **Distributed complexity** | Medium | Hard (output ordering) | Easy | Hard (atomic log ops) | Medium |
+| **Best for** | User-facing APIs, CDNs | Traffic shaping, downstream protection | Internal/trusted callers, layered with finer limits | Audit, low-volume | General-purpose, high-volume |
 
-### How to Choose
+### How to choose
 
-**Start with token bucket if:**
+- **Token bucket** — traffic is naturally bursty, you want explicit burst-vs-sustained controls, and the backend can absorb temporary overload.
+- **Sliding window counter** — you need precision, memory matters, and you do not want a boundary exploit.
+- **Leaky bucket** — output must be smooth (bank APIs, SMS gateways, downstream that batches).
+- **Fixed window** — only when simplicity dominates and you layer it with another algorithm at a finer time grain (per-second + per-minute is a common pair).
+- **Sliding window log** — only when exactness is required and traffic volume is low enough that memory does not bite.
 
-- Traffic is naturally bursty (user-facing APIs)
-- You need separate burst and sustained limits
-- Backend can handle temporary overload
+### Keying strategies
 
-**Use sliding window counter if:**
+The key determines what gets a quota; pick it with as much care as the algorithm.
 
-- Precision matters more than burst handling
-- You're migrating from fixed window and hitting boundary exploits
-- Memory constraints prevent sliding window log
+| Strategy | Pros | Cons | Use case |
+| --- | --- | --- | --- |
+| **IP address** | No auth required, blunt-force defense | Shared IPs (NAT, mobile carriers, proxies); easy to rotate via VPN/cloud | DDoS mitigation, anonymous endpoints |
+| **API key** | Fine-grained, ties to billing tier | Requires key infrastructure | Public APIs with metered tiers |
+| **User ID** | Fair per-user limits | Requires authentication on the limited path | Authenticated APIs |
+| **Composite (e.g. `user × endpoint`)** | Defense in depth, prevents one user monopolising one endpoint | More keys → more memory, more cache lookups | High-security or expensive-endpoint APIs |
 
-**Use leaky bucket if:**
+**Multi-layer pattern.** Apply quotas at every level that can fail:
 
-- Output must be perfectly smooth (downstream rate limits)
-- Bursts would overwhelm the next system in the chain
-- You're shaping network traffic
+1. Global: `10,000` RPS across all callers — protects shared infrastructure.
+2. Per-IP: `100` RPS — anonymous abuse prevention.
+3. Per-user: `1,000` RPS — fair sharing.
+4. Per-endpoint: varies — protects expensive paths.
 
-**Fixed window only if:**
-
-- Simplicity trumps precision
-- Combined with other limits (per-second + per-minute)
-- Internal/trusted clients only
-
-### Keying Strategies
-
-Rate limit keys determine what gets limited:
-
-| Strategy       | Pros                                      | Cons                                      | Use Case                         |
-| -------------- | ----------------------------------------- | ----------------------------------------- | -------------------------------- |
-| **IP address** | No auth required, stops bots              | Shared IPs (NAT, proxies), easy to rotate | DDoS protection, anonymous abuse |
-| **API key**    | Fine-grained control, billing integration | Requires key infrastructure               | SaaS APIs, metered services      |
-| **User ID**    | Fair per-user limits                      | Requires authentication                   | Authenticated APIs               |
-| **Composite**  | Defense in depth                          | Complex configuration                     | High-security APIs               |
-
-**Composite example:** Limit by `(user_id, endpoint)` to prevent one user from monopolizing expensive endpoints while allowing high volume on cheap ones.
-
-**Multi-layer pattern:** Apply limits at multiple levels:
-
-1. Global: 10,000 req/s across all clients (infrastructure protection)
-2. Per-IP: 100 req/s (anonymous abuse prevention)
-3. Per-user: 1,000 req/s (fair usage)
-4. Per-endpoint: varies (resource protection)
-
-The narrowest applicable limit wins.
+The narrowest applicable limit wins. The [GitHub REST API](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) layers a primary per-token quota (5,000 / hour) under a secondary "abuse" quota of about 900 points per minute that throttles even callers who are nowhere near their primary budget.
 
 ## Distributed Rate Limiting
 
-Single-instance rate limiting is straightforward. Distributed rate limiting—where multiple application instances must agree on counts—is where complexity lives.
+Single-instance rate limiting is straightforward. Distributed rate limiting — where N application instances must agree on counts — is where the engineering lives. With no coordination, N instances each enforcing limit `L` collectively allow `N × L`.
 
-### The Coordination Problem
+![Three patterns for keeping counts coherent across instances: shared state, local approximation with periodic sync, and a hybrid local-burst absorber backed by a global service.](./diagrams/distributed-coordination-patterns-light.svg "Shared state (Redis) gives exact counts at the cost of a network hop per request. Local approximation gives sub-microsecond decisions at the cost of brief overshoot during sync intervals. Hybrid splits the concern: a per-instance token bucket absorbs bursts, a global service enforces the cluster-wide limit.")
+![Three patterns for keeping counts coherent across instances: shared state, local approximation with periodic sync, and a hybrid local-burst absorber backed by a global service.](./diagrams/distributed-coordination-patterns-dark.svg)
 
-Without coordination, N instances each allowing L requests per second collectively allow N×L requests:
+### Shared state with Redis
 
-```
-Instance A: "User has made 50 of 100 requests" → Allow
-Instance B: "User has made 50 of 100 requests" → Allow
-Instance C: "User has made 50 of 100 requests" → Allow
+The default pattern: centralise state in Redis, have every instance read and write the same counters.
 
-Reality: User made 150 requests, all allowed
-```
+**Sliding window log via Sorted Set.** Stripe's original Redis pattern uses a sorted set per key, with the timestamp as the score and a unique request ID as the member.
 
-Three approaches exist: shared state, local approximation, and hybrid.
-
-### Shared State with Redis
-
-The standard pattern: centralize rate limit state in Redis. All application instances read and write the same counters.
-
-**Redis Sorted Sets (Stripe pattern):**
-
-Sorted sets naturally implement sliding window log with efficient operations:
-
-```lua title="rate-limit.lua"
--- Sliding window log in Redis Sorted Set
--- Score = timestamp, Member = unique request ID
+```lua title="sliding-window-log.lua"
+-- KEYS[1] = rate-limit key, ARGV = window_ms, limit, now, request_id
 local key = KEYS[1]
 local window_ms = tonumber(ARGV[1])
 local limit = tonumber(ARGV[2])
 local now = tonumber(ARGV[3])
 local request_id = ARGV[4]
 
--- Remove expired entries
 redis.call('ZREMRANGEBYSCORE', key, 0, now - window_ms)
-
--- Count current window
 local count = redis.call('ZCARD', key)
 
 if count < limit then
   redis.call('ZADD', key, now, request_id)
   redis.call('EXPIRE', key, math.ceil(window_ms / 1000))
-  return 1  -- Allowed
+  return 1
 end
-return 0  -- Rejected
+return 0
 ```
 
-The Lua script executes atomically—no race conditions between read and write.
+The Lua script executes atomically — no other Redis commands interleave between the `ZREMRANGEBYSCORE` and the `ZADD`, eliminating the read-then-write race that plagues the naive client-side version.
 
-**Redis atomic counters:**
+**Sliding window counter via two `INCR` keys.** For O(1) memory, use one key per window and weight the previous window's count.
 
-For fixed or sliding window counters, simpler operations suffice:
-
-```ts title="redis-counter.ts" collapse={1-4, 25-30}
-// Sliding window counter in Redis
-// Requires two keys: current window and previous window
+```ts title="redis-sliding-window-counter.ts" collapse={1-4, 25-30}
 import Redis from "ioredis"
 
 async function tryConsume(redis: Redis, key: string, windowSec: number, limit: number): Promise<boolean> {
@@ -471,7 +408,6 @@ async function tryConsume(redis: Redis, key: string, windowSec: number, limit: n
   const previousWeight = (windowSec - elapsedInWindow) / windowSec
 
   const [current, previous] = await redis.mget(`${key}:${currentWindow}`, `${key}:${currentWindow - 1}`)
-
   const estimate = parseInt(previous || "0") * previousWeight + parseInt(current || "0")
 
   if (estimate < limit) {
@@ -486,85 +422,77 @@ async function tryConsume(redis: Redis, key: string, windowSec: number, limit: n
 }
 ```
 
-### Race Condition: Get-Then-Set
+### The get-then-set race
 
-The naive approach has a critical race:
+The naive sequence is an obvious data race:
 
+```text
+Time   Client A                       Client B
+─────────────────────────────────────────────────
+T1     GET counter -> 99
+T2                                    GET counter -> 99
+T3     check 99 < 100 -> allow
+T4     SET counter = 100
+T5                                    check 99 < 100 -> allow
+T6                                    SET counter = 100   <- wrong: should be 101
 ```
-Time    Client A                    Client B
-────────────────────────────────────────────────────
-T1      GET counter → 99
-T2                                  GET counter → 99
-T3      Check: 99 < 100 → Allow
-T4      SET counter = 100
-T5                                  Check: 99 < 100 → Allow
-T6                                  SET counter = 100  ← Wrong!
-```
 
-Both clients see 99, both increment to 100. Actual count should be 101.
+Both clients observe 99 and both increment to 100. The actual count should be 101.
 
-**Solution: Lua scripts**
+The fix is to push the entire read-check-write into a single atomic primitive. In Redis, that means a Lua script via `EVAL` or `EVALSHA`; Redis serialises script execution on each shard, so no other commands interleave.
 
-Move the entire read-check-write sequence into an atomic Lua script:
-
-```lua title="atomic-increment.lua"
-local key = KEYS[1]
-local limit = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-
-local current = tonumber(redis.call('GET', key) or 0)
-if current < limit then
-  redis.call('INCR', key)
-  redis.call('EXPIRE', key, window)
+```lua title="atomic-fixed-window.lua"
+-- KEYS[1] = key, ARGV[1] = limit, ARGV[2] = window_seconds
+local current = tonumber(redis.call('GET', KEYS[1]) or 0)
+if current < tonumber(ARGV[1]) then
+  redis.call('INCR', KEYS[1])
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
   return 1
 end
 return 0
 ```
 
-Redis executes Lua scripts atomically—no other commands interleave.
+For a single counter `INCR + EXPIRE` is also atomic enough — INCR is single-command and you can simply check the return value. Lua becomes essential when the operation needs more than one read or touches more than one key.
 
-### Stripe's Redis Cluster Migration
+### Stripe's Redis Cluster migration
 
-Stripe initially ran rate limiting on a single Redis instance. The problem:
+Stripe initially ran rate limiting on a single Redis instance. The story, in [Brandur Leach's words](https://brandur.org/redis-cluster):
 
 > "We found ourselves in a situation where our rate limiters were saturating a single core and network bandwidth of one Redis instance. We were seeing ambient failures and high latencies."
-> — Brandur Leach, Stripe
 
-The solution: migrate to Redis Cluster with 10 nodes.
+The fix was to migrate to a 10-node Redis Cluster. Two design decisions made it work:
 
-**Key decisions:**
+- **Hash tags for slot affinity.** Redis Cluster splits the keyspace into 16,384 hash slots. By default `CRC16(key) mod 16384` chooses the slot, which spreads related keys across nodes — bad for a Lua script that needs to touch several keys for one user. Wrapping the user identifier in `{}` forces all keys with the same tag onto the same slot:
 
-- Use Redis Cluster's 16,384 hash slots distributed across nodes
-- Client calculates `CRC16(key) mod 16384` to route requests
-- Keys for the same user land on the same node (use `{user_id}:*` to force slot)
-- Result: horizontal scaling with negligible latency impact
+  ```text
+  {user_123}:requests       -> same slot
+  {user_123}:concurrent     -> same slot
+  {user_456}:requests       -> different slot (different user)
+  ```
 
-**Critical insight:** Rate limit keys must include a hash tag to keep related keys on the same node:
+  Lua scripts can then run on one node without `CROSSSLOT` errors.
 
-```
-{user_123}:requests      → Same slot
-{user_123}:concurrent    → Same slot
-{user_456}:requests      → Different slot (different user)
-```
+- **Scripts shipped via `EVALSHA`.** Each rate limiter Lua script is loaded once via `SCRIPT LOAD` and then invoked by SHA, avoiding per-call script transmission.
 
-### GitHub's Implementation
+The result was horizontal scaling with negligible latency impact, because a script that runs on a single shard takes one network round-trip and a few microseconds of Redis CPU.
 
-GitHub runs sharded Redis with primary-replica topology:
+### GitHub's sharded, replicated Redis rate limiter
 
-- **Writes:** Always to primary
-- **Reads:** Distributed across replicas
-- **Atomicity:** Lua scripts for all rate limit operations
-- **TTL management:** Explicit TTL setting in code, not relying on Redis key expiration
+GitHub runs sharded primary-replica Redis with Lua-script atomicity ([GitHub Engineering, *How we scaled the GitHub API with a sharded, replicated rate limiter in Redis*](https://github.blog/engineering/infrastructure/how-we-scaled-github-api-sharded-replicated-rate-limiter-redis/)):
 
-**Timestamp stability fix:** GitHub discovered that recalculating reset times caused "wobbling"—clients saw different reset times on consecutive requests. The fix: persist reset timestamps in the database rather than recalculating from current time.
+- Writes go to the primary; reads can hit replicas.
+- Lua scripts handle every check-and-increment to keep the operation atomic.
+- TTLs are set explicitly in the Lua script rather than relying on a separate `EXPIRE` call after the increment, which would race with eviction.
 
-### Local Approximation
+**Timestamp wobble — the bug worth knowing about.** GitHub's `X-RateLimit-Reset` header was originally derived from a Redis `TTL` call combined with the application's `Time.now`. Because measurable time elapses between the two, a second-boundary crossing made consecutive requests return reset timestamps that "wobbled" by 1 second. The fix was to write the `reset_at` value into Redis at window creation and read it back unchanged on subsequent requests; the Redis `EXPIRE` is set to `reset_at + 1 s` purely for cleanup, not for surfacing the reset time.
 
-For latency-sensitive paths, hitting Redis on every request may be unacceptable. Local approximation maintains per-instance counters and periodically syncs.
+The lesson: never derive a value from a clock you do not own. Persist the value alongside the counter and read both atomically.
 
-```ts title="local-approximation.ts" collapse={1-5, 35-50}
-// Local rate limiter with periodic sync
-// Trade-off: brief inconsistency for reduced latency
+### Local approximation
+
+For latency-sensitive paths, a Redis hop per request may be unacceptable. Local approximation maintains per-instance counters and reconciles globally on a slower cadence.
+
+```ts title="local-approximation.ts" collapse={1-5, 30-50}
 type LocalLimiter = {
   count: number
   limit: number
@@ -585,12 +513,10 @@ class HybridRateLimiter {
   async tryConsume(): Promise<boolean> {
     const now = Date.now()
 
-    // Sync with Redis periodically
     if (now - this.local.syncedAt > this.syncIntervalMs) {
       await this.sync()
     }
 
-    // Local check (fast path)
     if (this.local.count < this.local.limit) {
       this.local.count++
       return true
@@ -599,136 +525,128 @@ class HybridRateLimiter {
   }
 
   private async sync(): Promise<void> {
-    // Push local count to Redis, get global state
-    // Adjust local limit based on global usage
+    // Push local count to Redis, read back the global usage, recompute local budget.
   }
 }
 ```
 
-**Trade-off:** During sync intervals, the cluster may collectively exceed the limit by `instances × local_limit`. Tune sync frequency based on acceptable overage.
+**Trade-off.** Between syncs, the cluster can collectively exceed the limit by `instances × per_instance_overshoot`. Tune the sync interval against acceptable overage. With 100 instances and a 1-second sync, a 1,000 RPS global limit can briefly become 100,000 RPS if every instance is saturated — usually acceptable for fairness limits, never for safety limits.
 
-**Envoy's hybrid model:** Local token bucket absorbs bursts immediately, global rate limit service (gRPC to Redis-backed service) enforces mesh-wide limits. Local limits are more permissive than global.
+**Envoy's hybrid model** sits at the cleaner end of this spectrum ([Envoy global rate limiting docs](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting)):
 
-### Cloudflare's Architecture
+- The [`local_ratelimit` filter](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/local_rate_limit_filter) implements a per-instance token bucket that absorbs bursts immediately.
+- The `ratelimit` filter delegates to a separate gRPC [Rate Limit Service](https://github.com/envoyproxy/ratelimit) (typically Go + Redis) for cluster-wide enforcement.
+- Local limits are tuned more permissively than global limits; the local bucket exists to keep traffic spikes off the global service, not to be the primary limiter.
 
-Cloudflare operates rate limiting at 200+ Points of Presence (PoPs) globally. Their approach:
+### Cloudflare's edge architecture
 
-- **No global state:** Each PoP runs isolated rate limiting
-- **Leverage anycast:** Same client IP typically routes to same PoP
-- **Twemproxy + Memcached:** Per-PoP caching cluster
-- **Asynchronous increments:** Fire-and-forget counter updates
-- **Mitigation flag caching:** Once a client exceeds threshold, cache the "blocked" state in memory to avoid Memcached queries
+Cloudflare runs rate limiting across [330+ data centres in 125+ countries](https://www.cloudflare.com/network/). Their original approach ([*Counting things, a lot of different things*](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/)):
 
-This works because anycast routing provides natural affinity—a client in Paris consistently hits the Paris PoP. Cross-PoP coordination would add latency without proportional benefit.
+- **No global state.** Each PoP runs an isolated rate limiter.
+- **Anycast routing as natural sharding.** A given client IP typically routes to the same PoP, giving each PoP a coherent view of "its" callers.
+- **Twemproxy + Memcached** within each PoP. Twemproxy fan-outs counter operations across a Memcached cluster using consistent hashing; the cluster is the per-PoP shared store.
+- **Asynchronous increments.** The hot path does not block on the counter update; the increment is fire-and-forget.
+- **Mitigation flag caching.** Once a client crosses the threshold, the "blocked" state is cached in each edge server's local memory so subsequent requests can be rejected without another Memcached lookup.
+
+The newer in-house Pingora proxy uses a different counting primitive: [`pingora-limits` is built on Count-Min Sketch](https://blog.cloudflare.com/how-pingora-keeps-count/), a probabilistic data structure that estimates per-key event counts in fixed memory. The sketch trades a small overestimation bias for lock-free, allocation-free updates at the per-request hot path.
+
+The shared lesson is that at edge scale, exact global counts are not worth the latency. Approximate, locally-coherent counts that handle the 99% case in microseconds beat exact counts that add a cross-region round-trip.
 
 ## Real-World Examples
 
-### Discord: Per-Bucket Rate Limits
+### Discord — bucket-keyed limits
 
-Discord uses a bucket-based system where related endpoints share a rate limit:
+[Discord's REST API](https://docs.discord.com/developers/topics/rate-limits) limits per *bucket* rather than per endpoint. The server tags each response with the bucket identity so clients can tell which routes share a quota.
 
-```
+```http
 X-RateLimit-Bucket: abc123def456
 X-RateLimit-Limit: 5
 X-RateLimit-Remaining: 4
 X-RateLimit-Reset: 1640995200.000
 X-RateLimit-Reset-After: 1.234
+X-RateLimit-Scope: user
 ```
 
-**Key design decision:** The `X-RateLimit-Bucket` header lets clients identify shared limits across endpoints. `POST /channels/123/messages` and `POST /channels/456/messages` might share a bucket—clients must respect the bucket, not the endpoint.
+Two `POST /channels/{id}/messages` calls to different channels may share a single bucket — the bucket header tells the client to throttle as if they were the same endpoint. A separate **global** limit caps each bot (or each unauthenticated IP) at 50 requests/second across all routes; the response includes `X-RateLimit-Scope: global` and `X-RateLimit-Global: true` when that limit fires. Discord additionally enforces an "invalid request" budget of 10,000 4xx/5xx responses per 10 minutes per IP that, if exceeded, triggers a temporary Cloudflare-level ban.
 
-**Global limit:** 50 requests/second across all endpoints, enforced separately from per-route limits.
+### GitHub — tiered limits with secondary throttles
 
-### GitHub: Tiered Limits
+[GitHub's REST API](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) operates explicit tiers:
 
-GitHub's API has explicit tiers:
+| Tier | Primary limit | Notes |
+| --- | --- | --- |
+| Unauthenticated (per IP) | 60 / hour | Public read endpoints only |
+| Authenticated (PAT, OAuth, GitHub App) | 5,000 / hour | Per token / installation |
+| GitHub App on Enterprise Cloud organization | 15,000 / hour | Enterprise add-on; PATs are excluded |
+| GitHub App installation (non-Enterprise) | scales with users + repos, up to 12,500 / hour | App-managed |
 
-| Tier                    | Limit       | Use Case             |
-| ----------------------- | ----------- | -------------------- |
-| Unauthenticated         | 60/hour     | Public data scraping |
-| Authenticated           | 5,000/hour  | Normal API usage     |
-| GitHub App (Enterprise) | 15,000/hour | Heavy automation     |
+A separate "secondary" rate limit caps roughly 900 points/minute on REST and limits concurrent in-flight requests independently of the primary budget — GitHub explicitly recommends staying under both.
 
-**Secondary limits:** Beyond request count, GitHub limits:
+### Stripe — load-shedding hierarchy
 
-- Concurrent requests (per user)
-- CPU time consumption (expensive queries)
-- Per-endpoint rates (abuse prevention)
-
-**Implementation detail:** GitHub stores reset timestamps in their database, not derived from current time, to prevent timestamp wobble across distributed instances.
-
-### Stripe: Load Shedding Hierarchy
-
-Stripe's four-tier rate limiting shows sophisticated prioritization:
-
-1. **Request rate limiter:** Hard limit on requests/second
-2. **Concurrent request limiter:** Cap in-flight requests to prevent resource exhaustion
-3. **Fleet load shedder:** When overall fleet utilization is high, reject low-priority traffic first (webhooks before charges)
-4. **Worker utilization shedder:** Per-worker protection against thread pool exhaustion
-
-**Kill switch pattern:** Each rate limiter can be disabled via feature flag for incident response. Dark launch testing validates new limits in production without enforcement.
+Stripe's four-layer scheme (covered above) is interesting because three of the four limiters do not count *your* traffic — they count *fleet state*. The fleet load shedder kicks in when overall utilisation crosses a threshold, the worker shedder kicks in when worker thread pools fill. Each layer can be disabled independently via feature flag for incident response, and new limits are dark-launched (counted but not enforced) before they go live.
 
 ## Error Responses and Client Guidance
 
-### HTTP 429 and Headers
+### HTTP 429 and core headers
 
-Rate-limited responses must include actionable information:
+A 429 response that does not tell the client *when* to come back is barely better than a connection reset. At minimum, return `Retry-After`.
 
 ```http
 HTTP/1.1 429 Too Many Requests
 Retry-After: 30
-RateLimit-Limit: 100
-RateLimit-Remaining: 0
-RateLimit-Reset: 1640995230
+Content-Type: application/problem+json
 
 {
-  "error": "rate_limit_exceeded",
-  "message": "Rate limit exceeded. Retry after 30 seconds.",
+  "type": "https://example.com/probs/rate-limit",
+  "title": "Rate limit exceeded",
+  "detail": "Retry after 30 seconds",
   "retry_after": 30
 }
 ```
 
-**Retry-After:** The minimum header for 429 responses. Use delta-seconds (not timestamps) to avoid clock sync issues:
+[`Retry-After`](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3) accepts either delta-seconds or an HTTP-date. Prefer delta-seconds — it sidesteps clock-skew between client and server, which is otherwise a real source of repeated 429s for callers whose clocks are minutes off.
 
-```
-Retry-After: 30        ← Good: "wait 30 seconds"
-Retry-After: Wed, 01 Jan 2025 00:00:30 GMT  ← Risky: requires clock sync
-```
-
-### IETF RateLimit Headers (draft-ietf-httpapi-ratelimit-headers)
-
-The emerging standard (draft-10, as of 2025) defines:
-
-**RateLimit-Policy:** Server's quota policy
-
-```
-RateLimit-Policy: 100;w=60;burst=20
+```http
+Retry-After: 30                                   # good — relative
+Retry-After: Wed, 01 Jan 2025 00:00:30 GMT        # risky — depends on client clock
 ```
 
-- `100`: quota units
-- `w=60`: window in seconds
-- `burst=20`: burst allowance
+### IETF RateLimit headers
 
-**RateLimit:** Current state
+The current Internet-Draft [draft-ietf-httpapi-ratelimit-headers-10](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers-10) (published September 2025; the draft has since expired without RFC publication, but the specification is the canonical interoperability target) defines two header fields, both encoded using [HTTP Structured Fields (RFC 9651)](https://www.rfc-editor.org/rfc/rfc9651). The headers separate *policy* (what the server allows) from *state* (current usage for a named policy), and a single response can carry several policies.
 
+```http
+RateLimit-Policy: "burst";q=100;w=60, "daily";q=1000;w=86400
+RateLimit: "burst";r=45;t=30
 ```
-RateLimit: limit=100, remaining=45, reset=30
-```
 
-**Design rationale:** Separating policy (what the server allows) from state (current usage) lets clients self-throttle proactively. A client seeing `remaining=5` can slow down before hitting `remaining=0`.
+| Header / parameter | Meaning |
+| --- | --- |
+| `RateLimit-Policy` | List of named quota policies the server enforces. |
+| `q` | Quota — the policy's allowance per window. |
+| `w` | Window length, in seconds. |
+| `qu` | Optional quota unit (default `"requests"`; can be e.g. `"content-bytes"`). |
+| `pk` | Optional partition key (Structured Fields byte sequence) identifying the partition the quota is computed against. |
+| `RateLimit` | Current state for one or more of the named policies. |
+| `r` | Remaining quota in the named policy. |
+| `t` | Time, in seconds, until the quota resets. |
 
-### Client-Side Best Practices
+> [!NOTE]
+> Earlier drafts (and many production deployments) use the legacy three-header form `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`. Several major APIs (GitHub, Twitter/X, Discord) still emit some variant of these. New servers should prefer the draft-10 syntax; client libraries that consume both styles are common.
 
-Well-behaved clients implement:
+The split between policy and state lets clients self-throttle proactively. A client that sees `r=5;t=12` knows it can send a few more requests now and should pause before the window resets, without guessing at the underlying quota.
 
-1. **Exponential backoff:** On 429, wait `min(2^attempt × base_delay, max_delay)` with jitter
-2. **Proactive throttling:** Track `RateLimit-Remaining` and slow down before exhaustion
-3. **Bucket awareness:** Respect `X-RateLimit-Bucket` to identify shared limits
-4. **Retry-After compliance:** Never retry before `Retry-After` expires
+### Client-side practices
+
+Well-behaved clients implement the following in roughly this order of impact:
+
+1. **Honour `Retry-After`** — never retry before it expires.
+2. **Exponential backoff with jitter** — when no `Retry-After` is provided, wait `min(2^attempt × base, max) ± jitter` before the next attempt to avoid a thundering herd.
+3. **Proactive throttling** — track `RateLimit: ...;r=...;t=...` and slow down before exhaustion rather than after.
+4. **Bucket awareness** — for APIs that publish bucket headers (Discord, some GitHub endpoints), throttle by bucket identity so requests to different routes do not double-spend the same quota.
 
 ```ts title="client-rate-limiting.ts" collapse={1-3, 25-30}
-// Client-side rate limit handling
-// Respects Retry-After and implements exponential backoff
 async function fetchWithRateLimit(url: string, maxRetries: number = 5): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(url)
@@ -738,11 +656,9 @@ async function fetchWithRateLimit(url: string, maxRetries: number = 5): Promise<
     }
 
     const retryAfter = response.headers.get("Retry-After")
-    const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 60000)
-
-    // Add jitter: ±10% of wait time
-    const jitter = waitMs * 0.1 * (Math.random() * 2 - 1)
-    await sleep(waitMs + jitter)
+    const baseMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 60_000)
+    const jitter = baseMs * 0.1 * (Math.random() * 2 - 1)
+    await sleep(baseMs + jitter)
   }
   throw new Error("Rate limit exceeded after max retries")
 }
@@ -750,96 +666,117 @@ async function fetchWithRateLimit(url: string, maxRetries: number = 5): Promise<
 
 ## Common Pitfalls
 
-### 1. Using Client-Provided Timestamps
+### 1. Trusting client-controlled identifiers for keying
 
-**The mistake:** Trusting `X-Forwarded-For` or client timestamps for rate limiting.
+**Mistake.** Using `X-Forwarded-For` directly, or trusting client timestamps, when keying limits.
 
-**Why it happens:** Developers assume clients are honest.
+**Why it bites.** Both are easily forged. An attacker rotates `X-Forwarded-For` values to get fresh quota each request.
 
-**The consequence:** Attackers spoof headers to bypass limits or manipulate time windows.
+**Fix.** Get the client IP from a header your edge proxy *sets* (after stripping caller-supplied versions) and use server-side timestamps. RFC 9110's `Forwarded` header solves the multi-hop case but is also only trustworthy after edge sanitisation.
 
-**The fix:** Use server-side timestamps. For IP-based limiting, get client IP from your load balancer's trusted header after terminating at your edge.
+### 2. Per-instance instead of distributed limits
 
-### 2. Per-Instance Instead of Distributed Limits
+**Mistake.** Each app instance counts independently.
 
-**The mistake:** Each instance maintains its own rate limit state.
+**Why it bites.** With N instances, callers get N× the intended rate.
 
-**Why it happens:** Shared state seems complex; local state "works in development."
+**Fix.** Move the counter to Redis (or any shared store) and use atomic primitives (Lua, `INCR`). If Redis hops are too slow, use Envoy-style hybrid: local token bucket for bursts + global service for the cluster-wide limit.
 
-**The consequence:** With N instances, clients get N× the intended limit.
+### 3. Fixed window without finer-grained companions
 
-**The fix:** Use Redis or another shared store. If latency is critical, use local approximation with periodic sync.
+**Mistake.** A single fixed-window limit is the only enforcement.
 
-### 3. Fixed Window Without Secondary Limits
+**Why it bites.** The boundary trick lets a script sustain 2× the configured rate.
 
-**The mistake:** Relying solely on fixed window counters.
+**Fix.** Migrate to sliding window counter, or layer a per-second limit under the per-minute one. The per-second cap eliminates the boundary trick because the boundary becomes too narrow to exploit.
 
-**Why it happens:** Simple to implement; boundary problems aren't obvious in testing.
+### 4. Rejecting all bursts
 
-**The consequence:** Attackers time requests at window boundaries to achieve 2× limits.
+**Mistake.** Every request that exceeds the sustained rate gets a 429.
 
-**The fix:** Either migrate to sliding window counter, or layer limits (per-second + per-minute + per-hour).
+**Why it bites.** Real user traffic is bursty. Rejecting legitimate spikes hurts the experience even when the backend has headroom.
 
-### 4. Blocking Instead of Queueing for Bursts
+**Fix.** Token bucket with appropriate burst capacity, or NGINX `burst=N nodelay`. Size the burst to whatever the backend can absorb without exceeding its latency budget.
 
-**The mistake:** Immediately rejecting all requests that exceed the limit.
+### 5. Cardinality explosion
 
-**Why it happens:** Rejection is simpler than queue management.
+**Mistake.** Keying by per-request-ID, per-session-ID, or any other unbounded identifier.
 
-**The consequence:** Legitimate traffic spikes get rejected even when backend capacity exists.
+**Why it bites.** Memory grows with active identities. Counter store evicts under pressure, taking quotas with it.
 
-**The fix:** Token bucket with appropriate burst capacity, or NGINX-style `burst` queue. Size the burst queue based on expected spike duration × processing rate.
+**Fix.** Key by lower-cardinality identities (user, IP, API key, tenant). Set aggressive TTLs so idle keys get evicted promptly. Compose finer keys (e.g. `user × endpoint`) only when you have a clear reason to and know the steady-state cardinality.
 
-### 5. Ignoring Cardinality Explosion
+### 6. Returning 429 without `Retry-After`
 
-**The mistake:** Rate limiting by high-cardinality keys (e.g., per-request-ID, per-session-ID).
+**Mistake.** Just the status code.
 
-**Why it happens:** Over-specific limiting to "be fair."
+**Why it bites.** Clients have no signal for when to come back; they retry immediately and stay rate-limited indefinitely.
 
-**The consequence:** Memory exhaustion. If each of 1 million sessions gets a rate limit entry, you need 1 million entries.
+**Fix.** Always set `Retry-After`. Add IETF `RateLimit-Policy` and `RateLimit` headers when callers can act on them.
 
-**The fix:** Limit by lower-cardinality keys (user, IP, API key). Use TTLs aggressively to evict stale entries.
+### 7. Failing closed when the counter store is unreachable
+
+**Mistake.** When Redis is down, reject all traffic.
+
+**Why it bites.** Your rate limiter outage becomes your API outage.
+
+**Fix.** Fail open with a circuit breaker. The downside (briefly missing the limit) is almost always better than the alternative (full availability loss). The companion article on [system design](../design-api-rate-limiter/README.md) covers fail-open posture in detail.
 
 ## Conclusion
 
-Rate limiting protects systems through controlled rejection. The algorithm choice depends on your tolerance for bursts (token bucket allows them, leaky bucket doesn't), precision requirements (sliding window counter beats fixed window), and memory constraints (sliding window log is precise but expensive).
+Rate limiting protects systems by controlled rejection. The algorithm choice depends on burst tolerance (token bucket allows them, leaky bucket does not), precision requirements (sliding window counter beats fixed window), and memory constraints (sliding window log is precise but expensive).
 
-For most production systems: use **sliding window counter** for accuracy with O(1) memory, backed by **Redis with Lua scripts** for atomic distributed operations. Add **token bucket** semantics when you need explicit burst control separate from sustained rate.
+For most production APIs, the defensible default is:
 
-The hardest part isn't the algorithm—it's the keying strategy. Rate limit by the right identity (user > API key > IP), at the right granularity (per-endpoint for resource protection, global for infrastructure protection), with useful error responses (429 + Retry-After + remaining counts).
+- **Sliding window counter or token bucket** for the algorithm, depending on whether bursts are first-class.
+- **Redis with Lua scripts** for the shared counter store, and hash tags if you need to cluster.
+- **IETF `RateLimit-Policy` + `RateLimit` headers** in addition to `Retry-After` so clients can self-throttle.
+- **Layered limits** — global, per-IP, per-user, per-endpoint — narrowest applicable wins.
+- **Fail-open** when the counter store is unreachable, with monitoring to surface the degradation.
+
+The hardest part is rarely the algorithm. It is keying (which identity gets a quota), layering (per-second + per-minute + per-hour stacked), and the response payload (a 429 with no headers is barely better than a connection reset).
 
 ## Appendix
 
 ### Prerequisites
 
-- Understanding of distributed systems coordination patterns
-- Familiarity with Redis data structures and atomic operations
-- Basic knowledge of HTTP response codes and headers
+- Familiarity with HTTP status codes and headers.
+- Working knowledge of Redis data structures (`INCR`, `EXPIRE`, sorted sets) and the `EVAL` Lua execution model.
+- Conceptual grasp of distributed coordination — eventual vs strong consistency, atomic primitives, sharding.
 
 ### Terminology
 
-- **Bucket capacity:** Maximum tokens a token bucket can hold; determines burst size
-- **Refill rate:** Tokens added per time unit; determines sustained throughput
-- **Window:** Time period over which requests are counted
-- **Keying:** The identity used to group requests for rate limiting
-- **Jitter:** Random variation added to retry delays to prevent thundering herd
+- **Bucket capacity** — maximum tokens a token bucket can hold; controls burst size.
+- **Refill / leak rate** — tokens added (token bucket) or drained (leaky bucket) per time unit; controls sustained throughput.
+- **Window** — the time interval over which requests are counted.
+- **Keying** — the identity used to group requests for limiting (IP, user, API key, composite).
+- **Hash tag** — Redis Cluster syntax (`{user_123}:requests`) that forces related keys onto the same shard.
+- **Jitter** — random variation added to retry delays to prevent thundering herd.
+- **Mitigation flag** — Cloudflare's per-edge cached "this client is currently blocked" signal that short-circuits subsequent counter lookups.
 
 ### Summary
 
-- Token bucket separates burst capacity from sustained rate—use for bursty traffic
-- Sliding window counter provides high accuracy (0.003% error) with O(1) memory
-- Fixed window has boundary exploits allowing 2× intended rate
-- Distributed rate limiting requires shared state (Redis) or local approximation with sync
-- Use Lua scripts in Redis to eliminate race conditions in read-check-write cycles
-- Always return 429 with Retry-After header; consider IETF RateLimit headers for proactive client throttling
+- Token bucket separates burst capacity from sustained rate; use it when traffic is bursty.
+- Sliding window counter gives ~99.997% accuracy on real Cloudflare traffic at O(1) memory.
+- Fixed window has a boundary exploit that doubles the effective rate at window edges.
+- Distributed limits need shared state (Redis) or local approximation with reconciliation.
+- Use Lua scripts in Redis to make read-check-write atomic; without them you have a data race.
+- Always return 429 with `Retry-After`; prefer the IETF `RateLimit-Policy` + `RateLimit` headers for proactive client throttling.
+- Fail open on counter-store outages; the alternative is converting your limiter outage into an API outage.
 
 ### References
 
-- [IETF draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/) - Standard rate limit headers
-- [Stripe: Scaling Rate Limiters with Redis Cluster](https://stripe.com/blog/rate-limiters) - Production architecture
-- [Cloudflare: Counting Things at Scale](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) - Sliding window counter accuracy data
-- [GitHub: Sharded Rate Limiter in Redis](https://github.blog/engineering/infrastructure/how-we-scaled-github-api-sharded-replicated-rate-limiter-redis/) - Timestamp stability fix
-- [NGINX: Rate Limiting](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html) - Leaky bucket implementation
-- [Envoy: Global Rate Limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) - Hybrid local/global pattern
-- [AWS API Gateway Throttling](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html) - Hierarchical token bucket
-- [Discord: Rate Limits](https://discord.com/developers/docs/topics/rate-limits) - Bucket-based rate limiting
+- [draft-ietf-httpapi-ratelimit-headers-10](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers-10) — IETF RateLimit headers, current draft (Sep 2025).
+- [RFC 9110 §10.2.3 — `Retry-After`](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3) — semantics and acceptable values.
+- [RFC 9651](https://www.rfc-editor.org/rfc/rfc9651) — HTTP Structured Fields, used by the new RateLimit headers.
+- [Stripe Engineering — *Scaling your API with rate limiters*](https://stripe.com/blog/rate-limiters) — four-layer load-shedding architecture.
+- [Brandur Leach — *Scaling a high-traffic rate limiting stack with Redis Cluster*](https://brandur.org/redis-cluster) — Stripe's single-node-to-cluster migration.
+- [Cloudflare — *How we built rate limiting capable of scaling to millions of domains*](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) — sliding window counter accuracy data, Twemproxy + Memcached architecture.
+- [Cloudflare — *How Pingora keeps count*](https://blog.cloudflare.com/how-pingora-keeps-count/) — Count-Min Sketch in production.
+- [GitHub Engineering — *How we scaled the GitHub API with a sharded, replicated rate limiter in Redis*](https://github.blog/engineering/infrastructure/how-we-scaled-github-api-sharded-replicated-rate-limiter-redis/) — timestamp wobble fix.
+- [GitHub REST API rate limit docs](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) — current tier breakdown and secondary limits.
+- [NGINX `ngx_http_limit_req_module`](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html) — leaky bucket, `burst`, and `nodelay`.
+- [AWS API Gateway — request throttling](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html) and [quotas](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html) — hierarchical token bucket.
+- [Envoy — global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) and [local rate limit filter](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/local_rate_limit_filter).
+- [envoyproxy/ratelimit](https://github.com/envoyproxy/ratelimit) — reference Go/gRPC rate limit service.
+- [Discord developer docs — rate limits](https://docs.discord.com/developers/topics/rate-limits) — bucket-based REST limits and global cap.

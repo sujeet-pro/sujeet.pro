@@ -1,9 +1,0 @@
-%% Diagram: Diagram 3
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    APP["Application"] --> ESP["Email Service Provider<br/>(SendGrid, Mailgun)"]
-    ESP --> RECIP["Recipient MTAs"]
-
-    MX["Inbound MX"] --> WEBHOOK["Webhook Handler"]
-    WEBHOOK --> APP

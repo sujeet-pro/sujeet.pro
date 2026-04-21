@@ -1,0 +1,34 @@
+%% Diagram: Pending layers merging into final cc::Layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph In["PaintChunks (paint order)"]
+        C1["Chunk 1<br/>xform=T1, clip=C1"]
+        C2["Chunk 2<br/>xform=T1, clip=C1"]
+        C3["Chunk 3<br/>will-change:<br/>transform"]
+        C4["Chunk 4<br/>xform=T1, clip=C1<br/>overlaps Chunk 3"]
+    end
+
+    subgraph Mid["PendingLayers"]
+        P1["PL A<br/>chunks 1, 2"]
+        P2["PL B<br/>chunk 3<br/>(DCR: will-change)"]
+        P3["PL C<br/>chunk 4<br/>(blocked by overlap)"]
+    end
+
+    subgraph Out["cc::Layers"]
+        L1["PictureLayer A<br/>baked T1, C1"]
+        L2["PictureLayer B<br/>own xform node"]
+        L3["PictureLayer C<br/>baked T1, C1"]
+    end
+
+    C1 --> P1
+    C2 --> P1
+    C3 --> P2
+    C4 --> P3
+    P1 --> L1
+    P2 --> L2
+    P3 --> L3
+
+    style P2 fill:#ffe0b2,stroke:#e65100
+    style P3 fill:#ffe0b2,stroke:#e65100
+    style P1 fill:#c8e6c9,stroke:#1b5e20

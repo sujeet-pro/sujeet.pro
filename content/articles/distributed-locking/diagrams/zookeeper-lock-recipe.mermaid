@@ -1,0 +1,12 @@
+%% Diagram: ZooKeeper lock recipe — ephemeral sequential nodes + predecessor watch
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Parent["/locks/resource-1"]
+        N1["lock-0000000001 (Client A)"]
+        N2["lock-0000000002 (Client B)"]
+        N3["lock-0000000003 (Client C)"]
+    end
+    N1 -->|"Lowest seq, holds lock"| L((Lock))
+    N2 -->|"Watches predecessor"| N1
+    N3 -->|"Watches predecessor"| N2

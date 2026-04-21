@@ -1,0 +1,39 @@
+%% Diagram: Browser vs Node.js event loop — where the two runtimes diverge
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph browser["Browser (WHATWG HTML 8.1.6)"]
+        direction TB
+        b1["Pick one task from a task queue\ntimer / DOM / network /\npostMessage / ..."]:::task
+        b2["Run task to completion\nno preemption"]:::engine
+        b3["Microtask checkpoint\ndrain promise jobs +\nqueueMicrotask + MutationObserver"]:::microtask
+        b4{"Rendering opportunity?\nUA-defined, ~vsync"}:::decision
+        b5["Update the rendering\nrAF then style then layout\nthen paint then composite"]:::host
+        b6["Idle period\nrequestIdleCallback (capped 50 ms)"]:::host
+        b1 --> b2 --> b3 --> b4
+        b4 -->|Yes| b5 --> b6
+        b4 -->|No| b6
+        b6 --> b1
+    end
+
+    subgraph node["Node.js (libuv phased loop)"]
+        direction TB
+        n1["timers\nexpired setTimeout / setInterval"]:::task
+        n2["pending callbacks"]:::task
+        n3["idle / prepare\ninternal libuv bookkeeping"]:::task
+        n4["poll\nI/O readiness, may block"]:::task
+        n5["check\nsetImmediate"]:::task
+        n6["close callbacks"]:::task
+        nDrain["After EVERY callback in any phase:\n1. drain process.nextTick queue\n2. drain microtask queue\nPromise jobs and queueMicrotask"]:::microtask
+        n1 --> nDrain --> n2 --> nDrain
+        n2 --> n3 --> n4 --> nDrain
+        n4 --> n5 --> nDrain
+        n5 --> n6 --> nDrain
+        n6 --> n1
+    end
+
+    classDef task fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef engine fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef microtask fill:#5A2E88,stroke:#3F1F70,color:#fff
+    classDef host fill:#1F6E68,stroke:#155752,color:#fff
+    classDef decision fill:#444,stroke:#222,color:#fff

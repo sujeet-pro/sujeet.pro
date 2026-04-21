@@ -1,0 +1,19 @@
+%% Diagram: STCS vs LCS Compaction Layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph STCS["Size-Tiered Compaction (STCS)"]
+        direction TB
+        T1["Tier 1: 4x small SSTables (~5 MB)"] -- "compact when 4 similar-sized" --> T2["Tier 2: 1x medium SSTable (~20 MB)"]
+        T2x["3 more medium SSTables"] -.- T2
+        T2 -- "compact when 4 similar-sized" --> T3["Tier 3: 1x large SSTable (~80 MB)"]
+        S_NOTE["Read may touch many tiers<br/>Write amp low"]
+    end
+
+    subgraph LCS["Leveled Compaction (LCS)"]
+        direction TB
+        L0["L0: a few overlapping SSTables (write buffer)"] -- "compact into L1" --> L1["L1: ~10 non-overlapping SSTables, 160 MB each"]
+        L1 -- "compact into L2 when full" --> L2["L2: ~100 non-overlapping SSTables (10x L1)"]
+        L2 -- "..." --> Ln["Ln: 10x prior level"]
+        L_NOTE["~90% reads served from one SSTable per level<br/>Write amp higher"]
+    end

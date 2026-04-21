@@ -1,0 +1,22 @@
+%% Diagram: Runtime CSS-in-JS render path vs zero-runtime
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant React
+    participant Comp as Styled Comp
+    participant Lib as Runtime Lib
+    participant CSSOM
+    participant Layout
+
+    Note over React,Layout: Runtime CSS-in-JS path  every render
+    React->>Comp: render(props)
+    Comp->>Lib: serialize and interpolate
+    Lib->>Lib: hash class name
+    Lib->>CSSOM: insert rule
+    CSSOM-->>Layout: invalidate styles
+    Layout-->>React: recalc plus paint
+
+    Note over React,Layout: Zero-runtime, Modules, Tailwind  no per-render path
+    React->>Comp: render(props)
+    Comp-->>React: emit className
+    Note right of Comp: No serialization or CSSOM mutation

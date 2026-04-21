@@ -1,0 +1,29 @@
+%% Diagram: Adding capacity by splitting virtual shards onto a new physical pair
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BEFORE["Before split"]
+        direction TB
+        H1["MySQL001A / B<br/>(master-master)"]
+        S1["Virtual shards 0-511<br/>(databases db00000..db00511)"]
+        H1 --- S1
+    end
+
+    subgraph DURING["Replicate, then split config"]
+        direction TB
+        H1b["MySQL001A / B"]
+        H2b["MySQL009A / B (new)"]
+        REPL["MySQL replication<br/>(all 512 dbs catch up)"]
+        H1b --> REPL --> H2b
+    end
+
+    subgraph AFTER["After config push"]
+        direction TB
+        H1c["MySQL001A / B<br/>shards 0-255"]
+        H2c["MySQL009A / B<br/>shards 256-511"]
+    end
+
+    BEFORE --> DURING --> AFTER
+
+    NOTE["IDs never change.<br/>Application sees a configuration update only;<br/>no data is rewritten or rekeyed."]
+    AFTER -.-> NOTE

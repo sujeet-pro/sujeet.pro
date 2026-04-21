@@ -1,0 +1,19 @@
+%% Diagram: library-selection-tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A["Need graceful degradation"] --> B{"Team experience?"}
+    B -- "Low / heterogeneous languages" --> C["Start at the sidecar<br/>(Istio / Linkerd)"]
+    B -- "Medium" --> D["Use a language-native<br/>resilience library"]
+    B -- "High" --> E{"Custom requirements?"}
+    E -- "No" --> D
+    E -- "Yes" --> F["Build custom primitives<br/>on top of (D)"]
+
+    C --> G["Outlier ejection,<br/>retry/timeout policy,<br/>connection-pool limits"]
+    D --> H{"Language?"}
+    H -- "JVM" --> I["Resilience4j<br/>(Hystrix maintenance mode<br/>since Nov 2018)"]
+    H -- ".NET" --> J["Polly v8<br/>(ResiliencePipeline)"]
+    H -- "Node.js / TS" --> K["cockatiel (TS-first)<br/>or opossum"]
+    H -- "Go" --> L["go-resiliency,<br/>sony/gobreaker,<br/>singleflight for coalescing"]
+    H -- "Ruby" --> M["Semian (per-resource CB)"]
+    H -- "Python" --> N["pybreaker (CB) +<br/>tenacity (retries)"]

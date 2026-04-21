@@ -1,0 +1,26 @@
+%% Diagram: Message Lifecycle State Machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> COMPOSING: user types
+
+    COMPOSING --> PENDING: send (client UUID)
+    note right of PENDING
+        local optimistic insert
+        retried with same messageId
+    end note
+
+    PENDING --> SENT: server seq + persist
+    PENDING --> FAILED: ws closed + retry exhausted
+
+    SENT --> DELIVERED: recipient gateway acks
+    SENT --> QUEUED_PUSH: recipient offline
+    QUEUED_PUSH --> DELIVERED: APNs/FCM ack
+    QUEUED_PUSH --> EXPIRED: TTL elapsed
+
+    DELIVERED --> READ: recipient reads
+    READ --> [*]
+
+    FAILED --> PENDING: user retries
+    FAILED --> [*]: dropped
+    EXPIRED --> [*]

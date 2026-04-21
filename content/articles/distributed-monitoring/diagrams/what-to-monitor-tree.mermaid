@@ -1,0 +1,28 @@
+%% Diagram: What to monitor — USE for resources, RED for services, Golden Signals for user-facing systems, SLO burn-rate for alerts
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["What is the target?"])
+
+    Resource{"Hardware / OS resource\nCPU, disk, NIC, queue?"}
+    Service{"Internal request-driven\nmicroservice?"}
+    UserFacing{"User-facing\ndistributed system?"}
+
+    USE["USE method (Brendan Gregg)\nUtilization · Saturation · Errors\nCheck per resource."]
+    RED["RED method (Tom Wilkie)\nRate · Errors · Duration\nOne dashboard per service."]
+    Golden["Four Golden Signals (Google SRE)\nLatency · Traffic · Errors · Saturation\nLatency: split success vs failure; track p99."]
+
+    Slo["SLO + error budget\n1 minus availability target\nover rolling 28 to 30 days."]
+    Alert["Multi-window\nmulti-burn-rate alert\n(see SLO section)."]
+
+    Start --> Resource
+    Start --> Service
+    Start --> UserFacing
+
+    Resource -- yes --> USE
+    Service -- yes --> RED
+    UserFacing -- yes --> Golden
+
+    RED --> Slo
+    Golden --> Slo
+    Slo --> Alert

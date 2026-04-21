@@ -1,7 +1,33 @@
-%% Diagram: Hybrid Model Core Team Owns Foundations While Product Teams Contribute Specializ
+%% Diagram: Hybrid Model
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    A3[Core Team<br/>Foundation] --> B3[Product Teams<br/>Specialized]
-    A3 -.-> C3[Shared Standards]
-    B3 -.-> C3
+flowchart TB
+    Core["Core team\n---\nFoundations: tokens,\nprimitives, a11y baseline,\nreview gates"]
+
+    Foundations[("Foundations\n(immutable to consumers)")]
+    Standards[("Shared standards\n(API patterns,\ntests, a11y, docs)")]
+
+    PA["Product team A\n(domain components)"]
+    PB["Product team B\n(domain components)"]
+    PC["Product team C\n(recipes / one-offs)"]
+
+    Core ==> Foundations
+    Core --> Standards
+
+    Foundations --> PA
+    Foundations --> PB
+    Foundations --> PC
+
+    Standards -.gates.-> PA
+    Standards -.gates.-> PB
+    Standards -.gates.-> PC
+
+    PA -.promote upstream.-> Core
+    PB -.promote upstream.-> Core
+
+    classDef core fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef shared fill:#2E7D5A,stroke:#1F5C42,color:#ffffff
+    classDef team fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class Core core
+    class Foundations,Standards shared
+    class PA,PB,PC team

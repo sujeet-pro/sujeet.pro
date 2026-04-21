@@ -1,0 +1,28 @@
+%% Diagram: Anatomy of a dig response — what each section proves
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Header["Header line"]
+        H1["status: NOERROR / SERVFAIL / NXDOMAIN / REFUSED"]
+        H2["flags: qr rd ra aa ad cd"]
+    end
+
+    subgraph Sections["Message sections"]
+        Q["QUESTION<br/>name, class, type"]
+        A["ANSWER<br/>RRs that satisfy the query"]
+        AU["AUTHORITY<br/>NS / SOA — referrals or NODATA proof"]
+        AD["ADDITIONAL<br/>glue A/AAAA, OPT pseudo-RR"]
+    end
+
+    subgraph OPT["OPT pseudo-section (EDNS0)"]
+        O1["bufsize — negotiated UDP size"]
+        O2["EDE: code (text) — RFC 8914 reason"]
+        O3["NSID — anycast site identifier"]
+        O4["COOKIE — RFC 7873 client/server cookies"]
+    end
+
+    H1 -. "drives triage" .-> A
+    H2 -. "aa → authoritative<br/>ad → DNSSEC validated<br/>cd → validation skipped" .-> A
+    AU -. "SOA + no A in ANSWER<br/>= NODATA" .-> AU
+    AD -. "missing glue → resolver<br/>cannot reach in-bailiwick NS" .-> AD
+    O2 -. "explains SERVFAIL<br/>without a packet capture" .-> H1

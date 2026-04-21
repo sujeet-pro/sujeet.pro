@@ -1,0 +1,21 @@
+%% Diagram: Distributed counter coordination via centralized Redis
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph FLEET["API gateway fleet (stateless)"]
+        direction TB
+        GW1["Gateway 1"]
+        GW2["Gateway 2"]
+        GW3["Gateway 3"]
+        GWN["… Gateway N"]
+    end
+    subgraph REDIS["Redis Cluster — single source of truth"]
+        direction TB
+        SLOT_A["Slot A<br/>{api_key=abc}:tw0<br/>{api_key=abc}:tw1"]
+        SLOT_B["Slot B<br/>{api_key=xyz}:tw0<br/>{api_key=xyz}:tw1"]
+    end
+    GW1 -->|"EVALSHA sliding_window<br/>{api_key=abc}"| SLOT_A
+    GW2 -->|"EVALSHA sliding_window<br/>{api_key=abc}"| SLOT_A
+    GW3 -->|"EVALSHA sliding_window<br/>{api_key=xyz}"| SLOT_B
+    GWN -->|"EVALSHA sliding_window<br/>{api_key=abc}"| SLOT_A
+    SLOT_A -.->|"hash tag pins both<br/>windows to same shard"| NOTE["No cross-shard txn needed"]

@@ -1,0 +1,24 @@
+%% Diagram: Consistency spectrum
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    LIN["Linearizable\nReal-time order across keys\netcd, Spanner read-write"]
+    SER["Serializable\nEquivalent serial order\nPostgres SERIALIZABLE"]
+    SI["Snapshot isolation\nReads from a snapshot\nMVCC default in many DBs"]
+    RC["Read committed\nNo dirty reads\nPostgres / MySQL default"]
+    BCS["Bounded staleness\nReads <= X ms behind\nSpanner stale, Cosmos DB BCS"]
+    EV["Eventual\nConverges over time\nDynamoDB default, Cassandra ONE"]
+
+    LIN -->|cheaper| SER
+    SER -->|cheaper| SI
+    SI -->|cheaper| RC
+    RC -->|cheaper| BCS
+    BCS -->|cheaper| EV
+
+    classDef strong fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef mid fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef weak fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class LIN,SER strong
+    class SI,RC mid
+    class BCS,EV weak

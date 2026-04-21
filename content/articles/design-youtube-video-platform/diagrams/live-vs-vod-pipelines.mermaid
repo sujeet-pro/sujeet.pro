@@ -1,0 +1,19 @@
+%% Diagram: Live vs VOD pipeline differences
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph VOD["VOD path (this article)"]
+        VUP[Upload complete] --> VSEG[Segmenter<br/>2-4s GOP-aligned]
+        VSEG --> VENC[Chunk-parallel encode<br/>deep ladder x multi-codec<br/>per-shot bit budgeting]
+        VENC --> VPKG[CMAF packager<br/>full segments]
+        VPKG --> VCDN[CDN edge<br/>immutable, max-age=1y]
+        VCDN --> VPLAY[Player<br/>30s buffer, hybrid ABR]
+    end
+
+    subgraph LIVE["Live path (LL-HLS / LL-DASH)"]
+        LCAM[Encoder / contribution<br/>RTMP, SRT, WebRTC ingest] --> LTRANS[Live transcoder<br/>shallow ladder, single codec<br/>strict realtime budget]
+        LTRANS --> LPKG[CMAF packager<br/>200-500ms parts / chunks]
+        LPKG --> LORIG[Origin<br/>blocking playlist reload<br/>chunked transfer encoding]
+        LORIG --> LCDN[CDN edge<br/>short TTL, no shielding for tip]
+        LCDN --> LPLAY[Player<br/>2-3s glass-to-glass<br/>conservative ABR]
+    end

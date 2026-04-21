@@ -1,0 +1,19 @@
+%% Diagram: Result vs tuple state space
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph TUP["[T | null, E | null] — 4 representable states"]
+        direction TB
+        TV["[value, null]<br/>OK valid"]
+        TE["[null, error]<br/>OK valid"]
+        TN["[null, null]<br/>X invalid"]
+        TB2["[value, error]<br/>X invalid"]
+    end
+
+    subgraph RES["Result&lt;T, E&gt; — 2 valid states only"]
+        direction TB
+        RV["{ ok: true, value: T }"]
+        RE["{ ok: false, error: E }"]
+    end
+
+    TUP -. "discriminated tag<br/>removes invalid states" .-> RES

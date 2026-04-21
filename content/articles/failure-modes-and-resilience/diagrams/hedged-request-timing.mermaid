@@ -1,0 +1,18 @@
+%% Diagram: Hedged request timing (Tail at Scale, Dean & Barroso)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant R1 as Replica A
+    participant R2 as Replica B
+
+    Note over C: Wait until t = ~p95 of expected latency
+    C->>R1: Request (primary)
+    Note over R1: Slow path (in tail)
+    Note over C: Timer fires at p95
+    C->>R2: Hedged request (same payload)
+    R2-->>C: Response (fast path)
+    Note over C: Use fastest reply,<br/>cancel the loser
+    C-->>R1: Cancel (or ignore late reply)
+    Note over C,R2: Tail-latency p99 bounded by<br/>min of two replica latencies

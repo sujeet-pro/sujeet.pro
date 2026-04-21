@@ -1,0 +1,27 @@
+%% Diagram: The unified JavaScript runtime model — what every host shares
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph engine["JavaScript engine\n(V8 / SpiderMonkey / JSC)"]
+        stack["Call stack\none running execution context"]:::engine
+        heap["Heap\nobjects, closures, GC"]:::engine
+    end
+
+    subgraph queues["Per-agent queues"]
+        microQ[("Microtask queue\nFIFO, drained to empty")]:::microtask
+        taskQ[("Task / phase queue(s)\nhost-defined ordering")]:::task
+    end
+
+    loop["Event loop\n1. Pick one task\n2. Push frame on stack\n3. Run to completion\n4. Drain microtasks\n5. Repeat"]:::host
+
+    stack --> loop
+    heap -. allocate / GC .-> stack
+    loop -->|select next| taskQ
+    loop -->|drain when stack empty| microQ
+    microQ -. enqueue more during drain .-> microQ
+    taskQ -. timers, I/O, messages, UI events, setImmediate .-> loop
+
+    classDef engine fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef microtask fill:#5A2E88,stroke:#3F1F70,color:#fff
+    classDef task fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef host fill:#1F6E68,stroke:#155752,color:#fff

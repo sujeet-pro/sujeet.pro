@@ -1,0 +1,21 @@
+%% Diagram: Module Federation runtime — host loads remote with shared singleton negotiation
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant Host as Host App (shell)
+    participant Remote as remoteEntry.js
+    participant Share as Shared Scope
+    participant CDN as CDN / Origin
+
+    U->>Host: Navigate to /catalog
+    Host->>CDN: GET catalog/remoteEntry.js
+    CDN-->>Host: Container manifest
+    Host->>Remote: init(sharedScope)
+    Remote->>Share: Register react@18.2 (singleton)
+    Host->>Share: Already has react@18.3 (singleton)
+    Share-->>Remote: Higher semver wins · use 18.3
+    Remote-->>Host: Module factory for ./ProductList
+    Host->>Host: React.lazy(() => import("catalog/ProductList"))
+    Host-->>U: Render with shared React instance

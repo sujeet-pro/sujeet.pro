@@ -1,0 +1,43 @@
+%% Diagram: Three-tier design token architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Primitives["Primitives (raw values)"]
+        direction LR
+        P1["color-blue-500"]
+        P2["space-4: 16px"]
+        P3["radius-md: 6px"]
+    end
+
+    subgraph Semantics["Semantics (intent)"]
+        direction LR
+        S1["color-action-primary"]
+        S2["space-inset-md"]
+        S3["radius-control"]
+    end
+
+    subgraph Components["Components (optional, per-element)"]
+        direction LR
+        C1["button-background"]
+        C2["button-padding"]
+        C3["button-radius"]
+    end
+
+    Primitives --> Semantics
+    Semantics --> Components
+
+    P1 -.-> S1
+    P2 -.-> S2
+    P3 -.-> S3
+
+    S1 -.-> C1
+    S2 -.-> C2
+    S3 -.-> C3
+
+    classDef primitive fill:#fef3c7,stroke:#92400e,color:#1f2937
+    classDef semantic fill:#dbeafe,stroke:#1e40af,color:#1f2937
+    classDef component fill:#ede9fe,stroke:#5b21b6,color:#1f2937
+
+    class P1,P2,P3 primitive
+    class S1,S2,S3 semantic
+    class C1,C2,C3 component

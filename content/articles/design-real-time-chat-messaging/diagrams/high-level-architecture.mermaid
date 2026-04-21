@@ -1,0 +1,25 @@
+%% Diagram: High-Level Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Clients["Clients\nMobile + Web + Desktop"]
+    EDGE["Edge\nGeoDNS + L4 LB + TLS"]
+    WS["WebSocket Gateways\n(stateful, sharded)"]
+    MSG["Message Service\nordering + persistence"]
+    PRES["Presence Service\nheartbeat + pub/sub"]
+    SYNC["Sync Service\noffline replay"]
+    KAFKA["Kafka\nfan-out + replay log"]
+    FANOUT["Fan-out Workers\nlarge groups"]
+    PUSH["Push Gateway\nAPNs + FCM"]
+    STATE["State Stores\nRedis + ScyllaDB + PostgreSQL + S3"]
+
+    Clients --> EDGE --> WS
+    WS <--> MSG
+    WS <--> PRES
+    WS <--> SYNC
+    MSG --> KAFKA --> FANOUT
+    FANOUT --> WS
+    FANOUT --> PUSH
+    MSG --> STATE
+    PRES --> STATE
+    SYNC --> STATE

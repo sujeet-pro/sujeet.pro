@@ -1,8 +1,0 @@
-%% Diagram: Diagram 2
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    CLIENT["Client"] --> API["API Server"]
-    API --> META_DB[(PostgreSQL<br/>Metadata Only)]
-    API --> S3["S3<br/>Paste Content"]
-    API --> CACHE["Redis Cache<br/>(Hot Content)"]

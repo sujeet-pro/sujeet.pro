@@ -1,0 +1,44 @@
+%% Diagram: Token Cascade
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Primitive["Primitive (reference)"]
+        P1["color.blue.500\n#0F62FE"]
+        P2["space.4\n16px"]
+        P3["font.size.300\n0.875rem"]
+    end
+
+    subgraph Semantic["Semantic (intent)"]
+        S1["color.action.primary\n--> blue.500"]
+        S2["space.inset.md\n--> space.4"]
+        S3["font.body.sm\n--> font.size.300"]
+    end
+
+    subgraph Component["Component (binding)"]
+        C1["button.primary.bg\n--> action.primary"]
+        C2["button.padding\n--> inset.md"]
+        C3["button.label.font\n--> body.sm"]
+    end
+
+    subgraph Themes["Theme overlays"]
+        T1["light.action.primary\n--> blue.500"]
+        T2["dark.action.primary\n--> blue.300"]
+        T3["brand.x.action.primary\n--> teal.500"]
+    end
+
+    P1 --> S1 --> C1
+    P2 --> S2 --> C2
+    P3 --> S3 --> C3
+
+    S1 -.-> T1
+    S1 -.-> T2
+    S1 -.-> T3
+
+    classDef prim fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef sem fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef comp fill:#2E7D5A,stroke:#1F5C42,color:#ffffff
+    classDef theme fill:#7A4A2E,stroke:#5C381F,color:#ffffff
+    class P1,P2,P3 prim
+    class S1,S2,S3 sem
+    class C1,C2,C3 comp
+    class T1,T2,T3 theme

@@ -1,0 +1,24 @@
+%% Diagram: Idempotent request handling
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    REQ["Incoming request + Idempotency-Key"] --> LOOKUP{"Key exists in cache?"}
+    LOOKUP -- No --> LOCK["SETNX lock + status=processing"]
+    LOCK --> EXEC["Execute payment"]
+    EXEC --> STORE["Persist response + status=complete"]
+    STORE --> RESP["Return response"]
+
+    LOOKUP -- Yes --> HASH{"Request hash matches?"}
+    HASH -- No --> CONFLICT["409 idempotency_conflict"]
+    HASH -- Yes --> STATUS{"Status?"}
+    STATUS -- processing --> INFLIGHT["409 request_in_progress (retry later)"]
+    STATUS -- complete / error --> REPLAY["Replay cached response (Idempotent-Replayed: true)"]
+
+    subgraph Storage["Idempotency storage"]
+        REDIS[("Redis (TTL 24h)")]
+        PG[("PostgreSQL (durable audit)")]
+    end
+
+    LOCK --- REDIS
+    STORE --- REDIS
+    STORE --- PG

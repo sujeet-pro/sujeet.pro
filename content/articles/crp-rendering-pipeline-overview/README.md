@@ -1,12 +1,12 @@
 ---
-title: 'Critical Rendering Path: Rendering Pipeline Overview'
-linkTitle: 'CRP: Pipeline Overview'
+title: "Critical Rendering Path: Rendering Pipeline Overview"
+linkTitle: "CRP: Pipeline Overview"
 description: >-
   An end-to-end walkthrough of Chromium's RenderingNG pipeline — from DOM and
   CSSOM construction through style, layout, paint, commit, raster, composite,
-  and draw — explaining how each stage's inputs and outputs enable 60fps rendering.
+  and draw — showing how each stage's inputs and outputs enable 60fps rendering.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - browser
   - rendering
@@ -17,300 +17,296 @@ tags:
 
 # Critical Rendering Path: Rendering Pipeline Overview
 
-The browser's rendering pipeline transforms HTML, CSS, and JavaScript into visual pixels through a series of discrete, highly optimized stages. Modern browser engines like Chromium employ the **RenderingNG** architecture—a next-generation rendering system developed between 2014 and 2021—which decouples the main thread from the compositor and GPU processes to ensure 60fps+ performance and minimize interaction latency.
+The browser turns HTML, CSS, and JavaScript into pixels through a pipeline of discrete, well-defined stages. Chromium's modern implementation, [**RenderingNG**](https://developer.chrome.com/docs/chromium/renderingng), splits that pipeline across the renderer's main thread, the renderer's compositor thread, and a separate Viz process so that scrolling and compositor-driven animation can stay at 60 fps even when the main thread is busy. This article is the entry point for the Critical Rendering Path series: it sketches the whole pipeline and then hands off to per-stage deep dives — [DOM construction](../crp-dom-construction/README.md), [CSSOM construction](../crp-cssom-construction/README.md), [style recalc](../crp-style-recalculation/README.md), [layout](../crp-layout/README.md), [pre-paint](../crp-prepaint/README.md), [paint](../crp-paint/README.md), [commit](../crp-commit/README.md), [layerize](../crp-layerize/README.md), [raster](../crp-raster/README.md), [composite](../crp-composit/README.md), and [draw](../crp-draw/README.md).
 
-![The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.](./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs--light.svg "The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.")
-![The RenderingNG pipeline: Main thread stages (DOM → Paint) produce immutable outputs committed to the compositor thread, which handles rasterization and compositing independently.](./diagrams/the-renderingng-pipeline-main-thread-stages-dom-paint-produce-immutable-outputs--dark.svg)
+![RenderingNG pipeline laid out by thread and process: parsing feeds Style on the renderer main thread, stages 1-7 run on the main thread up to Commit, stages 8-10 run on the compositor thread (with worker raster), and stages 11-12 run in the Viz process.](./diagrams/renderingng-pipeline-light.svg "RenderingNG splits the 12-stage pipeline across the renderer main thread, the compositor thread plus its workers, and the Viz process. Animate and Scroll can short-circuit straight into Aggregate when only compositor-driven properties (transform, opacity, scroll offset) change.")
+![RenderingNG pipeline laid out by thread and process: parsing feeds Style on the renderer main thread, stages 1-7 run on the main thread up to Commit, stages 8-10 run on the compositor thread (with worker raster), and stages 11-12 run in the Viz process.](./diagrams/renderingng-pipeline-dark.svg)
 
-## Abstract
+## Thesis
 
-The rendering pipeline is fundamentally a **producer-consumer architecture** split across threads and processes:
+The rendering pipeline is a **producer–consumer system across threads and processes**:
 
-- **Main Thread**: Produces structured data (DOM, CSSOM, computed styles, layout geometry, property trees, display lists). Each stage's output is immutable once complete.
-- **Compositor Thread**: Consumes committed data to handle scrolling, animations (transform/opacity), and frame assembly without blocking the main thread.
-- **Viz Process**: Aggregates compositor frames from all sources and issues GPU draw calls.
+- **Main thread** (renderer): produces structured, immutable artifacts — DOM, CSSOM, computed styles, the [**fragment tree**](https://developer.chrome.com/docs/chromium/blinkng), the four [**property trees**](https://developer.chrome.com/docs/chromium/renderingng-data-structures#property-trees), and **display lists**.
+- **Compositor thread** (renderer): consumes those artifacts to layerize, raster on worker threads, and assemble compositor frames. It also handles scroll and transform/opacity animation without going back to the main thread.
+- **Viz process**: aggregates compositor frames from every renderer plus the browser UI and issues GPU commands to the screen.
 
-The key insight: **Property Trees** (transform, clip, effect, scroll) replaced monolithic layer trees, reducing animation updates from O(layers) to O(affected nodes). This enables compositor-driven animations that bypass the main thread entirely—the architectural foundation for responsive scrolling and 60fps animations even when JavaScript is busy.
+The architectural lever is the [**property trees**](https://developer.chrome.com/docs/chromium/renderingng-data-structures#property-trees) — separate trees for transform, clip, effect, and scroll, each referenced by node ID from composited layers. They replace the legacy monolithic layer tree and let the compositor update an element's transform or opacity without re-running style, layout, or paint. This is why a transform animation can stay at 60 fps even while the main thread is stuck in a long task.
 
-Performance impact flows from this split: Interaction to Next Paint (INP) measures how quickly the pipeline can present a frame after user input. Each pipeline stage that runs on the main thread directly contributes to input delay and processing time.
+[**Interaction to Next Paint (INP)**](https://web.dev/articles/inp) — the responsiveness Core Web Vital — measures the latency from a user input to the next visual update. Every main-thread stage in the pipeline contributes to either input delay (work running before the handler) or processing time (work the handler triggers); the compositor and Viz stages contribute to presentation delay.
 
-## Pipeline Stages: Inputs and Outputs
+## Mental model: the 12 stages of RenderingNG
 
-Each stage has well-defined inputs and outputs. Understanding this data flow is essential for debugging performance issues.
+Chromium's [RenderingNG architecture page](https://developer.chrome.com/docs/chromium/renderingng-architecture) defines the rendering pipeline as **12 stages** in a fixed order. DOM and CSSOM construction are upstream parsing steps that feed Stage 2 (Style); they aren't pipeline stages themselves but they gate everything that follows.
 
-| Stage                                                         | Input                              | Output                                                                     | Consumed By      |
-| ------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------- | ---------------- |
-| [**DOM Construction**](../crp-dom-construction/README.md)     | HTML bytes                         | DOM Tree                                                                   | Style Recalc     |
-| [**CSSOM Construction**](../crp-cssom-construction/README.md) | CSS bytes                          | CSSOM Tree                                                                 | Style Recalc     |
-| [**Style Recalc**](../crp-style-recalculation/README.md)      | DOM + CSSOM                        | ComputedStyle (per node) + **LayoutObject Tree**                           | Layout           |
-| [**Layout**](../crp-layout/README.md)                         | LayoutObject Tree + ComputedStyle  | **Fragment Tree** (immutable geometry)                                     | Prepaint         |
-| [**Prepaint**](../crp-prepaint/README.md)                     | LayoutObject Tree + Fragment Tree  | **Property Trees** (transform, clip, effect, scroll) + paint invalidations | Paint            |
-| [**Paint**](../crp-paint/README.md)                           | LayoutObject Tree + Property Trees | **Display Lists** (drawing commands)                                       | Commit           |
-| [**Commit**](../crp-commit/README.md)                         | Property Trees + Display Lists     | Copied data on compositor thread                                           | Layerize, Raster |
-| **Layerize**                                                  | Display Lists                      | Composited layer list                                                      | Raster           |
-| [**Raster**](../crp-raster/README.md)                         | Display Lists + Tiles              | GPU texture tiles (bitmaps)                                                | Composite        |
-| [**Composite**](../crp-composit/README.md)                    | Texture tiles + Property Trees     | Compositor Frame (DrawQuads)                                               | Draw             |
-| [**Draw**](../crp-draw/README.md)                             | Compositor Frame                   | Pixels on screen                                                           | Display          |
+| #   | Stage          | Primary thread        | Output                                                                | Notes                                                  |
+| --- | -------------- | --------------------- | --------------------------------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Animate**    | Main and/or compositor | Updated computed styles + property-tree mutations from declarative animations | Skipped when no animations are running.                |
+| 2   | **Style**      | Main                  | `ComputedStyle` per element + the **LayoutObject tree**               | Driven by the dirty-bit system.                        |
+| 3   | **Layout**     | Main                  | Immutable **fragment tree** with physical geometry                    | Reads also force this stage if dirty (layout thrash).  |
+| 4   | **Pre-paint**  | Main                  | Four **property trees** (transform, clip, effect, scroll) + invalidations | Walks the LayoutObject tree, not the fragment tree.    |
+| 5   | **Scroll**     | Main and/or compositor | Updated scroll offsets in property trees                              | Compositor-only when no JS scroll listener intercepts. |
+| 6   | **Paint**      | Main                  | **Display lists** (drawing commands, not pixels)                      | Layerization decisions originate here.                 |
+| 7   | **Commit**     | Main → compositor     | Property trees + display lists copied to cc                           | Synchronous handoff between threads.                   |
+| 8   | **Layerize**   | Compositor            | Composited layer list from display lists                              | Heuristics depend on memory and overlap analysis.      |
+| 9   | **Raster + decode** | Compositor (worker threads / Viz) | GPU texture tiles                                                     | Image decode is the most expensive sub-step.           |
+| 10  | **Activate**   | Compositor            | Pending tree → active tree (atomic flip)                              | The active tree stays drawable while pending rasters.  |
+| 11  | **Aggregate**  | Viz (display compositor) | One global compositor frame from all renderers + browser UI           | One Viz process per Chromium instance.                 |
+| 12  | **Draw**       | Viz (GPU main thread) | Pixels on screen                                                      | Synchronized to the display VSync.                     |
 
-**Key distinction**: The **LayoutObject Tree** is created during Style Recalc, not Layout. Layout _annotates_ the LayoutObject tree and produces the immutable **Fragment Tree** as its output. Prepaint then traverses the LayoutObject tree (using Fragment Tree data) to build Property Trees.
+The "skip" property is what makes the architecture fast: **Animate** and **Scroll** can run end-to-end on the compositor thread when they don't trigger layout or paint, bypassing stages 2–4 and 6 entirely. This is the architectural reason `transform` and `opacity` animations are cheap and `top`/`left`/`width`/`height` animations are not.
 
-## The Critical Rendering Path (CRP)
+> [!IMPORTANT]
+> RenderingNG is the umbrella architecture across the whole pipeline. **BlinkNG** is the sub-project that re-architected the Blink main-thread part (stages 1–7) into a structured, single-pass document lifecycle with cleaner stage boundaries — see [BlinkNG deep-dive](https://developer.chrome.com/docs/chromium/blinkng).
 
-The **Critical Rendering Path (CRP)** is the sequence of steps the browser undergoes to convert code into a visual frame. While traditionally viewed as a linear flow (DOM → CSSOM → Render Tree → Layout → Paint), modern engines employ a granular multi-threaded architecture designed around a core constraint: the main thread handles both JavaScript execution and rendering pipeline stages, so any work on the main thread delays both script responsiveness and visual updates.
+## DOM and CSSOM construction (parsing prerequisites)
 
-### Design Rationale: Why Multi-Threading Matters
+These two parsing steps feed the pipeline; they're not in the 12-stage list but render-blocking behavior originates here.
 
-> **Prior to RenderingNG (pre-2021)**: Rendering was deeply coupled. Scrolling could trigger expensive style recalculations. Animation of transforms required full layer tree walks. The single-threaded assumption baked into the original WebKit codebase (dating to 1998) meant rendering work blocked JavaScript and vice versa.
+### DOM construction
 
-RenderingNG's design addresses this by:
+The HTML parser builds the [DOM tree](https://dom.spec.whatwg.org/) incrementally as bytes arrive. Two blocking properties matter:
 
-1. **Separating concerns**: Each pipeline stage produces well-defined, immutable outputs
-2. **Enabling skip logic**: Stages that aren't needed can be bypassed (e.g., transform animations skip layout and paint)
-3. **Offloading work**: Compositor-driven operations don't require main thread involvement
+- **Synchronous `<script>` is parser-blocking.** A `<script>` without `async` or `defer` halts the parser because the script can call `document.write()` and mutate the input stream — this is normative behavior in [HTML §13.2.6 "tree construction"](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction). `defer` and `async` are the escape hatches for scripts that don't need synchronous document access.
+- **The preload scanner** runs ahead of the main parser to discover external resources (CSS, JS, fonts, images) and start fetches early. It is one of the highest-leverage optimizations in modern browsers because it converts parser-blocking serial fetches into parallel ones.
 
-## The RenderingNG Pipeline Stages
+See the dedicated [DOM Construction](../crp-dom-construction/README.md) deep dive for the streaming parser, speculative tokenization, and document.write fallout in detail.
 
-The pipeline comprises 12 stages, though several can be skipped when unnecessary. The first six run on the main thread; the remainder run on the compositor thread and Viz process.
+### CSSOM construction
 
-### DOM Construction
+The CSS parser produces the [CSSOM](https://drafts.csswg.org/cssom/), and unlike the DOM the CSSOM must be **fully built** before the next stage can run.
 
-The browser parses HTML bytes into the Document Object Model (DOM) tree. This process is incremental—the browser starts building the tree before the entire document downloads.
+- **CSS is render-blocking** because partial CSSOM would render the wrong styles — the cascade can override anything earlier. The browser trades initial latency for visual correctness.
+- **CSS blocks scripts that touch computed style** (`getComputedStyle`, layout-dependent reads). The browser pauses script execution until any pending stylesheet finishes loading.
 
-**Blocking Behavior**:
+Detail in [CSSOM Construction](../crp-cssom-construction/README.md).
 
-- **JS is Parser Blocking**: Synchronous `<script>` tags halt the HTML parser because scripts can call `document.write()`, which modifies the input stream.
-- **JS is Non-Render Blocking**: JavaScript doesn't block rendering directly, but it blocks the parser that generates the DOM required for rendering.
-- **Preload Scanner**: A secondary parser scans ahead for external resources (JS, CSS, fonts, images) to start downloads early, mitigating parser-blocking delays.
+## Stages 1–7: the main-thread pipeline
 
-**Design Trade-off**: The parser-blocking behavior exists because JavaScript can modify the document structure mid-parse via `document.write()`. This legacy API forces sequential processing, though `defer` and `async` attributes provide escape hatches for scripts that don't need synchronous document access.
+### 1. Animate
 
-### CSSOM Construction
+The Animate stage advances [declarative animations](https://drafts.csswg.org/web-animations-1/) — CSS transitions, CSS animations, and the Web Animations API — by mutating computed styles and property-tree nodes. When an animation only touches transform or opacity it can run entirely on the compositor; otherwise it dirties Style and the rest of the main-thread pipeline runs.
 
-The browser parses CSS into the CSS Object Model (CSSOM) tree. Unlike DOM construction, CSSOM must be built in its entirety before rendering can occur.
+### 2. Style
 
-**Blocking Behavior**:
+Style applies CSS to the DOM and produces two artifacts:
 
-- **CSS is Render Blocking**: The browser won't render content until CSSOM completes, avoiding Flash of Unstyled Content (FOUC).
-- **CSS is JS Execution Blocking**: Scripts can query styles via `getComputedStyle()`, so browsers block JS execution until CSSOM is ready.
+1. **`ComputedStyle`** for each element — the resolved CSS property values after cascade, inheritance, and `calc()` resolution.
+2. **The LayoutObject tree** — the structural skeleton that orders subsequent layout work.
 
-**Design Trade-off**: The all-or-nothing CSSOM requirement exists because CSS rules can override each other in complex ways (cascade, specificity, `!important`). Partial rendering would show incorrect styles as later rules load. The browser trades initial latency for visual correctness.
+> Older browser docs describe a single **render tree** combining DOM and styles, with non-rendered nodes filtered out. RenderingNG decouples these: computed styles live on a side map keyed by the DOM node, the LayoutObject tree carries layout-relevant structure, and visibility filtering happens during layout.
 
-### Style Recalculation
+Two mechanics keep Style fast:
 
-The engine combines DOM and CSSOM to determine final computed styles for every element. This stage produces two outputs:
+- **Dirty bits**: only nodes whose style invalidation rules matched are recalculated, so the cost is O(dirty nodes) instead of O(all nodes).
+- **CSS Containment**: `contain: style` and `contain: layout` cut invalidation propagation. This matters because some property changes have surprisingly broad blast radius — a `font-size` change on a parent invalidates every descendant that uses `em` or `%`, and [container queries](https://drafts.csswg.org/css-contain-3/) introduced an additional dependency where a container's size change triggers descendant style work.
 
-1. **ComputedStyle** for each node—the resolved CSS property values after cascade, inheritance, and `calc()` resolution
-2. **LayoutObject Tree**—the tree structure that establishes the order of operations for the layout phase
+See [Style Recalculation](../crp-style-recalculation/README.md) for the invalidator, the bloom-filter selector matcher, and the rule index.
 
-**Computed Style + LayoutObject Tree vs. Render Tree**:
+### 3. Layout
 
-> **Legacy architecture**: Older browser documentation refers to a **Render Tree**—a tree structure built by combining DOM and CSSOM that contained only visible elements (excluding `display: none`, `<head>`, etc.). Each render tree node stored both the DOM reference and its computed styles.
+Layout takes the LayoutObject tree and resolves geometry, producing the immutable **fragment tree** (`PhysicalFragment` objects with final positions, sizes, and physical coordinates). Per the [BlinkNG documentation](https://developer.chrome.com/docs/chromium/blinkng), this is the "primary, read-only output of layout."
 
-Modern engines (RenderingNG, BlinkNG) decouple these concerns:
+Layout also distinguishes **needs layout** from **needs full layout** so it can do the smallest viable subtree pass.
 
-- **Computed styles** are stored as a map attached to DOM nodes, not in a separate tree
-- **Visibility filtering** happens later during layout (the Fragment Tree excludes non-rendered elements)
-- **Style calculation** is now a discrete phase that can run independently and be cached
+> [!WARNING]
+> **Forced synchronous layout (layout thrashing).** Reading a layout-dependent property (`offsetWidth`, `getBoundingClientRect`, etc.) while layout is dirty forces an immediate layout pass. Mixing reads and writes in a loop turns one layout into N.
+>
+> ```js title="layout-thrashing.js"
+> // Bad: every iteration reads then writes, forcing layout each time.
+> for (const el of elements) {
+>   el.style.width = container.offsetWidth + "px";
+> }
+>
+> // Good: hoist the read, then batch the writes.
+> const width = container.offsetWidth;
+> for (const el of elements) {
+>   el.style.width = width + "px";
+> }
+> ```
 
-This separation enables better incremental updates—changing an element's `display` from `none` to `block` only requires style recalc and layout, not rebuilding a monolithic tree structure.
+Properties that force layout include `offsetLeft/Top/Width/Height`, `clientLeft/Top/Width/Height`, `scrollLeft/Top/Width/Height`, `getBoundingClientRect()`, `getClientRects()`, `getComputedStyle()` for layout-dependent properties, `innerText`, `focus()`, and `scrollIntoView()`. [Paul Irish maintains the canonical list](https://gist.github.com/paulirish/5d52fb081b3570c81e3a). Deep dive: [Layout](../crp-layout/README.md).
 
-**Key Details**:
+### 4. Pre-paint
 
-- **Dirty Bit System**: Only elements marked "dirty" (style-invalidated) are recalculated, enabling O(dirty nodes) instead of O(all nodes).
-- **Containment Optimization**: Elements with `contain: style` limit style invalidation scope—descendant changes don't invalidate ancestors.
+Pre-paint walks the LayoutObject tree (in DOM order — important for parent-containing-block resolution) and builds the four **property trees**:
 
-**Edge Case**: Style recalculation can cascade unexpectedly. A change to a parent's `font-size` invalidates all descendants using relative units (`em`, `%`). Container queries introduced additional invalidation paths where ancestor size changes can trigger descendant style recalc.
+- **Transform tree** — translation, rotation, scale, perspective.
+- **Clip tree** — overflow clips, `clip-path`.
+- **Effect tree** — opacity, filters, masks, blend modes.
+- **Scroll tree** — scroll offsets and scroll relationships.
 
-### Layout (Reflow)
+![Property trees decouple visual properties from the layer tree. Each composited layer references node IDs in the four trees instead of carrying its own per-layer copy.](./diagrams/property-trees-light.svg "Property trees replace the legacy monolithic layer tree. The compositor can update a transform or opacity by mutating one tree node instead of walking the full layer hierarchy.")
+![Property trees decouple visual properties from the layer tree. Each composited layer references node IDs in the four trees instead of carrying its own per-layer copy.](./diagrams/property-trees-dark.svg)
 
-Layout receives the **LayoutObject Tree** (from Style Recalc) and calculates geometry (width, height, x, y) of every visible element. The output is the **Fragment Tree**—an immutable representation of laid-out boxes with resolved physical coordinates.
+This is the structural change that makes compositor-only animation possible. In the legacy monolithic layer tree, updating any visual property required walking the layer hierarchy — O(layers). With property trees, the compositor mutates a single node and the existing layer-list references pick it up — close to O(1) for the common case. See [Pre-paint](../crp-prepaint/README.md).
 
-**LayoutObject Tree vs. Fragment Tree**:
+### 5. Scroll
 
-- **LayoutObject Tree** (input): Mutable tree created during style recalc, points to DOM nodes, receives layout annotations
-- **Fragment Tree** (output): Immutable tree of `PhysicalFragment` objects with final positions, sizes, and physical coordinates (left/top, not logical)
+Scroll updates the scroll-tree offsets. When no JavaScript scroll listener intercepts the event (or only listeners marked `passive: true` are present), Scroll runs on the compositor thread without involving the main thread. A non-passive `wheel` or `touchstart` listener forces every scroll input through the main thread to give scripts a chance to call `preventDefault`.
 
-The Fragment Tree is the "primary, read-only output of layout." Its immutability enables caching and prevents later stages from accidentally modifying geometry.
+### 6. Paint
 
-**Key Details**:
+Paint walks the LayoutObject tree and produces **display lists** — recorded drawing commands like "draw rect at (0,0) with blue fill", not pixels. The `PaintController` caches display items so unchanged subtrees skip painting entirely; subsequence recording groups related items so common subtrees can be reused across frames.
 
-- **Dirty Bit System**: Layout uses dirty flags to recalculate only affected subtrees. The engine distinguishes between "needs layout" and "needs full layout" states.
-- **Layout Containment**: Elements with `contain: layout` become layout roots—their descendants' layout changes don't propagate to ancestors.
+Paint also makes the **layerization decision**: which elements need their own composited layer based on properties like `will-change: transform`, `transform`, `opacity` < 1, `position: fixed`, and 3D-context-creating properties.
 
-**Forced Synchronous Layout (Layout Thrashing)**: Reading geometric properties from JavaScript while layout is dirty forces an immediate, synchronous layout:
+> [!CAUTION]
+> Promoting too many elements to their own layer (e.g. blanket `will-change: transform`) consumes GPU memory and can degrade the very animations it was meant to accelerate. Use it surgically.
 
-```js
-// ❌ Layout thrashing: each iteration forces layout
-for (const el of elements) {
-  el.style.width = container.offsetWidth + "px" // read forces layout, write invalidates it
-}
+Detail in [Paint](../crp-paint/README.md).
 
-// ✅ Batch reads, then batch writes
-const width = container.offsetWidth // single read
-for (const el of elements) {
-  el.style.width = width + "px" // writes only
-}
+### 7. Commit
+
+Commit synchronously copies the property trees and display lists to the compositor thread.
+
+- **Synchronous handoff**: the main thread blocks while cc copies the data. In debug builds, the `ProxyImpl` class enforces this with `DCHECK`s — it only touches main-thread-owned data while the main thread is paused.
+- **Atomic per-frame**: all changes in one frame commit together so the compositor never sees a partially updated state.
+- **Frame boundary**: after Commit the main thread can start work on the next frame while cc processes the current one — the natural pipelining boundary.
+
+Deep dive: [Commit](../crp-commit/README.md).
+
+## Stages 8–10: the compositor
+
+### 8. Layerize
+
+The compositor breaks display lists into a composited layer list, ready for independent rasterization and animation. Why on the compositor and not on the main thread? Because the right layer split depends on runtime factors — current memory pressure, GPU capabilities, overlap analysis — and the main thread shouldn't wait for that. See [Layerize](../crp-layerize/README.md).
+
+### 9. Raster, decode, and paint worklets
+
+Raster turns display lists into bitmapped GPU texture tiles. Image decode and paint worklets run alongside.
+
+- **Tiling**: the viewport is split into tiles. Per [How cc Works](https://chromium.googlesource.com/chromium/src/+/lkgr/docs/how_cc_works.md#picture-layer), software-raster tiles are roughly 256×256 px while GPU-raster tiles are roughly viewport-width × ¼ viewport-height — so GPU tiles are large rectangles, not little squares. Heuristics adjust by device.
+- **Tile prioritization**: visible > soon-visible > prefetch. Under memory pressure, low-priority tiles are evicted first.
+- **GPU vs software raster**: most modern Chromium installs use GPU raster via Skia. There are three buffer providers — `ZeroCopyRasterBufferProvider` (direct GPU memory), `OneCopyRasterBufferProvider` (CPU upload), and `GpuRasterBufferProvider` (GPU command buffer) — chosen by capability.
+- **Image decode** is the most expensive raster sub-step. It runs on dedicated decode threads with separate caches for software and GPU paths (`SoftwareImageDecodeCache`, `GpuImageDecodeCache`).
+
+> [!NOTE]
+> GPU raster is single-threaded per GPU context because of GPU context locks. Decode parallelizes across worker threads, but pixel generation per tile is sequential. This is one of the motivations for [Vulkan](https://www.vulkan.org/) adoption in newer code paths.
+
+Detail in [Raster](../crp-raster/README.md).
+
+### 10. Activate
+
+The compositor maintains **three trees** in service of multi-buffering:
+
+| Tree    | Role                                                       |
+| ------- | ---------------------------------------------------------- |
+| Main    | cc's mirror of the main-thread state, updated each Commit. |
+| Pending | Staging area while raster work is in flight; not drawable. |
+| Active  | Currently drawable; survives until the next pending tree activates. |
+
+![Compositor three-tree state machine: Main receives commits, Pending stages raster, Active is drawable until replaced by the next activation.](./diagrams/compositor-trees-state-light.svg "The pending/active split lets the compositor keep drawing the current frame at 60 fps while the next frame's tiles raster in the background. Activation is atomic.")
+![Compositor three-tree state machine: Main receives commits, Pending stages raster, Active is drawable until replaced by the next activation.](./diagrams/compositor-trees-state-dark.svg)
+
+Activation flips the pending tree to active in one atomic step once raster finishes. The active tree stays drawable throughout, which is why scrolling and compositor animations can run smoothly while a complex commit is being processed.
+
+## Stages 11–12: Viz and the GPU
+
+### 11. Aggregate
+
+Viz's [display compositor thread](https://developer.chrome.com/docs/chromium/renderingng-architecture#viz_process) takes the per-renderer compositor frames — every tab, every cross-origin iframe (each in its own renderer process under [site isolation](https://www.chromium.org/Home/chromium-security/site-isolation/)), plus the browser UI — and aggregates them into one global compositor frame using `SurfaceAggregator`. This is also where DrawQuads are ordered back-to-front and intermediate render passes are set up for masks, filters, and clips on rotated content.
+
+### 12. Draw
+
+The Viz GPU main thread issues the actual GL/Vulkan/Metal commands via `DirectRenderer`. Drawing is synchronized to the display refresh rate (60 Hz, 90 Hz, 120 Hz, 144 Hz) via VSync to avoid tearing. Viz runs in a dedicated process so a GPU driver crash doesn't take down the whole browser. See [Draw](../crp-draw/README.md).
+
+## Frame scheduling: how the 12 stages get sequenced
+
+The 12 stages don't run as one monolithic call — they're driven by `cc::Scheduler`, which converts VSync-aligned `BeginFrame` messages from Viz into a small state machine. Per [How cc Works — Scheduling](https://chromium.googlesource.com/chromium/src/+/lkgr/docs/how_cc_works.md#scheduling), the canonical low-latency flow is:
+
+```text
+BeginImplFrame -> BeginMainFrame -> Commit -> ReadyToActivate -> Activate -> ReadyToDraw -> Draw
 ```
 
-**Properties That Force Layout**: `offsetLeft/Top/Width/Height`, `clientLeft/Top/Width/Height`, `scrollLeft/Top/Width/Height`, `getClientRects()`, `getBoundingClientRect()`, `getComputedStyle()` (for layout-dependent properties), `innerText`, `focus()`, `scrollIntoView()`.
+![Frame scheduling sequence: Viz issues BeginFrame at VSync, the compositor scheduler runs BeginImplFrame and BeginMainFrame, Blink runs the main-thread lifecycle, NotifyReadyToCommit triggers a synchronous Commit, raster proceeds in workers, ActivateSyncTree promotes the pending tree, and the compositor frame is submitted for Aggregate and Draw.](./diagrams/frame-scheduling-light.svg "One frame as cc::Scheduler sees it. The arrows are scheduler state transitions, not direct calls; ScheduledActionCommit only runs once Blink reports NotifyReadyToCommit, and ActivateSyncTree only runs once the pending tree's required tiles report ReadyToActivate.")
+![Frame scheduling sequence: Viz issues BeginFrame at VSync, the compositor scheduler runs BeginImplFrame and BeginMainFrame, Blink runs the main-thread lifecycle, NotifyReadyToCommit triggers a synchronous Commit, raster proceeds in workers, ActivateSyncTree promotes the pending tree, and the compositor frame is submitted for Aggregate and Draw.](./diagrams/frame-scheduling-dark.svg)
 
-### Prepaint
+Three properties of this state machine drive how engineers should reason about a frame budget:
 
-Introduced in RenderingNG, Prepaint performs an in-order traversal of the **LayoutObject tree** (not the Fragment Tree) to build **Property Trees**—separate tree structures for transform, clip, effect (opacity/filters/masks), and scroll. The traversal order matters: it enables efficient computation of DOM-order hierarchy like parent containing blocks.
+- **Pipelining at the Commit boundary.** Once the main thread releases the commit mutex, it can start work on the next frame's `BeginMainFrame` while the compositor is still rasterizing and drawing the current one. Commit is the architectural seam that makes that pipelining possible.
+- **High-latency mode.** If the main thread misses the scheduler's deadline, `cc::Scheduler` will draw the existing active tree without waiting for a new commit and switch into a "high latency" mode that increases pipelining at the cost of input-to-pixel latency. When subsequent frames recover, the scheduler can drop a `BeginMainFrame` to catch back up.
+- **Slow raster gating activation, not commit.** If raster is the bottleneck, `ActivateSyncTree` is held back but a second `BeginMainFrame` and `Commit` can still run; the active tree remains drawable throughout, which is what keeps the page interactive when raster is heavy.
 
-**Why Property Trees Exist**:
+> [!IMPORTANT]
+> The scheduler's "skip" rules are stage-local. If invalidations don't extend past the boundary of a stage, that stage's *output* is reused unchanged. Compositor-driven scrolling and `transform`/`opacity` animations are the headline case (Animate and Scroll skip stages 2-4 and 6 entirely), but smaller skips also exist: `PaintController` short-circuits Paint for unchanged subsequences, BlinkNG skips Layout subtrees that aren't dirty, and `ActivateSyncTree` is a no-op when no tiles have changed. The architecture is "do the smallest valid amount of work for this frame", not "always run all 12 stages".
 
-> **Legacy architecture**: Browsers used a monolithic **Layer Tree** where each layer stored its own transform, clip, and effect values. Updating any property required walking the entire tree—O(N) where N is layers.
+## INP: how pipeline cost shows up in the responsiveness metric
 
-Property trees decouple these concerns:
+[Interaction to Next Paint (INP)](https://web.dev/articles/inp) measures the latency from user input to the next visual update at the page's worst (or 98th-percentile) interaction. It decomposes into three phases that map directly to pipeline stages:
 
-- **Transform Tree**: Spatial positioning (translation, rotation, scale)
-- **Clip Tree**: Visibility boundaries (overflow, clip-path)
-- **Effect Tree**: Visual effects (opacity, filters, blend modes, masks)
-- **Scroll Tree**: Scroll offset relationships
+![INP phases mapped to pipeline work: input delay (before the handler), processing time (in the handler), presentation delay (commit through draw).](./diagrams/inp-phases-light.svg "INP measures end-to-end interaction latency. Input delay covers main-thread work before the handler; processing time is the handler itself; presentation delay covers commit, raster, and draw.")
+![INP phases mapped to pipeline work: input delay (before the handler), processing time (in the handler), presentation delay (commit through draw).](./diagrams/inp-phases-dark.svg)
 
-Each layer references nodes in these trees by ID. The compositor can update an element's position by applying a different matrix from the Transform Tree without re-walking layout or style.
+| Phase                  | What it captures                              | Pipeline mapping                                              |
+| ---------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| **Input delay**        | Time until the event handler starts executing | Main-thread work in flight (long tasks, style, layout, paint) |
+| **Processing time**    | Time spent in event listeners                 | JavaScript inside the handler                                 |
+| **Presentation delay** | Time from handler end to the next visible frame | Commit → Layerize → Raster → Activate → Aggregate → Draw      |
 
-**Design Trade-off**: Property trees add complexity (four separate trees instead of one) but enable O(1) property updates and compositor-only animations.
+INP thresholds (75th percentile across page interactions, per [web.dev](https://web.dev/articles/inp#what-is-a-good-inp-score)):
 
-### Paint
+- **Good**: ≤ 200 ms
+- **Needs improvement**: 201–500 ms
+- **Poor**: > 500 ms
 
-The browser records drawing commands into **Display Lists**—a sequence of paint operations like "draw rectangle at (0,0) with blue fill."
+The architectural payoff of RenderingNG is that compositor-only work — passive scrolling, transform/opacity animation — never lands in input delay or processing time. The compositor handles those visual updates while the main thread stays free for event handling. That's the mechanism behind every "use `transform` instead of `top`" recommendation.
 
-**Key Details**:
+### Pipeline-aware optimization heuristics
 
-- **Not Pixels**: Paint produces display lists, not actual pixels. Rasterization happens later on the compositor thread.
-- **Caching**: The `PaintController` caches display items. Identical items are reused rather than repainted.
-- **Subsequence Recording**: Related display items are grouped and cached together. Unchanged subtrees skip painting entirely.
+1. **Cap main-thread work below 50 ms.** Long tasks (>50 ms by the [Long Tasks API definition](https://w3c.github.io/longtasks/)) extend input delay and break up rendering.
+2. **Animate transform and opacity, not layout properties.** These skip stages 2–4 and 6.
+3. **Batch DOM reads, then batch writes.** Avoids forced sync layout (see Stage 3).
+4. **Use [`content-visibility: auto`](https://drafts.csswg.org/css-contain-2/#content-visibility)** on off-screen content to defer style and layout for elements that aren't near the viewport.
+5. **Mark scroll/touch listeners `{ passive: true }`** when you don't need `preventDefault`. Keeps the Scroll stage on the compositor.
 
-**Layerization**: Based on CSS properties (`will-change`, `transform`, `opacity`, `position: fixed`), the engine determines which elements get their own composited layers. Layerization decisions happen here, not during compositing.
+## Architecture and process model
 
-**Edge Case**: Creating too many layers (e.g., hundreds of `will-change: transform` elements) consumes GPU memory and can degrade performance. The browser uses heuristics to limit layer count.
+### Process boundaries
 
-### Commit
+| Process      | Responsibility                          | Count                                              |
+| ------------ | --------------------------------------- | -------------------------------------------------- |
+| **Browser**  | UI chrome, navigation, input routing    | 1 per Chromium instance                            |
+| **Renderer** | Page rendering, JS execution            | Roughly 1 per site (process-per-site-instance under site isolation; mobile may share under memory pressure) |
+| **Viz**      | Aggregate + draw on GPU                 | 1 per Chromium instance                            |
 
-The main thread commits updated property trees and display lists to the Compositor thread.
+Renderers are sandboxed with minimal OS access. Viz isolates GPU-driver instability from the rest of the browser. See [Chromium's RenderingNG architecture page](https://developer.chrome.com/docs/chromium/renderingng-architecture#cpu_processes) for the precise rules and the WebView caveats.
 
-**Key Details**:
+### Thread structure inside a renderer
 
-- **Synchronous Handoff**: The main thread blocks while the compositor copies data. This is the handoff point between threads.
-- **Atomic Update**: All changes from one frame are committed together, ensuring consistency.
+Per [Chromium's RenderingNG threads doc](https://developer.chrome.com/docs/chromium/renderingng-architecture#threads):
 
-**Implementation Detail**: The `ProxyImpl` class enforces thread safety—it only accesses main-thread data structures when the main thread is blocked, verified via DCHECKs in debug builds.
+- **Main thread**: scripts, the rendering event loop, document lifecycle, hit testing, parsing.
+- **Compositor thread**: input events, scroll, animation ticks, layerize coordination, raster scheduling.
+- **Compositor worker threads**: actual raster / decode / paint-worklet execution.
+- **Media / demux / audio**: video decode and A/V sync, in parallel with the rendering pipeline.
 
-**Frame Boundaries**: A commit marks the point where the main thread's work for a frame is "done." The main thread can begin work on the next frame while the compositor processes the current one.
+Exactly **one** main thread and **one** compositor thread per renderer process. The number of compositor worker threads scales with device capability.
 
-### Layerize
+### Memory and tile management
 
-The Compositor thread breaks display lists into composited layer lists for independent rasterization.
+- **Tiling** keeps GPU memory bounded — only visible tiles consume textures.
+- **Tile priority** evicts low-priority (offscreen) tiles first under pressure.
+- **Layer squashing** merges layers that don't need independence to reduce overhead.
 
-**Why Separate From Paint**: Layerization decisions depend on runtime factors (memory pressure, GPU capabilities, overlap analysis) that the main thread shouldn't wait for. Moving this to the compositor enables faster commits.
+### Scheduler ordering (broadly)
 
-### Rasterization
+The Blink scheduler runs main-thread tasks under a priority order that, broadly, places **discrete input events** (click, keydown) above **continuous input** (scroll, mousemove), above **rendering updates** (rAF, style, layout, paint), above **background work** (timers, idle callbacks). Exact policy is more nuanced — see the [Blink scheduler design docs](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/platform/scheduler/) — but this ordering captures the intent: keep input responsive even when the page is busy.
 
-The Compositor thread converts display lists into bitmapped textures (pixels).
+## Where to go next
 
-**Key Details**:
+The Critical Rendering Path series unpacks each stage as its own article. Read in pipeline order:
 
-- **Tiling**: The viewport divides into tiles (typically 256×256 or 512×512 pixels). Only visible and near-visible tiles are rasterized.
-- **GPU Acceleration**: Most modern browsers use GPU rasterization via Skia. Software rasterization is the fallback.
-- **Modes**: `ZeroCopyRasterBufferProvider` (direct GPU memory), `OneCopyRasterBufferProvider` (CPU to GPU upload), `GpuRasterBufferProvider` (GPU command buffer).
-
-**Image Decoding**: Image decode is the most expensive raster operation. It runs on separate decode threads with dedicated caches for software vs. GPU paths.
-
-**Limitation**: GPU rasterization is single-threaded due to GPU context locks. Image decoding parallelizes, but pixel generation is sequential per tile.
-
-### Activate
-
-The pending tree (staging rasterization results) becomes the active tree (ready for drawing).
-
-**Three Tree States**:
-
-| Tree    | Purpose                                  |
-| ------- | ---------------------------------------- |
-| Main    | Source of truth for layers (main thread) |
-| Pending | Staging area for rasterization work      |
-| Active  | Ready for drawing                        |
-
-**Why Two Compositor Trees**: The pending/active split enables atomic visual updates. The active tree remains drawable (scrollable, animatable) while the pending tree completes rasterization. Once ready, activation is instant.
-
-### Compositing
-
-The Compositor thread assembles rasterized tiles into a single frame based on Property Trees.
-
-**Key Details**:
-
-- **Off-Main-Thread**: Scrolling and compositor-driven animations (transform, opacity) happen here without main thread involvement.
-- **Draw Quads**: The compositor produces `DrawQuad` objects describing how to render each tile, ordered back-to-front.
-- **RenderPasses**: Complex effects (masks, filters, clips on rotated content) use intermediate render passes.
-
-**Compositor-Only Animations**: Animations affecting only `transform` or `opacity` can run at 60fps even with a busy main thread because the compositor has everything needed in the property trees. This is why `will-change: transform` exists—it hints the browser to promote the element to its own layer.
-
-### Draw
-
-The Viz process issues the final GPU commands to render the composited frame.
-
-**Key Details**:
-
-- **Viz Process**: A separate process that receives compositor frames from all sources (multiple tabs, browser UI) and aggregates them.
-- **VSync Synchronization**: Drawing synchronizes with the display's refresh rate (60Hz, 120Hz, 144Hz) to avoid tearing.
-- **Final Aggregation**: `SurfaceAggregator` combines frames; `DirectRenderer` executes the actual GL/Vulkan/Metal commands.
-
-**Process Isolation**: Viz runs in a separate process so GPU driver crashes don't take down the entire browser.
-
-## Performance Impact: Interaction to Next Paint (INP)
-
-**Interaction to Next Paint (INP)** is a Core Web Vital measuring responsiveness. It captures the latency from user interaction to the next visual update, comprising three phases:
-
-| Phase                  | Description                          | Pipeline Impact                                         |
-| ---------------------- | ------------------------------------ | ------------------------------------------------------- |
-| **Input Delay**        | Time before event handlers run       | Blocked by main thread work (long tasks, style, layout) |
-| **Processing Time**    | Event handler execution              | JavaScript in event listeners                           |
-| **Presentation Delay** | Handler completion → frame displayed | Commit → Raster → Composite → Draw                      |
-
-**Thresholds** (75th percentile):
-
-- **Good**: ≤200ms
-- **Needs Improvement**: 201–500ms
-- **Poor**: >500ms
-
-**Why Architecture Matters**: RenderingNG's thread isolation means compositor-driven work (scrolling, transform/opacity animations) doesn't contribute to input delay. The main thread stays available for event processing because the compositor handles visual updates independently.
-
-**Optimization Strategies**:
-
-1. **Minimize main thread work**: Long tasks (>50ms) delay both input handling and rendering
-2. **Use compositor-friendly properties**: `transform` and `opacity` animations don't require layout or paint
-3. **Avoid forced synchronous layout**: Batch DOM reads before writes
-4. **Use `content-visibility: auto`**: Defers rendering of off-screen content
-
-## Architecture & Scalability
-
-### Process Isolation
-
-| Process      | Responsibility                       | Count                       |
-| ------------ | ------------------------------------ | --------------------------- |
-| **Browser**  | UI chrome, navigation, input routing | 1                           |
-| **Renderer** | Page rendering, JS execution         | 1 per site (site isolation) |
-| **Viz**      | GPU operations, final composition    | 1                           |
-
-The renderer process is sandboxed with minimal OS access. The Viz process handles all GPU communication, isolating graphics driver instability from the rest of the browser.
-
-### Memory Management
-
-- **Tiling**: GPU memory is managed via tiles. Only visible tiles consume GPU resources.
-- **Tile Priority**: Tiles are prioritized (visible > soon-visible > prefetch). Under memory pressure, low-priority tiles are discarded.
-- **Layer Squashing**: The browser merges layers when possible to reduce memory overhead.
-
-### Scheduler Behavior
-
-The main thread uses priority-based scheduling:
-
-1. **Discrete input events** (click, keydown): Highest priority
-2. **Continuous input events** (scroll, mousemove): High priority
-3. **Rendering updates** (rAF, style, layout, paint): Normal priority
-4. **Background work** (timers, microtasks): Lower priority
-
-**High Latency Mode**: When the main thread can't meet frame deadlines, the scheduler increases pipelining—trading latency for throughput by allowing more frames in flight.
+1. [DOM Construction](../crp-dom-construction/README.md)
+2. [CSSOM Construction](../crp-cssom-construction/README.md)
+3. [Style Recalculation](../crp-style-recalculation/README.md)
+4. [Layout](../crp-layout/README.md)
+5. [Pre-paint](../crp-prepaint/README.md)
+6. [Paint](../crp-paint/README.md)
+7. [Commit](../crp-commit/README.md)
+8. [Layerize](../crp-layerize/README.md)
+9. [Raster](../crp-raster/README.md)
+10. [Composite](../crp-composit/README.md)
+11. [Draw](../crp-draw/README.md)
 
 ---
 
@@ -318,43 +314,48 @@ The main thread uses priority-based scheduling:
 
 ### Prerequisites
 
-- Familiarity with the single-threaded event loop model of JavaScript
-- Understanding of GPU vs. CPU execution and memory models
-- Basic knowledge of CSS cascade, specificity, and inheritance
+- Single-threaded event-loop model of JavaScript and the difference between tasks and microtasks
+- GPU vs CPU execution and basic memory-model intuition
+- CSS cascade, specificity, and inheritance
 
-### Summary
+### Practical takeaways
 
-- RenderingNG (2014–2021) replaced monolithic rendering with a pipelined, multi-threaded architecture
-- Property Trees enable O(1) compositor-driven animations by decoupling transform, clip, effect, and scroll from the layer hierarchy
-- The main thread produces immutable outputs (DOM, styles, layout, paint); the compositor consumes them independently
-- Forced synchronous layout occurs when reading geometry properties (e.g., `offsetWidth`) after style/DOM changes
-- INP measures the full pipeline latency from interaction to visual update; architecture directly impacts all three phases
+- RenderingNG's 12 stages are an **ordered, skip-friendly** pipeline: animation and scroll skip layout/paint when they only touch transform, opacity, or scroll offset.
+- Property trees decouple visual properties from layer hierarchy and enable compositor-only animation.
+- The main thread produces immutable artifacts (DOM, computed styles, fragment tree, property trees, display lists); the compositor consumes them independently.
+- Forced synchronous layout collapses pipelining — it interleaves reads and writes on the same frame and turns 1 layout into N.
+- INP measures the full interaction-to-pixel latency. Architecture choices (passive listeners, `transform` animations, `content-visibility: auto`) move work off the main thread and out of input delay.
 
 ### References
 
-- [WHATWG HTML Living Standard - Rendering](https://html.spec.whatwg.org/multipage/rendering.html) — Canonical rendering semantics
-- [W3C CSSOM View Module](https://w3c.github.io/csswg-drafts/cssom-view/) — Layout and geometry APIs specification
-- [Chromium: RenderingNG Architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture) — Official RenderingNG documentation
-- [Chromium: RenderingNG Overview](https://developer.chrome.com/docs/chromium/renderingng) — Design goals and history
-- [Chromium: BlinkNG Deep Dive](https://developer.chrome.com/docs/chromium/blinkng) — Main thread pipeline phases
-- [Chromium: How cc Works](https://chromium.googlesource.com/chromium/src/+/master/docs/how_cc_works.md) — Compositor internals
-- [Chromium: Blink Paint README](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/core/paint/README.md) — Paint system implementation
-- [web.dev: Interaction to Next Paint](https://web.dev/articles/inp) — INP metric definition
-- [Paul Irish: What Forces Layout/Reflow](https://gist.github.com/paulirish/5d52fb081b3570c81e3a) — Comprehensive forced layout list
-- [MDN: Critical Rendering Path](https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path) — Introduction and overview
+- [Chromium: RenderingNG overview](https://developer.chrome.com/docs/chromium/renderingng) — Goals, history, and the umbrella architecture.
+- [Chromium: RenderingNG architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture) — The 12-stage pipeline, processes, threads.
+- [Chromium: RenderingNG data structures](https://developer.chrome.com/docs/chromium/renderingng-data-structures) — Fragment tree, property trees, display lists, layer list.
+- [Chromium: BlinkNG deep-dive](https://developer.chrome.com/docs/chromium/blinkng) — Main-thread document lifecycle.
+- [Chromium: How cc Works](https://chromium.googlesource.com/chromium/src/+/lkgr/docs/how_cc_works.md) — Compositor internals, tile sizes, image decode.
+- [Chromium: Blink Paint README](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/core/paint/README.md) — `PaintController`, display items, subsequence recording.
+- [WHATWG HTML — Tree construction](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction) — Parser-blocking semantics for `<script>`.
+- [WHATWG DOM Living Standard](https://dom.spec.whatwg.org/) — DOM tree shape and mutation semantics.
+- [W3C CSSOM](https://drafts.csswg.org/cssom/) — CSSOM data model.
+- [W3C CSS Containment 2 — `content-visibility`](https://drafts.csswg.org/css-contain-2/#content-visibility) — Off-screen render skipping.
+- [W3C Long Tasks API](https://w3c.github.io/longtasks/) — The 50 ms long-task definition.
+- [web.dev: Interaction to Next Paint](https://web.dev/articles/inp) — INP definition, phases, thresholds.
+- [Paul Irish: What forces layout/reflow](https://gist.github.com/paulirish/5d52fb081b3570c81e3a) — Canonical forced-layout list.
 
 ### Terminology
 
-- **CRP (Critical Rendering Path)**: The sequence of stages from HTML/CSS/JS to pixels on screen
-- **DOM (Document Object Model)**: Tree representation of HTML structure
-- **CSSOM (CSS Object Model)**: Tree representation of parsed CSS rules
-- **ComputedStyle**: Resolved CSS property values for a node after cascade, inheritance, and calculation
-- **LayoutObject Tree**: Mutable tree created during style recalc; establishes layout order; points to DOM nodes
-- **Fragment Tree**: Immutable tree of `PhysicalFragment` objects with resolved geometry; output of layout
-- **Property Trees**: Separate tree structures for transform, clip, effect, and scroll properties
-- **Display Lists**: Recorded drawing commands (not pixels) produced by the paint stage
-- **Reflow**: Synonym for layout recalculation
-- **Repaint**: Re-recording paint commands when visual styles change without geometry changes
-- **Viz**: Chromium's GPU process that aggregates compositor frames and issues draw calls
-- **FOUC (Flash of Unstyled Content)**: Visual artifact when content renders before CSS loads
-- **INP (Interaction to Next Paint)**: Core Web Vital measuring responsiveness from input to visual update
+- **CRP (Critical Rendering Path)** — the sequence from HTML/CSS/JS to pixels.
+- **DOM** — tree representation of HTML structure ([WHATWG DOM](https://dom.spec.whatwg.org/)).
+- **CSSOM** — tree representation of parsed CSS rules.
+- **ComputedStyle** — resolved CSS property values per element after cascade and inheritance.
+- **LayoutObject tree** — mutable tree built during Style; carries layout-relevant structure.
+- **Fragment tree** — immutable tree of `PhysicalFragment` objects with final geometry; output of Layout.
+- **Property trees** — four trees (transform, clip, effect, scroll) referenced by composited layers.
+- **Display list** — recorded drawing commands; not pixels.
+- **cc** — Chromium's compositor module.
+- **Viz** — Chromium's GPU process; aggregates compositor frames and draws.
+- **VSync** — display refresh signal; draw is synchronized to it to avoid tearing.
+- **FOUC** — Flash of Unstyled Content; visible artifact when content renders before CSS arrives.
+- **INP** — Interaction to Next Paint; Core Web Vital for responsiveness.
+- **Long task** — main-thread task running > 50 ms ([Long Tasks API](https://w3c.github.io/longtasks/)).
+- **Site isolation** — Chromium's policy of placing different sites in different renderer processes.

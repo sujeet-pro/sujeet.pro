@@ -1,0 +1,26 @@
+%% Diagram: Circuit Breaker States and Transitions
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Closed
+
+    state "Closed\nrequests pass through\nfailure rate counted" as Closed
+    state "Open\nfast-fail every request\ntimer running" as Open
+    state "Half-Open\nallow N probe requests\nmeasure outcome" as HalfOpen
+
+    Closed --> Open: failure rate >= threshold\n(e.g. 50 percent over window)
+    Open --> HalfOpen: cool-down elapsed\n(e.g. 30 s)
+    HalfOpen --> Closed: probes succeed\nreset failure counters
+    HalfOpen --> Open: any probe fails\nrestart cool-down timer
+
+    note right of Open
+        Backoff retries are skipped
+        while open; the breaker IS
+        the backoff at this point.
+    end note
+
+    note right of HalfOpen
+        Tune probe count low: too
+        many probes re-overload a
+        recovering backend.
+    end note

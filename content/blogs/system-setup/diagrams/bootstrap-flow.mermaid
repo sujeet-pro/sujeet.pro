@@ -1,31 +1,26 @@
+%% Diagram: macOS dot-files bootstrap flow
+%% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Bootstrap"
-        A["curl bootstrap-remote.sh<br/>or ./setup.sh"] --> B["Install Xcode CLI<br/>+ Homebrew + Ansible"]
-        B --> C["Copy .zshenv.example<br/>→ ~/.zshenv"]
-        C --> D["Source ~/.zshenv<br/>(name, email, SSH keys)"]
-    end
+    A["curl bootstrap-remote.sh\nor ./setup.sh"] --> B["Install Xcode CLI\n+ Homebrew + Ansible"]
+    B --> C["Copy .zshenv.example → ~/.zshenv\nfill name, email, SSH keys"]
+    C --> PLAY["ansible-playbook setup.yml\n--ask-become-pass"]
 
-    subgraph "Ansible roles"
-        D --> E[homebrew]
-        D --> F[mise]
-        D --> G[shell]
-        D --> H[git]
-        D --> I[ssh]
-        D --> J[apps]
-        D --> K[macos]
+    PLAY --> ROLES["9 Ansible roles\nhomebrew · mise · shell · git · ssh\napps · aws · dev-tools · macos"]
 
-        E --> E1["formulae + casks<br/>(brew install)"]
-        F --> F1["node, python, java, bun<br/>(mise install)"]
-        G --> G1["symlink .zshrc<br/>+ starship.toml"]
-        H --> H1["render .gitconfig<br/>from Jinja2 templates"]
-        I --> I1["render ~/.ssh/config<br/>(per-host identity)"]
-        J --> J1["symlink VS Code, Zed,<br/>Ghostty, Claude, Raycast"]
-        K --> K1["defaults write<br/>(Dock, Finder, keyboard)"]
-    end
+    ROLES --> RESULT["Packages installed\nconfigs symlinked or templated\nmacOS defaults applied"]
 
-    subgraph "Cleanup check"
-        E1 --> Z["brew leaves vs vars<br/>code --list-extensions vs vars"]
-        J1 --> Z
-        Z --> Z1["Add / remove / skip<br/>each unmanaged package"]
-    end
+    RESULT --> CLEANUP["Cleanup check\nbrew leaves vs vars\ncode --list-extensions vs vars"]
+    CLEANUP --> CHOICE{"Per unmanaged item"}
+    CHOICE -- add --> ADD["Append to roles vars\nrepo now matches system"]
+    CHOICE -- remove --> REMOVE["Uninstall from system\nrepo wins"]
+    CHOICE -- skip --> SKIP["Decide later"]
+
+    classDef bootstrap fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef play fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef cleanup fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef decision fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class A,B,C bootstrap
+    class PLAY,ROLES,RESULT play
+    class CLEANUP,ADD,REMOVE,SKIP cleanup
+    class CHOICE decision

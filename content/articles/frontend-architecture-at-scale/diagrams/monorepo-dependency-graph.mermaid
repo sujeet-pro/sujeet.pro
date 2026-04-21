@@ -1,0 +1,56 @@
+%% Diagram: Monorepo Dependency Graph
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph apps["apps/"]
+    storefront["storefront<br/>(Next.js)"]
+    admin["admin<br/>(SPA)"]
+  end
+
+  subgraph domain["libs/domain/"]
+    catalog["catalog"]
+    checkout["checkout"]
+    account["account"]
+  end
+
+  subgraph platform["libs/platform/"]
+    ds["design-system"]
+    headless["headless-primitives"]
+    telemetry["telemetry-sdk"]
+    apiClients["generated-api-clients"]
+  end
+
+  subgraph foundation["libs/foundation/"]
+    types["shared-types"]
+    config["runtime-config"]
+  end
+
+  storefront --> catalog
+  storefront --> checkout
+  storefront --> account
+  admin --> account
+
+  catalog --> ds
+  catalog --> headless
+  catalog --> apiClients
+  catalog --> telemetry
+  checkout --> ds
+  checkout --> headless
+  checkout --> apiClients
+  checkout --> telemetry
+  account --> ds
+  account --> headless
+  account --> apiClients
+  account --> telemetry
+
+  ds --> types
+  headless --> types
+  apiClients --> types
+  telemetry --> config
+
+  catalog -.->|"forbidden:<br/>lateral domain import"| checkout
+  checkout -.->|"forbidden:<br/>lateral domain import"| account
+
+  classDef forbidden stroke:#b03a2e,color:#5a1812;
+  linkStyle 14 stroke:#b03a2e,stroke-width:2px,stroke-dasharray:6 4;
+  linkStyle 15 stroke:#b03a2e,stroke-width:2px,stroke-dasharray:6 4;

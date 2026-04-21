@@ -1,7 +1,0 @@
-%% Diagram: Diagram 1
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    CLIENT["Client"] --> API["API Server"]
-    API --> DB[(PostgreSQL<br/>Metadata + Content)]
-    API --> CACHE["Redis Cache"]

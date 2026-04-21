@@ -1,0 +1,29 @@
+%% Diagram: React Context vs selective external store on re-render fanout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    UPDATE["setNotifications(...)"]:::trigger
+
+    subgraph CTX["React Context Provider"]
+        direction TB
+        CV["value = user, theme, notifications"]
+        CV --> CA["Header reads user<br/>(re-renders, unwanted)"]:::unwanted
+        CV --> CB["Sidebar reads theme<br/>(re-renders, unwanted)"]:::unwanted
+        CV --> CC["Bell reads notifications<br/>(re-renders, needed)"]:::needed
+    end
+
+    subgraph STORE["Zustand or Jotai store"]
+        direction TB
+        SV["state = user, theme, notifications"]
+        SV -- "selector(s.user)" --> SA["Header<br/>(no re-render)"]:::skipped
+        SV -- "selector(s.theme)" --> SB["Sidebar<br/>(no re-render)"]:::skipped
+        SV -- "selector(s.notifications)" --> SC["Bell<br/>(re-renders, needed)"]:::needed
+    end
+
+    UPDATE --> CV
+    UPDATE --> SV
+
+    classDef trigger fill:#1f4e79,stroke:#0d2b45,color:#ffffff,stroke-width:2px
+    classDef unwanted fill:#c62828,stroke:#7f0000,color:#ffffff
+    classDef needed fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+    classDef skipped fill:#37474f,stroke:#1c313a,color:#ffffff

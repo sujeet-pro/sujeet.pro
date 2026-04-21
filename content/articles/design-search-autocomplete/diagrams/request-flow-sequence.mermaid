@@ -1,0 +1,31 @@
+%% Diagram: Suggestion request flow with cache layering
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant CDN
+    participant GW as Gateway
+    participant R as Router
+    participant Ca as Redis (hot)
+    participant T as Trie shard
+    participant Rk as Ranker
+
+    C->>CDN: GET /suggestions?q=prog
+    alt CDN hit
+        CDN-->>C: 200 cached results
+    else CDN miss
+        CDN->>GW: forward
+        GW->>R: route by prefix
+        R->>Ca: lookup hot prefix
+        alt Redis hit
+            Ca-->>R: cached top-K
+        else Redis miss
+            R->>T: query shard
+            T-->>R: pre-computed top-K
+            R-)Ca: write-back (TTL)
+        end
+        R->>Rk: optional re-rank with user signals
+        Rk-->>GW: ranked suggestions
+        GW-->>CDN: response (Cache-Control)
+        CDN-->>C: 200 results
+    end

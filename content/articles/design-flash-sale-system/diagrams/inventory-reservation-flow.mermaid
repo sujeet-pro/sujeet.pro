@@ -1,0 +1,34 @@
+%% Diagram: Inventory reservation lifecycle (single-flight Lua + outbox)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User (admitted)
+    participant API as Checkout API
+    participant R as Redis (Lua single-flight)
+    participant Q as Order queue (idempotent)
+    participant W as Order worker
+    participant DB as PostgreSQL (orders)
+
+    U->>API: POST /checkout/start (checkout_token)
+    API->>R: EVAL reserve_inventory.lua (sku, qty, ttl)
+    R-->>R: GET stock; if stock >= qty: DECRBY + HSET reservation
+    R-->>API: ok = true, reservation_id, remaining
+    API-->>U: 201 reserved_until = now + TTL
+
+    U->>API: POST /orders (session_id, payment_method)
+    API->>Q: enqueue order (MessageDeduplicationId = idempotency_key)
+    API-->>U: 202 Accepted, order_id
+
+    W->>Q: receive (visibility timeout)
+    W->>DB: INSERT order (idempotency_key UNIQUE)
+    W->>W: charge payment (Idempotency-Key)
+    alt payment success
+        W->>R: HDEL reservation (confirm)
+        W->>DB: UPDATE status = confirmed
+    else payment failure / TTL expired
+        W->>R: INCRBY stock (release)
+        W->>DB: UPDATE status = failed
+    end
+
+    Note over R: Idle reservations expire via TTL ->> auto release.

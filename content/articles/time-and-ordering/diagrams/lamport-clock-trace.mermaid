@@ -1,0 +1,19 @@
+%% Diagram: Lamport Clock Trace
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant P1 as P1<br/>(L=0)
+    participant P2 as P2<br/>(L=0)
+    participant P3 as P3<br/>(L=0)
+
+    Note over P1: local event<br/>L=1
+    P1->>P2: m1 (ts=2)
+    Note over P2: recv m1<br/>L=max(0,2)+1=3
+    P2->>P3: m2 (ts=4)
+    Note over P3: recv m2<br/>L=max(0,4)+1=5
+    Note over P1: local event<br/>L=3
+    P3->>P1: m3 (ts=6)
+    Note over P1: recv m3<br/>L=max(3,6)+1=7
+
+    Note right of P3: A→B implies L(A)<L(B).<br/>The converse does not hold:<br/>independent events can still<br/>get ordered timestamps.

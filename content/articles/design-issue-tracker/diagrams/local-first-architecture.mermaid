@@ -1,0 +1,24 @@
+%% Diagram: Local-first sync architecture (Linear-style)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Client["Client"]
+        UI["UI (React)"]
+        POOL["Object pool\nMobX observable"]
+        IDB["IndexedDB\n(persisted models +\ntransaction queue)"]
+        SYNC["Sync client\n(WebSocket + delta replay)"]
+    end
+
+    subgraph Server["Server"]
+        SYNC_SVC["Sync service\nlastSyncId allocator"]
+        DELTA["/sync/delta endpoint\n(catch-up)"]
+        DB[(PostgreSQL)]
+    end
+
+    UI <--> POOL
+    POOL <--> IDB
+    POOL --> SYNC
+    SYNC <-->|"transactions + delta packets"| SYNC_SVC
+    SYNC -->|"resume from lastSyncId"| DELTA
+    SYNC_SVC <--> DB
+    DELTA <--> DB

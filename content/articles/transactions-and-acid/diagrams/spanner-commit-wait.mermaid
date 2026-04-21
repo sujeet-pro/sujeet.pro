@@ -1,0 +1,28 @@
+%% Diagram: Spanner commit wait turns clock uncertainty into external consistency
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant TT as TrueTime
+    participant Co as Coordinator
+    participant P as Participants
+    participant Cl as Reader
+
+    Co->>P: prepare, collect prepare timestamps
+    P-->>Co: prepare ts (per participant)
+
+    Co->>TT: TT.now() returns earliest, latest
+    Co->>Co: pick s = max(latest, max(prepare ts), prev commit + 1)
+
+    rect rgb(255, 244, 220)
+    note over Co,TT: Commit wait\nblock until TT.now().earliest > s\n(typically 1 to 7 ms in Google production,\ndocs cap at under 10 ms)
+    Co->>TT: TT.now()
+    TT-->>Co: still earliest <= s
+    Co->>TT: TT.now() (after wait)
+    TT-->>Co: earliest > s
+    end
+
+    Co->>P: COMMIT at timestamp s
+    Co-->>Cl: visible
+
+    note over Cl: Any later transaction T'\nstarting after now in real time\nmust get a timestamp > s.\nReal-time order is preserved\n=> external consistency.

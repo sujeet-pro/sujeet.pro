@@ -1,0 +1,23 @@
+%% Diagram: High-level architecture — metadata path vs data path
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients\nReader · Writer · Appender"]
+
+    subgraph MetadataLayer["Metadata layer"]
+        MASTER["Master\n(NameNode)"]
+        SHADOW["Shadow master\n(hot standby)"]
+        OPLOG[("Operation log\n+ checkpoints")]
+    end
+
+    subgraph StorageLayer["Storage layer"]
+        PRIMARY["Primary chunk server\n(lease holder)"]
+        REPLICAS["Secondary replicas\n(rack-aware)"]
+    end
+
+    CLIENTS -->|"1. Metadata RPC (small)"| MASTER
+    MASTER -->|"2. Chunk locations + lease"| CLIENTS
+    CLIENTS -->|"3. Bulk data path"| PRIMARY
+    PRIMARY -->|"4. Pipelined replication"| REPLICAS
+    MASTER <-->|"Op-log replication"| SHADOW
+    MASTER --> OPLOG

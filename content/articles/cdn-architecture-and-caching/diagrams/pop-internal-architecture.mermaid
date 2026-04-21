@@ -1,0 +1,41 @@
+%% Diagram: Internals of a single PoP — L4 LB (Maglev-style consistent hash) → L7 cache → shield
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Pkt["Inbound packet\n(Anycast VIP)"]
+
+    subgraph L4["Layer-4 load balancer (Maglev-style)"]
+        direction TB
+        LB1["LB node 1"]
+        LB2["LB node 2"]
+        LB3["LB node 3"]
+        Hash{{"5-tuple hash\n→ consistent backend\n(connection persistence\nwithout shared state)"}}
+    end
+
+    subgraph Edge["Layer-7 edge fleet"]
+        direction TB
+        C1["Cache server A\nRAM + NVMe"]
+        C2["Cache server B\nRAM + NVMe"]
+        C3["Cache server C\nRAM + NVMe"]
+    end
+
+    TLS["TLS 1.3 / HTTP/3 termination\n(certificate cache, OCSP staple)"]
+    Compute["Edge compute runtime\n(V8 isolate / Wasm sandbox)"]
+    Up["Upper-tier / shield PoP"]
+    Origin[("Origin")]
+
+    Pkt --> LB1
+    Pkt --> LB2
+    Pkt --> LB3
+    LB1 --> Hash
+    LB2 --> Hash
+    LB3 --> Hash
+    Hash --> C1
+    Hash --> C2
+    Hash --> C3
+    C1 --> TLS
+    C2 --> TLS
+    C3 --> TLS
+    TLS --> Compute
+    Compute -- "miss" --> Up
+    Up -- "miss" --> Origin

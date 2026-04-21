@@ -1,0 +1,21 @@
+%% Diagram: SameSite Mode Decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start["Setting an authentication<br/>or session cookie"]
+    Q1{"Embedded cross-site<br/>(iframes, third-party SDK,<br/>cross-site POST SSO)?"}
+    Q2{"Cross-site top-level<br/>navigation must keep<br/>the user logged in?"}
+    Q3{"Cookie scoped to<br/>a single host with<br/>no subdomain sharing?"}
+
+    None["SameSite=None; Secure<br/>+ CSRF token MANDATORY<br/>+ explicit Origin allowlist"]
+    Lax["SameSite=Lax; Secure; HttpOnly<br/>+ CSRF token for state-changing<br/>POST/PUT/DELETE/PATCH"]
+    Strict["SameSite=Strict; Secure; HttpOnly<br/>+ __Host- prefix; Path=/<br/>+ CSRF token (defense in depth)"]
+    StrictHost["SameSite=Strict; __Host-<br/>+ CSRF token<br/>(strongest default)"]
+
+    Start --> Q1
+    Q1 -- "Yes" --> None
+    Q1 -- "No" --> Q2
+    Q2 -- "Yes" --> Lax
+    Q2 -- "No" --> Q3
+    Q3 -- "Yes" --> StrictHost
+    Q3 -- "No, must share across subdomains" --> Strict

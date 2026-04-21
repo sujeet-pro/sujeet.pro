@@ -1,0 +1,31 @@
+%% Diagram: Cassandra JVM heap vs ScyllaDB shard-per-core
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph cass["Cassandra node — one JVM, all cores share state"]
+        direction TB
+        cores1["cores 0..N"]:::neutral
+        heap["Shared JVM heap\nmemtables, key cache,\noff-heap maps"]:::accent
+        gc["Stop-the-world GC\nblocks every core"]:::accent
+        cores1 --> heap --> gc
+        gc -. "hot partition or\nGC pause degrades\nALL queries on this node" .-> cores1
+    end
+
+    subgraph scylla["ScyllaDB node — Seastar, shard-per-core, shared-nothing"]
+        direction TB
+        s0["core 0\nshard 0"]:::primary --> m0["dedicated\nmemtable + cache\n+ SSTables"]:::storage
+        s1["core 1\nshard 1"]:::primary --> m1["dedicated\nmemtable + cache\n+ SSTables"]:::storage
+        sN["core N\nshard N"]:::primary --> mN["dedicated\nmemtable + cache\n+ SSTables"]:::storage
+        msg["explicit message passing\nfor cross-shard work\n(no shared mutable state,\nno GC)"]:::secondary
+        s0 -.- msg
+        s1 -.- msg
+        sN -.- msg
+    end
+
+    cass ==>|"migrate"| scylla
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

@@ -1,0 +1,18 @@
+%% Diagram: Upload strategy decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    START["Upload path"] --> SIZE{"Max file\nsize?"}
+    SIZE -->|"< 10 MB\nstable net"| SINGLE["Single XHR\n+ FormData"]
+    SIZE -->|">= 10 MB\nor mobile"| CHUNK["Chunked\nO(chunk) memory"]
+    CHUNK --> RESUME{"Cross-session\nresume?"}
+    RESUME -->|"no"| INSESSION["In-session\nHEAD on retry"]
+    RESUME -->|"yes"| TUS{"tus backend?"}
+    TUS -->|"yes"| USETUS["tus 1.0.x"]
+    TUS -->|"no"| OWN["Custom resumable"]
+    INSESSION --> EDGE{"Direct-to-\nstorage?"}
+    USETUS --> EDGE
+    OWN --> EDGE
+    EDGE -->|"yes"| EDGEPATH["Presigned URL\n+ two-phase"]
+    EDGE -->|"no"| APPPATH["Through API server"]
+    SINGLE --> APPPATH

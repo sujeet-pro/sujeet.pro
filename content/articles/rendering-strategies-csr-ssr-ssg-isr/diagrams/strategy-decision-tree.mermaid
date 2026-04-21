@@ -1,0 +1,31 @@
+%% Diagram: Rendering Strategy Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    start{"Does this route\nneed SEO or fast LCP?"}
+    auth{"Personalized per user\non every request?"}
+    fresh{"How fresh must\nthe content be?"}
+    catalog{"Page count and\nbuild-time data size"}
+    mixed{"Mostly static with a few\nuser-specific holes?"}
+
+    csr["CSR\nDashboards, internal tools"]
+    ssr["SSR\n+ streaming, edge runtime"]
+    ssg["SSG\nStatic build, deploy to CDN"]
+    isr["ISR\nSSG + revalidate"]
+    ppr["PPR or RSC\nStatic shell + dynamic stream"]
+
+    start -->|"No"| csr
+    start -->|"Yes"| auth
+    auth -->|"Yes"| ssr
+    auth -->|"No"| fresh
+    fresh -->|"Real time"| ssr
+    fresh -->|"Minutes to hours"| isr
+    fresh -->|"Build to release"| catalog
+    catalog -->|"Small, infrequent updates"| ssg
+    catalog -->|"Large or churn-heavy"| isr
+    fresh -->|"Mixed"| mixed
+    mixed -->|"Yes"| ppr
+    mixed -->|"No"| isr
+
+    classDef pick fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    class csr,ssr,ssg,isr,ppr pick

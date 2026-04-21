@@ -6,11 +6,14 @@ description: >-
   Workers, sync queues, and conflict resolution via CRDTs and OT, with lessons
   from Figma, Notion, and Linear.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - system-design
   - architecture
+  - offline-first
+  - service-worker
+  - crdt
 ---
 
 # Offline-First Architecture
@@ -19,8 +22,8 @@ Building applications that prioritize local data and functionality, treating net
 
 Offline-first inverts the traditional web model: instead of fetching data from servers and caching it locally, data lives locally first and syncs to servers when possible. This article explores the browser APIs that enable this pattern, the sync strategies that keep data consistent, and how production applications like Figma, Notion, and Linear solve these problems at scale.
 
-![Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.](./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi-light.svg "Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.")
-![Offline-first architecture: application reads/writes to local storage first, service worker manages caching, and sync happens in the background when connectivity allows.](./diagrams/offline-first-architecture-application-reads-writes-to-local-storage-first-servi-dark.svg)
+![Offline-first architecture: the app reads and writes to IndexedDB or OPFS immediately, the Service Worker intercepts fetches and runs background sync, and reconciliation happens between the local store and the server when connectivity returns.](./diagrams/architecture-overview-light.svg "Offline-first architecture: the app reads and writes locally first; Service Worker handles caching and background sync; reconciliation happens between the local store and the server.")
+![Offline-first architecture: the app reads and writes to IndexedDB or OPFS immediately, the Service Worker intercepts fetches and runs background sync, and reconciliation happens between the local store and the server when connectivity returns.](./diagrams/architecture-overview-dark.svg)
 
 ## Abstract
 
@@ -32,7 +35,7 @@ Offline-first architecture treats local storage as the primary data source and n
 
 - **Conflict resolution is the hard problem**: When multiple clients modify the same data offline, syncing creates conflicts. Three approaches: Last-Write-Wins (simple but loses data), Operational Transform (requires central server), and CRDTs (mathematically guaranteed convergence but complex).
 
-- **Storage is constrained and unreliable**: Browser storage quotas vary wildly (Safari: 1GB, Chrome: 60% of disk). Storage can be evicted without warning unless persistent storage is requested and granted.
+- **Storage is constrained and unreliable**: Browser storage quotas are mostly disk-percentage based (Chrome and Safari around 60% of disk per origin, Firefox 10%/50%), but Safari evicts the entire script-writable surface after seven days of browser use without site interaction. Persistent storage helps in Chromium/Firefox but is a no-op in Safari.
 
 | Pattern    | Complexity | Data Loss Risk     | Offline Duration | Best For          |
 | ---------- | ---------- | ------------------ | ---------------- | ----------------- |
@@ -40,6 +43,20 @@ Offline-first architecture treats local storage as the primary data source and n
 | Sync queue | Medium     | Medium (conflicts) | Hours            | Form submissions  |
 | OT-based   | High       | Low                | Days             | Real-time collab  |
 | CRDT-based | Very High  | None               | Indefinite       | P2P, long offline |
+
+## Local-First Principles
+
+"Offline-first" is sometimes used loosely to mean "the page doesn't blow up on a flaky train". The stricter framing comes from [Kleppmann et al., "Local-first software" (Ink & Switch, 2019)](https://www.inkandswitch.com/essay/local-first/), which sets seven ideals a fully local-first system aims for:
+
+1. **No spinners** — the app responds to input without round-tripping a server.
+2. **Your work is not trapped on one device** — state syncs across the user's devices.
+3. **The network is optional** — full functionality offline; sync runs in the background when a connection appears.
+4. **Seamless collaboration** — real-time multi-user editing on par with cloud apps.
+5. **Long-term preservation** — data outlives the application and the company that shipped it.
+6. **Security and privacy by default** — end-to-end encryption; the server holds ciphertext it cannot read.
+7. **You retain ultimate ownership and control** — the user can fork, export, and walk away.
+
+Most production "offline-first" web apps satisfy 1–4 and partially 5; ideals 6 and 7 are usually only met by P2P + CRDT systems like Excalidraw or Ink & Switch's own research prototypes. Treat the seven ideals as a target gradient, not a binary check — every architecture in this article makes a different cut.
 
 ## The Challenge
 
@@ -49,17 +66,18 @@ Building offline-first applications means working within browser limitations tha
 
 **Main thread contention**: IndexedDB operations are asynchronous but still affect the main thread. Large reads/writes can cause jank. Service Workers run on a separate thread but share CPU with the page.
 
-**Storage quotas**: Browsers limit how much data an origin can store, and quotas vary dramatically:
+**Storage quotas**: Browsers limit how much data an origin can store, and quotas vary dramatically. The numbers below are from the [MDN storage quotas reference](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) (2026):
 
-| Browser | Best-Effort Mode       | Persistent Mode       | Eviction Behavior               |
-| ------- | ---------------------- | --------------------- | ------------------------------- |
-| Chrome  | 60% of disk            | 60% of disk           | LRU when >80% full              |
-| Firefox | 10% of disk (max 10GB) | 50% of disk (max 8TB) | LRU by origin                   |
-| Safari  | ~1GB total             | Not supported         | 7 days without user interaction |
+| Browser | Best-Effort Mode                            | Persistent Mode                | Eviction Behavior                          |
+| ------- | ------------------------------------------- | ------------------------------ | ------------------------------------------ |
+| Chrome  | Up to 60% of disk per origin                | Up to 60% of disk per origin   | LRU once group quota (80% of disk) is full |
+| Firefox | Smaller of 10% disk or 10 GiB (per eTLD+1)  | Up to 50% of disk, capped 8 TiB | LRU per group, after user prompt           |
+| Safari  | Up to 60% of disk per origin (browser app)  | Persistence flag is no-op      | 7 days of browser use without interaction  |
 
-**Safari's aggressive eviction**: Safari deletes all website data (IndexedDB, Cache API, localStorage) after 7 days without user interaction when Intelligent Tracking Prevention (ITP) is enabled. This fundamentally breaks long-term offline storage for Safari users.
+> [!NOTE]
+> Safari's ~1 GB cap is a frequently repeated but obsolete number. WebKit moved to disk-percentage quotas (60% per origin in the browser app, 15% in embedded WebViews) several releases back. The headline constraint on Safari today is the 7-day eviction, not the size cap.
 
-> "After 7 days of Safari use without user interaction on your site, all the website's script-writable storage forms are deleted." — WebKit Blog, 2020
+**Safari's aggressive eviction**: Safari deletes all script-writable storage (IndexedDB, Cache API, `localStorage`, `sessionStorage`, Service Worker registrations) after [seven days of Safari use without a meaningful interaction](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) on the site. "Seven days of Safari use" means days the browser is actively used, not seven calendar days — and the only exemptions are home-screen PWAs, which carry their own usage counter. This fundamentally breaks long-term offline storage for Safari users on web pages.
 
 **Storage API fragmentation**: Different storage mechanisms have different characteristics:
 
@@ -73,7 +91,7 @@ Building offline-first applications means working within browser limitations tha
 
 ### Network Realities
 
-**`navigator.onLine` is unreliable**: This API only indicates whether the browser has a network interface—not whether it can reach the internet. A LAN connection without internet access reports `online: true`.
+**`navigator.onLine` is unreliable**: [MDN explicitly warns](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine) that browsers may not have a reliable way to know whether the device can actually reach the internet. The flag flips on whether the browser has _any_ network interface; a LAN connection behind a captive portal or a firewall that blocks egress will still report `online: true`.
 
 ```typescript
 // Don't rely on this for actual connectivity
@@ -152,64 +170,76 @@ function openDatabase(): Promise<IDBDatabase> {
 
 **Versioning is critical**: IndexedDB schema changes require version increments. Opening a database with a lower version than exists fails. The `onupgradeneeded` handler must handle all version migrations sequentially.
 
-**Cursor operations for large datasets**: For datasets too large to load entirely, use cursors:
+**Cursor operations for large datasets**: For datasets too large to load entirely, use cursors. Each `cursor.continue()` re-fires `onsuccess` on the original request, so a single `onsuccess` handler per cursor is the correct shape:
 
-```typescript collapse={1-2, 20-25}
+```typescript title="iterate-documents.ts"
 async function* iterateDocuments(db: IDBDatabase): AsyncGenerator<Document> {
   const tx = db.transaction("documents", "readonly")
   const store = tx.objectStore("documents")
   const request = store.openCursor()
 
   while (true) {
-    const cursor = await new Promise<IDBCursorWithValue | null>((resolve) => {
+    const cursor = await new Promise<IDBCursorWithValue | null>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
     })
-    if (!cursor) break
-    yield cursor.value
+    if (!cursor) return
+    yield cursor.value as Document
     cursor.continue()
   }
 }
 ```
 
+> [!CAUTION]
+> IndexedDB transactions auto-commit when the event loop returns to the microtask queue with no pending requests. If you `await` a Promise that does not chain another IndexedDB request, the transaction commits and the next `cursor.continue()` throws `TransactionInactiveError`. Inside an async generator, the consumer's awaits between `yield`s are exactly such gaps — wrap heavy per-row work outside the cursor (collect IDs first, then re-open a transaction) when consumer code is async.
+
 ### Origin Private File System (OPFS)
 
-OPFS provides file system access within the browser sandbox—faster than IndexedDB for binary data and large files.
+OPFS provides file system access within the browser sandbox — faster than IndexedDB for binary data and large files. The full surface lives in the [WHATWG File System Standard](https://fs.spec.whatwg.org/) and is documented end-to-end on [MDN](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
 
 **When to use OPFS over IndexedDB**:
 
 - Binary files (images, videos, documents)
-- Large blobs (>10MB)
+- Large blobs (>10 MB)
 - Sequential read/write patterns
-- Web Workers with synchronous access needed
+- Web Workers where synchronous access is acceptable
 
-```typescript collapse={1-2, 18-22}
-// OPFS access
+> [!IMPORTANT]
+> All OPFS handle lookups (`navigator.storage.getDirectory()`, `getFileHandle()`, `getDirectoryHandle()`) are asynchronous on every thread. The synchronous file API only kicks in _after_ you have an async file handle and call `createSyncAccessHandle()` — and the resulting `FileSystemSyncAccessHandle` only works inside a dedicated Web Worker.
+
+```typescript title="opfs-main-thread.ts"
 async function saveFile(name: string, data: ArrayBuffer): Promise<void> {
   const root = await navigator.storage.getDirectory()
   const fileHandle = await root.getFileHandle(name, { create: true })
 
-  // Async API (main thread or worker)
   const writable = await fileHandle.createWritable()
   await writable.write(data)
   await writable.close()
 }
+```
 
-// Synchronous API (workers only) - much faster
-function saveFileSync(name: string, data: ArrayBuffer): void {
-  const root = navigator.storage.getDirectory()
-  const fileHandle = root.getFileHandleSync(name, { create: true })
-  const accessHandle = fileHandle.createSyncAccessHandle()
-  accessHandle.write(data)
-  accessHandle.close()
-}
+```typescript title="opfs-worker.ts"
+self.addEventListener("message", async (event: MessageEvent<{ name: string; data: ArrayBuffer }>) => {
+  const { name, data } = event.data
+  const root = await navigator.storage.getDirectory()
+  const fileHandle = await root.getFileHandle(name, { create: true })
+
+  const accessHandle = await fileHandle.createSyncAccessHandle()
+  try {
+    accessHandle.write(data, { at: 0 })
+    accessHandle.flush()
+  } finally {
+    accessHandle.close()
+  }
+})
 ```
 
 **OPFS limitations**:
 
-- No indexing (unlike IndexedDB)—you manage your own file organization
-- Synchronous API only in Web Workers
-- No cross-origin access
-- Same quota as IndexedDB (shared origin quota)
+- No indexing (unlike IndexedDB) — you manage your own file organization.
+- The fast sync API is Worker-only; main-thread code uses the async `createWritable()` writer.
+- No cross-origin access; sandbox is per origin.
+- Same quota as IndexedDB (shared origin quota).
 
 ### Storage Manager API
 
@@ -248,23 +278,20 @@ async function requestPersistence(): Promise<boolean> {
 
 ## Service Workers
 
-Service Workers are JavaScript workers that intercept network requests, enabling offline functionality and background sync.
+[Service Workers](https://www.w3.org/TR/service-workers/) are JavaScript workers that intercept network requests, enabling offline functionality and background sync.
 
 ### Lifecycle
 
-Service Workers have a distinct lifecycle that affects how updates propagate:
+Service Workers have a distinct lifecycle that affects how updates propagate. The official model lives in the [W3C Service Workers spec, §2 Lifecycle](https://www.w3.org/TR/service-workers/#service-worker-lifetime); a more readable narrative is on [web.dev](https://web.dev/articles/service-worker-lifecycle).
 
-```
-Install → Waiting → Activate → Running → Idle → Terminated
-                ↑                              ↓
-                └──────── Fetch event ─────────┘
-```
+![Service Worker lifecycle as a state machine: register, install, install handler resolves, waiting until existing clients close (or skipWaiting), activate, then alternating between idle and running on each event, with the browser free to terminate idle workers.](./diagrams/service-worker-lifecycle-light.svg "Service Worker lifecycle: install, wait for old clients to close, activate, then idle/running cycles driven by fetch, sync, and message events.")
+![Service Worker lifecycle as a state machine: register, install, install handler resolves, waiting until existing clients close (or skipWaiting), activate, then alternating between idle and running on each event, with the browser free to terminate idle workers.](./diagrams/service-worker-lifecycle-dark.svg)
 
-**Installation**: Service Worker is downloaded and parsed. `install` event fires—use this to pre-cache critical assets.
+**Installation**: Service Worker is downloaded and parsed. `install` event fires — use this to pre-cache critical assets.
 
-**Waiting**: New Service Worker waits until all tabs using the old version close. This prevents breaking in-flight requests.
+**Waiting**: New Service Worker waits until all clients controlled by the old version close. This prevents breaking in-flight requests.
 
-**Activation**: Old Service Worker is replaced. `activate` event fires—use this to clean up old caches.
+**Activation**: Old Service Worker is replaced. `activate` event fires — use this to clean up old caches.
 
 ```typescript collapse={1-5, 30-40}
 // service-worker.ts
@@ -297,7 +324,10 @@ self.addEventListener("activate", (event: ExtendableEvent) => {
 
 ### Caching Strategies
 
-Jake Archibald's "Offline Cookbook" defines canonical caching strategies. Each has distinct trade-offs:
+Jake Archibald's [Offline Cookbook](https://web.dev/articles/offline-cookbook) defines the canonical caching strategies. Each has distinct trade-offs.
+
+![Four Service Worker cache strategies side by side: cache-first returns the cached copy and only goes to network on miss, network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes in the background, cache-only never touches the network.](./diagrams/cache-strategies-light.svg "Cache-first, network-first, stale-while-revalidate, and cache-only — the four canonical Service Worker cache strategies and where the network fits in each.")
+![Four Service Worker cache strategies side by side: cache-first returns the cached copy and only goes to network on miss, network-first races the network with a timeout and falls back to cache, stale-while-revalidate returns the cached copy immediately and refreshes in the background, cache-only never touches the network.](./diagrams/cache-strategies-dark.svg)
 
 **Cache-First**: Serve from cache, fall back to network. Best for static assets that rarely change.
 
@@ -407,34 +437,37 @@ async function processSyncQueue(): Promise<void> {
 }
 ```
 
-**Background Sync limitations**:
+**Background Sync limitations** (per [MDN compatibility data](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API)):
 
-- Chrome-only (as of 2024)
-- No guarantee of timing—browser decides when to fire sync event
-- Limited to ~3 minutes of execution time
-- Requires Service Worker to be registered
+- Chromium-only as of 2026 — neither Firefox nor Safari ship `SyncManager`.
+- No guarantee of timing — the browser decides when to fire the sync event based on connectivity and engagement signals.
+- Service worker scripts have a tight execution budget; long-running sync work can be terminated.
+- Requires an active Service Worker registration on a secure origin.
 
-**Periodic Background Sync**: Allows periodic sync even when app is closed. Requires explicit permission and Chrome only:
+**Periodic Background Sync**: Allows periodic sync even when the app is closed. Requires the [periodic-background-sync permission](https://developer.mozilla.org/en-US/docs/Web/API/Web_Periodic_Background_Synchronization_API), an installed PWA, and is also Chromium-only:
 
-```typescript
-// Check support and register
-if ("periodicSync" in navigator.serviceWorker) {
-  const registration = await navigator.serviceWorker.ready
+```typescript title="register-periodic-sync.ts"
+const registration = await navigator.serviceWorker.ready
+
+if ("periodicSync" in registration) {
   const status = await navigator.permissions.query({
     name: "periodic-background-sync" as PermissionName,
   })
 
   if (status.state === "granted") {
-    await registration.periodicSync.register("sync-content", {
-      minInterval: 24 * 60 * 60 * 1000, // 24 hours minimum
+    await (registration as any).periodicSync.register("sync-content", {
+      minInterval: 24 * 60 * 60 * 1000,
     })
   }
 }
 ```
 
+> [!NOTE]
+> `minInterval` is a hint, not a floor. [Chrome ignores it whenever site engagement is low](https://developer.chrome.com/docs/capabilities/periodic-background-sync) and may delay or skip wake-ups entirely. Treat periodic sync as best-effort freshness, never as a primary sync path.
+
 ### Workbox
 
-Workbox (Google) encapsulates Service Worker patterns in a production-ready library. It's used by ~54% of mobile sites with Service Workers.
+[Workbox](https://developer.chrome.com/docs/workbox/) (Google) encapsulates Service Worker patterns in a production-ready library — precaching with revision hashes, route-level caching strategies, and pluggable expiration / sync queues. Adoption sits in the low single digits of mobile sites that ship a Service Worker per the [HTTP Archive 2025 Web Almanac PWA chapter](https://almanac.httparchive.org/en/2025/pwa); the bigger story is that overall Service Worker adoption jumped because Google Tag Manager started auto-installing one.
 
 ```typescript collapse={1-8, 25-35}
 import { precacheAndRoute } from "workbox-precaching"
@@ -563,7 +596,7 @@ function compare(a: VectorClock, b: VectorClock): "before" | "after" | "concurre
 
 ### Operational Transform (OT)
 
-Operational Transform models changes as operations that can be transformed when concurrent.
+[Operational Transformation](https://en.wikipedia.org/wiki/Operational_transformation) models changes as operations that can be transformed when concurrent. The original Ellis & Gibbs paper ["Concurrency Control in Groupware Systems" (SIGMOD 1989)](https://dl.acm.org/doi/10.1145/67544.66963) introduced it, and Google's Wave / Docs team eventually shipped it at scale.
 
 **How OT works**:
 
@@ -605,7 +638,7 @@ function transform(op1: TextOperation, op2: TextOperation): TextOperation {
 
 ### CRDTs (Conflict-free Replicated Data Types)
 
-CRDTs are data structures mathematically designed to merge without conflicts. Any order of applying changes converges to the same result.
+CRDTs are data structures mathematically designed to merge without conflicts: any order of applying changes converges to the same result. The foundational treatment is [Shapiro et al., "Conflict-free Replicated Data Types" (INRIA RR-7687, 2011)](https://hal.inria.fr/inria-00609399/document).
 
 **Two types of CRDTs**:
 
@@ -666,7 +699,7 @@ interface RGANode {
 
 > "CRDTs are the only data structures that can guarantee consistency in a fully decentralized system, but many published algorithms have subtle bugs. It's easy to implement CRDTs badly." — Martin Kleppmann
 
-**Interleaving anomaly**: When two users type "foo" and "bar" at the same position, naive CRDTs may produce "fboaor" instead of "foobar" or "barfoo". Production CRDTs (Yjs, Automerge) handle this with sophisticated tie-breaking.
+**Interleaving anomaly**: When two users type "foo" and "bar" at the same position, naive CRDTs (notably Logoot and LSEQ) can produce "fboaor" instead of "foobar" or "barfoo". Yjs (YATA) and Automerge use heuristics that reduce this in two-replica edits but can still interleave under three-way concurrent inserts; recent algorithms like [Fugue and FugueMax (Weidner et al., 2023)](https://arxiv.org/pdf/2305.00583) explicitly satisfy a _maximal non-interleaving_ property at comparable performance. The seminal write-up of the problem is [Kleppmann et al., PaPoC 2019](https://martin.kleppmann.com/papers/interleaving-papoc19.pdf).
 
 ### Sync Strategy Comparison
 
@@ -685,7 +718,7 @@ interface RGANode {
 
 **Architecture**: Service Worker caches static assets and API responses. No local database. Changes require network.
 
-```
+```text
 Browser → Service Worker → Cache API → (Network when available)
 ```
 
@@ -696,12 +729,13 @@ Browser → Service Worker → Cache API → (Network when available)
 - Content that doesn't change offline
 
 **Implementation complexity**:
-| Aspect | Effort |
-|--------|--------|
-| Initial setup | Low |
-| Feature additions | Low |
-| Sync logic | None |
-| Testing | Low |
+
+| Aspect            | Effort |
+| ----------------- | ------ |
+| Initial setup     | Low    |
+| Feature additions | Low    |
+| Sync logic        | None   |
+| Testing           | Low    |
 
 **Device/network profile**:
 
@@ -719,9 +753,8 @@ Browser → Service Worker → Cache API → (Network when available)
 
 **Architecture**: Changes stored in IndexedDB queue, processed when online. Server is source of truth.
 
-```
-App → IndexedDB (queue) → Background Sync → Server → IndexedDB (confirmed)
-```
+![Sequence diagram for the sync queue pattern: user edits, app appends to IndexedDB queue and renders an optimistic update, Service Worker drains the queue when connectivity returns, server returns success or conflict, Service Worker posts a message back to the page to confirm or surface the conflict.](./diagrams/sync-strategy-sequence-light.svg "Sync queue happy path with optimistic UI, Service Worker draining the queue, and three terminal outcomes: ack, permanent error, transient retry.")
+![Sequence diagram for the sync queue pattern: user edits, app appends to IndexedDB queue and renders an optimistic update, Service Worker drains the queue when connectivity returns, server returns success or conflict, Service Worker posts a message back to the page to confirm or surface the conflict.](./diagrams/sync-strategy-sequence-dark.svg)
 
 **Best for**:
 
@@ -730,12 +763,13 @@ App → IndexedDB (queue) → Background Sync → Server → IndexedDB (confirme
 - Tolerance for occasional conflicts
 
 **Implementation complexity**:
-| Aspect | Effort |
-|--------|--------|
-| Initial setup | Medium |
-| Feature additions | Medium |
-| Sync logic | Medium (queue management) |
-| Testing | Medium |
+
+| Aspect            | Effort                    |
+| ----------------- | ------------------------- |
+| Initial setup     | Medium                    |
+| Feature additions | Medium                    |
+| Sync logic        | Medium (queue management) |
+| Testing           | Medium                    |
 
 **Key implementation concerns**:
 
@@ -786,7 +820,7 @@ async function processQueue(): Promise<void> {
 
 **Architecture**: Local CRDT state is authoritative. Peers sync directly or through relay server. No central source of truth.
 
-```
+```text
 App → CRDT State (IndexedDB) ↔ Peer/Server ↔ Other Clients' CRDT State
 ```
 
@@ -797,20 +831,22 @@ App → CRDT State (IndexedDB) ↔ Peer/Server ↔ Other Clients' CRDT State
 - Extended offline with multiple editors
 
 **Implementation complexity**:
-| Aspect | Effort |
-|--------|--------|
-| Initial setup | High |
-| Feature additions | High |
-| Sync logic | Very High (CRDT implementation) |
-| Testing | Very High |
 
-**Library options**:
-| Library | Focus | Bundle Size | Mature |
-|---------|-------|-------------|--------|
-| Yjs | Text/structured data | ~15KB | Yes |
-| Automerge | JSON documents | ~100KB | Yes |
-| Liveblocks | Real-time + CRDT | SaaS | Yes |
-| ElectricSQL | Postgres sync | ~50KB | Emerging |
+| Aspect            | Effort                          |
+| ----------------- | ------------------------------- |
+| Initial setup     | High                            |
+| Feature additions | High                            |
+| Sync logic        | Very High (CRDT implementation) |
+| Testing           | Very High                       |
+
+**Library options** (sizes from [Bundlephobia](https://bundlephobia.com/) and each project's release notes; minified-then-gzipped where available):
+
+| Library                                                | Focus                | Approximate size                  | Mature |
+| ------------------------------------------------------ | -------------------- | --------------------------------- | ------ |
+| [Yjs](https://docs.yjs.dev/)                           | Text/structured data | ~90 KB min, ~27 KB gzip           | Yes    |
+| [Automerge 2](https://automerge.org/)                  | JSON documents       | Rust core compiled to ~200 KB+ Wasm | Yes    |
+| [Liveblocks](https://liveblocks.io/)                   | Real-time + CRDT     | SaaS (proprietary engine)         | Yes    |
+| [ElectricSQL](https://electric-sql.com/)               | Postgres sync        | Tens of KB client + Postgres extension | Emerging |
 
 ```typescript collapse={1-5, 25-35}
 import * as Y from "yjs"
@@ -844,94 +880,91 @@ text.insert(0, "Hello")
 
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Decision tree for picking an offline strategy: cache-only PWA for short outages, sync queue for single-user mutations, OT or CRDT for multi-user editing depending on whether the system can rely on a single server or needs P2P.](./diagrams/offline-strategy-decision-light.svg "Pick the offline strategy by asking three questions: how long offline, how many concurrent editors, and whether you can rely on a single server.")
+![Decision tree for picking an offline strategy: cache-only PWA for short outages, sync queue for single-user mutations, OT or CRDT for multi-user editing depending on whether the system can rely on a single server or needs P2P.](./diagrams/offline-strategy-decision-dark.svg)
 
 ## Real-World Implementations
 
-### Figma: Canvas-Level Offline
+### Figma: Hybrid Multiplayer with Local Recovery
 
-**Challenge**: Complex vector graphics with potentially millions of objects, multiple concurrent editors.
+**Challenge**: Complex vector graphics with potentially millions of objects, multiple concurrent editors, must feel instantaneous.
 
-**Approach**:
+**Approach**: Figma's [own engineering write-up](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/) is explicit that they use a custom system that is "in the same family of solutions as CRDTs (it's similar to CRDTs but is not a CRDT)" — operations are applied through a centralized server that establishes total order, with last-writer-wins registers per property and tree-structure-aware reparenting rules. They explicitly rejected classical OT as too complex.
 
-- CRDT-based multiplayer engine
-- 30-day offline window (7 days on Safari due to ITP)
-- Changes stored in IndexedDB with timestamp metadata
-- On reconnect, changes merge via CRDT semantics
+**Offline behavior** (per the [official Figma offline help](https://help.figma.com/hc/en-us/articles/360040328553-What-can-I-do-offline-in-Figma)):
+
+- Changes to currently-loaded pages are queued in IndexedDB and replayed on reconnect.
+- Retention window is **30 days on Chrome / Firefox / Edge / Opera, 7 days on Safari** (ITP).
+- You _cannot_ open a file that wasn't loaded before going offline; this is recovery for an open editing session, not a full local-first model.
 
 **Technical details**:
 
-- WebAssembly for CRDT operations (performance critical)
-- Custom CRDT for vector graphics (not text-focused)
-- Selective sync—only download what's viewed, not entire project
-- Background prefetch of likely-needed files
+- Canvas, geometry, and the multiplayer engine are written in C++ and compiled to WebAssembly ([Figma engineering](https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/)); React handles only UI chrome.
+- Selective sync — only download what's viewed, not entire project.
+- Background prefetch of likely-needed files.
 
-**Limitation**: Can't download entire project for offline. Must have previously opened a file within the offline window.
-
-**Key insight**: "The hardest part isn't the CRDT—it's making the UX feel instant while syncing in the background." — Evan Wallace, Figma CTO
+**Limitation**: There is no "download for offline" mode; if a file hasn't been opened recently, it isn't available.
 
 ### Notion: Block-Based CRDT
 
-**Challenge**: Rich text documents with blocks (paragraphs, code, embeds), tables, and databases.
+**Challenge**: Rich text documents with blocks (paragraphs, code, embeds), tables, and databases — with millions of users and fan-out collaboration.
 
-**Approach**:
+**Approach** (per [Notion's "How we made Notion available offline"](https://www.notion.com/blog/how-we-made-notion-available-offline), shipped in [Notion 2.53 on 2025-08-19](https://www.notion.com/releases/2025-08-19)):
 
-- Custom CRDT system (inspired by Martin Kleppmann's research)
-- Per-page sync with `lastDownloadedTimestamp` tracking
-- Selective sync—only fetch pages with newer `lastUpdatedTime` on server
+- Pages marked "Available offline" are migrated to a CRDT-backed data model in a local SQLite cache.
+- Local state is tracked in `offline_page` and `offline_action` tables with multiple "reasons a page is offline" so eviction is reference-counted.
+- Per-page sync watermark is reconciled on reconnect; CRDT semantics merge concurrent text edits automatically.
 
 **Technical details**:
 
-- Peritext integration for rich text formatting CRDTs (handles formatting spans)
-- Database views sync separately from underlying data
-- 50-row database limit in initial offline version (increased over time)
+- Desktop and mobile apps only — the web client does not yet have offline mode.
+- Database views download the **first 50 rows of the first view** for any database marked offline; remaining rows must be opened individually. As of 2026 this cap still holds across all plans.
+- Free plans manually toggle pages; paid plans also auto-download top favourites and most-recent pages.
 
-**Limitation**: Non-text properties (select fields, relations) harder to merge. Some conflict resolution requires user intervention for complex database changes.
-
-**Source**: Notion engineering blog, 2024
+**Limitation**: Non-text properties (select fields, relations, linked databases) cannot merge cleanly. When Notion can't reconcile, it forks the page with a `(Conflict)` suffix instead of guessing.
 
 ### Linear: Delta Sync
 
 **Challenge**: Project management with issues, projects, and workflows. Must feel instant.
 
-**Approach**:
+**Approach** (consolidated from [Linear's own "Scaling the sync engine" talks](https://linear.app/now/scaling-the-linear-sync-engine) and the Linear-CTO-endorsed [reverse-engineering write-up](https://github.com/wzhudev/reverse-linear-sync-engine)):
 
-- Bootstrap process downloads initial state
-- WebSocket for incremental delta packets
-- IndexedDB for local cache, not full offline editing
-- Server maintains authoritative sync ID (incremental integer)
-
-**Technical details**:
-
-- Sync ID increments with each server-side transaction
-- Client tracks last seen sync ID, requests deltas since that ID
-- Optimistic updates with rollback on server rejection
-- Not true offline-first—designed as connectivity failsafe
-
-**Trade-off accepted**: Offline is "best effort"—can view cached data, but edits require eventual connectivity. Simpler than full CRDT but limits offline duration.
-
-### Excalidraw: P2P with localStorage
-
-**Challenge**: Collaborative whiteboard with no backend requirement.
-
-**Approach**:
-
-- Pseudo-P2P: Central server relays end-to-end encrypted messages
-- State stored in localStorage (keys: `excalidraw` for objects, `excalidraw-state` for UI)
-- Union merge for conflict resolution—all elements from all clients combine
-- End-to-end encryption—server never sees content
+- Bootstrap process downloads a normalized object pool into IndexedDB on first load.
+- WebSocket pushes incremental delta packets keyed by a monotonically increasing `lastSyncId`.
+- A MobX-managed in-memory object graph drives the UI; mutations are framed as transactions and queued in IndexedDB until acknowledged.
+- Server is the authority for total order — no peer-to-peer sync, no CRDT.
 
 **Technical details**:
 
-- WebSockets via Socket.IO for message relay
-- No server-side storage—all state is client-side
-- Room-based collaboration with shareable links
-- Works fully offline for local edits
+- Sync ID increments with each server-side transaction; clients reconcile deltas since their last seen ID.
+- Optimistic updates with rollback on server rejection.
+- Not true offline-first — designed as a connectivity failsafe rather than a local-first system.
 
-**Limitation**: Union merge means no true delete—"deleted" elements can reappear if another client hadn't seen the delete. Trade-off for simplicity.
+**Trade-off accepted**: Offline is "best effort" — clients can read cached state and queue mutations briefly, but edits require eventual connectivity. Simpler than CRDT, ships faster, gives up indefinite offline.
+
+### Excalidraw: Pseudo-P2P with `localStorage`
+
+**Challenge**: Collaborative whiteboard with minimal backend.
+
+**Approach** (per [Excalidraw's E2EE blog post](https://plus.excalidraw.com/blog/end-to-end-encryption) and the [P2P feature write-up](https://plus.excalidraw.com/blog/building-excalidraw-p2p-collaboration-feature)):
+
+- Pseudo-P2P: a Socket.IO relay (`excalidraw-room`) brokers end-to-end encrypted messages between peers.
+- Local state lives in `localStorage` (keys `excalidraw` for elements, `excalidraw-state` for UI).
+- AES-GCM key is generated client-side and embedded in the URL fragment, which never reaches the server — the server only sees opaque ciphertext.
+- A custom reconciler resolves merge order between peers.
+
+**Technical details**:
+
+- Self-hosting via the open-source `excalidraw-room` server is required for non-Plus collaboration.
+- Web Crypto API (`window.crypto.subtle`) is the encryption primitive, so a secure context is mandatory.
+- Room-based collaboration with shareable links; works fully offline for local edits.
+
+**Limitation**: The reconciliation strategy keeps elements alive aggressively to avoid losing concurrent edits, so a peer that didn't see a delete can reintroduce the element on reconnect. Trade-off for simplicity.
 
 ## Browser Constraints Deep Dive
+
+![Storage quota lifecycle as a state machine: best-effort writes live until usage approaches the origin quota or the group cap (~80% of disk) hits and the browser evicts LRU origins; persistent storage is protected on Chromium and Firefox; Safari's ITP wipes script-writable storage after seven days of browser use without site interaction regardless of persistence.](./diagrams/storage-quota-lifecycle-light.svg "Storage quota lifecycle: best-effort vs persistent, group-cap LRU eviction on Chromium and Firefox, and Safari's seven-day ITP wipe that ignores the persistence flag.")
+![Storage quota lifecycle as a state machine: best-effort writes live until usage approaches the origin quota or the group cap (~80% of disk) hits and the browser evicts LRU origins; persistent storage is protected on Chromium and Firefox; Safari's ITP wipes script-writable storage after seven days of browser use without site interaction regardless of persistence.](./diagrams/storage-quota-lifecycle-dark.svg)
 
 ### Storage Quota Management
 
@@ -1192,9 +1225,9 @@ Key architectural decisions:
 
 **Sync strategy**: LWW for simple, loss-tolerant cases. Sync queues for form-style interactions. OT for real-time collaboration with reliable connectivity. CRDTs for true offline-first with guaranteed convergence.
 
-**Browser reality**: Safari's 7-day eviction breaks long-term offline. Persistent storage is unreliable. `navigator.onLine` is useless. Design for data loss and re-sync.
+**Browser reality**: Safari's 7-day eviction breaks long-term offline. Persistent storage is unreliable in Chromium and a no-op in Safari. `navigator.onLine` is useless for connectivity checks. Design for data loss and re-sync.
 
-The technology is mature—Yjs, Automerge, and Workbox provide production-ready foundations. The complexity is in choosing the right trade-offs for your use case and handling the edge cases that browser APIs don't abstract away.
+The platform is mature enough — Yjs, Automerge, Workbox, and ElectricSQL provide production-ready foundations. The complexity now lives in picking the right trade-off for your audience: how long users go offline, how many of them collaborate on the same record, and how much data loss is acceptable when the model can't reconcile.
 
 ## Appendix
 
@@ -1218,26 +1251,60 @@ The technology is mature—Yjs, Automerge, and Workbox provide production-ready 
 
 ### Summary
 
-- **Local-first data model**: Application reads/writes to IndexedDB or OPFS immediately; network sync is asynchronous
-- **Service Workers**: Intercept requests, implement caching strategies (cache-first, network-first, stale-while-revalidate), enable background sync
-- **Storage constraints**: Quotas vary (Safari ~1GB, Chrome 60% disk); Safari evicts after 7 days without interaction; persistent storage helps but isn't guaranteed
-- **Conflict resolution**: LWW loses data; OT requires server; CRDTs guarantee convergence but are complex; choose based on offline duration and collaboration needs
-- **Production patterns**: Figma uses CRDTs with 30-day window; Notion uses CRDTs with selective sync; Linear uses delta sync (not true offline-first); Excalidraw uses union merge with localStorage
+- **Local-first data model**: Application reads/writes to IndexedDB or OPFS immediately; network sync is asynchronous.
+- **Service Workers**: Intercept requests, implement caching strategies (cache-first, network-first, stale-while-revalidate), enable background sync.
+- **Storage constraints**: Quotas are mostly disk-percentage in Chrome / Firefox / Safari today; Safari evicts script-writable storage after seven days of browser use without interaction; persistent storage helps but isn't guaranteed and is a no-op in Safari.
+- **Conflict resolution**: LWW loses data; OT requires a server; CRDTs guarantee convergence but are complex and can still interleave under multi-replica edits — choose based on offline duration and collaboration needs.
+- **Production patterns**: Figma runs a CRDT-_inspired_ multiplayer engine with a centralized server and a 30-day session-recovery window; Notion ships a CRDT desktop/mobile offline mode capped at 50 rows per database view; Linear is delta sync over WebSocket with `lastSyncId`, not true offline-first; Excalidraw is pseudo-P2P with E2EE and `localStorage`.
 
 ### References
 
-- [Service Workers Spec - W3C](https://www.w3.org/TR/service-workers/) - Normative specification
-- [The Offline Cookbook - Jake Archibald](https://jakearchibald.com/2014/offline-cookbook/) - Canonical caching patterns
-- [IndexedDB API - W3C](https://www.w3.org/TR/IndexedDB/) - Storage specification
-- [CRDTs: The Hard Parts - Martin Kleppmann](https://martin.kleppmann.com/2020/07/06/crdt-hard-parts-hydra.html) - CRDT design challenges
-- [Workbox Documentation - Google](https://developer.chrome.com/docs/workbox/) - Service Worker library
-- [Storage Quotas and Eviction - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) - Browser storage limits
-- [Origin Private File System - web.dev](https://web.dev/articles/origin-private-file-system) - OPFS guide
-- [Full Third-Party Cookie Blocking - WebKit](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) - Safari's 7-day storage limit
-- [Figma's Multiplayer Technology - Evan Wallace](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/) - Production CRDT implementation
-- [How We Made Notion Available Offline - Notion Engineering](https://www.notion.com/blog/how-we-made-notion-available-offline) - Block-based CRDT sync
-- [Linear's Sync Engine - Reverse Engineering](https://marknotfound.com/posts/reverse-engineering-linears-sync-magic/) - Delta sync approach
-- [Excalidraw P2P Collaboration](https://plus.excalidraw.com/blog/building-excalidraw-p2p-collaboration-feature) - Union merge pattern
-- [CRDT Papers Collection](https://crdt.tech/papers.html) - Academic CRDT research
-- [Yjs Documentation](https://docs.yjs.dev/) - Production CRDT library
-- [Automerge](https://automerge.org/) - JSON CRDT library
+Specifications and standards (tier 1):
+
+- [Service Workers — W3C](https://www.w3.org/TR/service-workers/) — normative specification.
+- [Indexed Database API 3.0 — W3C](https://www.w3.org/TR/IndexedDB/) — IndexedDB normative spec.
+- [File System Standard — WHATWG](https://fs.spec.whatwg.org/) — OPFS and File System Access normative spec.
+- [Web Periodic Background Synchronization — WICG](https://wicg.github.io/periodic-background-sync/) — periodic sync draft.
+
+Vendor and platform docs (tier 2):
+
+- [Storage quotas and eviction criteria — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) — browser storage limits.
+- [Origin private file system — MDN](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system) — OPFS surface area.
+- [`createSyncAccessHandle()` — MDN](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileHandle/createSyncAccessHandle) — sync OPFS access from Workers.
+- [Background Synchronization API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API) — sync event surface and compatibility.
+- [Service Worker lifecycle — web.dev](https://web.dev/articles/service-worker-lifecycle) — install/activate/skipWaiting semantics.
+- [The Offline Cookbook — web.dev](https://web.dev/articles/offline-cookbook) — canonical caching strategies.
+- [Origin private file system — web.dev](https://web.dev/articles/origin-private-file-system) — OPFS guide.
+- [Periodic Background Sync — Chrome for Developers](https://developer.chrome.com/docs/capabilities/periodic-background-sync) — Chrome heuristics and minInterval behaviour.
+- [Workbox Documentation — Chrome for Developers](https://developer.chrome.com/docs/workbox/) — Service Worker library.
+- [Tracking Prevention in WebKit](https://webkit.org/tracking-prevention/) — current ITP behaviour.
+- [Full Third-Party Cookie Blocking — WebKit](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) — Safari's 7-day script-writable-storage policy.
+
+Research papers (tier 3):
+
+- [Kleppmann, Wiggins, van Hardenberg, McGranaghan, "Local-first software" (Ink & Switch, 2019)](https://www.inkandswitch.com/essay/local-first/) — the seven local-first ideals.
+- [Shapiro et al., "Conflict-free Replicated Data Types" (INRIA RR-7687, 2011)](https://hal.inria.fr/inria-00609399/document) — CRDT formal foundations.
+- [Kleppmann & Beresford, "Interleaving anomalies in collaborative text editors" (PaPoC 2019)](https://martin.kleppmann.com/papers/interleaving-papoc19.pdf) — interleaving problem statement.
+- [Weidner, Nicolaescu, et al., "Minimizing Interleaving in Collaborative Text Editing" (2023)](https://arxiv.org/abs/2305.00583) — Fugue / FugueMax algorithms.
+- [Ellis & Gibbs, "Concurrency Control in Groupware Systems" (SIGMOD 1989)](https://dl.acm.org/doi/10.1145/67544.66963) — original OT paper.
+- [CRDTs: The Hard Parts — Martin Kleppmann](https://martin.kleppmann.com/2020/07/06/crdt-hard-parts-hydra.html) — practitioner-facing CRDT design challenges.
+- [CRDT Papers Collection](https://crdt.tech/papers.html) — academic CRDT research index.
+
+Production write-ups (tier 5):
+
+- [Figma's multiplayer technology — Figma Blog](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/) — CRDT-inspired centralized engine.
+- [Figma is powered by WebAssembly — Figma Blog](https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/) — C++/Wasm canvas engine.
+- [What can I do offline in Figma? — Figma Help](https://help.figma.com/hc/en-us/articles/360040328553-What-can-I-do-offline-in-Figma) — 30-day / 7-day retention windows.
+- [How we made Notion available offline — Notion Blog](https://www.notion.com/blog/how-we-made-notion-available-offline) — block CRDT and SQLite cache.
+- [Notion 2.53 release notes (2025-08-19)](https://www.notion.com/releases/2025-08-19) — offline launch.
+- [Scaling the Linear Sync Engine — Linear](https://linear.app/now/scaling-the-linear-sync-engine) — delta sync at scale.
+- [Reverse engineering Linear's sync engine — wzhudev (CTO-endorsed)](https://github.com/wzhudev/reverse-linear-sync-engine) — sync ID and delta packet shape.
+- [Building Excalidraw's P2P collaboration — Excalidraw Blog](https://plus.excalidraw.com/blog/building-excalidraw-p2p-collaboration-feature) — pseudo-P2P architecture.
+- [End-to-end encryption in the browser — Excalidraw Blog](https://plus.excalidraw.com/blog/end-to-end-encryption) — Web Crypto + URL-fragment key.
+- [HTTP Archive 2025 Web Almanac — PWA chapter](https://almanac.httparchive.org/en/2025/pwa) — Service Worker and Workbox adoption.
+
+Library docs (tier 5):
+
+- [Yjs documentation](https://docs.yjs.dev/) — production CRDT library.
+- [`y-indexeddb`](https://github.com/yjs/y-indexeddb) — IndexedDB persistence adapter.
+- [Automerge](https://automerge.org/) — JSON CRDT library.

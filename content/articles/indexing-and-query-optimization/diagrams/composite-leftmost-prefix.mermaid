@@ -1,0 +1,29 @@
+%% Diagram: Composite index leftmost-prefix decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Query against index a, b, c])
+    Q1{"Filter on a?"}
+    Q2{"Filter type on a?"}
+    Q3{"Filter on b?"}
+    Q4{"Filter type on b?"}
+    Q5{"Filter on c?"}
+
+    NoIdx[Cannot drive index walk\nFalls back to seq scan or other index]
+    EqA[Range on first key — index walks\nbounded by a]
+    BothEq[Equality on a then b\nindex walks bounded by a, b]
+    RangeB[Range on b — index walk stops at b\nc applied as filter on result]
+    FullScan[Equality on a, b, c\nfull-key index lookup]
+    OnlyA[Only a — index narrows by a\nb, c applied as filters]
+
+    Start --> Q1
+    Q1 -->|"no"| NoIdx
+    Q1 -->|"yes"| Q2
+    Q2 -->|"range"| EqA
+    Q2 -->|"equality"| Q3
+    Q3 -->|"no"| OnlyA
+    Q3 -->|"yes"| Q4
+    Q4 -->|"range"| RangeB
+    Q4 -->|"equality"| Q5
+    Q5 -->|"equality"| FullScan
+    Q5 -->|"no"| BothEq

@@ -4,7 +4,7 @@ linkTitle: 'CSR / SSR / SSG / ISR'
 description: >-
   A thorough comparison of CSR, SSR, SSG, and ISR — their mechanics, performance profiles, failure modes, and design trade-offs — plus modern hybrids like streaming SSR, islands architecture, and Partial Prerendering.
 publishedDate: 2026-02-16T00:00:00.000Z
-lastUpdatedOn: 2026-02-16T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - architecture
@@ -95,15 +95,15 @@ function App() {
 }
 ```
 
-Even with splitting, the framework runtime itself (React ~45 KB, Vue ~33 KB, Angular ~130 KB gzipped) must download before anything renders.
+Even with splitting, the framework runtime itself (React + ReactDOM ~45 KB, Vue ~33 KB, Angular core ~130 KB gzipped, order-of-magnitude figures from [Bundlephobia](https://bundlephobia.com)) must download before anything renders.
 
 ### SEO Limitations
 
 Googlebot executes JavaScript, but with caveats:
 
-- **Two-phase indexing**: Google crawls HTML first, then queues pages for JS rendering in a separate "wave." The delay between waves can be hours to days.
-- **Render budget**: Google allocates finite compute to render JS. Complex SPAs with heavy client-side logic may not render fully.
-- **Other crawlers**: Bing, social media previets (Open Graph), and most bots do not execute JavaScript at all.
+- **Two-phase indexing**: Google's [Web Rendering Service](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics) crawls HTML first, then queues pages for JS rendering in a separate "render queue." The delay between waves can be seconds to days, depending on load.
+- **Render budget**: Google allocates finite compute to render JS. Complex SPAs with heavy client-side logic may not render fully, and any render error silently leaves the JS-only content unindexed.
+- **Other crawlers**: Bing renders some JavaScript but with stricter limits; social-media link unfurlers (Open Graph for Twitter, Slack, Discord, LinkedIn) generally fetch the raw HTML and do not execute JavaScript at all, so client-rendered Open Graph tags don't appear in previews.
 
 Workarounds exist — dynamic rendering (serving pre-rendered HTML to bots), prerendering services (Prerender.io, Rendertron) — but they add operational complexity and create divergence between what users and crawlers see.
 
@@ -181,6 +181,9 @@ app.get('*', (req, res) => {
 ```
 
 This approach decouples TTFB from the slowest data source. The browser can begin parsing and rendering the shell while dynamic content streams in.
+
+![Streaming SSR with Suspense — the shell ships immediately, then each Suspense boundary streams in as its data resolves and an inline script swaps the fallback.](./diagrams/streaming-ssr-sequence-light.svg "Streaming SSR with Suspense — the shell ships immediately, then each Suspense boundary streams in as its data resolves and an inline script swaps the fallback.")
+![Streaming SSR with Suspense — the shell ships immediately, then each Suspense boundary streams in as its data resolves and an inline script swaps the fallback.](./diagrams/streaming-ssr-sequence-dark.svg)
 
 > **Prior to React 18:** SSR was synchronous (`renderToString`). The entire page had to resolve before any HTML was sent. This made TTFB directly proportional to the slowest data dependency. Streaming SSR was available via `renderToNodeStream` (React 16), but without Suspense integration, it couldn't handle async data boundaries.
 
@@ -300,7 +303,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
 
 ### On-Demand Revalidation
 
-Time-based ISR has an inherent staleness window: content can be up to `revalidate` seconds old. On-demand revalidation (introduced in Next.js 12.2) allows programmatic cache invalidation via API:
+Time-based ISR has an inherent staleness window: content can be up to `revalidate` seconds old. On-demand ISR went stable in [Next.js 12.2](https://nextjs.org/blog/next-12-2#on-demand-incremental-static-regeneration-stable) (Pages Router) using `res.revalidate(path)` from an API route. The App Router (Next.js 13+) introduced [`revalidatePath` and `revalidateTag`](https://nextjs.org/docs/app/guides/how-revalidation-works) for callers in Server Actions and Route Handlers:
 
 ```ts title="on-demand-revalidation.ts" collapse={1-3}
 // Next.js App Router — API route or Server Action
@@ -326,6 +329,9 @@ ISR is conceptually similar to CDN cache invalidation with `stale-while-revalida
 | Invalidation granularity | Per-page or per-tag | Per-URL or per-cache-tag |
 | Cache coherence | Single-region regeneration, then CDN propagation | Depends on CDN (purge-all or targeted) |
 | Framework coupling | Next.js specific | Framework-agnostic |
+
+![ISR cache lifecycle — pages cycle through Fresh, Stale, and Regenerating; on-demand calls jump straight from Fresh to Regenerating.](./diagrams/isr-cache-lifecycle-light.svg "ISR cache lifecycle — pages cycle through Fresh, Stale, and Regenerating; on-demand calls jump straight from Fresh to Regenerating.")
+![ISR cache lifecycle — pages cycle through Fresh, Stale, and Regenerating; on-demand calls jump straight from Fresh to Regenerating.](./diagrams/isr-cache-lifecycle-dark.svg)
 
 ### Limitations
 
@@ -374,7 +380,7 @@ export default defineNuxtConfig({
 
 ### React Server Components
 
-React Server Components (RSC), stable in Next.js 13+ App Router, introduce a component-level rendering boundary. Server Components execute only on the server — their code never ships to the browser.
+React Server Components (RSC) became part of the stable React surface with [React 19 (December 2024)](https://react.dev/blog/2024/12/05/react-19#react-server-components); the Next.js App Router has shipped a production-ready implementation since Next.js 13.4 (May 2023). Server Components execute only on the server — their code never ships to the browser.
 
 **Key design decisions:**
 
@@ -388,7 +394,7 @@ RSC changes the rendering model from "render everything, hydrate everything" to 
 
 ### Partial Prerendering
 
-Partial Prerendering (PPR), introduced experimentally in Next.js 14 and progressing in Next.js 15, combines SSG and SSR within a single page:
+Partial Prerendering (PPR) was introduced as an experimental flag in [Next.js 14](https://nextjs.org/blog/next-14#partial-prerendering-preview) and graduated to stable in Next.js 16, where the `experimental.ppr` flag was replaced by [`cacheComponents` in `next.config.ts`](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheComponents). It combines SSG and SSR within a single page:
 
 1. The static shell (header, footer, layout, static content) is pre-rendered at build time
 2. Dynamic "holes" (user-specific content, real-time data) are marked with Suspense boundaries
@@ -456,10 +462,10 @@ This granularity means a content-heavy page with one search widget ships only th
 Edge computing platforms (Cloudflare Workers, Deno Deploy, Vercel Edge Runtime) shift rendering to CDN nodes closest to the user. The design reasoning: even with fast SSR, a 200ms round trip to a centralized origin server limits TTFB. Edge rendering reduces this to 10-30ms.
 
 Constraints of edge environments:
-- **Limited runtime**: No full Node.js — Web Standards APIs only (Fetch, Streams, Web Crypto)
-- **CPU limits**: Typically 10-50ms CPU time per request (Cloudflare Workers default: 10ms on free plan, 30ms paid)
-- **No persistent connections**: No long-lived database connections; use HTTP APIs or connection poolers
-- **Cold starts**: Cloudflare Workers: < 5ms (V8 isolates). Lambda@Edge: 50-200ms.
+- **Limited runtime**: No full Node.js — Web Standards APIs only (Fetch, Streams, Web Crypto). Node-only modules (`fs`, native add-ons, raw TCP) don't run.
+- **CPU limits** (CPU-time, not wall-clock): Cloudflare Workers caps free-plan invocations at 10 ms of CPU time and paid invocations at 30 seconds by default — configurable up to 5 minutes since the [March 2025 change](https://developers.cloudflare.com/changelog/post/2025-03-25-higher-cpu-limits/) ([Workers limits](https://developers.cloudflare.com/workers/platform/limits/#cpu-time)). Time spent waiting on `fetch()` doesn't count, so most rendering work fits comfortably; tight in-process loops or sync rendering of huge trees can still trip the limit.
+- **No persistent connections**: No long-lived database connections; use HTTP APIs or connection poolers (Hyperdrive, PgBouncer, Neon, PlanetScale serverless).
+- **Cold starts**: Cloudflare Workers boot in ~5 ms because every isolate runs in a single V8 process per data center. Lambda@Edge runs in regional edge caches and shows ~50–100 ms cold starts on average ([AWS edge-functions comparison](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html)). CloudFront Functions execute inline at the edge with sub-millisecond startup but only support a tiny JavaScript runtime — no rendering.
 
 Edge rendering is optimal for personalization based on request data (geolocation, cookies, A/B testing) combined with cached content.
 
@@ -479,6 +485,9 @@ No single rendering strategy is universally optimal. The choice depends on five 
 | **Personalization** | Full | Full | None | None (page-level) | Dynamic holes only |
 | **Scaling** | CDN | Horizontal scaling | CDN | CDN + origin | CDN + origin (minimal) |
 | **Complexity** | Low | Moderate | Low | Moderate | High |
+
+![Decision tree for picking a rendering strategy — start from SEO/LCP needs, then drop down through personalization, freshness, and shape of the dynamic content.](./diagrams/strategy-decision-tree-light.svg "Decision tree for picking a rendering strategy — start from SEO/LCP needs, then drop down through personalization, freshness, and shape of the dynamic content.")
+![Decision tree for picking a rendering strategy — start from SEO/LCP needs, then drop down through personalization, freshness, and shape of the dynamic content.](./diagrams/strategy-decision-tree-dark.svg)
 
 ### Decision by Use Case
 

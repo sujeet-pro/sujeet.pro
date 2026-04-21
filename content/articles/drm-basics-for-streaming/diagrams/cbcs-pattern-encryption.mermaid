@@ -1,0 +1,24 @@
+%% Diagram: cbcs 1:9 pattern encryption layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph NAL["VCL NAL unit (one slice)"]
+        direction LR
+        H[NAL header<br/>+ optional clear<br/>leader bytes]
+        subgraph PAT["Repeating cbcs 1:9 pattern (160 B)"]
+            direction LR
+            E1[Block 1<br/>16 B<br/>encrypted<br/>AES-CBC]
+            S1[Blocks 2-10<br/>9 x 16 B = 144 B<br/>cleartext]
+        end
+        T[Trailing bytes<br/>< 16 B<br/>cleartext]
+    end
+
+    H --> PAT
+    PAT --> T
+
+    classDef enc fill:#f8cecc,stroke:#b85450
+    classDef clr fill:#d5e8d4,stroke:#82b366
+    classDef hdr fill:#dae8fc,stroke:#6c8ebf
+    class E1 enc
+    class S1,T clr
+    class H hdr

@@ -1,0 +1,47 @@
+%% Diagram: Multi-Window Multi-Burn-Rate Alert Tiers (Google SRE Workbook)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Budget["30-day error budget<br/>for 99.9% SLO"]
+
+    subgraph PageFast["Page (fast burn)"]
+        direction TB
+        PF1["Long window: 1 hour<br/>Short window: 5 minutes"]
+        PF2["Burn rate: 14.4×<br/>Consumes 2% of budget in 1h"]
+        PF3["Action: page on-call now"]
+    end
+
+    subgraph PageSlow["Page (slow burn)"]
+        direction TB
+        PS1["Long window: 6 hours<br/>Short window: 30 minutes"]
+        PS2["Burn rate: 6×<br/>Consumes 5% of budget in 6h"]
+        PS3["Action: page on-call"]
+    end
+
+    subgraph Ticket["Ticket (sustained drift)"]
+        direction TB
+        T1["Long window: 3 days<br/>Short window: 6 hours"]
+        T2["Burn rate: 1×<br/>Consumes 10% of budget in 3d"]
+        T3["Action: file ticket, fix in hours"]
+    end
+
+    Budget --> PageFast
+    Budget --> PageSlow
+    Budget --> Ticket
+
+    Logic["Multi-window AND-logic<br/>both windows must exceed threshold<br/>short window auto-resolves alert<br/>long window suppresses noise"]
+    PageFast -.-> Logic
+    PageSlow -.-> Logic
+    Ticket -.-> Logic
+
+    classDef budget fill:#fffbeb,stroke:#b45309,color:#78350f
+    classDef pageFast fill:#fef2f2,stroke:#b91c1c,color:#7f1d1d
+    classDef pageSlow fill:#fff7ed,stroke:#c2410c,color:#7c2d12
+    classDef ticket fill:#ecfeff,stroke:#0e7490,color:#155e75
+    classDef logic fill:#f5f3ff,stroke:#6d28d9,color:#4c1d95
+
+    class Budget budget
+    class PageFast,PF1,PF2,PF3 pageFast
+    class PageSlow,PS1,PS2,PS3 pageSlow
+    class Ticket,T1,T2,T3 ticket
+    class Logic logic

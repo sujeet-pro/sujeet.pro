@@ -1,0 +1,29 @@
+%% Diagram: Token Bucket vs Leaky Bucket mechanisms compared
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph TB_box["Token Bucket — burst-friendly"]
+        direction TB
+        TB_refill["Refill\nrate r tokens/s"] -->|"add up to capacity"| TB_bucket[("Bucket\ncapacity = burst size")]
+        TB_req(["Request"]) --> TB_check{"tokens\n>= 1?"}
+        TB_bucket --> TB_check
+        TB_check -->|"Yes"| TB_pass["Forward\n(consume 1)"]
+        TB_check -->|"No"| TB_drop["Reject 429"]
+    end
+
+    subgraph LB_box["Leaky Bucket — smooth output"]
+        direction TB
+        LB_req(["Request"]) --> LB_admit{"Bucket\nfull?"}
+        LB_admit -->|"No"| LB_queue[("Queue\ncapacity = max backlog")]
+        LB_admit -->|"Yes"| LB_drop["Reject 429"]
+        LB_queue -->|"Drain at\nleak rate r req/s"| LB_pass["Forward"]
+    end
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class TB_refill,TB_pass,LB_pass primary
+    class TB_bucket,LB_queue storage
+    class TB_drop,LB_drop alert
+    class TB_check,LB_admit neutral

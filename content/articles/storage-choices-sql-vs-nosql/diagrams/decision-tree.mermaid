@@ -1,0 +1,47 @@
+%% Diagram: Storage decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START["Workload"]
+    Q1["Need multi-key\nACID transactions?"]
+    Q2["Single region\nor global?"]
+    Q3["Access pattern?"]
+    Q4["Working set\nfits in RAM?"]
+    Q5["Cross-document\njoins required?"]
+
+    SQL["SQL\nPostgres / MySQL\nVertical first, replicas, then shard"]
+    NEWSQL["NewSQL\nSpanner / CockroachDB\nYugabyteDB / TiDB"]
+    KV["Redis / Memcached\nor DynamoDB on-demand"]
+    KV2["DynamoDB\nor sharded KV"]
+    DOC["Document store\nMongoDB / Couchbase\nDocumentDB"]
+    WIDE["Wide-column\nCassandra / Scylla\nor TimescaleDB"]
+    GRAPH["Graph DB\nNeo4j / Neptune\nor recursive CTEs"]
+    SEARCH["Search engine\nElastic / OpenSearch\nor OLAP store"]
+
+    START --> Q1
+    Q1 --> Q2
+    Q2 --> SQL
+    Q2 --> NEWSQL
+
+    Q1 --> Q3
+    Q3 --> Q4
+    Q4 --> KV
+    Q4 --> KV2
+
+    Q3 --> Q5
+    Q5 --> DOC
+    Q5 --> SQL
+
+    Q3 --> WIDE
+    Q3 --> GRAPH
+    Q3 --> SEARCH
+
+    classDef anchor fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef question fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef sqlpath fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef nosqlpath fill:#1F6E68,stroke:#155752,color:#ffffff
+
+    class START anchor
+    class Q1,Q2,Q3,Q4,Q5 question
+    class SQL,NEWSQL sqlpath
+    class KV,KV2,DOC,WIDE,GRAPH,SEARCH nosqlpath

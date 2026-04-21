@@ -1,0 +1,25 @@
+%% Diagram: Stale write corrupts data when there is no fencing
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client 1
+    participant L as Lock Service
+    participant S as Storage
+    participant C2 as Client 2
+
+    C1->>L: Acquire(resource)
+    L-->>C1: Granted (30 s lease)
+    Note over C1: GC pause begins (45 s)
+    Note over L: Lease expires at 30 s
+    Note over C1: ...still paused...
+
+    C2->>L: Acquire(resource)
+    L-->>C2: Granted
+
+    C2->>S: Write "value-B"
+    S-->>C2: OK
+
+    Note over C1: GC pause ends
+    C1->>S: Write "value-A" (stale!)
+    S-->>C1: OK (no fencing)
+    Note over S: Last write wins → corruption

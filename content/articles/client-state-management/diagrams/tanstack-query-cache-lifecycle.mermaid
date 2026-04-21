@@ -1,0 +1,29 @@
+%% Diagram: TanStack Query cache lifecycle (staleTime vs gcTime)
+%% Type: state diagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Fresh: useQuery mounts
+    Fresh --> Stale: staleTime elapses
+    Stale --> Fresh: refetch returns
+    Fresh --> InactiveCached: last observer unmounts
+    Stale --> InactiveCached: last observer unmounts
+    InactiveCached --> Fresh: new observer + refetch ok
+    InactiveCached --> Stale: new observer (still stale)
+    InactiveCached --> [*]: gcTime elapses (collected)
+
+    note right of Fresh
+        Default staleTime is 0.
+        No background refetch is
+        triggered while data is fresh.
+    end note
+
+    note right of Stale
+        Refetch on mount, window focus,
+        reconnect, or explicit invalidate.
+    end note
+
+    note right of InactiveCached
+        Default gcTime is 5 minutes.
+        Inactive means no observers.
+        Re-mount within gcTime keeps data.
+    end note

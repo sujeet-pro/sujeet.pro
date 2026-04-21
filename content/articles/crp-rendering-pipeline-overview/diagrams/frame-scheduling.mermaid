@@ -1,0 +1,23 @@
+%% Diagram: One frame's scheduling across threads (cc::Scheduler state machine)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant V as Viz (display compositor)
+    participant C as Compositor thread (cc::Scheduler)
+    participant M as Main thread (Blink)
+    participant W as Compositor workers / Viz raster
+
+    V->>C: BeginFrame at VSync
+    Note over C: BeginImplFrame
+    C->>M: BeginMainFrame (BeginFrameArgs)
+    Note over M: rAF, Animate, Style, Layout,<br/>Pre-paint, Scroll, Paint
+    M-->>C: NotifyReadyToCommit (sync)
+    Note over M: Main thread free for next frame
+    C->>C: ScheduledActionCommit<br/>(copy property trees + display lists)
+    C->>W: PrepareTiles / raster
+    W-->>C: ReadyToActivate
+    C->>C: ActivateSyncTree (pending becomes active)
+    C->>V: Submit CompositorFrame
+    V->>V: SurfaceAggregator combines frames
+    V->>V: Draw to GPU at next VSync

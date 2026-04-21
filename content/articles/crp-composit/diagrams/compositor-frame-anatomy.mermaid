@@ -1,0 +1,30 @@
+%% Diagram: CompositorFrame anatomy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CF["CompositorFrame"]
+    META["metadata<br/>device_scale_factor<br/>frame_token<br/>begin_frame_ack"]
+    RES["resource_list<br/>transferable<br/>texture references"]
+    RPL["render_pass_list[]<br/>back-to-front;<br/>dependencies first"]
+
+    CF --> META
+    CF --> RPL
+    CF --> RES
+
+    subgraph RP["RenderPass"]
+        ID["id"]
+        REC["output_rect<br/>damage_rect"]
+        SQS["shared_quad_state_list[]<br/>shared transform / clip / opacity / blend"]
+        QL["quad_list[]<br/>DrawQuads referencing SQS"]
+    end
+    RPL --> RP
+
+    subgraph QUADS["DrawQuad kinds"]
+        TQ["TextureDrawQuad"]
+        SCQ["SolidColorDrawQuad"]
+        TLQ["TileDrawQuad"]
+        VQ["VideoDrawQuad"]
+        SDQ["SurfaceDrawQuad<br/>(another surface)"]
+        RPDQ["RenderPassDrawQuad<br/>(another pass)"]
+    end
+    QL --> QUADS

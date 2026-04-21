@@ -1,0 +1,36 @@
+%% Diagram: Hot / Warm / Cold Tier Lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Ingest[/"New log batches"/] --> Hot
+
+    subgraph Hot["Hot tier — NVMe SSD"]
+        HotIdx["Full index\nLatency < 100 ms\nDays 0-7"]
+    end
+
+    subgraph Warm["Warm tier — SSD or HDD"]
+        WarmIdx["Reduced index, force-merged\nLatency 1-10 s\nDays 7-90"]
+    end
+
+    subgraph Cold["Cold tier — Object Storage"]
+        ColdIdx["Metadata only,\non-demand rehydration\nLatency 30 s - minutes\nMonths to years"]
+    end
+
+    Hot -- "Rollover\nmax_size or max_age" --> Warm
+    Warm -- "ILM transition\nmin_age 30d" --> Cold
+    Cold -- "Retention expiry" --> Drop(("Drop"))
+
+    Query{"Query"}
+    Query -- "live tail, recent debug" --> Hot
+    Query -- "incident retro" --> Warm
+    Query -- "compliance, audit" --> Cold
+
+    classDef tier fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef act fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class HotIdx,WarmIdx,ColdIdx tier
+    class Query act
+    class Drop warn
+    class Ingest neutral

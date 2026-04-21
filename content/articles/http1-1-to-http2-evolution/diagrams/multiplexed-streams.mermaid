@@ -1,0 +1,22 @@
+%% Diagram: Multiplexed Streams over a Single Connection
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Note over Client,Server: One TCP+TLS connection, three independent streams
+
+    Client->>Server: HEADERS stream 1 — GET /critical.css
+    Client->>Server: HEADERS stream 3 — GET /app.js
+    Client->>Server: HEADERS stream 5 — GET /hero.jpg
+
+    Server->>Client: HEADERS stream 1 — 200 OK
+    Server->>Client: DATA stream 1 — CSS bytes
+    Server->>Client: HEADERS stream 5 — 200 OK
+    Server->>Client: DATA stream 5 — image chunk 1
+    Server->>Client: HEADERS stream 3 — 200 OK
+    Server->>Client: DATA stream 3 — JS bytes (DATA END_STREAM)
+    Server->>Client: DATA stream 5 — image chunk 2 (DATA END_STREAM)
+
+    Note over Client,Server: Server interleaves DATA frames without app-layer HOL blocking

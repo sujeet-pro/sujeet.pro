@@ -6,7 +6,7 @@ description: >-
   contract-first integration, release models, monorepo versus polyrepo tradeoffs,
   and the governance patterns that keep autonomy from turning into chaos.
 publishedDate: 2026-01-24
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - frontend
   - architecture
@@ -62,7 +62,7 @@ If your linter cannot express the boundary, humans will not hold the line under 
 
 ## Ownership models that actually ship
 
-Ownership is not a RACI chart in a wiki. It is **runtime accountability**: who gets paged, who approves breaking changes, and who funds migrations.
+Ownership is not a RACI chart in a wiki. It is **runtime accountability**: who gets paged, who approves breaking changes, and who funds migrations. The taxonomy from [Team Topologies](https://teamtopologies.com/key-concepts) — stream-aligned, platform, enabling, complicated-subsystem — gives a useful vocabulary; the patterns below are how that vocabulary tends to land in frontend orgs specifically.
 
 Common patterns:
 
@@ -81,6 +81,8 @@ If two teams depend on each other through source-level intimacy, they share fate
 Strong contract types in frontend-heavy systems:
 
 - **HTTP APIs** described with [OpenAPI](https://spec.openapis.org/oas/latest.html), with generated clients or hand-written adapters that are owned by the consumer or a neutral client package.
+- **Schema-first GraphQL** federated across teams. [Apollo Federation v2](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/composition) composes per-team subgraphs into a single supergraph; subgraphs opt in via `extend schema @link(url: "https://specs.apollo.dev/federation/v2.x", ...)` and use directives like `@key`, `@shareable`, and `@external` to declare ownership of types and fields. Composition fails the build when subgraphs disagree, which turns "who owns this field" into a CI error rather than a 3am incident.
+- **Browser-friendly RPC** for typed cross-service calls. [Connect](https://connectrpc.com/docs/protocol/) (from Buf) speaks Connect, gRPC, and gRPC-Web from the same handler over plain HTTP/1.1 or HTTP/2, generates idiomatic TypeScript clients, and removes the Envoy translating-proxy that classic [gRPC-Web](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-WEB.md) requires in the browser.
 - **Events and async messages** validated with [JSON Schema](https://json-schema.org/) or equivalent schema registries, with explicit versioning and compatibility tests.
 - **Shared libraries** versioned with [semantic versioning](https://semver.org/) and consumed through ranges locked in package managers, not ad hoc git URLs.
 
@@ -112,21 +114,48 @@ Concrete options you will see in the wild:
 
 - **Single release train** for a tightly coupled UI: simplest operationally, highest coordination tax for unrelated workstreams.
 - **Continuous delivery per domain** behind stable contracts: best velocity when contracts and feature flags are mature.
-- **Runtime composition** (for example [Module Federation](https://webpack.js.org/concepts/module-federation/) in webpack) or server-driven composition: shifts complexity to deployment, caching, and compatibility matrices across independently built artifacts.
+- **Runtime composition** (for example [Module Federation](https://webpack.js.org/concepts/module-federation/), whose 2.0 line — maintained jointly by Zack Jackson and ByteDance's Web Infra team — [reached stable in April 2026](https://www.infoq.com/news/2026/04/module-federation-2-stable/) with a build-tool-agnostic runtime that works with Webpack, Rspack, Rolldown, Vite, and others) or server-driven composition: shifts complexity to deployment, caching, and compatibility matrices across independently built artifacts.
 
-Feature flags reduce release coupling when the contract surface is stable but behavior needs gradual rollout. Vendor-neutral feature flag abstractions such as [OpenFeature](https://openfeature.dev/specification/introduction) help avoid hard-wiring callsites to a single vendor SDK.
+Feature flags reduce release coupling when the contract surface is stable but behavior needs gradual rollout. Vendor-neutral feature flag abstractions such as [OpenFeature](https://openfeature.dev/specification/) — whose `Provider` interface lets you swap or compose backends like [LaunchDarkly](https://launchdarkly.com/docs/home/getting-started/architecture) (server-sent-event flag delivery network with SDK-side caching) or [Statsig](https://www.statsig.com/) (warehouse-native experimentation) — help avoid hard-wiring callsites to a single vendor SDK.
 
 Whatever you pick, make **version skew** a documented scenario: what happens when shell vN mounts remote vN-1, and how users recover without hard refreshes that drop state.
 
 Pick a default model and make exceptions expensive. Ambiguity here is how “independent teams” revert to “we all ship Friday because the bundle.”
 
+![Decision tree: stable contracts plus independent cadences plus platform ownership lead to independent deployables; otherwise default to trunk-based delivery or a single release train.](./diagrams/release-model-decision-light.svg "Pick a release model from the coupling, cadence, and platform-ownership questions in that order; treat the answers as defaults, not commitments.")
+![Decision tree: stable contracts plus independent cadences plus platform ownership lead to independent deployables; otherwise default to trunk-based delivery or a single release train.](./diagrams/release-model-decision-dark.svg)
+
+## Composition strategies for the UI
+
+Once you pick a release model, you still have to decide **where the page is assembled**. There are four broad topologies; production systems usually mix two or three rather than picking one purely.
+
+![Four UI composition topologies: modular monolith ships one bundle; build-time composition links versioned packages into one shell; server-side composition streams HTML and RSC payloads from the edge; runtime composition loads independently deployed remotes through a host shell.](./diagrams/composition-topologies-light.svg "Composition is a spectrum from one bundle to many independently deployed remotes. The cost of integration moves from build time to runtime as you go right; the blast radius of a bad release moves with it.")
+![Four UI composition topologies: modular monolith ships one bundle; build-time composition links versioned packages into one shell; server-side composition streams HTML and RSC payloads from the edge; runtime composition loads independently deployed remotes through a host shell.](./diagrams/composition-topologies-dark.svg)
+
+- **Modular monolith** — one deployable, internal module boundaries enforced by lint, typecheck, and CODEOWNERS. The cheapest model when one team (or a tightly coordinated set of teams) owns the whole UI. Most "we should split into micro-frontends" conversations are actually unfinished modular-monolith work.
+- **Build-time composition** — domains ship as semver-versioned packages consumed by an app shell. Integration risk surfaces at build (typecheck, contract tests, bundle budgets) instead of in the browser, but every breaking change still forces a coordinated re-build of consumers.
+- **Server-side composition** — the page is assembled on the server or at the edge from independently rendered fragments. The current generation of this pattern is built around [React Server Components](https://react.dev/reference/rsc/server-components): server components run only on the server and stream a wire format (the [RSC / Flight payload](https://nextjs.org/docs/app/getting-started/server-and-client-components) — references to client-component bundles, serialized props, and `Suspense` placeholders) to the browser, where React reconciles it into the existing tree without re-fetching HTML for subsequent navigations. The server/client boundary is declared with the `"use client"` directive; treat that boundary as a contract, not a refactor convenience. [Astro Islands](https://docs.astro.build/en/concepts/islands/) make the same trade explicit at the page level — static HTML by default, with `client:load` / `client:idle` / `client:visible` / `server:defer` directives controlling which islands hydrate when. The older fragment patterns (Edge Side Includes, Server Side Includes, Nginx subrequests) survive in commerce and CMS stacks for the same reason: cache the static parts, defer the personalized parts.
+- **Runtime composition** — the host shell loads independently deployed remotes in the browser. [Single-spa](https://single-spa.js.org/docs/getting-started-overview/) is a top-level router that can host multiple frameworks (React, Vue, Angular) under one shell with explicit `bootstrap` / `mount` / `unmount` lifecycles; Module Federation 2.0 lets remotes share singletons (React, the design-system runtime) through `requiredVersion` and `singleton: true`, with `strictVersion` to fail loudly on incompatible skew. The price is real: you now own version negotiation, an `mf-manifest.json`-style deploy registry, and end-to-end tests that exercise the *combinations* shipped to users.
+
+When teams reach for runtime composition, the usual driver is **independent release cadence** for organizational reasons (separate orgs, separate compliance scopes, acquisitions). When the driver is "the bundle is too big," server-side composition or aggressive code-splitting almost always wins for less operational cost.
+
+> [!IMPORTANT]
+> The RSC payload is parsed and trusted by the client React runtime. Treat its transport like any other deserialization boundary: pin framework versions, watch CVEs against your runtime, and do not deserialize attacker-controlled payloads as RSC. The [CVE-2025-55182](https://apiiro.com/blog/critical-vulnerability-rce-in-react-server-components-next-js/) class of issues is the reminder that "it's just JSON-ish" is not a security model.
+
 ## Monorepo versus polyrepo: governance, not religion
 
 Repository shape changes **visibility** and **enforcement**, not the underlying need for contracts.
 
-**Monorepos** (often powered by workspaces such as [npm workspaces](https://docs.npmjs.com/cli/using-npm/workspaces) and build orchestration like [Nx](https://nx.dev/concepts/more-concepts/applications-and-libraries) or [Turborepo](https://turbo.build/repo/docs)) excel when you need atomic refactors, shared CI templates, and graph-level policies (for example, “product domains must not import each other laterally”). Pay attention to [GitHub `CODEOWNERS`](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) (or your forge’s equivalent), path-scoped CI, and automated detection of forbidden edges.
+**Monorepos** (often powered by workspaces such as [npm workspaces](https://docs.npmjs.com/cli/using-npm/workspaces) and build orchestration like [Nx](https://nx.dev/concepts/more-concepts/applications-and-libraries) or [Turborepo](https://turbo.build/repo/docs)) excel when you need atomic refactors, shared CI templates, and graph-level policies (for example, "product domains must not import each other laterally"). Pay attention to [GitHub `CODEOWNERS`](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) (or your forge's equivalent), path-scoped CI, and automated detection of forbidden edges.
 
-**Polyrepos** push the contract to **published packages** and per-repository CI. That can reduce accidental coupling, but it raises the cost of coordinated change and makes “update the types everywhere” a multi-step release dance unless you invest heavily in automation.
+The hard part is not the workspace; it is the **dependency graph itself**. A healthy graph has layered, acyclic dependencies — apps depend on domain libraries, domain libraries depend on platform libraries, nothing depends sideways. Express that in a tag-based lint rule (Nx tags, ESLint `no-restricted-imports`, or a custom checker) so a forbidden import fails CI the first time it appears, not the tenth time someone notices it during code review.
+
+![Layered monorepo graph: apps depend on domain libs (catalog, checkout, account); domain libs depend on platform libs (design system, primitives, generated clients, telemetry) which depend on foundation types and config; lateral edges between domain libs are forbidden by lint.](./diagrams/monorepo-dependency-graph-light.svg "Layered, acyclic graph: apps depend on domain libs, domain libs depend on platform libs, foundation types and config sit at the bottom. Lateral domain-to-domain imports are blocked by lint.")
+![Layered monorepo graph: apps depend on domain libs (catalog, checkout, account); domain libs depend on platform libs (design system, primitives, generated clients, telemetry) which depend on foundation types and config; lateral edges between domain libs are forbidden by lint.](./diagrams/monorepo-dependency-graph-dark.svg)
+
+For frontend-only graphs, [Nx](https://nx.dev/docs/concepts/how-caching-works) and [Turborepo](https://turborepo.dev/docs/core-concepts/remote-caching) compute a project graph, hash inputs, and reuse outputs from a remote cache (Nx Replay; Turborepo's Remote Cache API, with HMAC-signed artifacts). For polyglot or multi-platform graphs (TypeScript next to Go, Python, mobile, protobuf), [Bazel](https://bazel.build/) and [Pants](https://www.pantsbuild.org/) trade more upfront modeling (`BUILD` files, hermetic actions) for genuinely reproducible builds and remote execution at scale — Airbnb's web build, for example, runs on Bazel for exactly that reason. The right answer is rarely "rip and replace"; it is **start with Nx or Turborepo, escape to Bazel/Pants when build cost or polyglot scope demands hermeticity**.
+
+**Polyrepos** push the contract to **published packages** and per-repository CI. That can reduce accidental coupling, but it raises the cost of coordinated change and makes "update the types everywhere" a multi-step release dance unless you invest heavily in automation (cross-repo PR bots, contract-test publishers, schema registries).
 
 ![Comparison: monorepo strengths include graph visibility and central policy; polyrepo strengths include hard repo boundaries and versioned packages; each mitigates weaknesses of the other when used deliberately.](./diagrams/repo-shape-governance-light.svg "Monorepos optimize for enforcement inside a graph; polyrepos optimize for hard boundaries between versioned artifacts. Pick based on coordination reality, not fashion.")
 ![Comparison: monorepo strengths include graph visibility and central policy; polyrepo strengths include hard repo boundaries and versioned packages; each mitigates weaknesses of the other when used deliberately.](./diagrams/repo-shape-governance-dark.svg)
@@ -147,6 +176,10 @@ Treat each platform surface like a product:
 
 If a helper is only used by one domain, it probably should not live in platform. Keeping the platform small is how you preserve both **governance** and **autonomy**.
 
+### Developer portals and golden paths
+
+Once the platform surface stabilizes, the limiting factor stops being the code and starts being **discovery**: which template should I scaffold from, who owns this package, what is the supported way to add a new route, where is the runbook? An internal developer portal is how mature platform teams answer those questions at scale. The canonical open-source example is [Backstage](https://backstage.io/), originally built at Spotify (under the project name "System Z") and donated to the CNCF in 2020. Its [Software Templates](https://backstage.io/docs/features/software-templates/) (the Scaffolder engine) encode **golden paths** — opinionated, supported, scaffold-once flows for "new domain UI", "new design-system component", "new generated API client" — backed by a Software Catalog that records ownership and lifecycle for every component the platform team supports. The mechanism matters more than the tool: even without Backstage, a small `npx create-<org>-app` CLI plus an ownership manifest is enough to make the right path the easy path.
+
 ## Dependency governance: budgets, not vibes
 
 Dependency graphs are where frontend architectures go to die quietly. Large transitive trees amplify supply-chain risk, slow CI, and make “minor” upgrades expensive.
@@ -158,7 +191,7 @@ Operational patterns that scale:
 - **Pin or lock** consistently in applications, and automate upgrades with tools like Renovate or similar dependency bots so security work is continuous rather than heroic.
 - Maintain an **allowlist** (or carefully scoped denylist) for high-risk dependency classes: postinstall scripts, native addons, packages with frequent ownership churn.
 - Run [`npm audit`](https://docs.npmjs.com/cli/commands/npm-audit) as signal, not as gospel: triage by exploitability and reachability, not raw counts alone.
-- For regulated or high-assurance environments, align with a **software bill of materials** practice; the U.S. NTIA publishes widely referenced [minimum elements for an SBOM](https://www.ntia.doc.gov/files/ntia/publications/sbom_minimum_elements_report.pdf) that many enterprises map their programs to.
+- For regulated or high-assurance environments, align with a **software bill of materials** practice; the U.S. NTIA publishes widely referenced [minimum elements for an SBOM](https://www.ntia.gov/report/2021/minimum-elements-software-bill-materials-sbom) that many enterprises map their programs to.
 
 The goal is not zero dependencies. The goal is **knowable** dependencies with **bounded** upgrade work.
 
@@ -166,10 +199,13 @@ The goal is not zero dependencies. The goal is **knowable** dependencies with **
 
 Most teams inherit a ball of mud. The safe moves are incremental and contract-shaped:
 
-- **Strangler fig** the UI: route new work through new boundaries while legacy surfaces shrink behind stable routes. Keep the user journey continuous even when the implementation is heterogeneous.
+- **[Strangler fig](https://martinfowler.com/bliki/StranglerFigApplication.html)** the UI: route new work through new boundaries while legacy surfaces shrink behind stable routes. Keep the user journey continuous even when the implementation is heterogeneous.
 - **Extract contracts first**, implementations second: publish read-only clients, event schemas, or token packages before moving code across repositories or bundles.
 - Prefer **one-way data flow** across boundaries at first (events up, commands down) until you trust bidirectional coupling.
 - Time-box “temporary” shims. Permanent compatibility layers need owners and retirement dates.
+
+![Four-phase strangler fig migration: baseline legacy, edge router introduces a seam, new domain UI grows behind versioned contracts while legacy shrinks, then legacy retires on a dated plan.](./diagrams/strangler-fig-migration-light.svg "A strangler fig migration introduces a routing seam early; new domain surfaces grow behind versioned contracts while legacy shrinks on a dated retirement plan.")
+![Four-phase strangler fig migration: baseline legacy, edge router introduces a seam, new domain UI grows behind versioned contracts while legacy shrinks, then legacy retires on a dated plan.](./diagrams/strangler-fig-migration-dark.svg)
 
 If a migration does not change who can merge what, it is a refactor, not an architecture improvement.
 
@@ -185,10 +221,28 @@ Patterns that hold up in production:
 
 - **Graph linting** for import rules (domains cannot import each other laterally; UI cannot reach into server-only packages). In TypeScript-heavy repos, [`typescript-eslint`](https://typescript-eslint.io/) is the common baseline for static analysis integrated with ESLint.
 - **Typecheck budgets** as a merge requirement, not a nightly curiosity. Project references plus incremental builds reward teams for keeping graphs shallow.
-- **Performance budgets** tied to user-centric metrics. Google’s [web.dev guidance on Core Web Vitals](https://web.dev/articles/vitals) is a practical starting point for what to measure; your thresholds should reflect product constraints, not generic green scores.
-- **Accessibility checks** in CI for components and flows that claim platform compliance. Treat regressions like test failures, not “nice to have.”
+- **Performance budgets** tied to user-centric metrics — see the next section, since this is where most platform teams stall.
+- **Accessibility checks** in CI for components and flows that claim platform compliance. Treat regressions like test failures, not "nice to have."
 
 If a rule is not enforced automatically, assume it will be violated the week before launch.
+
+### Performance budgets as SLOs
+
+Performance budgets are how you keep the deployable from rotting between architecture reviews. Treat them like service-level objectives, not aspirational scores.
+
+Anchor on the current [Core Web Vitals](https://web.dev/articles/vitals): **LCP** for loading (good ≤ 2.5s at p75), **CLS** for visual stability (≤ 0.1), and — since [March 12, 2024](https://web.dev/blog/inp-cwv-march-12) — **INP** (Interaction to Next Paint, ≤ 200ms at p75) replacing FID. INP measures the full input-to-paint latency of *every* interaction across the page lifecycle, not just the first one, which is why teams that were green on FID often discover real INP regressions when they switch.
+
+Healthy budget governance is a four-step loop:
+
+1. **Define** budgets per route at the platform level — Web Vitals SLOs plus byte budgets (e.g. JS ≤ 170 KB gzipped on the marketing route, ≤ 350 KB on the authenticated dashboard). Numbers come from your last 2–4 weeks of field data, not from a generic Lighthouse green band.
+2. **Gate** each pull request in CI with lab tools (Lighthouse CI, bundle-stats) against the budget. Block the merge with an actionable diff, not a scary score.
+3. **Measure** the field with the [Chrome User Experience Report](https://developer.chrome.com/docs/crux) and a RUM provider, segmented by route, device class, and country. Lab numbers are necessary but not sufficient; INP especially only tells the truth in the field.
+4. **Respond** when p75 breaches an SLO: page the owning team via `CODEOWNERS`, auto-revert or feature-flag the offending change where possible, and require an RFC if the team wants to permanently relax a budget.
+
+![Four-stage governance loop: define per-route Web Vitals and byte SLOs, gate PRs with Lighthouse CI and bundle-stats, measure field RUM and CrUX, and respond by paging the owning team and auto-reverting on SLO breach.](./diagrams/perf-budget-governance-light.svg "Performance budgets are SLOs: define per-route, gate at CI, measure in the field with RUM/CrUX, and route breaches to the owning team via CODEOWNERS.")
+![Four-stage governance loop: define per-route Web Vitals and byte SLOs, gate PRs with Lighthouse CI and bundle-stats, measure field RUM and CrUX, and respond by paging the owning team and auto-reverting on SLO breach.](./diagrams/perf-budget-governance-dark.svg)
+
+The loop is what turns "we care about performance" into something an on-call rotation can actually defend.
 
 ## Operating heuristics: governance without committee death
 

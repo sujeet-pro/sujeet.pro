@@ -1,0 +1,22 @@
+%% Diagram: Retention lifecycle — raw to 1m to 1h, hot/warm/cold tier migration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Hot["Hot tier (local NVMe)"]
+        Raw["Raw 10s samples<br/>15 days"]
+    end
+
+    subgraph Warm["Warm tier (networked SSD)"]
+        OneMin["1-minute aggregates<br/>90 days"]
+    end
+
+    subgraph Cold["Cold tier (object storage)"]
+        OneHour["1-hour aggregates<br/>2 years"]
+    end
+
+    Raw -- "downsample" --> OneMin
+    OneMin -- "downsample" --> OneHour
+
+    Raw -- "delete after 15d" --> X1((discard))
+    OneMin -- "delete after 90d" --> X2((discard))
+    OneHour -- "delete after 2y" --> X3((discard))

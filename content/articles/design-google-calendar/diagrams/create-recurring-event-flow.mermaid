@@ -1,0 +1,21 @@
+%% Diagram: Create-recurring-event request flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as API gateway
+    participant ES as Event service
+    participant RS as Recurrence service
+    participant DB as Postgres
+    participant Cache as Redis (free/busy)
+    participant Q as Queue
+
+    C->>API: POST /events (RRULE, attendees)
+    API->>ES: createEvent
+    ES->>DB: INSERT events (master row)
+    ES->>RS: expand window (next 90d)
+    RS->>DB: INSERT event_instances
+    RS->>Cache: invalidate freebusy:{calendarId}
+    ES->>Q: publish EventCreated (iTIP REQUEST)
+    ES-->>C: 201 Created (ETag, syncToken)

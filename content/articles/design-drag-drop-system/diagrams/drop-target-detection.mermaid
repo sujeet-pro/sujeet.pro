@@ -1,0 +1,32 @@
+%% Diagram: drop-target detection strategies
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Pointer["pointermove (clientX, clientY)"]
+
+    subgraph EFP["elementFromPoint"]
+        EFP1["Topmost element under pointer"]
+        EFP2["Walk up to nearest droppable"]
+        EFP3["Pros: cheap, browser hit-test<br/>Cons: only one element"]
+    end
+
+    subgraph Rect["getBoundingClientRect intersection"]
+        R1["Cache rects on dragstart"]
+        R2["Per move: test pointer or<br/>active rect vs each droppable"]
+        R3["Pros: closestCenter, closestCorners<br/>Cons: O(N) per move, layout reads"]
+    end
+
+    subgraph IO["IntersectionObserver"]
+        I1["Observer per droppable"]
+        I2["Async callback on viewport intersect"]
+        I3["Pros: scroll/visibility<br/>Cons: not designed for two<br/>moving elements; brittle for DnD"]
+    end
+
+    Pointer --> EFP1
+    EFP1 --> EFP2 --> EFP3
+
+    Pointer --> R1
+    R1 --> R2 --> R3
+
+    Pointer -.not recommended.-> I1
+    I1 --> I2 --> I3

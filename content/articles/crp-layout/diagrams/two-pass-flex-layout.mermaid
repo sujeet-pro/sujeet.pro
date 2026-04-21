@@ -1,0 +1,28 @@
+%% Diagram: Two-pass flex layout — measure pass then layout pass
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Parent as Flex Container
+    participant A as Child A
+    participant B as Child B
+    participant C as Child C
+
+    Note over Parent,C: Measure pass — find max intrinsic size
+    Parent->>A: measure(available)
+    A-->>Parent: intrinsic = 80
+    Parent->>B: measure(available)
+    B-->>Parent: intrinsic = 120
+    Parent->>C: measure(available)
+    C-->>Parent: intrinsic = 60
+    Note over Parent: target = max(80,120,60) = 120
+
+    Note over Parent,C: Layout pass — stretch all to target
+    Parent->>A: layout(width=120)
+    A-->>Parent: fragment
+    Parent->>B: layout(width=120)
+    B-->>Parent: fragment
+    Parent->>C: layout(width=120)
+    C-->>Parent: fragment
+
+    Note over Parent: Without caching, nesting N levels = O(2^N) work.<br/>LayoutNG caches both passes keyed on parent constraints.

@@ -1,0 +1,29 @@
+%% Diagram: gh-ost Triggerless Migration Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph PRIMARY["MySQL Primary"]
+        ORIG["Original Table\n(production writes)"]
+        GHOST["Ghost Table\n(target schema)"]
+    end
+
+    subgraph REPLICA["MySQL Replica"]
+        BINLOG["Binary Log\n(RBR format)"]
+    end
+
+    GHOSTBIN["gh-ost binary\n(stateless, single conn)"]
+
+    ORIG -->|"replicate writes"| BINLOG
+    BINLOG -->|"tail RBR events"| GHOSTBIN
+    ORIG -->|"chunked row copy\n(throttled)"| GHOSTBIN
+    GHOSTBIN -->|"sequential applies\n(like ETL load)"| GHOST
+
+    GHOST -.->|"checksum, postpone\n(flag file)"| GHOSTBIN
+    GHOSTBIN -->|"atomic RENAME swap\n(milliseconds)"| ORIG
+
+    classDef primary fill:#e8a854,stroke:#7a4f1e,color:#1c1c1c
+    classDef replica fill:#7faed1,stroke:#23476a,color:#1c1c1c
+    classDef tool fill:#9d8fd6,stroke:#3f3267,color:#1c1c1c
+    class ORIG,GHOST primary
+    class BINLOG replica
+    class GHOSTBIN tool

@@ -1,0 +1,19 @@
+%% Diagram: Two-stage recommendation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Offline["Offline pipeline"]
+        HISTORY[User watch history] --> EMBED[Embedding model<br/>video + user vectors]
+        CATALOG[Video catalog] --> EMBED
+        EMBED --> INDEX[ANN index<br/>HNSW / ScaNN / FAISS]
+    end
+
+    subgraph Online["Online serving"]
+        REQ[Recommendation request] --> RETRIEVE[Candidate retrieval<br/>top-1000]
+        RETRIEVE --> RANK[Ranking model<br/>per-impression features<br/>top-20]
+        RANK --> FILTER[Business filters<br/>policy, freshness, dedupe]
+        FILTER --> RESP[Response]
+    end
+
+    INDEX --> RETRIEVE
+    EMBED --> RANK

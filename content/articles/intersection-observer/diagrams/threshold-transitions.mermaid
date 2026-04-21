@@ -1,0 +1,20 @@
+%% Diagram: thresholdIndex transitions for threshold = [0, 0.5, 1.0]
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+  direction LR
+  [*] --> Outside: first observation<br/>previousThresholdIndex = -1<br/>previousIsIntersecting = false
+  Outside --> Partial: any pixel intersects<br/>thresholdIndex = 1<br/>isIntersecting = true
+  Partial --> HalfPlus: ratio crosses 0.5<br/>thresholdIndex = 2
+  HalfPlus --> FullCover: ratio reaches 1.0<br/>thresholdIndex = 3
+  FullCover --> HalfPlus: ratio drops below 1.0<br/>thresholdIndex = 2
+  HalfPlus --> Partial: ratio drops below 0.5<br/>thresholdIndex = 1
+  Partial --> Outside: target leaves root<br/>isIntersecting = false<br/>(thresholdIndex stays 1)
+
+  note right of Outside
+    Default threshold = [0]
+    collapses to two effective
+    states: Outside and Inside,
+    differentiated only by
+    isIntersecting.
+  end note

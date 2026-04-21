@@ -1,0 +1,19 @@
+%% Diagram: Inverted Index Structure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph TD["Term Dictionary (FST)"]
+        T1["distributed"]
+        T2["search"]
+        T3["engine"]
+    end
+
+    subgraph PL["Posting Lists (compressed)"]
+        P1["doc:1 tf:3 pos:[2,7,15]\ndoc:7 tf:1 pos:[4]\ndoc:42 tf:5 pos:[1,3,9,12,20]"]
+        P2["doc:1 tf:2 pos:[3,8]\ndoc:7 tf:4 pos:[5,9,11,17]\ndoc:15 tf:1 pos:[6]\ndoc:42 tf:2 pos:[2,10]"]
+        P3["doc:7 tf:1 pos:[6]\ndoc:15 tf:3 pos:[1,4,8]"]
+    end
+
+    T1 --> P1
+    T2 --> P2
+    T3 --> P3

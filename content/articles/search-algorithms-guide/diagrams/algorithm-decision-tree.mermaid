@@ -1,0 +1,30 @@
+%% Diagram: Which search algorithm to pick — decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q{What are you searching?}
+    Q -->|Array or list| A{Sorted?}
+    Q -->|Graph| G{Edge weights?}
+
+    A -->|No| LIN["Linear search — O n"]
+    A -->|Yes| AS{n &lt; 100 or single query?}
+    AS -->|Yes| LIN2["Linear search — sort cost not worth it"]
+    AS -->|No| AD{Random access cheap?}
+    AD -->|No| JMP["Jump search — O sqrt n"]
+    AD -->|Yes| AU{Uniform value distribution?}
+    AU -->|Yes| INTP["Interpolation — O log log n avg"]
+    AU -->|No| BSZ{Bounded?}
+    BSZ -->|No| EXP["Exponential — O log i"]
+    BSZ -->|Yes| BIN["Binary search — O log n"]
+
+    G -->|None — both ends known| BIBFS["Bidirectional BFS — O b^d/2"]
+    G -->|None — shortest path| BFS["BFS — O V plus E"]
+    G -->|None — any path| DFS["DFS — O V plus E"]
+    G -->|Non-negative + heuristic| ASTAR["A star — focused expansion"]
+    G -->|Non-negative| DIJ["Dijkstra — O V plus E log V"]
+    G -->|Negative edges| BF["Bellman-Ford — O V·E"]
+
+    classDef question fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    classDef leaf fill:#2563eb,stroke:#1e40af,color:#ffffff
+    class Q,A,AS,AD,AU,BSZ,G question
+    class LIN,LIN2,JMP,INTP,EXP,BIN,BIBFS,BFS,DFS,ASTAR,DIJ,BF leaf

@@ -21,11 +21,13 @@ flowchart TB
     end
 
     subgraph "Per-Node Storage"
-        MEM[Memtable<br/>In-Memory]
-        WAL[Write-Ahead Log]
-        SST[SSTables<br/>On-Disk]
+        WAL[Write-Ahead Log<br/>append-only, fsync]
+        MEM[Memtable<br/>in-memory, sorted]
+        SST[SSTables<br/>immutable, on-disk]
     end
 
     C1 & C2 & C3 --> COORD
     COORD --> N1 & N2 & N3 & N4
-    N1 --> MEM --> WAL --> SST
+    N1 --> WAL
+    WAL --> MEM
+    MEM -- "flush when full" --> SST

@@ -1,0 +1,20 @@
+%% Diagram: Eureka (AP) vs ZooKeeper (CP) behavior under network partition
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph ZK["ZooKeeper (CP) under partition"]
+        direction TB
+        ZkCli["Service client"] -->|"register / lookup"| ZkLB{"Has quorum?"}
+        ZkLB -->|"majority side"| ZkOk["Reads/writes succeed"]
+        ZkLB -->|"minority side"| ZkFail["Reject — clients lose registry"]
+        ZkFail --> ZkOutage["Discovery unavailable"]
+    end
+
+    ZK --> EU
+
+    subgraph EU["Eureka (AP) under partition"]
+        direction TB
+        EuCli["Service client"] -->|"register / lookup"| EuSrv["Local Eureka server"]
+        EuSrv -->|"all sides keep serving"| EuStale["Returns slightly stale registry"]
+        EuStale --> EuCache["Client local cache as last resort"]
+        EuCache --> EuOk["Discovery degrades, never fully fails"]
+    end

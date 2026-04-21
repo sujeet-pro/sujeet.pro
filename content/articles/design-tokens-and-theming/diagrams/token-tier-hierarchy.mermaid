@@ -1,0 +1,37 @@
+%% Diagram: Token Tier Hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Primitives["Primitives — what values exist?"]
+        direction TB
+        P1[blue-500]
+        P2[gray-50]
+        P3[gray-900]
+    end
+
+    subgraph Semantic["Semantic — what does this mean?"]
+        direction TB
+        S1[color-action-primary]
+        S2[color-background-default]
+        S3[color-text-primary]
+    end
+
+    subgraph Component["Component — where is it used?"]
+        direction TB
+        C1[button-background]
+        C2[surface-bg]
+        C3[body-text]
+    end
+
+    Theme[("data-theme switch")]
+
+    P1 --> S1
+    P2 -. light .-> S2
+    P3 -. dark .-> S2
+    P3 -. light .-> S3
+
+    S1 --> C1
+    S2 --> C2
+    S3 --> C3
+
+    Theme --> S2

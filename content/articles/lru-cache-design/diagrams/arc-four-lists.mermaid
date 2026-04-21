@@ -1,0 +1,34 @@
+%% Diagram: ARC adaptive cache with four lists T1, T2, B1, B2 and adaptation parameter p
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Resident["Resident cache (size = c)"]
+        direction LR
+        T1["T1 - recency<br/>seen once<br/>(target size = p)"]
+        T2["T2 - frequency<br/>seen 2+ times<br/>(target size = c - p)"]
+    end
+
+    subgraph Ghost["Ghost lists (keys only)"]
+        direction LR
+        B1["B1<br/>recently evicted from T1"]
+        B2["B2<br/>recently evicted from T2"]
+    end
+
+    NewKey(["New key (miss)"]) -->|"insert"| T1
+    Hit(["Hit on T1 key"]) -->|"promote"| T2
+    T1 -.->|"evict tail"| B1
+    T2 -.->|"evict tail"| B2
+
+    GhostHitB1(["Hit on B1<br/>'we kicked out a recent item'"]) ==>|"increase p<br/>(grow T1)"| Adapt
+    GhostHitB2(["Hit on B2<br/>'we kicked out a frequent item'"]) ==>|"decrease p<br/>(grow T2)"| Adapt
+    Adapt(["Adaptation rule on parameter p"])
+
+    classDef resident fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+    classDef ghost fill:#5A5A5A,stroke:#9e9e9e,stroke-width:2px,color:#ffffff
+    classDef event fill:#8B5E15,stroke:#d6b656,stroke-width:2px,color:#ffffff
+    classDef adapt fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+
+    class T1,T2 resident
+    class B1,B2 ghost
+    class NewKey,Hit,GhostHitB1,GhostHitB2 event
+    class Adapt adapt

@@ -1,940 +1,513 @@
 ---
-title: 'k6 Load Testing Overview: Smoke, Spike, Soak, Stress'
-linkTitle: 'k6 Load Testing'
+title: "k6 Load Testing: Architecture, Workload Models, and CI Gating"
+linkTitle: "k6 Load Testing"
 description: >-
-  A practical guide to k6 load testing covering its Go/goroutine architecture,
-  JavaScript scripting API, workload modeling (smoke, spike, soak, stress
-  patterns), threshold-based SLOs, and CI/CD integration strategies.
+  How k6 turns load testing into code: the Go + Sobek runtime, open vs closed
+  workload modelling, the seven built-in executors, the metrics-and-thresholds
+  CI gate, and where it sits next to JMeter, Gatling, and Locust.
 publishedDate: 2026-01-24T00:00:00.000Z
-lastUpdatedOn: 2026-01-24T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
-  - media
   - testing
+  - performance-engineering
+  - cicd
+  - devops
   - platform-engineering
 ---
 
-# k6 Load Testing Overview: Smoke, Spike, Soak, Stress
+# k6 Load Testing: Architecture, Workload Models, and CI Gating
 
-Master k6's Go-based architecture, JavaScript scripting capabilities, and advanced workload modeling for modern DevOps and CI/CD performance testing workflows.
+[k6](https://grafana.com/docs/k6/latest/) is a Grafana-maintained load-testing tool that runs JavaScript or TypeScript test scripts on top of a Go execution engine. This article is for senior engineers who already know what load testing is and want a working mental model of *how* k6 generates load, *what* it measures, and *where* it fits in a CI/CD pipeline. By the end you should be able to choose between an open and closed workload model, write a test whose pass/fail is enforceable in CI, and know when k6 is the wrong tool.
 
-## TLDR
+## TL;DR
 
-**k6** is a modern, developer-centric performance testing framework built on Go's goroutines and JavaScript scripting, designed for DevOps and CI/CD workflows with exceptional resource efficiency and scalability.
+- k6 is a single Go binary that embeds a pure-Go JavaScript runtime ([Sobek](https://github.com/grafana/sobek), forked from goja in [k6 v0.52.0](https://github.com/grafana/k6/blob/master/release%20notes/v0.52.0.md)). One process can sustain [30,000–40,000 VUs and ~300k RPS on a single machine](https://grafana.com/docs/k6/latest/testing-guides/running-large-tests/) before you need to fan out.
+- Each Virtual User is a goroutine with its own Sobek runtime and event loop. There is no shared global state and no Node.js — `fs`, `path`, and `npm` modules are not available.
+- Workload modelling separates *what traffic looks like* (open vs closed model, [seven executors](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/)) from *what behaviour you simulate* (the test function). Open (arrival-rate) models avoid *coordinated omission*; closed (VU-based) models match fixed-pool, user-think-time scenarios.
+- The metrics-and-thresholds pair is the CI gate: every metric is one of `Counter`, `Gauge`, `Rate`, or `Trend`, and any unmet [threshold](https://grafana.com/docs/k6/latest/using-k6/thresholds/) makes `k6 run` exit code 99.
+- As of k6 1.0 ([released 2025-05-08 at GrafanaCON](https://grafana.com/blog/grafana-k6-1-0-release/)) the project follows strict SemVer; TypeScript runs natively from [v0.57](https://grafana.com/docs/k6/latest/using-k6/javascript-typescript-compatibility-mode/), the [browser module](https://grafana.com/docs/k6/latest/using-k6-browser/) is part of the core binary (`xk6-browser` was archived 2025-01-30 and fully merged into the main k6 repo by v0.56), and [`k6/net/grpc`](https://grafana.com/docs/k6/latest/javascript-api/k6-net-grpc/) plus the new global-event-loop [`k6/websockets`](https://grafana.com/docs/k6/latest/javascript-api/k6-websockets/) are stable.
 
-### Core Architecture
+## Mental model
 
-- **Go-based Engine**: High-performance execution using goroutines (lightweight threads) instead of OS threads
-- **JavaScript Scripting**: ES6+ compatible scripting with embedded Sobek runtime (no Node.js dependency)
-- **Resource Efficiency**: Single binary with minimal memory footprint (256MB vs 760MB for JMeter)
-- **Scalability**: Single instance can handle 30,000-40,000 concurrent virtual users
+![k6 execution architecture: a single Go process schedules per-VU goroutines, each with an isolated Sobek runtime and event loop, feeding samples into the metrics pipeline.](./diagrams/k6-execution-architecture-light.svg "k6 execution architecture: one Go process schedules per-VU goroutines, each with an isolated Sobek runtime and event loop, feeding samples into the metrics pipeline.")
+![k6 execution architecture: a single Go process schedules per-VU goroutines, each with an isolated Sobek runtime and event loop, feeding samples into the metrics pipeline.](./diagrams/k6-execution-architecture-dark.svg)
 
-### Performance Testing Patterns
+Three abstractions explain almost everything k6 does:
 
-- **Smoke Testing**: Minimal load (3 VUs) to verify basic functionality and establish baselines
-- **Load Testing**: Average load assessment with ramping stages to measure normal performance
-- **Stress Testing**: Extreme loads to identify breaking points and system behavior under stress
-- **Soak Testing**: Extended periods (8+ hours) to detect memory leaks and performance degradation
-- **Spike Testing**: Sudden traffic bursts to test system resilience and recovery capabilities
+1. **Virtual User (VU)** — a goroutine running an isolated JavaScript runtime. The default exported function is the *iteration body*; the VU runs it in a loop until the scenario ends.
+2. **Scenario** — a named load profile that decides *how many* VUs run and *when* iterations start. Each scenario picks one *executor* and optionally an `exec` function and `startTime`.
+3. **Threshold** — a per-metric SLO declared in `options.thresholds`. If any threshold fails, `k6 run` exits non-zero and the CI job fails.
 
-### Workload Modeling
+Hold those three in your head and the rest of k6 — checks, tags, custom metrics, xk6 extensions — slots in around them.
 
-- **Closed Models (VU-based)**: Fixed number of virtual users, throughput as output
-- **Open Models (Arrival-rate)**: Fixed request rate, VUs as output
-- **Scenarios API**: Multiple workload profiles in single test with parallel/sequential execution
-- **Executors**: Constant VUs, ramping VUs, constant arrival rate, ramping arrival rate
+## Architecture: Go, goroutines, and the embedded JS runtime
 
-### Advanced Features
+### Why Go and goroutines, not the JVM
 
-- **Metrics Framework**: Built-in HTTP metrics, custom metrics (Counter, Gauge, Rate, Trend)
-- **Thresholds**: Automated pass/fail analysis with SLOs codified in test scripts
-- **Asynchronous Execution**: Per-VU event loops for complex user behavior simulation
-- **Data-driven Testing**: CSV/JSON data loading with SharedArray for realistic scenarios
-- **Environment Configuration**: Environment variables for multi-environment testing
+Load generators that map each VU to an OS thread inherit the kernel's per-thread cost. HotSpot JVM threads default to a 512 KB–1 MB stack (configurable via [`-Xss`](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html#advanced-jit-compiler-options-for-java) — the exact default is platform- and VM-dependent), so a JMeter instance comfortably runs around a thousand threads and then needs distributed mode to grow further[^jmeter-distributed].
 
-### CI/CD Integration
+Goroutines are user-space tasks scheduled by the Go runtime. They start with a [~2 KB stack that grows and shrinks on demand](https://rcoh.me/posts/why-you-can-have-a-million-go-routines-but-only-1000-java-threads/), so a single k6 process can hold tens of thousands of them with realistic per-VU memory budgets — Grafana cites roughly 100 KB per VU at scale[^k6-vs-jmeter]. The practical headroom from those numbers, [as of the v1.0 docs](https://grafana.com/docs/k6/latest/testing-guides/running-large-tests/), is *30,000–40,000 VUs and ~300,000 RPS per machine* before you need to fan out across load generators.
 
-- **Tests as Code**: JavaScript scripts version-controlled in Git with peer review
-- **Automated Workflows**: Seamless integration with GitHub Actions, Jenkins, GitLab CI
-- **Shift-left Testing**: Early performance validation in development pipeline
-- **Threshold Validation**: Automated performance regression detection
+[^jmeter-distributed]: Apache JMeter distributed testing — [JMeter user manual, Remote Testing](https://jmeter.apache.org/usermanual/remote-test.html).
+[^k6-vs-jmeter]: Grafana — [Comparing k6 and JMeter for load testing](https://grafana.com/blog/k6-vs-jmeter-comparison/). The frequently cited "256 MB k6 vs 760 MB JMeter at the same RPS" comes from the benchmark in this post; treat it as one data point on a small synthetic scenario, not a universal multiplier.
 
-### Extensibility (xk6)
+> [!IMPORTANT]
+> The "k6 uses 10× less memory than JMeter" line travels well in marketing decks but assumes a workload that exercises the same code paths in both tools. For test logic dominated by parsing large JSON or driving a real browser, the gap collapses. Always re-measure for your scenario.
 
-- **Custom Extensions**: Native Go extensions for new protocols and integrations
-- **Popular Extensions**: Kafka, MQTT, PostgreSQL, MySQL, browser testing
-- **Output Extensions**: Custom metric streaming to Prometheus, Elasticsearch, AWS
-- **Build System**: xk6 tool for compiling custom k6 binaries with extensions
+### The embedded JavaScript runtime: Sobek (formerly goja)
 
-### Developer Experience
+k6 has never run on Node.js. Test scripts execute inside an embedded pure-Go ECMAScript runtime so the entire toolchain ships as one binary.
 
-- **JavaScript API**: Familiar ES6 syntax with built-in modules (k6/http, k6/check)
-- **CLI-first Design**: Command-line interface optimized for automation
-- **Real-time Output**: Live metrics and progress during test execution
-- **Comprehensive Documentation**: Extensive guides and examples
+| Year            | Engine                                    | Notes                                                                                                                                                                      |
+| --------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2017–2024       | [goja](https://github.com/dop251/goja)    | Pure-Go ECMAScript 5.1 with most ES6. Upstream development couldn't keep up with k6's needs, especially native ES Modules.                                                 |
+| 2024-07 onwards | [Sobek](https://github.com/grafana/sobek) | A goja fork maintained by Grafana. Adopted in [k6 v0.52.0](https://github.com/grafana/k6/blob/master/release%20notes/v0.52.0.md), used by k6 and every extension.          |
+| 2025-Q1 onwards | Sobek + esbuild for TS                    | TypeScript transpilation moved from Babel to esbuild; from k6 v0.57 it is on by default and the `--compatibility-mode=experimental_enhanced` flag was removed[^ts-default]. |
 
-### Best Practices
+[^ts-default]: [k6 documentation — JavaScript and TypeScript compatibility mode](https://grafana.com/docs/k6/latest/using-k6/javascript-typescript-compatibility-mode/). The k6 1.0 launch post also walks through the TypeScript story: [Grafana k6 1.0 release blog](https://grafana.com/blog/grafana-k6-1-0-release/).
 
-- **Incremental Complexity**: Start with smoke tests, gradually increase load
-- **Realistic Scenarios**: Model actual user behavior patterns
-- **Environment Parity**: Test against production-like environments
-- **Monitoring Integration**: Real-time metrics with external monitoring tools
-- **Performance Baselines**: Establish and maintain performance thresholds
+Practical implications of an embedded, non-Node runtime:
 
-### Competitive Advantages
+- The standard library is the [k6 module set](https://grafana.com/docs/k6/latest/javascript-api/) (`k6/http`, `k6/check`, `k6/metrics`, `k6/data`, `k6/browser`, …). Node-only modules like `fs`, `path`, `crypto`, `child_process` are not available.
+- Browser-targeted JavaScript libraries usually work after bundling with Webpack or esbuild; anything that imports a Node built-in or a native add-on does not.
+- File I/O is restricted to the [`open()`](https://grafana.com/docs/k6/latest/javascript-api/init-context/open/) helper in init context, which loads a file once into memory. Use [`SharedArray`](https://grafana.com/docs/k6/latest/javascript-api/k6-data/sharedarray/) so the data isn't copied per VU.
 
-- **Resource Efficiency**: 10x better memory usage compared to JMeter
-- **Developer Productivity**: JavaScript scripting with modern tooling
-- **CI/CD Native**: Designed for automated testing workflows
-- **Scalability**: Single instance handles enterprise-scale loads
-- **Extensibility**: Custom extensions for specialized requirements
+### The per-VU event loop
 
-## Introduction
+Each VU has its own JavaScript runtime *and* its own event loop. There is no global event loop and no shared state across VUs[^lifecycle]. The Go side coordinates with JS through a single contract: when a Go module starts an asynchronous operation (an HTTP request, a `setTimeout`, a `Promise`), it calls `RegisterCallback()` on the per-VU event loop and the loop will not consider the iteration complete until that callback has run.
 
-k6 represents a paradigmatic shift in performance testing, engineered from first principles for DevOps, SRE, and CI/CD pipelines. Its core innovation is a developer-centric philosophy that treats performance testing as an integral, code-driven component of the software development lifecycle rather than a post-facto quality assurance activity.
+[^lifecycle]: [k6 documentation — Test lifecycle](https://grafana.com/docs/k6/latest/using-k6/test-lifecycle/). The loop implementation lives at [`js/eventloop`](https://github.com/grafana/k6/tree/master/js/eventloop) in the k6 repository.
 
-k6 targets developers, QA engineers, SDETs, and SREs who share responsibility for system performance. Its "Everything as code" approach enables test scripts to be version-controlled in Git, subjected to peer review, and seamlessly integrated into automated workflows—enabling "shift-left" testing that embeds performance validation early in the development process.
+Three properties fall out of this design:
 
-![Performance Testing Patterns Overview](./assets/smoke-test.png "Overview of different performance testing patterns including smoke, load, stress, soak, and spike testing methodologies")
+- `async`/`await` and `Promise` work as expected, but only inside a single iteration. There is no cross-VU `await`.
+- Background work that outlives an iteration (a forgotten `setInterval`, a never-resolved promise) blocks the iteration from finishing and inflates `iteration_duration`.
+- Shared state across VUs is impossible by construction. `SharedArray` is the only escape hatch and it is read-only.
 
-## The Architectural Foundation: Go and Goroutines
+## Your first script
 
-![k6 execution architecture showing Go engine, goroutine-based VU scheduler, Sobek JS runtimes, and metrics pipeline](./diagrams/k6-execution-architecture-light.svg)
-![k6 execution architecture showing Go engine, goroutine-based VU scheduler, Sobek JS runtimes, and metrics pipeline](./diagrams/k6-execution-architecture-dark.svg)
-
-### Performance through Efficiency: The Go Concurrency Model
-
-The performance and efficiency of a load generation tool are paramount, as the tool itself must not become the bottleneck in the system under test. The architectural foundation of k6 is the Go programming language, a choice that directly addresses the limitations of older, thread-heavy performance testing frameworks and provides the resource efficiency necessary for modern development practices.
-
-#### Goroutines vs. Traditional Threads
-
-The defining characteristic of k6's performance is its use of Go's concurrency primitives—specifically, goroutines and channels—to simulate Virtual Users (VUs). Unlike traditional tools such as JMeter, which are built on the Java Virtual Machine (JVM) and typically map each virtual user to a dedicated operating system thread, k6 leverages goroutines. Goroutines are lightweight, cooperatively scheduled threads managed by the Go runtime, not the OS kernel.
-
-This architectural distinction has profound implications for resource consumption:
-
-- **Memory Efficiency**: A standard OS thread managed by the JVM can consume a significant amount of memory, with a default stack size often starting at 1 MB. In stark contrast, a goroutine begins with a much smaller stack (a few kilobytes) that can grow and shrink as needed.
-- **Scalability**: Analysis indicates that a single thread running k6 consumes less than 100 KB of memory, representing a tenfold or greater improvement in memory efficiency compared to a default JVM thread.
-- **Concurrent Users**: This efficiency allows a single k6 process to effectively utilize all available CPU cores on a load generator machine, enabling a single instance to simulate tens of thousands—often between 30,000 and 40,000—concurrent VUs without succumbing to memory exhaustion.
-
-#### Resource Footprint Analysis: The Foundation of "Shift-Left"
-
-The practical benefit of this extreme resource efficiency extends beyond mere cost savings on load generation infrastructure. It is the critical technical enabler of the "shift-left" philosophy. Because k6 is distributed as a single, self-contained binary with no external dependencies like a JVM or a Node.js runtime, it is trivial to install and execute in any environment, from a developer's local machine to a resource-constrained CI/CD runner in a container.
-
-This stands in direct opposition to more resource-intensive, Java-based tools, which often require dedicated, high-specification hardware and careful JVM tuning to run effectively, making them impractical for frequent, automated execution as part of a development pipeline.
-
-### Installation and Setup
-
-```bash
-# macOS
-brew install k6
-
-# Docker
-docker pull grafana/k6
-
-# Docker with browser support
-docker pull grafana/k6:master-with-browser
-```
-
-## The Go-JavaScript Bridge: The Embedded JavaScript Runtime
-
-While k6's execution engine is written in high-performance Go, its test scripts are authored in JavaScript. This separation of concerns is a deliberate architectural decision, facilitated by an embedded JavaScript runtime and a sophisticated interoperability bridge.
-
-### From Goja to Sobek: The Embedded JavaScript Engine
-
-k6 has always embedded a pure-Go JavaScript engine rather than relying on external runtimes. This architectural choice eliminates dependencies like Node.js or a JVM, simplifying installation to a single binary download and ensuring consistent behavior across environments.
-
-**Goja (2017–2024)**: k6 originally used [goja](https://github.com/dop251/goja), an ECMAScript 5.1 implementation in pure Go with emphasis on standard compliance and performance. Over the years, goja added most ES6 features, but development pace didn't match k6's needs for ESM (ECMAScript Modules) support.
-
-**Sobek (2024–present)**: In [k6 v0.52.0](https://github.com/grafana/k6/releases/tag/v0.52.0), the Grafana team forked goja into their own project named "sobek" to accelerate development. This fork enabled faster iteration on ES6+ features and native ESM support. Starting with this release, k6 and all its extensions use Sobek for the JavaScript runtime.
-
-The `experimental_enhanced` compatibility mode (introduced in v0.52.0) enables TypeScript and ES6+ support using esbuild instead of Babel, providing features like optional chaining, nullish coalescing, and class private fields.
-
-### Implications of a Non-Node.js Runtime
-
-k6 does not run on Node.js. The embedded Sobek runtime provides a standard ECMAScript environment but does not include Node.js-specific APIs like `fs` (file system) or `path` modules, nor does it support the NPM package ecosystem directly.
-
-While bundlers like Webpack or esbuild can transpile browser-compatible JavaScript libraries for use in k6, any library relying on native Node.js modules or OS-level access will not function. This is a deliberate design choice—k6 prioritizes a self-contained binary over Node.js ecosystem compatibility.
-
-## Your First k6 Script: Understanding the Basics
-
-Let's start with a simple example to understand k6's fundamental structure:
-
-```js
+```js title="hello.js"
 import http from "k6/http"
+import { check, sleep } from "k6"
 
 export const options = {
-  discardResponseBodies: true, // Discard response bodies if not needed for checks
+  vus: 5,
+  duration: "30s",
+  thresholds: {
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<500"],
+  },
 }
 
 export default function () {
-  // Make a GET request to the target URL
-  http.get("https://test-api.k6.io")
+  const res = http.get("https://test-api.k6.io/public/crocodiles/")
+  check(res, { "status is 200": (r) => r.status === 200 })
+  sleep(1)
 }
 ```
 
-This basic script demonstrates k6's core concepts:
-
-- **Imports**: k6 provides built-in modules like `k6/http` for making HTTP requests
-- **Options**: Configuration object that defines test parameters
-- **Default Function**: The main test logic that gets executed repeatedly
-
-## Asynchronous Execution Model: The Per-VU Event Loop
-
-To accurately simulate complex user behaviors and handle modern, asynchronous communication protocols, a robust mechanism for managing non-blocking operations is essential. k6 implements a sophisticated asynchronous execution model centered around a dedicated event loop for each Virtual User.
-
-### Architecture of the VU-Scoped Event Loop
-
-At the core of k6's execution model is the concept that each Virtual User (VU) operates within a completely isolated, self-contained JavaScript runtime. A critical component of this runtime is its own dedicated event loop. This is not a single, global event loop shared across all VUs, but rather a distinct event loop instantiated for each concurrent VU.
-
-This architectural choice is fundamental to ensuring that:
-
-- The actions and state of one VU do not interfere with another
-- Asynchronous operations within a single VU's iteration do not "leak" into subsequent iterations
-- Each iteration is a discrete and independent unit of work
-
-### Managing Asynchronous Operations
-
-The interaction between the JavaScript runtime and the Go-based event loop is governed by a strict and explicit contract. When a JavaScript function needs to perform an asynchronous operation (e.g., an HTTP request), the underlying Go module must signal its intent to the event loop via the `RegisterCallback()` function.
-
-This mechanism ensures that the event loop is fully aware of all pending asynchronous operations and will not consider an iteration complete until every registered callback has been enqueued and processed. This robust contract enables k6 to correctly support modern JavaScript features like async/await and Promises.
-
-## Modeling Reality: Advanced Workload Simulation with Scenarios and Executors
-
-A performance test's value is directly proportional to its ability to simulate realistic user traffic patterns. k6 provides a highly sophisticated and flexible framework for workload modeling through its Scenarios and Executors API.
-
-### The Scenario API: Composing Complex, Multi-Stage Tests
-
-The foundation of workload modeling in k6 is the scenarios object, configured within the main test options. This API allows for the definition of multiple, distinct workload profiles within a single test script, providing granular control over how VUs and iterations are scheduled.
-
-Each property within the scenarios object defines a unique scenario that can:
-
-- Execute a different function using the `exec` property
-- Have a distinct load profile through assigned executors
-- Possess unique tags and environment variables
-- Run in parallel or sequentially using the `startTime` property
-
-### Executor Deep Dive: Open vs. Closed Models
-
-The behavior of each scenario is dictated by its assigned executor. k6 provides a variety of executors that can be broadly categorized into two fundamental workload models:
-
-![Comparison of closed (VU-based) and open (arrival-rate) workload models with their respective executors](./diagrams/k6-workload-models-light.svg)
-![Comparison of closed (VU-based) and open (arrival-rate) workload models with their respective executors](./diagrams/k6-workload-models-dark.svg)
-
-![Load Testing Patterns](./assets/avg-load-test.png "Average load testing pattern showing consistent user load over time to measure system performance under normal conditions")
-
-#### Closed Models (VU-based)
-
-In a closed model, the number of concurrent VUs is the primary input parameter. The system's throughput (e.g., requests per second) is an output of the test, determined by how quickly the system under test can process the requests from the fixed number of VUs.
-
-**Example: Constant VUs**
-
-```js
-import http from "k6/http"
-
-export const options = {
-  discardResponseBodies: true,
-  vus: 10, // Fixed number of VUs
-  duration: "30s", // Test duration
-}
-
-export default function () {
-  http.get("https://test-api.k6.io")
-}
+```bash frame="terminal"
+brew install k6           # macOS
+docker pull grafana/k6    # container
+k6 run hello.js
 ```
 
-**Example: Ramping VUs**
+Three things to notice:
 
-```js
-import http from "k6/http"
+- `options` is parsed once before any VU starts; it cannot reference per-iteration state.
+- The default-exported function is the iteration body, not the test entry point. k6 calls it many times per VU.
+- Thresholds inside `options` make this a *gated* test — `k6 run` exits 99 if any threshold fails, which is enough for CI to mark the build red[^exit-codes].
 
+[^exit-codes]: [k6 documentation — Error codes](https://grafana.com/docs/k6/latest/reference/error-codes/). Threshold failures specifically use exit code 99.
+
+## Workload modelling: scenarios and executors
+
+A k6 *scenario* attaches a load profile to one of seven *executors*. Two executor families exist; their difference is the most important architectural choice in a load test.
+
+![Closed (VU-based) vs open (arrival-rate) workload models. The closed model fixes VU count and lets throughput emerge; the open model fixes the request rate and lets VU count emerge.](./diagrams/k6-workload-models-light.svg "Closed vs open workload models — pick based on whether your invariant is concurrency or arrival rate.")
+![Closed (VU-based) vs open (arrival-rate) workload models. The closed model fixes VU count and lets throughput emerge; the open model fixes the request rate and lets VU count emerge.](./diagrams/k6-workload-models-dark.svg)
+
+### Closed model (VU-based)
+
+You fix the number of VUs. Each VU runs the iteration body, then immediately runs it again. *Throughput emerges* from the VU count and the system's response time — when the system slows down, throughput drops with it. This matches a "fixed pool of users repeatedly clicking around" scenario and naturally includes think-time via `sleep()`.
+
+Executors: `constant-vus`, `ramping-vus`, `per-vu-iterations`, `shared-iterations`.
+
+```js title="closed-ramp.js"
 export const options = {
-  discardResponseBodies: true,
   stages: [
-    { duration: "30s", target: 20 }, // Ramp up to 20 VUs
-    { duration: "1m", target: 20 }, // Stay at 20 VUs
-    { duration: "30s", target: 0 }, // Ramp down to 0 VUs
+    { duration: "30s", target: 20 },
+    { duration: "1m",  target: 20 },
+    { duration: "30s", target: 0 },
   ],
 }
-
-export default function () {
-  http.get("https://test-api.k6.io")
-}
 ```
 
-#### Open Models (Arrival-Rate)
+### Open model (arrival-rate)
 
-In an open model, the rate of new arrivals (iterations per unit of time) is the primary input parameter. The number of VUs required to sustain this rate is an output of the test.
+You fix the *iteration rate* (e.g. 50 RPS). k6 starts a new iteration on schedule whether or not the previous one has finished, and scales VUs from a `preAllocatedVUs` pool up to `maxVUs` to keep the rate. *VU count emerges* from how slow the system is.
 
-**Example: Constant Arrival Rate**
+Executors: `constant-arrival-rate`, `ramping-arrival-rate`.
 
-```js
-import http from "k6/http"
-
+```js title="open-rate.js"
 export const options = {
-  discardResponseBodies: true,
   scenarios: {
-    constant_request_rate: {
-      executor: "constant-arrival-rate",
-      rate: 10, // Target RPS
-      timeUnit: "1s",
-      duration: "30s",
-      preAllocatedVUs: 5, // Initial VUs
-      maxVUs: 20, // Maximum VUs
-    },
-  },
-}
-
-export default function () {
-  http.get("https://test-api.k6.io")
-}
-```
-
-**Example: Ramping Arrival Rate**
-
-```js collapse={1-2, 25-27}
-import http from "k6/http"
-
-export const options = {
-  discardResponseBodies: true,
-  scenarios: {
-    ramping_arrival_rate: {
-      executor: "ramping-arrival-rate",
-      startRate: 1, // Initial RPS
-      timeUnit: "1s",
-      preAllocatedVUs: 5,
-      maxVUs: 20,
-      stages: [
-        { duration: "5s", target: 5 }, // Ramp up to 5 RPS
-        { duration: "10s", target: 5 }, // Constant load at 5 RPS
-        { duration: "5s", target: 10 }, // Ramp up to 10 RPS
-        { duration: "10s", target: 10 }, // Constant load at 10 RPS
-        { duration: "5s", target: 15 }, // Ramp up to 15 RPS
-        { duration: "10s", target: 15 }, // Constant load at 15 RPS
-      ],
-    },
-  },
-}
-
-export default function () {
-  http.get("https://test-api.k6.io")
-}
-```
-
-### Multiple Scenarios: Complex Workload Simulation
-
-k6 allows running multiple scenarios in a single test, enabling complex workload simulation:
-
-```js collapse={1-2, 29-31}
-import http from "k6/http"
-
-export const options = {
-  discardResponseBodies: true,
-  scenarios: {
-    // Scenario 1: Constant load for API testing
-    api_load: {
+    api: {
       executor: "constant-arrival-rate",
       rate: 50,
       timeUnit: "1s",
       duration: "2m",
-      preAllocatedVUs: 10,
-      maxVUs: 50,
+      preAllocatedVUs: 20,
+      maxVUs: 200,
     },
-    // Scenario 2: Ramping load for web testing
-    web_load: {
+  },
+}
+```
+
+> [!CAUTION]
+> Closed-model load tests suffer from *coordinated omission* — when the system slows down, the VUs stop sending new requests, which hides the true tail latency. If your SLO is in terms of arrival rate (almost always true for public APIs), use an arrival-rate executor and size `maxVUs` for at least 2× expected concurrency[^coordinated-omission].
+
+[^coordinated-omission]: [k6 documentation — Open and closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/). The original term comes from Gil Tene's [How NOT to Measure Latency](https://www.youtube.com/watch?v=lJ8ydIuPFeU) talk.
+
+### The seven executors at a glance
+
+| Executor                  | Family | Pin                  | Use it when                                                                                       |
+| ------------------------- | ------ | -------------------- | ------------------------------------------------------------------------------------------------- |
+| `shared-iterations`       | closed | total iterations     | One-shot data import: N items processed across VUs as fast as possible.                            |
+| `per-vu-iterations`       | closed | iterations per VU    | Deterministic per-VU workload, e.g. each VU walks the same wizard exactly once.                    |
+| `constant-vus`            | closed | VU count             | Smoke tests, baseline measurements, "hold steady" stages.                                          |
+| `ramping-vus`             | closed | stages → VU targets  | Step-load patterns, manual stress tests.                                                           |
+| `constant-arrival-rate`   | open   | iterations / time    | "Hold X RPS for Y minutes" SLO checks.                                                             |
+| `ramping-arrival-rate`    | open   | stages → rate targets| Realistic ramp-ups for spike, soak, capacity-find.                                                 |
+| `externally-controlled`   | n/a    | runtime              | k6 REST API drives VU count; useful for chaos drills and `k6 cloud` orchestration.                 |
+
+[Source: k6 docs — Executors](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/).
+
+### Composing scenarios
+
+A single test can run several scenarios in parallel or sequentially via `startTime`:
+
+```js title="multi-scenario.js" collapse={1-2}
+import http from "k6/http"
+
+export const options = {
+  scenarios: {
+    api_steady: {
+      executor: "constant-arrival-rate",
+      rate: 50, timeUnit: "1s", duration: "5m",
+      preAllocatedVUs: 20, maxVUs: 100,
+      exec: "hitApi",
+    },
+    web_ramp: {
       executor: "ramping-vus",
+      startTime: "30s",
       startVUs: 0,
       stages: [
         { duration: "1m", target: 20 },
-        { duration: "1m", target: 20 },
+        { duration: "2m", target: 20 },
         { duration: "1m", target: 0 },
       ],
+      exec: "browseUI",
     },
   },
 }
 
-export default function () {
-  http.get("https://test-api.k6.io")
-}
+export function hitApi()  { http.get("https://test-api.k6.io/public/crocodiles/") }
+export function browseUI(){ http.get("https://test.k6.io/") }
 ```
 
-## Performance Testing Scenarios: From Smoke to Stress
+`startTime`, `gracefulStop`, `exec`, `env`, and `tags` are valid on every executor.
 
-### Smoke Testing: Foundation Validation
+## The five canonical test shapes
 
-Smoke tests have minimal load and are used to verify that the system works well under minimal load and to gather baseline performance values.
+These are *workload patterns*, not k6 features — they are conventions for how to set the executor's parameters to answer a specific business question. The ASCII shapes below are summaries; the [k6 testing guides](https://grafana.com/docs/k6/latest/testing-guides/test-types/) give the official definitions.
 
-![Smoke Testing Pattern](./assets/smoke-test.png "Smoke testing pattern demonstrating minimal load to verify basic system functionality")
+| Pattern  | Question it answers                                          | Typical shape                              | Typical duration |
+| -------- | ------------------------------------------------------------ | ------------------------------------------ | ---------------- |
+| Smoke    | Does the test script even work? Is the system reachable?     | 1–5 VUs, flat                              | 1–5 min          |
+| Average  | Does the system meet SLO under expected load?                | Ramp up → hold at target → ramp down       | 30–60 min        |
+| Stress   | Where does the system break? What fails first?               | Hold at 2–4× expected load                 | 15–60 min        |
+| Soak     | Does the system leak memory or degrade over hours?           | Average load held for 4–24 h               | 4–24 h           |
+| Spike    | Does the system survive a sudden burst, and does it recover? | Sharp ramp to 5–20× target, short hold     | 5–20 min         |
 
-```js collapse={1-2}
-import http from "k6/http"
-import { check, sleep } from "k6"
+![Average-load shape: gradual ramp, sustained hold, controlled ramp-down — the basic SLO-checking test.](./assets/avg-load-test.png "Average load — gradual ramp, sustained hold, controlled ramp-down. The default shape for SLO checks.")
 
+![Spike-test shape: sharp ramp to a high target, short hold, drop back. Tests resilience and recovery, not steady-state SLO.](./assets/spike-testing.png "Spike — sharp ramp to a high target, short hold, drop back to baseline. Targets resilience and recovery.")
+
+```js title="smoke.js"
 export const options = {
-  vus: 3, // Minimal VUs for smoke test
-  duration: "1m",
+  vus: 3, duration: "1m",
   thresholds: {
-    http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
-    http_req_failed: ["rate<0.01"], // Less than 1% failure rate
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<500"],
   },
 }
-
-export default function () {
-  const response = http.get("https://test-api.k6.io")
-
-  check(response, {
-    "status is 200": (r) => r.status === 200,
-    "response time < 500ms": (r) => r.timings.duration < 500,
-  })
-
-  sleep(1)
-}
 ```
 
-### Load Testing: Average Load Assessment
-
-Load testing assesses how the system performs under typical load conditions.
-
-![Average Load Testing Pattern](./assets/avg-load-test.png "Average load testing pattern showing consistent user load over time to measure system performance under normal conditions")
-
-```js collapse={1-2}
-import http from "k6/http"
-import { sleep } from "k6"
-
+```js title="average-load.js"
 export const options = {
-  stages: [
-    { duration: "5m", target: 100 }, // Ramp up to 100 users
-    { duration: "30m", target: 100 }, // Stay at 100 users
-    { duration: "5m", target: 0 }, // Ramp down to 0 users
-  ],
+  scenarios: {
+    avg: {
+      executor: "ramping-arrival-rate",
+      timeUnit: "1s",
+      preAllocatedVUs: 50, maxVUs: 200,
+      stages: [
+        { duration: "5m",  target: 100 }, // ramp to 100 RPS
+        { duration: "30m", target: 100 }, // hold
+        { duration: "5m",  target: 0 },
+      ],
+    },
+  },
   thresholds: {
-    http_req_duration: ["p(95)<1000"], // 95% under 1 second
-    http_req_failed: ["rate<0.05"], // Less than 5% failure rate
+    http_req_duration: ["p(95)<1000"],
+    http_req_failed: ["rate<0.01"],
   },
 }
-
-export default function () {
-  http.get("https://test-api.k6.io")
-  sleep(1)
-}
 ```
 
-### Stress Testing: Breaking Point Analysis
-
-Stress testing subjects the application to extreme loads to identify its breaking point and assess its behavior under stress.
-
-![Stress Testing Pattern](./assets/stress-test.png "Stress testing pattern showing increasing load until system failure to identify breaking points")
-
-```js collapse={1-2}
-import http from "k6/http"
-import { sleep } from "k6"
-
+```js title="spike.js"
 export const options = {
-  stages: [
-    { duration: "10m", target: 200 }, // Ramp up to 200 users
-    { duration: "30m", target: 200 }, // Stay at 200 users
-    { duration: "5m", target: 0 }, // Ramp down to 0 users
-  ],
+  scenarios: {
+    spike: {
+      executor: "ramping-arrival-rate",
+      timeUnit: "1s",
+      preAllocatedVUs: 200, maxVUs: 2000,
+      stages: [
+        { duration: "30s", target: 2000 }, // sharp burst
+        { duration: "1m",  target: 2000 }, // hold
+        { duration: "30s", target: 0 },
+      ],
+    },
+  },
   thresholds: {
-    http_req_duration: ["p(95)<2000"], // 95% under 2 seconds
-    http_req_failed: ["rate<0.10"], // Less than 10% failure rate
+    http_req_failed: ["rate<0.10"],
   },
 }
-
-export default function () {
-  http.get("https://test-api.k6.io")
-  sleep(1)
-}
 ```
 
-### Soak Testing: Long-term Stability
+## Metrics and thresholds: the CI gate
 
-Soak testing focuses on extended periods to analyze performance degradation and resource consumption over time.
+k6's value as a CI tool comes from the metrics-and-thresholds loop, not from raw load generation. Every measurement — built-in or custom — is one of four metric types, and any threshold expression that is unsatisfied at the end of the test makes `k6 run` exit non-zero.
 
-![Soak Testing Pattern](./assets/soak-testing.png "Soak testing pattern showing sustained load over extended periods to detect memory leaks and performance degradation")
+![k6 metrics pipeline: each per-VU iteration emits tagged samples on a Go channel; samples are aggregated per metric type, then the threshold evaluator decides the CI gate.](./diagrams/metrics-pipeline-light.svg "k6 metrics pipeline — samples flow from per-VU iterations through aggregation into the threshold evaluator that produces the CI exit code.")
+![k6 metrics pipeline: each per-VU iteration emits tagged samples on a Go channel; samples are aggregated per metric type, then the threshold evaluator decides the CI gate.](./diagrams/metrics-pipeline-dark.svg)
 
-```js collapse={1-2}
-import http from "k6/http"
-import { sleep } from "k6"
+### Built-in HTTP metrics
 
-export const options = {
-  stages: [
-    { duration: "5m", target: 100 }, // Ramp up to 100 users
-    { duration: "8h", target: 100 }, // Stay at 100 users for 8 hours
-    { duration: "5m", target: 0 }, // Ramp down to 0 users
-  ],
-  thresholds: {
-    http_req_duration: ["p(95)<1500"], // 95% under 1.5 seconds
-    http_req_failed: ["rate<0.02"], // Less than 2% failure rate
-  },
-}
+For an HTTP request, k6 emits seven timing metrics plus one rate metric, all in milliseconds[^http-metrics]:
 
-export default function () {
-  http.get("https://test-api.k6.io")
-  sleep(1)
-}
-```
+| Metric                   | What it measures                                                          |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `http_req_blocked`       | Time waiting for a free connection slot.                                  |
+| `http_req_connecting`    | TCP connect time.                                                         |
+| `http_req_tls_handshaking` | TLS handshake time.                                                     |
+| `http_req_sending`       | Time spent writing the request to the socket.                             |
+| `http_req_waiting`       | Time-to-first-byte (waiting for the server).                              |
+| `http_req_receiving`     | Time spent reading the response body.                                     |
+| `http_req_duration`      | Total request time = `sending + waiting + receiving`.                     |
+| `http_req_failed`        | Rate metric — fraction of requests classified as failures.                |
 
-### Spike Testing: Sudden Traffic Bursts
+[^http-metrics]: [k6 documentation — HTTP-specific built-in metrics](https://grafana.com/docs/k6/latest/using-k6/metrics/reference/#http-specific-built-in-metrics).
 
-Spike testing verifies whether the system survives and performs under sudden and massive rushes of utilization.
+The decomposition is what makes k6 useful for diagnosing *where* latency comes from — a regression in `http_req_tls_handshaking` is a different bug from one in `http_req_waiting`.
 
-![Spike Testing Pattern](./assets/spike-testing.png "Spike testing pattern showing sudden load increases to test system resilience and recovery capabilities")
+### The four metric types
 
-```js collapse={1-2}
-import http from "k6/http"
-import { sleep } from "k6"
+| Type     | Aggregations                       | Built-in example          | Typical custom example                  |
+| -------- | ---------------------------------- | ------------------------- | --------------------------------------- |
+| Counter  | sum, rate-per-second               | `http_reqs`               | `payments_processed`                    |
+| Gauge    | last value, min, max               | `vus`, `vus_max`          | `connection_pool_size`                  |
+| Rate     | non-zero %                         | `http_req_failed`, `checks` | `login_success_rate`                  |
+| Trend    | min, max, avg, med, p(90), p(95), p(99) | `http_req_duration`  | `checkout_total_duration`               |
 
-export const options = {
-  stages: [
-    { duration: "2m", target: 2000 }, // Fast ramp-up to 2000 users
-    { duration: "1m", target: 0 }, // Quick ramp-down to 0 users
-  ],
-  thresholds: {
-    http_req_duration: ["p(95)<3000"], // 95% under 3 seconds
-    http_req_failed: ["rate<0.15"], // Less than 15% failure rate
-  },
-}
-
-export default function () {
-  http.get("https://test-api.k6.io")
-  sleep(1)
-}
-```
-
-## Quantifying Performance: The Metrics and Thresholds Framework
-
-Generating load is only one half of performance testing; the other, equally critical half is the collection, analysis, and validation of performance data. k6 incorporates a robust and flexible framework for handling metrics.
-
-### The Metrics Pipeline: Collection, Tagging, and Aggregation
-
-By default, k6 automatically collects a rich set of built-in metrics relevant to the protocols being tested. For HTTP tests, this includes granular timings for each stage of a request:
-
-- `http_req_blocking`: Time spent waiting for a connection slot
-- `http_req_connecting`: Time spent establishing TCP connection
-- `http_req_tls_handshaking`: Time spent in TLS handshake
-- `http_req_sending`: Time spent sending data
-- `http_req_waiting`: Time spent waiting for response (TTFB)
-- `http_req_receiving`: Time spent receiving response data
-- `http_req_duration`: Total request duration
-- `http_req_failed`: Request failure rate
-
-### Metric Types
-
-All metrics in k6 fall into one of four fundamental types:
-
-1. **Counter**: A cumulative metric that only ever increases (e.g., `http_reqs`)
-2. **Gauge**: A metric that stores the last recorded value (e.g., `vus`)
-3. **Rate**: A metric that tracks the percentage of non-zero values (e.g., `http_req_failed`)
-4. **Trend**: A statistical metric that calculates aggregations like percentiles (e.g., `http_req_duration`)
-
-### Creating Custom Metrics
-
-k6 provides a simple yet powerful API for creating custom metrics:
-
-```js collapse={1-2, 11-14}
+```js title="custom-metrics.js"
 import http from "k6/http"
 import { Trend, Rate, Counter } from "k6/metrics"
 import { sleep } from "k6"
 
-// Custom metrics
-const loginTransactionDuration = new Trend("login_transaction_duration")
-const loginSuccessRate = new Rate("login_success_rate")
-const totalLogins = new Counter("total_logins")
+const checkoutDuration = new Trend("checkout_duration", true) // true → ms
+const checkoutSuccess  = new Rate("checkout_success")
+const checkoutCount    = new Counter("checkout_count")
 
 export const options = {
   vus: 10,
-  duration: "30s",
-}
-
-export default function () {
-  const startTime = Date.now()
-
-  // Simulate login process
-  const loginResponse = http.post("https://test-api.k6.io/login", {
-    username: "testuser",
-    password: "testpass",
-  })
-
-  const endTime = Date.now()
-  const transactionDuration = endTime - startTime
-
-  // Record custom metrics
-  loginTransactionDuration.add(transactionDuration)
-  loginSuccessRate.add(loginResponse.status === 200)
-  totalLogins.add(1)
-
-  sleep(1)
-}
-```
-
-### Codifying SLOs with Thresholds
-
-Thresholds serve as the primary mechanism for automated pass/fail analysis. They are performance expectations, or Service Level Objectives (SLOs), that are codified directly within the test script's options object.
-
-```js collapse={1-3}
-import http from "k6/http"
-import { check, sleep } from "k6"
-
-export const options = {
-  vus: 10,
-  duration: "30s",
+  duration: "5m",
   thresholds: {
-    // Response time thresholds
-    http_req_duration: ["p(95)<500", "p(99)<1000"],
-
-    // Error rate thresholds
-    http_req_failed: ["rate<0.01"],
-
-    // Custom metric thresholds
-    login_transaction_duration: ["p(95)<2000"],
-    login_success_rate: ["rate>0.99"],
+    "http_req_failed": ["rate<0.01"],
+    "http_req_duration{endpoint:checkout}": ["p(95)<800"],
+    "checkout_duration": ["p(95)<2000"],
+    "checkout_success": ["rate>0.99"],
   },
 }
 
 export default function () {
-  const response = http.get("https://test-api.k6.io")
+  const start = Date.now()
+  const res = http.post("https://test-api.k6.io/checkout", null,
+    { tags: { endpoint: "checkout" } })
 
-  check(response, {
-    "status is 200": (r) => r.status === 200,
-    "response time < 500ms": (r) => r.timings.duration < 500,
-  })
-
+  checkoutDuration.add(Date.now() - start)
+  checkoutSuccess.add(res.status === 200)
+  checkoutCount.add(1)
   sleep(1)
 }
 ```
 
-## Comparative Analysis: k6 in the Landscape of Performance Tooling
+Two non-obvious details:
 
-The selection of a performance testing tool is a significant architectural decision that reflects an organization's technical stack, development culture, and operational maturity.
+- **Tags partition metrics.** `http_req_duration{endpoint:checkout}` is a separate aggregation from the global `http_req_duration`, and you can put thresholds on either. This is how you keep a fast endpoint's SLO from being washed out by a slow one in the same test.
+- **`checks` is a Rate, not a fail counter.** A failing `check()` does *not* fail the test on its own. Either gate `checks` with a threshold (`'checks{tag:critical}': ['rate>0.99']`) or use [`fail()`](https://grafana.com/docs/k6/latest/javascript-api/k6/fail/) explicitly when you want hard failures.
 
-### Architectural Showdown: Runtime Comparison
+> [!TIP]
+> Put one threshold on `http_req_failed` (`rate<0.01` is a good default), one on `http_req_duration` per critical endpoint, and one on `checks` per business assertion. Three lines in `options.thresholds` are usually enough to turn a load test into a real CI gate.
 
-| Framework   | Core Language/Runtime    | Concurrency Model                | Scripting Language | Resource Efficiency | CI/CD Integration |
-| ----------- | ------------------------ | -------------------------------- | ------------------ | ------------------- | ----------------- |
-| **k6**      | Go                       | Goroutines (Lightweight Threads) | JavaScript (ES6)   | Very High           | Excellent         |
-| **JMeter**  | Java / JVM               | OS Thread-per-User               | Groovy (optional)  | Low                 | Moderate          |
-| **Gatling** | Scala / JVM (Akka/Netty) | Asynchronous / Event-Driven      | Scala DSL          | Very High           | Excellent         |
-| **Locust**  | Python                   | Greenlets (gevent)               | Python             | High                | Excellent         |
+## CI integration
 
-### Resource Efficiency Analysis
+### GitHub Actions
 
-Multiple independent benchmarks corroborate k6's architectural advantages:
+Use the official [`grafana/setup-k6-action`](https://github.com/grafana/setup-k6-action) and [`grafana/run-k6-action`](https://github.com/grafana/run-k6-action) — they replace the older "curl the release tarball" recipes that floated around before k6 1.0.
 
-- **Memory Usage**: k6 uses approximately 256 MB versus 760 MB for JMeter to accomplish similar tasks
-- **Concurrent Users**: A single k6 instance can handle loads that would require a distributed, multi-machine setup for JMeter
-- **Performance-per-Resource**: k6's Go-based architecture provides superior performance-per-resource ratio
-
-### Developer Experience and CI/CD Integration
-
-k6, Gatling, and Locust all champion a "tests-as-code" philosophy, allowing performance tests to be treated like any other software artifact. This makes them exceptionally well-suited for modern DevOps workflows.
-
-JMeter, in contrast, is primarily GUI-driven, presenting significant challenges in a CI/CD context due to its reliance on XML-based .jmx files that are difficult to read, diff, and merge in version control.
-
-## Extending the Core: The Power of xk6
-
-No single tool can anticipate every future protocol, data format, or integration requirement. xk6 provides a robust mechanism for building custom versions of the k6 binary, allowing the community and individual organizations to extend its core functionality with native Go code.
-
-### xk6 Build System
-
-xk6 is a command-line tool designed to compile the k6 source code along with one or more extensions into a new, self-contained k6 executable:
-
-```bash
-# Build k6 with Kafka extension
-xk6 build --with github.com/grafana/xk6-kafka
-
-# Build k6 with multiple extensions
-xk6 build --with github.com/grafana/xk6-kafka --with github.com/grafana/xk6-mqtt
-```
-
-### Extension Types
-
-Extensions can be of two primary types:
-
-1. **JavaScript Extensions**: Add new built-in JavaScript modules (e.g., `import kafka from 'k6/x/kafka'`)
-2. **Output Extensions**: Add new options for the `--out` flag, allowing test metrics to be streamed to custom backends
-
-### Popular Extensions
-
-- **Messaging Systems**: Apache Kafka, MQTT, NATS
-- **Databases**: PostgreSQL, MySQL
-- **Custom Outputs**: Prometheus Pushgateway, Elasticsearch, AWS Timestream
-- **Browser Testing**: xk6-browser (Playwright integration)
-
-## Advanced k6 Features for Production Use
-
-### Environment-Specific Configuration
-
-```js collapse={1-2}
-import http from "k6/http"
-import { sleep } from "k6"
-
-const BASE_URL = __ENV.BASE_URL || "https://test-api.k6.io"
-const VUS = parseInt(__ENV.VUS) || 10
-const DURATION = __ENV.DURATION || "30s"
-
-export const options = {
-  vus: VUS,
-  duration: DURATION,
-  thresholds: {
-    http_req_duration: ["p(95)<500"],
-    http_req_failed: ["rate<0.01"],
-  },
-}
-
-export default function () {
-  http.get(`${BASE_URL}/api/endpoint`)
-  sleep(1)
-}
-```
-
-### Data-Driven Testing
-
-```js collapse={1-3, 10-14}
-import http from "k6/http"
-import { SharedArray } from "k6/data"
-import { sleep } from "k6"
-
-// Load test data from CSV
-const users = new SharedArray("users", function () {
-  return open("./users.csv").split("\n").slice(1) // Skip header
-})
-
-export const options = {
-  vus: 10,
-  duration: "30s",
-}
-
-export default function () {
-  const user = users[Math.floor(Math.random() * users.length)]
-  const [username, password] = user.split(",")
-
-  const response = http.post("https://test-api.k6.io/login", {
-    username: username,
-    password: password,
-  })
-
-  sleep(1)
-}
-```
-
-### Complex User Journeys
-
-```js collapse={1-2, 5-8}
-import http from "k6/http"
-import { check, sleep } from "k6"
-
-export const options = {
-  vus: 10,
-  duration: "30s",
-}
-
-export default function () {
-  // Step 1: Login
-  const loginResponse = http.post("https://test-api.k6.io/login", {
-    username: "testuser",
-    password: "testpass",
-  })
-
-  check(loginResponse, {
-    "login successful": (r) => r.status === 200,
-  })
-
-  if (loginResponse.status === 200) {
-    const token = loginResponse.json("token")
-
-    // Step 2: Get user profile
-    const profileResponse = http.get("https://test-api.k6.io/profile", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    check(profileResponse, {
-      "profile retrieved": (r) => r.status === 200,
-    })
-
-    // Step 3: Update profile
-    const updateResponse = http.put("https://test-api.k6.io/profile", JSON.stringify({ name: "Updated Name" }), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    })
-
-    check(updateResponse, {
-      "profile updated": (r) => r.status === 200,
-    })
-  }
-
-  sleep(1)
-}
-```
-
-## Integration with CI/CD Pipelines
-
-### GitHub Actions Example
-
-```yaml
-name: Performance Tests
-
-on: [push, pull_request]
+```yaml title=".github/workflows/perf.yml"
+name: Performance tests
+on:
+  pull_request:
+    paths: ["src/**", "tests/perf/**"]
+  push:
+    branches: [main]
 
 jobs:
-  performance:
+  k6:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install k6
-        run: |
-          curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz | tar xz
-          sudo cp k6-v0.47.0-linux-amd64/k6 /usr/local/bin
-
-      - name: Run smoke test
-        run: k6 run smoke-test.js
-
-      - name: Run load test
-        run: k6 run load-test.js
-        if: github.ref == 'refs/heads/main'
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - uses: grafana/run-k6-action@v1
+        with:
+          path: tests/perf/smoke.js
+      - if: github.ref == 'refs/heads/main'
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/perf/average-load.js
 ```
 
-### Jenkins Pipeline Example
+The job fails when any threshold fails (exit 99), so the gate is intrinsic — no extra "publish report and parse" step needed.
 
-```groovy
-pipeline {
-    agent any
+### Other runners
 
-    stages {
-        stage('Smoke Test') {
-            steps {
-                sh 'k6 run smoke-test.js'
-            }
-        }
+- **Jenkins:** [the same threshold-based exit code](https://grafana.com/docs/k6/latest/using-k6/thresholds/) drives `currentBuild.result = 'FAILURE'`. Use the [`grafana/k6` Docker image](https://hub.docker.com/r/grafana/k6) for hermetic execution.
+- **GitLab CI:** add `image: grafana/k6:latest` and run `k6 run`. Pipe `--out json=results.json` into a GitLab artifact for downstream analysis.
+- **Grafana Cloud k6:** `k6 cloud run script.js` shifts execution to Grafana Cloud (formerly k6 Cloud / Load Impact) with the same script, useful when you need distributed load from clean network egress across global zones.
 
-        stage('Load Test') {
-            when {
-                branch 'main'
-            }
-            steps {
-                sh 'k6 run load-test.js'
-            }
-        }
-    }
+> [!WARNING]
+> Performance tests in CI work when (a) the target environment is hermetic and pre-warmed, (b) thresholds are tuned to the environment's realistic baseline, not production's, and (c) the test runs against a frozen build artifact. Without those, you will spend more time chasing flaky CI than catching regressions.
 
-    post {
-        always {
-            publishHTML([
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'k6-results',
-                reportFiles: 'index.html',
-                reportName: 'K6 Performance Report'
-            ])
-        }
-    }
-}
+## Distributed runs and output backends
+
+A single k6 process is enough for almost every CI gate. Distributed execution and external metric stores show up when one of two things is true: the target needs more than ~40k VUs / ~300k RPS of generated load, or the team wants per-test results to land in the same observability stack as production telemetry.
+
+![Distributed k6 topology: a controller fans the same script out to N runner pods (k6 Operator) or N managed load zones (Grafana Cloud), each runner streams metrics to a shared backend, the controller aggregates thresholds.](./diagrams/distributed-topology-light.svg "Distributed k6 topology — controller fans the script out via execution segments, runners stream metrics to a shared backend, thresholds are evaluated against the merged stream.")
+![Distributed k6 topology: a controller fans the same script out to N runner pods (k6 Operator) or N managed load zones (Grafana Cloud), each runner streams metrics to a shared backend, the controller aggregates thresholds.](./diagrams/distributed-topology-dark.svg)
+
+### Three ways to fan out
+
+| Mechanism                                                                                                        | Where it runs                            | When to reach for it                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`--execution-segment` flags**                                                                                  | N independent k6 processes / nodes you orchestrate yourself | Tests up to a few hundred RPS that fit a small Nomad / Ansible setup; lowest dependency footprint.                                                                  |
+| **[k6 Operator](https://github.com/grafana/k6-operator)** (`TestRun` CRD, `parallelism: N`)                      | Kubernetes pods you own                  | Ongoing distributed load against pre-prod; reproducible on your cluster; integrates with `PrivateLoadZone` to back Grafana Cloud runs.                              |
+| **[Grafana Cloud k6](https://grafana.com/docs/grafana-cloud/k6/)** (`k6 cloud run`)                              | Grafana-managed load zones (~21 regions) | Geo-distributed load from clean egress; centralised reporting; you don't want to operate runners.                                                                   |
+
+`--execution-segment` slices the workload deterministically across instances; e.g. `--execution-segment "0:1/2" --execution-segment-sequence "0,1/2,1"` runs the first half on one machine and the second half on another. Thresholds are evaluated *per process* unless every runner streams to the same backend (Cloud, Prometheus, or InfluxDB) where aggregation can re-evaluate over the merged stream[^distributed].
+
+[^distributed]: [k6 documentation — Running distributed tests](https://grafana.com/docs/k6/latest/testing-guides/running-distributed-tests/) and [k6 documentation — Execution segment options](https://grafana.com/docs/k6/latest/using-k6/k6-options/reference/#execution-segment).
+
+### Output backends
+
+The default `k6 run` summary is human-readable but discards per-iteration samples on exit. For trend analysis or distributed aggregation you stream samples to a real backend with `--out`.
+
+| Backend                                                                                                                                                | Built-in?                                  | Flag                                                                  | Notes                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Prometheus Remote Write                                                                                                                                | Yes (since v0.53; was [`xk6-output-prometheus-remote`](https://github.com/grafana/xk6-output-prometheus-remote), now merged) | `--out experimental-prometheus-rw`                                    | Ship to Mimir, Cortex, Grafana Cloud, or any RW-compatible store.                                  |
+| InfluxDB v1                                                                                                                                            | Yes                                        | `--out influxdb=http://host:8086/db`                                  | Legacy line-protocol path, still supported.                                                        |
+| InfluxDB v2 / Cloud                                                                                                                                    | Extension ([`xk6-output-influxdb`](https://github.com/grafana/xk6-output-influxdb)) | `--out xk6-influxdb=...`                                              | Build a custom binary with `xk6 build --with`.                                                     |
+| Datadog                                                                                                                                                | Extension (StatsD-mode `xk6-output-statsd`) | `--out output-statsd` against a Datadog Agent                         | The bundled `--out datadog` and `--out statsd` outputs were [deprecated in v0.55 and removed](https://grafana.com/docs/k6/latest/results-output/real-time/datadog/); use the StatsD xk6 extension. |
+| Grafana Cloud k6                                                                                                                                       | Yes                                        | `--out cloud` (after `k6 cloud login`)                                | Same backend `k6 cloud run` writes to.                                                             |
+| CSV / JSON                                                                                                                                             | Yes                                        | `--out csv=results.csv` / `--out json=results.json`                   | Cheapest way to archive raw samples for after-the-fact analysis.                                   |
+
+Multiple `--out` flags are allowed on the same run, so a CI job can simultaneously emit JSON to a build artifact and stream Prometheus RW to Grafana Cloud.
+
+## Comparative analysis
+
+| Tool          | Runtime     | Concurrency unit                   | Test format                     | Per-machine VU ceiling[^ceilings]      | CI ergonomics                                                                                                  |
+| ------------- | ----------- | ---------------------------------- | ------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **k6**        | Go          | Goroutine + Sobek runtime          | JS / TS                         | 30k–40k                                | Single binary, exit-code gate, official GitHub Action.                                                         |
+| **JMeter**    | JVM         | OS thread per VU                   | XML `.jmx` (Groovy in BSF)      | ~1k                                    | Distributed mode required at scale; XML diffs poorly.                                                          |
+| **Gatling**   | Scala / JVM | Akka actors / Netty (event-driven) | Scala / Java / Kotlin DSL       | High (event-driven)                    | First-class CI runner; report HTML committable to artifact.                                                    |
+| **Locust**    | Python      | Greenlets (gevent)                 | Python                          | High per box; horizontal master-worker | CI-friendly; weaker built-in reporting than k6/Gatling.                                                        |
+| **Artillery** | Node.js     | Event loop (single-process async)  | YAML scenarios + JS `processor` | Modest single-process; horizontal       | YAML is short for simple flows; JS processors mirror k6's style; AWS Fargate / Lambda runners for distribution. |
+
+[^ceilings]: VU ceilings are order-of-magnitude figures from each project's running-large-tests guidance. Real ceilings depend heavily on per-iteration work; treat them as relative, not absolute.
+
+When to pick what:
+
+- **k6** when the team writes JavaScript or TypeScript already, the SLO needs to be a CI gate, and you want a single binary on every runner.
+- **JMeter** when an existing investment in `.jmx` plans, custom samplers, or Bzm cloud workflows outweighs migration cost.
+- **Gatling** when the team is JVM-native and Scala / Kotlin DSLs are not a barrier; Gatling's reports are still the prettiest in the category.
+- **Locust** when the test logic is already a Python service-client and you want to reuse it.
+- **Artillery** when the test definition is mostly YAML and you want managed Lambda / Fargate fan-out without operating Kubernetes.
+
+## Extending k6 with xk6
+
+Out-of-the-box k6 1.x speaks HTTP/1.1, HTTP/2, [WebSocket](https://grafana.com/docs/k6/latest/javascript-api/k6-websockets/) (`k6/websockets`, with a global event loop that lets one VU drive many sockets), [gRPC](https://grafana.com/docs/k6/latest/using-k6/protocols/grpc/) (`k6/net/grpc`, stable since v0.49.0), browser (Chromium via CDP), and a handful of utility modules. Beyond that you compose a custom binary with [xk6](https://github.com/grafana/xk6):
+
+```bash frame="terminal"
+# Build a k6 with Kafka and SQL extensions baked in
+xk6 build --with github.com/grafana/xk6-kafka \
+          --with github.com/grafana/xk6-sql
 ```
 
-## Best Practices for k6 Performance Testing
+Two extension shapes exist:
 
-### 1. Test Design Principles
+- **JavaScript extensions** add new built-in modules (`import kafka from "k6/x/kafka"`).
+- **Output extensions** add `--out` targets — typically Elasticsearch, AWS Timestream, or in-house sinks. Prometheus Remote Write and the original `xk6-browser` are no longer extensions: both have been merged into the core binary.
 
-- **Start Simple**: Begin with smoke tests to establish baselines
-- **Incremental Complexity**: Gradually increase test complexity and load
-- **Realistic Scenarios**: Model actual user behavior patterns
-- **Environment Parity**: Test against environments that mirror production
+> [!NOTE]
+> The `xk6-browser` repository is archived (2025-01-30) and the codebase fully merged into the main k6 repo by v0.56. Use `import { browser } from "k6/browser"` rather than the old `xk6-browser` import. Likewise, `xk6-output-prometheus-remote` is now `--out experimental-prometheus-rw` on a stock binary.
 
-### 2. Script Organization
+## Operational footguns
 
-```js
-// config.js - Centralized configuration
-export const config = {
-  baseUrl: __ENV.BASE_URL || "https://test-api.k6.io",
-  timeout: "30s",
-  thresholds: {
-    http_req_duration: ["p(95)<500"],
-    http_req_failed: ["rate<0.01"],
-  },
-}
+- **Closed-model VUs when you wanted arrival-rate.** The single most common k6 mistake: setting `vus: 50, duration: "10m"` to "simulate 50 users" when the real SLO is "hold 200 RPS". As the SUT slows, throughput collapses and the histogram looks reassuringly flat — a textbook *coordinated omission* artefact. If the SLO is in RPS or P95 latency, use `constant-arrival-rate` or `ramping-arrival-rate`, full stop.
+- **No warm-up.** The first 30–60 seconds of any non-trivial run are dominated by JIT, connection-pool fill, cold caches, and lazy DNS. Either ramp through them with a `ramping-arrival-rate` stage you intend to throw away, or [scope thresholds](https://grafana.com/docs/k6/latest/using-k6/thresholds/) to a sub-metric tagged after warm-up (`http_req_duration{phase:steady}`). Otherwise P95 carries the cold-start tail forever.
+- **Skipping response sanity checks.** `k6 run` happily reports a 200-RPS test where every response is a 401 or a CDN error page — the *transport* is fine, your *test* is meaningless. Always combine `check(res, { "status is 2xx": (r) => r.status >= 200 && r.status < 300 })` with a threshold on `checks` (`'checks': ['rate>0.99']`); without that, `checks` is a Rate metric whose failures do not fail the test on their own.
+- **Ephemeral port exhaustion.** Tens of thousands of VUs against a small target IP set will exhaust the source-port range (default ~28k usable on stock Linux). Tune `net.ipv4.ip_local_port_range` and `net.ipv4.tcp_tw_reuse`, or split load across source IPs[^large-tests].
+- **DNS as a hidden bottleneck.** Per-iteration DNS lookups add latency that you will attribute to the SUT. Pre-resolve to an IP and pin it via `--hosts`, or set [`http.setResponseCallback`](https://grafana.com/docs/k6/latest/javascript-api/k6-http/setresponsecallback/) and reuse the connection pool aggressively.
+- **`SharedArray` is JSON-deserialised once per VU.** Reading a 100 MB CSV becomes a per-VU memory cliff. Pre-trim test data to what you actually use; reach for [`open()`](https://grafana.com/docs/k6/latest/javascript-api/init-context/open/) only for small fixtures.
+- **`open()` only works in init context.** Call it at the top of the file, not inside the iteration body — the runtime throws if you try.
+- **The browser module is heavy.** Each browser context launches a Chromium process. A single load generator can drive maybe 5–20 browsers, not 5,000 — model browser tests as functional + Web Vitals checks, not as load tests.
 
-// utils.js - Shared utilities
-export function generateRandomUser() {
-  return {
-    username: `user_${Math.random().toString(36).substr(2, 9)}`,
-    email: `user_${Math.random().toString(36).substr(2, 9)}@example.com`,
-  }
-}
+[^large-tests]: [k6 documentation — Running large tests, OS fine-tuning](https://grafana.com/docs/k6/latest/testing-guides/running-large-tests/#os-fine-tuning).
 
-// main-test.js - Main test script
-import { config } from "./config.js"
-import { generateRandomUser } from "./utils.js"
+## Practical defaults
 
-export const options = {
-  vus: 10,
-  duration: "30s",
-  ...config,
-}
-
-export default function () {
-  const user = generateRandomUser()
-  // Test logic here
-}
-```
-
-### 3. Monitoring and Observability
-
-- **Real-time Metrics**: Use k6's real-time output for immediate feedback
-- **External Monitoring**: Integrate with Grafana, Prometheus, or other monitoring tools
-- **Logging**: Implement structured logging for debugging
-- **Alerts**: Set up automated alerts for threshold violations
-
-### 4. Performance Baselines
-
-```js collapse={1-2}
-import http from "k6/http"
-import { check, sleep } from "k6"
-
-export const options = {
-  vus: 1,
-  duration: "1m",
-  thresholds: {
-    // Establish baseline thresholds
-    http_req_duration: ["p(95)<200"], // Baseline: 95% under 200ms
-    http_req_failed: ["rate<0.001"], // Baseline: Less than 0.1% failures
-  },
-}
-
-export default function () {
-  const response = http.get("https://test-api.k6.io")
-
-  check(response, {
-    "status is 200": (r) => r.status === 200,
-    "response time < 200ms": (r) => r.timings.duration < 200,
-  })
-
-  sleep(1)
-}
-```
-
-## Conclusion
-
-k6's strength comes from deliberate architectural choices that work together:
-
-1. **Resource Efficiency**: Go's goroutine-based concurrency enables meaningful performance testing in resource-constrained CI/CD environments—256 MB vs 760 MB for equivalent JMeter tests.
-
-2. **Developer Experience**: JavaScript scripting with a "tests-as-code" ethos lowers barriers and empowers developers to own performance testing.
-
-3. **Workload Modeling**: The Scenarios and Executors API enables accurate simulation of real-world traffic patterns beyond simplistic load generation.
-
-4. **Automated Validation**: Built-in metrics, custom metrics, tagging, and thresholds create a closed-loop system that transforms performance data into actionable pass/fail results.
-
-5. **Extensibility**: The xk6 framework provides community-driven innovation for new protocols and integrations.
-
-k6's integration with the Grafana ecosystem, open-source nature, and active development position it well for evolving cloud-native architectures. For teams implementing shift-left performance testing, k6 offers a compelling combination of technical excellence and developer productivity.
+- **Always start with a smoke test** (3 VUs, 1 minute, the same thresholds you intend to ship). If smoke is red, the script is broken, not the system.
+- **Default to arrival-rate executors** for any test whose SLO is in RPS or P95 latency. Closed-model tests are fine for "fixed pool of users" simulations and almost nothing else.
+- **Three thresholds is the floor.** `http_req_failed`, `http_req_duration` per critical endpoint, and `checks` per critical assertion.
+- **Tag everything.** `tags: { endpoint: "checkout" }` on the request makes per-endpoint thresholds trivial and saves having to re-run the test to slice the data.
+- **Use `SharedArray` for any test data over 1 MB.** Anything else is duplicated per VU.
+- **Run the gated test in CI on every PR.** Run the average-load and soak tests on a schedule against a pre-prod environment with production-shaped data.
 
 ## References
 
-- [k6 Official Documentation](https://grafana.com/docs/k6/)
-- [k6 Installation Guide](https://grafana.com/docs/k6/latest/set-up/install-k6/)
-- [k6 Options Reference](https://grafana.com/docs/k6/latest/using-k6/k6-options/reference/)
-- [k6 Testing Guides](https://grafana.com/docs/k6/latest/testing-guides/)
-- [xk6 Extension Framework](https://github.com/grafana/xk6)
-- [k6 Community Extensions](https://github.com/topics/xk6-extension)
+- [k6 documentation home](https://grafana.com/docs/k6/latest/)
+- [k6 release notes (v0.52.0 — Sobek)](https://github.com/grafana/k6/blob/master/release%20notes/v0.52.0.md)
+- [Grafana k6 1.0 launch post](https://grafana.com/blog/grafana-k6-1-0-release/)
+- [Running large tests](https://grafana.com/docs/k6/latest/testing-guides/running-large-tests/)
+- [Test types](https://grafana.com/docs/k6/latest/testing-guides/test-types/)
+- [Open vs closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/)
+- [Executors reference](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/)
+- [Thresholds](https://grafana.com/docs/k6/latest/using-k6/thresholds/)
+- [HTTP-specific built-in metrics](https://grafana.com/docs/k6/latest/using-k6/metrics/reference/#http-specific-built-in-metrics)
+- [k6 vs JMeter benchmark](https://grafana.com/blog/k6-vs-jmeter-comparison/)
+- [xk6 build tool](https://github.com/grafana/xk6)
+- [setup-k6-action](https://github.com/grafana/setup-k6-action) and [run-k6-action](https://github.com/grafana/run-k6-action)
+- [Running distributed tests](https://grafana.com/docs/k6/latest/testing-guides/running-distributed-tests/) and [k6 Operator](https://github.com/grafana/k6-operator)
+- [Results output reference](https://grafana.com/docs/k6/latest/results-output/) (Prometheus RW, InfluxDB, JSON, CSV, Cloud)
+- [`k6/net/grpc`](https://grafana.com/docs/k6/latest/javascript-api/k6-net-grpc/) and [`k6/websockets`](https://grafana.com/docs/k6/latest/javascript-api/k6-websockets/) module references

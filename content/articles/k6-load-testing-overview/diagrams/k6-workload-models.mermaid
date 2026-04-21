@@ -1,15 +1,20 @@
-%% Diagram: K6 Workload Models
+%% Diagram: k6 workload models — closed vs open
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 graph TD
-    subgraph Closed["Closed Model (VU-based)"]
-        C1["Input: Fixed VU Count"] --> C2["VUs iterate continuously"]
-        C2 --> C3["Output: Throughput"]
-        C3 --> CE["Executors:<br/>constant-vus, ramping-vus"]
+    subgraph Closed["Closed model (VU-based)"]
+        C1["Pin: VU count N"] --> C2["Each VU loops:<br/>iter -> sleep -> iter"]
+        C2 --> C3["When SUT slows,<br/>throughput drops with it"]
+        C3 --> C4["Emergent: throughput (RPS)"]
+        C4 --> CE["Executors:<br/>constant-vus, ramping-vus,<br/>per-vu-iterations, shared-iterations"]
     end
 
-    subgraph Open["Open Model (Arrival-rate)"]
-        O1["Input: Fixed Request Rate"] --> O2["VUs auto-scaled to sustain rate"]
-        O2 --> O3["Output: VU Count"]
-        O3 --> OE["Executors:<br/>constant-arrival-rate,<br/>ramping-arrival-rate"]
+    subgraph Open["Open model (arrival-rate)"]
+        O1["Pin: iteration rate R/s"] --> O2["Scheduler starts a new iteration<br/>every 1/R, regardless of finish"]
+        O2 --> O3["When SUT slows,<br/>VU count grows to keep R<br/>(up to maxVUs)"]
+        O3 --> O4["Emergent: VU count, queue depth"]
+        O4 --> OE["Executors:<br/>constant-arrival-rate,<br/>ramping-arrival-rate"]
     end
+
+    Closed -.->|"Tail latency hidden:<br/>coordinated omission"| Risk["Use open when SLO is RPS<br/>or P95 latency"]
+    Open -.->|"Real tail measured"| Risk

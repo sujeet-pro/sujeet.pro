@@ -1,0 +1,24 @@
+%% Diagram: Counter Strategy Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([New counter]) --> Q1{"Sustained writes/sec<br/>per logical counter?"}
+
+    Q1 -- "< per-key ceiling" --> Single["Single counter<br/>(no sharding)"]
+    Q1 -- "above ceiling" --> Q2{"Need exact value?"}
+
+    Q2 -- No --> Q5{"Distinct items<br/>or item frequency?"}
+    Q5 -- Distinct --> HLL["HyperLogLog per window"]
+    Q5 -- Frequency --> CMS["Count-Min Sketch + heap"]
+
+    Q2 -- Yes --> Q3{"Consistency:<br/>strong or eventual?"}
+
+    Q3 -- Strong --> Q3a{"Read pattern?"}
+    Q3a -- "Per-client / per-key" --> HashShard["Hash-by-key sharding<br/>+ sync read of one shard"]
+    Q3a -- "Global aggregate" --> SyncShard["Random sharding<br/>+ synchronous fan-in"]
+
+    Q3 -- Eventual --> Q4{"Read latency SLA?"}
+    Q4 -- "O(N) acceptable" --> SyncShardEv["Random sharding<br/>+ synchronous fan-in"]
+    Q4 -- "Need O(1)" --> Q4a{"Staleness budget?"}
+    Q4a -- "Seconds OK" --> AsyncRollup["Random sharding<br/>+ async rollup + cache"]
+    Q4a -- "Near-real-time" --> Hybrid["Hybrid: pre-rollup<br/>+ live event tail<br/>(Netflix-style)"]

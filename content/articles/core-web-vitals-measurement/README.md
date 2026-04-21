@@ -6,23 +6,26 @@ description: >-
   (RUM), and the web-vitals library, including metric-specific diagnostics for
   LCP, INP, and CLS and patterns for production RUM pipelines.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - performance
   - web-vitals
   - optimization
+  - rendering
 ---
 
 # Core Web Vitals Measurement: Lab vs Field Data
 
 How to measure, interpret, and debug Core Web Vitals using lab tools, field data (Real User Monitoring), and the web-vitals library. Covers metric-specific diagnostics for LCP, INP, and CLS with implementation patterns for production RUM pipelines.
 
-![Core Web Vitals measurement architecture: from browser APIs to analytics pipelines](./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline-light.svg "Core Web Vitals measurement architecture: from browser APIs to analytics pipelines")
-![Core Web Vitals measurement architecture: from browser APIs to analytics pipelines](./diagrams/core-web-vitals-measurement-architecture-from-browser-apis-to-analytics-pipeline-dark.svg)
+![Core Web Vitals measurement architecture spanning lab tools, the in-browser PerformanceObserver APIs, the web-vitals library, RUM and CrUX aggregation, and downstream consumers like PageSpeed Insights and Search Console](./diagrams/measurement-architecture-light.svg "Lab tools and real Chrome both feed measurement data, but only real Chrome contributes to CrUX and your custom RUM — the two field surfaces that drive ranking and debugging.")
+![Core Web Vitals measurement architecture spanning lab tools, the in-browser PerformanceObserver APIs, the web-vitals library, RUM and CrUX aggregation, and downstream consumers like PageSpeed Insights and Search Console](./diagrams/measurement-architecture-dark.svg)
 
 ## Abstract
 
-Core Web Vitals measurement splits into two fundamentally different contexts: **lab data** (synthetic, controlled) and **field data** (real users, variable conditions). Lab tools like Lighthouse provide reproducible diagnostics but cannot predict real-world performance—cache state, device diversity, and actual interaction patterns create systematic gaps. Field data from Chrome User Experience Report (CrUX) or custom Real User Monitoring (RUM) captures the 75th percentile experience that determines Google's ranking signals.
+Core Web Vitals measurement splits into two fundamentally different contexts: **lab data** (synthetic, controlled) and **field data** (real users, variable conditions). Lab tools like Lighthouse provide reproducible diagnostics but cannot predict real-world performance — cache state, device diversity, and actual interaction patterns create systematic gaps. Field data from the [Chrome User Experience Report (CrUX)](https://developer.chrome.com/docs/crux) or custom Real User Monitoring (RUM) captures the 75th-percentile experience that determines Google's ranking signals.
+
+Since [March 12, 2024](https://web.dev/blog/inp-cwv-march-12), the responsiveness vital is **Interaction to Next Paint (INP)**, replacing First Input Delay (FID). Throughout this article, all three vitals are measured at p75 of page loads and assessed against the [official thresholds](https://web.dev/articles/vitals): LCP good ≤ 2.5 s / poor > 4 s; INP good ≤ 200 ms / poor > 500 ms; CLS good ≤ 0.1 / poor > 0.25.
 
 The mental model:
 
@@ -32,11 +35,11 @@ The mental model:
 
 Each metric has distinct measurement nuances:
 
-- **LCP** (Largest Contentful Paint): Four quantifiable subparts (Time to First Byte (TTFB), resource load delay, resource load time, element render delay)—median poor-LCP sites spend >50% of the 2.5s budget before the LCP resource even starts downloading
-- **INP** (Interaction to Next Paint): Three-phase breakdown (input delay + processing time + presentation delay) with outlier filtering (ignores 1 per 50 interactions)
-- **CLS** (Cumulative Layout Shift): Session windows with `hadRecentInput` exclusion—shifts within 500ms of user action are marked expected
+- **LCP** (Largest Contentful Paint): Four quantifiable subparts (Time to First Byte (TTFB), resource load delay, resource load time, element render delay) — the median origin with a *poor* LCP rating spends [≈ 1.29 s in resource load delay alone](https://web.dev/blog/common-misconceptions-lcp), >50 % of the 2.5 s budget consumed before the LCP resource even starts downloading
+- **INP** (Interaction to Next Paint): Three-phase breakdown (input delay + processing time + presentation delay) with [outlier filtering](https://web.dev/articles/inp#how_inp_is_calculated) — one highest interaction is ignored per 50 interactions, approximating a high percentile (~p98) rather than the absolute worst
+- **CLS** (Cumulative Layout Shift): [Session windows](https://web.dev/articles/cls#what_is_cls) (1 s gap, 5 s cap) with `hadRecentInput` exclusion — shifts within 500 ms of a discrete user input are considered expected
 
-The `web-vitals` library (v5.x) is the canonical implementation for RUM collection. Its attribution build adds ~1.5KB but provides root-cause data essential for debugging. For field data at scale, CrUX provides origin-level aggregates via BigQuery (monthly) and page-level data via the CrUX API (daily updates).
+The [`web-vitals` library](https://github.com/GoogleChrome/web-vitals) (v5.x) is the canonical implementation for RUM collection: ~ 2 KB brotli for the standard build, ~ 3.5 KB for the attribution build (~ 1.5 KB extra) which provides the root-cause data essential for debugging. For field data at scale, CrUX provides daily page- and origin-level aggregates via the CrUX API, weekly trend data via the CrUX History API, and monthly origin-only data via the BigQuery dataset.
 
 ## Lab vs Field: Fundamental Differences
 
@@ -60,12 +63,13 @@ Lab data provides **reproducible baselines** and **regression detection** but ca
 
 Field data from CrUX or custom RUM aggregates real user experiences:
 
-- **28-day rolling average**: CrUX smooths daily variation but lags behind deploys
-- **75th percentile**: The reported value means 75% of experiences were better—this is the threshold for "passing" Core Web Vitals
+- **28-day rolling window**: CrUX summarises 28 days of Chrome user data; new data lands daily but the full window only refreshes after 28 days, smoothing variance and lagging behind deploys
+- **75th percentile**: The reported value means 75 % of experiences were better — this is the [threshold](https://web.dev/articles/vitals#core_web_vitals_thresholds) for "passing" Core Web Vitals
 - **Traffic-weighted**: High-traffic pages dominate origin-level metrics
 - **Cache-aware**: Returning visitors often have cached resources, improving LCP
 
-> **Design rationale for 75th percentile**: Google chose p75 as a balance between capturing "most users" (median would miss the long tail) and being achievable (p95 would fail most sites on edge cases). The 75th percentile roughly corresponds to "the experience of users on slower connections or devices."
+> [!NOTE]
+> **Design rationale for 75th percentile.** Google [chose p75](https://web.dev/articles/defining-core-web-vitals-thresholds#how_to_evaluate_a_segmentation_methods_real_world_performance) as a compromise between "most users" (median ignores the long tail) and "achievable" (p95 fails most sites on edge cases). p75 roughly corresponds to the experience of users on slower connections or devices and biases attention toward the population that struggles, not the median visitor.
 
 ### When Lab and Field Diverge
 
@@ -120,9 +124,9 @@ eventObserver.observe({
 })
 ```
 
-**Why `type` instead of `entryTypes`?** The `buffered` and `durationThreshold` options only work with `type` (single entry type). Using `entryTypes` (array) silently ignores these options—a common source of bugs in RUM implementations.
+**Why `type` instead of `entryTypes`?** The `buffered` and `durationThreshold` options only work with [`type`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver/observe) (single entry type). Using `entryTypes` (array) silently ignores these options — a common source of bugs in RUM implementations.
 
-**`durationThreshold` design**: The default 104ms threshold (first multiple of 8 above 100ms) filters out brief interactions that don't indicate responsiveness problems. The 8ms granularity exists for security (mitigates timing attacks). For comprehensive measurement, set `durationThreshold: 16` (minimum, one frame at 60fps).
+**`durationThreshold` design.** The [default 104 ms threshold](https://www.w3.org/TR/event-timing/#sec-default-duration-threshold) is the first multiple of 8 ms above 100 ms; the API rounds `duration` to 8 ms granularity to mitigate cross-origin timing attacks, so 104 ms is the smallest pre-rounded value guaranteed ≥ 100 ms. The minimum allowed threshold is 16 ms (one frame at 60 Hz). For comprehensive measurement set `durationThreshold: 16`; the [`web-vitals` library defaults `onINP` to 40 ms](https://github.com/GoogleChrome/web-vitals/issues/568) — lower than the platform default and a frequent source of "duration < 40 ms" surprises in custom code that mixes the library with raw observers.
 
 ### The web-vitals Library
 
@@ -192,31 +196,32 @@ onCLS((metric) => {
 
 ### Qualifying Elements
 
-The W3C Largest Contentful Paint specification defines which elements can be LCP candidates:
+The [W3C Largest Contentful Paint specification](https://www.w3.org/TR/largest-contentful-paint/) and the [web.dev LCP guide](https://web.dev/articles/lcp) define which elements can be LCP candidates:
 
 - `<img>` elements (including `<img>` inside `<picture>`)
 - `<image>` elements inside SVG
-- `<video>` elements (poster image)
-- Elements with `background-image` via CSS
-- Block-level elements containing text nodes
+- `<video>` elements — poster image; from [Chrome 116+](https://web.dev/learn/performance/video-performance), the first painted frame also qualifies when no poster is set
+- Elements with `background-image` loaded via CSS `url(...)` (gradients are excluded)
+- Block-level elements containing text nodes or inline-level text children
 
 **Exclusions** (elements that cannot be LCP):
 
 - Elements with `opacity: 0`
-- Elements covering the full viewport (treated as background)
-- Placeholder/low-quality images: images with file size < 0.004 bytes per pixel
-- Elements that are scrolled out of the viewport before rendering completes
+- Elements that cover (roughly) the full viewport — treated as background rather than content
+- [Low-entropy placeholders](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/speed/metrics_changelog/2023_04_lcp.md): images with **less than 0.05 bits of image data per displayed pixel** (Chrome 112+) — calculated as `encodedBodySize × 8 / (displayWidth × displayHeight)`
+
+> [!IMPORTANT]
+> Two non-obvious LCP behaviours catch teams out:
+>
+> 1. **Removed elements still count.** Once an element has been painted as the largest, removing it from the DOM does not retract the entry. A larger element rendered later replaces it; otherwise the original wins.
+> 2. **Reporting stops at the first user interaction** (scroll, click, or keypress). Code that tries to measure LCP after a click runs into a frozen value, not "live" tracking.
 
 ### LCP Subparts Breakdown
 
 LCP can be decomposed into four measurable subparts, each pointing to different optimization strategies:
 
-```
-|← TTFB →|← Resource Load Delay →|← Resource Load Time →|← Element Render Delay →|
-0        Server responds         Browser starts         Resource fully           LCP element
-         with first byte         fetching LCP           downloaded               rendered
-                                 resource
-```
+![LCP timeline broken into four subparts: TTFB, resource load delay, resource load time, and element render delay, showing the typical 1.29 s of resource load delay observed in poor-rated origins](./diagrams/lcp-subparts-timeline-light.svg "LCP subparts on a timeline. The typical poor-rated origin spends ~1.29 s in resource load delay alone — over half of the 2.5 s budget — before the LCP image even starts downloading.")
+![LCP timeline broken into four subparts: TTFB, resource load delay, resource load time, and element render delay, showing the typical 1.29 s of resource load delay observed in poor-rated origins](./diagrams/lcp-subparts-timeline-dark.svg)
 
 | Subpart                  | What It Measures                              | Optimization Target                     |
 | ------------------------ | --------------------------------------------- | --------------------------------------- |
@@ -225,9 +230,9 @@ LCP can be decomposed into four measurable subparts, each pointing to different 
 | **Resource Load Time**   | Download duration of LCP resource             | Image optimization, CDN                 |
 | **Element Render Delay** | Time from download complete to paint          | Render-blocking JS/CSS, main thread     |
 
-**Recommended distribution**: 40% TTFB, 40% Resource Load Time, 20% combined delays.
+**Target distribution.** [Optimize LCP](https://web.dev/articles/optimize-lcp#lcp-breakdown) recommends keeping the two delay subparts below ~10 % each on a well-tuned page; that leaves roughly 80 % split between TTFB and Resource Load Time, with the exact split dictated by origin speed vs. payload size.
 
-**Real-world finding**: Median poor-LCP sites have 1.3 seconds of Resource Load Delay—consuming over 50% of the 2.5s "good" budget before the LCP resource even starts downloading. This happens when the browser discovers the LCP image late (e.g., via JavaScript, CSS background, or deep in the DOM).
+**Real-world finding.** The [August 2024 Chrome team analysis](https://web.dev/blog/common-misconceptions-lcp) of CrUX field data shows the median origin with a *poor* LCP rating spends ≈ 1,290 ms in Resource Load Delay alone — over half of the 2.5 s "good" budget — and ~ 4× longer waiting to start the fetch than actually downloading. The usual root cause is late discovery: the LCP image is referenced from JavaScript, CSS `background-image`, deep DOM, or a hydration-time mount that the [preload scanner](https://web.dev/articles/preload-scanner) cannot see.
 
 ### LCP Measurement Code with Subparts
 
@@ -280,12 +285,8 @@ onLCP((metric) => {
 
 INP measures the latency of user interactions across the entire page session. Each interaction has three phases:
 
-```
-|← Input Delay →|← Processing Time →|← Presentation Delay →|
-User action     Event handlers      Handlers complete,      Next frame
-(click/key/     start running       browser computes        painted
- tap)                               layout/paint
-```
+![INP attribution chain: a user input enters input delay, processing, and presentation delay phases inside one animation frame, with Event Timing exposing the interaction and Long Animation Frames exposing per-script attribution to the web-vitals attribution build](./diagrams/inp-attribution-chain-light.svg "INP attribution combines two APIs. Event Timing supplies the interaction and its phases; Long Animation Frames supplies the per-script blame (sourceURL, sourceCharPosition, invoker). The web-vitals attribution build joins them by timestamp.")
+![INP attribution chain: a user input enters input delay, processing, and presentation delay phases inside one animation frame, with Event Timing exposing the interaction and Long Animation Frames exposing per-script attribution to the web-vitals attribution build](./diagrams/inp-attribution-chain-dark.svg)
 
 | Phase                  | What It Measures                       | Common Causes of Slowness               |
 | ---------------------- | -------------------------------------- | --------------------------------------- |
@@ -295,22 +296,25 @@ User action     Event handlers      Handlers complete,      Next frame
 
 ### Interaction Grouping
 
-Multiple events from a single user action (e.g., `keydown`, `keypress`, `keyup` for a keystroke, or `pointerdown`, `pointerup`, `click` for a tap) are grouped into a single "interaction." The interaction's latency is the maximum duration among its events.
+Multiple events from a single user action (e.g., `keydown`, `keyup` for a keystroke; `pointerdown`, `pointerup`, `click` for a tap) are grouped into a single *interaction*. The interaction's latency is the maximum duration among its events.
 
-**Measured event types**: `click`, `keydown`, `keyup`, `pointerdown`, `pointerup`, `mousedown`, `mouseup`
+The Event Timing API exposes many event types, but only events that get an [`interactionId`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEventTiming/interactionId) contribute to INP grouping:
 
-**Excluded** (continuous events): `mousemove`, `pointermove`, `touchmove`, `scroll`, `wheel`
+- **Pointer/tap/click**: `pointerdown`, `pointerup`, `click`
+- **Keyboard**: `keydown`, `keyup`
+
+**Excluded** (continuous events; no `interactionId`): `mousemove`, `pointermove`, `pointerrawupdate`, `touchmove`, `wheel`, `drag`, and `scroll` (scroll is decoupled from input events in Chromium and is [explicitly out of scope](https://web.dev/blog/better-responsiveness-metric) for INP).
 
 ### Worst Interaction Selection with Outlier Handling
 
-INP doesn't report the absolute worst interaction—it uses outlier filtering to prevent random hiccups from inflating the score:
+INP doesn't report the absolute worst interaction — it uses [outlier filtering](https://web.dev/articles/inp#how_inp_is_calculated) to prevent random hiccups from inflating the score:
 
-- **<50 interactions**: INP = worst interaction latency
-- **≥50 interactions**: INP ≈ 98th percentile (one outlier ignored per 50 interactions)
+- **< 50 interactions**: INP = worst interaction latency (effectively p100)
+- **≥ 50 interactions**: INP approximates a high percentile (~p98) — one highest interaction is ignored per 50 interactions
 
-**Design rationale**: A generally responsive page with one 2-second interaction caused by a network glitch shouldn't fail INP. The outlier filtering approximates "typical worst-case" rather than "absolute worst-case."
+**Design rationale.** A generally responsive page with one 2-second interaction caused by a network glitch shouldn't fail INP. The filter approximates "typical worst-case" rather than "absolute worst-case."
 
-**Implementation efficiency**: Browsers don't store all interactions. They maintain a small list (typically 10) of the worst-N interactions, sufficient for the p98 approximation without memory concerns on long sessions.
+**Implementation efficiency.** Browsers don't store all interactions; they maintain a small fixed-size list (typically ~10) of the worst-N entries, sufficient for the p98 approximation without bounded-memory concerns on long sessions.
 
 ### INP Diagnostics Code
 
@@ -372,21 +376,68 @@ function getRecommendation(phase: string): string {
 }
 ```
 
+### Script-Level Attribution via Long Animation Frames
+
+Phase-level breakdown tells you *where* in the frame to look; it doesn't tell you *which line of which bundle* burned the time. The [Long Animation Frames API (LoAF)](https://developer.chrome.com/docs/web-platform/long-animation-frames) — stable in Chrome since version 123 — fills that gap by exposing entire animation frames that took longer than 50 ms to render, with per-script attribution.
+
+Each `PerformanceLongAnimationFrameTiming` entry exposes:
+
+- Frame timing: `renderStart`, `styleAndLayoutStart`, `firstUIEventTimestamp`, `blockingDuration` — distinguishing input delay, work, and rendering work inside one frame.
+- A [`scripts[]`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongAnimationFrameTiming/scripts) array of `PerformanceScriptTiming` entries, one per script that ran ≥ 5 ms during the frame, each with:
+  - [`sourceURL`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceScriptTiming/sourceURL) — the script file URL (also surfaced on `PerformanceEventTiming` entries when LoAF can be correlated).
+  - `sourceCharPosition` — character offset into that script for the slow function.
+  - `sourceFunctionName` — the named function (or `""` for anonymous closures).
+  - `invoker` — the call site, e.g. `BUTTON#submit.onclick` or `Window.requestAnimationFrame`.
+  - `invokerType` — `event-listener`, `user-callback`, `promise-resolve`, etc.
+  - `forcedStyleAndLayoutDuration` — synchronous layout/style work the script forced (the canonical layout-thrashing signal).
+
+The `web-vitals` attribution build (v4+) automatically intersects LoAF entries with each INP-qualifying interaction and exposes them as `attribution.longAnimationFrameEntries`:
+
+```ts title="inp-loaf-attribution.ts"
+import { onINP } from "web-vitals/attribution"
+
+onINP(({ attribution, value }) => {
+  const loafs = attribution.longAnimationFrameEntries ?? []
+  const slowest = loafs
+    .flatMap((f) => f.scripts)
+    .toSorted((a, b) => b.duration - a.duration)[0]
+
+  if (slowest) {
+    sendToAnalytics({
+      inp: value,
+      scriptUrl: slowest.sourceURL,
+      scriptFn: slowest.sourceFunctionName || "(anonymous)",
+      scriptChar: slowest.sourceCharPosition,
+      invoker: slowest.invoker,
+      forcedLayoutMs: slowest.forcedStyleAndLayoutDuration,
+    })
+  }
+})
+```
+
+> [!IMPORTANT]
+> Script attribution is **same-origin-only**. Cross-origin scripts (third-party tags, ad SDKs) appear with `sourceURL: ""` and no character position unless they are served with `crossorigin="anonymous"` on the `<script>` tag and a permissive [`Timing-Allow-Origin`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Timing-Allow-Origin) header. Web workers and cross-origin iframes get no script-level attribution at all. In RUM, expect a non-trivial bucket of "unknown third-party" interactions and segment them separately.
+
+The LoAF buffer is capped at 200 entries, so always observe with a `PerformanceObserver` rather than calling `getEntriesByType('long-animation-frame')` after the fact.
+
 ## CLS Measurement and Diagnostics
 
 ### Session Windows
 
-CLS doesn't sum all layout shifts—it uses session windows to group related shifts:
+CLS doesn't sum all layout shifts — it uses [session windows](https://web.dev/blog/evolving-cls) to group related shifts:
 
-- A **session window** starts with a layout shift and includes all shifts within 1 second of the previous shift
-- Each window has a maximum duration of 5 seconds
+- A **session window** starts with a layout shift and includes all subsequent shifts that occur within 1 s of the previous one
+- Each window has a maximum duration of 5 s
 - **CLS = maximum session window score** (not the sum of all windows)
 
-**Design rationale**: Long-lived single-page applications (SPAs) would accumulate infinite CLS if all shifts were summed. Session windows capture "bursts" of instability while ignoring isolated, minor shifts spread across a long session.
+![CLS session window timeline showing three shifts grouped into one window, a gap closing the window, a user click that excludes a 500 ms shift via hadRecentInput, and a later shift forming a smaller second window — CLS is the maximum window score](./diagrams/cls-session-window-light.svg "CLS is the largest session-window score, not the lifetime sum. A gap > 1 s or > 5 s span closes the window; shifts within 500 ms of a discrete input are excluded as expected.")
+![CLS session window timeline showing three shifts grouped into one window, a gap closing the window, a user click that excludes a 500 ms shift via hadRecentInput, and a later shift forming a smaller second window — CLS is the maximum window score](./diagrams/cls-session-window-dark.svg)
+
+**Design rationale.** Long-lived single-page applications (SPAs) would accumulate unbounded CLS if all shifts were summed. Session windows capture "bursts" of instability while ignoring isolated, minor shifts spread across a long session. (Even with windowing, CLS in the standard `web-vitals` library is still attributed to the initial URL of an SPA — see [SPAs and soft navigations](#spas-and-soft-navigations) below.)
 
 ### Expected vs Unexpected Shifts
 
-The Layout Instability API marks shifts as "expected" (via `hadRecentInput: true`) when they occur within 500ms of discrete user input:
+The Layout Instability API marks shifts as "expected" (via [`hadRecentInput: true`](https://developer.mozilla.org/en-US/docs/Web/API/LayoutShift/hadRecentInput)) when they occur within 500 ms of a discrete user input:
 
 ```ts title="cls-filtering.ts"
 new PerformanceObserver((list) => {
@@ -400,9 +451,9 @@ new PerformanceObserver((list) => {
 }).observe({ type: "layout-shift", buffered: true })
 ```
 
-**Qualifying inputs for `hadRecentInput`**: `mousedown`, `keydown`, `pointerdown` (within 500ms before the shift)
+**Qualifying inputs for `hadRecentInput`**: discrete inputs only — taps, clicks, and keypresses (the spec leaves the exact event list to the implementation; Chromium currently latches `lastInputTime` on input-driven events). [Continuous gestures — scrolls, drags, pinch-zoom — do not flag the shift](https://web.dev/articles/cls#expected_vs_unexpected_layout_shifts).
 
-**Why 500ms?** This window covers the typical delay between user action and resulting layout change (e.g., clicking an accordion). Shifts outside this window are considered "unexpected" and degrade user experience.
+**Why 500 ms?** The window covers the typical UI lag between user action and the resulting layout change (clicking an accordion, expanding a row). Shifts outside this window are "unexpected" and count toward CLS.
 
 ### Layout Shift Sources
 
@@ -461,14 +512,14 @@ onCLS((metric) => {
 
 ### Chrome User Experience Report (CrUX)
 
-CrUX aggregates real Chrome user data and is the source of field metrics for Google Search ranking:
+[CrUX](https://developer.chrome.com/docs/crux) aggregates 28-day rolling samples from opted-in Chrome users and is the source of field metrics for Google Search ranking:
 
-| Data Source            | Update Frequency                      | Data Granularity              | Use Case                                  |
-| ---------------------- | ------------------------------------- | ----------------------------- | ----------------------------------------- |
-| **CrUX API**           | Daily (~04:00 UTC)                    | Origin or page URL            | Real-time monitoring, CI/CD checks        |
-| **CrUX History API**   | Weekly (Mondays)                      | Origin or page URL, 25+ weeks | Trend analysis, regression detection      |
-| **BigQuery**           | Monthly (2nd Tuesday)                 | Origin only                   | Large-scale analysis, industry benchmarks |
-| **PageSpeed Insights** | Daily (CrUX) + on-demand (Lighthouse) | Page URL                      | Combined lab + field, quick checks        |
+| Data Source            | Update Frequency                       | Data Granularity                                                | Use Case                                  |
+| ---------------------- | -------------------------------------- | --------------------------------------------------------------- | ----------------------------------------- |
+| **[CrUX API](https://developer.chrome.com/docs/crux/api)**           | Daily                                  | Origin or page URL                                              | Real-time monitoring, CI/CD checks        |
+| **[CrUX History API](https://developer.chrome.com/docs/crux/history-api)**   | Weekly (Mondays)                       | Origin or page URL; default 25, max 40 collection periods (~10 mo) | Trend analysis, regression detection      |
+| **[BigQuery](https://developer.chrome.com/docs/crux/bigquery)**           | Monthly (2nd Tuesday)                  | **Origin only**                                                 | Large-scale analysis, industry benchmarks |
+| **[PageSpeed Insights](https://pagespeed.web.dev/)** | Daily (CrUX) + on-demand (Lighthouse)  | Page URL                                                        | Combined lab + field, quick checks        |
 
 ### CrUX API Usage
 
@@ -555,15 +606,19 @@ function queueMetric(metric: { name: string; value: number; delta: number; attri
   })
 }
 
-// Send on visibilitychange (page hide) for reliable delivery
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden" && metricQueue.length > 0) {
-    navigator.sendBeacon("/analytics/rum", JSON.stringify(metricQueue))
-    metricQueue.length = 0
-  }
-})
+function flush() {
+  if (metricQueue.length === 0) return
+  navigator.sendBeacon("/analytics/rum", JSON.stringify(metricQueue))
+  metricQueue.length = 0
+}
 
-// Register metric callbacks
+// Send on visibilitychange (hidden) for tab/app-switch finality,
+// and on pagehide for the bfcache-friendly terminal event.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flush()
+})
+addEventListener("pagehide", flush)
+
 onLCP(queueMetric)
 onINP(queueMetric)
 onCLS(queueMetric)
@@ -573,11 +628,11 @@ onTTFB(queueMetric)
 
 **Critical implementation details**:
 
-1. **Use `delta` for CLS**: The value accumulates; sending full value inflates aggregates
-2. **Send on `visibilitychange`**: Metrics finalize when the page is hidden; `beforeunload` is unreliable on mobile
-3. **Use `sendBeacon`**: Survives page navigation, unlike `fetch`
-4. **Include session/page context**: Enables segmentation by device, connection, page
-5. **Batch requests**: Reduces beacon overhead, especially on mobile
+1. **Use `delta` for CLS**: The value accumulates; sending full value inflates aggregates. The `web-vitals` library [calls back on every change](https://github.com/GoogleChrome/web-vitals#report-the-value-on-every-change) precisely so analytics can sum deltas safely.
+2. **Listen to both `visibilitychange` (hidden) and `pagehide`**: [`unload` and `beforeunload` are unreliable on mobile and disqualify the page from the back/forward cache (bfcache)](https://developer.chrome.com/docs/web-platform/page-lifecycle-api). `pagehide` is bfcache-friendly; `visibilitychange→hidden` catches tab switches and app backgrounding.
+3. **Use `sendBeacon`** (or `fetch(..., { keepalive: true })` as a fallback): the request is queued by the browser and survives navigation, unlike a plain `fetch`.
+4. **Include session/page context**: Enables segmentation by device, connection, page.
+5. **Batch requests**: Reduces beacon overhead, especially on mobile.
 
 ### Aggregation and Alerting
 
@@ -612,6 +667,26 @@ function getRating(metric: string, p75: number): "good" | "needs-improvement" | 
 }
 ```
 
+## SPAs and Soft Navigations
+
+Core Web Vitals are scoped to a **hard navigation** — the top-level page load. The standard `web-vitals` library and CrUX both attribute every metric to the URL that was loaded first; client-side route changes ("soft navigations") do not reset CLS, do not start a new INP collection window, and do not produce a fresh LCP candidate. For SPAs that spend most of the user's session on routes after the initial mount, this means:
+
+- The CrUX-reported LCP for `/app` may reflect only the splash screen, not the route the user actually used.
+- CLS shifts caused by a soft route change are charged against the original URL.
+- INP attribution surfaces the worst interaction across the whole session, not per route.
+
+Chrome ships an experimental [Soft Navigations API](https://developer.chrome.com/docs/web-platform/soft-navigations-experiment) that detects user-initiated, History-API-driven navigations, emits a `soft-navigation` `PerformanceEntry`, and resets the LCP / INP / CLS collection windows for that route. As of April 2026, [a fresh — and intended-final — origin trial began with Chrome 147](https://developer.chrome.com/blog/new-soft-navigations-origin-trial); local testing is gated behind `chrome://flags/#enable-experimental-web-platform-features` or `--enable-features=SoftNavigationHeuristics`. The heuristic fires only when **all three** conditions are satisfied: a user-initiated event, a History API URL change, and a paint of a newly-modified DOM subtree. Programmatic `history.pushState` without an interaction is deliberately ignored.
+
+The matching [`soft-navs` branch of `web-vitals`](https://github.com/GoogleChrome/web-vitals/tree/soft-navs) accepts `{ reportSoftNavs: true }` on each callback, emits per-navigation metrics, and exposes the originating soft navigation on `attribution.softNavigation`.
+
+> [!WARNING]
+> CrUX has **not** integrated soft navigations as of April 2026, and the Chrome team has explicitly deferred that decision until after this trial. Until then, ship both pipelines:
+>
+> 1. **Standard CWV per hard navigation** — what Search Console and CrUX score.
+> 2. **Soft-nav-sliced metrics in your own RUM** — segmented by `navigationType` (`navigate` vs `soft-navigate`) so you can see which routes are actually slow.
+>
+> Do not silently replace the standard pipeline with soft-nav data; you will diverge from CrUX without noticing.
+
 ## Debugging Workflow
 
 ### Step 1: Identify the Failing Metric
@@ -638,7 +713,7 @@ If lab passes but field fails, investigate:
 For the failing metric, deploy the attribution build to RUM and identify:
 
 - **LCP**: Which subpart dominates? (TTFB, load delay, load time, render delay)
-- **INP**: Which phase dominates? (input delay, processing, presentation)
+- **INP**: Which phase dominates? Then drill into `longAnimationFrameEntries[].scripts[]` for `sourceURL` + `sourceCharPosition` of the slowest function.
 - **CLS**: Which element causes the largest shift? When in the page lifecycle?
 
 ### Step 4: Target Optimizations
@@ -681,21 +756,24 @@ For production monitoring, combine CrUX data (authoritative 75th percentile) wit
 
 ### Summary
 
-- **Lab vs field**: Lab data answers "what's possible?"; field data answers "what are users experiencing?"—prioritize field data for Core Web Vitals assessment
-- **web-vitals library v5.x**: Canonical implementation; use attribution build for debugging (~3.5KB)
-- **LCP subparts**: TTFB, resource load delay, resource load time, element render delay—median poor-LCP sites have >50% of budget consumed before resource fetch starts
-- **INP phases**: Input delay (main thread blocked), processing time (handler execution), presentation delay (layout/paint)—uses outlier filtering (1 per 50 interactions ignored)
-- **CLS session windows**: Maximum 5 seconds, groups shifts within 1 second—`hadRecentInput` excludes user-initiated shifts within 500ms
-- **CrUX data sources**: API (daily, page-level), History API (weekly, 25+ weeks), BigQuery (monthly, origin-only)
+- **Lab vs field**: Lab data answers "what's possible?"; field data answers "what are users experiencing?" — prioritise field data for Core Web Vitals assessment.
+- **web-vitals library v5.x**: Canonical implementation; standard build ~ 2 KB brotli, attribution build ~ 3.5 KB. `onINP` defaults to a 40 ms duration threshold (lower than the 104 ms platform default).
+- **LCP subparts**: TTFB, resource load delay, resource load time, element render delay — median origin with poor LCP burns ~ 1.29 s in resource load delay alone, before the LCP fetch even starts. LCP reporting freezes on first user interaction; removed elements still count.
+- **INP phases**: Input delay (main thread blocked), processing time (handler execution), presentation delay (layout/paint) — outlier filter approximates p98 by ignoring 1 highest interaction per 50.
+- **INP script attribution**: Long Animation Frames API (stable since Chrome 123) supplies `sourceURL`, `sourceCharPosition`, `sourceFunctionName`, `invoker`, and `forcedStyleAndLayoutDuration`. The web-vitals attribution build joins it onto each INP entry as `longAnimationFrameEntries`. Same-origin only — third-party scripts need `crossorigin="anonymous"` + `Timing-Allow-Origin`.
+- **CLS session windows**: Max 5 s, group shifts within 1 s of each other; `hadRecentInput` excludes shifts within 500 ms of a discrete input.
+- **CrUX data sources**: API (daily, page or origin), History API (weekly, default 25 / max 40 collection periods), BigQuery (monthly, **origin-only**).
+- **SPAs**: Standard pipeline attributes everything to the hard-navigation URL. The Soft Navigations API is in a fresh origin trial as of Chrome 147 (April 2026); CrUX has not adopted it. Ship soft-nav-sliced metrics in your own RUM in parallel with the standard pipeline, not as a replacement.
 
 ### References
 
 **Specifications**
 
-- [W3C Largest Contentful Paint](https://www.w3.org/TR/largest-contentful-paint/) - LCP definition, qualifying elements, timing
-- [WICG Layout Instability](https://wicg.github.io/layout-instability/) - CLS calculation, session windows, hadRecentInput
-- [W3C Event Timing](https://www.w3.org/TR/event-timing/) - Event duration measurement, INP basis
-- [W3C Performance Timeline](https://w3c.github.io/performance-timeline/) - PerformanceObserver API
+- [W3C Largest Contentful Paint](https://www.w3.org/TR/largest-contentful-paint/) — LCP definition, qualifying elements, timing
+- [WICG Layout Instability](https://wicg.github.io/layout-instability/) — CLS calculation, session windows, `hadRecentInput`
+- [W3C Event Timing](https://www.w3.org/TR/event-timing/) — Event duration measurement, INP basis
+- [W3C Performance Timeline](https://w3c.github.io/performance-timeline/) — `PerformanceObserver` API
+- [W3C Long Animation Frames](https://w3c.github.io/long-animation-frames/) — LoAF entries, script attribution properties
 
 **Official Documentation**
 
@@ -708,6 +786,13 @@ For production monitoring, combine CrUX data (authoritative 75th percentile) wit
 
 **Implementation References**
 
-- [GoogleChrome/web-vitals](https://github.com/GoogleChrome/web-vitals) - Official library, v5.x documentation
-- [DebugBear LCP Subparts](https://www.debugbear.com/blog/lcp-subparts) - LCP timing breakdown methodology
-- [web.dev Optimize INP](https://web.dev/articles/optimize-inp) - Phase-specific optimization strategies
+- [GoogleChrome/web-vitals](https://github.com/GoogleChrome/web-vitals) — Official library, v5.x documentation
+- [web-vitals `onINP` durationThreshold issue #568](https://github.com/GoogleChrome/web-vitals/issues/568) — Why `web-vitals` defaults to 40 ms, not 104 ms
+- [Chromium speed changelog: low-entropy LCP filter (Chrome 112)](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/speed/metrics_changelog/2023_04_lcp.md) — The 0.05 bpp threshold
+- [web.dev: common misconceptions about how to optimize LCP](https://web.dev/blog/common-misconceptions-lcp) — Subpart breakdown for poor-LCP origins (CrUX field data)
+- [web.dev: evolving the CLS metric](https://web.dev/blog/evolving-cls) — Session-window design and rationale
+- [Chrome for Developers: experimenting with measuring soft navigations](https://developer.chrome.com/docs/web-platform/soft-navigations-experiment) — Soft Navigations API for SPA reporting
+- [Chrome for Developers: new Soft Navigations origin trial (Chrome 147, April 2026)](https://developer.chrome.com/blog/new-soft-navigations-origin-trial) — current trial scope and CrUX status
+- [Chrome for Developers: Long Animation Frames API](https://developer.chrome.com/docs/web-platform/long-animation-frames) — INP attribution successor to Long Tasks, stable since Chrome 123
+- [MDN: PerformanceLongAnimationFrameTiming.scripts](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongAnimationFrameTiming/scripts) — `sourceURL`, `sourceCharPosition`, `sourceFunctionName`, `invoker`
+- [Chrome for Developers: Page Lifecycle API](https://developer.chrome.com/docs/web-platform/page-lifecycle-api) — `visibilitychange` / `pagehide` / bfcache guidance for analytics

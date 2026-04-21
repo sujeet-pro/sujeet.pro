@@ -1,0 +1,53 @@
+%% Diagram: Slack distributed architecture overview (~2023)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge (multi-region)"]
+        Envoy["Envoy<br/>load balancing, AZ routing"]
+        Flannel["Flannel<br/>edge cache, consistent hashing"]
+    end
+
+    subgraph RTM["Real-time messaging"]
+        GS["Gateway Servers<br/>WebSocket termination"]
+        CS["Channel Servers<br/>pub/sub, ~16M channels/host"]
+        AS["Admin Servers<br/>stateless routing"]
+        PS["Presence Servers<br/>online status"]
+        CHARM["CHARM<br/>hash-ring manager"]
+    end
+
+    subgraph Compute["Application"]
+        Webapp["Webapp Monolith<br/>PHP/Hack on HHVM"]
+        JobQ["Job Queue<br/>9B jobs/day"]
+        Search["Search<br/>Solr + ML re-rank"]
+    end
+
+    subgraph Data["Data layer"]
+        Vitess["Vitess<br/>2.3M QPS, multi-keyspace"]
+        MC["Memcached + Mcrouter"]
+        Kafka["Kafka<br/>event stream"]
+        S3["S3<br/>warehouse / Parquet"]
+    end
+
+    subgraph Infra["Control"]
+        Consul["Consul<br/>service discovery"]
+        Rotor["Rotor<br/>xDS control plane"]
+    end
+
+    Envoy --> Flannel
+    Flannel --> GS
+    GS --> CS
+    Webapp --> AS --> CS
+    Webapp --> Vitess
+    Webapp --> MC
+    Webapp --> Search
+    Webapp --> JobQ
+    JobQ --> Vitess
+    CS --> GS
+    Vitess --> Kafka --> S3
+    Consul --> Rotor --> Envoy
+    CHARM -.manages.-> CS
+
+    style Envoy fill:#818cf8,stroke:#4338ca,color:#ffffff
+    style Flannel fill:#818cf8,stroke:#4338ca,color:#ffffff
+    style Vitess fill:#fb923c,stroke:#c2410c,color:#ffffff
+    style Webapp fill:#34d399,stroke:#1E5A1E,color:#ffffff

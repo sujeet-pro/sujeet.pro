@@ -1,0 +1,32 @@
+%% Diagram: Inside a Magic Pocket cell
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph "Cell (50-100+ PB raw)"
+        direction TB
+        FE["Cell-facing Frontends"]
+        M["Master<br/>(soft-state, single per cell)"]
+        RT["Replication Table<br/>bucket -> volume<br/>volume -> OSDs, open/closed,<br/>type, generation"]
+        VM["Volume Managers<br/>(co-located on OSD hosts;<br/>copy + erasure code)"]
+
+        subgraph "Storage racks (8 chassis/rack, ~20+ PB/rack)"
+            direction LR
+            OSD1["OSD host A<br/>~100 SMR drives<br/>>=2 PB"]
+            OSD2["OSD host B<br/>~100 SMR drives"]
+            OSD3["OSD host C<br/>~100 SMR drives"]
+            OSDn["... hundreds of OSDs"]
+        end
+
+        FE --> RT
+        FE -- "PUT/GET<br/>(all OSDs in volume)" --> OSD1
+        FE --> OSD2
+        FE --> OSD3
+        M -. "monitor health" .-> OSD1
+        M -. "monitor health" .-> OSD2
+        M -. "monitor health" .-> OSD3
+        M -. "monitor health" .-> OSDn
+        M --> VM
+        VM --> OSD1
+        VM --> OSDn
+        RT --- M
+    end

@@ -1,0 +1,15 @@
+%% Diagram: Token-based admission (Path A)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph PreSale["Pre-sale setup"]
+        INV[Inventory: N units] --> GEN[Mint N checkout tokens]
+    end
+
+    subgraph SaleTime["During the sale"]
+        WR[Waiting room] --> Q[FIFO queue]
+        Q --> |Token assigned| GATE[Token gate]
+        GATE --> CHECKOUT[Checkout - tokens = inventory]
+    end
+
+    GEN --> GATE

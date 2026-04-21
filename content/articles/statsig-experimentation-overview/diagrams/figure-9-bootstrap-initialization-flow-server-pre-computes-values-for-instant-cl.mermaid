@@ -1,21 +1,19 @@
-%% Diagram: Figure 9 Bootstrap Initialization Flow Server Pre Computes Values For Instant Cl
+%% Diagram: Bootstrap initialization flow for SSR (Next.js)
 %% Type: sequence
 %%{init: {'htmlLabels': false}}%%
 sequenceDiagram
-    participant User as User
-    participant Next as Next.js Server
-    participant Statsig as Statsig Server SDK
-    participant Client as Client SDK
-    participant Browser as Browser
+    participant Browser
+    participant Next as Next.js server
+    participant Core as Statsig Server Core SDK
+    participant Client as @statsig/js-client
 
-    User->>Next: GET /page
-    Next->>Statsig: getClientInitializeResponse(user)
-    Statsig->>Statsig: Local evaluation
-    Statsig-->>Next: Bootstrap values
-    Next->>Browser: HTML + bootstrap values
-    Browser->>Client: initializeSync(bootstrap)
-    Client->>Client: Instant cache population
-    Client->>Browser: Feature flags ready
-
-    Note over Browser: No network request needed
-    Note over Client: UI renders immediately
+    Browser->>Next: GET /page
+    Next->>Core: getClientInitializeResponse(user, {hashAlgorithm:'djb2', filters})
+    Note over Core: In-memory evaluation against<br/>cached config spec
+    Core-->>Next: Bootstrap JSON (filtered)
+    Next-->>Browser: HTML with inlined bootstrap JSON
+    Browser->>Client: new StatsigClient(key, user)
+    Browser->>Client: client.dataAdapter.setData(json)
+    Browser->>Client: client.initializeSync()
+    Note over Client: details.reason = 'Bootstrap'<br/>No /initialize round-trip
+    Client-->>Browser: Synchronous checkGate / getExperiment

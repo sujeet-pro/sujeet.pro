@@ -1,20 +1,27 @@
-%% Diagram: Ot Core Flow Concurrent Operations Are Transformed Against Each Other To Preserv
+%% Diagram: OT core flow — server linearises and transforms concurrent ops
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Client_A["Client A"]
-        A1["Local Op: Ins(0,'x')"]
+    subgraph Client_A["Client A — local view"]
+        A0["State: 'abc'"]
+        A1["Author O_A = Ins(0, 'x')"]
     end
-    subgraph Client_B["Client B"]
-        B1["Local Op: Del(2)"]
+
+    subgraph Client_B["Client B — local view"]
+        B0["State: 'abc'"]
+        B1["Author O_B = Del(2)"]
     end
-    subgraph Server["Server"]
-        S1["Canonical Order"]
-        S2["Transform & Broadcast"]
+
+    subgraph Server["Server — single canonical history"]
+        S1["Receive O_A, assign rev N"]
+        S2["Receive O_B, transform against rev N"]
+        S3["Broadcast O_A and O_B' = T(O_B, O_A)"]
     end
 
     A1 --> S1
-    B1 --> S1
+    B1 --> S2
     S1 --> S2
-    S2 -->|"Transformed Del(3)"| Client_A
-    S2 -->|"Transformed Ins(0,'x')"| Client_B
+    S2 --> S3
+    S3 -->|"O_B' = Del(3)"| Client_A
+    S3 -->|"O_A = Ins(0, 'x')"| Client_B
+    Client_A -. "converges to 'xab'" .-> Client_B

@@ -1,0 +1,24 @@
+%% Diagram: Enterprise encrypted-DNS deployment decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    q1{"Internal zones?"} -- "Yes" --> internal["Internal recursive resolver\nwith DoH/DoT"]
+    q1 -- "No" --> q2{"Devices managed?"}
+    internal --> q2
+    q2 -- "Yes" --> policy["Pin endpoint via\nMDM / GPO"]
+    q2 -- "No" --> canary["Canary domain →\nNXDOMAIN"]
+    policy --> q3{"Egress filter?"}
+    canary --> q3
+    q3 -- "Yes" --> block["Block 853,\nallowlist DoH/443"]
+    q3 -- "No" --> allow["DoH/443\nunblockable"]
+    block --> done(["Log EDE, RRSIG TTL,\nAD-flag rate"])
+    allow --> done
+
+    classDef pri fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef sec fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class internal,policy,block pri
+    class canary sec
+    class allow warn
+    class done ok

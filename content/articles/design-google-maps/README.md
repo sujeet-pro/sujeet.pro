@@ -2,34 +2,46 @@
 title: Design Google Maps
 linkTitle: 'Google Maps'
 description: >-
-  System design for a mapping and navigation platform covering quadtree-based
-  vector tile rendering, Contraction Hierarchies for sub-millisecond routing on
-  18M+ node road networks, traffic-aware ETA prediction with GNNs, and offline map support.
+  System design for a mapping and navigation platform: quadtree vector tiles
+  (MVT), Contraction Hierarchies for sub-millisecond routing on continental
+  road networks, HMM map matching, and graph-neural-network ETA prediction.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - distributed-systems
+  - algorithms
+  - geospatial
+  - routing
 ---
 
 # Design Google Maps
 
-A system design for a mapping and navigation platform handling tile-based rendering, real-time routing with traffic awareness, geocoding, and offline maps. This design addresses continental-scale road networks (18M+ nodes), sub-second routing queries, and 97%+ ETA accuracy.
+A system design for a mapping and navigation platform handling tile-based rendering, real-time routing with traffic awareness, geocoding, and offline maps. The interesting part is not "draw a map and find a path" — it is the gap between a textbook Dijkstra (seconds per query on a continental graph[^bast2015]) and the sub-millisecond response a navigation app actually needs, plus the operational reality of overlaying live traffic on a precomputed hierarchy without rebuilding it.
+
+[^bast2015]: [Route Planning in Transportation Networks](https://arxiv.org/abs/1504.05140) — Bast, Delling, Goldberg, Müller-Hannemann, Pajor, Sanders, Wagner, Werneck (2015). The canonical survey of speedup techniques for shortest-path queries on road networks; numbers below come from this and follow-up benchmarks.
 
 ![High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.](./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-light.svg "High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.")
 ![High-level architecture: CDN-cached tiles, specialized services for routing/geocoding/traffic, and multi-source data ingestion.](./diagrams/high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-dark.svg)
 
 ## Abstract
 
-Google Maps solves three distinct problems that require different architectural approaches:
+A mapping platform is really three loosely-coupled systems wearing one URL:
 
-1. **Map Rendering**: Quadtree-based tile pyramid with vector tiles—zoom level 0 is 1 tile, zoom 18 is 69 billion tiles. CDN caching is essential; cache hit rates exceed 95% for popular areas.
+1. **Map rendering** — a quadtree tile pyramid built on the [Web Mercator projection (EPSG:3857)](https://epsg.io/3857). Zoom 0 is one 256×256 tile covering the world; each zoom doubles the linear resolution[^osm-zoom]. Tiles are static, cacheable, and overwhelmingly read-heavy, so they belong on a CDN with very high hit ratios.
 
-2. **Routing**: Dijkstra alone takes 4.8 seconds for European road networks (18M nodes). Contraction Hierarchies (CH) preprocessing reduces query time to 163 microseconds—a 30,000x speedup. Traffic-aware routing overlays real-time edge weights on the precomputed hierarchy.
+2. **Routing** — plain Dijkstra is in the seconds per query on a continental graph[^bast2015], which is unusable for navigation. Production engines preprocess the road network into a [Contraction Hierarchies](https://en.wikipedia.org/wiki/Contraction_hierarchies) (CH) graph[^geisberger2008] so that query-time work collapses to a bidirectional "upward-only" search; OSRM reports a 163 µs median query on the 87M-vertex North America graph[^pch2025]. Real-time traffic is overlaid as edge-weight multipliers on top of the static hierarchy, not by rebuilding it.
 
-3. **ETA Prediction**: Graph Neural Networks model "supersegments" (road sections with shared traffic patterns) to achieve 97%+ accuracy, with up to 50% improvement over baseline in congested cities.
+3. **ETA prediction** — Google Maps reports that ETAs were already accurate within ±10 % on more than 97 % of trips before its 2020 work with DeepMind; a Graph Neural Network operating on "supersegments" (sequences of adjacent road segments) then cut negative ETA outcomes by up to 50 % in cities like Berlin, Jakarta, São Paulo, Sydney, Tokyo, and Washington D.C.[^deepmind2020][^gnn-eta-2021].
 
-The core tradeoff: **preprocessing time vs. query latency**. CH requires 5+ minutes to precompute but enables sub-millisecond queries. For traffic updates, a hybrid approach applies real-time weights to the static hierarchy rather than recomputing.
+The core trade-off everywhere is **preprocessing time vs. query latency**, and the hidden constraint is **how dynamic the inputs are**. CH wins when the road graph is stable and traffic is layered as a multiplier; [Customizable Route Planning (CRP)](https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf) wins when the metric itself changes (driving vs. walking, hourly cost overlays).
+
+[^osm-zoom]: [OpenStreetMap zoom levels](https://wiki.openstreetmap.org/wiki/Zoom_levels) — meters per pixel formula `C / 2^(z+8)` with `C` ≈ 40,075,016 m (Earth circumference); 156,543 m/px at zoom 0 at the equator.
+[^geisberger2008]: [Contraction Hierarchies: Faster and Simpler Hierarchical Routing in Road Networks](https://ae.iti.kit.edu/1640.php) — Geisberger, Sanders, Schultes, Delling (2008); the original CH paper, evaluated on the Western Europe road network.
+[^pch2025]: [Parallel Contraction Hierarchies Can Be Efficient and Scalable](https://arxiv.org/html/2412.18008v3) — Wang et al., ICS 2025. Table 1 reports OSRM at 307 s preprocessing and 163 µs median query on the 87M-vertex / 113M-edge North America road graph; their own SPoCH implementation reaches 23 s preprocessing and 93 µs queries on the same graph.
+[^deepmind2020]: [Traffic prediction with advanced Graph Neural Networks](https://deepmind.google/blog/traffic-prediction-with-advanced-graph-neural-networks/) — Google DeepMind, 2020-09-03. Source for "97 %+ trips with ETA within ±10 %" baseline and the city-by-city accuracy improvement numbers.
+[^gnn-eta-2021]: [ETA Prediction with Graph Neural Networks in Google Maps](https://arxiv.org/abs/2108.11482) — Derrow-Pinion et al., CIKM 2021; the peer-reviewed companion to the DeepMind blog. Reports >40 % reduction in negative ETA outcomes in cities like Sydney.
 
 ## Requirements
 
@@ -63,89 +75,89 @@ The core tradeoff: **preprocessing time vs. query latency**. CH requires 5+ minu
 
 ### Scale Estimation
 
-**Users:**
+The exact daily numbers are not public; Google has stated that Maps has more than 2 billion monthly active users[^maps-2b]. The estimates below are interview-style back-of-the-envelope, not measured production figures.
 
-- DAU: 1 billion (Google Maps actual scale)
-- Peak concurrent: 100M (10% of DAU)
+**Users (assumed):**
 
-**Tile Traffic:**
+- MAU: ~2 B (publicly stated[^maps-2b]).
+- DAU: ~1 B (≈ 50 % of MAU; sensitivity analysis: doubling DAU only doubles RPS, all conclusions hold).
+- Peak concurrent: ~100 M (≈ 10 % of DAU).
 
-- Average session: 50 tile requests (zoom/pan interactions)
-- Daily tile requests: 1B × 50 = 50B requests/day
-- Peak RPS: 50B / 86400 × 3 (peak multiplier) ≈ 1.7M RPS
+**Tile traffic (estimate):**
 
-**Routing Traffic:**
+- Average session: 50 tile requests (zoom/pan).
+- Daily tile requests: 1 B × 50 = 50 B/day.
+- Peak RPS: 50 B / 86,400 × 3 ≈ **1.7 M RPS**, almost all absorbed by the CDN.
 
-- Routes per DAU: 2 average
-- Daily routing requests: 2B/day ≈ 23K RPS
-- Peak: 70K RPS
+**Routing traffic (estimate):**
 
-**Storage:**
+- ~2 routes per DAU per day → 2 B/day ≈ 23 K RPS average, ~70 K RPS peak.
 
-- Global road network: ~1 billion road segments
-- CH index size: 50-100 bytes/node × 1B ≈ 50-100 TB
-- Vector tiles (all zoom levels): ~50 PB
-- Traffic data: 1B segments × 24 hours × 365 days × 4 bytes ≈ 35 TB/year
+**Storage (order-of-magnitude):**
+
+- Global road network: ~10⁸–10⁹ edges depending on attributes.
+- CH index: tens of bytes per node of overhead on top of the original graph[^geisberger2008]; tens of TB for a global dataset, sharded by region.
+- Vector tiles across all zoom levels: tens of PB before compression.
+- Traffic observations: 10⁹ segments × 24 h × 4 B/observation per hour ≈ 30+ TB/year of raw probe-aggregated data.
+
+[^maps-2b]: Confirmed publicly in Google Maps press coverage (e.g. CNBC, "Google Maps has 2 billion monthly users", 2024). DAU and concurrency estimates here are inferred for capacity-planning purposes only.
 
 ## Design Paths
 
-### Path A: Preprocessing-Heavy (Contraction Hierarchies)
+The shortest-path literature offers three viable production techniques; pick by how much the underlying graph and the metric move.
 
-**Best when:**
+### Path A: Preprocessing-heavy — Contraction Hierarchies
 
-- Road network changes infrequently (< daily)
-- Query latency is critical (< 1ms routing)
-- Traffic updates can be overlaid without full recomputation
+**Best when** the road network is stable, query latency is the dominant requirement, and live traffic can be applied as a per-edge multiplier on top of a precomputed structure.
 
-**Architecture:**
+- Preprocess offline: order nodes by a "least-important first" heuristic, then iteratively contract them and add shortcut edges that preserve shortest-path distances[^geisberger2008].
+- At query time, run bidirectional Dijkstra but only relax edges that go "upward" in the hierarchy. The two searches meet at the highest-importance node on the optimal path.
+- Apply traffic as `edge_weight = base_weight × traffic_multiplier`; the topology never changes, so the hierarchy stays valid.
 
-- Precompute Contraction Hierarchies offline (5-10 minutes for continental networks)
-- Store preprocessed graph in memory-mapped files
-- Apply traffic as edge weight multipliers at query time
+Trade-offs:
 
-**Trade-offs:**
+- ✅ Median query times in the hundreds of microseconds on continental graphs (OSRM: 163 µs on N. America[^pch2025]).
+- ✅ Predictable latency; the search space is tiny compared to plain Dijkstra.
+- ❌ Preprocessing is in the minutes-to-hours range and must rerun whenever the topology changes (new road segments, permanent closures).
+- ❌ Memory overhead from shortcuts is non-trivial (tens of bytes per node).
 
-- ✅ Sub-millisecond query time (163 µs median)
-- ✅ Predictable latency under load
-- ❌ Preprocessing blocks road network updates
-- ❌ Memory-intensive (21-68 bytes/node overhead)
+**Used in production by**: [OSRM](https://github.com/Project-OSRM/osrm-backend), [GraphHopper](https://github.com/graphhopper/graphhopper), [Valhalla](https://github.com/valhalla/valhalla)-style stacks. Google Maps' exact routing engine is not publicly documented; CH is the default reference architecture in the academic literature[^bast2015].
 
-**Real-world example:** OSRM, GraphHopper, Google Maps routing engine.
+### Path B: Customizable — CRP / Customizable Contraction Hierarchies
 
-### Path B: Dynamic Routing (ALT Algorithm)
+**Best when** the metric changes often (driving vs. walking, time-of-day cost overlays, user preferences), but the topology is still stable.
 
-**Best when:**
+- Precompute a [multi-level partition](https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf) of the graph once (slow).
+- "Customize" the metric in seconds to minutes by recomputing intra-cell shortcuts.
+- Query time is competitive with CH (low ms).
 
-- Road network changes frequently (construction, closures)
-- Real-time edge weights are primary concern
-- Preprocessing time must be minimal
+Trade-offs vs. CH: cheaper customization for a given network, more bookkeeping, slightly slower queries. Bing Maps documented CRP as the engine behind its routing service[^crp2017]; CCH (Customizable Contraction Hierarchies) is the open-source variant.
 
-**Architecture:**
+### Path C: Dynamic — ALT (A* + Landmarks + Triangle inequality)
 
-- Precompute distances to landmark nodes only
-- Use triangle inequality for search pruning
-- Full dynamic edge weights without reprocessing
+**Best when** the topology itself changes frequently (research, construction-heavy regions) and you cannot afford to rebuild the hierarchy.
 
-**Trade-offs:**
+- Precompute shortest-path distances from a small set of landmarks.
+- Use the triangle inequality to derive a tight A* heuristic.
 
-- ✅ Handles dynamic networks well
-- ✅ Lighter preprocessing (seconds to minutes)
-- ❌ 10-100x slower queries than CH
-- ❌ Landmark selection impacts quality
+Trade-offs: handles dynamic networks natively, but queries are typically 10-100× slower than CH and quality depends heavily on landmark selection[^bast2015].
 
-### Path Comparison
+### Path comparison
 
-| Factor          | Path A (CH)         | Path B (ALT)         |
-| --------------- | ------------------- | -------------------- |
-| Query time      | 163 µs              | 1-10 ms              |
-| Preprocessing   | 5-10 minutes        | Seconds              |
-| Dynamic updates | Overlay required    | Native support       |
-| Memory overhead | High (21-68 B/node) | Moderate             |
-| Best for        | Production routing  | Experimental/dynamic |
+| Factor                  | CH (Path A)              | CRP / CCH (Path B)         | ALT (Path C)                |
+| :---------------------- | :----------------------- | :------------------------- | :-------------------------- |
+| Median query time       | 100–200 µs               | low ms                     | 1–10 ms                     |
+| Preprocessing           | Minutes (continental)    | Hours upfront, sec to recustomize | Seconds to minutes  |
+| Metric updates          | Multipliers only         | Re-customize cheaply       | Native                      |
+| Topology updates        | Full rebuild             | Full rebuild               | Native                      |
+| Memory overhead         | High                     | High                       | Moderate                    |
+| Reference users         | OSRM, GraphHopper        | Bing Maps[^crp2017]        | Mostly research / hybrids   |
 
-### This Article's Focus
+[^crp2017]: [Customizable Route Planning in Road Networks](https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf) — Delling, Goldberg, Pajor, Werneck (Transportation Science, 2017). Section 1 explicitly states CRP is "the core of the routing engine currently in use by Bing Maps".
 
-This article focuses on **Path A (Contraction Hierarchies)** because production mapping services require sub-millisecond query times at scale. Traffic is handled via edge weight overlays rather than full recomputation.
+### This article's focus
+
+The rest of this design assumes **Path A (CH)** as the routing core because it stresses the most interesting trade-off — sub-millisecond queries on a 10⁸-edge graph by accepting a heavy offline build — and because Path B/C reuse most of the same surrounding services (tiles, traffic ingestion, geocoding, ETA prediction).
 
 ## High-Level Design
 
@@ -153,15 +165,15 @@ This article focuses on **Path A (Contraction Hierarchies)** because production 
 
 Serves pre-rendered or dynamically generated map tiles using a quadtree addressing scheme.
 
-**Tile Addressing (Web Mercator):**
+**Tile addressing (Web Mercator, Slippy Map / XYZ scheme):**
 
-```
+```text
 /{z}/{x}/{y}.{format}
 ```
 
-- `z`: Zoom level (0-22)
-- `x`: Column index (0 to 2^z - 1)
-- `y`: Row index (0 to 2^z - 1)
+- `z`: zoom level (0–22).
+- `x`: column index, `0` (west) to `2^z − 1` (east).
+- `y`: row index, `0` (north) to `2^z − 1` (south) under the OSM/Google "Slippy Map" convention. The older [TMS](https://wiki.osgeo.org/wiki/Tile_Map_Service_Specification) scheme inverts the Y axis — `y_tms = 2^z − 1 − y_xyz` — and is still common in some open-source toolchains. Address every URL template with the convention written next to it; silent flips are a routine source of "everything is upside-down" bugs.
 
 **Zoom Level Properties:**
 
@@ -173,17 +185,26 @@ Serves pre-rendered or dynamically generated map tiles using a quadtree addressi
 | 18   | ~69 billion   | 0.60 m                 | Building-level |
 | 20   | ~1.1 trillion | 0.15 m                 | Maximum detail |
 
-**Vector Tiles vs. Raster Tiles:**
+Each zoom level is a quadtree subdivision of the previous one — every tile splits into four children, which is what makes the addressing scheme cache- and CDN-friendly and lets clients prefetch a parent or sibling tile while a finer one is fetching.
 
-| Aspect  | Raster Tiles          | Vector Tiles              |
-| ------- | --------------------- | ------------------------- |
-| Format  | Pre-rendered PNG/JPEG | Protobuf-encoded geometry |
-| Size    | 100-300 KB            | 20-50 KB compressed       |
-| Styling | Fixed at render time  | Client-side, dynamic      |
-| Scaling | Pixelates             | Infinite (vector math)    |
-| Updates | Full tile replacement | Delta updates possible    |
+![Tile pyramid: zoom 0 covers the world in one tile, each zoom doubles linear resolution by quartering every parent tile.](./diagrams/tile-pyramid-light.svg "Quadtree tile pyramid (Web Mercator, EPSG:3857). Each zoom level quarters every parent tile; tile count grows as 4^z.")
+![Tile pyramid: zoom 0 covers the world in one tile, each zoom doubles linear resolution by quartering every parent tile.](./diagrams/tile-pyramid-dark.svg)
 
-Vector tiles (Mapbox Vector Tile specification) encode features as Protocol Buffers with a default extent of 4096 coordinate units per tile. This enables client-side rendering with custom styles and smooth zooming.
+**Vector tiles vs. raster tiles:**
+
+| Aspect  | Raster tiles          | Vector tiles                              |
+| ------- | --------------------- | ----------------------------------------- |
+| Format  | Pre-rendered PNG/JPEG | Protocol Buffers ([MVT spec][mvt-spec])   |
+| Size    | 100–300 KB            | tens of KB compressed (data-dependent)    |
+| Styling | Fixed at render time  | Client-side, dynamic                      |
+| Scaling | Pixelates             | Resolution-independent (vector math)      |
+| Updates | Full tile replacement | Delta updates possible per layer/feature  |
+
+[mvt-spec]: https://github.com/mapbox/vector-tile-spec/blob/master/2.1/README.md
+
+Vector tiles, as defined by the [Mapbox Vector Tile specification][mvt-spec], encode geometry and attributes as Protocol Buffers. Each tile uses an integer coordinate system with a default `extent` of 4,096 units mapping the tile's square dimensions; geometry commands (`MoveTo`, `LineTo`, `ClosePath`) are encoded as varint-packed integers with zig-zag encoding for deltas. Keys and values are deduplicated per layer for compression. Tiles are typically gzip-encoded on the wire.
+
+The practical consequence: a vector tile is small (commonly tens of KB), can be re-themed entirely on the client (dark mode, traffic overlays, language switches), and can be drawn at any subpixel zoom without resampling artifacts. The cost is a GPU-shaped client (WebGL or native) and a more complex parsing pipeline.
 
 ### Routing Service
 
@@ -200,14 +221,18 @@ Computes optimal paths using Contraction Hierarchies with traffic overlays.
 
 3. **Query**: Run bidirectional Dijkstra, but only traverse edges going "upward" in the hierarchy. The searches meet at the highest-importance node on the optimal path.
 
-**Performance Benchmarks (North America, 87M vertices):**
+**Performance benchmarks (North America, 87M vertices, 113M edges):**
 
-| Metric                | Value                |
-| --------------------- | -------------------- |
-| Preprocessing time    | 307 seconds (~5 min) |
-| Query time (median)   | 163 microseconds     |
-| Speedup over Dijkstra | ~30,000x             |
-| Storage overhead      | 21-68 bytes/node     |
+OSRM numbers from the *Parallel Contraction Hierarchies* (ICS 2025) benchmark[^pch2025]:
+
+| Implementation        | Preprocessing   | Median query  |
+| :-------------------- | :-------------- | :------------ |
+| OSRM (single-thread)  | 307 s (~5 min)  | 163 µs        |
+| RoutingKit            | 2,466 s         | 79 µs         |
+| PHAST                 | 1,341 s         | 138 µs        |
+| SPoCH (parallel)      | 23 s            | 93 µs         |
+
+For reference, plain Dijkstra on a continental graph is in the **seconds** per query[^bast2015]; even a conservative 4 s baseline against 163 µs is roughly a 25,000× speedup, which is why every production routing engine preprocesses.
 
 **Traffic-Aware Routing:**
 
@@ -237,7 +262,7 @@ Collects, processes, and serves real-time traffic data.
 
 **Floating Car Data (FCD) Pipeline:**
 
-```
+```text
 Probe → Map Matching → Segment Assignment → Speed Aggregation → Traffic State
 ```
 
@@ -246,19 +271,22 @@ Probe → Map Matching → Segment Assignment → Speed Aggregation → Traffic 
 3. **Aggregation**: Window-based speed averaging (2-5 minute windows)
 4. **Traffic state**: Free flow / Light / Moderate / Heavy / Standstill
 
-**ETA Prediction with Graph Neural Networks:**
+**ETA prediction with Graph Neural Networks:**
 
-Google's DeepMind collaboration uses GNNs to predict travel times:
+Google Maps' work with DeepMind, peer-reviewed at CIKM 2021[^gnn-eta-2021] and described in the [DeepMind blog post][deepmind-blog]:
 
-- **Supersegments**: Groups of adjacent road segments with shared traffic patterns
-- **Graph structure**: Nodes = supersegments, edges = transitions
-- **Features**: Historical speeds, time of day, day of week, weather
-- **Output**: Predicted travel time distribution
+- **Supersegments** are sequences of adjacent road segments that experience correlated traffic — built dynamically by a route analyzer rather than statically per-region.
+- **Graph structure**: nodes are road segments, edges are connectivity within a supersegment; a separate GNN runs per supersegment.
+- **Features**: real-time speeds, historical speeds bucketed by day-of-week and time-of-day, segment metadata.
+- **Output**: predicted travel time per supersegment; the route's ETA is the sum.
 
-Results:
+[deepmind-blog]: https://deepmind.google/blog/traffic-prediction-with-advanced-graph-neural-networks/
 
-- 97%+ trips with ETA within ±10%
-- Up to 50% reduction in negative ETA outcomes (Sydney, Tokyo, Berlin)
+Reported results:
+
+- The Google Maps baseline (before the GNN rollout) was already accurate within ±10 % on **>97 % of trips**[^deepmind2020] — the GNN's job is to attack the long tail of bad ETAs, not the median.
+- The GNN model produced **up to ~50 % reduction in "negative ETA outcomes"** (cases where the actual time deviated from the prediction by more than the per-region threshold) in cities including Berlin, Jakarta, São Paulo, Sydney, Tokyo, and Washington D.C.[^deepmind2020]
+- The CIKM paper reports a **>40 % reduction in negative ETA outcomes specifically in Sydney**[^gnn-eta-2021]; the "up to 50 %" figure is from the broader DeepMind blog announcement and varies by city.
 
 ### Geocoding Service
 
@@ -266,7 +294,7 @@ Converts between addresses and coordinates.
 
 **Forward Geocoding Pipeline:**
 
-```
+```text
 Input: "1600 Amphitheatre Parkway, Mountain View, CA"
   ↓
 Address Parsing (libpostal): {street: "1600 Amphitheatre Parkway", city: "Mountain View", state: "CA"}
@@ -288,15 +316,36 @@ Given (lat, lon), find the nearest address:
 2. Interpolate street address from road segment data
 3. Return formatted address with administrative hierarchy
 
-**Spatial Indexing Options:**
+**Spatial indexing — pick by query shape, not by hype:**
 
-| Index       | Structure                       | Use Case                         |
-| ----------- | ------------------------------- | -------------------------------- |
-| R-tree      | Bounding rectangles             | General spatial queries, PostGIS |
-| Quadtree    | Recursive quadrants             | Tile-based lookups               |
-| S2 Geometry | Spherical cells (Hilbert curve) | Global-scale, hierarchical       |
+| Index                        | Cell shape       | Hierarchy                  | Encoding                    | Strongest for                                                         |
+| :--------------------------- | :--------------- | :------------------------- | :-------------------------- | :-------------------------------------------------------------------- |
+| **R-tree** (PostGIS)         | Bounding boxes   | Balanced tree              | Page-sized nodes            | Range / window queries on heterogeneous geometries.                   |
+| **Quadtree**                 | Square quadrants | Strict 4-way               | Recursive `(x, y, z)`       | Tile-aligned lookups; the same scheme that backs the rendering tiles. |
+| **Geohash**[^geohash]        | Lat/lon rectangles | Strict, prefix-decoded   | Base-32 string, Z-order curve | Cheap prefix queries in plain key/value stores; databases like Redis and Elasticsearch ship native support. |
+| **[Google S2][s2-hier]**     | Quadrilateral cells on cube faces | Strict 31 levels (0–30) | 64-bit integer, Hilbert curve | Global-scale point and region indexing where locality and arbitrary polygon coverage matter. |
+| **[Uber H3][h3-cmp]**        | Hexagons on icosahedron faces | Approximate (face-specific) | 64-bit integer, no global Hilbert curve | Aggregations / heatmaps where uniform neighbor distance matters more than strict containment. |
 
-Google uses S2 Geometry for global coverage with hierarchical cell IDs that enable efficient prefix-based queries.
+[^geohash]: Geohash is a Z-order (Morton) curve over a flat lat/lon grid. It is simple and prefix-friendly but cell area distorts heavily at high latitudes, and two physically adjacent points can land on completely different prefixes when they straddle a cell boundary.
+
+[s2-hier]: https://s2geometry.io/devguide/s2cell_hierarchy.html
+[h3-cmp]: https://h3geo.org/docs/comparisons/s2/
+
+Trade-offs that actually drive the choice:
+
+- **Cell-area uniformity.** Hexagons (H3) have a single neighbor distance and the lowest area variance; S2 cells are roughly equal-area thanks to a quadratic projection adjustment[^s2-cells]; geohash rectangles get noticeably skinnier toward the poles.
+- **Hierarchy semantics.** S2 and geohash are *strict* hierarchies — every child cell is fully contained in its parent, which makes cell-prefix containment queries trivial. H3's parent/child relationship is *approximate* — a child hexagon can poke outside its parent — so containment queries need a small fudge buffer[^h3-vs-s2].
+- **Locality.** S2's Hilbert curve keeps spatially close cells close in the 1-D ID, which makes range scans on a normal B-tree behave like spatial scans[^s2-cells]. H3 has no global space-filling curve.
+- **Tooling.** Geohash is supported almost everywhere out of the box. S2 powers Google Maps, Foursquare's place index, MongoDB's `2dsphere`, and CockroachDB's spatial queries[^s2-blog]. H3 is the Uber-internal default and the de-facto standard for ride-hailing-style aggregations.
+
+[^s2-cells]: [S2 cells overview](https://s2geometry.io/devguide/s2cell_hierarchy.html) — six face cells at level 0, recursively subdivided into four children up to level 30 (≈ 0.7 cm² cells); cell IDs are encoded along a single Hilbert curve that spans all six faces for locality.
+[^h3-vs-s2]: [S2 vs. H3](https://h3geo.org/docs/comparisons/s2/) — Uber's own comparison: H3 trades strict containment for hexagonal neighbor uniformity and is intentionally not a strict hierarchy.
+[^s2-blog]: [Announcing the S2 library: geometry on the sphere](https://opensource.googleblog.com/2017/12/announcing-s2-library-geometry-on-sphere.html) — Google open-source blog, 2017. Lists Maps, Foursquare, MongoDB and CockroachDB as production users.
+
+![S2 covers the sphere with quadrilateral cells on six cube faces, recursively subdivided 4-way (quadtree) up to level 30. H3 covers the icosahedron with hexagons that have uniform neighbor distance but only approximate containment.](./diagrams/spatial-cell-hierarchy-light.svg "S2 quadrilateral cells (cube + Hilbert curve, strict hierarchy) vs. H3 hexagonal cells (icosahedron, approximate hierarchy).")
+![S2 covers the sphere with quadrilateral cells on six cube faces, recursively subdivided 4-way (quadtree) up to level 30. H3 covers the icosahedron with hexagons that have uniform neighbor distance but only approximate containment.](./diagrams/spatial-cell-hierarchy-dark.svg)
+
+Google Maps standardized on S2 internally — it gives them strict hierarchy + Hilbert-curve locality, which is what makes prefix-bound `BETWEEN` scans behave like spatial range scans on standard storage engines.
 
 ### Search Service (POI and Autocomplete)
 
@@ -465,7 +514,7 @@ ETag: "abc123"
 
 **Primary Store:** Custom binary format for in-memory graph processing
 
-```
+```text
 Node:
   - id: uint64
   - lat: float32
@@ -492,7 +541,7 @@ Edge:
 
 **Primary Store:** Object storage (S3-compatible) with key-value index
 
-```
+```text
 Key: {layer}/{z}/{x}/{y}
 Value: {
   tile_data: bytes,
@@ -578,7 +627,7 @@ CREATE INDEX idx_places_name_trgm ON places USING GIN(name gin_trgm_ops);
 
 **Node Ordering Heuristic:**
 
-```
+```text
 priority(v) = edge_difference(v)
             + contract_depth(v)
             + original_edges(v)
@@ -594,7 +643,7 @@ Where:
 
 Before adding a shortcut u→w (through v), check if a shorter path u→w exists without v:
 
-```
+```text
 shortcut_needed = (d(u,v) + d(v,w)) < witness_search(u, w, excluding v)
 ```
 
@@ -625,23 +674,28 @@ def ch_query(source, target):
 
 The hierarchy ensures that for any shortest path, there exists a path in the CH graph that only goes up (in CH level) from source, meets at some top node, then only goes up (reversed = down in original) to target. This dramatically prunes the search space.
 
-### Map Matching Algorithm
+### Map matching algorithm
 
-Map matching assigns GPS probes to road segments. The standard approach uses a Hidden Markov Model (HMM):
+Map matching assigns noisy, potentially sparse GPS probes to specific road segments. The reference algorithm is the Hidden Markov Model (HMM) approach by Newson and Krumm[^newson2009]:
 
-**States:** Road segments within radius of GPS point
-**Observations:** GPS coordinates
-**Emission probability:** Based on distance from GPS point to road segment
-**Transition probability:** Based on routing distance between consecutive candidate segments
+- **Hidden states**: candidate road segments near each GPS observation.
+- **Observations**: the GPS lat/lon (and sometimes heading and speed) at each timestep.
+- **Emission probability**: a Gaussian centered on the candidate segment's projection of the GPS point — `P(z | r) ∝ exp(−d² / (2σ_z²))` where `d` is the perpendicular distance and `σ_z` is the GPS error (Newson uses 4.07 m on the dataset they collected).
+- **Transition probability**: an exponential of the difference between great-circle distance and shortest-path routing distance between consecutive candidates — penalises sequences that would require teleportation.
+
+![Hidden Markov map matching: each GPS point picks candidate road segments; Viterbi finds the most likely sequence by combining emission and transition probabilities.](./diagrams/hmm-map-matching-light.svg "Hidden Markov map matching: each GPS point picks candidate road segments; Viterbi finds the most likely sequence by combining emission and transition probabilities.")
+![Hidden Markov map matching: each GPS point picks candidate road segments; Viterbi finds the most likely sequence by combining emission and transition probabilities.](./diagrams/hmm-map-matching-dark.svg)
 
 **Algorithm (Viterbi):**
 
-1. For each GPS point, find candidate road segments within 50m radius
-2. Compute emission probabilities: `P(gps | segment) ∝ exp(-distance² / σ²)`
-3. Compute transition probabilities between consecutive candidates
-4. Find most likely sequence using Viterbi algorithm
+1. For each GPS point, take all road segments within ~200 m (Newson's default — denser radii like 50 m are sometimes used in dense urban networks at the cost of recall in tunnels and GPS-degraded areas).
+2. Compute emission probability for each candidate.
+3. Compute transition probabilities between consecutive candidates using shortest-path routing distance.
+4. Find the maximum-likelihood path with Viterbi; backtrack to recover the matched segment sequence.
 
-**Output:** Sequence of road segments with timestamps → enables speed computation per segment.
+**Output**: a stream of `(segment_id, t_enter, t_exit)` tuples — the input the traffic aggregator needs to compute per-segment speeds.
+
+[^newson2009]: [Hidden Markov Map Matching Through Noise and Sparseness](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf) — Newson, Krumm (ACM SIGSPATIAL 2009). The canonical HMM map matching paper.
 
 ### Tile Rendering Pipeline
 
@@ -842,29 +896,30 @@ SQLite database with:
 - Metadata (region bounds, version, expiry)
 - Road graph subset for offline routing
 
-**Delta Updates:**
+**Delta updates:**
 
-1. Server generates diff between versions
-2. Client downloads only changed tiles (typically 2-8 MB)
-3. Apply patch to local database
-4. Verify integrity with checksums
+1. Server generates a per-region diff between map versions, expressed as a list of changed `(z, x, y)` tile keys.
+2. Client downloads only changed tiles, applies them to the local SQLite store, and bumps the version pointer.
+3. Checksums per tile guard against partial downloads on flaky networks.
 
-Bandwidth reduction: up to 75% compared to full re-download.
+The savings depend entirely on edit density: a routine map data refresh in a stable region touches only a small fraction of tiles, while a major release that changes styling or schema is closer to a full re-download.
 
 ## Infrastructure Design
 
 ### CDN Architecture
 
-**Tile CDN Requirements:**
+**Tile CDN requirements:**
 
-- Edge locations in 100+ cities
-- Cache hit rate > 95%
-- Origin shield to protect tile servers
-- Custom cache keys: `/{layer}/{z}/{x}/{y}`
+- Edge locations in 100+ cities for low first-byte time globally.
+- High cache hit rate is the design target — public CDN guidance puts well-tuned static-content workloads in the 90–99 % range[^cloud-cdn]; tiles are an unusually friendly workload (immutable per version, addressable by a deterministic key) so the upper end is realistic.
+- Origin shield to absorb cache misses and protect tile servers.
+- Custom cache keys: `/{layer}/{z}/{x}/{y}` plus a version segment so you can invalidate a generation by changing the prefix.
+
+[^cloud-cdn]: [Cloud CDN best practices](https://cloud.google.com/cdn/docs/best-practices) — Google Cloud documentation. Reference for what "good" cache hit rates look like across content classes.
 
 **Cache Hierarchy:**
 
-```
+```text
 User → Edge PoP → Regional Cache → Origin Shield → Tile Server
 ```
 
@@ -950,31 +1005,31 @@ User → Edge PoP → Regional Cache → Origin Shield → Tile Server
 
 ## Conclusion
 
-This design addresses the core challenges of a mapping platform:
+The hard parts of a mapping platform are the boundaries between subsystems, not any one subsystem in isolation:
 
-1. **Rendering at scale**: Tile pyramid with vector tiles enables efficient caching (95%+ hit rate) and client-side styling. The quadtree structure scales from 1 tile (world view) to 69 billion (building level).
+1. **Rendering at scale**: a quadtree of vector tiles is overwhelmingly cacheable and client-themable. The system's job at the tile boundary is mostly version management and CDN behavior.
 
-2. **Fast routing**: Contraction Hierarchies preprocessing (5 minutes) enables 163µs queries—a 30,000x speedup over Dijkstra. Traffic is overlaid as edge weight multipliers without full recomputation.
+2. **Fast routing**: a CH preprocessing step (minutes for a continent[^pch2025]) buys hundreds-of-microseconds queries; live traffic is layered on as a per-edge multiplier so the static structure stays valid. CRP and CCH are the better fit when the metric itself changes; ALT when the topology is dynamic.
 
-3. **Accurate ETAs**: Graph Neural Networks on supersegments achieve 97%+ accuracy. The key insight: model road sections with shared traffic patterns rather than individual segments.
+3. **Accurate ETAs**: a Graph Neural Network on supersegments attacks the long tail of bad ETAs that aggregating per-segment averages misses, with 40–50 % reductions in negative outcomes in major cities[^gnn-eta-2021][^deepmind2020].
 
-**Key tradeoffs accepted:**
+**Key trade-offs accepted:**
 
-- Preprocessing time for query speed (CH approach)
-- Storage overhead (21-68 bytes/node) for routing performance
-- Eventual consistency in traffic data (2-minute lag acceptable)
+- Preprocessing time for query latency (CH model).
+- Storage overhead (tens of bytes per node) for sub-millisecond queries.
+- Eventual consistency in traffic data (1–5 minute aggregation windows are typical).
 
 **Limitations:**
 
-- CH preprocessing blocks rapid road network updates (construction, closures)
-- Traffic accuracy depends on probe density (sparse in rural areas)
-- Offline routing requires downloading regional graph subsets
+- CH rebuilds block on topology changes (new roads, permanent closures); transient closures have to be encoded as edge-weight overrides.
+- Probe-based traffic falls off in rural and tunnel coverage; historical models fill the gap with reduced confidence.
+- Offline routing requires shipping a regional CH subgraph and accepting that it cannot incorporate real-time traffic.
 
-**Future improvements:**
+**Where it goes next:**
 
-- Machine learning for route personalization
-- Real-time construction detection from probe data
-- Federated routing across providers
+- Personalized routing (preferences, vehicle profiles, accessibility).
+- Real-time construction and closure detection from probe anomalies.
+- Multi-modal stitching (walk → transit → walk → ride-hail) over a unified routing surface.
 
 ## Appendix
 
@@ -998,20 +1053,27 @@ This design addresses the core challenges of a mapping platform:
 
 ### Summary
 
-- **Tile system**: Quadtree pyramid with vector tiles (MVT), CDN-cached, 20-30 tiles per viewport
-- **Routing**: Contraction Hierarchies with 163µs query time, traffic as edge weight overlay
-- **Traffic**: FCD from probes, 2-minute aggregation windows, GNN-based ETA prediction
-- **Geocoding**: Address parsing + spatial indexing (R-tree/S2), autocomplete via pruning radix trie
-- **Offline**: SQLite-stored tiles and graph subset, delta updates reduce bandwidth 75%
-- **Scale**: 1.7M RPS tiles, 70K RPS routing at peak
+- **Tiles**: quadtree pyramid of MVT vector tiles, CDN-cached behind a versioned key, ~20–30 tiles loaded per viewport.
+- **Routing**: Contraction Hierarchies with ~163 µs median queries on continental graphs (OSRM[^pch2025]); traffic applied as edge-weight multipliers, never as a rebuild.
+- **Traffic**: FCD probes mapped to segments via HMM matching[^newson2009], aggregated in 1–5 minute windows, fused with historical patterns.
+- **ETA**: per-segment baseline plus a GNN over supersegments to attack the long tail of bad ETAs[^gnn-eta-2021].
+- **Geocoding**: address parsing (e.g. libpostal) + spatial index (R-tree / [S2](https://s2geometry.io/)), autocomplete on a pruning radix trie.
+- **Offline**: SQLite-packed tiles plus a regional CH subgraph, refreshed via per-tile diffs.
+- **Scale (estimated)**: ~1.7 M RPS tiles, ~70 K RPS routing at peak.
 
 ### References
 
-- [Contraction Hierarchies: Faster and Simpler Hierarchical Routing in Road Networks](https://link.springer.com/chapter/10.1007/978-3-540-68552-4_24) - Geisberger et al., 2008
-- [Mapbox Vector Tile Specification](https://github.com/mapbox/vector-tile-spec) - Protobuf encoding for vector tiles
-- [Traffic Prediction with Advanced Graph Neural Networks](https://deepmind.google/discover/blog/traffic-prediction-with-advanced-graph-neural-networks/) - DeepMind, 2021
-- [OpenStreetMap Zoom Levels](https://wiki.openstreetmap.org/wiki/Zoom_levels) - Tile resolution by zoom
-- [Google S2 Geometry Library](https://s2geometry.io/) - Spherical geometry for spatial indexing
-- [OSRM (Open Source Routing Machine)](https://github.com/Project-OSRM/osrm-backend) - Production CH implementation
-- [libpostal](https://github.com/openvenues/libpostal) - Address parsing library
-- [Route Planning in Transportation Networks](https://arxiv.org/abs/1504.05140) - Bast et al., comprehensive survey
+- [Route Planning in Transportation Networks](https://arxiv.org/abs/1504.05140) — Bast, Delling, Goldberg, Müller-Hannemann, Pajor, Sanders, Wagner, Werneck (2015). The canonical survey of speedup techniques.
+- [Contraction Hierarchies: Faster and Simpler Hierarchical Routing in Road Networks](https://ae.iti.kit.edu/1640.php) — Geisberger, Sanders, Schultes, Delling (2008). The original CH paper.
+- [Parallel Contraction Hierarchies Can Be Efficient and Scalable](https://arxiv.org/html/2412.18008v3) — Wang et al., ICS 2025. Source for the OSRM 307 s / 163 µs benchmark on 87M-vertex North America.
+- [Customizable Route Planning in Road Networks](https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf) — Delling, Goldberg, Pajor, Werneck (2017). The CRP engine behind Bing Maps.
+- [Hidden Markov Map Matching Through Noise and Sparseness](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf) — Newson, Krumm (ACM SIGSPATIAL 2009).
+- [ETA Prediction with Graph Neural Networks in Google Maps](https://arxiv.org/abs/2108.11482) — Derrow-Pinion et al. (CIKM 2021).
+- [Traffic Prediction with Advanced Graph Neural Networks](https://deepmind.google/blog/traffic-prediction-with-advanced-graph-neural-networks/) — Google DeepMind blog (2020).
+- [Mapbox Vector Tile Specification 2.1](https://github.com/mapbox/vector-tile-spec/blob/master/2.1/README.md).
+- [OpenStreetMap zoom levels](https://wiki.openstreetmap.org/wiki/Zoom_levels) — meters per pixel formulas.
+- [Web Mercator projection (EPSG:3857)](https://epsg.io/3857).
+- [Google S2 Geometry Library](https://s2geometry.io/) and [Announcing the S2 Library](https://opensource.googleblog.com/2017/12/announcing-s2-library-geometry-on-sphere.html).
+- [OSRM (Open Source Routing Machine)](https://github.com/Project-OSRM/osrm-backend) — production CH implementation.
+- [GraphHopper](https://github.com/graphhopper/graphhopper) — alternate open-source CH stack.
+- [libpostal](https://github.com/openvenues/libpostal) — address parsing library.

@@ -1,0 +1,21 @@
+%% Diagram: Modern rendering strategy decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start{"What is the page?"}
+    Start -->|Marketing / docs<br/>content-heavy| Q1{"Any interactivity?"}
+    Start -->|Catalog / product<br/>large + SEO| Q2{"Updates per minute?"}
+    Start -->|Personalized<br/>per-request data| Q3{"Public shell + private data?"}
+    Start -->|App / dashboard<br/>auth-gated| Q4{"SEO matters?"}
+
+    Q1 -->|None| A1["SSG<br/>(zero JS)"]
+    Q1 -->|A few widgets| A2["SSG + Islands<br/>(Astro / Fresh)"]
+
+    Q2 -->|Few| A3["ISR + on-demand<br/>revalidation"]
+    Q2 -->|Many| A4["SSR + CDN cache<br/>+ short TTL"]
+
+    Q3 -->|Yes| A5["PPR / RSC<br/>(static shell + streamed dynamic)"]
+    Q3 -->|All dynamic| A6["SSR + Suspense<br/>streaming"]
+
+    Q4 -->|No| A7["CSR (SPA)<br/>or RSC + use client"]
+    Q4 -->|Yes| A6

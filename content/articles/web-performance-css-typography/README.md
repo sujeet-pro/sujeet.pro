@@ -4,16 +4,18 @@ linkTitle: 'Perf: CSS & Typography'
 description: >-
   A deep dive into CSS delivery optimization, critical CSS extraction, containment properties, and font loading strategies — covering WOFF2, subsetting, variable fonts, and metric overrides to eliminate layout shifts and improve Core Web Vitals.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - performance
   - web-vitals
   - optimization
+  - css
+  - fonts
 ---
 
 # CSS and Typography Performance Optimization
 
-Master CSS delivery, critical CSS extraction, containment properties, and font optimization techniques including WOFF2, subsetting, variable fonts, and CLS-free loading strategies for optimal Core Web Vitals.
+CSS and typography sit on the critical rendering path: until the browser builds the CSSOM and resolves the font stack, it cannot paint a single pixel of meaningful content. This article is the CSS-and-fonts chapter of the [Web Performance Optimization series](../web-performance-overview/README.md), sitting between [JavaScript optimization](../web-performance-javascript-optimization/README.md) and [image optimization](../web-performance-image-optimization/README.md). It covers what render-blocking actually means, how to reduce it, how containment scopes layout work, and how to make font loading invisible to Cumulative Layout Shift (CLS).
 
 ![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-light.svg "CSS and typography optimization stages: delivery, parsing, rendering, and font loading")
 ![CSS and typography optimization stages: delivery, parsing, rendering, and font loading](./diagrams/css-and-typography-optimization-stages-delivery-parsing-rendering-and-font-loadi-dark.svg)
@@ -25,21 +27,25 @@ CSS and typography performance follows a layered optimization model:
 ![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-light.svg "Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts")
 ![Three optimization layers: delivery eliminates round-trips, runtime isolates layout work, fonts prevent layout shifts](./diagrams/three-optimization-layers-delivery-eliminates-round-trips-runtime-isolates-layou-dark.svg)
 
-**Core mental model**: CSS is render-blocking by design—browsers must build the CSSOM before first paint. Every optimization either reduces blocking time (critical CSS, compression), reduces layout scope (containment), or prevents reflows (compositor animations, font metrics).
+**Core mental model**: CSS is render-blocking by design — the browser must build the CSSOM before the first paint, otherwise it would risk a flash of unstyled content ([MDN: render-blocking CSS](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Critical_rendering_path#render_blocking_css)). Every optimization either reduces blocking time (critical CSS, compression), narrows the layout scope (containment), or prevents reflows (compositor animations, font metric overrides).
 
-**The 14KB threshold** persists even with HTTP/2 and HTTP/3 because TCP slow start's initial congestion window remains ~10 packets (14,600 bytes). Critical CSS fitting this budget renders in the first round-trip.
+**The 14KB threshold** persists across HTTP/2 and HTTP/3 because TCP slow-start's initial congestion window is fixed at 10 segments × ~1460 bytes ≈ 14,600 bytes by [RFC 6928](https://datatracker.ietf.org/doc/html/rfc6928), independent of the application protocol. Critical CSS that fits this budget renders in the first round-trip.
 
-**Font-induced CLS** occurs because fallback and custom fonts have different metrics. The solution isn't avoiding `font-display: swap`, but making the swap dimensionally identical through metric overrides (`size-adjust`, `ascent-override`).
+**Font-induced CLS** occurs because fallback and custom fonts have different metrics. The fix is not avoiding `font-display: swap`; it's making the swap dimensionally identical through metric overrides (`size-adjust`, `ascent-override`).
 
-**Browser support context (as of 2026)**: `content-visibility` is Baseline available (September 2025). Font metric overrides (`ascent-override`, `descent-override`, `line-gap-override`) are NOT Baseline—Safari lacks support. CSS Paint API (Houdini) remains experimental—Firefox has no native support.
+**Browser support context (as of April 2026)**:
+
+- `content-visibility` is [Baseline Newly available since September 15, 2025](https://web.dev/blog/css-content-visibility-baseline) (Chrome 85+, Firefox 125+, Safari 18+).
+- Font metric overrides `ascent-override`, `descent-override`, and `line-gap-override` are **not Baseline** — Safari (through 26.x) still has no support per [caniuse](https://caniuse.com/mdn-css_at-rules_font-face_ascent-override). Only `size-adjust` works in Safari 17+.
+- The CSS Paint API (Houdini) remains experimental — [neither Firefox nor Safari ship native support](https://caniuse.com/css-paint-api).
 
 ## Part 1: CSS Delivery Optimization
 
 ### 1.1 Render-Blocking Fundamentals
 
-Browsers block painting until all blocking stylesheets are fetched, parsed, and the CSS Object Model (CSSOM) is built. This prevents flashes of unstyled content (FOUC) but adds to the critical rendering path.
+Browsers block painting until all stylesheets that match the current `media` query are fetched, parsed, and folded into the [CSS Object Model (CSSOM)](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Object_Model). The render tree cannot be assembled without it, so layout and paint cannot start.
 
-**Design rationale**: The browser intentionally blocks rendering rather than showing unstyled content because partial styling creates worse UX than a brief delay. This blocking behavior is the reason CSS delivery optimization matters—unlike scripts which can be `async`/`defer`, stylesheets are blocking by default.
+**Design rationale**: showing partial styling is worse UX than a brief delay, so the platform errs on the side of waiting. This is also why CSS delivery optimization matters more than for scripts: unlike `async`/`defer`, there is no first-class "deferred stylesheet" — only attribute hacks like the `media="print"` swap. See the [CRP series](../crp-cssom-construction/README.md) for a step-by-step tour of CSSOM construction.
 
 | Technique               | Core Idea                     | Typical Win                      | Gotchas                             |
 | ----------------------- | ----------------------------- | -------------------------------- | ----------------------------------- |
@@ -61,11 +67,14 @@ Bundling every style into one mega-file simplifies caching but couples cache bus
 
 ### 1.3 Critical CSS Extraction
 
-Inlining just the above-the-fold rules eliminates a full round-trip, shrinking First Contentful Paint (FCP) by hundreds of milliseconds on 4G.
+Inlining just the above-the-fold rules eliminates a full round-trip, shrinking First Contentful Paint (FCP) by hundreds of milliseconds on slow connections — see [web.dev: Extract and inline critical CSS](https://web.dev/articles/extract-critical-css).
 
-**Target**: ≤14KB compressed critical CSS (fits within TCP slow start's initial congestion window of ~10 packets)
+**Target**: ≤14KB compressed critical CSS, fitting in the first round-trip:
 
-**Why 14KB persists with HTTP/2 and HTTP/3**: Despite multiplexing improvements, TCP slow start still limits the initial congestion window. HTTP/3's QUIC uses the same 14KB recommendation. The first round-trip can only carry ~14,600 bytes, making this threshold transport-protocol agnostic.
+![Critical CSS delivery: inlined rules render in the first round-trip while non-critical CSS loads in parallel](./diagrams/critical-css-delivery-light.svg "Critical CSS delivery: inlined rules render in the first round-trip while non-critical CSS loads in parallel")
+![Critical CSS delivery: inlined rules render in the first round-trip while non-critical CSS loads in parallel](./diagrams/critical-css-delivery-dark.svg)
+
+**Why 14KB persists with HTTP/2 and HTTP/3**: [RFC 6928](https://datatracker.ietf.org/doc/html/rfc6928) sets the initial congestion window (initcwnd) to `min(10*MSS, max(2*MSS, 14600))` bytes. HTTP/2 and HTTP/3 add multiplexing on top but do not change TCP's (or QUIC's) congestion control: the first round-trip can only carry ~14,600 bytes regardless of application protocol. Tim Kadlec's [Tune The Web review](https://www.tunetheweb.com/blog/critical-resources-and-the-first-14kb/) covers the nuances — ACKs during the TLS handshake can grow the window before the HTML response, so this is a useful budget rather than a hard ceiling.
 
 **Tooling Workflow:**
 
@@ -104,7 +113,7 @@ npx critical index.html \
 
 ### 2.1 CSS Containment
 
-The `contain` property instructs the engine to scope layout, paint, style, and size computations to a subtree.
+The [`contain` property](https://www.w3.org/TR/css-contain-2/) instructs the engine to scope layout, paint, style, and size computations to a subtree.
 
 ```css
 .card {
@@ -112,38 +121,42 @@ The `contain` property instructs the engine to scope layout, paint, style, and s
 }
 ```
 
-- **layout**: Changes inside `.card` won't trigger ancestor reflow
-- **paint**: Off-screen subtrees are skipped, preventing unnecessary raster work
-- **size**: Parent layout ignores intrinsic size of children until needed
+- **layout** — descendant layout never escapes the box; ancestors do not reflow when children change.
+- **paint** — descendants are clipped to the padding box; off-screen subtrees are skipped entirely.
+- **style** — counters and quotes do not leak across the boundary.
+- **size** — the box reports an intrinsic size of zero until `contain-intrinsic-size` is given; pair carefully.
 
-**Benefits**: Large lists, dashboards, ad slots see 20-40% layout savings.
+The shorthand `contain: content` (= `layout paint style`) is the safe default for most independent components ([MDN: Using CSS containment](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Using)).
 
-**Limitations**: Breaking out of containment for positioned elements or overflow requires additional rules; not supported in IE.
+**Where it pays off**: independent widgets that change frequently — large feeds, ad slots, dashboard cards — because a contained subtree's mutations no longer invalidate sibling or ancestor layout. The actual savings depend on DOM size and how often the subtree changes; treat double-digit-percent figures from vendor blog posts as illustrative, not as a benchmark for your page.
+
+**Limitations**: `contain: paint` clips overflow, so dropdowns, tooltips, and `position: fixed` children that need to escape the box will be clipped. `contain: size` collapses the box to zero unless you supply `contain-intrinsic-size`.
 
 ### 2.2 content-visibility
 
-Extends containment with lazy rendering; `content-visibility: auto` skips layout and paint until the element approaches the viewport.
+`content-visibility: auto` extends containment with lazy rendering — the browser skips layout and paint for the subtree until it approaches the viewport.
 
 ```css
 .section {
   content-visibility: auto;
-  contain-intrinsic-size: auto 1000px; /* reserve space, remember actual size */
+  contain-intrinsic-size: auto 1000px; /* placeholder + remembered size */
 }
 ```
 
-- Gains up to 7× faster initial render on long documents (tested: 232ms → 30ms)
-- Must specify `contain-intrinsic-size` to reserve space and avoid layout shifts during scroll
-- **Baseline available** (September 2025): Chrome 85+, Firefox 125+, Safari 18+
+- The original web.dev demo measured rendering time dropping from **232 ms to 30 ms** (≈7×) on a long travel-blog page when chunked sections were marked `content-visibility: auto` ([Una Kravets, web.dev](https://web.dev/articles/content-visibility)).
+- `contain-intrinsic-size` is mandatory in practice: without it, every offscreen section reports a height of zero and the scrollbar collapses.
+- [Baseline Newly available since September 15, 2025](https://web.dev/blog/css-content-visibility-baseline) — Chrome 85+, Firefox 125+, Safari 18+.
 
-**The `auto` keyword in `contain-intrinsic-size`**: Using `auto 1000px` tells the browser to use the last-rendered size once known, falling back to 1000px initially. This provides better scroll behavior than a fixed placeholder.
+**The `auto` keyword in `contain-intrinsic-size`**: `auto 1000px` tells the browser to use the last-rendered size once it has been observed, falling back to 1000px initially. This avoids the "scrollbar twitch" you get with a fixed placeholder when sections turn out to be different sizes.
 
-**Design rationale**: The browser skips rendering for off-screen elements entirely—no layout calculation, no paint, no compositor layers. When the user scrolls near the element, rendering happens just-in-time. This trades scroll-time computation for faster initial paint.
+**Why this is more than `loading="lazy"` for sections**: the browser skips not only paint but also layout, style recalc, and IntersectionObserver-style bookkeeping for off-screen elements. When the user scrolls near the element, rendering happens just-in-time. The trade-off is scroll-time compute for faster initial paint.
 
-> **Prior to September 2025**: Firefox had `content-visibility` disabled by default (versions 109-124). Safari lacked support entirely. Cross-browser use required feature detection or polyfills.
+> [!NOTE]
+> Before September 2025, Firefox shipped `content-visibility` disabled-by-default (versions 109–124) and Safari had no support. If you need to support browsers older than that window, treat the property as a progressive enhancement — unsupported browsers simply ignore the rule and render normally.
 
 ### 2.3 will-change
 
-A hint for future property transitions so the engine can promote layers upfront.
+A hint for upcoming property transitions, letting the engine pre-promote a layer or set up the right paint context.
 
 ```css
 .modal {
@@ -151,11 +164,11 @@ A hint for future property transitions so the engine can promote layers upfront.
 }
 ```
 
-**Use carefully**: `will-change` is a **last resort** for existing performance problems, not a preventive measure. Over-using it:
+[MDN explicitly calls `will-change` a "last resort"](https://developer.mozilla.org/en-US/docs/Web/CSS/will-change) for elements with measured performance problems, not a preventive optimization. Over-use is actively counter-productive:
 
-- Burns GPU memory (each promoted layer consumes video memory)
-- Can cause composition overhead that outweighs benefits
-- Browsers ignore hints beyond a surface-area budget
+- Each promoted layer consumes GPU memory; on memory-constrained devices this can starve the rest of the compositor.
+- Maintaining many layers adds composition overhead that frequently outweighs the savings.
+- Browsers may ignore the hint when it judges the cost is too high.
 
 **Recommended pattern**: Toggle via JavaScript, not static CSS:
 
@@ -177,7 +190,7 @@ modal.addEventListener("animationend", () => {
 
 ### 2.4 Compositor-Friendly Animations
 
-Animate only **opacity** and **transform** to stay on the compositor thread, avoiding reflow and paint. Layout-affecting properties (`top`, `left`, `width`, `height`, `margin`) force main-thread work.
+Animate only **opacity** and **transform** to keep the work on the compositor thread, avoiding main-thread layout and paint ([web.dev: animations guide](https://web.dev/articles/animations-guide)). Layout-affecting properties (`top`, `left`, `width`, `height`, `margin`) force a full-frame pipeline; large or frequent ones will drop frames on mid-tier devices.
 
 ```css
 /* Good: Compositor-only */
@@ -247,11 +260,11 @@ registerPaint(
 
 ### 2.6 CSS Size & Selector Efficiency
 
-| Optimization                     | How It Helps                             | Caveats                                               |
-| -------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
-| Tree-shaking (PurgeCSS, @unocss) | Removes dead selectors; 60-90% reduction | Needs whitelisting for dynamic classes                |
-| Selector simplicity              | Short selectors reduce matching time     | Micro-optimization rarely measurable until >10k nodes |
-| Non-inheriting custom properties | Faster style recalculation (<5 µs)       | Unsupported in Firefox < 105                          |
+| Optimization                                     | How it helps                                                          | Caveats                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| Tree-shaking ([PurgeCSS](https://purgecss.com/), Tailwind JIT, [UnoCSS](https://unocss.dev/)) | Removes dead selectors; large utility frameworks routinely shrink 60-90% | Dynamic class names need an explicit safelist            |
+| Selector simplicity                              | Short selectors reduce match time                                     | Almost never measurable until DOMs exceed ~10k nodes     |
+| Registered (`@property`) custom properties       | Inheritance and animatability declared once; recalc avoids re-parsing values | `@property` is Baseline only since 2024; older browsers fall back to plain custom properties |
 
 ```css
 /* Efficient: simple, non-chained */
@@ -263,17 +276,19 @@ registerPaint(
 }
 ```
 
+For most production sites, selector simplicity is a code-quality concern, not a performance one — DevTools' [Selector Stats](https://developer.chrome.com/docs/devtools/performance/selector-stats) panel will tell you the moment that stops being true.
+
 ## Part 3: Font Asset Optimization
 
 ### 3.1 The Modern Font Format: WOFF2
 
-WOFF2 uses Brotli compression, achieving 30% smaller files than WOFF and 50% smaller than TTF.
+The [W3C WOFF2 specification](https://www.w3.org/TR/WOFF2/) replaces WOFF 1.0's zlib/Flate compression with Brotli plus content-aware preprocessing of the `glyf` and `loca` tables. The combination yields ~30% smaller files than WOFF and 60–70% smaller than uncompressed TTF.
 
-| Format  | Compression | Size vs TTF    | Browser Support   | Recommendation |
-| ------- | ----------- | -------------- | ----------------- | -------------- |
-| WOFF2   | Brotli      | 50-60% smaller | All modern (>96%) | Primary choice |
-| WOFF    | zlib/Flate  | ~40% smaller   | Wide legacy       | Fallback only  |
-| TTF/OTF | None        | Baseline       | Legacy            | Avoid for web  |
+| Format  | Compression | Size vs TTF      | Browser support             | Recommendation |
+| ------- | ----------- | ---------------- | --------------------------- | -------------- |
+| WOFF2   | Brotli + table transforms | 60–70% smaller | [>97% globally](https://caniuse.com/woff2) | Primary choice |
+| WOFF    | zlib/Flate  | ~40% smaller     | Universal legacy            | Drop for new sites |
+| TTF/OTF | None        | Baseline         | Legacy desktop              | Avoid for web  |
 
 **Modern declaration:**
 
@@ -289,7 +304,7 @@ WOFF2 uses Brotli compression, achieving 30% smaller files than WOFF and 50% sma
 
 ### 3.2 Font Subsetting
 
-Subsetting removes unused glyphs, achieving 65-90% file size reduction.
+Subsetting removes glyphs your site never uses. Real-world reductions of 60–90% are routine; the [Google Fonts case study using `unicode-range`](https://developers.googleblog.com/smaller-fonts-with-woff-20-and-unicode-range/) reported >40% download savings even without aggressive subsetting.
 
 **Strategies:**
 
@@ -328,13 +343,15 @@ pyftsubset SourceSansPro.ttf \
 
 ### 3.3 Variable Fonts
 
-Variable fonts consolidate multiple weights/styles into a single file, reducing requests and often total bytes.
+Variable fonts pack every weight, width, slant, and optical-size axis into one OpenType 1.8+ file ([MDN: Variable fonts guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_fonts/Variable_fonts_guide)). Fewer requests, often fewer bytes overall.
 
-**Size comparison (Source Sans Pro):**
+**Size comparison (Source Sans Pro)** — figures from [Mandy Michael's benchmark](https://uxdesign.cc/the-performance-benefits-of-variable-fonts-79af8c4ff56c):
 
-- All static weights (OTF): 1,170 KB
-- Variable font (OTF): 405 KB
-- Variable font (WOFF2): 112 KB
+- All static weights (OTF): ~1,170 KB
+- Variable font (OTF): ~405 KB
+- Variable font (WOFF2): ~112 KB
+
+A single static WOFF2 weight is comparable in size to a full variable WOFF2; the win shows up the moment you ship two or more weights.
 
 **Declaration (modern syntax)**:
 
@@ -348,16 +365,16 @@ Variable fonts consolidate multiple weights/styles into a single file, reducing 
 }
 ```
 
-**Format syntax evolution**:
+**Format syntax evolution** ([CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/#font-face-src-loading)):
 
 | Syntax                                | Status                                                       |
 | ------------------------------------- | ------------------------------------------------------------ |
-| `format("woff2")`                     | **Recommended** - modern browsers auto-detect variable fonts |
-| `format("woff2") tech("variations")`  | Current spec, gaining support                                |
-| `format("woff2-variations")`          | Deprecated but still works                                   |
-| `format("woff2 supports variations")` | Removed from spec, avoid                                     |
+| `format("woff2")`                     | **Recommended in practice** — modern browsers auto-detect variation tables |
+| `format("woff2") tech("variations")`  | Current spec, the future-proof form                          |
+| `format("woff2-variations")`          | Deprecated but still parsed by all major engines             |
+| `format("woff2 supports variations")` | Removed from the spec, will not parse                        |
 
-**Design rationale**: Variable fonts use OpenType 1.8+ variation tables. Modern browsers detect these automatically from the font binary, making explicit variation hints unnecessary. The `tech()` function exists for forward compatibility but adds no practical benefit today.
+**Why bare `format("woff2")` is enough today**: variable fonts are still WOFF2 binaries; the variation tables sit inside the font file and are detected by every shipping browser engine. The `tech()` function exists for future formats (e.g. COLRv1, incremental fonts) where the wrapper format alone does not imply support.
 
 **Usage:**
 
@@ -409,7 +426,7 @@ body {
 
 ### 4.1 Self-Hosting vs Third-Party
 
-**The shared cache myth is dead**: Browser cache partitioning (Chrome, Safari) means Google Fonts no longer benefit from cross-site caching. Each site downloads fonts independently.
+**The shared-cache myth is dead.** Every modern browser now [partitions the HTTP cache by top-level site](https://developer.chrome.com/blog/http-cache-partitioning) — Chrome 86 (Oct 2020), Firefox 85 (Jan 2021), and Safari since 2013. A font downloaded by `site-a.com` cannot be reused by `site-b.com`, so the historical "everyone uses Google Fonts so it's already cached" argument no longer holds. Addy Osmani's [double-keyed caching write-up](https://addyosmani.com/blog/double-keyed-caching/) covers the security rationale and the measurable impact on cache-hit rate.
 
 **Benefits of self-hosting:**
 
@@ -438,14 +455,19 @@ Preload critical fonts to discover them early:
 
 ### 4.3 font-display Strategies
 
-| Value      | Block Period             | Swap Period | Behavior          | CWV Impact         | Use Case                      |
-| ---------- | ------------------------ | ----------- | ----------------- | ------------------ | ----------------------------- |
-| `block`    | Short (~3s recommended)  | Infinite    | FOIT              | Bad FCP/LCP        | Icon fonts                    |
-| `swap`     | Extremely small (~0)     | Infinite    | FOUT              | Good FCP, risk CLS | Headlines with CLS mitigation |
-| `fallback` | Extremely small (~100ms) | ~3s         | Compromise        | Balanced           | Body text                     |
-| `optional` | Extremely small (~100ms) | None        | Performance-first | Excellent CLS      | Non-critical text             |
+The [`font-display` descriptor](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display) splits font loading into a **block period** (invisible text), a **swap period** (fallback shown, swap when font arrives), and a **failure period** (give up, keep fallback).
 
-**Important**: The ~3s and ~100ms values are **recommendations**, not spec requirements. The CSS Fonts specification defines relative timing concepts ("extremely small", "short"), not exact milliseconds. Actual implementation varies by browser—Firefox exposes these as configurable preferences (`gfx.downloadable_fonts.fallback_delay`).
+![font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods](./diagrams/font-display-strategies-light.svg "font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods")
+![font-display strategies — block, swap, fallback, and optional behave differently across the block and swap periods](./diagrams/font-display-strategies-dark.svg)
+
+| Value      | Block period              | Swap period | Behavior          | CWV impact         | Use case                      |
+| ---------- | ------------------------- | ----------- | ----------------- | ------------------ | ----------------------------- |
+| `block`    | Short (~3s recommended)   | Infinite    | FOIT              | Bad FCP/LCP        | Icon fonts only               |
+| `swap`     | Extremely small (~0)      | Infinite    | FOUT              | Good FCP, risk CLS | Headlines with metric overrides |
+| `fallback` | Extremely small (~100ms)  | ~3s         | Compromise        | Balanced           | Body text                     |
+| `optional` | Extremely small (~100ms)  | None        | Performance-first | Excellent CLS      | Non-critical text             |
+
+**The exact timings are recommendations, not normative.** [CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/#font-display-desc) defines relative concepts ("extremely small", "short") rather than exact milliseconds. Implementations vary — Firefox exposes the threshold as `gfx.downloadable_fonts.fallback_delay`, and Chrome's `optional` may skip the network request entirely on slow connections.
 
 **Strategy alignment:**
 
@@ -483,7 +505,10 @@ If using Google Fonts or other CDNs:
 
 ### 5.1 The Root Cause
 
-CLS occurs when fallback and custom fonts have different dimensions. When `font-display: swap` triggers the swap, text reflows and content shifts.
+CLS occurs when fallback and custom fonts have different x-heights, ascents, descents, or character widths. When `font-display: swap` triggers, text reflows and surrounding content shifts.
+
+![Font swap with metric overrides — CLS spike vs. zero-CLS swap](./diagrams/font-swap-cls-mitigation-light.svg "Font swap with metric overrides — CLS spike vs. zero-CLS swap")
+![Font swap with metric overrides — CLS spike vs. zero-CLS swap](./diagrams/font-swap-cls-mitigation-dark.svg)
 
 ### 5.2 Font Metric Overrides
 
@@ -494,16 +519,16 @@ Use CSS descriptors to force fallback fonts to match custom font dimensions:
 - **descent-override**: Space below baseline
 - **line-gap-override**: Extra space between lines
 
-**Browser Support (NOT Baseline)**:
+**Browser support (NOT Baseline)** — per [caniuse](https://caniuse.com/mdn-css_at-rules_font-face_ascent-override) as of April 2026:
 
 | Property            | Chrome | Firefox | Safari |
 | ------------------- | ------ | ------- | ------ |
 | `size-adjust`       | 92+    | 92+     | 17+    |
-| `ascent-override`   | 87+    | 89+     | **No** |
-| `descent-override`  | 87+    | 89+     | **No** |
-| `line-gap-override` | 87+    | 89+     | **No** |
+| `ascent-override`   | 87+    | 89+     | **No** (through 26.x) |
+| `descent-override`  | 87+    | 89+     | **No** (through 26.x) |
+| `line-gap-override` | 87+    | 89+     | **No** (through 26.x) |
 
-**Safari limitation**: Safari supports only `size-adjust`. Using `ascent-override` and `descent-override` without Safari support may produce worse results than no adjustment, since the size change without vertical metric correction can increase layout shift.
+**Safari limitation**: Safari supports only `size-adjust`. Applying it alone — without the matching ascent/descent corrections — can scale text into a different vertical box than the web font expects, sometimes increasing layout shift instead of reducing it. The pragmatic workaround is to scope the full override block to engines that support it.
 
 **Workaround for Safari**: Consider using `@supports` to exclude Safari from full metric overrides:
 
@@ -563,14 +588,15 @@ body {
 
 - [Fallback Font Generator](https://screenspan.net/fallback)
 - [Capsize](https://seek-oss.github.io/capsize/)
-- Fontaine (Node.js library)
+- [Fontaine](https://github.com/unjs/fontaine) — Node.js library
 
 **Framework integration:**
 
-- **Next.js 13+**: `next/font` automatically calculates and injects fallback fonts with `size-adjust`. Self-hosts Google Fonts at build time for GDPR compliance and eliminates runtime network requests.
-- **Nuxt.js**: `@nuxtjs/fontaine` module provides automatic fallback generation
+- **Next.js 13.2+**: [`next/font`](https://nextjs.org/docs/app/api-reference/components/font) automatically calculates and injects fallback fonts with `size-adjust`. It self-hosts Google Fonts at build time for GDPR compliance and eliminates runtime network requests.
+- **Nuxt**: [`@nuxtjs/fontaine`](https://github.com/nuxt-modules/fontaine) provides automatic fallback generation.
 
-> **Note on Next.js**: The `@next/font` package was renamed to `next/font` and completely removed in Next.js 14 (October 2023). Use `import { Inter } from 'next/font/google'` or `import localFont from 'next/font/local'`.
+> [!NOTE]
+> The `@next/font` package was renamed to the built-in `next/font` in Next.js 13.2 and [completely removed in Next.js 14](https://nextjs.org/docs/messages/built-in-next-font) (October 2023). Use `import { Inter } from 'next/font/google'` or `import localFont from 'next/font/local'`. The codemod `npx @next/codemod built-in-next-font .` migrates legacy imports.
 
 ## Part 6: Build-Time Processing
 
@@ -581,13 +607,13 @@ body {
 
 ### 6.2 CSS-in-JS Considerations
 
-Runtime CSS-in-JS (styled-components, Emotion) generates and parses CSS in JS bundles, adding 50-200ms scripting cost per route. The cost comes from:
+Runtime CSS-in-JS libraries like styled-components and Emotion serialize and inject styles inside the React render path. The cost shows up as additional scripting work — typically tens to hundreds of milliseconds per route on mid-tier hardware ([Aggelos Arvanitakis on perfplanet](https://calendar.perfplanet.com/2019/the-unseen-performance-costs-of-css-in-js-in-react-apps/)). It comes from three places:
 
-1. **JS parsing**: CSS strings embedded in JS bundles increase parse time
-2. **Style injection**: Runtime style tag creation and CSSOM manipulation
-3. **Hydration mismatch risk**: Server-rendered CSS must match client-generated CSS exactly
+1. **JS parsing** — CSS strings embedded in JS bundles increase parse time.
+2. **Style injection** — runtime `<style>` creation and CSSOM mutation on every render that produces a new style.
+3. **Server/client mismatch risk** — server-rendered CSS must match the client-generated CSS exactly, and runtime CSS-in-JS [breaks streaming SSR](https://www.infoq.com/news/2022/10/prefer-build-time-css-js/) because the server must wait for the React render to flush all styles.
 
-**Design trade-off**: Runtime CSS-in-JS offers developer experience (colocation, dynamic styles) at the cost of runtime performance. The question is whether your use case requires runtime dynamism.
+**Design trade-off**: runtime CSS-in-JS buys you colocation and prop-driven styles at the cost of runtime work and a more complex SSR story. If you don't need styles to depend on runtime values (user prefs, API responses), a build-time extractor wins on every axis.
 
 **Static extraction alternatives:**
 
@@ -692,13 +718,17 @@ clsObserver.observe({ type: "layout-shift" })
 
 ## Conclusion
 
-CSS and typography performance optimization centers on understanding why browsers block rendering and what causes layout instability. CSS is render-blocking by design—the browser must build the complete CSSOM before painting. This makes delivery optimization (critical CSS, compression, deferral) fundamentally different from JavaScript optimization.
+CSS and typography performance reduces to a small number of physical truths.
 
-Font loading creates a tension between text visibility (FCP/LCP) and layout stability (CLS). The solution isn't choosing between `font-display: swap` or `block`, but making the swap invisible through metric overrides. However, Safari's lack of `ascent-override` and `descent-override` support means zero-CLS font swaps remain aspirational on Apple devices.
+**CSS is render-blocking by design.** The browser must build the complete CSSOM before painting, so delivery optimization (critical CSS inline, deferral via `media="print"`, compression) is fundamentally different from JavaScript optimization where `async`/`defer` exist as first-class primitives.
 
-Runtime optimization through containment (`contain`, `content-visibility`) represents a shift from global to local layout scope. The browser still does the same work, just scoped to subtrees. This matters most for complex interfaces—dashboards, infinite lists, content-heavy pages—where a single change can cascade layout recalculations across thousands of nodes.
+**Font loading is a CLS problem before it is a download problem.** The fix is not picking between `font-display: swap` and `block`; it's making the swap dimensionally identical with `size-adjust` and friends. Safari's missing `ascent-override` / `descent-override` support means zero-CLS font swaps remain aspirational on Apple devices — there is no clean workaround until Safari ships these descriptors.
 
-The 14KB critical CSS target persists because it's based on TCP physics, not HTTP versions. HTTP/2 and HTTP/3 improve multiplexing but don't change slow start behavior. Fitting critical CSS in the initial congestion window remains the fastest path to first paint.
+**Containment moves layout from global to local scope.** `contain` and `content-visibility` don't reduce the browser's total work; they scope it to subtrees so a single change doesn't cascade across the document. This is where complex interfaces — dashboards, infinite lists, content-heavy pages — get their wins.
+
+**The 14KB critical-CSS target is TCP physics, not HTTP fashion.** HTTP/2 and HTTP/3 improve multiplexing but neither changes RFC 6928's initial congestion window. Fitting critical CSS in the first round-trip remains the fastest path to first paint, regardless of protocol.
+
+For the rest of the performance picture, see the sibling articles in this series: [infrastructure & networking](../web-performance-infrastructure-stack/README.md), [JavaScript optimization](../web-performance-javascript-optimization/README.md), and [image optimization](../web-performance-image-optimization/README.md). The [overview article](../web-performance-overview/README.md) ties them together.
 
 ## Appendix
 
@@ -730,9 +760,10 @@ The 14KB critical CSS target persists because it's based on TCP physics, not HTT
 
 **Specifications**:
 
-- [W3C WOFF2 Specification](https://www.w3.org/TR/WOFF2/) - Web Open Font Format 2.0
-- [CSS Containment Module Level 2](https://www.w3.org/TR/css-contain-2/) - Containment and content-visibility spec
-- [CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/) - font-display, font metric descriptors
+- [W3C WOFF2 Specification](https://www.w3.org/TR/WOFF2/) — Web Open Font Format 2.0
+- [CSS Containment Module Level 2](https://www.w3.org/TR/css-contain-2/) — Containment and `content-visibility`
+- [CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/) — `font-display`, font metric descriptors, `tech()` function
+- [RFC 6928](https://datatracker.ietf.org/doc/html/rfc6928) — Increasing TCP's Initial Window (the 14KB rule)
 
 **Official Documentation**:
 
@@ -752,6 +783,8 @@ The 14KB critical CSS target persists because it's based on TCP physics, not HTT
 - [Font Metric Overrides - web.dev](https://web.dev/articles/css-size-adjust) - Preventing CLS with size-adjust
 - [Why 14KB - Tune The Web](https://www.tunetheweb.com/blog/critical-resources-and-the-first-14kb/) - TCP slow start and critical resources
 - [Variable Fonts - Evil Martians](https://evilmartians.com/chronicles/the-joy-of-variable-fonts-getting-started-on-the-frontend) - Format syntax evolution
+- [Double-keyed caching - Addy Osmani](https://addyosmani.com/blog/double-keyed-caching/) - How browser cache partitioning changed the web
+- [The performance benefits of Variable Fonts - Mandy Michael](https://uxdesign.cc/the-performance-benefits-of-variable-fonts-79af8c4ff56c) - Source of the Source Sans Pro size benchmark
 
 **Tools**:
 

@@ -1,0 +1,15 @@
+%% Diagram: INP latency phases
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant M as Main thread
+    participant R as Renderer
+
+    U->>M: Tap / click / key
+    Note over M: Input Delay
+    activate M
+    Note over M: Processing Time
+    deactivate M
+    Note over R: Presentation Delay
+    R-->>U: Next Paint

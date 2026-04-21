@@ -1,0 +1,30 @@
+%% Diagram: Client-side Prediction with Server Reconciliation
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Pending as Pending Inputs Queue
+    participant Server
+
+    Note over Client: time t0
+    Client->>Client: input #1 applied locally
+    Client->>Pending: append #1
+    Client->>Server: send #1
+
+    Client->>Client: input #2 applied locally
+    Client->>Pending: append #2
+    Client->>Server: send #2
+
+    Note over Server: time t0 + RTT/2
+    Server->>Server: process #1 against authoritative state
+    Server-->>Client: state snapshot, lastAckedId = #1
+
+    Client->>Pending: drop entries up to and including #1
+    Client->>Client: reset to server snapshot
+    loop replay each remaining pending input
+        Client->>Client: re-apply #2
+    end
+    Client-->>Client: render reconciled state
+
+    Note over Client,Server: result: server is authoritative,<br/>local responsiveness preserved,<br/>convergence guaranteed

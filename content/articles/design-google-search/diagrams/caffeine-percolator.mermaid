@@ -1,0 +1,26 @@
+%% Diagram: Caffeine — incremental indexing on Percolator + Bigtable
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CRAWLED["Newly crawled doc"]
+
+    subgraph Bigtable["Bigtable (webtable)"]
+        ROW["row: com.example.www/page\ncolumns: content / links / quality"]
+    end
+
+    subgraph Percolator["Percolator"]
+        TXN["Cross-row ACID txn"]
+        OBS["Observers\n(triggered on column writes)"]
+    end
+
+    subgraph Outputs["Outputs"]
+        INVERT["Update inverted index shard"]
+        LINKGRAPH["Update link graph + PageRank"]
+        DUP["Update duplicate cluster"]
+    end
+
+    CRAWLED --> ROW --> OBS
+    OBS --> TXN
+    TXN --> INVERT
+    TXN --> LINKGRAPH
+    TXN --> DUP

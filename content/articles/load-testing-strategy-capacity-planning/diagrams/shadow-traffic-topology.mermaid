@@ -1,0 +1,13 @@
+%% Diagram: Shadow traffic / dark-launch topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    CLIENT["Production client"] --> EDGE["Edge proxy<br/>(Envoy / API gateway)"]
+    EDGE -->|"primary request"| PROD["Production service v_current<br/>(authoritative response)"]
+    PROD -->|"response"| EDGE
+    EDGE --> CLIENT
+    EDGE -. "request_mirror_policies<br/>(fire and forget, fraction)" .-> SHADOW["Shadow service v_next<br/>(response discarded)"]
+    SHADOW --> SBKND["Shadow dependencies<br/>(sandboxed DB, mocked side effects)"]
+    PROD --> PBKND["Production dependencies<br/>(real reads and writes)"]
+    SHADOW -.-> METRICS["Compare metrics:<br/>latency, error class,<br/>response diff"]
+    PROD -.-> METRICS

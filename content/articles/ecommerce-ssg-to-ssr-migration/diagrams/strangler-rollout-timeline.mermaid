@@ -1,0 +1,17 @@
+%% Diagram: strangler-rollout-timeline
+%% Type: gantt
+%%{init: {'htmlLabels': false}}%%
+gantt
+    title Strangler Fig rollout — bucket percentage by phase
+    dateFormat  YYYY-MM-DD
+    axisFormat  W%V
+    section Phase A — low-risk
+    Blog & marketing 10% SSR  :a1, 2026-01-05, 28d
+    section Phase B — PDP
+    Product pages 25% SSR     :a2, after a1, 28d
+    section Phase C — categories
+    Listings & search 50% SSR :a3, after a2, 28d
+    section Phase D — cutover
+    Checkout 100% SSR         :a4, after a3, 14d
+    section Decommission
+    Retire SSG infra          :a5, after a4, 14d

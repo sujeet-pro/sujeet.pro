@@ -1,173 +1,157 @@
 ---
 title: Edge Delivery and Cache Invalidation
-linkTitle: 'Edge Delivery'
+linkTitle: Edge Delivery
 description: >-
   Cache key design, TTL strategies, invalidation approaches (versioned URLs,
-  tag-based purge, stale-while-revalidate), and edge compute patterns — with
-  focus on thundering herd prevention and operational failure modes.
+  surrogate-key purge, stale-while-revalidate), edge compute patterns, and the
+  operational failure modes — thundering herd, fragmentation, propagation lag —
+  that decide whether a CDN deployment is a load shield or a liability.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - platform-engineering
-  - devops
   - infrastructure
+  - performance
+  - http
+  - caching
+  - cdn
 ---
 
 # Edge Delivery and Cache Invalidation
 
-Production CDN caching architecture for balancing content freshness against cache efficiency. Covers cache key design, invalidation strategies (path-based, tag-based, versioned URLs), stale-while-revalidate patterns, and edge compute use cases—with specific focus on design tradeoffs, operational failure modes, and the thundering herd problem that senior engineers encounter during cache-related incidents.
+A modern CDN is two systems welded together: a globally distributed read-through cache governed by [HTTP caching semantics](https://www.rfc-editor.org/rfc/rfc9111.html), and a programmable purge plane that lets you reach into hundreds of points of presence to expire content on demand. Both halves have to be designed deliberately; defaults will give you a hot origin, fragmented cache, or stale pages on incident day. This article is the mental model and the failure-mode catalogue a senior engineer needs to design cache keys, pick TTLs, choose an invalidation strategy, and make edge compute pay its way.
 
-![CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.](./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac-light.svg "CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.")
-![CDN topology: clients hit edge PoPs, misses route through origin shield (single cache layer) before reaching origin. This architecture reduces origin load and enables request coalescing.](./diagrams/cdn-topology-clients-hit-edge-pops-misses-route-through-origin-shield-single-cac-dark.svg)
+![CDN topology — clients hit edge PoPs; edge misses funnel through Origin Shield, which collapses concurrent fetches into a single origin request.](./diagrams/cdn-topology-light.svg "CDN topology: clients hit edge PoPs; edge misses funnel through Origin Shield, which collapses concurrent fetches into a single origin request.")
+![CDN topology — clients hit edge PoPs; edge misses funnel through Origin Shield, which collapses concurrent fetches into a single origin request.](./diagrams/cdn-topology-dark.svg)
 
-## Abstract
+## Thesis
 
-CDN caching reduces to three interconnected decisions: **what to cache** (cache key design), **how long to cache** (TTL strategy), and **when to invalidate** (freshness vs availability tradeoff).
+Cache delivery reduces to three coupled decisions: **what to cache** (cache key design), **how long** (TTL strategy), and **how to invalidate** (path, tag, version, or wait). Get the cache key wrong and users see other users' content. Get the TTL wrong and you either hammer your origin or serve stale pages through an incident. Get invalidation wrong and you can't ship.
 
-| Decision                                | Optimizes For                   | Sacrifices                   |
-| --------------------------------------- | ------------------------------- | ---------------------------- |
-| Aggressive caching (long TTL)           | Origin load reduction, latency  | Content freshness            |
-| Conservative caching (short TTL)        | Content freshness               | Cache hit ratio, origin load |
-| Cache key expansion (more Vary headers) | Content correctness per variant | Cache fragmentation          |
-| Versioned URLs                          | Eliminates invalidation need    | URL management complexity    |
-| Tag-based purge                         | Granular invalidation           | Operational complexity       |
+| Decision                       | Optimises                       | Sacrifices                                     |
+| ------------------------------ | ------------------------------- | ---------------------------------------------- |
+| Long TTL                       | Origin load, latency            | Freshness; needs deliberate invalidation       |
+| Short TTL                      | Freshness                       | Hit ratio, origin load                         |
+| Wide cache key (more `Vary`)   | Variant correctness             | Fragmentation; lower hit ratio                 |
+| Versioned / fingerprinted URLs | Eliminates invalidation         | URL management at build / deploy time          |
+| Surrogate-key (tag) purge      | Granular invalidation           | Application + CDN tooling                      |
+| Path purge                     | Simplicity                      | No relationship awareness; coarse              |
+| Stale-while-revalidate         | User-visible latency on refresh | Brief staleness; only useful with steady traffic |
 
-**Key architectural insight**: The cache key determines correctness; the TTL determines performance. A misconfigured cache key serves wrong content to users. A misconfigured TTL either hammers your origin or serves stale content.
+Two non-negotiables that keep coming back through the rest of the article:
 
-**Invalidation hierarchy** (prefer higher):
+1. **The cache key controls correctness; the TTL controls cost and freshness.** They fail in different ways and need separate review.
+2. **Prefer the highest invalidation method on this ladder you can reach:** versioned URLs → `stale-while-revalidate` → surrogate-key purge → path purge → full clear.
 
-1. **Versioned/fingerprinted URLs** (e.g., `main.abc123.js`)—no invalidation needed
-2. **Stale-while-revalidate**—async refresh, no user-visible staleness
-3. **Tag-based purge**—granular, handles complex dependencies
-4. **Path-based purge**—simple but coarse-grained
-5. **Full cache clear**—last resort, triggers thundering herd
+## Mental model
 
-**Edge compute** shifts personalization from origin to edge—decisions made in <1ms at 225+ locations vs 200ms+ round-trip to origin.
+A request fans out through three caches before it reaches origin: the **browser** (private cache, governed by `Cache-Control`), the **edge PoP** (shared cache geographically nearest to the client), and optionally an **origin shield** (a single regional cache layer that collapses misses from many edges into one origin request). RFC 9111 calls these "private" and "shared" caches and uses the directive surface — `private` vs. `s-maxage`, in particular — to make the distinction enforceable.[^rfc9111]
 
-## Cache Fundamentals
+[^rfc9111]: [RFC 9111 — HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111.html), STD 98, June 2022. Obsoletes [RFC 7234](https://datatracker.ietf.org/doc/html/rfc7234).
 
-HTTP caching behavior is defined by RFC 9111 (June 2022), which obsoletes RFC 7234. The specification distinguishes between **private caches** (browser) and **shared caches** (CDN, proxy). This distinction is critical: directives like `private` and `s-maxage` exist specifically to control behavior differences between these cache types.
+Each cache layer answers two questions on every request: *do I have a cached response under this key?* and *is it still fresh?* The cache key is built from the request (default: method + host + path + query string, plus whatever the cache configuration adds via `Vary` or explicit policy). Freshness comes from the `max-age` / `s-maxage` directives, the response date, and the various `stale-*` extensions. Everything else — purges, surrogate keys, edge compute — is a way to bend those two answers without rewriting your application.
 
-### Cache-Control Directives
+## Cache fundamentals
 
-The `Cache-Control` header is the primary mechanism for controlling caching behavior. Key directives and their design rationale:
+### `Cache-Control` directives that actually matter at the edge
 
-| Directive         | Target             | Behavior                                  | Design Rationale                                    |
-| ----------------- | ------------------ | ----------------------------------------- | --------------------------------------------------- |
-| `max-age=N`       | All caches         | Response fresh for N seconds              | Simple TTL control                                  |
-| `s-maxage=N`      | Shared caches only | Overrides `max-age` for CDN/proxy         | CDN often needs different TTL than browser          |
-| `no-cache`        | All caches         | Must revalidate before serving            | Freshness guarantee (not "don't cache")             |
-| `no-store`        | All caches         | Never store in any cache                  | Sensitive data protection                           |
-| `private`         | Browser only       | Exclude from shared caches                | User-specific content                               |
-| `public`          | All caches         | Cacheable even for authenticated requests | Override default behavior                           |
-| `must-revalidate` | All caches         | Cannot serve stale after TTL              | Strict freshness requirement                        |
-| `immutable`       | All caches         | Content won't change during freshness     | Avoid conditional requests for fingerprinted assets |
+| Directive         | Target          | Behaviour                                                    | When to reach for it                                           |
+| ----------------- | --------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| `max-age=N`       | All caches      | Response is fresh for N seconds                              | The default knob; everything else modifies it.                 |
+| `s-maxage=N`      | Shared caches  | Overrides `max-age` for CDNs and proxies                      | When the CDN should cache longer than the browser does.        |
+| `no-cache`        | All caches      | Cache, but revalidate before serving                          | Documents you must serve fresh on every navigation.             |
+| `no-store`        | All caches      | Never store                                                   | PII, auth-bearing responses you cannot risk leaking.            |
+| `private`         | Browser only    | Excluded from shared caches                                   | Per-user content that may still be browser-cached.              |
+| `public`          | All caches      | Cacheable even with `Authorization`                          | Explicit override for authenticated-but-shareable responses.    |
+| `must-revalidate` | All caches      | Cannot serve stale once expired                              | Strict-freshness requirements; e.g. financial pages.            |
+| `immutable`       | All caches      | Will not change during the freshness window                   | Fingerprinted assets — skips conditional revalidation entirely. |
 
-**Common misconception**: `no-cache` does NOT mean "don't cache." It means "cache, but always revalidate before serving." Use `no-store` to prevent caching entirely.
+> [!CAUTION]
+> `no-cache` does **not** mean "do not cache". It means "cache, but revalidate before each use" ([RFC 9111 §5.2.2.4](https://www.rfc-editor.org/rfc/rfc9111#section-5.2.2.4)). Use `no-store` if you need to forbid caching entirely. Mixing the two up has been the root cause of more than one credential leak.
 
-**Example for versioned assets**:
+Two header recipes cover most production responses:
 
-```http
+```http title="Fingerprinted asset (1 year, no revalidation)"
 Cache-Control: public, max-age=31536000, immutable
 ```
 
-This tells caches: cache for 1 year, any cache can store it, and don't bother revalidating (the fingerprinted URL guarantees immutability).
-
-**Example for HTML documents**:
-
-```http
+```http title="HTML document (always revalidate)"
 Cache-Control: no-cache, must-revalidate
 ```
 
-Cache the document, but always check with origin before serving. If origin is unreachable, return error rather than stale content.
+#### Targeted cache control: `CDN-Cache-Control` and `Surrogate-Control`
 
-### Cache Key Design
+The standard `Cache-Control` header is shared by the browser and every intermediary, which makes it awkward when you want different semantics at the edge versus the client. Two header families exist for that split:
 
-The cache key uniquely identifies cached objects. A poorly designed cache key either:
+- **`Surrogate-Control`** — defined in the W3C [Edge Architecture Specification 1.0](https://www.w3.org/TR/edge-arch/) (2001) by Akamai and Oracle. Targets only "surrogates" (CDN nodes); compliant surrogates strip the header before forwarding to the client.[^surrogate-control] Honored by Fastly and parts of Akamai; not by Cloudflare or CloudFront.
+- **`CDN-Cache-Control`** — standardized as [RFC 9213](https://www.rfc-editor.org/rfc/rfc9213.html) (Targeted HTTP Cache Control, June 2022). Same directive grammar as `Cache-Control`; explicitly addresses the CDN tier and is co-supported by Cloudflare,[^cf-cdn-cc] Vercel, and other modern CDNs. Use this for greenfield work — `Surrogate-Control` is the older, vendor-fragmented sibling.
 
-- **Fragments the cache** (too many keys) → low hit ratio, high origin load
-- **Serves wrong content** (insufficient keys) → users see incorrect responses
+[^surrogate-control]: [Edge Architecture Specification 1.0](https://www.w3.org/TR/edge-arch/), W3C Note, August 2001. The header set (`Surrogate-Control`, `Surrogate-Capability`) was authored by Mark Nottingham (Akamai) and Xiang Liu (Oracle); it is a W3C Note, not a W3C Recommendation.
+[^cf-cdn-cc]: [`CDN-Cache-Control` — Cloudflare docs](https://developers.cloudflare.com/cache/concepts/cdn-cache-control/); [CDN-Cache-Control: precision control for your CDN(s)](https://blog.cloudflare.com/cdn-cache-control/), Cloudflare blog.
 
-**Default cache key components** (most CDNs):
+### Cache key design
 
-- HTTP method (GET, HEAD)
-- Host header
-- URL path
-- Query string
+The cache key uniquely identifies a stored response. Most CDNs default to `method + host + path + query string`. Anything else that affects the response — the `Accept-Language`, the device class, the user segment — has to be in the key, either explicitly via the cache policy or implicitly via the `Vary` response header.
 
-**The cache key correctness rule**: If any request header affects the response content, that header must be part of the cache key (or handled via `Vary`).
+> [!IMPORTANT]
+> The cache-key correctness rule: **if a request header changes the response body, that header has to participate in the cache key.** Skip this and the cache will serve user A's response to user B; the bug is silent until someone notices.
 
-**Example: Language-based content**
+A poorly designed key fails in two directions:
 
-If `/products` returns different content based on `Accept-Language`:
+- **Too narrow** → the cache returns the wrong variant. (Auth user sees anon shell; English user sees German content.)
+- **Too wide** → the cache fragments. Hit ratio collapses, origin load climbs, and you debug a cost spike instead of a correctness bug.
 
-```http
-# Response header
-Vary: Accept-Language
-```
+The textbook fragmentation case is `Vary: Accept-Language`. Browsers send raw locale strings (`en-US`, `en-US,en;q=0.9`, `en-GB,en;q=0.8,fr;q=0.5`) and the cardinality is effectively unbounded — Fastly's data shows this header alone can produce thousands of variants per URL.[^fastly-vary] Worse, browsers don't actually store multiple variants per URL the way intermediaries do; they treat `Vary` as a validator and refetch on mismatch, so the win you wanted at the edge often doesn't materialise in the browser at all.[^fastly-vary-browser]
 
-The CDN now caches separate responses for `Accept-Language: en-US`, `Accept-Language: de-DE`, etc.
+[^fastly-vary]: [Best practices for using the `Vary` header](https://www.fastly.com/blog/best-practices-using-vary-header), Fastly engineering blog.
+[^fastly-vary-browser]: [Understanding the `Vary` header in the browser](https://www.fastly.com/blog/understanding-vary-header-browser), Fastly engineering blog.
 
-**Cache fragmentation problem**: `Accept-Language` has thousands of variations (`en-US`, `en-GB`, `en`, `en-US,en;q=0.9`). Each variation creates a separate cache entry. Solutions:
+Three working strategies, in rough order of preference:
 
-1. Normalize headers at edge (collapse `en-US`, `en-GB` → `en`)
-2. Use URL-based routing (`/en/products`, `/de/products`)
-3. Limit supported languages and serve default for others
+1. **Normalise at the edge.** Collapse `Accept-Language` to a closed set (`en`, `de`, `fr`, fallback) in a request-side edge function or VCL block, then `Vary` on the normalised value.
+2. **Encode the variant in the URL.** `/en/products`, `/de/products`. Google explicitly recommends locale-specific URLs over `Accept-Language` for international SEO,[^google-i18n] and it makes the cache key obvious.
+3. **Move the dimension to a custom header.** `X-Device-Class: mobile|tablet|desktop`, populated by a device-detection layer, then `Vary: X-Device-Class`.
 
-**Best practices for cache key design**:
+[^google-i18n]: [Managing multi-regional and multilingual sites](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites), Google Search Central.
 
-| Do                                        | Don't                                                      |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| Include only headers that affect response | Include `User-Agent` (thousands of variations)             |
-| Normalize headers at edge before caching  | Pass raw headers to cache key                              |
-| Use URL-based variants when possible      | Rely on `Vary` for high-cardinality headers                |
-| Whitelist query parameters                | Include all query parameters (tracking IDs fragment cache) |
+| Do                                                       | Don't                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Include only headers that change the response body        | `Vary: User-Agent` — high-cardinality, effectively disables caching     |
+| Normalise high-cardinality headers before they hit cache | Pass raw locale, UA, or cookie blobs into the key                       |
+| Whitelist allowed query parameters                        | Include the entire query string verbatim — tracking IDs fragment cache  |
+| Use URL path variants for stable dimensions               | Lean on `Vary` for anything with more than ~10 distinct values          |
 
-### TTL Strategies by Content Type
+### TTL strategies by content type
 
-TTL selection balances freshness against hit ratio. The right TTL depends on content volatility and staleness tolerance:
+Pick TTL by content volatility and staleness tolerance, not by gut feel:
 
-| Content Type                                     | Recommended TTL         | Cache-Control Example                                  |
-| ------------------------------------------------ | ----------------------- | ------------------------------------------------------ |
-| Fingerprinted assets (JS, CSS, images with hash) | 1 year                  | `max-age=31536000, immutable`                          |
-| Static images without fingerprint                | 1 day to 1 week         | `max-age=86400`                                        |
-| HTML documents                                   | Revalidate or short TTL | `no-cache` or `max-age=300, stale-while-revalidate=60` |
-| API responses (read-heavy)                       | Minutes to hours        | `s-maxage=300, stale-while-revalidate=60`              |
-| User-specific content                            | Don't cache at CDN      | `private, no-store`                                    |
-| Real-time data                                   | Don't cache             | `no-store`                                             |
+| Content type                                | Recommended TTL              | Cache-Control example                                  |
+| ------------------------------------------- | ---------------------------- | ------------------------------------------------------ |
+| Fingerprinted JS/CSS/images (`main.abc123.js`) | 1 year                      | `max-age=31536000, immutable`                          |
+| Static images, no fingerprint               | Hours to days                | `max-age=86400`                                        |
+| HTML documents                              | Revalidate or short TTL      | `no-cache` or `max-age=60, stale-while-revalidate=600` |
+| API responses, read-heavy                   | Minutes                      | `s-maxage=300, stale-while-revalidate=60`              |
+| User-specific responses                     | Don't share-cache            | `private, no-store`                                    |
+| Real-time data                              | Don't cache                  | `no-store`                                             |
 
-**Design rationale for fingerprinted assets**: Content-addressed URLs (e.g., `main.abc123.js`) guarantee immutability—the URL changes when content changes. This enables maximum caching without staleness risk. The `immutable` directive tells browsers not to revalidate even on reload.
+The interesting failure mode is the **HTML-with-fingerprinted-assets** trap. The HTML references assets by URL; if the HTML is cached for an hour and you deploy new CSS, users get yesterday's HTML pointing at yesterday's CSS path until the HTML cache turns over. Three reliable workarounds: serve HTML with `no-cache`, use a short `max-age` paired with `stale-while-revalidate`, or purge the HTML key on every deploy. Pick one and write it down — this is one of the most common "site looks broken after deploy" classes.
 
-**The HTML document problem**: HTML references other assets by URL. If you cache HTML for 1 hour and deploy new CSS, users get old HTML pointing to old CSS URL, then CSS fingerprint changes, causing broken styles until HTML cache expires. Solutions:
+## Cache invalidation strategies
 
-1. Use `no-cache` for HTML (always revalidate)
-2. Use very short TTL with `stale-while-revalidate`
-3. Purge HTML on every deployment
+> [!NOTE]
+> The mental shortcut: **prefer mechanisms that don't require invalidation, then mechanisms that hide invalidation latency, then mechanisms that purge precisely.** Path purges and full clears are the bottom of the ladder.
 
-## Cache Invalidation Strategies
+![Decision tree — pick an invalidation strategy by whether the URL is fingerprinted, how many entries depend on the change, your staleness tolerance, and CDN feature support.](./diagrams/invalidation-decision-tree-light.svg "Decision tree: pick an invalidation strategy by URL shape, dependency fan-out, staleness tolerance, and CDN feature support.")
+![Decision tree — pick an invalidation strategy by whether the URL is fingerprinted, how many entries depend on the change, your staleness tolerance, and CDN feature support.](./diagrams/invalidation-decision-tree-dark.svg)
 
-Cache invalidation is one of the two hard problems in computer science (along with naming things and off-by-one errors). The challenge: how do you tell globally distributed caches that content has changed?
+### Versioned URLs — avoid invalidation
 
-### Versioned URLs: Avoiding Invalidation Entirely
+The cheapest invalidation is the one you never issue. Content-addressed URLs (`main.abc123.js`) make a new version a cache miss by definition; old versions stay cached until they're evicted under memory pressure. The lifecycle is mechanical:
 
-The best invalidation strategy is avoiding invalidation. Fingerprinted URLs make cache entries naturally obsolete:
+![Content-addressed asset lifecycle — hashing the source produces a new immutable URL on every deploy; new HTML references the new URL, cache MISS pulls and fills it, and old hashes age out under LRU.](./diagrams/content-addressed-asset-lifecycle-light.svg "Content-addressed asset lifecycle: hashing produces a new immutable URL each deploy; new HTML references the new URL, the cache fills on first MISS, and old hashes age out under LRU pressure.")
+![Content-addressed asset lifecycle — hashing the source produces a new immutable URL on every deploy; new HTML references the new URL, cache MISS pulls and fills it, and old hashes age out under LRU.](./diagrams/content-addressed-asset-lifecycle-dark.svg)
 
-```
-# Old version
-/assets/main.abc123.js
-
-# New deployment
-/assets/main.def456.js
-```
-
-**Why this works**: The URL is the cache key. A new URL is a cache miss, fetched fresh from origin. Old URLs can stay cached forever—they'll naturally expire or be evicted under memory pressure.
-
-**Implementation with build tools**:
-
-```javascript title="vite.config.js" collapse={1-3}
-// Vite configuration for content-hashed filenames
-// Produces: main.abc123.js (hash changes when content changes)
-
+```js title="vite.config.js"
 export default {
   build: {
     rollupOptions: {
@@ -181,477 +165,425 @@ export default {
 }
 ```
 
-**Limitation**: Only works for assets referenced by other files. HTML documents at fixed URLs (`/`, `/products/123`) cannot use this pattern—they need explicit invalidation.
+Combined with `Cache-Control: public, max-age=31536000, immutable`, browsers don't even ask for revalidation during the freshness window. This pattern only works for assets referenced by another file (the HTML or the previous JS chunk needs to know the new URL). Documents at fixed URLs (`/`, `/products/123`) cannot use it and need explicit invalidation.
 
-### Path-Based Purge
+### Path-based purge
 
-The simplest invalidation: tell the CDN to remove specific URLs.
+The simplest active invalidation: tell the CDN to drop specific URLs.
 
-**Exact path purge**:
-
-```bash
-# Purge single URL
+```bash title="path purge — single URL and wildcard"
 aws cloudfront create-invalidation \
   --distribution-id E1234567890AB \
   --paths "/products/123"
-```
 
-**Wildcard purge**:
-
-```bash
-# Purge all products
 aws cloudfront create-invalidation \
   --distribution-id E1234567890AB \
   --paths "/products/*"
 ```
 
-**Limitations**:
+Limitations to plan around:
 
-- **No relationship awareness**: Purging `/products/123` doesn't purge `/categories/electronics` even if it displays product 123
-- **Rate limits**: Google Cloud CDN limits to 500 invalidations/minute
-- **Propagation delay**: CloudFront takes 30s-3min; Google Cloud CDN takes 5-10min
+- **No relationship awareness.** Purging `/products/123` does nothing to `/categories/electronics` even if the listing renders that product.
+- **Rate and cost.** [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PayingForInvalidation.html) charges $0.005 per path beyond 1,000 free paths/month per account; a wildcard counts as one path no matter how many objects it covers. [Google Cloud CDN](https://cloud.google.com/cdn/docs/cache-invalidation-overview) caps invalidations at 500/minute.
+- **Propagation isn't instant.** See the next section.
 
-**When to use**: Simple sites with direct URL-to-content mapping. Emergency removal of specific content.
+Path purge is the right answer for emergency removals, simple sites with direct URL-to-content mapping, or as the fallback layer underneath a tag-based scheme.
 
-### Tag-Based Purge (Surrogate Keys)
+### Tag-based purge (surrogate keys)
 
-Tag-based purging enables many-to-many relationships between content and cache entries. When content changes, purge by tag—all entries with that tag are invalidated regardless of URL.
+When one entity (a product, a user, a feature flag) feeds many cached responses, surrogate keys let you invalidate by relationship. The origin tags responses; the CDN indexes entries by tag; one purge call fans out to every URL bound to the tag. The mechanism predates RFC-track standardization — the closest specification is the W3C [Edge Architecture Specification 1.0](https://www.w3.org/TR/edge-arch/) (2001), which defined `Surrogate-Capability` and `Surrogate-Control` for CDN-targeted directives. Each vendor layered its own tag header (`Surrogate-Key`, `Cache-Tag`, `Edge-Cache-Tag`) on top, and tag-based invalidation is now the workhorse of every serious CMS-on-CDN deployment.
 
-**How it works**:
+![Tag-based purge — the origin attaches surrogate keys, the CDN binds keys to URLs at insert time, and a single purge call invalidates every URL that shared the tag.](./diagrams/tag-based-purge-flow-light.svg "Tag-based purge: the origin attaches surrogate keys, the CDN binds keys to URLs at insert time, and one purge invalidates every URL that shared the tag.")
+![Tag-based purge — the origin attaches surrogate keys, the CDN binds keys to URLs at insert time, and a single purge call invalidates every URL that shared the tag.](./diagrams/tag-based-purge-flow-dark.svg)
 
-1. Origin adds tags to response headers:
+The header conventions and limits differ enough across vendors that you should never assume portability:
 
-```http
-Surrogate-Key: product-123 category-electronics homepage
-```
+| CDN          | Tag header                  | Per-key limit  | Per-header limit             | Notes                                                                                                |
+| ------------ | --------------------------- | -------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Fastly       | `Surrogate-Key`             | 1,024 bytes    | 16,384 bytes                 | Native; instant purge ~150 ms global P50.[^fastly-keys][^fastly-purge]                                |
+| Akamai       | `Edge-Cache-Tag`            | 128 chars      | 128 tags per object          | Fast Purge API; 5,000 tag purges/hour, 10,000 objects/min per account.[^akamai-tags]                 |
+| Cloudflare   | `Cache-Tag`                 | 1,024 chars (API)  | 16 KB total per response | Purge by tag is now available on **all plans**, not just Enterprise.[^cf-tags-all][^cf-tags-docs]    |
+| Varnish      | `xkey` VCL module           | implementation-defined | implementation-defined | Operator-controlled secondary index.                                                                  |
+| CloudFront   | none (no native support)    | n/a            | n/a                          | Workaround: maintain a tag→URL index in your app or a Lambda@Edge-fronted DynamoDB and purge paths.   |
 
-2. CDN indexes entries by tags
+[^fastly-keys]: [Surrogate-Key — Fastly HTTP headers](https://www.fastly.com/documentation/reference/http/http-headers/Surrogate-Key/).
+[^fastly-purge]: [Fastly Instant Purge: under 150 ms for over a decade](https://www.fastly.com/blog/fastly-instant-purge-under-150ms-for-over-a-decade).
+[^akamai-tags]: [Purge content by cache tag — Akamai](https://techdocs.akamai.com/purge-cache/docs/purge-content-cache-tag).
+[^cf-tags-all]: [Cloudflare — Instant Purge for All](https://blog.cloudflare.com/instant-purge-for-all/), Sep 2024. Tag, prefix, and hostname purge are no longer Enterprise-only.
+[^cf-tags-docs]: [Purge cache by cache-tags — Cloudflare](https://developers.cloudflare.com/cache/how-to/purge-cache/purge-by-tags/).
 
-3. On product update, purge by tag:
+A worked example. The origin emits:
 
-```bash
-curl -X POST "https://api.fastly.com/service/{id}/purge/product-123" \
-  -H "Fastly-Key: {api_key}"
-```
-
-4. All URLs tagged with `product-123` are invalidated:
-   - `/products/123`
-   - `/categories/electronics` (if it displays product 123)
-   - `/homepage` (if product 123 is featured)
-
-**Fastly implementation** (from [Fastly documentation](https://docs.fastly.com/en/guides/purging-with-surrogate-keys)):
-
-```http
-# Response headers
-Surrogate-Key: post/1234 category/news author/jane
+```http title="response from /products/123"
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Surrogate-Key: product-123 cat-electronics homepage
 Surrogate-Control: max-age=86400
+Cache-Control: public, max-age=60, stale-while-revalidate=600
 ```
 
-Limits: Individual keys max 1024 bytes, total header max 16,384 bytes.
+When the catalogue editor saves a price change, the application issues:
 
-**CloudFront implementation**: CloudFront doesn't support surrogate keys natively. Workaround: use Lambda@Edge to manage a DynamoDB index mapping tags to URLs, then purge URLs programmatically.
-
-**Akamai implementation** (Cache Tags):
-
-```http
-Edge-Cache-Tag: product-123, category-electronics
+```bash title="purge by surrogate key (Fastly)"
+curl -X POST "https://api.fastly.com/service/${SERVICE_ID}/purge/product-123" \
+  -H "Fastly-Key: ${FASTLY_API_KEY}"
 ```
 
-Purge via API or Property Manager rules.
+That single call invalidates `/products/123`, `/categories/electronics`, and `/homepage` — anywhere `product-123` was attached. The trade-off is real: you pay for it with origin code that has to compute and emit the right tags on every response, and you constrain yourself to vendors that support the feature.
 
-**Design tradeoff**: Tag-based purging requires:
+### Soft purge vs hard purge
 
-1. Application code to generate tags
-2. CDN that supports the feature (Fastly, Akamai, Cloudflare with Enterprise)
-3. Operational tooling to trigger purges
+A purge can mean two materially different things:
 
-The complexity is justified when content relationships are complex (CMS, e-commerce with product listings).
+- **Hard purge** — the entry is dropped. The next request is a guaranteed cache MISS and pays the full origin RTT synchronously. This is the only behavior that satisfies "must not serve this content again" (legal takedowns, leaked secrets, broken responses).
+- **Soft purge** — the entry is *marked stale* but kept in cache, so it remains eligible for `stale-while-revalidate` and `stale-if-error`. The next request serves the stale body instantly while the CDN refetches in the background. Origin load step is bounded to one request per key per region, not N.
 
-### Invalidation Propagation Timing
+![Soft vs hard purge — hard purge deletes the entry so the next request blocks on origin; soft purge keeps the entry, serves it stale, and refetches asynchronously.](./diagrams/soft-vs-hard-purge-light.svg "Soft vs hard purge: hard purge deletes the entry and the next request blocks on origin; soft purge keeps the entry, serves it stale, and refetches asynchronously.")
+![Soft vs hard purge — hard purge deletes the entry so the next request blocks on origin; soft purge keeps the entry, serves it stale, and refetches asynchronously.](./diagrams/soft-vs-hard-purge-dark.svg)
 
-Purge is not instant. Time from purge request to global effect:
+Vendor support for the soft variant differs:
 
-| CDN Provider     | Typical Propagation | Notes                                        |
-| ---------------- | ------------------- | -------------------------------------------- |
-| Cloudflare       | <150ms (P50)        | "Instant Purge" via distributed invalidation |
-| Fastly           | ~150ms global       | Sub-second for most requests                 |
-| AWS CloudFront   | 30s - 3min          | Varies by distribution size                  |
-| Google Cloud CDN | 5-10 min            | Rate limited (500/min)                       |
-| Akamai           | Seconds to minutes  | Depends on product tier                      |
+| CDN        | Soft purge mechanism                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fastly     | `Fastly-Soft-Purge: 1` request header on URL or surrogate-key purge.[^fastly-soft-purge] Combine with `stale-while-revalidate` for SWR fan-out. |
+| Akamai     | Fast Purge `Invalidate` action marks objects stale (next request triggers conditional GET); `Delete` evicts immediately.[^akamai-tags]        |
+| Cloudflare | Purge always evicts; closest equivalent is `stale-while-revalidate` on the origin response (no soft-purge API).                               |
+| CloudFront | Invalidations always evict; no native soft-purge primitive.                                                                                   |
 
-**Operational implication**: Don't assume purge is instant. If you purge and immediately test, you may see cached content. Build delays into deployment pipelines or use cache-busting query params for verification.
+[^fastly-soft-purge]: [Soft purges — Fastly documentation](https://www.fastly.com/documentation/guides/full-site-delivery/purging/soft-purges/); [Introducing Soft Purge](https://www.fastly.com/blog/introducing-soft-purge-more-efficient-way-mark-outdated-content), Fastly blog.
 
-**Cost**:
+> [!TIP]
+> Default to **soft purge** for CMS edits, deploys, and content updates. Reserve **hard purge** for the cases where serving the old body even once would be wrong (PII, security, legal takedown). The user-visible latency difference on the first post-purge request is the entire point of the distinction.
 
-- CloudFront: First 1,000 paths/month free, $0.005/path beyond
-- Wildcard `/*` counts as one path but invalidates everything
+### Invalidation propagation timing
 
-## Stale-While-Revalidate and Stale-If-Error
+Purge is asynchronous. Plan for it.
 
-RFC 5861 defines two Cache-Control extensions that fundamentally change the freshness vs availability tradeoff.
+| CDN              | Typical global propagation                | Notes                                                                                              |
+| ---------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Cloudflare       | < 150 ms P50                              | "Instant Purge" via distributed coreless architecture.[^cf-instant-purge]                          |
+| Fastly           | ~ 150 ms global                           | Sub-second for most regions; primarily bounded by speed-of-light to PoPs.[^fastly-purge]            |
+| AWS CloudFront   | Typically < 2 min, up to 10–15 min globally | Per-edge propagation; varies with distribution size.[^cf-propagation]                                |
+| Google Cloud CDN | ~ 10 s per request, full propagation in minutes | 500 invalidations/minute account-level rate limit.[^gcp-cache]                                     |
+| Akamai           | Seconds to minutes via Fast Purge API     | "Invalidate" (conditional GET) and "Delete" (force fetch) modes.[^akamai-tags]                     |
 
-### Stale-While-Revalidate (SWR)
+[^cf-instant-purge]: [Instant Purge: invalidating cached content in under 150 ms](https://blog.cloudflare.com/instant-purge/), Cloudflare.
+[^cf-propagation]: [Pay for file invalidation — Amazon CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PayingForInvalidation.html); see also [Invalidating files](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html).
+[^gcp-cache]: [Cache invalidation overview — Google Cloud CDN](https://cloud.google.com/cdn/docs/cache-invalidation-overview).
+
+> [!WARNING]
+> Don't deploy a "purge then immediately verify in CI" step that assumes the purge is global by the time the verification request lands. On AWS this can fail intermittently for tens of minutes. Either wait, or query a known-cold edge with a cache-busting query string for verification.
+
+#### Deploy + purge race conditions
+
+The classic incident is "deployed at T, purged at T+1, but a PoP that hadn't seen the purge yet re-pulled the *old* origin between T and T+1 and re-cached it for the full TTL." Three rules contain it:
+
+1. **Order matters.** Make the new origin authoritative before issuing the purge — atomic-swap behind a load balancer, blue/green deploy, or content-addressed origin paths. A purge against an origin still serving the old body just refills the cache with stale.
+2. **Purge after deploy completes globally**, not after the deploy step kicks off. CD systems that fire purges from the build runner before the rollout finishes ship this bug routinely.
+3. **For HTML that references content-addressed assets**, purge the HTML key, not the assets. The asset URLs change with the deploy and never collide.
+
+## Stale-while-revalidate and stale-if-error
+
+[RFC 5861](https://datatracker.ietf.org/doc/html/rfc5861) adds two `Cache-Control` extensions that change the freshness-vs-availability calculus. They are the closest thing the cache layer has to a free lunch.
+
+### Stale-while-revalidate (SWR)
 
 ```http
 Cache-Control: max-age=600, stale-while-revalidate=30
 ```
 
-**Behavior**:
+The lifecycle of a cached response under this directive:
 
-1. **0-600s**: Content fresh, serve from cache
-2. **600-630s**: Content stale, serve from cache immediately, trigger async revalidation
-3. **>630s**: Content truly stale, synchronous fetch required
+1. **0 – 600 s.** Fresh. Served from cache.
+2. **600 – 630 s.** Stale but inside the SWR window. The cache **returns the stale response immediately** and triggers an asynchronous revalidation in the background. The next request gets fresh content.
+3. **> 630 s.** Truly stale. The cache must fetch synchronously before responding.
 
-**Design rationale**: Hides revalidation latency from users. The first request after TTL expires gets served instantly from cache while triggering background refresh. Subsequent requests get fresh content.
+![stale-while-revalidate window — the first request after TTL serves stale content instantly while triggering an async revalidation; subsequent requests get fresh content.](./diagrams/stale-while-revalidate-light.svg "stale-while-revalidate window: the first request after TTL serves stale content instantly while triggering an async revalidation; subsequent requests get fresh content.")
+![stale-while-revalidate window — the first request after TTL serves stale content instantly while triggering an async revalidation; subsequent requests get fresh content.](./diagrams/stale-while-revalidate-dark.svg)
 
-![Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.](./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content-light.svg "Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.")
-![Stale-while-revalidate flow: first request after TTL expires serves stale content instantly while triggering async revalidation. Next request gets fresh content.](./diagrams/stale-while-revalidate-flow-first-request-after-ttl-expires-serves-stale-content-dark.svg)
+The point is to push revalidation latency off the user-visible path. It also de-fangs the thundering herd: the first concurrent request serves stale and fires one background fetch; the rest still see cache hits.
 
-**Browser support**: Chrome 75+, Firefox 68+, Safari 13+, Edge 79+.
+Browser support landed in **Chrome 75+, Edge 79+, Firefox 68+, and Safari 14+**.[^swr-caniuse] Browsers that don't recognise the directive simply ignore it and fall back to `max-age` semantics. CDN support is mature on Cloudflare, Fastly, KeyCDN, and Varnish; CloudFront needs Lambda@Edge to implement true SWR. One subtle constraint: if no traffic arrives during the SWR window, the entry truly expires and the next request pays the full origin RTT — SWR is only a steady-state win for warm endpoints.
 
-**CDN support**: Cloudflare, Fastly, KeyCDN, Varnish. CloudFront requires Lambda@Edge for full implementation.
+[^swr-caniuse]: [`stale-while-revalidate` browser support — Can I use](https://caniuse.com/?search=stale-while-revalidate); [Keeping things fresh with stale-while-revalidate](https://web.dev/articles/stale-while-revalidate), web.dev.
 
-**Edge case**: If no traffic arrives during the SWR window, content becomes truly stale. High-traffic endpoints benefit most; low-traffic endpoints may still experience synchronous fetches.
-
-### Stale-If-Error (SIE)
+### Stale-if-error (SIE)
 
 ```http
 Cache-Control: max-age=600, stale-if-error=86400
 ```
 
-**Behavior**: If origin returns 5xx error or is unreachable, serve stale content for the specified duration instead of propagating the error.
+Origin returned a 5xx or is unreachable? Serve the stale response for the SIE window instead of propagating the error. This trades freshness for availability, and it makes a bad deploy look like a slightly stale page rather than a 503 storm.
 
-**Design rationale**: Availability over freshness. Users see slightly old content rather than error pages during origin outages.
-
-**Combined pattern for production APIs**:
+The combined production recipe:
 
 ```http
 Cache-Control: max-age=300, stale-while-revalidate=60, stale-if-error=86400
 ```
 
-- Fresh for 5 minutes
-- Serve stale + async revalidate for 1 minute after
-- Serve stale on error for 24 hours
+Five minutes fresh; one minute of async-refresh window; one day of error-survival cushion. This single header turns a 30-minute origin outage into a non-event for read-heavy endpoints.
 
-**Operational benefit**: Origin deployments become safer. If a bad deploy causes 500 errors, users continue seeing cached content while you fix the issue.
+### Varnish grace mode
 
-### Varnish Grace Mode
+Varnish predates RFC 5861 and exposes the same idea with finer control via VCL:
 
-Varnish implements similar functionality with more control via VCL (Varnish Configuration Language):
-
-```vcl title="grace.vcl" collapse={1-4}
-# Varnish grace mode configuration
-# beresp.grace: how long to serve stale while revalidating
-# req.grace: how long client accepts stale content
-
+```vcl title="grace.vcl"
 sub vcl_backend_response {
-    set beresp.ttl = 300s;       # Fresh for 5 minutes
-    set beresp.grace = 1h;       # Serve stale for 1 hour while revalidating
+    set beresp.ttl = 300s;
+    set beresp.grace = 1h;
 }
 
 sub vcl_recv {
-    # Extend grace period when backend is unhealthy
     if (std.healthy(req.backend_hint)) {
         set req.grace = 10s;
     } else {
-        set req.grace = 24h;     # Extended grace during outages
+        set req.grace = 24h;
     }
 }
 ```
 
-**Key insight**: Varnish separates object grace (how long to keep stale content) from request grace (how long a specific request accepts stale content). This enables dynamic behavior based on backend health.
+The interesting move is the split between `beresp.grace` (how long the cache *retains* a stale object after expiry) and `req.grace` (how stale a *given request* is willing to accept). When the backend health probe flips, you can extend the request-side grace from 10 s to 24 h on the fly without re-emitting any responses.
 
-## Edge Compute Use Cases
+## Operational guardrails
 
-Edge compute moves logic from origin to CDN edge locations, reducing latency from 200ms+ (origin round-trip) to <1ms (edge execution).
+### Cache hit ratio (CHR)
 
-### Platform Comparison
+CHR is the primary health metric for a CDN. The formula is trivial:
 
-| Platform             | Runtime             | Cold Start | Max Execution | Use Case                     |
-| -------------------- | ------------------- | ---------- | ------------- | ---------------------------- |
-| CloudFront Functions | JavaScript          | <1ms       | <1ms CPU      | Simple transforms, redirects |
-| Lambda@Edge          | Node.js, Python     | 50-100ms   | 5-30s         | Complex logic, API calls     |
-| Cloudflare Workers   | JavaScript/WASM     | <1ms       | 10-30ms CPU   | Full applications            |
-| Fastly Compute       | WASM (Rust, Go, JS) | 35μs       | No hard limit | High-performance compute     |
+$$
+\text{CHR} = \frac{\text{cache hits}}{\text{cache hits} + \text{cache misses}}
+$$
 
-**Cost comparison** (per 1M invocations):
+Useful target bands, from operating sites at scale:
 
-- CloudFront Functions: $0.10
-- Lambda@Edge: $0.60 + execution time
-- Cloudflare Workers: $0.50 (included in paid plans)
+- **Static assets:** > 95 %.
+- **Mixed-content sites:** > 85 %.
+- **Investigate:** anything below 80 % on a previously healthy endpoint.
 
-### Personalization Without Origin Load
+A global average is a **bad** target because it hides the failure that hurts. Always segment by content type, region, and URL pattern. A 90 % global CHR with 50 % CHR on `/api/*` is a hot origin waiting to happen.
 
-Traditional personalization requires origin processing per request. Edge compute enables personalization at cache layer:
+The recurring CHR killers, in order of how often they show up in real incidents:
 
-**Pattern: Cookie-based variant selection**
+1. **High-cardinality `Vary` headers** (Accept-Language, User-Agent) — the cache splits into thousands of variants per URL.
+2. **Tracking parameters in the cache key** — `?utm_source=...&fbclid=...` makes every share a unique key. Strip them with a query-string allow-list.
+3. **Aggressive `Vary: Cookie`** — usually unintended, usually catastrophic; one session cookie effectively turns the cache off.
+4. **TTL too short for actual change rate** — e.g. 60 s TTL on content that changes hourly.
+5. **Origin emitting `Cache-Control: no-store` unintentionally** — common after a deploy of an auth middleware that "secures" everything.
 
-```javascript title="personalization.js" collapse={1-5}
-// CloudFront Function for cookie-based personalization
-// Routes to different cached content based on user segment
-// Cache key includes the segment, so variants are cached separately
+### Cache stampede (thundering herd)
 
-function handler(event) {
-  var request = event.request
-  var cookies = request.cookies
+When a popular cached entry expires, every concurrent request misses the cache and hits the origin in the same instant.
 
-  // Determine user segment from cookie
-  var segment = "default"
-  if (cookies.user_segment) {
-    segment = cookies.user_segment.value
-  }
+![Cache stampede — concurrent requests after expiry all hit origin without coalescing; with coalescing, the CDN holds duplicates while one fetch returns and serves them all.](./diagrams/cache-stampede-light.svg "Cache stampede: without coalescing, concurrent requests after TTL expiry all hit origin; with coalescing, the CDN holds duplicates while one fetch returns and serves them all.")
+![Cache stampede — concurrent requests after expiry all hit origin without coalescing; with coalescing, the CDN holds duplicates while one fetch returns and serves them all.](./diagrams/cache-stampede-dark.svg)
 
-  // Add segment to cache key via custom header
-  request.headers["x-user-segment"] = { value: segment }
+A 98 % CHR endpoint at 50k RPS sees a load step from ~1k RPS to 50k RPS the moment a hot key expires — a 50× origin spike. The mitigations stack:
 
-  return request
-}
-```
+1. **Request coalescing at the edge.** [CloudFront does this natively](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/RequestAndResponseBehaviorCustomOrigin.html#request-collapsing): concurrent requests for the same key are paused while one fetch goes upstream, and the response is fanned back out. Fastly does the same by default. [Cloudflare's Tiered Cache](https://developers.cloudflare.com/cache/how-to/tiered-cache/) adds upper-tier collapsing.
+2. **Stale-while-revalidate.** First miss after expiry serves stale and fires one background refresh; subsequent requests still hit the cache. No stampede.
+3. **Probabilistic early expiration (XFetch).** Refresh slightly before TTL with a probability that grows as expiry approaches. Vattani et al. show this is optimal under reasonable assumptions:[^xfetch] for a key with recompute cost $\delta$, expiry time $T$, and a tunable $\beta \approx 1$, refresh whenever $\text{now} - \delta \beta \ln(\text{rand}) \geq T$. The effect is to spread re-fetches across a window instead of bunching them at the boundary.
+4. **Origin Shield.** A single mid-tier cache that funnels misses from many edges. Multi-region misses become one origin request.
 
-**CloudFront configuration**: Include `x-user-segment` header in cache key policy. Each segment gets its own cached variant.
+[^xfetch]: A. Vattani, F. Chierichetti, K. Lowenstein. [Optimal Probabilistic Cache Stampede Prevention](http://www.vldb.org/pvldb/vol8/p886-vattani.pdf). VLDB 2015.
 
-**Result**: 3 user segments × 1000 pages = 3000 cache entries, all served from edge without origin involvement.
+> [!TIP]
+> Coalescing has one ugly footgun. If your origin response varies by cookie or other private dimension and you have request collapsing on, two users can end up sharing one origin response. [CloudFront's documented rule](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/RequestAndResponseBehaviorCustomOrigin.html) is: collapsing is disabled when cookie forwarding is enabled, and is otherwise opt-out only by setting Min TTL to 0 *and* having the origin emit `Cache-Control: private`, `no-store`, `no-cache`, `max-age=0`, or `s-maxage=0`. If you depend on per-user variants, verify the equivalent rule on your CDN before turning collapsing on.
 
-### A/B Testing at Edge
+### Origin Shield architecture
 
-Edge-based A/B testing eliminates the latency and complexity of client-side testing libraries.
+Without a shield, every edge PoP that misses goes directly to origin:
 
-**Pattern: Consistent assignment via cookie**
-
-```javascript title="ab-testing.js" collapse={1-6}
-// Cloudflare Worker for A/B testing
-// Assigns users to variants consistently via cookie
-// Routes to variant-specific origin path
-
-export default {
-  async fetch(request) {
-    const url = new URL(request.url)
-    let variant = getCookie(request, "ab_variant")
-
-    if (!variant) {
-      // New user: randomly assign variant
-      variant = Math.random() < 0.5 ? "a" : "b"
-    }
-
-    // Route to variant-specific origin
-    url.pathname = `/${variant}${url.pathname}`
-
-    const response = await fetch(url.toString(), request)
-
-    // Set cookie for consistent future assignments
-    const newResponse = new Response(response.body, response)
-    if (!getCookie(request, "ab_variant")) {
-      newResponse.headers.set("Set-Cookie", `ab_variant=${variant}; Path=/; Max-Age=86400`)
-    }
-
-    return newResponse
-  },
-}
-```
-
-**Why edge beats client-side**:
-
-- No layout shift (content decided before HTML sent)
-- No JavaScript dependency
-- Consistent assignment across page loads
-- Works for users with JS disabled
-
-### Geo-Routing and Compliance
-
-Edge compute enables geographic routing for latency optimization or compliance:
-
-```javascript title="geo-routing.js" collapse={1-4}
-// Lambda@Edge geo-routing for GDPR compliance
-// Routes EU users to EU-based origin
-
-exports.handler = async (event) => {
-  const request = event.Records[0].cf.request
-  const country = request.headers["cloudfront-viewer-country"][0].value
-
-  const euCountries = ["DE", "FR", "IT", "ES", "NL", "BE", "AT", "PL"]
-
-  if (euCountries.includes(country)) {
-    request.origin.custom.domainName = "eu-origin.example.com"
-  } else {
-    request.origin.custom.domainName = "us-origin.example.com"
-  }
-
-  return request
-}
-```
-
-**Compliance use case**: GDPR requires certain data to stay within EU. Route EU users to EU origins; their requests never touch US infrastructure.
-
-## Operational Guardrails
-
-### Cache Hit Ratio Monitoring
-
-Cache hit ratio (CHR) is the primary health metric for CDN effectiveness:
-
-**Formula**: `CHR = Cache Hits / (Cache Hits + Cache Misses) × 100`
-
-**Target thresholds**:
-
-- **Static assets**: >95%
-- **Overall site**: >85%
-- **Alert threshold**: <80% (investigate cache key issues or TTL misconfiguration)
-
-**Segmented monitoring is critical**: A global 90% CHR can mask a 50% CHR for a specific content type or region. Monitor by:
-
-- Content type (HTML, JS, CSS, images, API)
-- Geographic region
-- URL pattern
-
-**Common CHR killers**:
-
-- High-cardinality `Vary` headers (cache fragmentation)
-- Query parameters in cache key (tracking IDs create unique keys)
-- Short TTLs on high-traffic content
-- Origin returning `Cache-Control: no-store` unexpectedly
-
-### Cache Stampede (Thundering Herd)
-
-**Problem**: When a popular cache entry expires, all concurrent requests miss cache and hit origin simultaneously.
-
-![Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.](./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca-light.svg "Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.")
-![Cache stampede: multiple concurrent requests after cache expiry all hit origin, causing load spike proportional to concurrency.](./diagrams/cache-stampede-multiple-concurrent-requests-after-cache-expiry-all-hit-origin-ca-dark.svg)
-
-**Real-world impact**: A cache entry with 98% hit ratio expiring means 50x origin load spike (2% misses become 100% misses during revalidation window).
-
-**Mitigation strategies**:
-
-1. **Request coalescing** (CDN feature): CDN holds duplicate requests while one fetches from origin
-   - Fastly: Enabled by default
-   - CloudFront: Limited support via Origin Shield
-   - Cloudflare: "Tiered Cache" provides similar behavior
-
-2. **Stale-while-revalidate**: First request serves stale, triggers async refresh—no stampede because subsequent requests still hit cache
-
-3. **Probabilistic early expiration**: Refresh before TTL expires:
-
-   ```
-   actual_ttl = ttl - (random() * jitter_factor)
-   ```
-
-   Spreads revalidation across time window instead of thundering at exact TTL
-
-4. **Origin Shield**: Centralized cache layer between edge PoPs and origin. Misses from multiple edges coalesce at shield.
-
-### Origin Shield Architecture
-
-Origin Shield adds a single cache layer between globally distributed edge PoPs and origin:
-
-**Without shield**:
-
-```
+```text
 Edge NYC miss → Origin
 Edge London miss → Origin
 Edge Tokyo miss → Origin
 = 3 origin requests
 ```
 
-**With shield**:
+With a shield (a single regional cache between edges and origin):
 
-```
-Edge NYC miss → Shield (Virginia) miss → Origin
-Edge London miss → Shield (Virginia) hit
-Edge Tokyo miss → Shield (Virginia) hit
+```text
+Edge NYC miss → Shield → Origin
+Edge London miss → Shield (HIT)
+Edge Tokyo miss → Shield (HIT)
 = 1 origin request
 ```
 
-**When to enable**:
+When it earns its keep:
 
-- High traffic with moderate cache hit ratio (<95%)
-- Origin cannot handle traffic spikes
-- Global audience (many edge PoPs)
+- High traffic with mediocre CHR (< 95 %) — the absolute miss volume is what hurts.
+- Origins that cannot scale past a known ceiling (legacy systems, expensive databases).
+- Globally distributed traffic over many edge PoPs — the multiplier on coalescing is largest.
 
-**Cost tradeoff**: Additional per-request charge at shield. Justified when origin protection value exceeds shield cost.
+The cost is real: AWS [charges $0.0075–$0.0160 per 10K requests at the shield](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html) depending on region. Justify it by measuring origin RPS reduction, not by intuition.
 
-### Graceful Degradation Patterns
+### Graceful degradation patterns
 
-Design for origin failure:
+Designing for origin failure is a full second axis on top of the freshness/cost trade-off. Three patterns that should be in every production playbook:
 
-1. **Extended stale-if-error**: Serve stale content for 24-48 hours during outages
+1. **Extended `stale-if-error`** — `stale-if-error=172800` keeps cached content alive for two days during outages.
+2. **Static fallback at the edge** — if origin returns 5xx, serve a baked-in static page from edge KV/storage. Cloudflare Workers, Lambda@Edge, and Fastly Compute can all do this.
+3. **Health-aware grace** — Varnish's pattern above: extend the stale-acceptance window when the backend probe flips unhealthy.
+4. **Edge circuit breaker** — after N consecutive origin errors, stop sending traffic for a cooldown period and serve stale or a static fallback instead.
 
-   ```http
-   Cache-Control: max-age=300, stale-if-error=172800
-   ```
+## Edge compute use cases
 
-2. **Static fallback at edge**: If origin returns 5xx, serve static fallback page from edge storage
+Edge compute moves logic from origin (typically 100–300 ms RTT) to the edge PoP closest to the client (sub-ms). Used well, it shifts the personalisation boundary outward and lets you cache responses you couldn't cache before. Used badly, it's a slower, more expensive way to do work the origin was already doing.
 
-3. **Health check integration**: CDN monitors origin health, extends grace period when origin is unhealthy (Varnish pattern shown earlier)
+### Platform comparison
 
-4. **Circuit breaker at edge**: After N consecutive origin errors, stop sending traffic for cooldown period
+| Platform                | Runtime                | Cold start                                    | Per-invocation execution limit | Best for                                              |
+| ----------------------- | ---------------------- | --------------------------------------------- | ------------------------------ | ----------------------------------------------------- |
+| CloudFront Functions   | JavaScript (subset)    | Effectively none (executes in request path)  | < 1 ms CPU                     | Header rewrites, redirects, simple URL transforms     |
+| Lambda@Edge            | Node.js, Python        | Tens to hundreds of ms on cold path           | 5 s viewer / 30 s origin       | Complex logic, async I/O, surrogate-key workarounds   |
+| Cloudflare Workers     | V8 isolate             | ~5 ms isolate startup; often ~0 user-visible via TLS-handshake prewarm[^cf-coldstart] | 10 ms (free) / 30 ms+ (paid) CPU | Full edge applications, KV-backed APIs               |
+| Fastly Compute         | WASM (Rust, Go, AssemblyScript, …) | ~35 µs Wasmtime instance instantiation[^fastly-cold] | No hard cap; single-tenant per request   | High-performance compute, structured data transforms |
 
-## Conclusion
+[^cf-coldstart]: [How Workers works](https://developers.cloudflare.com/workers/reference/how-workers-works/); [Eliminating Cold Starts 2: shard and conquer](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/).
+[^fastly-cold]: [Performance matters: why Compute does not yet support JavaScript](https://www.fastly.com/blog/why-edge-compute-does-not-yet-support-javascript), Fastly. Note: 35 µs is hot-instance instantiation; cold-path latency is higher in practice.
 
-Edge delivery and cache invalidation is fundamentally about managing the tension between content freshness and system performance. The mature approach:
+| Platform               | Per 1M invocations | Notes                                                                    |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------ |
+| CloudFront Functions  | $0.10              | First 2M invocations/month free.                                          |
+| Lambda@Edge           | $0.60 + GB-seconds | No free tier; viewer-request and origin-request have different limits.    |
+| Cloudflare Workers    | $0.30 (Standard)   | $5/month minimum on the paid plan covers 10M requests; CPU billed separately. |
+| Fastly Compute        | Bundled with Compute@Edge plan | Pricing model is bundled, not per-invocation; consult your contract. |
 
-1. **Prefer versioned URLs** for assets—eliminates invalidation entirely
-2. **Use stale-while-revalidate** for HTML/API responses—hides latency, prevents stampedes
-3. **Implement tag-based purging** for complex content relationships—surgical invalidation without full cache clear
-4. **Monitor cache hit ratio by segment**—global metrics hide localized problems
-5. **Design for origin failure**—extended grace periods turn partial outages into non-events
+### Personalisation without origin load
 
-**The cache key determines correctness; the TTL determines performance.** Get the cache key wrong, and users see incorrect content. Get the TTL wrong, and you either hammer your origin or serve stale content.
+Classic personalisation needs an origin per request. Edge compute lets you cache the variants:
 
-Edge compute shifts the personalization boundary from origin to edge—decisions that previously required 200ms origin round-trips now execute in <1ms at the nearest edge location. This isn't just an optimization; it fundamentally changes what's architecturally possible for latency-sensitive applications.
+```js title="personalisation.js — CloudFront Functions"
+function handler(event) {
+  const request = event.request;
+  const cookies = request.cookies;
+
+  const segment = cookies.user_segment?.value ?? "default";
+
+  request.headers["x-user-segment"] = { value: segment };
+  return request;
+}
+```
+
+Wire `x-user-segment` into the cache key policy. Three segments × 1,000 pages = 3,000 cached variants — all served from the edge, none from origin. The trade-off is variant explosion: if you also vary by language, device, and feature flag, segments multiply quickly. Cap your dimensions at three or four with explicit fallbacks.
+
+### A/B testing at the edge
+
+```js title="ab-testing.js — Cloudflare Workers"
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    let variant = getCookie(request, "ab_variant");
+
+    if (!variant) {
+      variant = Math.random() < 0.5 ? "a" : "b";
+    }
+
+    url.pathname = `/${variant}${url.pathname}`;
+
+    const response = await fetch(url.toString(), request);
+    const newResponse = new Response(response.body, response);
+    if (!getCookie(request, "ab_variant")) {
+      newResponse.headers.set("Set-Cookie", `ab_variant=${variant}; Path=/; Max-Age=86400`);
+    }
+    return newResponse;
+  },
+};
+```
+
+Why move A/B at the edge:
+
+- No layout shift — the variant decision is made before HTML is sent.
+- No JavaScript dependency on the client.
+- Consistent assignment across page loads via cookie persistence.
+- Works for users with JS disabled.
+
+### Geo-routing and compliance
+
+Edge compute is the cleanest place to express data-locality rules:
+
+```js title="geo-routing.js — Lambda@Edge"
+exports.handler = async (event) => {
+  const request = event.Records[0].cf.request;
+  const country = request.headers["cloudfront-viewer-country"][0].value;
+
+  const euCountries = ["DE", "FR", "IT", "ES", "NL", "BE", "AT", "PL"];
+
+  if (euCountries.includes(country)) {
+    request.origin.custom.domainName = "eu-origin.example.com";
+  } else {
+    request.origin.custom.domainName = "us-origin.example.com";
+  }
+
+  return request;
+};
+```
+
+For compliance-driven routing (GDPR data residency, sectoral regulation) the contract is: the request never reaches an origin outside the allowed region. Verify this with synthetic probes from each region, not just code review.
+
+## Practical takeaways
+
+- **Cache key controls correctness; TTL controls cost and freshness.** Review them on different cadences and treat them as separate failure domains.
+- **Climb the invalidation ladder.** Versioned URLs first; SWR for documents and APIs; surrogate keys for content with relationships; path purges for emergencies; full clears never.
+- **Default to `Cache-Control: max-age=N, stale-while-revalidate=M, stale-if-error=K`** for HTML and JSON APIs. The combination hides revalidation latency, prevents stampedes, and survives origin outages.
+- **Segment your CHR dashboards.** Global numbers hide the next incident.
+- **Buy request coalescing.** Whether through native CDN behaviour, Origin Shield, Tiered Cache, or SWR — make sure a popular key expiring cannot send N requests to your origin.
+- **Treat purge as eventually consistent.** Build for it in deploy pipelines; verify against cold edges with cache-busting query strings.
+- **Pick the cheapest edge runtime that fits the work.** CloudFront Functions for header munging; Workers / Compute when you need real logic; Lambda@Edge when you need AWS APIs and you've measured the latency.
 
 ## Appendix
 
 ### Prerequisites
 
-- HTTP caching model (request/response headers, freshness, validation)
-- CDN concepts (edge PoPs, origin, cache keys)
-- Basic understanding of distributed systems failure modes
+- HTTP caching model (request/response headers, freshness, validation).
+- CDN concepts (edge PoPs, origin, cache keys).
+- Basic familiarity with distributed-systems failure modes.
 
-### Terminology
+### Glossary
 
-- **Cache key**: Unique identifier for cached content (typically URL + selected headers)
-- **TTL (Time to Live)**: Duration content is considered fresh
-- **CHR (Cache Hit Ratio)**: Percentage of requests served from cache
-- **PoP (Point of Presence)**: Edge location where CDN serves content
-- **Origin Shield**: Intermediate cache layer between edge PoPs and origin
-- **Surrogate key**: Tag associated with cached content for grouped invalidation
-- **Thundering herd**: Multiple simultaneous requests overwhelming origin after cache expiry
-- **SWR (Stale-While-Revalidate)**: Serve stale content while asynchronously fetching fresh
-- **SIE (Stale-If-Error)**: Serve stale content when origin returns error
-
-### Summary
-
-- Cache key design determines correctness; TTL determines performance—both can cause production incidents if misconfigured
-- Versioned/fingerprinted URLs eliminate invalidation need for assets—use `immutable` directive for 1-year TTL
-- Tag-based purging (surrogate keys) handles complex content relationships—supported by Fastly, Akamai, Cloudflare Enterprise
-- Stale-while-revalidate hides revalidation latency and prevents cache stampedes—combine with stale-if-error for origin failure protection
-- Origin Shield collapses multi-PoP misses into single origin request—essential for stampede protection
-- Edge compute enables <1ms personalization decisions vs 200ms+ origin round-trip
+- **Cache key.** Identifier used to look up a stored response — typically `method + host + path + query` plus selected headers.
+- **TTL (time to live).** Duration content is considered fresh.
+- **CHR (cache hit ratio).** Hits divided by total requests.
+- **PoP (point of presence).** Edge data centre where a CDN serves traffic.
+- **Origin Shield.** Centralised cache layer between edges and origin.
+- **Surrogate key (cache tag).** Tag attached to a response so groups of cached entries can be invalidated together.
+- **Thundering herd / stampede.** Concurrent miss storm at origin after a popular cache entry expires.
+- **SWR.** `stale-while-revalidate` — serve stale content while asynchronously refreshing.
+- **SIE.** `stale-if-error` — serve stale content when origin returns errors.
 
 ### References
 
 **Specifications**
 
-- [RFC 9111 - HTTP Caching](https://datatracker.ietf.org/doc/rfc9111/) - Authoritative HTTP caching specification (June 2022)
-- [RFC 9110 - HTTP Semantics](https://datatracker.ietf.org/doc/html/rfc9110/) - HTTP methods, status codes, headers
-- [RFC 5861 - HTTP Cache-Control Extensions for Stale Content](https://datatracker.ietf.org/doc/html/rfc5861) - stale-while-revalidate, stale-if-error
+- [RFC 9111 — HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111.html), STD 98 (June 2022).
+- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html).
+- [RFC 5861 — HTTP Cache-Control extensions for stale content](https://datatracker.ietf.org/doc/html/rfc5861).
+- [RFC 8246 — `immutable` Cache-Control extension](https://datatracker.ietf.org/doc/html/rfc8246).
+- [RFC 9213 — Targeted HTTP Cache Control (`CDN-Cache-Control`)](https://www.rfc-editor.org/rfc/rfc9213.html), June 2022.
+- [W3C Edge Architecture Specification 1.0](https://www.w3.org/TR/edge-arch/) — origin of `Surrogate-Control` and `Surrogate-Capability`.
 
-**CDN Provider Documentation**
+**CDN provider documentation**
 
-- [AWS CloudFront - Understanding the Cache Key](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-the-cache-key.html) - Cache key design best practices
-- [AWS CloudFront - Edge Functions](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html) - CloudFront Functions vs Lambda@Edge
-- [Fastly - Purging with Surrogate Keys](https://docs.fastly.com/en/guides/purging-with-surrogate-keys) - Tag-based invalidation
-- [Fastly - Serving Stale Content](https://www.fastly.com/documentation/guides/full-site-delivery/performance/serving-stale-content/) - SWR implementation
-- [Cloudflare - Instant Purge Architecture](https://blog.cloudflare.com/instant-purge/) - Sub-150ms global purge
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/) - Edge compute platform
-- [Google Cloud CDN - Cache Invalidation](https://cloud.google.com/cdn/docs/cache-invalidation-overview) - Invalidation patterns and limits
-- [Akamai - Purge Cache by Tag](https://techdocs.akamai.com/purge-cache/reference/post-invalidate-tag) - Cache tag implementation
+- [CloudFront — Cache key and origin requests](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-the-cache-key.html).
+- [CloudFront — Edge functions: choose between CloudFront Functions and Lambda@Edge](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html).
+- [CloudFront — Origin Shield](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html).
+- [CloudFront — Pay for file invalidation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PayingForInvalidation.html).
+- [Fastly — Working with surrogate keys](https://www.fastly.com/documentation/guides/full-site-delivery/purging/working-with-surrogate-keys).
+- [Fastly — Serving stale content](https://www.fastly.com/documentation/guides/full-site-delivery/performance/serving-stale-content/).
+- [Cloudflare — Instant Purge architecture](https://blog.cloudflare.com/instant-purge/).
+- [Cloudflare — Purge cache by cache-tags](https://developers.cloudflare.com/cache/how-to/purge-cache/purge-by-tags/).
+- [Cloudflare — Tiered Cache](https://developers.cloudflare.com/cache/how-to/tiered-cache/).
+- [Cloudflare Workers — How Workers works](https://developers.cloudflare.com/workers/reference/how-workers-works/).
+- [Google Cloud CDN — Cache invalidation overview](https://cloud.google.com/cdn/docs/cache-invalidation-overview).
+- [Akamai — Purge content by cache tag](https://techdocs.akamai.com/purge-cache/docs/purge-content-cache-tag).
 
-**Educational Resources**
+**Educational and primary-source practitioner**
 
-- [MDN - HTTP Caching](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching) - Comprehensive caching overview
-- [MDN - Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control) - Directive reference
-- [Varnish - Grace Mode](https://varnish-cache.org/docs/7.3/users-guide/vcl-grace.html) - Stale content serving
-
-**Engineering Blogs**
-
-- [Cloudflare - Rethinking Cache Purge](https://blog.cloudflare.com/part1-coreless-purge/) - Distributed invalidation architecture
-- [Philip Walton - Performant A/B Testing with Cloudflare Workers](https://philipwalton.com/articles/performant-a-b-testing-with-cloudflare-workers/) - Edge-based testing patterns
+- [MDN — HTTP caching](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching).
+- [MDN — `Cache-Control`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control).
+- [web.dev — Keeping things fresh with stale-while-revalidate](https://web.dev/articles/stale-while-revalidate).
+- [Varnish — Grace mode](https://varnish-cache.org/docs/7.3/users-guide/vcl-grace.html).
+- [Cloudflare — Rethinking cache purge (coreless purge)](https://blog.cloudflare.com/part1-coreless-purge/).
+- [Fastly — Best practices for using the `Vary` header](https://www.fastly.com/blog/best-practices-using-vary-header).
+- [Vattani et al. — Optimal Probabilistic Cache Stampede Prevention (VLDB 2015)](http://www.vldb.org/pvldb/vol8/p886-vattani.pdf).
+- [Philip Walton — Performant A/B testing with Cloudflare Workers](https://philipwalton.com/articles/performant-a-b-testing-with-cloudflare-workers/).

@@ -2,81 +2,69 @@
 title: Virtualization and Windowing
 linkTitle: 'Virtualization'
 description: >-
-  Rendering large lists efficiently by drawing only visible items — covering fixed-height, variable-height, and DOM recycling approaches, GPU-accelerated positioning, accessibility concerns, and the newer CSS content-visibility alternative.
+  Render large lists efficiently by drawing only visible items — fixed-height, variable-height, and DOM recycling approaches, GPU-accelerated positioning, accessibility constraints, and the CSS content-visibility alternative that preserves find-in-page.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
+  - performance
+  - rendering
+  - react
+  - accessibility
   - system-design
-  - architecture
 ---
 
 # Virtualization and Windowing
 
-Rendering large lists (1,000+ items) without virtualization creates a DOM tree so large that layout calculations alone can block the main thread for hundreds of milliseconds. Virtualization solves this by rendering only visible items plus a small buffer, keeping DOM node count constant regardless of list size. The trade-off: implementation complexity for consistent O(viewport) rendering performance.
+Rendering 1,000+ items naively builds a DOM tree large enough that style and layout alone block the main thread for hundreds of milliseconds — far past the 16.7 ms frame budget at 60 fps[^rail]. Virtualization sidesteps that by rendering only the items currently in the viewport plus a small overscan buffer, keeping the DOM at `O(viewport)` regardless of total list length. The trade-off you accept in exchange: more code, scroll-position bookkeeping, and a cluster of accessibility, search, and anchor-link regressions you have to engineer around.
 
-![Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.](./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame-light.svg "Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.")
-![Virtualization trades algorithmic complexity for constant DOM size, keeping frame times under the 16ms budget.](./diagrams/virtualization-trades-algorithmic-complexity-for-constant-dom-size-keeping-frame-dark.svg)
+![DOM cost with and without virtualization, illustrating why frame budgets collapse on large lists.](./diagrams/dom-cost-comparison-light.svg "Without virtualization, layout cost scales with the full list. With virtualization, both DOM size and layout cost stay flat as the list grows.")
+![DOM cost with and without virtualization, illustrating why frame budgets collapse on large lists.](./diagrams/dom-cost-comparison-dark.svg)
 
-## Abstract
+## Mental model
 
-Virtualization is a **viewport-centric rendering strategy**: calculate which items are visible, render only those plus a buffer (overscan), and position them using GPU-accelerated transforms. The core insight is that users can only see viewport-sized content at any moment—rendering everything else is wasted work.
+Virtualization is a **viewport-centric rendering strategy**: compute which items fall inside the visible window, render only those plus an overscan buffer, and position them with GPU-accelerated transforms instead of layout-triggering properties. The core insight: users can only see one viewport at a time, so anything else is wasted layout, paint, and memory.
 
-Three implementation approaches exist:
+Three implementation shapes dominate, plus one CSS-only alternative:
 
-1. **Fixed-height**: Pure math-based positioning when all items are identical height. Simplest, fastest, but rarely applicable to real content.
-2. **Variable-height**: Measure items as they render, cache heights, estimate unmeasured items. Production standard for dynamic content.
-3. **DOM recycling**: Reuse DOM nodes as items scroll out, updating content rather than creating/destroying elements.
+1. **Fixed-height** — pure arithmetic positioning when every item is the same height. Simplest, fastest, rarely matches real content.
+2. **Variable-height** — measure as you render, cache heights, estimate the unmeasured. Production standard for dynamic content.
+3. **DOM recycling** — keep a fixed pool of nodes; reposition and rebind their content as the user scrolls. Eliminates allocation churn.
+4. **CSS `content-visibility: auto`** — defer layout/paint for off-screen elements while keeping the full DOM. Preserves find-in-page and anchor links; trades virtualization's memory savings for a CSS-only implementation.
 
-Critical constraints shape the design:
+The constraints that shape all four:
 
-- **Frame budget**: 16ms per frame for 60fps, ~12ms after browser overhead
-- **Transform positioning**: GPU-accelerated `translateY()` vs layout-triggering `top`
-- **Measurement APIs**: ResizeObserver for heights, IntersectionObserver for visibility
-- **Accessibility**: Screen readers require ARIA live regions; keyboard navigation requires focus management
+- **Frame budget.** 16.67 ms per frame at 60 fps; the browser eats roughly 4 ms of that for its own work, leaving ~10–12 ms for JS, style, and layout combined[^web-rendering].
+- **Compositor-only positioning.** `transform: translateY()` runs on the compositor thread; `top`/`margin-top` triggers layout on every scroll frame[^compositor-only][^lighthouse-noncomp].
+- **Measurement APIs.** `ResizeObserver` for heights[^resize-observer-spec], `IntersectionObserver` for viewport entry[^intersection-observer].
+- **Accessibility.** Screen readers see only what's in the DOM, so virtualized content needs ARIA scaffolding (`aria-setsize`, `aria-posinset`) and explicit focus management.
 
-A newer alternative, CSS `content-visibility: auto`, defers rendering while keeping full DOM—enabling browser find-in-page and anchor links that virtualization breaks.
+## When you actually need it
 
-## The Challenge
-
-### Browser Constraints
-
-The browser's rendering pipeline processes elements sequentially:
-
-1. **Style** - Match CSS rules to elements
-2. **Layout** - Calculate element geometry (expensive, proportional to DOM size)
-3. **Paint** - Fill pixels for colors, text, shadows
-4. **Composite** - Assemble layers, apply GPU transforms
-
-Layout is the bottleneck. As documented in Chrome DevTools performance analysis, layout time scales with DOM size because the engine must resolve every element's position relative to its ancestors and siblings.
-
-**Main thread budget**: At 60fps, each frame has 16ms total. The browser consumes ~4ms for its own work, leaving 10-12ms for JavaScript execution, style recalculation, and layout combined. A single layout pass on 1,000 elements can exceed this entirely.
-
-**Memory pressure**: Each DOM node consumes memory for its JavaScript wrapper, style data, and layout information. On low-end mobile devices with 50-100MB practical limits, 10,000+ nodes can trigger garbage collection pauses or crashes.
-
-### When Virtualization Becomes Necessary
-
-| Item Count | Without Virtualization                   | With Virtualization |
+| Item count | Without virtualization                   | With virtualization |
 | ---------- | ---------------------------------------- | ------------------- |
-| 50-100     | Acceptable on desktop, measure on mobile | Optional            |
+| 50–100     | Acceptable on desktop, measure on mobile | Optional            |
 | 500+       | Noticeable jank on scroll                | Recommended         |
-| 1,000+     | Severe degradation, blocked frames       | Required            |
-| 10,000+    | Unusable                                 | Only viable path    |
+| 1,000+     | Blocked frames, dropped scroll input     | Required            |
+| 10,000+    | Unusable on mid-range hardware           | Only viable path    |
 
-### User Experience Requirements
+Two operational facts drive these thresholds:
 
-- **Perceived smoothness**: Scroll must feel native (60fps, no jumps)
-- **Instant response**: Arrow key navigation, click handling under 100ms
-- **Scroll position stability**: Jumping to arbitrary positions via scrollbar must work
-- **Find-in-page**: Users expect Cmd/Ctrl+F to search all content (virtualization breaks this)
+- **Layout scales with DOM size.** Style recalc and layout walk the tree, so the cost grows with element count even when only a fraction is on screen.
+- **Memory pressure on mobile.** Each DOM node carries a JS wrapper, computed style, and layout box. On low-end Android (effective JS heap of 50–100 MB), 10,000+ nodes can trigger GC pauses or out-of-memory crashes[^web-rendering].
 
-## Design Paths
+The reader-facing requirements that constrain the implementation:
 
-### Path 1: Fixed-Height Virtualization
+- Scroll must feel native — no jumps, no blank flashes.
+- Arrow keys, click, and focus respond well under 100 ms[^rail].
+- Scrollbar drag to arbitrary positions must produce the right items, not a misaligned approximation.
+- Cmd/Ctrl+F should find content — and this is exactly what naive virtualization breaks.
 
-**How it works:**
+## The four design paths
 
-When all items share identical height, positioning is pure arithmetic—no measurement required.
+### Path 1 — Fixed-height virtualization
+
+When every item shares the same height, positioning is pure arithmetic. No measurement, no cache, no estimation error.
 
 ```typescript title="fixed-height-virtualizer.ts" collapse={1-3,29-35}
 import { useState, useCallback } from 'react';
@@ -98,7 +86,6 @@ function FixedVirtualizer<T>({
 }: FixedVirtualizerProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
 
-  // Calculate visible range using arithmetic only
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
   const endIndex = Math.min(
     items.length,
@@ -129,46 +116,29 @@ function FixedVirtualizer<T>({
 }
 ```
 
-**Why `transform` instead of `top`:**
-
-- `transform: translateY()` is compositor-only—GPU handles it without triggering layout
-- `top` or `margin-top` triggers full layout recalculation on every scroll frame
-- This single choice can be the difference between 60fps and 15fps scrolling
-
-**Performance characteristics:**
+The critical line is `transform: translateY()` — it runs on the compositor thread without triggering layout or paint when the element is on its own compositor layer[^compositor-only][^lighthouse-noncomp]. Use `top`, `margin-top`, or `position: absolute; top` and you trigger a full layout pass on every scroll frame, which is the single most common reason a "virtualized" list still drops frames.
 
 | Metric                    | Value                           |
 | ------------------------- | ------------------------------- |
-| DOM nodes                 | O(viewport) — typically 20-50   |
-| Layout time               | 1-3ms per frame                 |
-| Memory                    | O(viewport) — no caching needed |
-| Scroll performance        | Consistent 60fps                |
+| DOM nodes                 | O(viewport) — typically 20–50   |
+| Layout time               | 1–3 ms per frame                |
+| Memory                    | O(viewport) — no cache needed   |
+| Scroll performance        | Steady 60 fps                   |
 | Implementation complexity | Low                             |
 
-**Best for:**
+**Best for** log viewers, monospace text, simple data tables with uniform rows, and any list where uniform height is acceptable.
 
-- Log viewers with monospace text
-- Simple data tables with uniform rows
-- Chat applications with text-only messages
-- Any list where enforcing fixed height is acceptable
+**Trade-offs**
 
-**Trade-offs:**
+- Simplest implementation; smallest bundle contribution.
+- Pure-math positioning means consistent, predictable performance.
+- Real content (images, variable text, expandable sections) almost never fits the fixed-height assumption.
 
-- ✅ Simplest implementation, smallest bundle contribution
-- ✅ Predictable performance—pure math, no measurement
-- ✅ No height cache memory overhead
-- ❌ Real content (images, variable text, expandable sections) rarely fits
-- ❌ Forces design constraints on UI
+VS Code's editor view has historically used this shape — line-based virtualization with monospace lines that share a height, which is what makes positioning sub-millisecond on 100K+-line files. It now also supports variable line heights via decorations[^vscode-variable-line-heights], but the fast path is still fixed.
 
-**Real-world example:**
+### Path 2 — Variable-height virtualization
 
-VS Code's minimap uses fixed-height line rendering. Each line is represented at a consistent pixel height regardless of content wrapping in the main editor. This enables sub-millisecond position calculations for files with 100K+ lines.
-
-### Path 2: Variable-Height Virtualization
-
-**How it works:**
-
-Items are measured as they render using ResizeObserver. A height cache stores measurements indexed by item. Unmeasured items use an estimated height.
+Items are measured as they mount via `ResizeObserver`; measurements feed a height cache; unmeasured items are positioned with an estimate. This is the production default for any feed-style content.
 
 ```typescript title="variable-height-virtualizer.ts" collapse={1-5,60-80}
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -191,7 +161,6 @@ function VariableVirtualizer<T>({
   const [scrollTop, setScrollTop] = useState(0)
   const [heightCache, setHeightCache] = useState<Map<number, number>>(new Map())
 
-  // Calculate positions with measured or estimated heights
   const getItemOffset = (index: number): number => {
     let offset = 0
     for (let i = 0; i < index; i++) {
@@ -200,7 +169,6 @@ function VariableVirtualizer<T>({
     return offset
   }
 
-  // Binary search to find start index from scroll position
   const findStartIndex = (scrollPos: number): number => {
     let low = 0,
       high = items.length - 1
@@ -217,7 +185,6 @@ function VariableVirtualizer<T>({
 
   const startIndex = findStartIndex(scrollTop)
 
-  // Find end index by accumulating heights until we exceed viewport
   let endIndex = startIndex
   let accumulatedHeight = 0
   while (endIndex < items.length && accumulatedHeight < containerHeight + overscan * estimatedItemHeight) {
@@ -229,7 +196,6 @@ function VariableVirtualizer<T>({
   const totalHeight = getItemOffset(items.length)
   const offsetY = getItemOffset(startIndex)
 
-  // Measure items as they render
   const measureElement = useCallback(
     (index: number) => (el: HTMLElement | null) => {
       if (el) {
@@ -253,59 +219,55 @@ function VariableVirtualizer<T>({
 }
 ```
 
-**The estimation problem:**
+The flow that the code above hides — measure, cache, render, correct — is what makes variable-height feel jumpy if you don't engineer it carefully:
 
-When users drag the scrollbar to an arbitrary position, the virtualizer must render items that haven't been measured. Initial render uses estimates, which may be wrong—causing a visible "jump" as measurements arrive and positions correct.
+![Variable-height measurement and correction loop driven by ResizeObserver.](./diagrams/variable-height-measurement-flow-light.svg "Each scroll batches through rAF; the virtualizer reads cached or estimated heights, renders the window, and writes corrected heights back as ResizeObserver fires.")
+![Variable-height measurement and correction loop driven by ResizeObserver.](./diagrams/variable-height-measurement-flow-dark.svg)
 
-**Mitigation strategies:**
+#### The estimation problem
 
-1. **Running average**: Track average measured height, use for estimates
-2. **Type-based estimates**: If items have types (text, image, card), use type-specific averages
-3. **Larger buffers**: Overscan more items to catch estimation errors before they're visible
-4. **Progressive correction**: Animate position corrections rather than snapping
+When the user drags the scrollbar to an arbitrary position, the virtualizer must position items it has never measured. Initial render uses estimates; if those estimates are wrong, the corrected positions cause a visible jump as `ResizeObserver` callbacks land. Mitigations stack:
 
-**Performance characteristics:**
+1. **Type-based estimates.** If items have a discriminating type (text, image, embed, card), keep per-type averages instead of one global number.
+2. **Running average.** Track the mean of measured heights and use it for new estimates.
+3. **Larger overscan in the scroll direction.** Render extra items past the viewport so estimation errors correct off-screen.
+4. **Progressive scroll correction.** Adjust scroll position smoothly rather than snapping when measurements arrive.
+
+#### How `ResizeObserver` actually delivers
+
+Two non-obvious facts from the spec are worth internalizing because they shape what you can do inside a measurement callback.
+
+`ResizeObserver` reports content-box geometry (`contentRect`) by default, which excludes padding, border, and margin[^resize-observer-mdn]. If your item layout depends on margins, fold them in explicitly:
+
+```typescript title="margin-aware-measurement.ts"
+const computedStyle = getComputedStyle(element)
+const marginTop = parseFloat(computedStyle.marginTop)
+const marginBottom = parseFloat(computedStyle.marginBottom)
+const totalHeight = entry.contentRect.height + marginTop + marginBottom
+```
+
+The spec prevents infinite resize loops with a **depth-based** delivery rule, not breadth-first: each iteration of the delivery loop only reports observations for elements **deeper in the DOM tree than the shallowest element delivered in the previous iteration**. If the loop terminates with skipped observations still pending, the user agent fires the `ResizeObserver loop completed with undelivered notifications` error and defers the rest to the next frame[^resize-observer-spec][^resize-observer-mdn]. This is why a measurement callback that mutates ancestors of the observed element typically surfaces as that error in production telemetry — and why scheduling such mutations through `requestAnimationFrame` (so they land in the next frame) usually fixes it.
 
 | Metric                    | Value                                       |
 | ------------------------- | ------------------------------------------- |
-| DOM nodes                 | O(viewport) — typically 20-50               |
-| Layout time               | 2-5ms (measurement overhead)                |
+| DOM nodes                 | O(viewport) — typically 20–50               |
+| Layout time               | 2–5 ms (measurement overhead)               |
 | Memory                    | O(n) for height cache in worst case         |
-| Scroll performance        | 30-60fps depending on measurement frequency |
+| Scroll performance        | 30–60 fps depending on measurement frequency |
 | Implementation complexity | High                                        |
 
-**Best for:**
+**Best for** social feeds, chat with mixed media, any dynamic content where you can't enforce a single height.
 
-- Social media feeds with mixed content
-- Chat applications with images, embeds, reactions
-- Any dynamic content where height enforcement is impossible
+### Path 3 — DOM recycling
 
-**Trade-offs:**
-
-- ✅ Handles real-world content naturally
-- ✅ Smooth scroll with proper buffering
-- ❌ Height cache grows with items scrolled through
-- ❌ Scroll position jumps possible on fast scrollbar drag
-- ❌ Complex implementation with many edge cases
-
-**Real-world example:**
-
-Twitter/X uses variable-height virtualization for the home timeline. Tweets contain text, images, videos, polls, and embedded content—all with different heights. They mitigate scroll jumps by maintaining a larger buffer in the scroll direction and using type-based height estimates (tweets with images get higher estimates).
-
-### Path 3: DOM Recycling
-
-**How it works:**
-
-Instead of creating and destroying DOM elements as items enter/exit the viewport, a fixed pool of elements is reused. When an item scrolls out, its DOM node is repositioned and its content updated with the new item.
+Instead of mounting and unmounting nodes as items enter or leave the viewport, recycle a fixed pool: when an item scrolls out, its DOM node is repositioned and its content rebound to the new item.
 
 ```typescript title="dom-recycling-concept.ts"
-// Conceptual representation - production implementations are more complex
 class DOMRecycler {
   private pool: HTMLElement[] = []
   private poolSize: number
 
   constructor(viewportSize: number, overscan: number) {
-    // Fixed pool size based on viewport, never grows
     this.poolSize = viewportSize + overscan * 2
     this.initializePool()
   }
@@ -318,165 +280,129 @@ class DOMRecycler {
     }
   }
 
-  // When item scrolls out of view
   recycleElement(element: HTMLElement, newItem: Item, newPosition: number) {
-    // Reuse same DOM node - update content, reposition
     element.textContent = newItem.content
     element.style.transform = `translateY(${newPosition}px)`
-    // No DOM creation/destruction - just property updates
   }
 }
 ```
 
-**Why recycling improves performance:**
+Why recycling helps once mount/unmount churn is the bottleneck:
 
-- **No GC pressure**: Element creation allocates memory; destruction triggers garbage collection
-- **Warm caches**: Reused elements have cached style computations
-- **Predictable memory**: Pool size is constant regardless of list length
-
-**Performance characteristics:**
+- **No GC pressure.** Allocation per scroll frame is the part that triggers the worst GC pauses; reusing nodes flattens that.
+- **Warm style cache.** Reused nodes carry their cached computed style; the engine can skip work on common branches.
+- **Constant memory.** Pool size is set up front; total list length doesn't change it.
 
 | Metric         | Value                           |
 | -------------- | ------------------------------- |
 | DOM nodes      | Fixed pool size (constant)      |
 | GC pauses      | Eliminated during scroll        |
-| Memory pattern | Flat—no growth with scroll      |
+| Memory pattern | Flat — no growth with scroll    |
 | Initial render | Slightly slower (pool creation) |
 
-**Real-world example:**
+[AG Grid uses DOM virtualization for both rows and columns](https://www.ag-grid.com/javascript-data-grid/dom-virtualisation/) — the docs explicitly call out that elements are inserted and removed as the user scrolls, with a default `rowBuffer` of 10 around the viewport, and that disabling virtualization "significantly increases the memory footprint and slows down the browser". For a 100K-row grid the rendered DOM stays in the dozens, not the hundreds of thousands.
 
-AG Grid uses DOM recycling for both row and cell elements in data grids. When scrolling a 100K-row grid, the same ~50 row elements are reused continuously. Their documentation notes this eliminates GC pauses that would otherwise occur every few seconds during continuous scrolling.
+### Path 4 — CSS `content-visibility: auto`
 
-### Path 4: CSS `content-visibility` (Newer Alternative)
-
-**How it works:**
-
-The `content-visibility` CSS property tells the browser to skip rendering work for off-screen elements while keeping them in the DOM.
+`content-visibility` tells the browser to skip rendering work for off-screen elements while keeping them in the DOM[^cv-mdn].
 
 ```css title="content-visibility-example.css"
 .list-item {
   content-visibility: auto;
-  contain-intrinsic-size: 0 100px; /* Width height estimate */
+  contain-intrinsic-size: 0 100px; /* placeholder size while off-screen */
 }
 ```
 
-**Values:**
+The values:
 
-- `visible` (default): Render normally
-- `auto`: Skip rendering when off-screen, render when visible
-- `hidden`: Never render (like `display: none` but preserves layout space)
+- `visible` (default) — render normally.
+- `auto` — apply size containment and skip layout/paint while off-screen; render normally when it scrolls in.
+- `hidden` — never render contents (cheaper than `display: none` for show/hide because the rendering tree state is preserved).
 
-**Critical requirement—`contain-intrinsic-size`:**
+`contain-intrinsic-size` is **mandatory in practice for scrollable lists**. Under `content-visibility: auto`, off-screen elements receive size containment and the browser treats their contents as if they were empty, defaulting their box to `0px`. Without `contain-intrinsic-size` they collapse out of the layout, the scroll container shrinks, and the scrollbar position jitters as elements enter the viewport[^cv-mdn][^cis-mdn].
 
-Without this, off-screen elements contribute zero height to layout, collapsing the scrollbar. The browser needs height estimates to maintain proper scroll dimensions.
+#### Browser support and Baseline status
 
-**Browser support (as of 2025):**
+`content-visibility` reached **Baseline Newly Available** on 2025-09-15[^cv-baseline]. Per [caniuse](https://caniuse.com/css-content-visibility): Chrome/Edge 85+, Firefox 125+ (April 2024), Safari 18.0+ (September 2024). Older Safari has partial support; full support landed in Safari 26 in 2025.
 
-All major browsers (Chrome 85+, Firefox 109+, Safari 17.4+) support `content-visibility`. Edge cases remain in Safari for nested scrolling contexts.
+> [!NOTE]
+> If you ship to a userbase that includes Safari 17 or Firefox ESR pinned below 125, treat `content-visibility` as a progressive enhancement: feature-detect with `CSS.supports('content-visibility', 'auto')` and fall back to virtualization (or no optimization) for unsupported clients.
 
-**Performance characteristics:**
+| Metric                    | Value                                            |
+| ------------------------- | ------------------------------------------------ |
+| DOM nodes                 | All items remain in DOM                          |
+| Layout time               | O(viewport) for layout/paint; O(n) for style     |
+| Memory                    | O(n) — every item exists                         |
+| Find-in-page              | Works natively                                   |
+| Anchor links              | Work natively                                    |
+| Implementation complexity | Trivial (CSS only)                               |
 
-| Metric                    | Value                                        |
-| ------------------------- | -------------------------------------------- |
-| DOM nodes                 | All items remain in DOM                      |
-| Layout time               | O(viewport) for painting, full DOM for style |
-| Memory                    | O(n) — all items exist                       |
-| Find-in-page              | ✅ Works natively                            |
-| Anchor links              | ✅ Works natively                            |
-| Implementation complexity | Low (CSS only)                               |
-
-**Trade-offs vs virtualization:**
+**Trade-offs vs virtualization**
 
 | Capability            | Virtualization   | content-visibility |
 | --------------------- | ---------------- | ------------------ |
-| Find-in-page (Ctrl+F) | ❌ Broken        | ✅ Works           |
-| Anchor links (#id)    | ❌ Broken        | ✅ Works           |
+| Find-in-page (Ctrl+F) | Broken           | Works              |
+| Anchor links (`#id`)  | Broken           | Works              |
 | Memory usage          | O(viewport)      | O(n)               |
 | Bundle size impact    | Library required | Zero (CSS)         |
-| Browser support       | Universal        | Modern browsers    |
-| Accessibility         | Requires ARIA    | Native             |
+| Browser support       | Universal        | Baseline 2025      |
+| Accessibility         | Requires ARIA    | Native (DOM intact) |
 
-**When to use `content-visibility` over virtualization:**
+**Use `content-visibility` over virtualization when** the list has fewer than ~10K items, memory is not the binding constraint, find-in-page or anchor links matter, or you want the cheapest possible implementation.
 
-- Lists under 10,000 items where memory isn't critical
-- When find-in-page is required
-- When anchor navigation is required
-- When simplicity is prioritized over minimal memory
-- Progressive enhancement scenarios
+The web.dev case study reports a 7× rendering improvement on a chunked travel-blog page — initial rendering time dropped from 232 ms to 30 ms after applying `content-visibility: auto` to article sections — without changing any DOM structure[^cv-webdev].
 
-**Real-world example:**
+### Decision framework
 
-web.dev reports a 7x rendering performance improvement on the Chrome DevRel blog by applying `content-visibility: auto` to article sections. The full article DOM exists for search engines and find-in-page, but off-screen sections don't consume paint time.
+![Decision framework picking between content-visibility, fixed-height, variable-height, and DOM recycling.](./diagrams/decision-framework-light.svg "Decision tree: route on find-in-page need, item count, height uniformity, and GC sensitivity.")
+![Decision framework picking between content-visibility, fixed-height, variable-height, and DOM recycling.](./diagrams/decision-framework-dark.svg)
 
-### Decision Matrix
-
-| Factor                | Fixed-Height | Variable-Height | DOM Recycling | content-visibility |
+| Factor                | Fixed-height | Variable-height | DOM recycling | content-visibility |
 | --------------------- | ------------ | --------------- | ------------- | ------------------ |
 | Item count limit      | Unlimited    | Unlimited       | Unlimited     | ~10K (memory)      |
-| Dynamic heights       | ❌           | ✅              | ✅            | ✅                 |
-| Find-in-page          | ❌           | ❌              | ❌            | ✅                 |
-| Memory efficiency     | ⭐⭐⭐       | ⭐⭐            | ⭐⭐⭐        | ⭐                 |
+| Dynamic heights       | No           | Yes             | Yes           | Yes                |
+| Find-in-page          | No           | No              | No            | Yes                |
+| Anchor navigation     | No           | No              | No            | Yes                |
+| Memory efficiency     | High         | Medium          | High          | Low                |
 | Implementation effort | Low          | High            | High          | Trivial            |
 | GC pauses             | Possible     | Possible        | Eliminated    | Possible           |
-| Browser support       | Universal    | Universal       | Universal     | Modern             |
+| Browser support       | Universal    | Universal       | Universal     | Baseline 2025      |
 
-### Decision Framework
+## Browser APIs you actually use
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+### `ResizeObserver` for height measurement
 
-## Browser APIs for Virtualization
-
-### ResizeObserver for Height Measurement
-
-ResizeObserver reports element size changes asynchronously, avoiding the performance penalty of synchronous `getBoundingClientRect()` calls.
+`ResizeObserver` reports element-size changes asynchronously, avoiding the synchronous layout cost of `getBoundingClientRect()` calls in a scroll handler[^resize-observer-spec].
 
 ```typescript title="resize-observer-measurement.ts" collapse={1-2,20-25}
-// Height measurement pattern used by react-virtuoso
 function measureItemHeight(element: HTMLElement, onMeasure: (height: number) => void): () => void {
   const observer = new ResizeObserver((entries) => {
-    // contentRect excludes padding and border
     const height = entries[0].contentRect.height
     onMeasure(height)
   })
 
   observer.observe(element)
 
-  // Cleanup function
   return () => observer.disconnect()
 }
 ```
 
-**Critical detail—what ResizeObserver measures:**
+See [§ How ResizeObserver actually delivers](#how-resizeobserver-actually-delivers) above for the depth-based loop limit and what it means for callback design.
 
-ResizeObserver's `contentRect` reports the content box (excluding padding, border, margin). If items have margins, add them manually:
+### `IntersectionObserver` for visibility detection
 
-```typescript title="margin-aware-measurement.ts"
-const computedStyle = getComputedStyle(element)
-const marginTop = parseFloat(computedStyle.marginTop)
-const marginBottom = parseFloat(computedStyle.marginBottom)
-const totalHeight = entry.contentRect.height + marginTop + marginBottom
-```
-
-**Infinite loop prevention:**
-
-The ResizeObserver spec prevents infinite loops by delivering notifications breadth-first. If observing an element triggers its resize (e.g., changing its content), the callback won't fire again in the same frame—subsequent changes are delivered in the next frame.
-
-### IntersectionObserver for Visibility Detection
-
-IntersectionObserver detects when elements enter or exit the viewport without triggering layout calculations.
+`IntersectionObserver` reports viewport entries and exits asynchronously, batched, and without forcing synchronous layout[^intersection-observer]. The canonical use in a virtualized list is a sentinel for infinite-scroll loading, not the per-item visibility bookkeeping (the virtualizer does that with arithmetic).
 
 ```typescript title="intersection-observer-sentinel.ts" collapse={1-2}
-// Sentinel pattern for infinite scroll loading
 function setupLoadMoreTrigger(sentinel: HTMLElement, onVisible: () => void) {
   const observer = new IntersectionObserver(
     (entries) => {
       if (entries[0].isIntersecting) {
-        onVisible() // Load more items
+        onVisible()
       }
     },
     {
-      rootMargin: "200px", // Trigger 200px before visible
+      rootMargin: "200px",
       threshold: 0,
     },
   )
@@ -486,15 +412,15 @@ function setupLoadMoreTrigger(sentinel: HTMLElement, onVisible: () => void) {
 }
 ```
 
-**Why IntersectionObserver over scroll events:**
+Why prefer it over `scroll`-event tracking:
 
-- **Off main thread**: Calculations happen asynchronously
-- **No layout thrashing**: Doesn't force synchronous layout
-- **Batched**: Multiple intersections delivered in one callback
+- Calculations are off the main thread.
+- It does not force synchronous layout the way a scroll-event handler that reads geometry does.
+- Multiple intersections deliver in one callback.
 
-### requestAnimationFrame for Scroll Handling
+### `requestAnimationFrame` for scroll handling
 
-Scroll events fire many times per frame. RAF throttles updates to the frame rate naturally.
+`scroll` events fire many times per frame on touch devices and high-refresh displays. Coalescing into a single `requestAnimationFrame` callback prevents redundant work.
 
 ```typescript title="raf-scroll-handling.ts"
 let scheduled = false
@@ -513,22 +439,17 @@ function handleScroll(e: Event) {
 }
 ```
 
-**Why this matters:**
+Pair this with `{ passive: true }` so the browser doesn't have to wait for `preventDefault()` decisions before scrolling.
 
-On a 144Hz display, scroll events might fire 144+ times per second. Without RAF throttling, you'd recalculate visible items on every event—most of which occur between frames and waste CPU cycles.
+## Failure modes and edge cases
 
-## Edge Cases and Failure Modes
+### Scroll-position jumping
 
-### Scroll Position Jumping
+**Symptom.** Dragging the scrollbar to an arbitrary position briefly shows the wrong items, then snaps to the right ones.
 
-**Symptom**: When dragging the scrollbar to an arbitrary position, content briefly shows wrong items before correcting.
-
-**Root cause**: Unmeasured items use estimated heights. If estimates are wrong, calculated scroll positions are wrong.
-
-**Mitigation strategies:**
+**Root cause.** Unmeasured items used estimated heights; the estimates were wrong; corrected measurements arrive a frame or two later via `ResizeObserver`.
 
 ```typescript title="jump-mitigation.ts"
-// Strategy 1: Type-based estimates
 const heightEstimates: Record<ItemType, number> = {
   text: 60,
   image: 300,
@@ -540,7 +461,6 @@ function estimateHeight(item: Item): number {
   return heightEstimates[item.type] ?? 100
 }
 
-// Strategy 2: Running average
 let totalMeasured = 0
 let measurementCount = 0
 
@@ -554,11 +474,12 @@ function getEstimate(): number {
 }
 ```
 
-### Keyboard Navigation and Focus Management
+Type-based estimates plus a running average is the floor of what production libraries do; layered on top, they keep a wider overscan in the scroll direction so corrections happen off-screen.
 
-**Critical accessibility failure**: When a focused item scrolls out of the viewport and is unmounted, focus is lost. Screen reader users lose their position entirely.
+### Keyboard focus loss
 
-**Solution**: Track logical focus (item index) separately from DOM focus. When scrolling brings the focused item back into view, restore DOM focus.
+> [!WARNING]
+> When a focused virtualized item scrolls out and gets unmounted, focus is lost. For keyboard and screen-reader users this is a hard regression: the page silently jumps focus to `<body>` and they lose their position in the list. Track logical focus separately from DOM focus and restore it when the item scrolls back in.
 
 ```typescript title="focus-management.ts" collapse={1-3,25-35}
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -567,7 +488,6 @@ function useFocusManagement(visibleRange: { start: number; end: number }) {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map())
 
-  // Track which item should have focus (logical, not DOM)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" && focusedIndex !== null) {
@@ -579,7 +499,6 @@ function useFocusManagement(visibleRange: { start: number; end: number }) {
     [focusedIndex],
   )
 
-  // Restore DOM focus when focused item becomes visible
   useEffect(() => {
     if (focusedIndex !== null && focusedIndex >= visibleRange.start && focusedIndex <= visibleRange.end) {
       itemRefs.current.get(focusedIndex)?.focus()
@@ -590,76 +509,61 @@ function useFocusManagement(visibleRange: { start: number; end: number }) {
 }
 ```
 
-### Screen Reader Accessibility
+### Screen-reader semantics
 
-**Fundamental problem**: Screen readers navigate the DOM. Virtualized content doesn't exist in the DOM.
+Screen readers navigate the DOM. Virtualized items are not in the DOM until they enter the viewport. Mitigate with explicit ARIA scaffolding[^aria-apg]:
 
-**ARIA live regions**: Announce content changes to screen readers.
-
-```html title="aria-live-regions.html"
+```html title="aria-positioning.html"
 <div role="list" aria-label="Messages" aria-live="polite" aria-relevant="additions">
-  <!-- Virtualized items here -->
-  <!-- Screen reader announces when new items are added -->
+  <div role="listitem" aria-setsize="10000" aria-posinset="42">Item 42 of 10,000</div>
 </div>
 ```
 
-**ARIA attributes for virtualized lists:**
-
 | Attribute                   | Purpose                                       |
 | --------------------------- | --------------------------------------------- |
-| `role="list"`               | Identifies container as a list                |
-| `aria-live="polite"`        | Announce changes when user is idle            |
-| `aria-relevant="additions"` | Only announce new items, not removals         |
-| `aria-busy="true"`          | Indicate loading state                        |
-| `aria-setsize`              | Total number of items (including virtualized) |
-| `aria-posinset`             | Position of each visible item in full list    |
+| `role="list"`               | Identifies the container as a list.           |
+| `aria-live="polite"`        | Announces changes when the user is idle.      |
+| `aria-relevant="additions"` | Announce new items, not removals.             |
+| `aria-busy="true"`          | Loading state.                                |
+| `aria-setsize`              | Total count, including virtualized items.     |
+| `aria-posinset`             | Position of each visible item in the full set.|
 
-```html title="aria-positioning.html"
-<div role="listitem" aria-setsize="10000" aria-posinset="42">Item 42 of 10,000</div>
-```
+> [!NOTE]
+> The WICG `<virtual-scroller>` proposal that aimed to provide a native, accessible virtualization primitive was [archived in October 2021](https://github.com/WICG/virtual-scroller); the working group pivoted to lower-level primitives (display-locking), which is what eventually shipped as `content-visibility`. There is no near-term native replacement — accessibility remains the application's problem.
 
-**Ongoing standards work**: The WICG (Web Incubator Community Group) is developing a `<virtual-scroller>` web component to provide native browser support for virtualization with built-in accessibility.
+### Find-in-page
 
-### Find-in-Page Limitations
+Browser Ctrl+F / Cmd+F searches only the rendered DOM. Virtualized items aren't in it. Three options, in order of cost:
 
-**Hard constraint**: Browser's Ctrl+F/Cmd+F searches only the visible DOM. Virtualized items don't exist in the DOM.
+1. **Switch to `content-visibility`** when the list size allows it. Native find-in-page comes back for free.
+2. **Custom search UI.** Implement an in-app search that scans the underlying data, then `scrollToIndex` on a hit.
 
-**Solutions:**
+   ```typescript title="custom-search.ts"
+   function searchAndScroll(query: string, items: Item[], virtualizer: Virtualizer) {
+     const matchIndex = items.findIndex((item) => item.content.toLowerCase().includes(query.toLowerCase()))
+     if (matchIndex !== -1) {
+       virtualizer.scrollToIndex(matchIndex, { align: "center" })
+     }
+   }
+   ```
 
-1. **Custom search UI**: Implement application-level search that queries data, calculates positions, and scrolls to results
+3. **Tell the user.** A small notice that browser find won't reach all items is worse than fixing it but better than a silent regression.
 
-```typescript title="custom-search.ts"
-function searchAndScroll(query: string, items: Item[], virtualizer: Virtualizer) {
-  const matchIndex = items.findIndex((item) => item.content.toLowerCase().includes(query.toLowerCase()))
+### Bidirectional scroll (chat history)
 
-  if (matchIndex !== -1) {
-    virtualizer.scrollToIndex(matchIndex, { align: "center" })
-  }
-}
-```
+Chat lists prepend history at the top while new messages arrive at the bottom. Both directions modify the list, and the user must not see the viewport jump.
 
-2. **Warning UI**: Display a notice explaining that browser search won't find all content
-
-3. **`content-visibility` alternative**: For lists under ~10K items where find-in-page is critical, use CSS `content-visibility: auto` instead of virtualization
-
-### Bidirectional Scrolling (Chat Interfaces)
-
-**Unique challenge**: Chat interfaces load history when scrolling up and receive new messages at the bottom. Both directions modify the list, and scroll position must be preserved.
-
-**Scroll anchoring**: When items are added above the viewport, adjust scroll position to keep the visible content stationary.
+**Scroll anchoring** — when items are added above the viewport, adjust scroll position to keep the visible content stationary:
 
 ```typescript title="scroll-anchoring.ts"
 function addHistoryItems(newItems: Item[], existingItems: Item[]) {
-  // Record current scroll position and reference item
   const scrollContainer = containerRef.current
   const currentScrollTop = scrollContainer.scrollTop
   const anchorItem = findFirstVisibleItem()
   const anchorOffset = getItemOffset(anchorItem.index)
 
-  // Add items to beginning
   const combined = [...newItems, ...existingItems]
 
-  // After render, adjust scroll to maintain anchor position
   requestAnimationFrame(() => {
     const newAnchorOffset = getItemOffset(anchorItem.index + newItems.length)
     const adjustment = newAnchorOffset - anchorOffset
@@ -668,15 +572,11 @@ function addHistoryItems(newItems: Item[], existingItems: Item[]) {
 }
 ```
 
-**Reverse infinite scroll**: Discord's message list uses this pattern. Scrolling to the top triggers history loading, with scroll position adjusted so the user doesn't notice items being prepended.
+This is the dominant pattern in production chat clients (Discord, Slack, Telegram web). The browser also has a built-in [CSS `overflow-anchor`](https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-anchor) for non-virtualized layouts, but virtualizers manage scroll position imperatively and usually disable it.
 
-### Dynamic Content (Images Loading)
+### Dynamic content (images loading)
 
-**Problem**: Images without dimensions cause layout shift when they load, invalidating cached heights.
-
-**Solutions:**
-
-1. **Aspect ratio CSS**: Reserve space before image loads
+Images without intrinsic dimensions cause layout shift on load, invalidating cached heights. Reserve space with `aspect-ratio` so the layout box is correct before pixels arrive:
 
 ```css title="aspect-ratio-placeholder.css"
 .image-container {
@@ -691,41 +591,21 @@ function addHistoryItems(newItems: Item[], existingItems: Item[]) {
 }
 ```
 
-2. **Re-measure on load**: Update height cache when images complete
+If images are unpredictable in size, re-measure on load and write the corrected height back into the cache.
 
-```typescript title="image-load-remeasure.ts" collapse={1-2}
-function ImageItem({ item, onHeightChange }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
+## Performance optimization
 
-  const handleImageLoad = () => {
-    if (ref.current) {
-      onHeightChange(ref.current.offsetHeight);
-    }
-  };
+### Overscan
 
-  return (
-    <div ref={ref}>
-      <img src={item.imageUrl} onLoad={handleImageLoad} />
-    </div>
-  );
-}
-```
+Overscan renders extra items past the viewport so the user does not see blank space during fast scrolling. Higher overscan is smoother but renders more work per frame.
 
-## Performance Optimization
-
-### Overscan Configuration
-
-Overscan renders additional items beyond the viewport to prevent blank areas during fast scrolling.
-
-**Trade-off**: Higher overscan = smoother scrolling but more rendering work per frame.
-
-| Scroll Speed            | Recommended Overscan |
+| Scroll behavior         | Recommended overscan |
 | ----------------------- | -------------------- |
-| Slow/moderate           | 1-2 items            |
-| Fast scrolling expected | 3-5 items            |
-| Scrollbar drag support  | 5-10 items           |
+| Slow / moderate         | 1–2 items            |
+| Fast scroll expected    | 3–5 items            |
+| Scrollbar drag support  | 5–10 items           |
 
-**Direction-aware overscan**: Render more items in the scroll direction for better perceived smoothness.
+Direction-aware overscan — extra in the scroll direction, less behind — is a cheap win:
 
 ```typescript title="directional-overscan.ts"
 function calculateOverscan(scrollDirection: "up" | "down") {
@@ -736,54 +616,27 @@ function calculateOverscan(scrollDirection: "up" | "down") {
 }
 ```
 
-### Scroll Event Handling Strategies
-
-**RAF throttling (recommended)**:
-
-```typescript title="raf-throttle.ts"
-let rafId: number | null = null
-
-function handleScroll(e: Event) {
-  if (rafId === null) {
-    rafId = requestAnimationFrame(() => {
-      updateVisibleItems()
-      rafId = null
-    })
-  }
-}
-```
-
-**Passive event listeners**: Improve scroll performance by indicating the handler won't call `preventDefault()`.
-
-```typescript title="passive-scroll.ts"
-container.addEventListener("scroll", handleScroll, { passive: true })
-```
-
-### GPU-Accelerated Positioning
-
-**Use transforms, not layout-triggering properties:**
+### Compositor-only positioning
 
 ```css title="gpu-positioning.css"
-/* ✅ GPU-accelerated */
+/* Compositor only */
 .virtual-item {
   transform: translateY(var(--offset));
-  will-change: transform; /* Hint to browser */
+  will-change: transform;
 }
 
-/* ❌ Triggers layout */
-.virtual-item {
+/* Triggers layout */
+.virtual-item-bad {
   position: absolute;
   top: var(--offset);
 }
 ```
 
-**will-change caveat**: MDN warns that `will-change` is "intended to be used as a last resort." Excessive use creates too many compositor layers, consuming memory and potentially hurting performance. Use selectively on elements that will actually animate.
+`will-change: transform` hints to the browser to promote the element to its own compositor layer in advance[^will-change]. Use it sparingly: MDN explicitly warns it is "intended to be used as a last resort, in order to try to deal with existing performance problems"[^will-change]. Promoting every item costs memory and can hurt performance on memory-constrained devices.
 
-### Memory Management for Large Lists
+### Memory management for very large lists
 
-**Height cache strategy**: For lists with millions of items, storing every height becomes problematic.
-
-**Segment-based caching**: Store heights in segments, evict old segments using LRU.
+When the list reaches millions of items, the height cache itself becomes the bottleneck. Segment-based caching with LRU eviction keeps it bounded:
 
 ```typescript title="segment-cache.ts"
 class SegmentedHeightCache {
@@ -815,11 +668,9 @@ class SegmentedHeightCache {
 }
 ```
 
-## Grid Virtualization
+## Grid virtualization
 
-### Two-Dimensional Windowing
-
-Grid virtualization requires windowing both rows AND columns simultaneously.
+Grid virtualization is two-dimensional: window both rows and columns simultaneously.
 
 ```typescript title="grid-virtualizer.ts" collapse={1-3,35-45}
 interface GridVirtualizerProps {
@@ -854,191 +705,102 @@ function calculateVisibleGrid({
 }
 ```
 
-### Grid-Specific Challenges
+The differences from list virtualization that bite:
 
-**Header synchronization**: Column headers must scroll horizontally with the body; row headers must scroll vertically.
+- **Header sync.** Column headers must scroll horizontally with the body; row headers must scroll vertically. Most teams sync them imperatively in the same scroll handler.
+- **Cell selection.** Multi-cell selection requires tracking 2D ranges and rendering selection highlights efficiently — usually via overlay layers, not per-cell DOM.
+- **Column resize.** Width changes invalidate every cached column position; the recompute is more expensive than row-height updates because it touches the horizontal axis formula for every visible row.
 
-```typescript title="header-sync.ts"
-// Sync column header horizontal scroll with body
-function syncHeaders(bodyScrollLeft: number, bodyScrollTop: number) {
-  columnHeaderRef.current.scrollLeft = bodyScrollLeft
-  rowHeaderRef.current.scrollTop = bodyScrollTop
-}
-```
+## Reference implementations
 
-**Cell selection**: Multi-cell selection requires tracking 2D ranges and rendering selection highlights efficiently.
+### Discord — chat with rich, mixed content
 
-**Column resizing**: When column widths change, all cached position calculations must be invalidated—more expensive than row height changes because it affects the horizontal axis formula.
+Discord stores trillions of messages in [ScyllaDB after migrating off Cassandra in 2022](https://discord.com/blog/how-discord-stores-trillions-of-messages); their published architecture covers the storage layer in detail but not the client message-rendering implementation. In practice, large chat clients of this shape combine the patterns documented above: variable-height virtualization with type-based estimates, scroll anchoring on history loads, and a separate fast path for "jump to message" that uses estimation rather than measurement.
 
-## Real-World Implementations
+### Figma — non-DOM canvas virtualization
 
-### Discord: Message Virtualization
+Figma's renderer was WebGL-based since 2015 and [migrated to WebGPU in September 2025](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/), built on the Dawn implementation that backs Chromium WebGPU support — which itself shipped in [Chrome 113 in April 2023](https://web.dev/blog/webgpu-supported-major-browsers). The "virtualization" in this architecture is not a DOM concern at all: a spatial index (R-tree) selects which canvas objects to upload to the GPU at the current viewport and zoom, and level-of-detail simplification keeps far-away objects cheap. The DOM never sees the millions of objects; only the rendered canvas does.
 
-**Challenge**: Millions of messages across servers, with rich content (embeds, reactions, replies).
+### Monaco / VS Code — editor virtualization
 
-**Architecture**:
+The editor uses line-based virtualization. The fast path historically assumes uniform line heights, which is what enables sub-millisecond scroll-position math on 100K+-line files. Variable line heights are now supported per-line via [editor decorations](https://github.com/microsoft/vscode/issues/246822); the line height for a row is the maximum of decoration heights applied to it.
 
-- Backend: ScyllaDB for message storage (replaced Cassandra for better latency)
-- Frontend: Custom virtualization with DOM recycling
-- Real-time: Elixir processes for WebSocket coordination
+For very large files, VS Code selectively disables features (`editor.largeFileOptimizations`) — syntax highlighting, code folding, the minimap — trading capability for responsiveness. This is the underrated lesson from VS Code: virtualization alone is not enough at the extreme; you also need to know which features are safe to drop.
 
-**Virtualization approach**:
+## Library landscape
 
-- Fixed-ish heights: Most messages have predictable heights
-- Type-based estimation for embeds, images
-- Bidirectional scrolling for history loading
-- Scroll anchoring when new messages arrive
+The numbers below are the gzipped install sizes reported by Bundlephobia at the time of writing — for production budgeting, regenerate them against the version you ship.
 
-**Key insight**: Discord separates "jump to message" (scrollbar drag) from "scroll to load more" (reaching boundaries). Jump uses estimation; boundary loading measures precisely.
+### `react-window`
 
-### Figma: Canvas Virtualization
+Authored by [Brian Vaughn](https://github.com/bvaughn), former React core team. Designed as a smaller, more focused successor to `react-virtualized`. Components: `FixedSizeList`, `VariableSizeList`, `FixedSizeGrid`, `VariableSizeGrid`. Reported [bundle size ~6.5 kB minified+gzipped (v2.x)](https://bundlephobia.com/package/react-window).
 
-**Challenge**: Infinite canvas with millions of objects at arbitrary zoom levels.
+Best for teams who want a small, well-maintained React solution for the common shapes.
 
-**Architecture**:
+### `react-virtuoso`
 
-- Rendering: WebGL (now WebGPU in Chrome 127+)
-- Spatial indexing: R-tree for visible object queries
-- Level-of-detail: Simplify distant objects
+Specialized for variable-height content with automatic measurement. Built around `ResizeObserver`-driven height tracking, has first-class support for prepend (chat) and grouped lists with sticky headers. Reported [bundle size ~3.5 kB minified+gzipped](https://bundlephobia.com/package/react-virtuoso).
 
-**Key insight**: Figma doesn't use DOM virtualization—they bypass the DOM entirely with WebGL. The "virtualization" is which objects to send to the GPU based on the current viewport and zoom level.
+Best for social feeds, chat, anywhere heights vary unpredictably.
 
-**Outcome**: 60fps with 100K+ objects, 50ms initial render for complex files.
+### `@tanstack/virtual`
 
-### VS Code: Editor Virtualization
+Framework-agnostic core with adapters for React, Vue, Svelte, and Solid, maintained by [Tanner Linsley](https://github.com/TanStack). The core handles the math; the adapter handles framework integration. Reported [bundle size for `@tanstack/react-virtual` is well under 1 kB minified+gzipped](https://bundlephobia.com/package/@tanstack/react-virtual) — most of the perceived size in apps comes from the adapter and the surrounding API surface.
 
-**Challenge**: Files with 100K+ lines, syntax highlighting, code folding, minimap.
+Best for teams who need virtualization across multiple frameworks or want fine-grained control over measurement and rendering.
 
-**Approach**:
+### Quick comparison
 
-- Line-based virtualization with fixed heights (monospace font)
-- Incremental tokenization for syntax highlighting
-- Minimap uses fixed-height representation
+| Library              | Variable height | Auto-measure | Framework | Best fit                   |
+| -------------------- | --------------- | ------------ | --------- | -------------------------- |
+| react-window         | Manual          | No           | React     | Simple uniform-ish lists   |
+| react-virtuoso       | Built-in        | Yes          | React     | Dynamic content / chat     |
+| @tanstack/virtual    | Built-in        | Yes          | Any       | Multi-framework or custom  |
+| vue-virtual-scroller | Built-in        | Yes          | Vue       | Vue apps                   |
 
-**Large file optimizations** (`editor.largeFileOptimizations`):
+## Practical takeaways
 
-- Disable syntax highlighting above threshold
-- Disable code folding computation
-- Disable minimap rendering
-
-**Key insight**: VS Code selectively disables features as file size increases, trading functionality for responsiveness.
-
-### Slack: Hybrid Virtual Scrollbar
-
-**Challenge**: Message history spanning years, with mixed content types.
-
-**Approach**:
-
-- True overflow scrolling (native scrollbar behavior)
-- Custom virtual scrollbar UI overlaid
-- Backend pagination with cursors
-
-**Key insight**: Rather than reimplementing scroll physics, Slack uses the browser's native scrolling and only virtualizes the scrollbar UI—reducing complexity while maintaining familiar scroll feel.
-
-## Library Comparison
-
-### react-window
-
-**Author**: Brian Vaughn (bvaughn), former React team member
-
-**Design philosophy**: Minimal, focused alternative to react-virtualized.
-
-**Components**:
-
-- `FixedSizeList` / `VariableSizeList`
-- `FixedSizeGrid` / `VariableSizeGrid`
-
-**Bundle size**: ~6KB gzipped
-
-**Best for**: Teams wanting a lightweight, well-maintained React solution for common virtualization patterns.
-
-### react-virtuoso
-
-**Specialization**: Variable-height content with automatic measurement.
-
-**Key features**:
-
-- ResizeObserver-based automatic height tracking
-- Built-in handling for prepending items (chat use case)
-- Grouped lists with sticky headers
-
-**Bundle size**: ~15KB gzipped
-
-**Best for**: Social feeds, chat interfaces—anywhere content heights vary unpredictably.
-
-### @tanstack/virtual
-
-**Author**: Tanner Linsley (TanStack maintainer)
-
-**Architecture**: Framework-agnostic core with adapters for React, Vue, Svelte, Solid.
-
-**Key innovation**: Inversion of control—framework adapters implement browser interactions, core handles calculations.
-
-**Bundle size**: ~10KB gzipped (core)
-
-**Best for**: Multi-framework teams, or when you need virtualization outside React.
-
-### Library Decision Matrix
-
-| Library              | Bundle Size | Variable Height | Auto-measure | Framework | Best For        |
-| -------------------- | ----------- | --------------- | ------------ | --------- | --------------- |
-| react-window         | 6KB         | Manual          | ❌           | React     | Simple lists    |
-| react-virtuoso       | 15KB        | Built-in        | ✅           | React     | Dynamic content |
-| @tanstack/virtual    | 10KB        | Built-in        | ✅           | Any       | Multi-framework |
-| vue-virtual-scroller | 12KB        | Built-in        | ✅           | Vue       | Vue apps        |
-
-## Conclusion
-
-Virtualization is the only viable approach for rendering large lists in the browser. The core principle—render only what's visible—transforms O(n) DOM operations into O(viewport) regardless of list size.
-
-Choose your approach based on constraints:
-
-- **Fixed-height virtualization** when you can enforce uniform item heights—simplest and fastest
-- **Variable-height virtualization** for real-world content—the production standard
-- **DOM recycling** when GC pauses are unacceptable—adds complexity but eliminates allocation churn
-- **CSS `content-visibility`** when find-in-page matters and list size is under ~10K—simplest implementation, keeps full DOM
-
-The implementation details matter: use `transform` over `top`, RAF-throttle scroll events, manage focus for accessibility, and handle the edge cases (scroll jumping, bidirectional scrolling, dynamic content) that differentiate production code from demos.
+- **Default to `content-visibility: auto`** when the list fits in memory and find-in-page or anchor links matter. It is the cheapest implementation and preserves browser semantics.
+- **Pick fixed-height virtualization** only when the design genuinely supports uniform heights — log viewers, monospace editors, simple grids.
+- **Pick variable-height virtualization** for almost everything else. Pair it with type-based estimates and a wider scroll-direction overscan to absorb estimation error off-screen.
+- **Reach for DOM recycling** when you measure GC pauses during continuous scroll and the allocation churn is the cause.
+- **Always use `transform: translateY()`** for positioning. `top` / `margin-top` is the most common cause of "virtualized but still janky" lists.
+- **Coalesce scroll handlers through `requestAnimationFrame`** and pass `{ passive: true }` to the listener.
+- **Treat focus and ARIA as part of the virtualizer**, not as a follow-up. The `<virtual-scroller>` standardization effort was archived; the application owns this.
+- **Benchmark against real data shapes**, not synthetic uniform lists. Estimation error and image loads dominate real performance — synthetic benchmarks rarely surface them.
 
 ## Appendix
 
 ### Prerequisites
 
-- Browser rendering pipeline (layout, paint, composite)
-- React or framework fundamentals (for library examples)
-- Basic understanding of time complexity notation
+- Browser rendering pipeline (style → layout → paint → composite).
+- React or another component framework, for the library examples.
+- Big-O intuition.
 
 ### Terminology
 
-| Term             | Definition                                                      |
-| ---------------- | --------------------------------------------------------------- |
-| Virtualization   | Rendering only visible items plus buffer                        |
-| Windowing        | Synonym for virtualization in this context                      |
-| Overscan         | Extra items rendered beyond visible viewport                    |
-| DOM recycling    | Reusing DOM elements instead of create/destroy                  |
-| Height cache     | Storage of measured item heights for positioning                |
-| Scroll anchoring | Maintaining visual position when items are added above viewport |
-
-### Summary
-
-- Virtualization keeps DOM size constant (O(viewport)) regardless of list length
-- Fixed-height is simplest (pure math); variable-height handles real content
-- Use `transform: translateY()` for GPU-accelerated positioning
-- ResizeObserver measures heights; IntersectionObserver detects visibility
-- `content-visibility: auto` is a CSS-only alternative that preserves find-in-page
-- Focus management and ARIA attributes are critical for accessibility
-- Real-world implementations (Discord, Figma, VS Code) combine techniques based on their specific constraints
+| Term             | Definition                                                              |
+| ---------------- | ----------------------------------------------------------------------- |
+| Virtualization   | Rendering only visible items plus an overscan buffer.                   |
+| Windowing        | Synonym for virtualization in this context.                             |
+| Overscan         | Extra items rendered past the visible viewport.                         |
+| DOM recycling    | Reusing DOM elements instead of mounting and unmounting them.            |
+| Height cache     | Storage of measured item heights, keyed by item index.                  |
+| Scroll anchoring | Keeping visible content stationary as items are added above the viewport. |
 
 ### References
 
-- [W3C Intersection Observer Specification](https://www.w3.org/TR/intersection-observer/) - Authoritative API specification
-- [CSSWG ResizeObserver Specification](https://drafts.csswg.org/resize-observer/) - Observer API for element size changes
-- [MDN: content-visibility](https://developer.mozilla.org/en-US/docs/Web/CSS/content-visibility) - CSS property documentation
-- [web.dev: Virtualize long lists with react-window](https://web.dev/articles/virtualize-long-lists-react-window) - Chrome DevRel implementation guide
-- [web.dev: content-visibility: the new CSS property that boosts your rendering performance](https://web.dev/articles/content-visibility) - Performance case study
-- [TanStack Virtual Documentation](https://tanstack.com/virtual/latest/docs/introduction) - Framework-agnostic library docs
-- [react-window GitHub](https://github.com/bvaughn/react-window) - Library source and documentation
-- [react-virtuoso Documentation](https://virtuoso.dev/) - Variable-height virtualization library
-- [WICG Virtual Scroller Proposal](https://github.com/WICG/virtual-scroller) - Ongoing standardization effort
-- [Figma: Keeping Figma Fast](https://www.figma.com/blog/keeping-figma-fast/) - Canvas virtualization case study
-- [AG Grid: DOM Virtualization](https://www.ag-grid.com/javascript-data-grid/dom-virtualisation/) - Grid virtualization patterns
+[^rail]: [web.dev — Measure performance with the RAIL model](https://web.dev/articles/rail). The RAIL model defines the &lt;100 ms response budget for input handling and the 16 ms-per-frame target for scrolling and animation.
+[^web-rendering]: [web.dev — Rendering performance](https://web.dev/articles/rendering-performance). Frame-budget arithmetic and how layout/paint cost scales.
+[^compositor-only]: [web.dev — How to create high-performance CSS animations](https://web.dev/articles/animations-guide#stick_to_compositor-only_properties). `transform` and `opacity` run on the compositor when the element is on its own layer.
+[^lighthouse-noncomp]: [Chrome for Developers — Avoid non-composited animations](https://developer.chrome.com/docs/lighthouse/performance/non-composited-animations). Lists which properties trigger style/layout/paint.
+[^will-change]: [MDN — `will-change`](https://developer.mozilla.org/en-US/docs/Web/CSS/will-change). The "last resort" guidance and over-promotion warning.
+[^resize-observer-spec]: [W3C — Resize Observer (Deliver Resize Loop Error notification)](https://www.w3.org/TR/resize-observer/#deliver-resize-loop-error-notification). Specifies the depth-based delivery rule and the loop-error event.
+[^resize-observer-mdn]: [MDN — `ResizeObserver`](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver). Notes the depth-based loop and the `ResizeObserver loop completed with undelivered notifications` error.
+[^intersection-observer]: [W3C — Intersection Observer](https://www.w3.org/TR/intersection-observer/). Asynchronous, batched viewport-intersection reporting.
+[^cv-mdn]: [MDN — `content-visibility`](https://developer.mozilla.org/en-US/docs/Web/CSS/content-visibility). Values, semantics, and the requirement to pair with `contain-intrinsic-size`.
+[^cis-mdn]: [MDN — `contain-intrinsic-size`](https://developer.mozilla.org/en-US/docs/Web/CSS/contain-intrinsic-size). Placeholder size for size-contained elements.
+[^cv-baseline]: [web.dev — `content-visibility` is now Baseline Newly available](https://web.dev/blog/css-content-visibility-baseline). Baseline status and final browser-version table.
+[^cv-webdev]: [web.dev — `content-visibility`: the new CSS property that boosts your rendering performance](https://web.dev/articles/content-visibility). Source of the 232 ms → 30 ms (7×) initial-render measurement on the chunked travel-blog demo.
+[^aria-apg]: [W3C — ARIA Authoring Practices Guide: Listbox / Grid patterns](https://www.w3.org/WAI/ARIA/apg/). Authoritative guidance on `aria-setsize`, `aria-posinset`, and roving tabindex.
+[^vscode-variable-line-heights]: [microsoft/vscode — Test: variable line heights (#246822)](https://github.com/microsoft/vscode/issues/246822). Documents the per-decoration variable-line-height support added to the editor.

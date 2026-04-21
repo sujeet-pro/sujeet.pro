@@ -1,0 +1,18 @@
+%% Diagram: Encrypted ClientHello — outer cover SNI vs inner real SNI
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant Resolver as DoH/DoT Resolver
+    participant CDN as Server (shared frontend)
+    participant App as Origin (example.com)
+
+    C->>Resolver: HTTPS / SVCB query for example.com (over DoH/DoT)
+    Resolver-->>C: HTTPS RR + ECHConfigList (target HPKE pubkey)
+    Note over C: Tampered DNS strips ECHConfig →\nencrypted-DNS dependency is mandatory
+    C->>CDN: TLS ClientHelloOuter\nSNI = public_name (e.g. cloudflare-ech.com)\necho_outer_extensions = [...]
+    Note right of C: ClientHelloInner is HPKE-encrypted with ECHConfig:\nSNI = example.com, ALPN, etc.
+    CDN->>CDN: HPKE-decrypt ClientHelloInner using private key
+    CDN->>App: Route request to inner SNI = example.com
+    CDN-->>C: ServerHello + cert for example.com
+    Note over C,CDN: On-path observer sees TLS to public_name only.\nIf decryption fails → ECH retry_configs in extension.

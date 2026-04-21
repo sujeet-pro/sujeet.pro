@@ -1,0 +1,26 @@
+%% Diagram: Block Formatting Context as an isolation boundary
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Parent["Body — normal flow"]
+        direction TB
+        A[Sibling A<br/>margin-bottom: 24px]
+        B[Sibling B<br/>margin-top: 16px]
+        A -.collapsed margin = 24px.- B
+    end
+
+    subgraph BFC["Sibling C — display: flow-root (BFC root)"]
+        direction TB
+        F[Float child]
+        T[Text after float]
+        F --> T
+    end
+
+    Parent --> BFC
+
+    Note1["BFC effects:<br/>1. Floats stay inside.<br/>2. No margin collapse with outside.<br/>3. Independent layout — internal changes do not invalidate parent."]
+    BFC -.- Note1
+
+    style BFC fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Parent fill:#e1f5fe
+    style Note1 fill:#fffde7,stroke:#f9a825

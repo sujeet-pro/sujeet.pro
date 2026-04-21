@@ -1,0 +1,39 @@
+%% Diagram: Prepaint pipeline position and outputs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Inputs["Inputs (from Layout)"]
+        direction TB
+        LO["LayoutObject Tree"]
+        FT["Fragment Tree<br/>(geometry only)"]
+    end
+
+    subgraph Prepaint["Prepaint (PrePaintTreeWalk)"]
+        direction TB
+        Walk["In-order LayoutObject walk<br/>crosses iframe boundaries"]
+        Walk --> PTB["PaintPropertyTreeBuilder"]
+        Walk --> PI["PaintInvalidator"]
+    end
+
+    subgraph Outputs["Outputs (consumed by Paint)"]
+        direction TB
+        TT["Transform Tree"]
+        CT["Clip Tree"]
+        ET["Effect Tree"]
+        ST["Scroll Tree"]
+        PTS["PropertyTreeState per FragmentData<br/>(transform, clip, effect, scroll)"]
+        DIC["Dirty DisplayItemClients"]
+    end
+
+    LO --> Walk
+    FT -.geometry.-> PI
+    PTB --> TT
+    PTB --> CT
+    PTB --> ET
+    PTB --> ST
+    TT & CT & ET & ST --> PTS
+    PI --> DIC
+
+    style Walk fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style PTB fill:#e8f5e9,stroke:#2e7d32
+    style PI fill:#ffebee,stroke:#c62828

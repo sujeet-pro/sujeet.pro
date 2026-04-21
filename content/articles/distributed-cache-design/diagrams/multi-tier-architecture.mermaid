@@ -1,0 +1,39 @@
+%% Diagram: Multi-tier cache architecture (L1 + L2 + DB)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph clients["Application tier"]
+        C1["App 1\nL1 LRU\n~100 ns"]
+        C2["App 2\nL1 LRU\n~100 ns"]
+        C3["App N\nL1 LRU\n~100 ns"]
+    end
+
+    subgraph cache["L2 distributed cache"]
+        direction LR
+        N1["Node 1\nslots 0-5460"]
+        N2["Node 2\nslots 5461-10922"]
+        N3["Node 3\nslots 10923-16383"]
+        R1["Replica 1"]
+        R2["Replica 2"]
+        R3["Replica 3"]
+        N1 -.->|"async\nreplication"| R1
+        N2 -.->|"async\nreplication"| R2
+        N3 -.->|"async\nreplication"| R3
+    end
+
+    subgraph storage["Persistence"]
+        DB[("Primary DB\n~5-10 ms")]
+    end
+
+    C1 & C2 & C3 -->|"L1 miss\n(consistent hash)"| cache
+    cache -->|"L2 miss"| DB
+    DB -->|"populate\non miss"| cache
+
+    classDef app fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef node fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef replica fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef db fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class C1,C2,C3 app
+    class N1,N2,N3 node
+    class R1,R2,R3 replica
+    class DB db

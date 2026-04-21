@@ -1,0 +1,20 @@
+%% Diagram: Migration TTL lowering timeline — phased TTL changes with safe-cutover window
+%% Type: gantt
+gantt
+    dateFormat  YYYY-MM-DD
+    axisFormat  D
+    title TTL Lowering Timeline (calendar days)
+
+    section Authoritative
+    Old TTL of 3600s active           :done, p1, 2026-04-21, 1d
+    Lower TTL to 300s                 :crit, p2, 2026-04-22, 1d
+    Drain old TTL                     :active, p3, 2026-04-23, 1d
+    Make record change                :crit, p4, 2026-04-24, 1d
+    Verify at multiple resolvers      :p5, 2026-04-25, 1d
+    Restore TTL to 3600s              :p6, 2026-04-26, 1d
+
+    section Resolver caches
+    Old value cached                  :done, r1, 2026-04-21, 2d
+    Mixed cache, old draining         :active, r2, 2026-04-23, 1d
+    New value visible                 :crit, r3, 2026-04-24, 1d
+    Stable on new value               :r4, 2026-04-25, 2d

@@ -2,297 +2,204 @@
 title: Circuit Breaker Patterns for Resilient Systems
 linkTitle: 'Circuit Breakers'
 description: >-
-  Circuit breaker state machines, detection strategies (count-based vs. time-window), isolation
-  models (thread pool vs. semaphore), and half-open recovery — with Resilience4j and Netflix Hystrix configurations.
+  State machines, count vs time-based detection, thread-pool vs semaphore isolation,
+  half-open recovery, the Hystrix → Resilience4j → adaptive-concurrency arc, and the
+  cell-based-architecture critique that makes the whole pattern controversial.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - system-design
   - reliability
+  - reliability-engineering
+  - patterns
+  - microservices
+  - fault-tolerance
 ---
 
 # Circuit Breaker Patterns for Resilient Systems
 
-Circuit breakers prevent cascading failures by failing fast when downstream dependencies are unhealthy. This article examines design choices—threshold-based vs time-window detection, thread pool vs semaphore isolation, per-host vs per-service scoping—along with production configurations from Netflix, Shopify, and modern implementations in Resilience4j.
+A circuit breaker wraps every dependency call so that a slow or failing dependency stops being able to consume the caller's resources. The point is mechanical: convert slow failures into fast failures so caller threads, sockets, and connection pool slots are returned promptly. This article works through the state machine, the detection and isolation choices, the configuration math behind production incidents (Shopify Semian, Netflix Hystrix), and the modern critique — from Marc Brooker and the AWS Builders' Library — that argues the pattern is the wrong answer for most cell-based and sharded architectures and should be replaced by adaptive concurrency control.
 
-![The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.](./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope-light.svg "The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.")
-![The circuit breaker state machine. Closed allows requests and counts failures. Open rejects immediately. Half-Open tests if recovery is complete.](./diagrams/the-circuit-breaker-state-machine-closed-allows-requests-and-counts-failures-ope-dark.svg)
+![Circuit breaker state machine: Closed records outcomes, Open fast-fails, Half-Open admits a small probe set to measure recovery.](./diagrams/state-machine-light.svg "The three core states. Special states like METRICS_ONLY, DISABLED, and FORCED_OPEN are operational overrides, not part of the steady-state machine.")
+![Circuit breaker state machine: Closed records outcomes, Open fast-fails, Half-Open admits a small probe set to measure recovery.](./diagrams/state-machine-dark.svg)
 
-## Abstract
+## Why the pattern exists
 
-A circuit breaker wraps dependency calls and tracks failure rates. When failures exceed a threshold, the breaker "opens"—subsequent calls fail immediately without attempting the dependency. After a timeout, it enters "half-open" state, allowing probe requests to test recovery. Success closes the circuit; failure reopens it.
+Without a circuit breaker, a slow dependency cascades upward. The mechanism is easy to derive from Little's Law (\(L = \lambda W\)): if requested-arrival-rate \(\lambda\) holds steady but per-request hold-time \(W\) jumps, the in-flight count \(L\) grows until the caller exhausts threads, file descriptors, or connection-pool slots. The caller becomes slow, which makes *its* callers slow, and so on.
 
-The pattern solves a specific problem: **slow failures are worse than fast failures**. A hanging dependency ties up caller threads, exhausts connection pools, and cascades failure upstream. Circuit breakers convert slow failures (timeouts) into fast failures (immediate rejection), preserving caller resources.
+```text
+Database degrades to 10s response time
 
-**Key design choices:**
+Service A
+├─ Pool: 100 worker threads
+├─ Per-request hold time was 50 ms, now 10 s (200×)
+└─ New steady-state capacity: 100 threads / 10 s ≈ 10 req/s
+   (down from ~2,000 req/s before)
 
-- **Detection strategy:** Count-based (last N calls) vs time-based (last N seconds). Count-based is simpler; time-based adapts to traffic variability.
-- **Isolation model:** Thread pool (separate threads per dependency, timeout enforced) vs semaphore (shared threads, no timeout). Thread pool adds ~3-9ms latency but enables timeouts.
-- **Scope:** Per-service (single breaker for all hosts) vs per-host (separate breakers per instance). Per-host prevents one bad host from blocking all traffic.
-- **Half-open behavior:** Single probe vs multiple probes. Single is fragile; multiple adds controlled load during recovery.
-
-The pattern was introduced by Michael Nygard in "Release It!" (2007) and popularized by Netflix's Hystrix. Hystrix is now deprecated in favor of adaptive approaches (Resilience4j, concurrency limits) that don't require manual threshold tuning.
-
-## The Problem: Cascading Failures from Slow Dependencies
-
-Without circuit breakers, a slow or failing dependency can cascade failure to its callers.
-
-### Resource Exhaustion Chain
-
-```
-Scenario: Database becomes slow (10s response time)
-
-Service A (caller):
-├─ Thread pool: 100 threads
-├─ Timeout: 30s (misconfigured)
-├─ Normal throughput: 1000 req/s
-
-After database slowdown:
-├─ Each request holds a thread for 10s
-├─ 100 threads / 10s = 10 req/s capacity
-├─ 99% of requests queue or fail
-├─ Service A becomes slow → cascades to its callers
+Service A's callers now wait on Service A → cascade upstream.
 ```
 
-The problem compounds: Service A's callers wait for A, exhausting their thread pools, cascading further. A single slow database can take down an entire service mesh.
+Naive retries make the picture worse. A 3× retry budget triples load on a dependency that is already failing under its current load, deepening the failure[^aws-retries]:
 
-### Why Retries Make It Worse
-
-Callers often retry failed requests. Without backoff or budgets, retries amplify load on an already struggling dependency:
-
-```
-Normal: 100 req/s to dependency
-Dependency fails: 100 req/s × 3 retries = 300 req/s
-Dependency under more load → more failures → more retries
+```text
+Healthy: 100 req/s offered, 100 req/s succeed
+Failing: 100 req/s offered × 3 retries = 300 req/s offered
+         → more failures → more retries → metastable failure mode
 ```
 
-Circuit breakers break this feedback loop by stopping calls entirely when failure is likely.
+The standard reference for that metastable feedback loop is Marc Brooker's [_Metastability and Distributed Systems_](https://brooker.co.za/blog/2021/05/24/metastable.html). Circuit breakers are one mechanism for breaking the loop; token-bucketed retry throttling is another, and the two compose.
 
-## State Machine Mechanics
+## State machine
 
-### Closed State
+The breaker is a finite state machine. The three normal states — Closed, Open, Half-Open — were introduced in Michael Nygard's _Release It!_[^nygard], which remains the canonical software reference for the pattern (Nygard adapted it from electrical fuse design). Resilience4j adds three operational overrides on top — `METRICS_ONLY`, `DISABLED`, `FORCED_OPEN` — that are convenience hooks for ops, not part of the steady-state machine[^r4j-docs]. Older libraries usually stop at the three normal states.
 
-Normal operation. Requests pass through to the dependency. The breaker tracks failures using a sliding window (by count or time).
+### Closed
 
-```ts title="closed-state.ts" collapse={1-3, 20-25}
-// Simplified closed state logic
-type CircuitBreakerState = {
+Requests pass through. Each outcome is recorded in a sliding window. The breaker only evaluates the failure rate when the window has accumulated `minimumNumberOfCalls` outcomes — Resilience4j defaults this to 100, which prevents a cold breaker from tripping on the first one or two failures during warm-up[^r4j-docs].
+
+```ts title="closed-state.ts"
+type WindowedStats = {
   failures: number
-  successes: number
-  lastFailureTime: number
+  total: number
 }
 
-function onRequestComplete(state: CircuitBreakerState, success: boolean, threshold: number): "CLOSED" | "OPEN" {
-  if (success) {
-    state.successes++
-    return "CLOSED"
+function recordOutcome(stats: WindowedStats, success: boolean): WindowedStats {
+  return {
+    failures: stats.failures + (success ? 0 : 1),
+    total: stats.total + 1,
   }
+}
 
-  state.failures++
-  state.lastFailureTime = Date.now()
-
-  const total = state.failures + state.successes
-  const failureRate = state.failures / total
-
-  if (total >= 10 && failureRate >= threshold) {
-    return "OPEN" // Trip the circuit
-  }
-  return "CLOSED"
+function shouldTrip(stats: WindowedStats, minCalls: number, threshold: number): boolean {
+  if (stats.total < minCalls) return false
+  return stats.failures / stats.total >= threshold
 }
 ```
 
-**Volume threshold matters:** A circuit that opens after 2 failures in 2 requests would flap constantly. Production implementations require a minimum request volume (e.g., 10-20 requests) before evaluating the threshold.
+Volume threshold matters operationally. A breaker that can open on 2-of-2 failures will flap on every blip — both Hystrix and Resilience4j ship a minimum-volume gate by default.
 
-### Open State
+### Open
 
-Fast-fail mode. Requests are rejected immediately without calling the dependency. This:
+Every call is rejected without touching the dependency. Resilience4j throws `CallNotPermittedException`; Hystrix routes to the fallback. The point is to (a) preserve caller resources while the dependency is unhealthy and (b) give the dependency time to recover without retry-storm pressure.
 
-- Preserves caller resources (no threads blocked waiting)
-- Gives the dependency time to recover
-- Provides fast feedback to upstream callers
+The breaker stays Open for `waitDurationInOpenState` (Resilience4j defaults to 60 s; Hystrix to 5 s; tune for the dependency's typical recovery time)[^r4j-docs][^hystrix-config].
 
-The breaker stays open for a configured duration (reset timeout), typically 5-60 seconds.
+### Half-Open
 
-### Half-Open State
+After the wait expires, the breaker admits a bounded number of probe requests. The classic Hystrix design admitted a single probe; Resilience4j admits `permittedNumberOfCallsInHalfOpenState` (default 10) and re-evaluates the failure rate on that probe set[^r4j-docs].
 
-After the reset timeout, the breaker allows limited probe requests to test if the dependency has recovered.
+A single probe is a noisy signal — one network blip and the breaker re-trips for another full wait window. Multiple probes give a small but useful statistical sample.
 
-**Single probe (Hystrix default):**
+> [!IMPORTANT]
+> Probe timeouts must be much shorter than normal request timeouts. This is the single most common circuit-breaker misconfiguration; the next section walks through Shopify's worked example.
 
-- One request passes through
-- Success → Close circuit
-- Failure → Reopen circuit
+## Per-request flow
 
-**Multiple probes (Resilience4j):**
+The runtime view of the breaker. Every call passes through the admission decision (state + permit), then either invokes the dependency and updates the window or skips straight to the fallback.
 
-- Configurable number of requests allowed (e.g., 10)
-- Evaluate success rate of probes
-- Close only if success rate exceeds threshold
+![Request flow through a circuit breaker: admission check, optional invocation, sliding-window update, threshold evaluation.](./diagrams/request-flow-light.svg "Per-request control flow. The admission gate combines state (Closed / Open / Half-Open) with a bulkhead permit; the post-call branch updates the window and may trip the breaker for the next request.")
+![Request flow through a circuit breaker: admission check, optional invocation, sliding-window update, threshold evaluation.](./diagrams/request-flow-dark.svg)
 
-**Design rationale for multiple probes:** A single request is a noisy signal. Network hiccups, cold starts, or unlucky routing can cause one request to fail even if the service is healthy. Multiple probes provide statistical confidence.
+## Detection strategies
 
-## Detection Strategies
+### Count-based sliding window
 
-### Count-Based Sliding Window
+Track outcomes from the last `N` calls in a circular array. Resilience4j stores three integers per measurement (failed / slow / total counts) and one long for total duration, and maintains a pre-aggregated total so snapshot retrieval is O(1)[^r4j-docs].
 
-Track the outcome of the last N requests regardless of time.
-
-```
-Window size: 10 requests
+```text
+Window size: 10
 Failure threshold: 50%
-
-Request history: [✓, ✗, ✓, ✗, ✗, ✗, ✓, ✗, ✗, ✓]
-Failures: 6/10 = 60% → Trip circuit
+Outcomes: [✓ ✗ ✓ ✗ ✗ ✗ ✓ ✗ ✗ ✓]   →  6/10 failures = 60%   →  trip
 ```
 
-**Implementation:** Circular buffer of size N. O(1) time per request, O(N) memory per dependency.
+Best when call rate is roughly steady. A risk: under low traffic the window can span minutes or hours, so old failures keep voting on the present.
 
-**Best when:**
+### Time-based sliding window
 
-- Traffic is consistent and predictable
-- You want behavior that's independent of request rate
-- Simpler reasoning about when circuit trips
+Aggregate per-second buckets covering the last `N` seconds. Memory is O(window seconds) regardless of call volume; per-call work is O(1)[^r4j-docs].
 
-**Trade-off:** During low traffic, the window may span hours. Old failures influence current decisions even if the dependency recovered.
-
-### Time-Based Sliding Window
-
-Track outcomes within the last N seconds.
-
-```
-Window: 10 seconds
-Failure threshold: 50%
-
-Requests in last 10s: 100
-Failures in last 10s: 60
-Failure rate: 60% → Trip circuit
+```text
+Window: 10s   Threshold: 50%
+Calls in window: 100   Failures: 60   →  60% → trip
 ```
 
-**Implementation:** Aggregate statistics per bucket (e.g., 1-second buckets). Total window = sum of buckets. O(1) time per request, O(window_size / bucket_size) memory.
+Best when traffic is bursty or follows a daily curve. The minimum-call gate still applies, otherwise a low-traffic minute can trip the breaker on a 1-of-2 sample.
 
-**Best when:**
+![Count-based vs time-based sliding windows: a count window keeps the last N outcomes, a time window aggregates per-second buckets across the last N seconds.](./diagrams/sliding-window-light.svg "Two ways to evaluate recent health. Count-based windows under-react to bursts and let stale failures vote during quiet periods; time-based windows bound how far back a failure can influence the trip decision.")
+![Count-based vs time-based sliding windows.](./diagrams/sliding-window-dark.svg)
 
-- Traffic varies significantly (bursty, daily patterns)
-- You want the circuit to adapt to recent conditions
-- High-traffic services where count-based window refreshes too quickly
+### Resilience4j configuration in one place
 
-**Trade-off:** During traffic lulls, few requests may trip the circuit on small samples. Minimum throughput threshold mitigates this.
-
-### Resilience4j's Sliding Window
-
-Resilience4j (the modern JVM standard) supports both strategies:
-
-```java
+```java title="CircuitBreakerConfig.java"
 CircuitBreakerConfig config = CircuitBreakerConfig.custom()
-    // Count-based: trip after 5 failures in last 10 calls
-    .slidingWindowType(SlidingWindowType.COUNT_BASED)
-    .slidingWindowSize(10)
-    .failureRateThreshold(50)
-
-    // OR time-based: trip after 50% failures in last 10 seconds
-    .slidingWindowType(SlidingWindowType.TIME_BASED)
-    .slidingWindowSize(10) // seconds
-    .failureRateThreshold(50)
-
-    // Minimum requests before evaluating
-    .minimumNumberOfCalls(5)
+    .slidingWindowType(SlidingWindowType.COUNT_BASED)  // or TIME_BASED
+    .slidingWindowSize(100)                            // default 100
+    .minimumNumberOfCalls(20)                          // default 100; lower for low-traffic paths
+    .failureRateThreshold(50)                          // default 50%
+    .slowCallRateThreshold(50)                         // default 100%
+    .slowCallDurationThreshold(Duration.ofSeconds(2))  // default 60s
+    .waitDurationInOpenState(Duration.ofSeconds(30))   // default 60s
+    .permittedNumberOfCallsInHalfOpenState(10)         // default 10
+    .automaticTransitionFromOpenToHalfOpenEnabled(true)
+    .recordExceptions(IOException.class, TimeoutException.class)
+    .ignoreExceptions(BusinessException.class)
     .build();
 ```
 
-**Performance characteristics:**
+Defaults sourced from the [Resilience4j CircuitBreaker config table](https://resilience4j.readme.io/docs/circuitbreaker)[^r4j-docs]. Note that defaults are tuned for high-traffic services; for low-traffic paths you almost always want `minimumNumberOfCalls` well below 100.
 
-- Snapshot retrieval: O(1) time (pre-aggregated, not computed on access)
-- Memory: O(window_size) for count-based, O(buckets) for time-based
-- Thread safety: Atomic operations with synchronized sliding window access
+### Slow-call detection
 
-### Slow Call Detection
+Resilience4j can trip on the rate of slow calls before they fail outright. A database under load typically responds slowly before timing out, so opening on slowness preserves caller resources earlier in the failure curve[^r4j-docs].
 
-Resilience4j can open the circuit proactively when calls are slow, even before they fail:
+## Isolation models
 
-```java
-CircuitBreakerConfig.custom()
-    .slowCallRateThreshold(50) // 50% of calls are slow
-    .slowCallDurationThreshold(Duration.ofSeconds(2))
-    .build();
-```
+Isolation determines whether a slow dependency can hold the caller's threads.
 
-**Design rationale:** Slow calls often precede failures. A database under load responds slowly before timing out. Opening the circuit on slowness preserves caller resources before the situation worsens.
+### Thread-pool isolation (Hystrix default)
 
-## Isolation Models
+Each `HystrixCommand` ran on a dedicated `ThreadPoolExecutor`. Calls were submitted as `Future`s and the parent thread blocked on `Future.get(timeout)`, so timeouts could be enforced even when the underlying client library ignored interrupts[^hystrix-howitworks].
 
-Isolation determines how the circuit breaker protects caller resources from slow dependencies.
+The cost, measured by Netflix on a single API instance running one command at 60 rps:
 
-### Thread Pool Isolation
+| Percentile | Overhead vs. direct call |
+| ---------: | :----------------------- |
+| p50 (and lower) | 0 ms (no measurable cost) |
+| p90 | ~3 ms |
+| p99 | ~9 ms |
 
-Each dependency gets its own thread pool. Requests execute on dedicated threads, not the caller's thread.
+> "Netflix, in designing this system, decided to accept the cost of this overhead in exchange for the benefits it provides and deemed it minor enough to not have major cost or performance impact."
+> — [Hystrix Wiki: How it Works](https://github.com/Netflix/Hystrix/wiki/How-it-Works)
 
-```
-Caller thread → Submit to pool → Dependency thread handles request
-                                         ↓
-                    Timeout enforced ← Future.get(timeout)
-```
+Netflix ran each API instance with 40+ thread pools at 5–20 threads each (mostly 10), and that instance shape served ~10 billion `HystrixCommand` invocations per day[^hystrix-howitworks]. The trade-offs:
 
-**Netflix Hystrix's approach:**
+- Strong isolation — slow dependency A can't steal threads earmarked for B.
+- Hard timeout enforcement — `Future.get(timeout)` interrupts the wait even if the client library doesn't cooperate (the underlying thread may still be hot, but the caller is freed).
+- Concurrency cap — the pool size doubles as a per-dependency bulkhead.
 
-- Separate thread pool per `HystrixCommand`
-- Default pool size: 10 threads per dependency
-- Timeout enforced via `Future.get(timeout)`
+…against:
 
-**Performance cost (Netflix production data):**
+- ~3–9 ms overhead at p90/p99.
+- Pool sizing becomes an operational discipline, not a config detail.
+- Memory: O(pools × pool size) threads.
 
-- 90th percentile latency addition: ~3ms
-- 99th percentile latency addition: ~9ms
+### Semaphore isolation
 
-Netflix deemed this acceptable:
+A counter limits concurrency; the call runs on the caller's thread.
 
-> "The cost is minor enough to not have major cost or performance impact."
-> — Netflix Hystrix Wiki
-
-**Benefits:**
-
-- ✅ Timeout enforcement: Can interrupt stuck calls
-- ✅ Strong isolation: Slow dependency A can't consume threads needed for B
-- ✅ Concurrent limits: Pool size caps concurrent calls per dependency
-
-**Trade-offs:**
-
-- ❌ Thread handoff overhead (~3-9ms)
-- ❌ Context switching cost
-- ❌ Queue management complexity
-- ❌ Memory footprint (threads per pool × pools)
-
-### Semaphore Isolation
-
-Limit concurrent calls via semaphore; requests execute on caller's thread.
-
-```
-Caller thread → Acquire semaphore → Call dependency on same thread
-                     ↓
-              If unavailable → Reject immediately
-```
-
-**Implementation:**
-
-```ts title="semaphore-isolation.ts" collapse={1-2, 20-25}
-// Semaphore isolation pattern
-class SemaphoreIsolation {
+```ts title="semaphore-isolation.ts"
+class Semaphore {
   private permits: number
-  private maxPermits: number
-
   constructor(maxConcurrent: number) {
     this.permits = maxConcurrent
-    this.maxPermits = maxConcurrent
   }
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.permits <= 0) {
-      throw new Error("Semaphore exhausted")
-    }
-
+    if (this.permits <= 0) throw new Error("CallNotPermitted")
     this.permits--
     try {
-      return await fn() // Runs on caller's thread
+      return await fn()
     } finally {
       this.permits++
     }
@@ -300,539 +207,476 @@ class SemaphoreIsolation {
 }
 ```
 
-**Benefits:**
+Pros: no handoff cost, sub-millisecond overhead, trivial to reason about. Cons: no enforced timeout — if the call hangs, the calling thread hangs with it; an upstream `Thread.interrupt()` is the only escape, and most HTTP clients don't honour it[^hystrix-howitworks].
 
-- ✅ No thread overhead
-- ✅ Lower latency (no queue/handoff)
-- ✅ Simpler implementation
+Hystrix exposes both via `execution.isolation.strategy=THREAD|SEMAPHORE`. Netflix recommends thread isolation by default and semaphores only for "extremely high-volume" calls — typically in-memory caches that return in sub-millisecond times — where the per-call thread cost dominates the call itself[^hystrix-howitworks].
 
-**Trade-offs:**
+### When to pick which
 
-- ❌ No timeout enforcement (can't interrupt blocked thread)
-- ❌ Slow calls block caller threads
-- ❌ Less isolation than thread pool
+| Factor                   | Thread pool                  | Semaphore                            |
+| :----------------------- | :--------------------------- | :----------------------------------- |
+| Dependency reliability   | Unreliable; may hang         | Reliable; predictable latency        |
+| Timeout enforcement      | Required                     | Network-layer timeout is sufficient  |
+| Per-call latency budget  | Can absorb 3–9 ms            | Sub-millisecond required             |
+| Volume per dependency    | < 1k req/s/instance          | > 1k req/s/instance                  |
+| Call type                | Network I/O                  | In-process / in-memory               |
 
-### When to Use Each
+### Bulkhead vs. circuit breaker
 
-| Factor                     | Thread Pool                  | Semaphore                            |
-| -------------------------- | ---------------------------- | ------------------------------------ |
-| **Dependency reliability** | Unreliable, may hang         | Reliable, predictable latency        |
-| **Timeout requirement**    | Must enforce timeouts        | Timeouts at network layer sufficient |
-| **Latency sensitivity**    | Can tolerate 3-9ms overhead  | Sub-millisecond required             |
-| **Call volume**            | < 1000/s per dependency      | > 1000/s, high-throughput            |
-| **Call type**              | Network I/O, remote services | In-memory, local computation         |
+These are separate roles that compose:
 
-**Netflix's recommendation:**
+- **Bulkhead** — caps concurrent calls (a thread pool, a semaphore, a connection pool). Limits the *blast radius* when one dependency goes wrong.
+- **Circuit breaker** — measures dependency health and decides when to *stop calling*.
 
-- Default: Thread pool isolation for `HystrixCommand`
-- Semaphore: Only for "extremely high-volume calls" (hundreds per second per instance) where overhead matters
+A bulkhead alone won't stop the slow dependency from filling its 20 reserved threads with hung requests; a circuit breaker alone won't stop a healthy dependency from monopolising a shared pool. The combination — a per-dependency bulkhead inside a per-dependency breaker — is the standard production layout.
 
-### Bulkhead vs Circuit Breaker
+## Scoping: per-service or per-host?
 
-Circuit breakers and bulkheads are complementary:
+### Per-service (one breaker per logical dependency)
 
-- **Bulkhead:** Isolates resources (thread pools, connections) to prevent one dependency from exhausting shared capacity
-- **Circuit breaker:** Detects dependency health and stops calling unhealthy dependencies
+Simple and easy to reason about. The drawback shows up under client-side load balancing: one bad backend instance is diluted by the healthy ones, so the global failure rate may stay below the threshold even when ~33% of requests are failing.
 
-**Together:** Bulkhead (thread pool) limits concurrent calls to 20. Circuit breaker (failure detection) opens when 50% of those calls fail. The bulkhead prevents resource exhaustion while the circuit breaker provides fast-fail.
-
-## Scoping Strategies
-
-### Per-Service Circuit Breaker
-
-One breaker for all calls to a logical service, regardless of which host handles the request.
-
-```
-Service A → Circuit Breaker → Load Balancer → [Host 1, Host 2, Host 3]
-                                                    ↑
-                                            One bad host affects
-                                            circuit for all hosts
+```text
+3 backend instances, 1 unhealthy
+Per-service breaker observes: ~33% failures (below typical 50% threshold)
+Result: breaker stays Closed, 33% of requests fail continuously
 ```
 
-**When appropriate:**
+### Per-host (one breaker per backend instance)
 
-- Infrastructure failures affect all hosts equally (network partition, DNS failure)
-- Hosts are homogeneous and share fate
-- Simpler configuration and debugging
+Each instance carries its own breaker, fed by per-instance metrics. A single bad host trips its own breaker; traffic shifts to the healthy hosts via the load balancer.
 
-**The problem:** With client-side load balancing, one bad host may not trip the circuit:
+The cost is operational: more breaker state to manage, tighter coupling with service discovery, and per-host health to surface in dashboards. Most production systems combine the two — per-host breakers for instance-level failures and a per-service breaker as a backstop for service-wide outages.
 
-```
-3 hosts, 1 failing
-Requests distributed: 33% fail (1 host), 67% succeed (2 hosts)
-Failure threshold: 50%
-Result: Circuit stays closed, 33% of requests fail continuously
-```
+> [!TIP]
+> If your service mesh (Envoy, Istio, Linkerd) already does outlier detection and per-endpoint ejection, that mechanism is closer to a per-host breaker than to anything in the application library. Don't double up; pick the layer.
 
-### Per-Host Circuit Breaker
+## The Shopify Semian case study
 
-Separate breaker for each host/instance of a service.
+Shopify's [_Your Circuit Breaker is Misconfigured_](https://shopify.engineering/circuit-breaker-misconfigured) (Feb 2020) is the canonical worked example of how a "correct-looking" circuit-breaker config can keep your service in a permanent oscillation. Semian has been running in Shopify production since October 2014[^semian-readme]; this post is the operational lesson learned along the way.
 
-```
-Service A → [CB for Host 1] → Host 1
-          → [CB for Host 2] → Host 2
-          → [CB for Host 3] → Host 3
-```
-
-**Benefits:**
-
-- ✅ Single bad host doesn't poison the entire service
-- ✅ Fine-grained control and visibility
-- ✅ Works with client-side load balancing
-
-**Trade-offs:**
-
-- ❌ More circuit breaker instances to manage
-- ❌ Requires service discovery integration
-- ❌ Health state per instance adds memory
-
-### Hybrid Approach
-
-For sophisticated systems, chain multiple breakers:
-
-```
-Service A → Per-Service CB → Retry → Per-Host CB → Host
-            (catastrophic)             (host-level)
-```
-
-- **Per-host:** Opens when a specific host fails. Traffic routes to other hosts.
-- **Per-service:** Opens only when most/all hosts are unhealthy. Protects against service-wide failures.
-
-**Design guidance:**
-
-> "Consider how and why your upstream service could fail and then use the simplest possible configuration for your situation."
-> — Azure Architecture Patterns
-
-## Real-World Implementations
-
-### Netflix Hystrix (Deprecated but Influential)
-
-Hystrix established patterns that persist across modern implementations.
-
-**Core design:**
-
-- Command pattern: Each dependency call wrapped in `HystrixCommand`
-- Thread pool isolation by default
-- Request collapsing: Batch simultaneous requests
-- Request caching: Deduplicate within request context
-
-**Default configuration:**
-
-```java
-// Hystrix defaults (for reference)
-circuitBreaker.requestVolumeThreshold = 20    // Min requests before evaluation
-circuitBreaker.errorThresholdPercentage = 50  // Error rate to trip
-circuitBreaker.sleepWindowInMilliseconds = 5000  // Time in Open
-metrics.rollingStats.timeInMilliseconds = 10000  // Metrics window
-```
-
-**Why deprecated:** Netflix shifted toward adaptive approaches:
-
-> "Netflix will no longer actively review issues, merge pull-requests, and release new versions of Hystrix... We recommend resilience4j for new projects."
-> — Hystrix README
-
-The shift reflects a broader industry move from static thresholds to adaptive systems that respond to real-time conditions.
-
-### Resilience4j (Current JVM Standard)
-
-Lightweight, decorator-based alternative to Hystrix.
-
-**Architecture:**
-
-- Functional composition: Decorate any function with resilience behaviors
-- Modular: Pick only what you need (CircuitBreaker, Retry, RateLimiter, Bulkhead)
-- Reactive support: Native Reactor and RxJava operators
-
-**Six states:**
-
-- `CLOSED`: Normal operation
-- `OPEN`: Rejecting requests
-- `HALF_OPEN`: Testing recovery
-- `DISABLED`: Always allow, no metrics
-- `METRICS_ONLY`: Always allow, track metrics
-- `FORCED_OPEN`: Force rejection (for testing/maintenance)
-
-**Configuration example:**
-
-```java
-CircuitBreakerConfig config = CircuitBreakerConfig.custom()
-    .slidingWindowType(SlidingWindowType.COUNT_BASED)
-    .slidingWindowSize(100)
-    .minimumNumberOfCalls(10)
-    .failureRateThreshold(50)
-    .slowCallRateThreshold(50)
-    .slowCallDurationThreshold(Duration.ofSeconds(2))
-    .waitDurationInOpenState(Duration.ofSeconds(30))
-    .permittedNumberOfCallsInHalfOpenState(10)
-    .automaticTransitionFromOpenToHalfOpenEnabled(true)
-    .build();
-```
-
-**Key improvements over Hystrix:**
-
-- Configurable half-open probes (not just one)
-- Slow call detection (proactive tripping)
-- Lower overhead (no thread pools required)
-- Better integration with reactive streams
-
-### Shopify Semian (Ruby)
-
-Shopify's open-source circuit breaker with bulkhead isolation.
-
-**Critical discovery (2014):** Shopify found that naive circuit breaker configuration can _worsen_ availability:
-
-> "When Shopify started introducing circuit breakers and bulkheads to production in 2014 they severely underestimated how difficult they are to configure."
-> — Shopify Engineering
-
-**The problem:** During half-open testing, requests used the standard timeout (250ms). With 42 Rails workers, testing recovery required:
-
-```
-42 workers × 250ms timeout = 10.5 seconds of worker time per probe cycle
-Required utilization: 263% (impossible → constant oscillation)
-```
-
-**The fix:** Separate timeout for half-open probes:
+The setup: a single Rails worker with **2 threads**, talking to **42 Redis instances** each protected by its own circuit. Initial config:
 
 ```ruby
 Semian.register(
-  :external_service,
-  circuit_breaker: true,
+  :redis_cache,
   bulkhead: true,
-  success_threshold: 2,      # Consecutive successes to close
-  error_threshold: 3,        # Consecutive failures to open
-  error_timeout: 30,         # Seconds before half-open
-  half_open_resource_timeout: 0.050  # 50ms timeout for probes (not 250ms!)
+  circuit_breaker: true,
+  error_threshold: 3,                # 3 errors in window → Open
+  error_timeout: 2,                  # 2 s in Open before Half-Open
+  success_threshold: 2,              # 2 consecutive Half-Open successes → Close
+  half_open_resource_timeout: 0.25,  # same as service timeout
 )
 ```
 
-**Result:** Required utilization dropped from 263% to 4%.
+When all 42 Redis instances are unhealthy, the worker spends most of its time waiting for the per-call 250 ms timeout. Plugging the parameters into [the Circuit Breaker Equation](https://shopify.engineering/circuit-breaker-misconfigured) — which models steady-state utilization for the half-open / open oscillation — the worker needs **263% extra utilization** to keep up. That's impossible (a worker only has 100% to give), so the system enters permanent overload[^shopify].
 
-**Key insights:**
+The fix is two parameters:
 
-- Half-open timeout should be much shorter than normal timeout
-- Success threshold prevents flip-flopping (require consecutive successes)
-- Monitor circuit breaker state transitions, not just metrics
+```diff
+- half_open_resource_timeout: 0.25
++ half_open_resource_timeout: 0.050  # p99 of healthy Redis is 50 ms
+- error_timeout: 2
++ error_timeout: 30                  # spend more time Open per cycle
+```
+
+Required additional utilization drops from **263% to 4%**[^shopify].
+
+The general lesson, in [Simon Eskildsen](https://sirupsen.com/napkin/problem-11-circuit-breakers)'s words:
+
+> "When we started introducing circuit breakers (and bulkheads, another resiliency concept) to production at Shopify in 2014 we severely underestimated how difficult they are to configure."
+
+Concretely:
+
+1. **Half-open probe timeout must be much shorter than the normal call timeout.** Set it from the dependency's healthy p99, not from the user-facing SLA. Hystrix has no equivalent knob[^shopify].
+2. **`success_threshold` ≥ 2** prevents a single lucky probe from re-closing a still-broken circuit during partial outages.
+3. **Don't share `error_timeout` and `half_open_resource_timeout` defaults across all dependencies.** A 50 ms p99 cache and a 2 s p99 third-party API need different numbers.
+
+## Real-world implementations
+
+### Hystrix (Netflix; deprecated)
+
+Hystrix shipped the patterns most modern libraries copy: command wrapping, thread-pool isolation, request collapsing, request caching. Defaults still worth knowing[^hystrix-config]:
+
+| Property | Default |
+| :------- | :------ |
+| `circuitBreaker.requestVolumeThreshold` | 20 |
+| `circuitBreaker.errorThresholdPercentage` | 50 |
+| `circuitBreaker.sleepWindowInMilliseconds` | 5,000 |
+| `metrics.rollingStats.timeInMilliseconds` | 10,000 |
+
+Hystrix went into maintenance mode in November 2018; the [project README](https://github.com/Netflix/Hystrix) recommends Resilience4j for new code, and Spring Cloud removed the Hystrix Dashboard in 3.1. Netflix continues to run it inside existing services but invests in adaptive approaches (see "Adaptive concurrency", below) for new work.
+
+### Resilience4j (current JVM standard)
+
+Lightweight, decorator-based, designed for Java 8 functional composition. Six states (`CLOSED`, `OPEN`, `HALF_OPEN`, `METRICS_ONLY`, `DISABLED`, `FORCED_OPEN`) with the special states reserved for operational overrides (toggles, force-open during deploys, etc.)[^r4j-docs].
+
+Key improvements over Hystrix:
+
+- Configurable half-open probe count (Hystrix only allowed one).
+- Slow-call detection — the breaker can open on the *latency* curve, not just the error curve.
+- No mandatory thread pool — pair with a Resilience4j `Bulkhead` if you want one.
+- First-class reactive operators (Reactor, RxJava).
+
+A worked example with `slowCallRateThreshold` is in the detection-strategies section above.
+
+### Polly (.NET)
+
+Polly v8 reorganised the library around a `ResiliencePipeline`, with `CircuitBreakerStrategyOptions` taking `FailureRatio`, `SamplingDuration`, `MinimumThroughput`, and `BreakDuration`[^polly]. Microsoft's [resilience extensions](https://learn.microsoft.com/en-us/dotnet/core/resilience/) (`Microsoft.Extensions.Resilience` and `Microsoft.Extensions.Http.Resilience`) wrap Polly v8 as the standard `IHttpClientFactory` integration; the older `Microsoft.Extensions.Http.Polly` is deprecated.
+
+```csharp title="ResiliencePipeline.cs"
+var options = new CircuitBreakerStrategyOptions<HttpResponseMessage>
+{
+    FailureRatio = 0.5,
+    SamplingDuration = TimeSpan.FromSeconds(30),
+    MinimumThroughput = 20,
+    BreakDuration = TimeSpan.FromSeconds(15),
+    BreakDurationGenerator = static args =>
+        ValueTask.FromResult(TimeSpan.FromSeconds(Math.Min(60, 5 * args.FailureCount))),
+};
+```
+
+`BreakDurationGenerator` is a useful addition — it lets the open-state duration grow with consecutive failures, which is closer to TCP-style exponential backoff than to a fixed `sleepWindow`.
 
 ### Sony gobreaker (Go)
 
-Simple, stateful circuit breaker for Go applications.
+A small, idiomatic Go library. The `Settings` struct in v2[^gobreaker]:
 
-```go
+```go title="gobreaker.go"
 settings := gobreaker.Settings{
-    Name:        "external-service",
-    MaxRequests: 3,           // Max requests when half-open
-    Interval:    10 * time.Second,  // Cyclic period for clearing counts
-    Timeout:     30 * time.Second,  // Duration of open state
+    Name:         "external-service",
+    MaxRequests:  3,                  // permitted half-open probes (default 1)
+    Interval:     10 * time.Second,   // closed-state count reset cycle
+    Timeout:      30 * time.Second,   // open-state duration (default 60s)
     ReadyToTrip: func(counts gobreaker.Counts) bool {
-        failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-        return counts.Requests >= 3 && failureRatio >= 0.6
+        return counts.Requests >= 3 &&
+            float64(counts.TotalFailures)/float64(counts.Requests) >= 0.6
     },
     OnStateChange: func(name string, from, to gobreaker.State) {
-        log.Printf("Circuit %s: %s -> %s", name, from, to)
+        log.Printf("breaker %s: %s -> %s", name, from, to)
     },
 }
 
-cb := gobreaker.NewCircuitBreaker(settings)
-
-result, err := cb.Execute(func() (interface{}, error) {
+cb := gobreaker.NewCircuitBreaker[ResponseT](settings)
+result, err := cb.Execute(func() (ResponseT, error) {
     return callExternalService()
 })
 ```
 
-**Design notes:**
+Two design choices worth noting: `ReadyToTrip` is a callback (you author the trip predicate), and v2 uses generics so `Execute` returns the concrete result type instead of `interface{}`.
 
-- `ReadyToTrip` callback allows custom tripping logic
-- `Interval` for rolling window (counts cleared periodically)
-- `OnStateChange` hook for monitoring and alerting
+### Shopify Semian (Ruby)
 
-## Configuration Guidelines
+Already covered in the case-study section above. The two distinguishing features are `half_open_resource_timeout` (per-half-open call timeout, separate from the normal service timeout) and `success_threshold` (consecutive successes required to re-close), both of which Hystrix lacks[^shopify].
 
-### Tuning Parameters
+### Akka / Pekko (JVM, actor-model)
 
-| Parameter             | Too Low                       | Too High                        | Guidance                                        |
-| --------------------- | ----------------------------- | ------------------------------- | ----------------------------------------------- |
-| **Failure threshold** | Flapping on transient errors  | Slow detection of real failures | 40-60% typical; lower for critical paths        |
-| **Volume threshold**  | Trips on small samples        | Delayed detection               | 10-20 requests minimum                          |
-| **Reset timeout**     | Probes during ongoing failure | Delayed recovery detection      | 5-60 seconds; consider dependency recovery time |
-| **Half-open probes**  | False negatives from noise    | Load during recovery            | 3-10 probes; enough for confidence              |
+Apache Pekko (the post-fork continuation of Akka) ships a `CircuitBreaker` whose surface is deliberately small: `maxFailures`, `callTimeout`, and `resetTimeout`[^pekko]. Both raised exceptions and calls that exceed `callTimeout` count as failures. Half-Open admits **a single probe** — closer to Hystrix's original design than to Resilience4j — so it carries the same noisy-signal risk discussed earlier. Use it when you are already inside Pekko (the integration with `Future` / actor semantics is the value); reach for Resilience4j on the JVM when you need slow-call detection or a multi-probe Half-Open.
 
-### Error Classification
+### Service-mesh data plane (Envoy, Istio, Linkerd)
 
-Not all errors should count toward the failure threshold:
+Envoy implements two independent mechanisms that are usually grouped under "circuit breaking" in mesh docs:
 
-| Error Type                    | Count as Failure? | Rationale                                 |
-| ----------------------------- | ----------------- | ----------------------------------------- |
-| **5xx Server Error**          | Yes               | Dependency has a problem                  |
-| **Timeout**                   | Yes               | Dependency is slow or unresponsive        |
-| **Connection refused**        | Yes               | Dependency is down                        |
-| **4xx Client Error**          | No                | Request was invalid, not dependency fault |
-| **Circuit breaker rejection** | No                | Would create feedback loop                |
+- **`circuit_breakers`** — hard concurrency limits per upstream cluster (and per `RoutingPriority`). Defaults: `max_connections`, `max_pending_requests`, and `max_requests` are 1024; `max_retries` is 3. Excess requests are rejected and counted in `upstream_cx_overflow` / `upstream_rq_pending_overflow`[^envoy-cb]. This is closer to a bulkhead than to a Hystrix-style breaker — there is no error-rate trip and no Half-Open phase.
+- **`outlier_detection`** — passive per-host health checking. The default `consecutive_5xx` is 5, the analysis `interval` is 10 s, `base_ejection_time` is 30 s, and `max_ejection_percent` is 10%[^envoy-od]. Hosts that breach the threshold are ejected from the load-balancing pool for `base_ejection_time × consecutive_ejection_count`. This *is* a per-host breaker — implemented at the proxy rather than the application library.
 
-Configure which exceptions count:
+Istio exposes both through `DestinationRule.trafficPolicy` (`connectionPool`, `outlierDetection`); Linkerd's outlier detection is on by default for retryable failures. The practical implication is the same one called out earlier: if the data plane already runs outlier detection, do not also run a per-host application breaker on the same hop — pick one layer or you will trip on every transient blip and confuse runbooks.
 
-```java
-// Resilience4j error classification
+## Limitations: where circuit breakers fall short
+
+Circuit breakers were specified for an architecture where "the dependency" is a single thing that is either up or down. Modern services almost never look like that — they are sharded, cell-based, or partitioned, and partial failure is the *expected* operating mode.
+
+![A sharded service with one failing shard. A global circuit breaker either tolerates the failures (threshold above shard share) or trips and degrades the healthy shards (threshold below shard share). Neither outcome is correct.](./diagrams/partial-failure-light.svg "A global circuit breaker on a sharded service. With three shards and one failing, the observed global failure rate is ~33% — below most defaults, so the breaker never trips; lower the threshold and a single bad shard takes the whole service down.")
+![A sharded service with one failing shard.](./diagrams/partial-failure-dark.svg)
+
+[Marc Brooker's _Will circuit breakers solve my problems?_](https://brooker.co.za/blog/2022/02/16/circuit-breakers.html) puts the problem precisely:
+
+> "Modern distributed systems are designed to partially fail, continuing to provide service to some clients even if they can't please everybody. Circuit breakers are designed to turn partial failures into complete failures."
+
+The same point shows up in the AWS Builders' Library entry on [_Timeouts, retries and backoff with jitter_](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/), which warns that circuit breakers introduce *modal* behaviour — distinct "retrying" and "not retrying" states — that is hard to test and that can substantially extend recovery time once the dependency is healthy again.
+
+There are three reasonable responses, none of them magic:
+
+1. **Tighter coupling** — make the client aware of the service's sharding so it can run a per-shard breaker. Trades a layering violation for an accurate trip decision.
+2. **Server-side feedback** — the service tells the client which subset is overloaded (e.g. via `Retry-After`, gRPC `RESOURCE_EXHAUSTED` with a partition tag, or 503 with a token bucket). Now the client can flip a much more localised mini-breaker.
+3. **Use circuit breakers only on the retry path.** Brooker's preferred shape: leave first-try traffic alone (it already has minimum amplification) and use the breaker to gate the *retries*, which are the actual amplification source[^brooker-retries].
+
+The honest framing is: a global circuit breaker is correct for a single-tenant, non-sharded dependency (a database master, a third-party API, a leader election service). It is at best a coarse approximation for anything sharded.
+
+## Modern alternative: adaptive concurrency control
+
+Static thresholds — "trip at 50% errors over 100 calls" — assume the operator can predict the right number. They drift as traffic patterns change. The newer line of work, started inside Netflix, replaces the static knob with a feedback loop modelled on TCP congestion control.
+
+[Netflix's _Performance Under Load_](https://netflixtechblog.medium.com/performance-under-load-3e6fa9a60581) describes the approach implemented in [`Netflix/concurrency-limits`](https://github.com/Netflix/concurrency-limits). The library treats a service's concurrent-request limit the same way TCP treats its congestion window: probe upward when latency is stable, contract aggressively when latency rises. Three algorithms ship in the box:
+
+| Algorithm | Inspired by | Behaviour |
+| :-------- | :---------- | :-------- |
+| `VegasLimit` | TCP Vegas | Compares `sampleRTT` to `minRTT`; the ratio estimates queue depth. Stable, low-latency-friendly. |
+| `Gradient2Limit` | TCP Gradient | Tracks the *change* in RTT; corrects for measurement bias and drift. Default for new deployments. |
+| `AIMDLimit` | Classic TCP | Additive increase, multiplicative decrease. Simple and predictable. |
+
+The result is a *load-shedding* mechanism rather than a binary trip. Excess traffic is rejected at the edge with `429 Too Many Requests`; the limit auto-tunes so the service runs near the saturation knee instead of either floor or ceiling. Netflix uses it for [prioritised load shedding](https://netflixtechblog.com/enhancing-netflix-reliability-with-service-level-prioritized-load-shedding-e735e6ce8f7d) (live requests preempt prefetch).
+
+> [!TIP]
+> If you are choosing today and your dependencies are inside your own organisation, look at adaptive concurrency before reaching for a circuit breaker. They solve overlapping problems, but the adaptive approach has fewer parameters to misconfigure and degrades gracefully under partial failure.
+
+## Configuration guidance
+
+### Tuning parameters
+
+| Parameter | Too low → | Too high → | Useful starting point |
+| :-------- | :-------- | :--------- | :-------------------- |
+| Failure-rate threshold | Flapping on transient blips | Slow detection of real failures | 40–60% for typical services; lower for critical paths |
+| Minimum-call volume | Trips on small samples | Late detection on low-traffic paths | 10–20 for low-traffic; 100 (Resilience4j default) for high-traffic |
+| Wait-in-open duration | Probes during ongoing failure | Slow recovery | 5–60 s, sized to the dependency's expected recovery time |
+| Half-open probe count | Single noisy signal can re-trip | Real load on a recovering dependency | 3–10 |
+| Half-open call timeout | False negatives from network jitter | Worker time wasted on probes | Healthy p99 of the dependency, not the SLA timeout |
+
+### Error classification
+
+Not every exception is a dependency failure:
+
+| Error type | Count as failure? | Why |
+| :--------- | :---------------- | :-- |
+| 5xx server error | Yes | Dependency-side fault |
+| Timeout / connection refused | Yes | Dependency unresponsive |
+| 4xx client error | No | Caller-side fault — counting it lets bad clients trip the breaker for everyone |
+| `CallNotPermittedException` from a downstream breaker | No | Already handled; counting it creates a feedback loop |
+| Domain "expected" exceptions (e.g. `NotFoundException` in a search path) | No | Business logic, not infrastructure failure |
+
+Resilience4j models this as `recordExceptions` / `ignoreExceptions` plus optional `recordFailurePredicate` and `ignoreExceptionPredicate`[^r4j-docs]:
+
+```java title="error-classification.java"
 CircuitBreakerConfig.custom()
     .recordExceptions(IOException.class, TimeoutException.class)
     .ignoreExceptions(BusinessException.class)
+    .recordFailurePredicate(t -> t instanceof HttpException h && h.statusCode() >= 500)
     .build();
 ```
 
-### Fallback Strategies
+### Fallback strategies
 
-When the circuit is open, what should the caller do?
+When the breaker is Open, the caller still has to return *something*:
 
-| Strategy                | Description                  | Best For                                          |
-| ----------------------- | ---------------------------- | ------------------------------------------------- |
-| **Cached data**         | Return stale cached response | Read paths, non-critical data                     |
-| **Default value**       | Return static default        | Feature toggles, configuration                    |
-| **Degraded mode**       | Partial functionality        | Non-essential features                            |
-| **Fail fast**           | Return error immediately     | Critical operations where stale data is dangerous |
-| **Alternative service** | Route to backup dependency   | High-availability requirements                    |
+| Strategy | Best for | Caveat |
+| :------- | :------- | :----- |
+| Cached / stale read | Read paths, idempotent, non-critical data | The cache and the dependency must not share the same failure domain |
+| Default value | Feature flags, configuration, soft preferences | Must be safe to under-serve |
+| Degraded UI | Optional features (recommendations, related items) | Must be designed end-to-end, not just at the call site |
+| Alternative service | Read replicas, secondary regions | Must verify the alternative is on a different failure domain |
+| Fail fast (return 503) | Operations where stale or default data is dangerous (payments, balances) | Caller must handle the 503; surface it cleanly |
 
-**Critical design rule:** Fallback must not depend on the same failure. If the primary database is down, falling back to a read replica on the same cluster may fail identically.
+> [!CAUTION]
+> A fallback that depends on the same failure mode as the primary is worse than no fallback at all — it adds latency to the inevitable failure and hides the real signal. If your "fallback" reads from the same database cluster as the primary, it isn't a fallback.
 
-## Integration Patterns
+The AWS Builders' Library essay [_Avoiding fallback in distributed systems_](https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/) goes further: at AWS scale, most fallbacks Jacob Gabrielson reviewed turned out to be net-negative. They almost always run a code path that has *less* test coverage and *more* dependencies than the primary, they hide the failure from monitoring, and the fallback path itself fails under the same load conditions that triggered the primary failure. The default should be "fail fast and surface the error"; a fallback is only justified when its dependency graph is provably disjoint from the primary's and the fallback path is exercised under load in pre-production[^aws-fallback].
 
-### With Retries
+## Composition with retries, bulkheads, hedging, and load shedding
 
-Circuit breakers and retries are complementary but ordering matters:
+The composition order is not cosmetic — it determines what each policy sees and counts.
 
-```
-Option 1: Retry outside circuit breaker
-[Retry] → [Circuit Breaker] → Dependency
+![Resilience pipeline: caller → bulkhead permit → circuit breaker → retry policy → per-attempt timeout → dependency, with success/failure paths feeding back into the breaker window.](./diagrams/resilience-pipeline-light.svg "Standard composition. The bulkhead bounds blast radius before any work runs; the breaker decides whether to attempt at all; the retry policy wraps a per-attempt timeout so a single hung call cannot eat the whole budget; the breaker records the outcome of the entire retry chain, not each attempt.")
+![Resilience pipeline: caller, bulkhead, circuit breaker, retry, timeout, dependency.](./diagrams/resilience-pipeline-dark.svg)
 
-- Retry sees circuit breaker rejection as failure
-- Circuit stays closed longer (retry exhausts before giving up)
-- Risk: Retries keep hammering a failing dependency
+### With retries
 
-Option 2: Circuit breaker outside retry (recommended)
-[Circuit Breaker] → [Retry] → Dependency
+Order matters. The idiomatic ordering is `circuit breaker → retry → timeout → call`:
 
-- Circuit breaker counts retry outcomes
-- Multiple retries that all fail = one circuit breaker failure
-- Circuit opens faster when retries can't recover
-```
-
-**Best practice:** Place circuit breaker at the outermost layer:
-
-```ts title="integration.ts" collapse={1-5, 25-35}
-// Recommended order: Circuit Breaker → Retry → Timeout → Call
-import { circuitBreaker, retry, timeout } from "resilience-lib"
-
+```ts title="resilience-pipeline.ts"
 async function callWithResilience<T>(fn: () => Promise<T>): Promise<T> {
-  return circuitBreaker.execute(async () => {
-    return retry.execute(
-      async () => {
-        return timeout.execute(fn, 5000)
-      },
-      { maxRetries: 3, backoff: "exponential" },
-    )
-  })
+  return circuitBreaker.execute(() =>
+    retry.execute(() => timeout.execute(fn, 5_000), {
+      maxAttempts: 3,
+      backoff: { type: "exponential", base: 100, jitter: "full" },
+    }),
+  )
 }
-
-// The circuit breaker sees the final outcome after retries exhausted
-// If retries consistently fail → circuit opens
-// If retries succeed → circuit stays closed
 ```
 
-### With Bulkheads
+Why this order:
 
-Thread pool bulkheads provide isolation; circuit breakers provide fast-fail:
+- The breaker sees the *final* outcome — n retries that all fail count as one failure, not n. That keeps the failure-rate threshold meaningful.
+- The retry observes timeouts, not breaker rejections — it would otherwise hammer an open breaker.
+- Use [full jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) on the retry backoff so a fleet of clients that all opened their circuits at once doesn't synchronously probe the recovering dependency[^aws-retries].
 
-```
-[Bulkhead (thread pool)] → [Circuit Breaker] → Dependency
-         ↓                          ↓
-   Limits concurrent         Stops calling when
-   calls to 20               failure rate high
-```
+### With bulkheads
 
-Without both:
+A per-dependency bulkhead inside a per-dependency breaker is the standard production layout:
 
-- Bulkhead alone: 20 threads blocked indefinitely on slow dependency
-- Circuit breaker alone: All caller threads can be consumed before circuit opens
-
-Together: Bulkhead limits blast radius; circuit breaker detects failure and stops attempting.
-
-### With Load Shedding
-
-During overload, combine circuit breakers with admission control:
-
-```
-[Rate Limiter] → [Circuit Breaker] → [Load Shedding] → Dependency
-      ↓                  ↓                   ↓
- Cap request rate   Fast-fail on         Reject excess
-                    dependency failure   at dependency
+```text
+Caller → [Bulkhead permit] → [Circuit breaker] → Dependency
+              ↓                       ↓
+         caps concurrent          stops trying when
+         calls to N               recent failure rate
+                                  exceeds threshold
 ```
 
-Circuit breakers protect against dependency failure. Rate limiters protect against caller abuse. Load shedding protects against overload. Each has a distinct role.
+Without the bulkhead, an Open breaker still leaks: the *first* batch of slow requests before the breaker opens can saturate the caller's thread pool. Without the breaker, the bulkhead just queues requests against an unhealthy dependency until the queue itself becomes the failure surface.
+
+### With hedging
+
+Hedging — the technique from Dean and Barroso's [_The Tail at Scale_](https://research.google/pubs/the-tail-at-scale/) — sends a second request to a different replica after the original has been outstanding longer than (typically) the healthy p95, then takes whichever response arrives first[^tail-at-scale]. gRPC supports it as a built-in retry policy variant[^grpc-hedge]. It is *not* a substitute for a circuit breaker; the two solve different problems and need different rules of engagement:
+
+| Mechanism | Trigger | Goal | Amplification |
+| :-------- | :------ | :--- | :------------ |
+| Retry | Failure (timeout, 5xx) | Recover from transient errors | Up to N×, concentrated on already-failing dependency |
+| Hedge | Slow response (e.g. > p95) | Mask tail-latency outliers | Bounded by the hedge fraction (typically ≤ 5%) |
+| Circuit breaker | Recent failure / slow rate | Stop calling an unhealthy dependency | Reduces amplification by short-circuiting |
+
+Hedging belongs *inside* the breaker (don't hedge into an Open dependency) and *outside* the per-attempt timeout (each leg has its own deadline). Tied requests — the variant where the duplicates can cancel each other server-side — are the production-safe form when the work is expensive[^tail-at-scale]. Skip hedging for non-idempotent operations; skip it for any path where the second attempt could double-charge, double-publish, or otherwise have side effects.
+
+### With load shedding
+
+Three different roles, three different layers:
+
+- **Rate limiter** — protects against caller abuse. Lives at the edge.
+- **Circuit breaker / adaptive concurrency** — protects the *caller* from a slow callee. Lives near the dependency client.
+- **Load shedder** — protects the *callee* from caller overload. Lives inside the service. Google SRE's [_Addressing cascading failures_](https://sre.google/sre-book/addressing-cascading-failures/) is the reference treatment — the breaker's job ends at "stop calling"; the callee still has to actively shed traffic and prefer fast 503s over deep queueing[^sre-cascading].
+
+They compose; they don't substitute.
 
 ## Observability
 
-### Metrics to Track
+### Metrics worth shipping
 
-| Metric                       | Description                           | Alert Threshold              |
-| ---------------------------- | ------------------------------------- | ---------------------------- |
-| `circuit_state`              | Current state (closed/open/half-open) | Alert on open > N minutes    |
-| `circuit_failure_rate`       | Rolling failure rate                  | Warn at 30%, critical at 50% |
-| `circuit_slow_call_rate`     | Rolling slow call rate                | Depends on SLA               |
-| `circuit_state_transitions`  | State change count                    | Alert on high flip-flop rate |
-| `circuit_calls_in_half_open` | Probe requests attempted              | Monitor recovery testing     |
-| `circuit_buffered_calls`     | Calls waiting in queue                | Alert on queue growth        |
+| Metric | Description | Alert threshold |
+| :----- | :---------- | :-------------- |
+| `circuit_state` (gauge by name) | Closed / Open / Half-Open | Alert on Open ≥ N minutes |
+| `circuit_failure_rate` | Rolling failure rate | Warn at 30%, page at 50% |
+| `circuit_slow_call_rate` | Rolling slow-call rate | Tied to dependency SLA |
+| `circuit_state_transitions_total` (counter) | Transition events | Alert on transition rate, not just state |
+| `circuit_calls_in_half_open` | Probes admitted this window | Reflects recovery testing |
+| `circuit_buffered_calls` | Calls queued at the bulkhead | Alert on growing queue |
 
-### State Transition Alerts
+Resilience4j exposes these via Micrometer; Hystrix had its own dashboard; Polly v8 emits them through `Microsoft.Extensions.Resilience` enrichment.
 
+### Alert on transitions, not just state
+
+Multiple `Closed → Open → Closed` transitions per minute are the classic flapping signal — either the threshold sits right on top of the steady-state failure rate, or there's an intermittent issue that the breaker is partially masking. Alert on the transition rate, not just on `state == Open`.
+
+### Sample alert payload
+
+```text
+Alert: payments-service circuit breaker opened
+Failure rate: 62%   threshold: 50%
+Window: 100 calls / 60s
+Previous Closed duration: 4h32m
+Probable cause: payments-service degraded (see Grafana link)
+Runbook: https://wiki/runbooks/payments-circuit-open
 ```
-Alert: Circuit Breaker Opened
-Dependency: payment-service
-Reason: Failure rate 62% (threshold 50%)
-Window: 100 calls in last 60 seconds
-Previous state: CLOSED for 4h32m
 
-Action: Check payment-service health
-Dashboard: https://grafana/payment-service
-Runbook: https://wiki/circuit-breaker-runbook
-```
+## Common pitfalls
 
-**Alert on flip-flopping:** Multiple open→close transitions in short periods indicate:
+### 1. The breaker that never opens
 
-- Marginal failure rate (oscillating around threshold)
-- Misconfigured thresholds
-- Underlying intermittent issue
+The volume threshold is set high (Resilience4j's default `minimumNumberOfCalls=100`) and the path traffic is low. The breaker is theoretical — it cannot accumulate enough samples to evaluate. Fix: tune `minimumNumberOfCalls` per path, or switch to a time-based window with a small minimum.
 
-### Dashboard Components
+### 2. Half-open thundering herd
 
-Production circuit breaker dashboards should include:
-
-1. **State timeline:** Visual representation of state over time
-2. **Failure rate graph:** Rolling failure rate vs threshold
-3. **Request volume:** Calls per second through the breaker
-4. **Latency percentiles:** p50, p95, p99 of successful calls
-5. **Rejection rate:** Percentage of calls rejected by open circuit
-
-## Common Pitfalls
-
-### 1. Circuit Breaker That Never Opens
-
-**The mistake:** Volume threshold too high or traffic too low to trigger.
-
-**Why it happens:** Default thresholds (e.g., 20 requests) may never be reached on low-traffic paths.
-
-**The consequence:** Circuit breaker provides no protection; might as well not exist.
-
-**The fix:** Set volume threshold based on actual traffic. For low-traffic endpoints, use lower thresholds or time-based windows.
-
-### 2. Half-Open Thundering Herd
-
-**The mistake:** Many instances probe simultaneously when reset timeout expires.
-
-**Why it happens:** All instances opened their circuits at approximately the same time.
-
-**The consequence:** Recovering dependency hit with burst of probe requests, potentially failing again.
-
-**The fix:** Add jitter to reset timeout. Stagger when instances enter half-open state.
+Many instances opened their breakers at roughly the same time. When `waitDurationInOpenState` expires, they all probe the recovering dependency simultaneously and re-trip. Fix: jitter the wait duration:
 
 ```java
-// Add jitter to reset timeout
-Duration baseTimeout = Duration.ofSeconds(30);
-Duration jitter = Duration.ofMillis(random.nextInt(5000)); // 0-5 seconds
-Duration actualTimeout = baseTimeout.plus(jitter);
+Duration baseWait = Duration.ofSeconds(30);
+long jitterMs = ThreadLocalRandom.current().nextLong(0, 5_000);
+Duration actualWait = baseWait.plus(Duration.ofMillis(jitterMs));
 ```
 
-### 3. Cascading Circuit Breaker Failures
+This is the same logic as [exponential backoff with full jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) for retries — and for the same reason[^aws-retries].
 
-**The mistake:** Circuit breaker A protects service that depends on service B. A's circuit opens because B is slow. A returns fast failures. A's callers see "success" (fast response) and don't open their circuits.
+### 3. Cascading "fast failure" looks like success
 
-**Why it happens:** Fast failure from an open circuit may be interpreted as "working" by callers.
+When breaker A is Open and returns a 50 ms `CallNotPermitted` to its caller, the caller sees a *fast* response. If the caller's own breaker counts only timeouts and 5xx as failures, the upstream breaker stays Closed and keeps offering load that A keeps fast-failing. Fix: propagate a distinct error class (`UpstreamCircuitOpen`) or a header so callers can decide whether to count it.
 
-**The consequence:** Upstream circuits don't open, continuing to send traffic that will fail.
+### 4. Sunny-day-only testing
 
-**The fix:** Propagate circuit breaker state or error codes. Callers should recognize "circuit open" as a failure type that may warrant their own circuit opening.
-
-### 4. Testing Only Sunny-Day Scenarios
-
-**The mistake:** Circuit breaker logic untested under failure conditions.
-
-**Why it happens:** Difficult to simulate dependency failures in integration tests.
-
-**The consequence:** First real failure exposes misconfigurations—wrong thresholds, broken fallbacks, missing metrics.
-
-**The fix:** Chaos testing. Inject failures in staging/production to verify circuit breakers behave as expected:
+The breaker only matters during failure. The cheapest way to validate it is `FORCED_OPEN` (Resilience4j) or a chaos hook that injects timeouts in staging:
 
 ```java
-// Force circuit open for testing
 circuitBreaker.transitionToForcedOpenState();
-
-// Verify fallback executes
-Result result = callWithFallback();
-assert result.isFromFallback();
-
-// Verify metrics emitted
-assert metrics.getCircuitOpenCount() > 0;
+assertThat(callWithFallback().isFromFallback()).isTrue();
+assertThat(meterRegistry.counter("circuit.calls", "kind", "not_permitted").count()).isPositive();
 ```
 
-### 5. Ignoring Cold Start
+### 5. Cold-start trip
 
-**The mistake:** No special handling for application startup when circuit breaker has no history.
+A breaker with no history opens on its first failures. Fix: `minimumNumberOfCalls` ≥ 10 (much higher than 1) and let the application warm before exposing to traffic.
 
-**Why it happens:** Cold circuit breaker may trip on first few failures before building a baseline.
+### 6. Sharing one breaker across read and write paths
 
-**The consequence:** Transient startup failures (dependency warming up) open circuits unnecessarily.
+The Azure pattern documentation explicitly recommends [separate breakers per operation type](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker). A failing write endpoint shouldn't take read traffic offline; conversely, slow analytical reads shouldn't open the breaker for hot transactional writes.
 
-**The fix:** Minimum call threshold before evaluating failure rate:
+### 7. A breaker without a per-call timeout
 
-```java
-// Require 10 calls before circuit can trip
-CircuitBreakerConfig.custom()
-    .minimumNumberOfCalls(10)
-    .build();
-```
+A breaker measures *outcomes*. If the underlying call has no enforced timeout — semaphore isolation with an HTTP client that ignores `Thread.interrupt()`, or an async call whose cancellation is cooperative and never honoured — the breaker has no failures to count. Calls hang, threads accumulate, and the breaker stays Closed because nothing has formally failed yet. Always pair the breaker with a per-call deadline (Resilience4j's `slowCallDurationThreshold`, an HTTP client timeout, a gRPC deadline). The failure must be observable to the breaker, not just to the human reading the dashboard.
 
-## Conclusion
+### 8. A fallback that hides the failure
 
-Circuit breakers convert slow failures into fast failures, preserving resources and enabling graceful degradation. The key decisions are:
+Counted-as-success fallback paths suppress the very signal the breaker exists to surface. If your fallback returns `cachedRecommendations` and the call is recorded as success, your breaker — and your dashboards — will say the dependency is fine while users see stale data. Either record the fallback invocation distinctly (`circuit_fallback_total` counter, separate from `success`), or design the fallback to fail visibly when the staleness budget is exhausted. AWS's [_Avoiding fallback_](https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/) is the long-form treatment of this anti-pattern[^aws-fallback].
 
-1. **Detection:** Choose count-based for consistent traffic, time-based for variable loads
-2. **Isolation:** Thread pool for unreliable dependencies needing timeouts, semaphore for low-latency paths
-3. **Scope:** Per-host for fine-grained isolation, per-service for simplicity
-4. **Half-open:** Multiple probes for statistical confidence, with shorter timeouts than normal calls
+## Practical takeaways
 
-Modern implementations (Resilience4j) favor adaptive approaches over static thresholds—measuring actual latency and adjusting behavior dynamically. Regardless of implementation, the principle remains: detect failure fast, fail fast, and give dependencies time to recover.
+- The pattern fixes one specific problem: callers waiting on slow callees. If your problem is anything else (overload, retry storms, tail latency), the breaker is at best adjacent.
+- Pick the *thinnest* implementation that gives you a per-dependency probe count, slow-call detection, and per-half-open timeout. Today that means Resilience4j on the JVM, Polly v8 on .NET, gobreaker on Go.
+- Set the half-open call timeout from the dependency's healthy p99, never from the user-facing SLA. Shopify's 263% → 4% example is the reference data point.
+- Chain it: `breaker → retry → timeout → call`, with a per-dependency bulkhead behind the breaker.
+- For sharded or cell-based services, default to per-host or per-shard breakers; a global breaker on a sharded service either misses the failure or amplifies it.
+- For new internal services, evaluate adaptive concurrency (Netflix `concurrency-limits`, Polly's rate-limiter strategy, or Envoy's adaptive concurrency filter) before adding a static-threshold breaker. They compose, but the adaptive approach has fewer dials to get wrong.
 
 ## Appendix
 
 ### Prerequisites
 
-- Distributed systems fundamentals (failure modes, cascading failures)
-- Thread pool and concurrency concepts
-- Familiarity with retry patterns and backoff strategies
+- Distributed-systems fundamentals: cascading failure, metastability, queue dynamics.
+- Concurrency primitives: thread pools, semaphores, futures, interrupts.
+- Familiarity with retry / backoff and idempotency.
 
-### Terminology
+### Glossary
 
-- **CB (Circuit Breaker):** The pattern itself, or a library implementing it
-- **Trip:** Transition from closed to open state
-- **Reset timeout:** Duration the circuit stays open before half-open
-- **Probe:** Request allowed through during half-open state to test recovery
-- **Sliding window:** Rolling view of recent requests for failure rate calculation
-
-### Summary
-
-- Circuit breakers prevent cascading failures by failing fast when dependencies are unhealthy
-- Three states: Closed (normal), Open (fast-fail), Half-Open (testing recovery)
-- Count-based windows track last N calls; time-based windows track last N seconds
-- Thread pool isolation enables timeouts but adds 3-9ms overhead; semaphore is faster but can't interrupt
-- Per-host circuit breakers prevent one bad instance from poisoning all traffic
-- Shopify's key insight: half-open probes need much shorter timeouts than normal calls
-- Monitor state transitions, not just metrics—flip-flopping indicates misconfiguration
-- Test circuit breakers under failure conditions; sunny-day tests don't validate resilience
+- **Breaker** — the circuit-breaker object or library instance.
+- **Trip** — Closed → Open transition.
+- **Half-open probe** — request admitted while the breaker is testing recovery.
+- **Sliding window** — count- or time-based view of recent outcomes.
+- **Bulkhead** — concurrency cap that bounds blast radius.
+- **Adaptive concurrency** — feedback-driven concurrency limit, replaces static thresholds.
 
 ### References
 
-- Nygard, Michael. "Release It! Design and Deploy Production-Ready Software" (2007) - Original circuit breaker pattern definition
-- Fowler, Martin. [Circuit Breaker](https://martinfowler.com/bliki/CircuitBreaker.html) - Pattern explanation and implementation guidance
-- Netflix. [Hystrix Wiki: How It Works](https://github.com/Netflix/Hystrix/wiki/How-it-Works) - Thread pool isolation, metrics, original implementation
-- Resilience4j. [CircuitBreaker Documentation](https://resilience4j.readme.io/docs/circuitbreaker) - Modern sliding window implementation
-- Shopify Engineering. [Circuit Breaker Misconfigured](https://shopify.engineering/circuit-breaker-misconfigured) - Production configuration lessons
-- Azure Architecture. [Circuit Breaker Pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker) - Per-host vs per-service guidance
-- Sony. [gobreaker](https://github.com/sony/gobreaker) - Go circuit breaker implementation
-- AWS Builders' Library. [Timeouts, Retries, and Backoff with Jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) - Integration with retry patterns
+- Brooker, Marc. [Will circuit breakers solve my problems?](https://brooker.co.za/blog/2022/02/16/circuit-breakers.html) — the cell-based / sharded critique.
+- Brooker, Marc. [Fixing retries with token buckets and circuit breakers](https://brooker.co.za/blog/2022/02/28/retries.html) — using the breaker only on the retry path.
+- Brooker, Marc. [Metastability and Distributed Systems](https://brooker.co.za/blog/2021/05/24/metastable.html) — the feedback-loop problem the breaker is meant to interrupt.
+- AWS Builders' Library. [Timeouts, retries and backoff with jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/).
+- AWS Builders' Library. [Avoiding fallback in distributed systems](https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/) (Jacob Gabrielson).
+- Azure Architecture Center. [Circuit Breaker pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker).
+- Dean, Jeffrey and Barroso, Luiz André. [_The Tail at Scale_](https://research.google/pubs/the-tail-at-scale/), CACM 2013 — hedged and tied requests.
+- Envoy Proxy. [Circuit breakers](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto) and [Outlier detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier).
+- Google SRE Book. [Addressing cascading failures](https://sre.google/sre-book/addressing-cascading-failures/) (Ch. 22).
+- gRPC. [Request hedging](https://grpc.io/docs/guides/request-hedging/).
+- Eskildsen, Simon. [Napkin Problem 11 — Circuit Breakers](https://sirupsen.com/napkin/problem-11-circuit-breakers).
+- Fowler, Martin. [Circuit Breaker](https://martinfowler.com/bliki/CircuitBreaker.html).
+- Netflix. [Hystrix Wiki — How it Works](https://github.com/Netflix/Hystrix/wiki/How-it-Works) and [Configuration](https://github.com/netflix/hystrix/wiki/configuration).
+- Netflix. [Performance Under Load](https://netflixtechblog.medium.com/performance-under-load-3e6fa9a60581) and [`concurrency-limits`](https://github.com/Netflix/concurrency-limits).
+- Nygard, Michael. *Release It! Design and Deploy Production-Ready Software* (Pragmatic Bookshelf, 1st ed. 2007; 2nd ed. 2018) — origin of the circuit-breaker pattern in software.
+- Pekko (Akka). [Circuit Breaker](https://pekko.apache.org/docs/pekko/current/common/circuitbreaker.html).
+- Polly project. [Circuit breaker resilience strategy](https://www.pollydocs.org/strategies/circuit-breaker.html).
+- Resilience4j. [CircuitBreaker documentation](https://resilience4j.readme.io/docs/circuitbreaker).
+- Shopify Engineering. [Your Circuit Breaker is Misconfigured](https://shopify.engineering/circuit-breaker-misconfigured).
+- Shopify. [Semian on GitHub](https://github.com/Shopify/semian).
+- Sony. [gobreaker on GitHub](https://github.com/sony/gobreaker).
+
+[^aws-retries]: AWS Builders' Library, [_Timeouts, retries and backoff with jitter_](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) (Marc Brooker).
+[^r4j-docs]: Resilience4j, [_CircuitBreaker_ docs](https://resilience4j.readme.io/docs/circuitbreaker). All quoted defaults are from the configuration table on that page.
+[^hystrix-howitworks]: Netflix, [_Hystrix Wiki — How it Works_](https://github.com/Netflix/Hystrix/wiki/How-it-Works).
+[^hystrix-config]: Netflix, [_Hystrix Wiki — Configuration_](https://github.com/netflix/hystrix/wiki/configuration).
+[^shopify]: Shopify Engineering, [_Your Circuit Breaker is Misconfigured_](https://shopify.engineering/circuit-breaker-misconfigured), Feb 18 2020.
+[^semian-readme]: Shopify, [Semian README](https://github.com/Shopify/semian) — "running in production at Shopify since October 2014".
+[^polly]: [Polly v8 — Circuit breaker resilience strategy](https://www.pollydocs.org/strategies/circuit-breaker.html).
+[^gobreaker]: [Sony/gobreaker — `Settings` struct](https://github.com/sony/gobreaker).
+[^brooker-retries]: Brooker, [_Fixing retries with token buckets and circuit breakers_](https://brooker.co.za/blog/2022/02/28/retries.html).
+[^pekko]: Apache Pekko, [_Circuit Breaker_](https://pekko.apache.org/docs/pekko/current/common/circuitbreaker.html). The same API surface (`maxFailures`, `callTimeout`, `resetTimeout`) is mirrored in Akka and Akka.NET.
+[^envoy-cb]: Envoy Proxy, [_Circuit breakers_ (cluster v3 API)](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto).
+[^envoy-od]: Envoy Proxy, [_Outlier detection_ architecture overview](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier).
+[^tail-at-scale]: Dean, J. and Barroso, L. A., [_The Tail at Scale_](https://research.google/pubs/the-tail-at-scale/), Communications of the ACM, Feb 2013.
+[^grpc-hedge]: gRPC, [_Request hedging_](https://grpc.io/docs/guides/request-hedging/).
+[^sre-cascading]: Google SRE Book, [_Addressing cascading failures_ (Ch. 22)](https://sre.google/sre-book/addressing-cascading-failures/).
+[^aws-fallback]: Gabrielson, J., AWS Builders' Library, [_Avoiding fallback in distributed systems_](https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/).
+[^nygard]: Nygard, M., _Release It! Design and Deploy Production-Ready Software_, Pragmatic Bookshelf — 1st ed. 2007 (Ch. 5, "Stability Patterns") and 2nd ed. 2018.

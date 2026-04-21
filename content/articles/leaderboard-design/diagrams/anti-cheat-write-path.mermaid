@@ -1,0 +1,37 @@
+%% Diagram: Anti-cheat checks on the leaderboard write path
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    C["Client: POST /scores<br/>{ score, ts, sig, replay_ref }"]
+
+    subgraph Fast["Synchronous (sub-ms, every write)"]
+        RL["rate limit<br/>per-player + per-IP"]
+        SC["sanity bounds<br/>0 <= score <= max_possible<br/>delta <= velocity_cap"]
+        SG["HMAC verify<br/>session-bound server key"]
+        AN["anomaly score<br/>z = (delta - mean)/stdev"]
+    end
+
+    C --> RL --> SC --> SG --> AN --> Q
+
+    Q{"all pass<br/>and<br/>z under threshold?"}
+
+    Reject["reject 4xx<br/>flag account, log evidence"]
+    Q -- "no" --> Reject
+
+    DirectWrite["ZADD lb:* score player<br/>(MULTI/EXEC across windows)<br/>+ append to durable audit log"]
+    Q -- "yes, low risk" --> DirectWrite
+
+    Pending["ZADD lb:pending score player<br/>+ enqueue replay job"]
+    Async["Async replay validator<br/>re-run client inputs server-side<br/>compare to submitted score"]
+    Promote["promote: ZADD lb:* / drop lb:pending"]
+    Demote["demote: ZREM lb:pending<br/>flag account"]
+
+    Q -- "yes, top-tier or high-z" --> Pending --> Async
+    Async -- match --> Promote
+    Async -- mismatch --> Demote
+
+    style Reject fill:#fecaca,stroke:#991b1b,color:#7f1d1d
+    style DirectWrite fill:#dcfce7,stroke:#15803d,color:#14532d
+    style Pending fill:#fef3c7,stroke:#b45309,color:#7c2d12
+    style Demote fill:#fecaca,stroke:#991b1b,color:#7f1d1d
+    style Promote fill:#dcfce7,stroke:#15803d,color:#14532d

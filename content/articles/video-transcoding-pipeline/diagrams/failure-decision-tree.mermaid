@@ -1,0 +1,15 @@
+%% Diagram: Failure handling decision tree for transcoding jobs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    F[Job failure] --> Q1{Failure class?}
+    Q1 -->|Transient: timeout, throttle| R1[Retry with exponential backoff + jitter]
+    Q1 -->|Resource: encoder OOM| R2[Retry on larger instance]
+    Q1 -->|Permanent: unsupported codec, corrupt| DLQ[Send to dead-letter queue]
+    Q1 -->|Non-idempotent: partial upload| FAIL[Fail job - do not retry]
+    R1 --> Q2{Attempts &lt; max?}
+    R2 --> Q2
+    Q2 -->|Yes| RUN[Re-enqueue]
+    Q2 -->|No| DLQ
+    DLQ --> ALERT[Alert + manual triage]
+    FAIL --> ALERT

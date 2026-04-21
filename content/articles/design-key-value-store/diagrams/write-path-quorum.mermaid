@@ -1,0 +1,29 @@
+%% Diagram: Quorum Write Path - Coordinator Fan-out, Wait for W ACKs
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CL as Client
+    participant CO as Coordinator
+    participant R1 as Replica 1
+    participant R2 as Replica 2
+    participant R3 as Replica 3
+
+    CL->>CO: PUT(key, value, ctx=vc_seen)
+    Note over CO: hash(key) -> N=3 preference list
+
+    par fan-out to N replicas
+        CO->>R1: write(k, v, vc)
+        CO->>R2: write(k, v, vc)
+        CO->>R3: write(k, v, vc)
+    end
+
+    Note over R1: 1) append to WAL (fsync)<br/>2) update memtable
+    R1-->>CO: ACK
+    Note over R2: 1) WAL  2) memtable
+    R2-->>CO: ACK
+
+    Note over CO: W=2 satisfied -> respond now
+    CO-->>CL: 200 OK + new vector clock
+
+    R3-->>CO: ACK (arrives async)
+    Note over CO: if R3 missed, hint stored<br/>(or sloppy-quorum substitute)

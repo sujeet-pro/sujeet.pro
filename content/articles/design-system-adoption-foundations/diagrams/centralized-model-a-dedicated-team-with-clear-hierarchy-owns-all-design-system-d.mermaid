@@ -1,7 +1,31 @@
-%% Diagram: Centralized Model A Dedicated Team With Clear Hierarchy Owns All Design System D
+%% Diagram: Centralized Model
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    A1[Product Owner] --> B1[Designers]
-    A1 --> C1[Developers]
-    A1 --> D1[QA Engineer]
+flowchart TB
+    PO["Product owner\n(roadmap, prioritization)"]
+    DS["Designers (1-2)"]
+    EN["Engineers (1-2)"]
+    QA["Shared QA / a11y"]
+
+    PO --> DS
+    PO --> EN
+    PO --> QA
+
+    DS --> SYS[("Design system\n(tokens, components,\ndocs, releases)")]
+    EN --> SYS
+    QA --> SYS
+
+    SYS ==>|consumed by| T1["Product team A"]
+    SYS ==>|consumed by| T2["Product team B"]
+    SYS ==>|consumed by| T3["Product team C"]
+
+    T1 -.requests / bugs.-> PO
+    T2 -.requests / bugs.-> PO
+    T3 -.requests / bugs.-> PO
+
+    classDef core fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef team fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef sys fill:#2E7D5A,stroke:#1F5C42,color:#ffffff
+    class PO,DS,EN,QA core
+    class T1,T2,T3 team
+    class SYS sys

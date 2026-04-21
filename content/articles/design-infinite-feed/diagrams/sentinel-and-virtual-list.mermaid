@@ -1,0 +1,29 @@
+%% Diagram: Sentinel and virtualized window layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Container["Scrollable Container (fixed height)"]
+        TopSentinel["Top Sentinel (bidirectional)"]
+        SpacerTop["Spacer: items 0-14<br/>height = 14 x itemHeight"]
+        subgraph Window["Rendered Window"]
+            Item1["Item 15"]
+            Item2["Item 16"]
+            Item3["..."]
+            Item4["Item 25"]
+        end
+        SpacerBottom["Spacer: items 26-N<br/>height = remaining x itemHeight"]
+        BottomSentinel["Bottom Sentinel (triggers next page)"]
+    end
+
+    IO["IntersectionObserver"]
+    Loader["fetchNextPage(cursor)"]
+
+    TopSentinel -. observed .-> IO
+    BottomSentinel -. observed .-> IO
+    IO -- "isIntersecting=true" --> Loader
+
+    style Window fill:#e3f2fd
+    style SpacerTop fill:#fff3e0
+    style SpacerBottom fill:#fff3e0
+    style TopSentinel fill:#fce4ec
+    style BottomSentinel fill:#fce4ec

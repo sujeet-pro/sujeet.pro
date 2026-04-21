@@ -1,0 +1,28 @@
+%% Diagram: Shuffle sharding vs traditional sharding
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Traditional["Traditional sharding (4 shards)"]
+        direction TB
+        TC1["Customer A"] --> TS1["Shard 1"]
+        TC2["Customer B"] --> TS1
+        TC3["Customer C"] --> TS2["Shard 2"]
+        TC4["Customer D"] --> TS2
+        TC5["Customer E (poison)"] --> TS3["Shard 3"]
+        TC6["Customer F"] --> TS3
+        TC7["Customer G"] --> TS4["Shard 4"]
+        TS3 -.->|"E breaks Shard 3<br/>F is also down"| Impact1["50% of customers<br/>on Shard 3 affected"]
+    end
+
+    subgraph Shuffle["Shuffle sharding (8 workers, pick 2 per customer)"]
+        direction TB
+        SC1["Customer A"] --> SW1["Worker 1"]
+        SC1 --> SW3["Worker 3"]
+        SC2["Customer B"] --> SW2["Worker 2"]
+        SC2 --> SW5["Worker 5"]
+        SC3["Customer E (poison)"] --> SW4["Worker 4"]
+        SC3 --> SW6["Worker 6"]
+        SC4["Customer F"] --> SW7["Worker 7"]
+        SC4 --> SW8["Worker 8"]
+        SW4 -.->|"E breaks 4 + 6"| Impact2["Only customers sharing<br/>both 4 AND 6 affected<br/>(rare overlap)"]
+    end

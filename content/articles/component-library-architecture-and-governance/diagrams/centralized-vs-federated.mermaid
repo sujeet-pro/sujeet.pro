@@ -1,0 +1,29 @@
+%% Diagram: Centralized vs Federated ownership models
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CENTRAL["Centralized model"]
+        direction TB
+        CORE1["Core team<br/>(designers + engineers)"]
+        CORE1 --> LIB1["Component library"]
+        LIB1 --> T1A["Product team A"]
+        LIB1 --> T1B["Product team B"]
+        LIB1 --> T1C["Product team C"]
+        T1A -. "request queue" .-> CORE1
+        T1B -. "request queue" .-> CORE1
+        T1C -. "request queue" .-> CORE1
+    end
+
+    subgraph FED["Federated model"]
+        direction TB
+        CORE2["Core team<br/>(standards + tooling + RFCs)"]
+        CORE2 --> LIB2["Component library"]
+        T2A["Team A<br/>+ champion"] -- "PRs" --> LIB2
+        T2B["Team B<br/>+ champion"] -- "PRs" --> LIB2
+        T2C["Team C<br/>+ champion"] -- "PRs" --> LIB2
+        CORE2 -. "RFC review<br/>quality gates" .-> T2A
+        CORE2 -. "RFC review<br/>quality gates" .-> T2B
+        CORE2 -. "RFC review<br/>quality gates" .-> T2C
+    end
+
+    CENTRAL ~~~ FED

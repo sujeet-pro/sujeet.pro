@@ -1,0 +1,41 @@
+%% Diagram: 2Q cache with probationary queue, main LRU, and ghost list
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Req(["Request<br/>get(k)"])
+
+    subgraph A1in["A1in - probationary FIFO (~25%)"]
+        direction TB
+        P1["k1"]
+        P2["k2"]
+        P3["k3"]
+    end
+
+    subgraph Am["Am - main LRU (~75%)"]
+        direction TB
+        M1["k4"]
+        M2["k5"]
+        M3["k6"]
+    end
+
+    subgraph A1out["A1out - ghost (keys only)"]
+        direction TB
+        G1["k7"]
+        G2["k8"]
+    end
+
+    Req -->|"first access<br/>(miss)"| P1
+    Req -->|"second access<br/>(promote)"| Am
+
+    P3 -.->|"evicted from FIFO"| A1out
+    M3 -.->|"evicted from LRU"| Drop(["dropped"])
+
+    classDef probation fill:#8B5E15,stroke:#d6b656,stroke-width:2px,color:#ffffff
+    classDef main fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+    classDef ghost fill:#5A5A5A,stroke:#9e9e9e,stroke-width:2px,color:#ffffff
+    classDef io fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+
+    class P1,P2,P3 probation
+    class M1,M2,M3 main
+    class G1,G2 ghost
+    class Req,Drop io

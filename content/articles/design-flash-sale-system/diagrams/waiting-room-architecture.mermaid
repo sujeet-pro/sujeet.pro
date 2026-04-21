@@ -1,0 +1,20 @@
+%% Diagram: Virtual waiting room architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CDN["CDN edge"]
+        HTML[Static waiting room HTML]
+        JS[Queue polling JS]
+    end
+
+    subgraph Backend["Backend"]
+        LB[Load balancer]
+        Q[Queue service - Lambda]
+        DB[(DynamoDB - queue state)]
+    end
+
+    User --> HTML
+    HTML --> JS
+    JS --> |GET /queue/status every 1-5s| LB
+    LB --> Q
+    Q --> DB

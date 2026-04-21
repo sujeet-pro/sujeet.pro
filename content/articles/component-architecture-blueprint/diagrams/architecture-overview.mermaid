@@ -1,0 +1,53 @@
+%% Diagram: Component Architecture Overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SHELL["Application Shell (Next.js / Remix / Vite)"]
+        FRAMEWORK["Routing, SSR/SSG\nBuild config\nProvides SDK impls"]
+    end
+
+    subgraph INDEPENDENT["Independent Layers (no app deps)"]
+        direction TB
+        subgraph SDK["SDK Layer"]
+            direction LR
+            ANALYTICS[Analytics]
+            ROUTER[Router]
+            HTTP[HTTP]
+            EXPERIMENTS[Experiments]
+            STATE[State]
+        end
+        subgraph DS["Design System (Primitives)"]
+            PRIMITIVES["Button, Card, Modal\nInput, Stack, Grid"]
+        end
+    end
+
+    subgraph APP["Component Layers"]
+        BLOCKS["Blocks\nbusiness components"]
+        WIDGETS["Widgets\nBFF contract impl"]
+    end
+
+    subgraph REGISTRIES["Page-Specific Registries"]
+        direction LR
+        HOME[Home]
+        PDP[PDP]
+        PLP[PLP]
+        CART[Cart]
+    end
+
+    FRAMEWORK -->|initializes| SDK
+    PRIMITIVES -->|composes| BLOCKS
+    SDK -.->|injected via Context| BLOCKS
+    SDK -.->|injected via Context| WIDGETS
+    BLOCKS -->|composes| WIDGETS
+    WIDGETS -->|lazy-loaded by| REGISTRIES
+
+    classDef shell fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef sdk fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef ds fill:#1F6E68,stroke:#155752,color:#fff
+    classDef app fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef reg fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    class FRAMEWORK shell
+    class ANALYTICS,ROUTER,HTTP,EXPERIMENTS,STATE sdk
+    class PRIMITIVES ds
+    class BLOCKS,WIDGETS app
+    class HOME,PDP,PLP,CART reg

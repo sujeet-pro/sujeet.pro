@@ -1,0 +1,32 @@
+%% Diagram: Array-to-tree mapping for binary heaps
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph Array["Array layout (0-indexed, contiguous)"]
+    direction LR
+    A0["A[0]<br/>1"] --- A1["A[1]<br/>3"] --- A2["A[2]<br/>2"] --- A3["A[3]<br/>7"] --- A4["A[4]<br/>5"] --- A5["A[5]<br/>4"] --- A6["A[6]<br/>9"]
+  end
+
+  subgraph Tree["Implicit complete binary tree"]
+    T0(("0: 1"))
+    T1(("1: 3"))
+    T2(("2: 2"))
+    T3(("3: 7"))
+    T4(("4: 5"))
+    T5(("5: 4"))
+    T6(("6: 9"))
+    T0 --- T1
+    T0 --- T2
+    T1 --- T3
+    T1 --- T4
+    T2 --- T5
+    T2 --- T6
+  end
+
+  subgraph Math["Index arithmetic"]
+    P["parent(i) = (i - 1) >> 1"]
+    L["left(i)   = 2i + 1"]
+    R["right(i)  = 2i + 2"]
+  end
+
+  Array -. "no pointers; positions encode structure" .-> Tree

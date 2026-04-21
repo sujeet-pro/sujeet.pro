@@ -7,13 +7,15 @@ flowchart TB
     end
 
     subgraph "Encoding"
-        INGEST --> Q96[Ogg Vorbis<br/>96 kbps]
-        INGEST --> Q160[Ogg Vorbis<br/>160 kbps]
-        INGEST --> Q320[Ogg Vorbis<br/>320 kbps]
-        INGEST --> AAC[AAC<br/>256 kbps]
+        INGEST --> Q24[Ogg Vorbis<br/>24 kbps · low / data saver]
+        INGEST --> Q96[Ogg Vorbis<br/>96 kbps · normal]
+        INGEST --> Q160[Ogg Vorbis<br/>160 kbps · high]
+        INGEST --> Q320[Ogg Vorbis<br/>320 kbps · very high]
+        INGEST --> AAC[AAC<br/>128 / 256 kbps · web]
+        INGEST --> FLAC[FLAC lossless<br/>16/24-bit · 44.1 kHz · 2025]
     end
 
     subgraph "Storage"
-        Q96 & Q160 & Q320 & AAC --> GCS[(Cloud Storage)]
+        Q24 & Q96 & Q160 & Q320 & AAC & FLAC --> GCS[(Cloud Storage)]
         GCS --> META[(Metadata DB)]
     end

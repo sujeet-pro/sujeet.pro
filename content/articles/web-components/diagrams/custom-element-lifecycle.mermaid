@@ -8,6 +8,7 @@ stateDiagram-v2
   AttributeChanged --> Connected: sync or render
   Connected --> Adopted: adoptedCallback
   Adopted --> Connected: still connected
+  Connected --> Connected: connectedMoveCallback (moveBefore)
   Connected --> Disconnected: disconnectedCallback
   Disconnected --> Connected: re-inserted
   Disconnected --> [*]: GC when unreachable

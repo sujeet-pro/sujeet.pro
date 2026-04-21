@@ -3,48 +3,67 @@ title: 'Queues and Pub/Sub: Decoupling and Backpressure'
 linkTitle: 'Queues & Pub/Sub'
 description: >-
   Queues distribute work, topics broadcast events. Compare point-to-point,
-  pub/sub, and hybrid consumer group patterns — with delivery semantics,
-  ordering guarantees, and production lessons from Kafka, Slack, and Netflix.
+  pub/sub, and hybrid consumer-group patterns — with delivery semantics,
+  ordering, backpressure, and production lessons from Kafka, RabbitMQ, SQS,
+  Pulsar, and NATS.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - infrastructure
   - system-design
   - distributed-systems
+  - reliability
+  - architecture
 ---
 
 # Queues and Pub/Sub: Decoupling and Backpressure
 
-Message queues and publish-subscribe systems decouple producers from consumers, enabling asynchronous communication, elastic scaling, and fault isolation. The choice between queue-based and pub/sub patterns—and the specific broker implementation—determines delivery guarantees, ordering semantics, and operational complexity. This article covers design choices, trade-offs, and production patterns from systems handling trillions of messages daily.
+Message brokers sit between producers and consumers so the two sides can run at different speeds, fail independently, and scale apart. The interesting decisions are not "queue or topic" — they are **delivery semantics**, **ordering**, **backpressure**, and **broker shape**. This article works through each of those, then maps them onto the brokers that show up in production architectures: Kafka, RabbitMQ, SQS/SNS, Cloud Pub/Sub, Pulsar, and NATS.
 
-![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e-light.svg "Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).")
-![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queues-deliver-each-message-to-one-consumer-competing-consumers-topics-deliver-e-dark.svg)
+> [!NOTE]
+> This article is the broker / distributed-systems view. For the in-process
+> JavaScript pattern, see the companion piece [Publish-Subscribe Pattern in
+> JavaScript](../publish-subscribe-pattern/README.md). For Node-side
+> concurrency control and BullMQ-style job queues, see [Async Queue Pattern
+> in JavaScript](../async-queue-pattern/README.md).
 
-## Abstract
+![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queue-vs-topic-light.svg "Queues deliver each message to one consumer; topics deliver each message to every subscriber.")
+![Queues deliver each message to one consumer (competing consumers); topics deliver each message to all subscribers (fan-out).](./diagrams/queue-vs-topic-dark.svg)
 
-The mental model: **queues distribute work, topics broadcast events**.
+## Mental Model
 
-A queue is a buffer between producers and consumers where each message is processed by exactly one consumer—work distribution. Multiple consumers compete for messages, enabling horizontal scaling of processing capacity. If a consumer fails, another picks up the message.
+The smallest distinction worth memorising: **queues distribute work, topics broadcast events**.
 
-A topic (pub/sub) delivers each message to all subscribers—event broadcasting. Multiple independent consumers each receive their own copy. Subscribers are decoupled from each other and from the producer.
+A **queue** is a buffer where each message is processed by exactly one consumer. Workers compete for messages; horizontal scaling adds workers; if a consumer fails before acknowledging, another picks the message up.
 
-**The key design axes:**
+A **topic** (pub/sub) delivers a copy of every message to every subscriber. Subscribers are independent of each other and of the producer; adding a new subscriber doesn't change the publisher.
 
-| Axis                   | Options                                         | Determines                    |
-| ---------------------- | ----------------------------------------------- | ----------------------------- |
-| **Pattern**            | Queue (point-to-point), Topic (pub/sub), Hybrid | Work distribution vs. fan-out |
-| **Delivery semantics** | At-most-once, at-least-once, exactly-once       | Reliability vs. complexity    |
-| **Ordering**           | None, partition-ordered (key), FIFO, total      | Consistency vs. throughput    |
-| **Consumption model**  | Pull, push                                      | Backpressure handling         |
+**Kafka's consumer-group model collapses the distinction**: a topic is partitioned, each partition goes to one consumer in a group (work distribution within the group), and multiple groups subscribe independently (pub/sub across groups). One topic ends up serving as both a work queue and an event stream.
 
-**Production examples:**
+The four decisions that actually matter:
 
-- **LinkedIn** (7 trillion msg/day): Kafka as company-wide event backbone—100+ clusters, 4,000+ brokers
-- **Slack** (1.4B jobs/day): Dual-queue architecture—Redis for speed, Kafka for durability
-- **Netflix** (500B events/day, 8M/sec peak): Kafka + Flink for real-time stream processing
-- **Uber** (250K msg/sec push): Custom push platform with Kafka backbone
+| Axis                   | Options                                       | What it buys / costs                |
+| ---------------------- | --------------------------------------------- | ----------------------------------- |
+| **Pattern**            | Queue, topic, hybrid (consumer groups)        | Work distribution vs. fan-out       |
+| **Delivery semantics** | At-most-once, at-least-once, exactly-once     | Reliability vs. complexity / cost   |
+| **Ordering**           | None, partition (per key), FIFO, total        | Throughput vs. sequencing           |
+| **Consumption model**  | Pull, push                                    | Backpressure: who paces whom        |
 
-The choice depends on whether you need work distribution or event broadcasting, your consistency requirements, and operational capacity.
+A few reference points to anchor scale expectations:
+
+- **LinkedIn** runs Kafka as the company-wide event backbone — over 7 trillion messages per day across 100+ clusters, 4,000+ brokers, 100,000+ topics, and 7 million partitions.[^linkedin-kafka]
+- **Slack's** job queue handles 1.4 billion jobs per day and ~33K jobs/sec at peak. They redesigned it as a dual layer where Kafka is the durable buffer at ingestion and Redis is the in-memory execution store.[^slack-jobs]
+- **Netflix's** Keystone pipeline grew from ~500B events/day at ~8M events/sec in 2016[^netflix-2016] to 2 trillion+ events/day and 1.5+ PB/day across hundreds of Kafka clusters by 2024-25,[^netflix-2024] feeding Flink for real-time stream processing.
+- **Uber's** real-time push platform pushed 250K messages/sec to ~1.5M concurrent connections on the original Streamgate (SSE) deployment;[^uber-push] the next-generation gRPC platform now scales to ~15.5M concurrent connections.[^uber-push-grpc]
+
+The right choice depends on whether you need work distribution or event broadcasting, how strict your consistency requirements are, and how much operational rope you have to spend.
+
+[^linkedin-kafka]: [How LinkedIn customizes Apache Kafka for 7 trillion messages per day](https://www.linkedin.com/blog/engineering/open-source/apache-kafka-trillion-messages) — LinkedIn Engineering.
+[^slack-jobs]: [Scaling Slack's Job Queue](https://slack.engineering/scaling-slacks-job-queue/) — Slack Engineering. Producers write to Kafka via `Kafkagate`; `JQRelay` moves jobs into Redis for execution.
+[^netflix-2016]: [Evolution of the Netflix Data Pipeline](https://netflixtechblog.com/evolution-of-the-netflix-data-pipeline-da246ca36905) — Netflix TechBlog (2016). Original 500B events/day, ~8M peak events/sec, ~1.3 PB/day figures.
+[^netflix-2024]: [How and Why Netflix Built a Real-Time Distributed Graph](https://netflixtechblog.com/how-and-why-netflix-built-a-real-time-distributed-graph-part-1-ingesting-and-processing-data-80113e124acc) and [Self-Hosting Kafka at Scale: Netflix's Journey and Challenges](https://current.confluent.io/2024-sessions/self-hosting-kafka-at-scale-netflixs-journey-and-challenges) — Netflix runs hundreds of Kafka clusters; per-topic ingest reaches ~1M msg/sec.
+[^uber-push]: [Uber's Real-Time Push Platform](https://www.uber.com/blog/real-time-push-platform/) — Uber Engineering. 250K msg/sec, 1.5M concurrent connections.
+[^uber-push-grpc]: [Uber's Next Gen Push Platform on gRPC](https://www.uber.com/blog/ubers-next-gen-push-platform-on-grpc/) — Uber Engineering. Migration from SSE to gRPC bidirectional streaming over QUIC/HTTP3.
 
 ## Messaging Patterns
 
@@ -70,7 +89,7 @@ Each message is delivered to exactly one consumer. Multiple consumers compete fo
 - ❌ No fan-out—if multiple services need the same event, you need multiple queues
 - ❌ Message ordering may be lost with competing consumers
 
-**Real-world**: Slack's job queue processes 1.4 billion jobs daily at 33K/sec peak. Every message post, push notification, URL unfurl, and billing calculation flows through their queue. They use a dual-queue architecture: Redis for in-flight messages (fast) and Kafka for durable storage (ledger). This gives them both performance and durability—Redis handles the hot path while Kafka ensures nothing is lost.
+**Real-world**: Slack's job queue processes ~1.4 billion jobs/day at 33K jobs/sec peak — every message post, push notification, URL unfurl, and billing calculation flows through it. The redesigned architecture pairs a `Kafkagate` ingestion layer (durable buffer) with `JQRelay` workers that move jobs into per-team Redis clusters for execution.[^slack-jobs] Kafka absorbs spikes durably; Redis holds the hot working set for low-latency dispatch.
 
 ### Publish-Subscribe (Topics)
 
@@ -95,29 +114,35 @@ Each message is delivered to all subscribers. Subscribers receive independent co
 - ❌ Storage scales with subscribers × messages (each subscription tracks position)
 - ❌ Ordering guarantees harder across multiple subscribers
 
-**Real-world**: Netflix processes 500 billion events daily through their Kafka-based event pipeline. Member actions flow from API Gateway → Kafka topics → Flink processing → multiple downstream consumers (recommendations, analytics, A/B testing). Multiple consumer groups independently subscribe to the same topics, each processing events for their specific use case.
+**Real-world**: Netflix's Keystone pipeline pushes member actions through Kafka topics into Apache Flink, then fans out to recommendations, A/B testing, personalisation, and the data warehouse. Each downstream surface subscribes via its own consumer group, so the same event feed serves dozens of independent use cases without back-channel coordination.[^netflix-2024]
 
 ### Hybrid: Consumer Groups
 
-Kafka's model combines pub/sub with competing consumers through consumer groups.
+Kafka's consumer-group model collapses the two patterns above into one mechanism.
 
-**Mechanism**: A topic is divided into partitions. Within a consumer group, each partition is assigned to exactly one consumer—competing consumers pattern. Multiple consumer groups can subscribe to the same topic independently—pub/sub pattern.
+**Mechanism**: A topic is divided into partitions. Within a single consumer group, each partition is assigned to exactly one consumer (competing consumers — work distribution). Different consumer groups subscribe to the same topic independently and each see every message (pub/sub).
 
-**Why it exists**: Provides both work distribution (within a group) and event broadcasting (across groups). A single topic can serve as both a work queue and an event stream.
+**Why it exists**: A single topic can serve as a work queue *and* an event log simultaneously, without the producer needing to know which downstream is which.
 
-**Example**: Order events published to `orders` topic:
+![Kafka consumer groups: each group is an independent pub/sub subscriber; partitions inside a group are split across consumers for work distribution.](./diagrams/consumer-groups-light.svg "Kafka consumer groups: each group is an independent pub/sub subscriber; partitions inside a group are split across consumers for work distribution.")
+![Kafka consumer groups: each group is an independent pub/sub subscriber; partitions inside a group are split across consumers for work distribution.](./diagrams/consumer-groups-dark.svg)
 
-- Consumer group `fulfillment` processes each order once (work distribution)
-- Consumer group `analytics` also processes each order once (independent work distribution)
-- Consumer group `fraud-detection` also processes each order once (another independent consumer)
+**Example** — order events on the `orders` topic:
 
-Each group sees every message; within each group, messages are distributed across consumers.
+- Group `fulfillment` processes each order once (work distribution).
+- Group `analytics` also processes each order once, on its own offset.
+- Group `fraud-detection` also processes each order once, on its own offset.
 
-**Real-world**: LinkedIn runs 100+ Kafka clusters with 100,000+ topics. The consumer group model allows multiple teams to independently consume the same event streams without coordination. Their activity tracking pipeline has dozens of consumer groups processing the same user activity events for different purposes.
+Each group sees every message; within a group, partitions distribute work.
+
+**Real-world**: LinkedIn's 100,000+ topics across 100+ Kafka clusters serve dozens of consumer groups per topic — the same activity stream feeds search indexing, recommendations, security analytics, and the data warehouse without back-channel coordination.[^linkedin-kafka]
 
 ## Delivery Semantics
 
-Delivery semantics define the guarantees about how many times a message is delivered and processed.
+Delivery semantics define how many times a message is delivered and processed in the presence of failures. The choice is a contract between the producer, the broker, *and* the consumer — getting any one wrong undoes the guarantee.
+
+![Decision tree for choosing a delivery contract.](./diagrams/delivery-semantics-light.svg "Pick a delivery contract by acceptable loss and downstream idempotency.")
+![Decision tree for choosing a delivery contract.](./diagrams/delivery-semantics-dark.svg)
 
 ### At-Most-Once
 
@@ -162,27 +187,31 @@ Messages are never lost but may be duplicated.
 - ❌ Duplicates require downstream handling
 - ❌ Higher latency than at-most-once (acknowledgment round-trip)
 
-**Implementation**: Kafka with `acks=all` + `retries` enabled. Consumer with manual offset commit after successful processing.
+**Implementation**: Kafka producer with `acks=all` and bounded retries; consumer commits offsets manually after successful processing. Kafka 3.0+ enables the idempotent producer (`enable.idempotence=true`) by default,[^kafka-eos] which prevents producer-retry duplicates within a single producer session.
 
 ### Exactly-Once
 
-Messages are delivered and processed exactly once.
+A message is delivered and processed exactly once.
 
-**Why it's hard**: The fundamental challenge is distinguishing between three scenarios:
+**Why it's hard**: From the producer's perspective, three scenarios are indistinguishable:
 
-1. Message written, acknowledgment delivered → success
-2. Message written, acknowledgment lost → producer retries, creates duplicate
-3. Message lost → producer retries correctly
+1. Message written, ack delivered → success.
+2. Message written, ack lost → producer retries, creates duplicate.
+3. Message lost → producer retries correctly.
 
-In asynchronous distributed systems, these scenarios are indistinguishable from the producer's perspective. The Two Generals Problem proves this fundamental limitation.
+In an asynchronous network, the producer cannot tell scenario 2 from scenario 3. The Two Generals problem captures the limitation: there is no protocol that guarantees both sides agree on the outcome of a single message in a finite number of round trips.
 
 **How systems approach it**:
 
-**Kafka transactions (v0.11+)**: Atomic writes across multiple partitions. Producer uses transactional API; consumers read with `isolation.level=read_committed`. This achieves exactly-once within Kafka's boundaries—but the consumer's processing of the message and any external side effects still require idempotency.
+- **Kafka idempotent producer + transactions** (KIP-98, since v0.11). The idempotent producer attaches a producer ID and per-partition sequence number to each batch; the broker rejects duplicate sequence numbers within the producer session. Transactions extend that to atomic writes across multiple partitions, fenced by a `transactional.id` so a restarted producer can recover. Consumers must set `isolation.level=read_committed` to skip aborted messages.[^kafka-eos] This gives end-to-end exactly-once *within* the Kafka pipeline (read → process → write back to Kafka). Side effects to non-Kafka systems still need application-level idempotency.
+- **AWS SQS FIFO**: a `MessageDeduplicationId` (explicit or content-hashed) deduplicates within a fixed 5-minute window.[^sqs-dedup] Side effects again require their own idempotency.
+- **Google Cloud Pub/Sub** added an `exactly-once delivery` mode (GA 2022) on pull subscriptions, which suppresses redeliveries within the ack deadline and within the region. It does not deduplicate across publish retries — the producer still needs to handle that.[^pubsub-eos]
 
-**AWS SQS FIFO**: MessageDeduplicationId with 5-minute deduplication window. Broker deduplicates retries within the window. Still requires idempotent processing for side effects.
+**The reality**: brokers can deliver "exactly-once enough" along their own path. Anything that escapes the broker — a row insert, a payment, an outbound HTTP call — still needs application-level idempotency. Treat the broker's exactly-once as an optimisation, not a guarantee you can build on.
 
-**The reality**: Infrastructure provides at-most-once or at-least-once; exactly-once semantics require **application-level idempotency**. The broker can deduplicate message storage; only the application can deduplicate processing effects.
+[^kafka-eos]: [KIP-98 — Exactly Once Delivery and Transactional Messaging](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) and [Confluent — Exactly-once Semantics is Possible: Here's How Apache Kafka Does it](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/). The idempotent producer is enabled by default since [KIP-679](https://cwiki.apache.org/confluence/display/KAFKA/KIP-679%3A+Producer+will+enable+the+strongest+delivery+guarantee+by+default) (Kafka 3.0).
+[^sqs-dedup]: [Using the message deduplication ID in Amazon SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html) — AWS docs.
+[^pubsub-eos]: [Cloud Pub/Sub Exactly-once Delivery feature is now GA](https://cloud.google.com/blog/products/data-analytics/cloud-pub-sub-exactly-once-delivery-feature-is-now-ga) and [Exactly-once delivery — Pub/Sub](https://cloud.google.com/pubsub/docs/exactly-once-delivery).
 
 **Trade-offs**:
 
@@ -191,7 +220,9 @@ In asynchronous distributed systems, these scenarios are indistinguishable from 
 - ❌ Still requires application idempotency for external side effects
 - ❌ Increases latency (coordination overhead)
 
-**Real-world**: Uber's Flink pipelines achieve exactly-once through Kafka transactions + Flink checkpointing. But their downstream systems (databases, external APIs) still implement idempotency—the exactly-once guarantee applies only to the stream processing boundary.
+**Real-world**: Uber's ad-event Flink jobs achieve exactly-once via Kafka transactions plus Flink checkpoints — Kafka commits and Flink checkpoints are coordinated through a two-phase commit, and downstream Pinot tables use UUID-based upserts to deduplicate any side effects that leak past the boundary.[^uber-eos]
+
+[^uber-eos]: [Real-Time Exactly-Once Ad Event Processing with Apache Flink, Kafka, and Pinot](https://www.uber.com/blog/real-time-exactly-once-ad-event-processing/) — Uber Engineering.
 
 ## Message Ordering
 
@@ -215,7 +246,9 @@ Messages may arrive in any order.
 - ✅ Maximum availability—no coordination required
 - ❌ Cannot rely on temporal relationships between messages
 
-**Real-world**: Google Cloud Pub/Sub is unordered by design. This enables their dynamic scaling and low-latency delivery. Applications that need ordering must implement it at the application level.
+**Real-world**: Google Cloud Pub/Sub is unordered by default — that is what enables its elastic scaling and low-latency fan-out. Per-key ordering is opt-in via *ordering keys* on the publish side combined with `--enable-message-ordering` on the subscription, and ordering keys must be co-located in the same publishing region to take effect.[^pubsub-ordering]
+
+[^pubsub-ordering]: [Order messages — Pub/Sub](https://cloud.google.com/pubsub/docs/ordering) — Google Cloud docs.
 
 ### Partition-Ordered (Key-Based)
 
@@ -243,7 +276,9 @@ Messages with the same key are ordered; messages with different keys may interle
 
 **Implementation**: Kafka's default model. Producer specifies key; `partitioner` hashes key to partition. Consumer processes one partition single-threaded to maintain order.
 
-**Real-world**: Discord keys messages by channel ID. All messages within a channel arrive in order (critical for chat UX). Different channels process in parallel across partitions. With millions of channels, this provides massive parallelism while maintaining per-channel ordering.
+**Real-world**: chat and collaboration backends key messages by channel or conversation ID so that everything inside one channel is single-ordered while different channels process in parallel. The same idea shows up in Discord's own message store, which uses `(channel_id, time_bucket)` as the partition key in Cassandra/ScyllaDB and clusters messages by snowflake ID inside the partition — the trade-off is that very busy channels become hot partitions, which they mitigate with request coalescing in front of the database.[^discord-storage]
+
+[^discord-storage]: [How Discord Stores Trillions of Messages](https://discord.com/blog/how-discord-stores-trillions-of-messages) — Discord blog.
 
 ### FIFO (Total Ordering per Queue)
 
@@ -263,7 +298,9 @@ All messages in a queue/partition arrive in exactly the order they were sent.
 - ❌ Throughput limited by single consumer
 - ❌ Typically 5-10K msg/s (vs. 100K+ for parallel)
 
-**Implementation**: AWS SQS FIFO queues guarantee ordering within a message group. Throughput: 300 msg/s per message group (3,000 with batching), 70,000 msg/s per queue with high throughput mode.
+**Implementation**: AWS SQS FIFO queues guarantee ordering within a message group. Default throughput is 300 transactions/sec per API action per group (3,000 messages/sec with 10-message batching). High-throughput mode raises the ceiling to 70,000 transactions/sec per queue (≈700,000 messages/sec with batching) in the largest regions, distributed across message groups.[^sqs-fifo-throughput]
+
+[^sqs-fifo-throughput]: [High throughput for FIFO queues in Amazon SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html) and [Amazon SQS message quotas](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html). Quotas are TPS, not raw msg/s; batching multiplies effective throughput up to 10×.
 
 ### Total Ordering (Global)
 
@@ -289,7 +326,10 @@ All consumers see all messages in identical order.
 
 ## Backpressure and Flow Control
 
-Backpressure handles the situation where producers outpace consumers.
+Backpressure handles the situation where producers outpace consumers. The first thing to decide is whether the **consumer** or the **broker** drives the cadence.
+
+![Pull vs. push backpressure: pull consumers pace their own intake; push consumers rely on prefetch caps to bound unacked messages.](./diagrams/pull-vs-push-light.svg "Pull consumers pace their own intake; push consumers rely on prefetch caps to bound unacked messages.")
+![Pull vs. push backpressure: pull consumers pace their own intake; push consumers rely on prefetch caps to bound unacked messages.](./diagrams/pull-vs-push-dark.svg)
 
 ### Pull Model (Consumer-Controlled)
 
@@ -348,6 +388,9 @@ When consumers can't keep up:
 **Real-world**: Slack's job queue uses Redis as a "shock absorber"—fast in-memory buffer for traffic spikes. When Redis fills up, they rely on Kafka's disk-based storage as overflow. This two-tier approach handles burst traffic without dropping messages or blocking producers.
 
 ## Retry and Dead Letter Queues
+
+![Retry and DLQ flow: transient failures retry with backoff; permanent failures or exceeded delivery counts land in the DLQ for inspection.](./diagrams/dlq-flow-light.svg "Retry transient failures with backoff and jitter; route permanent failures and poison pills to a DLQ that is monitored and replayable.")
+![Retry and DLQ flow: transient failures retry with backoff; permanent failures or exceeded delivery counts land in the DLQ for inspection.](./diagrams/dlq-flow-dark.svg)
 
 ### Retry Strategies
 
@@ -546,10 +589,18 @@ Within a consumer group:
 
 **Strategies**:
 
-- **Eager rebalancing**: Stop all consumers, reassign, restart. Simple but higher impact.
-- **Cooperative rebalancing** (Kafka 2.4+): Only affected partitions pause. Lower impact, more complex.
+- **Eager rebalancing**: every consumer revokes every partition; the leader reassigns; everyone resubscribes. Simple, but it's a full stop-the-world for the group.
+- **Incremental cooperative rebalancing** (Kafka 2.4+, [KIP-429](https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol)): only the partitions that actually move are revoked. Most consumers keep processing during the rebalance, at the cost of a slightly more complex protocol. Pair with the `CooperativeStickyAssignor` so reassignments minimise partition movement.[^kafka-rebalance]
 
-**Real-world**: LinkedIn optimized rebalancing for their 4,000+ broker clusters. They use sticky assignor (minimize partition movement) and incremental cooperative rebalancing. Still, they design applications to handle rebalancing gracefully—checkpoint state, handle duplicates from reprocessing.
+> [!IMPORTANT]
+> Cooperative rebalancing reduces the *blast radius* of each rebalance, but
+> the consumer still has to assume reprocessing is possible — design every
+> consumer to be idempotent and to checkpoint state externally (or rebuild
+> on assignment). Cooperative just buys you a smaller pause, not exactly-once.
+
+**Real-world**: LinkedIn pairs the cooperative-sticky assignor with their large multi-broker clusters specifically to keep partition movement low during rolling restarts and capacity changes; they still treat rebalances as ordinary failure events that the application has to ride out.[^linkedin-kafka]
+
+[^kafka-rebalance]: [KIP-429: Kafka Consumer Incremental Rebalance Protocol](https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol) and [Confluent — Incremental Cooperative Rebalancing](https://www.confluent.io/blog/incremental-cooperative-rebalancing-in-kafka/).
 
 ### Consumer Lag
 
@@ -577,21 +628,28 @@ Action: Investigate consumer health, consider scaling
 - Consumer bugs (stuck processing, memory leak)
 - Rebalancing (temporary lag during reassignment)
 
-**Real-world**: Discord monitors consumer lag as a primary health metric for their message delivery pipeline. Lag spikes correlate with delivery delays visible to users. They set aggressive alerting thresholds and have runbooks for rapid scale-up.
+**Operational note**: Pipelines that drive user-visible behaviour (chat delivery, notifications, ride dispatch) typically alert on *time lag* in seconds rather than absolute offset lag — what matters is "how stale will the next message be when I read it", not how many bytes are queued. Many production teams (Confluent's own operational guidance is the canonical reference) page on sustained time lag and have explicit runbooks for adding consumers vs. accepting backlog while the queue drains.[^kafka-lag]
+
+[^kafka-lag]: [Monitor Consumer Lag](https://docs.confluent.io/platform/current/monitor/monitor-consumer-lag.html) — Confluent docs.
 
 ## Message Broker Comparison
 
 ### Design Choices
 
-| Factor                     | Kafka                 | RabbitMQ                 | SQS/SNS            | Pub/Sub        | Pulsar                   |
-| -------------------------- | --------------------- | ------------------------ | ------------------ | -------------- | ------------------------ |
-| **Primary model**          | Log-based pub/sub     | Queue + exchange routing | Queue + topic      | Topic          | Log-based pub/sub        |
-| **Throughput**             | 2M+ msg/s per cluster | 20-50K msg/s per node    | 100K+ msg/s        | 1M+ msg/s      | 1M+ msg/s                |
-| **Latency p99**            | ~5ms                  | <1ms                     | 100-200ms          | 10-100ms       | <10ms                    |
-| **Ordering**               | Partition-ordered     | Queue FIFO               | FIFO (queues only) | Unordered      | Partition-ordered        |
-| **Retention**              | Days to forever       | Until consumed           | 14 days max        | 7 days default | Days to forever + tiered |
-| **Multi-tenancy**          | Manual                | Manual                   | Native             | Native         | Native                   |
-| **Operational complexity** | High                  | Medium                   | Zero (managed)     | Zero (managed) | High                     |
+| Factor                     | Kafka                              | RabbitMQ                                | SQS / SNS                          | Cloud Pub/Sub                              | Pulsar                                  |
+| -------------------------- | ---------------------------------- | --------------------------------------- | ---------------------------------- | ------------------------------------------ | --------------------------------------- |
+| **Primary model**          | Partitioned log + consumer groups  | AMQP exchange + queues                  | Queue (SQS) + fan-out topic (SNS)  | Topic (push or pull subscriptions)         | Partitioned log on BookKeeper           |
+| **Per-cluster throughput** | Millions of msg/s (LinkedIn 7T/day) | Tens of K to ~100K msg/s per node[^rmq] | 100K+ msg/s standard; 70K TPS FIFO HT | Millions of msg/s, autoscaled              | Validated ~1.5M msg/s on 3 nodes[^pulsar-bench] |
+| **Latency p99**            | Single-digit ms                    | Sub-ms to low ms                        | 50-200 ms                          | 10-100 ms                                  | Single-digit ms                         |
+| **Ordering**               | Per-partition FIFO (key-routed)    | Per-queue FIFO                          | Best-effort std; FIFO per group   | Unordered by default; per-key with ordering keys[^pubsub-ordering] | Per-partition FIFO         |
+| **Retention**              | Hours → forever (config)           | Until consumed (or DLQ)                 | 1 min – 14 days[^sqs-retention]    | Up to 31 days[^pubsub-retention]           | Hours → forever, tiered to object store |
+| **Multi-tenancy**          | Manual (cluster split, ACLs)       | Manual (vhosts)                         | Native (per AWS account)           | Native (per project)                       | Native (tenants + namespaces)           |
+| **Operational complexity** | High (KRaft / partitions / tooling) | Medium                                   | Zero (managed)                     | Zero (managed)                             | High (broker + BookKeeper + ZK)         |
+
+[^rmq]: [RabbitMQ Best Practice for High Performance](https://www.cloudamqp.com/blog/part2-rabbitmq-best-practice-for-high-performance.html) — CloudAMQP. Single queue ~50K msg/s; multi-queue tuning + dedicated hardware reaches 100K+.
+[^pulsar-bench]: [Benchmarking and Latency Optimization of Apache Pulsar at Enterprise Scale](https://arxiv.org/abs/2603.29113) — 1,499,947 msg/s sustained on 3 bare-metal nodes.
+[^sqs-retention]: [Configuring queue parameters using the Amazon SQS console](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-queue-parameters.html) — `MessageRetentionPeriod` ranges from 60 s to 14 days; default 4 days.
+[^pubsub-retention]: [Manage message retention — Pub/Sub](https://cloud.google.com/pubsub/docs/handling-failures#message_retention_duration) — `messageRetentionDuration` up to 31 days when retention is enabled on the subscription/topic.
 
 ### Kafka
 
@@ -613,7 +671,7 @@ Action: Investigate consumer health, consider scaling
 
 **Best for**: Event streaming, event sourcing, high-throughput pipelines, data integration.
 
-**Real-world**: Netflix scaled from 1 trillion events/day (2017) to 20+ trillion events/day using Kafka. They run weekly Kafka cluster failover drills to ensure operational readiness.
+**Real-world**: Netflix scaled the Keystone pipeline from ~500B events/day in 2016 to 2T+ events/day and 1.5+ PB/day by 2024-25, across hundreds of self-managed Kafka clusters; per-topic ingest reaches ~1M msg/sec.[^netflix-2024]
 
 ### RabbitMQ
 
@@ -672,10 +730,10 @@ Action: Investigate consumer health, consider scaling
 
 **Strengths**:
 
-- Multi-tenancy built-in (namespaces, isolation)
+- Multi-tenancy built-in (tenants → namespaces → topics)
 - Geo-replication native
-- Tiered storage (hot → cold automatically)
-- Millions of topics per cluster
+- Tiered storage offload (hot in BookKeeper → cold in S3/GCS automatically)
+- Hundreds of thousands of topics per cluster (architecturally up to ~1M; PIP-8 work targets more)
 - Both queuing and streaming in one system
 
 **Weaknesses**:
@@ -684,7 +742,9 @@ Action: Investigate consumer health, consider scaling
 - Operational complexity (BookKeeper cluster)
 - Less mature tooling than Kafka
 
-**Best for**: Multi-tenant platforms, multi-region deployments, very high topic counts.
+**Best for**: Multi-tenant platforms, multi-region deployments, very high topic counts (Pulsar's design targets up to ~1M topics per cluster, with on-going work to push beyond that[^pulsar-topics]).
+
+[^pulsar-topics]: [Apache Pulsar — Features](https://pulsar.apache.org/features/) and [PIP-8: Pulsar beyond 1M topics](https://github.com/apache/pulsar/wiki/PIP-8:-Pulsar-beyond-1M-topics).
 
 ### NATS
 
@@ -779,64 +839,63 @@ Start: What's your primary use case?
 
 ### LinkedIn: Kafka at Extreme Scale
 
-**Scale**: 7 trillion messages/day, 100+ Kafka clusters, 4,000+ brokers, 100,000+ topics, 7 million partitions.
+**Scale**: ~7 trillion messages/day, 100+ Kafka clusters, 4,000+ brokers, 100,000+ topics, 7 million partitions.[^linkedin-kafka]
 
-**Use cases**: Activity tracking (profile views, searches, connections), metrics collection, change data capture, inter-service communication.
-
-**Architecture decisions**:
-
-- Kafka as the central nervous system—all events flow through Kafka
-- Custom Kafka version with upstream contributions
-- Separate clusters by use case (real-time vs. batch, critical vs. non-critical)
-- Extensive monitoring and automation for cluster operations
-
-**Key insight**: Kafka's log-based model enables multiple independent consumers. The same activity events feed recommendations, analytics, security monitoring, and data warehouse—each consuming independently.
-
-### Slack: Dual-Queue Architecture
-
-**Scale**: 1.4 billion jobs/day, 33K jobs/sec peak.
-
-**Use cases**: Every message post, push notification, URL unfurl, billing event, search indexing.
+**Use cases**: activity tracking (profile views, searches, connections), metrics, CDC, inter-service communication.
 
 **Architecture decisions**:
 
-- Dual-queue: Redis (in-memory, fast) + Kafka (durable, ledger)
-- Redis handles hot path—low latency for job dispatch
-- Kafka provides durability—no job lost even if Redis fails
-- Strong ordering guarantees per channel
-- Exactly-once semantics critical for message delivery
+- Kafka as the central event backbone — every domain event flows through Kafka.
+- Custom internal Kafka build (LiKafka) with patches contributed back upstream.
+- Clusters partitioned by use case: real-time vs. batch, critical vs. best-effort, dedicated CDC vs. tracking.
+- Heavy operational tooling: Cruise Control, Brooklin, automated rebalance, audit pipelines that compare producer counts to consumer counts.
 
-**Key insight**: Combining Redis speed with Kafka durability gives both performance and reliability. Redis absorbs bursts; Kafka ensures nothing is lost.
+**Key insight**: a partitioned commit log, with multiple consumer groups, is the ergonomic primitive that lets unrelated teams share one event stream without back-channel coordination.
+
+### Slack: Dual-Layer Job Queue
+
+**Scale**: ~1.4 billion jobs/day, 33K jobs/sec peak.[^slack-jobs]
+
+**Use cases**: every message post, push notification, URL unfurl, billing event, search index update.
+
+**Architecture decisions**:
+
+- Producers write to Kafka via a stateless `Kafkagate` ingestion service — durable, append-only, decoupled from execution.
+- `JQRelay` workers move jobs from Kafka into per-team Redis clusters that act as the in-memory execution store.
+- Kafka absorbs spikes safely; Redis holds the hot working set for low-latency dispatch.
+- A separate scheduler reaps and retries delayed/expired jobs; idempotency keys at the application layer absorb redeliveries.
+
+**Key insight**: the prior single-tier Redis queue conflated buffering, scheduling, and execution; splitting the durable buffer (Kafka) from the execution store (Redis) made each layer independently scalable and operable.
 
 ### Uber: Real-Time Push Platform
 
-**Scale**: 250K+ messages/second, 1.5M concurrent connections.
+**Scale**: ~250K messages/sec, ~1.5M concurrent connections on the original Streamgate (SSE) platform;[^uber-push] the next-gen gRPC-on-QUIC platform now scales to ~15.5M concurrent connections with bidirectional acknowledgments.[^uber-push-grpc]
 
-**Use cases**: Driver dispatch, rider updates, ETA notifications, surge pricing alerts.
-
-**Architecture decisions**:
-
-- Custom push platform (Streamgate) for WebSocket/gRPC connections
-- Kafka backbone for durable message storage and replay
-- Apache Flink for exactly-once stream processing
-- Evolution from SSE to gRPC for bidirectional streaming
-
-**Key insight**: Real-time push requires both low latency (direct connections) and durability (Kafka). The hybrid approach delivers both.
-
-### Netflix: Event-Driven Analytics
-
-**Scale**: 500 billion events/day, 8 million events/second peak, 1.3 PB/day consumed.
-
-**Use cases**: A/B testing, recommendations, personalization, real-time analytics.
+**Use cases**: driver dispatch, rider updates, ETA, surge alerts.
 
 **Architecture decisions**:
 
-- Kafka as the event backbone
-- Flink for stream processing with exactly-once
-- Real-time graph ingestion for recommendations
-- Weekly failover drills for Kafka clusters
+- Streamgate maintains long-lived WebSocket/gRPC connections, sharded via Apache Helix + ZooKeeper.
+- Kafka is the durable backbone — every push is logged, so reconnecting clients can resume from the last seen sequence.
+- Flink jobs derive most push payloads upstream of Streamgate, with Kafka transactions + Flink checkpoints for exactly-once on the boundary.
+- Migration from SSE to gRPC bidi enabled per-message acks and head-of-line-blocking removal via QUIC.
 
-**Key insight**: Event-driven architecture with Kafka enables real-time ML pipelines. The same events feed both batch (data warehouse) and real-time (streaming) processing.
+**Key insight**: real-time push is a *hybrid* problem — the latency-sensitive front (open connections, small payloads, bidirectional acks) is a different system from the durability-sensitive back (Kafka log, Flink processing). Couple them; do not collapse them.
+
+### Netflix: Event-Driven Pipeline
+
+**Scale**: 2T+ events/day, 1.5+ PB/day, hundreds of self-managed Kafka clusters; peak per-topic ingest ≈ 1M msg/sec.[^netflix-2024]
+
+**Use cases**: A/B testing, recommendations, personalisation, real-time analytics, security telemetry.
+
+**Architecture decisions**:
+
+- Kafka (Keystone) as the canonical event bus.
+- Flink for stream processing with exactly-once via Kafka transactions + Flink checkpointing.
+- Tiered cluster topology — dedicated clusters per blast-radius class, with automated failover drills to validate operational readiness.
+- Fronts to both real-time (recommendations, sessions) and batch (data warehouse) consumers from the same canonical stream.
+
+**Key insight**: an event log shared across teams is only sustainable if the *operational* contract (failover, schema evolution, topic isolation, cost attribution) is treated as part of the platform — not an afterthought.
 
 ## Common Pitfalls
 
@@ -929,14 +988,14 @@ Queues and pub/sub are complementary patterns for asynchronous communication:
 - FIFO: strict but limited throughput
 - Unordered: maximum throughput
 
-**Production patterns (2024)**:
+**Production reference points (2024-25)**:
 
-- **LinkedIn** (Kafka, 7T msg/day): Event backbone for 100K+ topics
-- **Slack** (Redis + Kafka): Dual-queue for speed and durability
-- **Netflix** (Kafka + Flink, 500B events/day): Real-time event-driven analytics
-- **Uber** (Kafka + custom push): Real-time messaging at 250K msg/sec
+- **LinkedIn** (Kafka, 7T msg/day): event backbone for 100K+ topics across 100+ clusters.
+- **Slack** (Kafka → Redis): durable buffer + in-memory execution for 1.4B jobs/day.
+- **Netflix** (Kafka + Flink, 2T+ events/day): real-time + batch fed from one canonical event log.
+- **Uber** (Kafka + custom push, 15.5M concurrent connections): durable backbone behind a real-time gRPC fan-out edge.
 
-The choice depends on your messaging pattern (work distribution vs. fan-out), throughput requirements, ordering needs, and operational capacity.
+The choice depends on your messaging pattern (work distribution vs. fan-out), throughput, ordering, and operational capacity. None of these systems are "Kafka because Kafka"; each is Kafka because the partitioned-log + consumer-group abstraction was the cheapest way to share a stream across uncoordinated teams.
 
 ## Appendix
 
@@ -970,7 +1029,7 @@ The choice depends on your messaging pattern (work distribution vs. fan-out), th
 - **Pull model** (Kafka, SQS) handles backpressure naturally; push model needs explicit flow control
 - **Monitor consumer lag in time** (not offsets) for consistent alerting across workloads
 - **DLQ monitoring** is critical—growing DLQ indicates systematic failures
-- **Kafka** dominates high-throughput event streaming (LinkedIn 7T/day, Netflix 500B/day)
+- **Kafka** dominates high-throughput event streaming (LinkedIn 7T/day, Netflix 2T+/day)
 - **Managed services** (SQS/SNS, Cloud Pub/Sub) eliminate operations overhead for smaller scale
 
 ### References

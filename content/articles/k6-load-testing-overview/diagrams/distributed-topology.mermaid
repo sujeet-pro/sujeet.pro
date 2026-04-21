@@ -1,0 +1,20 @@
+%% Diagram: k6 distributed run topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Script["Test script + options<br/>(thresholds, scenarios)"] --> Ctrl["Controller<br/>k6 cloud / k6 Operator /<br/>orchestrator with --execution-segment"]
+
+    Ctrl -->|"segment 0:1/N"| R1["Runner 1<br/>k6 process"]
+    Ctrl -->|"segment 1/N:2/N"| R2["Runner 2<br/>k6 process"]
+    Ctrl -->|"segment ..."| RN["Runner N<br/>k6 process"]
+
+    R1 --> SUT["System Under Test"]
+    R2 --> SUT
+    RN --> SUT
+
+    R1 -->|"--out"| Sink["Shared backend<br/>Grafana Cloud / Prometheus RW /<br/>InfluxDB"]
+    R2 -->|"--out"| Sink
+    RN -->|"--out"| Sink
+
+    Sink --> Agg["Aggregated thresholds<br/>+ end-of-test summary"]
+    Agg --> Gate{"CI gate"}

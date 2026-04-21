@@ -1,0 +1,22 @@
+%% Diagram: Tag-based purge — origin tags responses; one purge invalidates all URLs that share the tag
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Origin
+    participant CDN
+    participant Idx as Tag index
+
+    Note over Origin,Idx: Cache fill with tagged responses
+    CDN->>Origin: GET /products/123
+    Origin-->>CDN: 200 + Surrogate-Key: p-123 cat-elec
+    CDN->>Idx: bind tags → /products/123
+
+    CDN->>Origin: GET /categories/electronics
+    Origin-->>CDN: 200 + Surrogate-Key: cat-elec p-123
+    CDN->>Idx: bind tags → /categories/electronics
+
+    Note over Origin,Idx: Tag purge fans out to bound URLs
+    Origin->>CDN: POST /purge tag=p-123
+    CDN->>Idx: lookup p-123
+    Idx-->>CDN: /products/123, /categories/electronics
+    Note over CDN: invalidate both

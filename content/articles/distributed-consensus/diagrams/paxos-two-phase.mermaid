@@ -1,0 +1,26 @@
+%% Diagram: Single-decree Paxos round
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant P as Proposer
+    participant A1 as Acceptor 1
+    participant A2 as Acceptor 2
+    participant A3 as Acceptor 3
+
+    Note over P,A3: Phase 1 - Prepare / Promise
+    P->>A1: prepare(n)
+    P->>A2: prepare(n)
+    P->>A3: prepare(n)
+    A1-->>P: promise(n, accepted = none)
+    A2-->>P: promise(n, accepted = (n', v'))
+    Note over A3: Drops or delays
+    Note over P: Majority promised -> pick highest-numbered\naccepted value v', else use own v
+
+    Note over P,A3: Phase 2 - Accept / Accepted
+    P->>A1: accept(n, v')
+    P->>A2: accept(n, v')
+    P->>A3: accept(n, v')
+    A1-->>P: accepted(n, v')
+    A2-->>P: accepted(n, v')
+    Note over P: Majority accepted -> v' is chosen
+    P-->>P: notify learners

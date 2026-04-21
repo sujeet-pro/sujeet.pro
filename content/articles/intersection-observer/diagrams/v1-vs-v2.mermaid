@@ -1,0 +1,33 @@
+%% Diagram: IntersectionObserver V1 vs V2 callback gating
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph V1["V1 (geometry only)"]
+    direction TB
+    g1["Compute intersectionRect<br/>via containing-block walk"]
+    c1{"thresholdIndex or<br/>isIntersecting changed?"}
+    q1["Queue entry<br/>isIntersecting set<br/>(no isVisible)"]
+    s1["No notification"]
+    g1 --> c1
+    c1 -->|"yes"| q1
+    c1 -->|"no"| s1
+  end
+
+  subgraph V2["V2 (geometry + visibility)"]
+    direction TB
+    g2["Compute intersectionRect"]
+    c2{"thresholdIndex or<br/>isIntersecting changed?"}
+    d2{"now - lastUpdateTime<br/>>= delay (>= 100 ms)?"}
+    v2c["Visibility check:<br/>opacity, filter, transform,<br/>occlusion by other paint"]
+    q2["Queue entry<br/>isIntersecting AND isVisible"]
+    s2["No notification"]
+    g2 --> c2
+    c2 -->|"yes"| d2
+    c2 -->|"no"| s2
+    d2 -->|"no"| s2
+    d2 -->|"yes"| v2c
+    v2c --> q2
+  end
+
+  V1 -.-> note1["V1 sees through opacity, filter,<br/>and occluding siblings.<br/>Useful for lazy loading,<br/>analytics, infinite scroll."]
+  V2 -.-> note2["V2 confirms what was painted.<br/>Required for ad viewability<br/>and click-fraud detection.<br/>Chromium-only as of 2026."]

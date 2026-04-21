@@ -1,0 +1,33 @@
+%% Diagram: CSP-Sentinel architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Clients["Clients"]
+        B["Browsers<br/>CSP Reports"]
+    end
+
+    subgraph EKS["Kubernetes Cluster (EKS)"]
+        LB["Load Balancer<br/>(ALB / NLB)"]
+        API["Ingestion Service<br/>Spring WebFlux + Netty"]
+        CONS["Consumer Service<br/>Reactor Kafka"]
+    end
+
+    subgraph AWS["AWS Managed Services"]
+        K[("Kafka / MSK<br/>topic: csp-violations")]
+        R[("Valkey / ElastiCache<br/>dedup window")]
+        S3[("S3<br/>staging buckets")]
+    end
+
+    subgraph Storage["Storage & Analytics"]
+        SF[("Snowflake DW")]
+        PG[("Postgres<br/>(dev only)")]
+        G["Grafana"]
+    end
+
+    B -->|"POST /csp/report"| LB --> API
+    API -->|"async produce"| K
+    K -->|"poll batch"| CONS
+    CONS -->|"check + set hash"| R
+    CONS -->|"micro-batch"| S3 -->|"Snowpipe Streaming"| SF
+    CONS -.->|"dev path"| PG
+    SF --> G

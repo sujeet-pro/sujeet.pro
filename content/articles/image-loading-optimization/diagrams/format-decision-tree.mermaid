@@ -1,0 +1,20 @@
+%% Diagram: Image format decision tree.
+%% Walks from a single source asset to the right format mix:
+%% AVIF first for photographic content with wide modern support,
+%% WebP as the broad floor for older Safari, JPEG as the universal
+%% fallback, PNG / lossless for UI chrome where alpha and crisp
+%% edges matter, and SVG for icons and diagrams.
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Asset(["Source asset"]) --> Vec{{"Vector geometry\n(icon, logo, diagram)?"}}
+    Vec -->|Yes| SVG["SVG\n(no raster fallback needed)"]
+    Vec -->|No| Photo{{"Photographic /\ncomplex texture?"}}
+    Photo -->|Yes| Anim{{"Animated?"}}
+    Anim -->|Yes| AnimChoice["AVIF (animated) or\nMP4 / WebM video\nwith poster"]
+    Anim -->|No| Tier["picture order:\n1. AVIF (image/avif)\n2. WebP (image/webp)\n3. JPEG fallback"]
+    Photo -->|No, UI / chrome| Alpha{{"Needs alpha or\npixel-perfect edges?"}}
+    Alpha -->|Yes| Lossless["picture order:\n1. AVIF lossless\n2. WebP lossless\n3. PNG fallback"]
+    Alpha -->|No| Tier
+    Tier --> CDN{{"Image CDN with\nAccept negotiation?"}}
+    CDN -->|Yes| Auto["Single URL with f=auto\nVary: Accept on response"]
+    CDN -->|No| Markup["picture per image\nwith explicit type=image/avif|webp"]

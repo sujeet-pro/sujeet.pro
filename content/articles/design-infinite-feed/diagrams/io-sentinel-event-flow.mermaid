@@ -1,0 +1,26 @@
+%% Diagram: IntersectionObserver sentinel — end-to-end event flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User
+    participant Scroll as Scroll Container
+    participant Sentinel as Bottom Sentinel
+    participant IO as IntersectionObserver
+    participant App as Feed State (TanStack Query)
+    participant API as Backend
+    participant List as Virtual List
+
+    Note over IO: rootMargin "0px 0px 200px 0px"<br/>threshold 0
+    User->>Scroll: scrolls down
+    Scroll-->>Sentinel: enters expanded root box<br/>(viewport + 200px)
+    Sentinel-->>IO: layout intersection observed
+    IO-->>App: callback (batched, async)<br/>entry.isIntersecting = true
+    App->>App: dedupe (in-flight cursor token)
+    App->>API: GET /feed?cursor=...<br/>AbortController.signal
+    Note over API: keyset query<br/>WHERE (created_at,id) < cursor<br/>LIMIT pageSize
+    API-->>App: { items, nextCursor }
+    App->>List: append page to cache (maxPages cap)
+    List->>Sentinel: re-position below new last item
+    List-->>User: paint visible window<br/>(no main-thread scroll block)
+    Note over App,List: Next intersection waits until<br/>sentinel re-enters root box.

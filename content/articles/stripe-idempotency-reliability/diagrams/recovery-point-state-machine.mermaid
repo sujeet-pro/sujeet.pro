@@ -1,0 +1,11 @@
+%% Diagram: Recovery-point state machine (DAG)
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> started
+    started --> ride_created: ride row committed
+    started --> finished: 4xx short-circuit
+    ride_created --> charge_created: Stripe charge ok
+    ride_created --> finished: card declined (402)
+    charge_created --> finished: response cached
+    finished --> [*]: reaper deletes

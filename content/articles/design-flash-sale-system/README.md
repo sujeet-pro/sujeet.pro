@@ -2,41 +2,45 @@
 title: Design a Flash Sale System
 linkTitle: 'Flash Sale'
 description: >-
-  Handling millions of concurrent users competing for limited inventory during
-  flash sales. Covers CDN-based virtual waiting rooms, token-gated admission,
-  Redis atomic inventory counters, and asynchronous order processing under 100x traffic spikes.
+  Designing a flash sale system that handles millions of concurrent buyers and limited
+  inventory: CDN-hosted virtual waiting rooms, token-gated admission, Redis atomic
+  inventory deduction, asynchronous order processing, and layered bot defence under
+  10-100x traffic spikes.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - distributed-systems
+  - reliability
 ---
 
 # Design a Flash Sale System
 
-Building a system to handle millions of concurrent users competing for limited inventory during time-bounded sales events. Flash sales present a unique challenge: extreme traffic spikes (10-100x normal) concentrated in seconds, with zero tolerance for inventory errors. This design covers virtual waiting rooms, atomic inventory management, and asynchronous order processing.
+A flash sale must serve millions of buyers competing for a fixed pool of inventory in seconds, with zero tolerance for overselling. Treat it as four constraints chained together: a CDN-hosted **waiting room** absorbs the spike, a **token gate** meters admission to backend capacity, an **atomic inventory store** prevents overselling, and an **async order queue** decouples user-visible latency from durable fulfilment. Each layer's job is to shield the next.
 
-![Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.](./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu-light.svg "Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.")
-![Flash sale system architecture: CDN-based waiting room absorbs traffic spike, queue service manages admission, Redis handles atomic inventory, message queue decouples order processing.](./diagrams/flash-sale-system-architecture-cdn-based-waiting-room-absorbs-traffic-spike-queu-dark.svg)
+![System overview — CDN waiting room → API gateway → queue, inventory and order services → Redis, message queue and PostgreSQL.](./diagrams/system-overview-light.svg "System overview — CDN waiting room → API gateway → queue, inventory and order services → Redis, message queue and PostgreSQL.")
+![System overview — CDN waiting room → API gateway → queue, inventory and order services → Redis, message queue and PostgreSQL.](./diagrams/system-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-Flash sale design centers on three constraints working against each other:
+Three constraints fight each other in any flash sale and the architecture is the negotiated truce.
 
-1. **Traffic absorption** — Millions of users arriving in seconds cannot hit your database directly. A CDN-hosted waiting room absorbs the spike; a queue service meters admission at backend capacity.
+1. **Traffic absorption.** Millions of users arriving in seconds cannot hit origin. A CDN-hosted waiting room absorbs the spike at the edge; a queue service meters admission to backend capacity.
+2. **Inventory accuracy.** Overselling destroys trust and forces refunds, returns, or worse — legal exposure for ticketing. Atomic Redis Lua scripts give "check-and-decrement" without races. Pre-allocating tokens equal to inventory turns "did we oversell?" into "did we issue more tokens than items?", which is trivially false by construction.
+3. **Order durability under load.** Synchronous payment + write paths cannot scale with the spike. A durable message queue decouples order receipt from order completion: the user gets a fast `202 Accepted`; a worker pool drains the queue at the database's pace, with retries and a dead-letter queue for poison messages.
 
-2. **Inventory accuracy** — Overselling destroys trust. Redis Lua scripts provide atomic "check-and-decrement" operations. Pre-allocation (tokens = inventory) bounds the problem.
+The mental model is **waiting room → token gate → atomic inventory → async order queue**. Every section below either implements one of those four boxes or explains how to harden it under load.
 
-3. **Order durability under load** — Synchronous order processing cannot scale to 500K+ TPS. Asynchronous queues decouple order receipt from processing, with guaranteed delivery.
+![Admission funnel — 10M raw arrivals shaped down to 10K confirmed orders by the four layers.](./diagrams/admission-funnel-light.svg "Admission funnel — each layer drops a quantitative order of magnitude so the inventory tier never sees raw traffic.")
+![Admission funnel — 10M raw arrivals shaped down to 10K confirmed orders by the four layers.](./diagrams/admission-funnel-dark.svg)
 
-The mental model: **waiting room → token gate → atomic inventory → async order queue**. Each layer handles one constraint and shields the next.
-
-| Design Decision        | Tradeoff                                                  |
-| ---------------------- | --------------------------------------------------------- |
-| CDN waiting room       | Absorbs traffic cheaply; adds user-facing latency         |
-| Token-based admission  | Prevents overselling; requires pre-allocation             |
-| Redis atomic counters  | Sub-millisecond inventory checks; single point of failure |
-| Async order processing | Handles 100x normal load; delayed confirmation            |
+| Design decision        | Trade-off                                                                  |
+| ---------------------- | -------------------------------------------------------------------------- |
+| CDN waiting room       | Absorbs traffic cheaply; adds user-facing latency and a polling tax        |
+| Token-based admission  | Prevents overselling by construction; requires accurate pre-allocation     |
+| Redis atomic counters  | Sub-millisecond inventory checks; hot-key risk on a single-product surge   |
+| Async order processing | Handles 100x spikes; delayed confirmation and harder UX expectations       |
 
 ## Requirements
 
@@ -57,15 +61,15 @@ The mental model: **waiting room → token gate → atomic inventory → async o
 
 ### Non-Functional Requirements
 
-| Requirement             | Target    | Rationale                                                           |
-| ----------------------- | --------- | ------------------------------------------------------------------- |
-| Availability            | 99.99%    | Revenue impact; Alibaba achieved "zero downtime" during Singles Day |
-| Waiting room latency    | < 100ms   | Static CDN, must feel instant                                       |
-| Inventory check latency | < 50ms    | Critical path, Redis required                                       |
-| Checkout latency        | < 5s      | User-acceptable; async processing hides backend                     |
-| Queue position accuracy | Real-time | Trust requires visible progress                                     |
-| Inventory accuracy      | 100%      | Zero tolerance for overselling                                      |
-| Order durability        | Zero loss | Queued orders must survive failures                                 |
+| Requirement             | Target    | Rationale                                                                                                                                                                                                                          |
+| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Availability            | 99.99%    | Revenue and reputational impact during a public on-sale window; the [Alibaba flash-sale playbook](https://www.alibabacloud.com/blog/system-stability-assurance-for-large-scale-flash-sales_596968) is the canonical reference here. |
+| Waiting room latency    | < 100ms   | Static asset served by CDN; users compare it to opening a website.                                                                                                                                                                  |
+| Inventory check latency | < 50ms    | On the critical path, gates checkout. Sub-ms in Redis, but budget for network and serialisation.                                                                                                                                    |
+| Checkout latency        | < 5s p99  | User-acceptable; async order processing hides downstream payment + DB time.                                                                                                                                                         |
+| Queue position accuracy | Real-time | Trust requires visible progress; stale numbers are worse than slow numbers.                                                                                                                                                         |
+| Inventory accuracy      | 100%      | Zero tolerance for overselling — refund cost, regulatory risk for ticketing, brand damage.                                                                                                                                          |
+| Order durability        | Zero loss | Queued orders must survive worker, broker, and AZ failures.                                                                                                                                                                         |
 
 ### Scale Estimation
 
@@ -78,23 +82,28 @@ The mental model: **waiting room → token gate → atomic inventory → async o
 | Inventory checks/sec | 1K RPS  | 500K RPS        | 500x       |
 | Orders/sec           | 100 TPS | 10K TPS         | 100x       |
 
-**Back-of-envelope (1M users, 10K inventory):**
+**Back-of-envelope (1M users, 10K inventory, 30-min sale window):**
 
+```text
+Users arriving in first minute:   1,000,000
+Waiting-room HTML hits (CDN):     1M × 3 refreshes = 3M req/min ≈ 50K RPS at edge
+Queue-status polls (CDN-bypass):  1M × 1 poll / 5s = 200K RPS to queue API
+Admission rate (gate-controlled): 10K inventory / 30 min ≈ 6 admits/s typical;
+                                   burst-shaped to ~83/s during the first 2 min
+Inventory reserves (admitted):    same ~6-83 RPS; bursts shaped by gate, not raw traffic
+Orders attempted:                 ~12K (a few percent abandon at payment)
+Orders confirmed:                 10K (inventory limit, by construction)
 ```
-Users arriving in first minute: 1,000,000
-Waiting room page views: 1M × 3 refreshes = 3M requests/min = 50K RPS
-Queue status checks: 1M × 1 check/5sec = 200K RPS
-Inventory checks (admitted users): 50K users admitted × 1 check = 50K RPS spike
-Orders attempted: 50K (not all convert)
-Orders completed: 10K (inventory limit)
-```
+
+> [!NOTE]
+> The 200K RPS poll figure is the work the **queue API** must do; the 50K RPS waiting-room hits are absorbed at the edge. The inventory and order tiers see whatever the admission gate lets through, **not** the raw arrival rate. Sizing the inventory tier off the headline 1M is the most common over-provisioning mistake.
 
 **Storage:**
 
-```
-Queue state: 1M users × 100 bytes = 100MB (Redis)
-Order records: 10K orders × 5KB = 50MB (PostgreSQL)
-Event logs: 10M events × 200 bytes = 2GB/sale
+```text
+Queue state: 1M users × 100 bytes = 100 MB (DynamoDB or Redis)
+Order records: 10K orders × 5 KB = 50 MB (PostgreSQL)
+Event logs: 10M events × 200 bytes = 2 GB / sale
 ```
 
 ## Design Paths
@@ -109,26 +118,29 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Path A — token-based architecture: pre-sale token mint, FIFO queue, token gate guards checkout.](./diagrams/token-based-architecture-light.svg "Path A — token-based architecture: pre-sale token mint, FIFO queue, token gate guards checkout.")
+![Path A — token-based architecture: pre-sale token mint, FIFO queue, token gate guards checkout.](./diagrams/token-based-architecture-dark.svg)
 
 **Key characteristics:**
 
-- Tokens generated equal to inventory before sale starts
-- Each admitted user receives one token
-- Token guarantees checkout opportunity (not purchase—user may abandon)
-- Token expires if unused (returns to pool)
+- Tokens minted equal to inventory before sale starts.
+- Each admitted user receives one token.
+- A token guarantees a checkout opportunity, not a purchase — the user may still abandon.
+- Tokens expire if unused and return to the pool for the next admittee.
 
 **Trade-offs:**
 
-- :white_check_mark: Zero overselling by construction
-- :white_check_mark: Predictable admission rate
-- :white_check_mark: Fair (FIFO or randomized entry)
-- :x: Requires accurate inventory count pre-sale
-- :x: Token management complexity (expiration, reclaim)
-- :x: Abandoned tokens reduce conversion
+- ✅ Zero overselling by construction.
+- ✅ Predictable admission rate (admit at backend capacity, not request rate).
+- ✅ Fair: pure FIFO, or FIFO with a randomised pre-sale window.
+- ❌ Requires an accurate inventory count before the sale opens.
+- ❌ Token lifecycle management (expiry, reclaim, double-submission) is non-trivial.
+- ❌ Abandoned tokens dent conversion if expiry is too short or the queue is too aggressive.
 
-**Real-world example:** SeatGeek uses token-based admission for concert ticket sales. Lambda + DynamoDB manages token lifecycle; tokens expire on purchase or 15-minute timeout, returning to the pool for the next user in queue.
+> [!NOTE]
+> "Pre-mint one token per unit of inventory" is one specific implementation of Path A and works well for low-stock, high-fairness sales (drops, ticketing). The other common variant — used by SeatGeek and Cloudflare Waiting Room — issues admission tokens **decoupled from inventory**, sized to backend capacity instead. The actual decrement still happens atomically at checkout. Pick by where you want the failure to land: at admission ("you didn't get a ticket") or at checkout ("we sold out while you were typing your card number").
+
+**Real-world example:** [SeatGeek's virtual waiting room on AWS](https://aws.amazon.com/blogs/architecture/build-a-virtual-waiting-room-with-amazon-dynamodb-and-aws-lambda-at-seatgeek/) uses Lambda + DynamoDB to manage two layers of tokens: a *visitor token* assigned at entry that captures arrival timestamp for FIFO ordering, and an *access token* exchanged at the front of the queue that authorises checkout. Tokens expire when the purchase completes or the user's session ends, returning capacity to the protected zone via a leaky-bucket counter.
 
 ### Path B: Real-Time Inventory Model (Counter-Based)
 
@@ -140,26 +152,26 @@ Event logs: 10M events × 200 bytes = 2GB/sale
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Path B — counter-based inventory: rate limiter fronts a Redis counter, atomic decrement on checkout.](./diagrams/counter-based-architecture-light.svg "Path B — counter-based inventory: rate limiter fronts a Redis counter, atomic decrement on checkout.")
+![Path B — counter-based inventory: rate limiter fronts a Redis counter, atomic decrement on checkout.](./diagrams/counter-based-architecture-dark.svg)
 
 **Key characteristics:**
 
-- No pre-allocation; inventory checked in real-time
-- Atomic decrement at checkout (not admission)
-- Rate limiting protects backend; doesn't guarantee purchase
-- Inventory can be restocked mid-sale
+- No pre-allocation — inventory is checked in real time on the checkout path.
+- Atomic decrement happens at checkout, not at admission.
+- Rate limiting protects backend capacity; it doesn't guarantee the user a purchase.
+- Inventory can be restocked mid-sale (dynamic counters).
 
 **Trade-offs:**
 
-- :white_check_mark: Handles dynamic inventory
-- :white_check_mark: Simpler pre-sale setup
-- :white_check_mark: Can restock mid-sale
-- :x: Overselling risk if counter and order processing desync
-- :x: Users admitted without guarantee (frustration)
-- :x: Thundering herd on inventory service if rate limiting fails
+- ✅ Native support for dynamic inventory and mid-sale restocks.
+- ✅ Simpler pre-sale setup — no token mint job, no token registry.
+- ✅ Easier integration with multi-warehouse fulfilment systems.
+- ❌ Overselling risk if counter writes desync from order persistence.
+- ❌ Users admitted without a guarantee — visible "sold out at checkout" UX is harsh.
+- ❌ Hot-key risk on a single popular SKU — one shard, one CPU, one tail latency.
 
-**Real-world example:** Alibaba Singles Day uses Redis atomic counters with Lua scripts. Product ID = key, inventory = value. Lua script performs atomic `GET + DECR` in single operation. Handles 583K operations/second with careful sharding.
+**Real-world example:** Alibaba's flash-sale playbook on [ApsaraDB for Redis (Tair)](https://www.alibabacloud.com/help/en/redis/use-cases/use-apsaradb-for-redis-to-build-a-business-system-that-can-handle-flash-sales) uses a Lua script over a hash that encodes `Total` and `Booked` per SKU; the script performs `HMGET` to read both and `HINCRBY` to increment `Booked` only if `Booked + qty <= Total`. A master-replica Tair instance is documented to sustain >100K QPS for inventory writes and a read/write-split instance >600K QPS for cached reads. The all-up Tmall platform peaked at [583K orders per second on Singles Day 2020](https://www.alibabacloud.com/blog/system-stability-assurance-for-large-scale-flash-sales_596968) — that is a fleet-wide order TPS figure, not a single Redis instance, and it is reached by sharding hot SKUs and front-loading admission control.
 
 ### Path Comparison
 
@@ -198,8 +210,8 @@ Path B implementation details are covered in the [Variations](#variations) secti
 
 ### Request Flow
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Request flow — user → CDN → queue → inventory → order → payment, with async confirmation.](./diagrams/request-flow-sequence-light.svg "Request flow — user → CDN → queue → inventory → order → payment, with async confirmation.")
+![Request flow — user → CDN → queue → inventory → order → payment, with async confirmation.](./diagrams/request-flow-sequence-dark.svg)
 
 ## API Design
 
@@ -386,21 +398,25 @@ Attributes:
 ### Inventory Counter (Redis)
 
 ```redis
-# Inventory count per product
 SET inventory:sku-001 10000
 
-# Atomic decrement with Lua script
 EVAL "
-  local count = redis.call('GET', KEYS[1])
-  if tonumber(count) > 0 then
-    return redis.call('DECR', KEYS[1])
+  local count = tonumber(redis.call('GET', KEYS[1]) or 0)
+  if count >= tonumber(ARGV[1]) then
+    return redis.call('DECRBY', KEYS[1], ARGV[1])
   else
     return -1
   end
-" 1 inventory:sku-001
+" 1 inventory:sku-001 1
 ```
 
-**Why Lua script:** `GET` and `DECR` must be atomic. Without Lua, two concurrent requests could both see `count=1` and both decrement, causing overselling.
+**Why Lua:** Redis runs each [`EVAL` script atomically on a single shard](https://redis.io/docs/latest/develop/programmability/eval-intro/) — no other commands interleave. Without that, two concurrent clients can both see `count = 1`, both decrement, and oversell. Naïve `WATCH/MULTI/EXEC` works but burns retries under load; a Lua script is the canonical pattern. The pattern is sometimes called **single-flight**: the cluster serialises contending writes for the same key into one in-flight execution at a time, which is exactly what an inventory counter needs.
+
+> [!IMPORTANT]
+> One product key is one Redis shard. A flash on a single SKU is a hot-key problem disguised as a counter problem. Mitigations include client-side bucketing (split `inventory:sku-001` into `inventory:sku-001:{0..15}`, decrement a random bucket, accept slightly less even depletion) and Tair-style read/write split for warm-up traffic. See the [ApsaraDB Redis hot-key guide](https://www.alibabacloud.com/help/en/redis/user-guide/identify-and-handle-large-keys-and-hotkeys/) for the production playbook. The same pattern applies on DynamoDB via [write sharding the partition key](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-sharding.html); adaptive capacity will not save you above the per-item ceiling (~1,000 WCU / 3,000 RCU).
+
+![Hot-key sharded counter — one SKU split into N sub-keys to spread writes across Redis shards.](./diagrams/sharded-hot-key-light.svg "Hot-key sharded counter — clients pick a bucket by hashing the user; reads scatter-gather to compute remaining stock.")
+![Hot-key sharded counter — one SKU split into N sub-keys to spread writes across Redis shards.](./diagrams/sharded-hot-key-dark.svg)
 
 ### Token Registry (Redis)
 
@@ -476,8 +492,8 @@ The waiting room is the first line of defense. It must:
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Waiting room architecture — static HTML on CDN polls a Lambda-backed queue service over DynamoDB.](./diagrams/waiting-room-architecture-light.svg "Waiting room architecture — static HTML on CDN polls a Lambda-backed queue service over DynamoDB.")
+![Waiting room architecture — static HTML on CDN polls a Lambda-backed queue service over DynamoDB.](./diagrams/waiting-room-architecture-dark.svg)
 
 **Static HTML design:**
 
@@ -802,8 +818,13 @@ export async function confirmReservation(productId: string, reservationId: strin
 
 **Reservation lifecycle:**
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Reservation state machine — Available → Reserved → Confirmed, with timeout returning stock to Available.](./diagrams/reservation-state-machine-light.svg "Reservation state machine — Available → Reserved → Confirmed, with timeout returning stock to Available.")
+![Reservation state machine — Available → Reserved → Confirmed, with timeout returning stock to Available.](./diagrams/reservation-state-machine-dark.svg)
+
+**End-to-end reservation flow:**
+
+![Inventory reservation flow — admitted user → Lua single-flight reserve → idempotent enqueue → worker confirms or releases.](./diagrams/inventory-reservation-flow-light.svg "Inventory reservation flow — the Lua reserve is single-flight; commit/release happens out-of-band on the order worker, with TTL as a safety net.")
+![Inventory reservation flow — admitted user → Lua single-flight reserve → idempotent enqueue → worker confirms or releases.](./diagrams/inventory-reservation-flow-dark.svg)
 
 **Design decisions:**
 
@@ -984,19 +1005,19 @@ export async function handleDeadLetter(record: SQSRecord): Promise<void> {
 
 **Design decisions:**
 
-| Decision                    | Rationale                                          |
-| --------------------------- | -------------------------------------------------- |
-| SQS FIFO queue              | Exactly-once processing, per-user ordering         |
-| Idempotency key             | Prevents duplicate orders on retry                 |
-| Payment before confirmation | Never confirm inventory without successful payment |
-| DLQ for failures            | Ensures no order is silently lost                  |
+| Decision                    | Rationale                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| SQS FIFO + high-throughput  | Exactly-once dedup (5-min window) and per-`MessageGroupId` ordering; high-throughput mode is required above ~3K msg/sec. |
+| Idempotency key             | Prevents duplicate orders on retry; mirrors the [Stripe `Idempotency-Key` contract](https://stripe.com/blog/idempotency) (24h replay window of the original response). |
+| Payment before confirmation | Never confirm inventory without successful payment.                                                                      |
+| DLQ for failures            | Ensures no order is silently lost; the DLQ handler must release inventory, not just log.                                 |
 
 ## Bot Detection and Fairness
 
 ### Multi-Layer Bot Defense
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Bot defence — three layers: WAF / app fingerprint / queue-level duplicate and velocity checks.](./diagrams/bot-defense-layers-light.svg "Bot defence — three layers: WAF / app fingerprint / queue-level duplicate and velocity checks.")
+![Bot defence — three layers: WAF / app fingerprint / queue-level duplicate and velocity checks.](./diagrams/bot-defense-layers-dark.svg)
 
 **Layer 1: Edge defense (WAF)**
 
@@ -1272,8 +1293,8 @@ function restoreState(): FlashSaleState | null {
 
 ### AWS Reference Architecture
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![AWS reference architecture — CloudFront + WAF, Lambda + ECS, ElastiCache + DynamoDB + RDS + SQS FIFO.](./diagrams/aws-reference-architecture-light.svg "AWS reference architecture — CloudFront + WAF, Lambda + ECS, ElastiCache + DynamoDB + RDS + SQS FIFO.")
+![AWS reference architecture — CloudFront + WAF, Lambda + ECS, ElastiCache + DynamoDB + RDS + SQS FIFO.](./diagrams/aws-reference-architecture-dark.svg)
 
 **Service configuration:**
 
@@ -1284,7 +1305,7 @@ function restoreState(): FlashSaleState | null {
 | Lambda      | Memory: 1024MB, Timeout: 30s, Reserved: 1000 | Predictable latency under load           |
 | ElastiCache | Redis Cluster, 3 nodes, r6g.large            | Sub-ms latency, failover                 |
 | DynamoDB    | On-demand, Auto-scaling                      | Handles unpredictable load               |
-| SQS FIFO    | 3000 msg/sec, 14-day retention               | Order durability                         |
+| SQS FIFO    | High-throughput mode, 14-day retention       | Order durability + per-user ordering     |
 | RDS         | Multi-AZ, db.r6g.xlarge, Read replicas       | ACID + read scaling                      |
 
 ### Self-Hosted Alternatives
@@ -1295,6 +1316,65 @@ function restoreState(): FlashSaleState | null {
 | DynamoDB        | Cassandra/ScyllaDB   | Cost at scale, complexity                 |
 | SQS FIFO        | Kafka                | Higher throughput, operational complexity |
 | Lambda          | Kubernetes + KEDA    | Fine-grained control, cold starts         |
+
+> [!NOTE]
+> The first-party [AWS Virtual Waiting Room solution](https://aws.amazon.com/solutions/implementations/virtual-waiting-room-on-aws/) was retired in November 2025. New deployments should follow the SeatGeek-style reference architecture (Lambda + DynamoDB + ElastiCache) rather than the retired CloudFormation stack.
+
+### Production analogues
+
+The architecture above is a synthesis of several published systems. Use these as concrete anchors when a design choice feels arbitrary.
+
+| System                                                                                                                                                  | Architecture shape                                                                                                                                                                                              | What to copy                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [SeatGeek](https://aws.amazon.com/blogs/architecture/build-a-virtual-waiting-room-with-amazon-dynamodb-and-aws-lambda-at-seatgeek/)                     | Edge gatekeeper + DynamoDB token tables + leaky-bucket admission counter; visitor token captures arrival timestamp, access token authorises the protected zone.                                                 | Two-stage tokens, leaky-bucket admission, DynamoDB Streams → Timestream for live ops dashboards.   |
+| [Shopify](https://shopify.engineering/surviving-flashes-of-high-write-traffic-using-scriptable-load-balancers-part-i)                                   | "Sorting Hat" Lua module in Nginx/OpenResty routes traffic to per-shop pods; checkout throttle is a leaky bucket implemented at the edge; signed cookie exempts admitted users from re-throttling for the rest of the session.                | Edge-scriptable throttle, signed-cookie skip-the-queue, pod isolation so one viral shop can't tank neighbours. |
+| [Shopify BFCM 2024-25](https://shopify.engineering/bfcm-readiness-2025)                                                                                 | Peaked at 284M req/min on the edge and 80M req/min on app servers in BFCM 2024; BFCM 2025 reached 489M req/min on the edge per Shopify's internal recap.                                                         | Plan for ≥3× your headline forecast; chaos-test with Toxiproxy and Game Days before the on-sale.   |
+| [Ticketmaster Smart Queue](https://blog.ticketmaster.com/how-ticketmaster-queue-works/)                                                                 | Public waiting room opens 15-30 min before sale; queue position is randomised when the sale opens; ~10 min checkout hold once at front; aggressive bot mitigation including Verified Fan pre-registration codes. | Pre-sale randomisation window, hard checkout hold, presale invite codes for the highest-demand events. |
+| [Alibaba Tmall Singles Day](https://www.alibabacloud.com/blog/system-stability-assurance-for-large-scale-flash-sales_596968)                            | Tair (Redis-compatible) for atomic inventory deduction with sharded SKUs, cell-based isolation, and traffic queuing for the hottest SKUs. Platform peaked at 583K orders/sec in 2020; Alibaba stopped publishing peak TPS after 2022.                          | Hot-SKU sharding, traffic queuing per product, cell-based capacity planning.                       |
+| [Cloudflare Waiting Room](https://blog.cloudflare.com/building-waiting-room-on-workers-and-durable-objects/)                                            | Workers + Durable Objects at the edge; per-data-centre DOs aggregate to a single global DO every few seconds; admission state lives in an encrypted cookie carrying `bucketId` + `lastCheckInTime`.              | Edge-only admission with no origin polling, eventually-consistent global counters, cookie-as-token. |
+
+## Failure modes and operational implications
+
+Flash sales fail in predictable shapes. Plan and rehearse for each.
+
+![Sale-day timeline — pre-warm, T0 admission, peak depletion, drain, and post-sale postmortem.](./diagrams/sale-day-timeline-light.svg "Sale-day timeline — most failures concentrate in the first five minutes after T0; the drain window is when DLQ work and reservation-release math show up.")
+![Sale-day timeline — pre-warm, T0 admission, peak depletion, drain, and post-sale postmortem.](./diagrams/sale-day-timeline-dark.svg)
+
+| Failure mode                            | Symptom                                                              | Containment                                                                                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hot key on a single SKU                 | Redis shard CPU saturates; p99 inventory check explodes              | Bucket the SKU into N sub-keys, distribute decrements; pre-cache product detail pages at the edge; fall back to "queueing for stock" UI rather than 5xx.               |
+| Token gate misconfigured (admit too fast) | Backend overload behind the gate; cascading 5xx                      | Tie admission to live healthy-worker count, not a static rate. Shed traffic via a circuit breaker that returns "still in queue" rather than failed checkouts.         |
+| Token gate misconfigured (admit too slow) | Conversion drops; customer support floods with "stuck in queue"      | Watch admission rate vs remaining-inventory ratio; alert when admission falls below `inventory / target_sale_duration`.                                                |
+| Reservation TTL too short               | Users lose their seat mid-payment; refund and complaint volume spikes | Make reservation TTL > p99 of payment latency observed in dress rehearsal; extend TTL on user activity pings.                                                          |
+| Reservation TTL too long                | Inventory looks sold out while real users abandoned silently        | Aggressive client heartbeat to release on tab close; shorter TTL with explicit "extend" call when user enters payment details.                                         |
+| SQS DLQ accumulating                    | Orders silently failing; no user-facing error                        | Alert on DLQ depth > 0 during a sale; auto-page; the DLQ handler must release inventory and notify the user, not just log.                                             |
+| Payment provider degraded               | Checkout latency spikes; payment confirmations time out              | Circuit-break payment calls; queue the order with a "payment retry" status; communicate honestly in the UI ("your spot is held; we'll retry payment").                 |
+| Bot wave overwhelms WAF                 | Legitimate users see 429 or CAPTCHA storms                           | Pre-warm WAF rules; rate-limit per device fingerprint not just per IP; have a "raise the difficulty" lever (require 2FA, presale code, or Verified Fan) ready to flip. |
+| CDN origin shield miss                  | Spike at origin for the waiting room HTML                            | Pre-warm CDN with the exact waiting-room asset; pin a long edge TTL; serve a stale-while-revalidate fallback if origin dies.                                          |
+
+> [!CAUTION]
+> Pre-rehearse the on-sale with a realistic load test. Both [Shopify Game Days](https://shopify.engineering/bfcm-readiness-2025) and Alibaba's PTS (Performance Testing Service) are public examples. A flash sale is the worst time to discover that your queue depth metric is wrong.
+
+### Observability under spike
+
+The metric set you actually need on the war-room dashboard is small and ratio-based. Counters lie when traffic doubles; ratios survive.
+
+| Signal                                                | What you watch                                                          | What you do                                                                                       |
+| :---------------------------------------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
+| `admission_rate / target_admission_rate`              | Drift below 0.7 for >1 min                                              | Open the gate further, or check downstream worker health (cause is almost never the queue).       |
+| `reserved_inventory / total_inventory`                | Should monotonically rise; flat = workers stalled                       | Page the order-worker oncall before the user-facing dashboard catches up.                         |
+| `redis.hot_key_ops / redis.cluster_ops`               | A single key crossing ~30% of cluster ops is hot                        | Flip to the sharded-key path; raise the WAF challenge difficulty.                                 |
+| `queue.dlq_depth`                                     | Any non-zero during a sale = user money silently failing                | Auto-page; DLQ handler must release inventory and notify the user.                                |
+| `payment.p99` and `payment.error_rate`                | Compare against the dress-rehearsal baseline, not absolute SLOs         | Trip the payment circuit breaker; shift to "your spot is held" UI rather than failing checkouts. |
+| `oversell_count` (= `confirmed_orders − inventory`)   | Must be 0 by construction; alert on >0 immediately                      | This is the contract. If it ever fires, freeze the sale and reconcile manually.                   |
+| `cdn.origin_shield_miss_rate` for waiting-room HTML   | Should be ~0 once warmed                                                | Re-pin the asset, raise edge TTL, serve stale-while-revalidate.                                   |
+
+**Graceful degradation, in priority order:**
+
+1. **Shed the cheapest thing first.** Increase poll interval, drop ornamental queue-position estimates, hide product imagery — keep the admission decision honest.
+2. **Trade UX for correctness.** Show "your spot is held; we are retrying payment" rather than failing the checkout when the payment provider is degraded.
+3. **Raise the friction lever.** Force CAPTCHA or re-auth when bot scores climb; require a presale code or Verified-Fan style gate when the WAF is at capacity. Communicate that you are doing this — silence is what destroys trust, not the friction.
+4. **Never undo a successful inventory reserve to make the UI nicer.** Release on TTL or explicit cancel, never on a UI timeout.
 
 ## Variations
 
@@ -1460,10 +1540,20 @@ Flash sale systems require coordinated defense at every layer:
 
 ### References
 
-- [Alibaba Cloud: System Stability for Large-Scale Flash Sales](https://www.alibabacloud.com/blog/system-stability-assurance-for-large-scale-flash-sales_596968) - Alibaba Singles Day architecture
-- [AWS Prime Day 2025 Metrics](https://aws.amazon.com/blogs/aws/aws-services-scale-to-new-heights-for-prime-day-2025-key-metrics-and-milestones/) - Scale benchmarks
-- [SeatGeek Virtual Waiting Room Architecture](https://aws.amazon.com/blogs/architecture/build-a-virtual-waiting-room-with-amazon-dynamodb-and-aws-lambda-at-seatgeek/) - Token-based queue implementation
-- [Shopify Flash Sales Architecture](https://www.infoq.com/presentations/shopify-architecture-flash-sale/) - Multi-tenant SaaS approach
-- [Ticketmaster Queue System](https://blog.ticketmaster.com/how-ticketmaster-queue-works/) - Virtual waiting room UX
-- [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) - Atomic operations patterns
-- [Martin Kleppmann: Designing Data-Intensive Applications](https://dataintensive.net/) - Distributed systems fundamentals
+- [Alibaba Cloud: system stability for large-scale flash sales](https://www.alibabacloud.com/blog/system-stability-assurance-for-large-scale-flash-sales_596968) — Tmall Singles Day architecture and the 583K orders/sec peak.
+- [Alibaba Cloud: build a flash-sale system on Tair (Redis)](https://www.alibabacloud.com/help/en/redis/use-cases/use-apsaradb-for-redis-to-build-a-business-system-that-can-handle-flash-sales) — `HMGET` + `HINCRBY` Lua pattern, instance-level QPS numbers.
+- [Alibaba Cloud: identify and handle hot keys](https://www.alibabacloud.com/help/en/redis/user-guide/identify-and-handle-large-keys-and-hotkeys/) — bucketing strategies for single-shard contention.
+- [SeatGeek virtual waiting room on AWS](https://aws.amazon.com/blogs/architecture/build-a-virtual-waiting-room-with-amazon-dynamodb-and-aws-lambda-at-seatgeek/) — visitor + access tokens, leaky-bucket admission, DynamoDB Streams analytics.
+- [Shopify: surviving high-write flash sales with scriptable load balancers](https://shopify.engineering/surviving-flashes-of-high-write-traffic-using-scriptable-load-balancers-part-i) — edge-level checkout throttle, signed-cookie skip-the-queue.
+- [Shopify: how we prepare for BFCM 2025](https://shopify.engineering/bfcm-readiness-2025) — capacity planning, Toxiproxy chaos, BFCM 2024 peak metrics.
+- [Ticketmaster: how the Smart Queue works](https://blog.ticketmaster.com/how-ticketmaster-queue-works/) — randomised entry, checkout hold window, bot mitigation tiers.
+- [AWS Prime Day 2024 metrics](https://aws.amazon.com/blogs/aws/how-aws-powered-prime-day-2024-for-record-breaking-sales/) — DynamoDB at 146M req/sec, CloudFront ≥500M req/min.
+- [Cloudflare: building Waiting Room on Workers and Durable Objects](https://blog.cloudflare.com/building-waiting-room-on-workers-and-durable-objects/) — per-PoP DO aggregation to a global DO, cookie-bound admission, eventually-consistent counters.
+- [Stripe: designing robust APIs with idempotency](https://stripe.com/blog/idempotency) — `Idempotency-Key` semantics, response replay, 24h window.
+- [Stripe: scaling APIs with rate limiters](https://stripe.com/blog/rate-limiters) — token bucket on Redis; per-user vs per-API quotas.
+- [AWS: SQS FIFO exactly-once processing](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues-exactly-once-processing.html) — `MessageDeduplicationId` semantics and the 5-minute dedup window.
+- [AWS: DynamoDB write sharding](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-sharding.html) — partition-key sharding strategies for hot items.
+- [Redis: programmability — EVAL atomicity](https://redis.io/docs/latest/develop/programmability/eval-intro/) — script atomicity guarantees.
+- [Redis: distributed lock patterns](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) — when a Lua script is not enough.
+- [AWS Virtual Waiting Room solution (retired Nov 2025)](https://aws.amazon.com/solutions/implementations/virtual-waiting-room-on-aws/) — the legacy first-party reference; do not deploy new stacks of it.
+- [Martin Kleppmann: Designing Data-Intensive Applications](https://dataintensive.net/) — distributed-systems fundamentals.

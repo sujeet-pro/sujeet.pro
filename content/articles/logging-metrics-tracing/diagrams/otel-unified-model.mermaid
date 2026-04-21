@@ -1,0 +1,36 @@
+%% Diagram: OpenTelemetry unified instrumentation model
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph App["Application process"]
+        OTelSDK["OpenTelemetry SDK"]
+    end
+
+    subgraph Signals["Three pillars"]
+        direction LR
+        Logs["Logs<br/>events plus context"]
+        Metrics["Metrics<br/>aggregated measurements"]
+        Traces["Traces<br/>request flow"]
+    end
+
+    subgraph Export["Export layer"]
+        OTLP["OTLP protocol<br/>gRPC or HTTP"]
+    end
+
+    subgraph Backends["Storage backends"]
+        direction LR
+        LogStore["Log store<br/>Loki, Elasticsearch"]
+        MetricStore["Metric store<br/>Prometheus, Mimir"]
+        TraceStore["Trace store<br/>Tempo, Jaeger"]
+    end
+
+    OTelSDK --> Signals
+    Logs --> OTLP
+    Metrics --> OTLP
+    Traces --> OTLP
+    OTLP --> LogStore
+    OTLP --> MetricStore
+    OTLP --> TraceStore
+
+    Traces -.->|"TraceId, SpanId<br/>(auto correlation)"| Logs
+    Traces -.->|"Exemplars<br/>(metric to trace)"| Metrics

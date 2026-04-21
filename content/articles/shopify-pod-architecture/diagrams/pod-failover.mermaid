@@ -1,0 +1,22 @@
+%% Diagram: Pod Mover failover with Pauser request queue
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant SRE as On-call SRE
+    participant Slack
+    participant PM as Pod Mover
+    participant LB as Load balancer (Pauser)
+    participant DC1 as Active datacenter
+    participant DC2 as Recovery datacenter
+
+    SRE->>Slack: /podmover failover pod-42
+    Slack->>PM: Trigger failover for pod-42
+    PM->>LB: Activate Pauser for pod-42 traffic
+    LB->>LB: Queue inbound requests (do not error)
+    PM->>DC1: Stop writes, drain in-flight
+    PM->>DC2: Promote replica to primary
+    PM->>LB: Update routing → DC2 for pod-42
+    LB->>DC2: Replay queued requests
+    DC2-->>LB: Responses (success)
+    LB-->>SRE: Failover complete (~1 min)

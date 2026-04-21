@@ -1,0 +1,16 @@
+%% Diagram: LSM Read Path - Memtable, Bloom Filter, SSTable Layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    GET["GET key"] --> MEM{"In memtable?"}
+    MEM -- "yes" --> RET1["Return value"]
+    MEM -- "no" --> LOOP["For each SSTable, newest to oldest"]
+    LOOP --> BF{"Bloom filter says 'maybe'?"}
+    BF -- "no" --> NEXT["Skip this SSTable"]
+    NEXT --> LOOP
+    BF -- "yes" --> IDX["Read partition index<br/>+ data block"]
+    IDX -- "key present" --> COLLECT["Collect version,<br/>continue searching"]
+    IDX -- "false positive" --> NEXT
+    COLLECT --> LOOP
+    LOOP -- "all SSTables checked" --> MERGE["Merge collected versions,<br/>return newest (or all if conflict)"]
+    MERGE --> RET2["Return"]

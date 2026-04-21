@@ -1,0 +1,19 @@
+%% Diagram: Oblivious DoH — proxy and target separation of identity from query
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant P as Proxy\n(sees client IP only)
+    participant T as Target Resolver\n(sees query only)
+
+    Note over C,T: Unlinkability requires proxy and target are not the same operator
+    C->>T: HTTPS GET ODoH config (target's HPKE pubkey)
+    T-->>C: ObliviousDoHConfigs
+    C->>C: HPKE-encrypt DNS query with target pubkey
+    C->>P: HTTPS POST encrypted query\n(client IP visible)
+    P->>T: Forward encrypted query\n(target sees proxy IP, not client)
+    T->>T: HPKE-decrypt, resolve, encrypt response
+    T-->>P: Encrypted response
+    P-->>C: Encrypted response
+    C->>C: HPKE-decrypt response
+    Note over P,T: Proxy never sees plaintext query.\nTarget never sees client IP.\nCollusion of both reverses unlinkability.

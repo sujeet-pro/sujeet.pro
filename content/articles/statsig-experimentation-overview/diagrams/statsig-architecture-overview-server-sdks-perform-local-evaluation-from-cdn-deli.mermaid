@@ -1,28 +1,34 @@
-%% Diagram: Statsig Architecture Overview Server Sdks Perform Local Evaluation From Cdn Deli
+%% Diagram: Statsig high-level architecture - server vs client evaluation paths
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    subgraph "Client Applications"
-        A[Browser SDK] --> B[Pre-computed Cache]
-        C[Mobile SDK] --> B
+flowchart LR
+    subgraph Server["Server side"]
+        SrvApp[Application servers]
+        SrvSDK["Server Core SDK<br/>(@statsig/statsig-node-core, etc.)"]
+        Adapter[(Optional DataAdapter<br/>Redis / Edge Config)]
     end
 
-    subgraph "Server Applications"
-        D[Node.js SDK] --> E[Local Evaluation]
-        F[Python/Go SDK] --> E
+    subgraph Client["Browser / mobile"]
+        ClientApp[App / page]
+        ClientSDK["@statsig/js-client<br/>iOS / Android SDKs"]
+        Local[(localStorage cache)]
     end
 
-    subgraph "Statsig Platform"
-        G[Config CDN] --> E
-        G --> H[Initialize Endpoint]
-        H --> B
-        I[Event Pipeline] --> J[Analytics Engine]
+    subgraph Statsig["Statsig platform"]
+        CDN[(api.statsigcdn.com<br/>download_config_specs)]
+        Init[(api.statsig.com<br/>/initialize)]
+        Events[(Event ingestion + metrics pipeline)]
     end
 
-    E --> I
-    B --> I
+    SrvApp --> SrvSDK
+    SrvSDK -- "full spec" --> CDN
+    SrvSDK <--> Adapter
+    SrvSDK -- "exposures + custom events" --> Events
 
-    style G fill:#e1f5fe
-    style E fill:#fff3e0
-    style B fill:#f3e5f5
-    style J fill:#c8e6c9
+    ClientApp --> ClientSDK
+    ClientSDK -- "user object" --> Init
+    Init -- "pre-evaluated payload" --> ClientSDK
+    ClientSDK <--> Local
+    ClientSDK -- "exposures + custom events" --> Events
+
+    SrvSDK -. "getClientInitializeResponse(user)" .-> ClientSDK

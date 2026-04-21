@@ -1,0 +1,40 @@
+%% Diagram: B-tree insert locality - sequential vs random IDs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SEQ["Sequential / time-ordered keys"]
+        direction TB
+        SEQ_NEW["new ID\nlatest ms"] -.->|append| SEQ_L3
+        SEQ_ROOT["root"] --> SEQ_INT["internal"]
+        SEQ_INT --> SEQ_L1["leaf 1\nold"]
+        SEQ_INT --> SEQ_L2["leaf 2\nolder"]
+        SEQ_INT --> SEQ_L3["leaf 3\nhot, appending"]
+    end
+
+    subgraph RAND["Random keys"]
+        direction TB
+        R_NEW["new ID\nuniform random"] -.->|targets leaf 2| R_L2
+        R_ROOT["root"] --> R_INT["internal"]
+        R_INT --> R_L1["leaf 1\nfull"]
+        R_INT --> R_L2["leaf 2\nfull"]
+        R_INT --> R_L3["leaf 3\nfull"]
+        R_L2 -.->|page split| R_L2A["leaf 2a\nhalf full"]
+        R_L2 -.->|page split| R_L2B["leaf 2b\nhalf full"]
+    end
+
+    SEQ_NOTE["Sequential: one hot leaf,\nminimal WAL, high cache locality"]
+    RAND_NOTE["Random: split full pages,\nfragmented index, higher WAL"]
+    SEQ --- SEQ_NOTE
+    RAND --- RAND_NOTE
+
+    classDef hot fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef cold fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef split fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ins fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef note fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class SEQ_L3 hot
+    class SEQ_L1,SEQ_L2,SEQ_ROOT,SEQ_INT1,R_ROOT,R_INT1,R_L1,R_L3,R_L4 cold
+    class R_L2,R_L2A,R_L2B split
+    class SEQ_NEW,R_NEW ins
+    class SEQ_NOTE,RAND_NOTE note

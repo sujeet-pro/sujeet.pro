@@ -1,0 +1,29 @@
+%% Diagram: cache-invalidation-paths
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant CMS as CMS / PIM
+    participant App as App / SSR origin
+    participant CDN as CDN edge<br/>(Fastly / Cloudflare / Vercel)
+    participant Cache as Edge cache
+    participant U as User
+
+    Note over App,Cache: Tag responses on read
+    U->>CDN: GET /p/123
+    CDN->>App: cache miss
+    App-->>CDN: HTML + Surrogate-Key:<br/>product-123 collection-shoes price-eur
+    CDN->>Cache: store keyed by URL,<br/>indexed by tags
+    CDN-->>U: 200 HTML
+
+    Note over CMS,Cache: Soft purge on write
+    CMS->>App: webhook: product 123 updated
+    App->>CDN: POST /purge by tag<br/>product-123
+    CDN->>Cache: mark entries stale<br/>(soft purge)
+    Cache-->>CDN: ack
+
+    U->>CDN: GET /p/123
+    CDN-->>U: stale HTML (immediate)
+    CDN->>App: revalidate in background
+    App-->>CDN: fresh HTML + new tags
+    CDN->>Cache: replace entry

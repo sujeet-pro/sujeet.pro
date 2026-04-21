@@ -1,0 +1,39 @@
+%% Diagram: PBFT all-to-all vs HotStuff linear leader-driven message pattern
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph PBFT["PBFT - O(n^2) per consensus"]
+        direction LR
+        PL[Leader]
+        PR1[Replica 1]
+        PR2[Replica 2]
+        PR3[Replica 3]
+        PL <--> PR1
+        PL <--> PR2
+        PL <--> PR3
+        PR1 <--> PR2
+        PR1 <--> PR3
+        PR2 <--> PR3
+    end
+
+    subgraph HOT["HotStuff - O(n) per phase via QC aggregation"]
+        direction LR
+        HL[Leader]
+        HR1[Replica 1]
+        HR2[Replica 2]
+        HR3[Replica 3]
+        HL -->|"propose"| HR1
+        HL -->|"propose"| HR2
+        HL -->|"propose"| HR3
+        HR1 -->|"vote (signed)"| HL
+        HR2 -->|"vote (signed)"| HL
+        HR3 -->|"vote (signed)"| HL
+        HL -. "aggregate -> Quorum Certificate" .-> HL
+    end
+
+    PBFT --> HOT
+
+    classDef base fill:#94a3b8,stroke:#1e293b,color:#0f172a
+    classDef leader fill:#60a5fa,stroke:#1e3a8a,color:#0f172a
+    class PL,HL leader
+    class PR1,PR2,PR3,HR1,HR2,HR3 base

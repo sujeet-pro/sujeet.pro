@@ -1,0 +1,29 @@
+%% Diagram: Cardinality explosion from unbounded label values
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Bounded["Bounded labels (safe)"]
+        direction TB
+        B1["http_requests_total"]
+        B2["{method, status, route_class}"]
+        B3["~50 series per metric<br/>~150 KB RAM"]
+        B1 --> B2 --> B3
+    end
+
+    subgraph Unbounded["Unbounded labels (cardinality bomb)"]
+        direction TB
+        U1["http_requests_total"]
+        U2["{user_id, request_id,<br/>endpoint}"]
+        U3["1M users × 50 routes<br/>= 50M series"]
+        U4["~375 GB RAM<br/>(at 7.5 KiB / series)"]
+        U1 --> U2 --> U3 --> U4
+    end
+
+    Decide{"Is value<br/>unbounded?"}
+    Decide -->|"yes (IDs, emails,<br/>UUIDs)"| Logs["Move to logs<br/>or trace attributes"]
+    Decide -->|"no (enum,<br/>fixed taxonomy)"| Metric["Safe as metric label"]
+
+    classDef bad fill:#fee,stroke:#c33,color:#900
+    classDef good fill:#efe,stroke:#393,color:#063
+    class U3,U4,Logs bad
+    class B3,Metric good

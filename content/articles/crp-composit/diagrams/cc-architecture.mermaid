@@ -1,0 +1,30 @@
+%% Diagram: cc Architecture across Renderer + Viz
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Renderer["Renderer Process"]
+        direction TB
+        subgraph Main["Main Thread"]
+            LTH["LayerTreeHost<br/>Layer (public API)<br/>Property trees (source)"]
+        end
+        subgraph Comp["Compositor Thread (cc)"]
+            LTHI["LayerTreeHostImpl<br/>LayerImpl + Property trees (copy)"]
+            TM["TileManager"]
+            Sched["Scheduler"]
+            CF["CompositorFrame"]
+        end
+        LTH -- "Commit (blocks main)" --> LTHI
+        LTHI --> TM
+        LTHI --> Sched
+        LTHI --> CF
+    end
+
+    subgraph Viz["Viz Process (GPU)"]
+        SM["SurfaceManager"]
+        SA["SurfaceAggregator"]
+        DC["Display Compositor"]
+    end
+
+    CF -- "SubmitCompositorFrame (Mojo IPC)" --> SM
+    SM --> SA --> DC
+    DC --> Display["Physical Display"]

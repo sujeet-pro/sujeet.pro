@@ -1,0 +1,18 @@
+%% Diagram: Hydration vs resumability — what runs on the client at startup
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph H["Full hydration (React 17, Vue)"]
+        direction TB
+        H1["HTML paints"] --> H2["Download full bundle"] --> H3["Re-execute every component"] --> H4["Attach event listeners"] --> H5["Page interactive"]
+    end
+
+    subgraph S["Selective hydration (React 18 + Suspense)"]
+        direction TB
+        S1["HTML paints"] --> S2["Chunked bundle downloads"] --> S3["Hydrate boundaries by priority"] --> S4["User-touched boundary jumps queue"] --> S5["Interactive in pieces"]
+    end
+
+    subgraph R["Resumability (Qwik)"]
+        direction TB
+        R1["HTML paints with serialized state"] --> R2["~1 KB Qwikloader reads on:click attrs"] --> R3["No replay, no re-execution"] --> R4["Interactive immediately"] --> R5["Click → fetch only that handler"]
+    end

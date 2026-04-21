@@ -4,11 +4,12 @@ linkTitle: 'Video Transcoding'
 description: >-
   Pipeline architecture for scalable video transcoding — covering codec selection, rate control strategies, chunked parallel encoding, per-title bitrate ladders, VMAF quality validation, and the compute/storage/egress cost trade-offs behind production video platforms.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - media
-  - testing
   - platform-engineering
+  - system-design
+  - architecture
 ---
 
 # Video Transcoding Pipeline Design
@@ -153,8 +154,8 @@ Parallel chunked (6 workers, 10 chunks):
 
 **Distributed chunking workflow (fan-out/fan-in):**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Chunked parallel encoding: split source at GOP boundaries, encode chunks across workers, then concatenate](./diagrams/chunked-parallel-encoding-light.svg "Chunked parallel encoding: split source at GOP boundaries, fan out to workers, then concatenate.")
+![Chunked parallel encoding: split source at GOP boundaries, encode chunks across workers, then concatenate](./diagrams/chunked-parallel-encoding-dark.svg)
 
 **Splitting at keyframes:**
 
@@ -197,7 +198,9 @@ ffmpeg -f concat -safe 0 -i chunks.txt -c copy output.mp4
 6. When all chunks complete, Step Functions triggers concatenation
 7. Final output uploaded to CDN origin
 
-This pattern—pioneered by projects like Bento—achieves 90%+ faster encoding than single-instance approaches and 50% faster than AWS MediaConvert for large files.
+The fine-grained version of this pattern was pioneered by Stanford's [ExCamera (NSDI '17)](https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/fouladi), which split encoding into thousands of sub-second tasks on AWS Lambda and reported up to 56× speedup over multi-threaded encoders[^excamera]. Production systems rarely run that fine-grained — most pipelines settle for 10-60 second chunks on long-running workers because the orchestration overhead of thousands-way parallelism outweighs the wall-clock win above a certain chunk count.
+
+[^excamera]: Fouladi et al., ["Encoding, Fast and Slow: Low-Latency Video Processing Using Thousands of Tiny Threads"](https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/fouladi), NSDI '17.
 
 ## Codec Selection and Rate Control
 
@@ -214,7 +217,7 @@ Codec choice determines compression efficiency, hardware compatibility, and comp
 
 **Design rationale for codec ladder:** Start with H.264 for universal reach. Add HEVC/AV1 for bandwidth savings on compatible devices. The player negotiates codec via manifest `CODECS` attribute.
 
-**SVT-AV1 adoption note (2024-2025):** Netflix reports AV1 powers 30% of streaming, making it their second most-used codec. SVT-AV1 2.0.0 (March 2024) brought significant performance improvements. Intel and Netflix collaboration produced a production-ready encoder with multi-dimensional parallelism.
+**SVT-AV1 adoption note (as of late 2025):** [Netflix reports AV1 now powers 30% of its streaming](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) and is its second most-used codec, on track to become the primary format. [SVT-AV1 2.0.0 shipped in March 2024](https://www.phoronix.com/news/Intel-SVT-AV1-2.0) with substantial speedups (up to ~100% on the higher-quality "MR" presets) and 1-4% better compression on M9-M13. The Intel/Netflix collaboration produced a production-ready encoder with multi-dimensional parallelism (frame, tile, segment, and SIMD).
 
 ### Rate Control Strategies
 
@@ -224,7 +227,7 @@ Codec choice determines compression efficiency, hardware compatibility, and comp
 | ------- | --------- | ------- | ------------------- |
 | x264    | 0-51      | 23      | ~18                 |
 | x265    | 0-51      | 28      | ~24                 |
-| SVT-AV1 | 0-63      | —       | ~23                 |
+| SVT-AV1 | 0-63      | 35      | ~23                 |
 
 **Gotcha: CRF produces unpredictable file sizes.** A static scene might encode at 1 Mbps; an action sequence at 15 Mbps. For streaming with bandwidth constraints, use constrained CRF.
 
@@ -286,7 +289,7 @@ Encoder presets trade encoding time for compression efficiency. Slower presets t
 | slow      | 8x         | -5-10%    | VOD            |
 | veryslow  | 16x        | -10-15%   | Premium VOD    |
 
-**Production recommendation:** Use `-preset slow` for VOD. The quality improvement from `veryslow` is marginal (<0.5% file size reduction) but encoding time doubles. The sweet spot is `slow` for quality-sensitive content, `medium` for high-volume UGC.
+**Production recommendation:** Use `-preset slow` for VOD. The quality improvement from `veryslow` over `slow` is typically a single-digit percentage in file size at matched VMAF, while encoding time roughly doubles. The sweet spot is `slow` for quality-sensitive content, `medium` for high-volume UGC, and never `placebo` outside benchmarks.
 
 ## Bitrate Ladder Design
 
@@ -309,14 +312,14 @@ Example static ladder (H.264):
 
 **Problem:** A static talking-head video achieves excellent quality at 1.5 Mbps 1080p. An action sequence needs 8 Mbps. Static ladders either waste bandwidth on simple content or under-serve complex content.
 
-**Per-title encoding:** Analyze each video's complexity and generate a custom ladder. Netflix pioneered this approach, reporting 20% bandwidth reduction without quality loss.
+**Per-title encoding:** Analyze each video's complexity and generate a custom ladder. [Netflix pioneered this approach in 2015](https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2) and reported ~20% bandwidth reduction without quality loss.
 
-**Convex hull optimization:** Encode at many bitrate/resolution combinations, measure quality (VMAF), plot rate-distortion curve. Select the Pareto-optimal points (convex hull) where quality improvements justify bitrate increases.
+**Convex hull optimization:** Encode at many bitrate/resolution combinations, measure quality (VMAF), plot the rate-distortion curve. Select the Pareto-optimal points (convex hull) where quality improvements justify bitrate increases.
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Convex hull bitrate ladder: encode many resolution/bitrate combinations, score with VMAF, then keep only the Pareto-optimal points](./diagrams/convex-hull-bitrate-ladder-light.svg "Convex hull bitrate ladder: encode many candidates, score with VMAF, keep only the Pareto-optimal rate-distortion points.")
+![Convex hull bitrate ladder: encode many resolution/bitrate combinations, score with VMAF, then keep only the Pareto-optimal points](./diagrams/convex-hull-bitrate-ladder-dark.svg)
 
-**Per-shot encoding (advanced):** Netflix's current approach varies encoding parameters per shot within a video, not just per title. Scene cuts trigger re-evaluation of optimal settings. This exploits the observation that complexity varies dramatically within a single video.
+**Per-shot encoding (advanced):** Netflix's [Dynamic Optimizer](https://netflixtechblog.com/dynamic-optimizer-a-perceptual-video-encoding-optimization-framework-e19f1e3a277f) varies encoding parameters per shot within a video, not just per title. Shot-change detection segments the source so that each shot is encoded at the bitrate/resolution that lies on its own rate-distortion convex hull, with a Trellis-based search picking the cross-shot mix that minimizes total bitrate at a target quality. Crucially, the system aligns IDR frames to shot boundaries so that ABR clients can still switch representations seamlessly. This now powers [4K shot-based encodes](https://netflixtechblog.com/optimized-shot-based-encodes-for-4k-now-streaming-47b516b10bbb) and Netflix's HDR catalog.
 
 **Implementation cost:** Per-title encoding requires encoding many variants to find the optimal ladder—typically 50-100 encodes per video. This is practical only when:
 
@@ -347,7 +350,7 @@ Quality validation ensures encoded output meets standards before publishing. Man
 
 ### Quality Metrics
 
-**VMAF (Video Multi-Method Assessment Fusion):** Machine learning model trained on human perception scores. Developed by Netflix with USC, University of Nantes, and UT Austin. Correlates better with human judgment than traditional metrics.
+**VMAF (Video Multi-Method Assessment Fusion):** Machine-learning model trained on human perception scores. [Developed by Netflix with USC (Prof. C.-C. Jay Kuo), Université de Nantes (Prof. Patrick Le Callet), and UT Austin (Prof. Alan Bovik)](https://netflixtechblog.com/vmaf-the-journey-continues-44b51ee9ed12); the collaboration earned a 2021 Technology & Engineering Emmy. VMAF correlates better with human judgment than traditional metrics, especially for compression artefacts that PSNR cannot see.
 
 | VMAF Score | Interpretation                |
 | ---------- | ----------------------------- |
@@ -390,7 +393,7 @@ fi
 | vmaf_4k_v0.6.1 | 4K content                           |
 | vmaf_v0.6.1neg | Includes negative quality scores     |
 
-**GPU-accelerated VMAF:** NVIDIA's VMAF-CUDA (FFmpeg 6.1+) achieves ~6x speedup for 1080p/4K. Use when quality validation becomes a bottleneck.
+**GPU-accelerated VMAF:** [NVIDIA's VMAF-CUDA (shipping in VMAF 3.0 and FFmpeg 6.1+)](https://developer.nvidia.com/blog/calculating-video-quality-using-nvidia-gpus-and-vmaf-cuda/) reports a ~2.5-2.8× per-stream throughput improvement and ~6× system-level throughput at the same power draw (8× L4 vs dual Xeon 8480) compared with CPU `libvmaf`. Use when quality validation becomes a bottleneck — and pair it with NVDEC decoding so the pipeline is fully GPU-resident.
 
 ### A/B Testing Quality Configurations
 
@@ -418,6 +421,9 @@ Transcoding pipelines face failures at every stage: corrupt inputs, encoder cras
 | Data corruption | Truncated source  | Fail, alert               |
 
 **Critical rule:** Never retry non-idempotent operations. If a job partially completed (uploaded some chunks), retrying may produce duplicate or corrupt output. Mark as failed and investigate.
+
+![Failure-handling decision tree: route transient errors to retry, resource errors to a larger instance, non-idempotent failures straight to alert, and permanent failures to the dead-letter queue](./diagrams/failure-decision-tree-light.svg "Failure-handling decision tree for transcoding jobs: classify, then retry / re-route / alert.")
+![Failure-handling decision tree: route transient errors to retry, resource errors to a larger instance, non-idempotent failures straight to alert, and permanent failures to the dead-letter queue](./diagrams/failure-decision-tree-dark.svg)
 
 ### Retry with Exponential Backoff
 
@@ -533,40 +539,43 @@ Video transcoding costs split across compute, storage, and egress. At scale, the
 
 ### Cost Components
 
-**Compute costs:**
+All numbers below are AWS US on-demand list price as of early 2026; treat them as order-of-magnitude.
 
-| Instance Type     | Cost/hr | Encode Speed (1080p H.264) | Cost/hr of video |
-| ----------------- | ------- | -------------------------- | ---------------- |
-| c6i.4xlarge (CPU) | $0.68   | ~1x real-time              | $0.68            |
-| g4dn.xlarge (GPU) | $0.526  | ~4x real-time              | $0.13            |
-| vt1.3xlarge (VPU) | $0.65   | ~8x real-time              | $0.08            |
+**Compute costs (rough comparison for 1080p H.264 batch encoding):**
 
-**Storage costs (S3 standard):**
+| Instance Type     | Cost/hr | Approx. encode speed | Cost / hr of video |
+| ----------------- | ------- | -------------------- | ------------------ |
+| c6i.4xlarge (CPU) | $0.68   | ~1× real-time        | $0.68              |
+| g4dn.xlarge (GPU) | $0.526  | ~4× real-time        | $0.13              |
+| vt1.3xlarge (VPU) | $0.65   | ~8× real-time        | $0.08              |
 
-| Retention             | Cost/TB/month |
-| --------------------- | ------------- |
-| 1 year                | $276          |
-| Source + 7 renditions | $2,208        |
+**Storage costs (S3 Standard):**
+
+| Retention                | Cost/TB/month  |
+| ------------------------ | -------------- |
+| Standard tier (per year) | ~$276 / TB     |
+| Source + 7 renditions    | ~$2,208 / TB   |
 
 **Egress costs (AWS to internet):**
 
-| Volume/month | Cost/GB |
-| ------------ | ------- |
-| First 10 TB  | $0.09   |
-| Next 40 TB   | $0.085  |
-| 100+ TB      | $0.07   |
+| Volume/month   | Cost/GB |
+| -------------- | ------- |
+| First 10 TB    | $0.09   |
+| Next 40 TB     | $0.085  |
+| Next 100 TB    | $0.07   |
+| Beyond 150 TB  | $0.05   |
 
-At 1 PB/month egress, AWS costs ~$1M/year. Alternative providers (OCI, Linode) offer 10-18x lower egress rates.
+At 1 PB/month sustained egress on the standard public-internet path, AWS bills land in the **~$0.9-1.0M/year** range; alternative clouds (OCI, Hetzner, Linode/Akamai) and direct CDN contracts (Cloudflare, Bunny, Fastly with committed-use) commonly run **5-15× lower per GB** at scale.
 
 ### Optimization Strategies
 
-**1. Right-size compute:** GPU encoding (NVENC) is 73% more cost-effective than CPU for H.264, 82% for H.265. Trade-off: GPU encoders produce slightly larger files at same quality (lower compression efficiency). Use GPU for volume, CPU for quality-critical content.
+**1. Right-size compute:** [AWS benchmarks NVENC at 73% better price/performance than CPU for H.264 and 82% for H.265](https://aws.amazon.com/blogs/compute/optimizing-video-encoding-with-ffmpeg-using-nvidia-gpu-based-amazon-ec2-instances/). Trade-off: GPU encoders produce slightly larger files at the same quality (lower compression efficiency than `x264`/`x265` `slow`/`veryslow`), so the storage and egress savings of a smarter CPU encode can offset the compute win on long-tail VOD. Use GPU for volume and live; use CPU for quality-critical premium VOD where bits ship millions of times.
 
 **2. Reduce rendition count:** Each rendition multiplies storage. Analyze actual device distribution—if 95% of views are 1080p or below, don't encode 4K. Per-title encoding naturally reduces renditions by selecting only necessary quality steps.
 
-**3. Aggressive codec migration:** AV1 at same quality uses 30% less bitrate than HEVC, 50% less than H.264. Each percentage point of bitrate reduction directly reduces egress cost. The higher encoding cost amortizes across views.
+**3. Aggressive codec migration:** AV1 typically targets ~30% less bitrate than HEVC and ~50% less than H.264 at matched quality (figures vary by content and preset; AOM and several independent comparisons converge on those ranges, with 4K/HDR seeing the largest gains). Every percentage point of bitrate reduction directly reduces egress cost; the higher encoding cost amortizes across views, so AV1 is overwhelmingly justified for high-view VOD and increasingly for default streaming once devices support it.
 
-**4. CDN cache efficiency:** CMAF enables single-file storage for HLS and DASH, halving storage. Higher cache hit ratio reduces origin egress. Monitor cache hit rate; <90% indicates TTL or segmentation issues.
+**4. CDN cache efficiency:** CMAF (`fMP4`) lets HLS and DASH share a single set of segment files instead of maintaining `.ts` + `.fmp4` duplicates, typically cutting media storage and origin footprint by 30-40% (and avoiding double-cache pressure on the CDN). Higher cache hit ratio reduces origin egress. Monitor cache hit rate; sustained < 90% indicates TTL, query-string fragmentation, or segmentation issues.
 
 **5. Regional encoding:** Encode near where content will be consumed. Uploading source to US, encoding, then delivering to Asia doubles egress. Regional encoding pipelines keep data in-region.
 
@@ -715,9 +724,13 @@ The future: AI-driven encoding decisions (per-shot optimization, learned rate co
 
 **Technical References:**
 
-- [Netflix: AV1 Now Powering 30% of Streaming](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) - AV1 adoption and per-title encoding
-- [Netflix: SVT-AV1 Open Source Encoder](https://netflixtechblog.com/svt-av1-an-open-source-av1-encoder-and-decoder-ad295d9b5ca2) - Encoder architecture
+- [Netflix: AV1 Now Powering 30% of Netflix Streaming](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) - AV1 adoption (Dec 2025)
+- [Netflix: Per-Title Encode Optimization](https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2) - Original per-title encoding write-up
+- [Netflix: Dynamic Optimizer](https://netflixtechblog.com/dynamic-optimizer-a-perceptual-video-encoding-optimization-framework-e19f1e3a277f) - Per-shot encoding framework
+- [Netflix: VMAF — The Journey Continues](https://netflixtechblog.com/vmaf-the-journey-continues-44b51ee9ed12) - VMAF model evolution and collaborators
+- [NVIDIA: Calculating Video Quality with VMAF-CUDA](https://developer.nvidia.com/blog/calculating-video-quality-using-nvidia-gpus-and-vmaf-cuda/) - GPU VMAF benchmarks
+- [Fouladi et al., ExCamera (NSDI '17)](https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/fouladi) - Fine-grained chunked encoding on serverless
+- [Phoronix: Intel Releases SVT-AV1 2.0](https://www.phoronix.com/news/Intel-SVT-AV1-2.0) - SVT-AV1 2.0.0 (March 2024) performance notes
+- [AWS: Optimizing Video Encoding with FFmpeg on GPU](https://aws.amazon.com/blogs/compute/optimizing-video-encoding-with-ffmpeg-using-nvidia-gpu-based-amazon-ec2-instances/) - GPU encoding price/performance
 - [Understanding Rate Control Modes](https://slhck.info/video/2017/03/01/rate-control.html) - CRF, CBR, VBR explained
-- [Convex Hull Prediction for Bitrate Ladder Construction](https://dl.acm.org/doi/10.1145/3723006) - Academic paper on per-title encoding
-- [AWS: Optimizing Video Encoding with FFmpeg on GPU](https://aws.amazon.com/blogs/compute/optimizing-video-encoding-with-ffmpeg-using-nvidia-gpu-based-amazon-ec2-instances/) - GPU encoding cost analysis
 - [Temporal: Error Handling in Distributed Systems](https://temporal.io/blog/error-handling-in-distributed-systems) - Retry and circuit breaker patterns

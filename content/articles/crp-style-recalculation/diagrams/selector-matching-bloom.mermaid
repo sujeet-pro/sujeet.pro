@@ -1,0 +1,30 @@
+%% Diagram: Right-to-left selector matching with Bloom-filter rejection
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    start(["Element needs style"]) --> bucket["Look up rule buckets\nby ID, class, tag of element"]
+    bucket --> rule{"Rule has\nancestor combinator?"}
+    rule -- "No" --> match["Compound match on element only"]
+    match --> apply["Add matched declarations"]
+
+    rule -- "Yes" --> bloom{"SelectorFilter Bloom\nholds all required\nancestor IDs/classes/tags?"}
+    bloom -- "Definitely no" --> reject["Reject rule\nno ancestor walk"]
+    bloom -- "Maybe yes" --> walk["Walk ancestor chain\nto verify exact match"]
+    walk -- "Match" --> apply
+    walk -- "No match" --> reject
+
+    apply --> next{"More candidate\nrules in buckets?"}
+    reject --> next
+    next -- "Yes" --> rule
+    next -- "No" --> done(["Hand off to Cascade"])
+
+    classDef start_end fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef reject_node fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef accept fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class start,done start_end
+    class bucket,match,walk stage
+    class rule,bloom,next decision
+    class reject reject_node
+    class apply accept

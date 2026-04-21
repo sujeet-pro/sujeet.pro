@@ -1,0 +1,28 @@
+%% Diagram: System components
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients<br/>web / mobile / TV"]
+    GW["API gateway"]
+    UPLOAD["Upload service"]
+    CHUNK["Chunk manager"]
+    QUEUE["Job queue"]
+    TRANSCODE["Transcoder pool"]
+    QC["QC + VMAF"]
+    PACKAGE["CMAF packager"]
+    RAW[(Raw store)]
+    ENCODED[(Encoded store)]
+    META[(Metadata DB)]
+    CACHE[(Hot metadata cache)]
+    SEARCH["Search index"]
+    REC["Recommendation"]
+    ORIGIN["Origin shield"]
+    CDN["CDN edge"]
+
+    CLIENTS --> GW --> UPLOAD --> CHUNK --> RAW
+    CHUNK --> QUEUE --> TRANSCODE --> QC --> PACKAGE --> ENCODED
+    UPLOAD --> META --> CACHE
+    META --> SEARCH
+    META --> REC
+    ENCODED --> ORIGIN --> CDN
+    CDN --> CLIENTS

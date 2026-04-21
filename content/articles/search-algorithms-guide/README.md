@@ -4,7 +4,7 @@ linkTitle: 'Search Algorithms'
 description: >-
   Search algorithms from linear and binary search through BFS, DFS, Dijkstra, and A* — with TypeScript implementations, complexity analysis, and guidance on choosing the right algorithm based on data structure and search goal.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - algorithms
   - data-structures
@@ -120,7 +120,7 @@ function linearSearchCustom<T>(arr: T[], predicate: (item: T) => boolean): numbe
 
 **Optimizations**:
 
-1. **Sentinel search**: Add target at the end to eliminate bounds checking
+1. **Sentinel search**: Add target at the end to eliminate bounds checking — described in [Knuth, _The Art of Computer Programming_, vol. 3 §6.1](https://www-cs-faculty.stanford.edu/~knuth/taocp.html)
 2. **Move-to-front**: Move found element to front for better subsequent searches
 3. **Early termination**: For sorted arrays, stop when element > target
 
@@ -194,7 +194,7 @@ function jumpSearch(arr: number[], target: number): number {
 | Prerequisite | Sorted array                                 |
 | Use case     | When binary search is expensive (disk seeks) |
 
-**Key insight**: Optimal jump size is √n. Fewer jumps than binary search, useful when backward jumps are costly.
+**Key insight**: Optimal jump size is √n — minimising worst-case probes balances jumps with the trailing linear scan ([Knuth, TAOCP vol. 3 §6.2.1](https://www-cs-faculty.stanford.edu/~knuth/taocp.html)). Fewer jumps than binary search, useful when backward jumps are costly.
 
 **Practical applications**:
 
@@ -376,6 +376,9 @@ function countOccurrences(arr: number[], target: number): number {
 
 Handle arrays that are sorted but rotated at some pivot.
 
+> [!NOTE]
+> The implementation below assumes **distinct** elements. With duplicates, the `arr[left] <= arr[mid]` test stops uniquely identifying the sorted half (e.g. `[1, 0, 1, 1, 1]`), and worst-case time degrades to O(n). The standard fix is to advance `left` and decrement `right` while the boundary values are equal — see [LeetCode 81: Search in Rotated Sorted Array II](https://leetcode.com/problems/search-in-rotated-sorted-array-ii/).
+
 ```typescript
 function searchRotated(arr: number[], target: number): number {
   let left = 0
@@ -421,7 +424,7 @@ function searchRotated(arr: number[], target: number): number {
 
 ### 5. Interpolation Search
 
-**Philosophy**: Like binary search, but guess the position based on value distribution (interpolation). Under the assumption of uniformly distributed data, interpolation search achieves [O(log log n) average-case performance](https://en.wikipedia.org/wiki/Interpolation_search).
+**Philosophy**: Like binary search, but guess the position based on value distribution (interpolation). Under the assumption of uniformly distributed data, interpolation search achieves O(log log n) average-case performance — proved for uniformly drawn keys by [Perl, Itai & Avni (1978), _Interpolation search — a log log N search_](https://csaws.cs.technion.ac.il/~itai/publications/Algorithms/p550-perl.pdf), with the bound generalised to broader distributions by [Willard (1985)](https://users.cs.duke.edu/~reif/paper/willard/interpsearch.pdf). On adversarial or skewed data the algorithm degrades to O(n) ([Wikipedia summary](https://en.wikipedia.org/wiki/Interpolation_search)).
 
 ```typescript
 function interpolationSearch(arr: number[], target: number): number {
@@ -471,7 +474,7 @@ function interpolationSearch(arr: number[], target: number): number {
 
 ### 6. Exponential Search
 
-**Philosophy**: Find the range where the element exists by exponentially increasing the bound, then binary search.
+**Philosophy**: Find the range where the element exists by exponentially increasing the bound, then binary search. Originally analysed by [Bentley & Yao (1976), _An almost optimal algorithm for unbounded searching_](https://www.sciencedirect.com/science/article/pii/0020019076900715), which shows the technique is within a constant factor of the information-theoretic lower bound for unbounded sorted search.
 
 ```typescript
 function exponentialSearch(arr: number[], target: number): number {
@@ -783,21 +786,10 @@ function topologicalSort(graph: Graph): number[] {
 
 **DFS vs BFS comparison**:
 
-```
-Tree structure:
-        1
-       / \
-      2   3
-     / \   \
-    4   5   6
+![BFS visits the tree level by level, DFS goes deep first](./diagrams/bfs-vs-dfs-traversal-light.svg "Visit order on the same six-node tree: BFS expands by level (1, 2, 3, 4, 5, 6), DFS goes deep first (1, 2, 4, 5, 3, 6).")
+![BFS visits the tree level by level, DFS goes deep first](./diagrams/bfs-vs-dfs-traversal-dark.svg)
 
-BFS order: 1, 2, 3, 4, 5, 6  (level by level)
-DFS order: 1, 2, 4, 5, 3, 6  (deep first)
-
-Memory at peak:
-BFS: [1], [2,3], [3,4,5], [4,5,6], ... (width of tree)
-DFS: [1,2,4], [1,2,5], [1,3,6], ...   (height of tree)
-```
+Peak memory follows the same split: BFS holds the entire frontier at the current level (`[1]`, `[2, 3]`, `[3, 4, 5]`, …), so memory scales with the tree's _width_. DFS only holds the current root-to-leaf path (`[1, 2, 4]`, `[1, 2, 5]`, `[1, 3, 6]`, …), so memory scales with the tree's _height_.
 
 **Practical applications**:
 
@@ -817,7 +809,7 @@ DFS: [1,2,4], [1,2,5], [1,3,6], ...   (height of tree)
 
 ### 9. Bidirectional Search
 
-**Philosophy**: Run BFS from both start and end simultaneously until they meet. Reduces search space.
+**Philosophy**: Run BFS from both start and end simultaneously until they meet. Reduces search space from O(b^d) to O(b^(d/2)) when both endpoints are known and the graph allows reverse traversal — see [Russell & Norvig, _Artificial Intelligence: A Modern Approach_, §3.4.6](https://aima.cs.berkeley.edu/).
 
 ```typescript
 function bidirectionalSearch(graph: Graph, start: number, end: number): number[] | null {
@@ -1017,7 +1009,7 @@ function dijkstraWithPath(
 | Optimality | Yes (for non-negative weights)   |
 | Use case   | Shortest path in weighted graphs |
 
-**Critical constraint**: Does NOT work with negative edge weights (use Bellman-Ford instead). With a binary heap implementation, Dijkstra achieves [O((V + E) log V) time complexity](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm).
+**Critical constraint**: Does NOT work with negative edge weights — use [Bellman-Ford](https://en.wikipedia.org/wiki/Bellman%E2%80%93Ford_algorithm) instead. With a binary heap, Dijkstra runs in [O((V + E) log V)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm); with a Fibonacci heap (amortised O(1) decrease-key), it improves to [O(E + V log V)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm) — the Fredman–Tarjan bound that is tight for the comparison-based shortest-path problem.
 
 **Practical applications**:
 
@@ -1200,25 +1192,16 @@ function astarGrid(
 
 **Heuristic requirements** ([A\* optimality conditions](https://en.wikipedia.org/wiki/A*_search_algorithm)):
 
-- **Admissible**: Never overestimates actual cost (h(n) ≤ actual cost)
-- **Consistent**: h(n) ≤ cost(n, n') + h(n') (triangle inequality)
+- **Admissible**: never overestimates actual remaining cost (h(n) ≤ h\*(n)). Sufficient for optimality in **tree search**.
+- **Consistent / monotonic**: h(n) ≤ cost(n, n') + h(n') for every successor (triangle inequality), and h(goal) = 0. Every consistent heuristic is admissible.
+
+> [!IMPORTANT]
+> In **graph search** (the closed-set form used in production code, including the implementation above), admissibility alone is not enough — A\* may revisit nodes through a cheaper path and lose optimality unless the heuristic is consistent or the algorithm re-opens closed nodes when a shorter path is found. [Dechter & Pearl (1985)](https://www.cs.cornell.edu/courses/cs4700/2017fa/lectures/Dechter-Pearl-1985.pdf) is the canonical reference; see also [Russell & Norvig, AIMA §3.5](https://aima.cs.berkeley.edu/). In practice, design for consistent heuristics — Manhattan distance on a 4-connected grid with unit moves and Euclidean distance under unrestricted movement are both consistent.
 
 **A\* vs Dijkstra**:
 
-```
-Dijkstra explores in all directions:
-        ○
-      ○ ○ ○
-    ○ ○ S ○ ○
-      ○ ○ ○
-        ○
-
-A* with good heuristic focuses toward goal:
-          G
-        ○ ○
-      ○ ○
-    ○ S
-```
+![Dijkstra grows its frontier uniformly, A* biases the frontier toward the goal](./diagrams/dijkstra-vs-astar-frontier-light.svg "Frontier shape with the same map: Dijkstra expands radially, A* with an admissible heuristic stretches toward the goal and prunes side branches.")
+![Dijkstra grows its frontier uniformly, A* biases the frontier toward the goal](./diagrams/dijkstra-vs-astar-frontier-dark.svg)
 
 **Practical applications**:
 
@@ -1380,35 +1363,8 @@ function sqrt(x: number, precision: number = 1e-6): number {
 
 ### Decision Tree: Which Search to Use?
 
-```
-What are you searching?
-│
-├─ Array/List
-│  │
-│  ├─ Unsorted → Linear Search
-│  │
-│  └─ Sorted
-│     │
-│     ├─ Small (n < 100) → Linear Search
-│     ├─ Large, uniformly distributed → Interpolation Search
-│     ├─ Unbounded/infinite → Exponential Search
-│     ├─ Expensive random access (disk) → Jump Search
-│     └─ General case → Binary Search
-│
-└─ Graph
-   │
-   ├─ Unweighted
-   │  │
-   │  ├─ Find any path → DFS
-   │  ├─ Shortest path → BFS
-   │  └─ Both start & end known → Bidirectional BFS
-   │
-   └─ Weighted
-      │
-      ├─ No heuristic available → Dijkstra
-      ├─ Goal known + good heuristic → A*
-      └─ Negative weights → Bellman-Ford (not covered)
-```
+![Algorithm decision tree from the data shape down to a specific search algorithm](./diagrams/algorithm-decision-tree-light.svg "Decision tree from data shape (array vs graph) and constraints (sortedness, uniformity, weight, heuristic) down to a specific algorithm choice.")
+![Algorithm decision tree from the data shape down to a specific search algorithm](./diagrams/algorithm-decision-tree-dark.svg)
 
 ---
 
@@ -1750,9 +1706,9 @@ async function parallelBFS(graph: Graph, start: number): Promise<void> {
 
 **Iterative Deepening DFS (IDDFS)**:
 
-- Combines DFS space efficiency with BFS completeness
-- Runs DFS with increasing depth limits
-- Time: O(V + E), Space: O(d) where d is depth
+- Combines DFS space efficiency with BFS completeness — formalised by [Korf (1985), _Depth-first iterative-deepening: an optimal admissible tree search_](https://cse.sc.edu/~mgv/csce580sp15/gradPres/korf_IDAStar_1985.pdf).
+- Runs DFS with increasing depth limits.
+- Time: O(b^d) on a tree with branching factor b, dominated by the deepest iteration; space: O(d) where d is the depth.
 
 ```typescript
 function iddfs(graph: Graph, start: number, target: number): boolean {
@@ -1828,7 +1784,7 @@ Search algorithms are fundamentally about exploiting structure. The more you kno
 - **BFS O(V+E)**: Guarantees shortest path in unweighted graphs; level-order exploration
 - **DFS O(V+E)**: Memory efficient (O(depth) vs O(width)); use for cycle detection, topological sort
 - **Dijkstra O((V+E) log V)**: Shortest path for non-negative weighted graphs; greedy with priority queue
-- **A\***: Dijkstra + heuristic guidance; often expands far fewer nodes than Dijkstra when the heuristic is strong and remains optimal when the heuristic is admissible
+- **A\* O(E) best**: Dijkstra + heuristic guidance; expands far fewer nodes when the heuristic is strong, optimal under an admissible heuristic in tree search and a consistent heuristic in graph search
 
 ### References
 
@@ -1838,9 +1794,13 @@ Search algorithms are fundamentally about exploiting structure. The more you kno
 
 **Algorithm-Specific Sources:**
 
-- [A\* Search Algorithm - Wikipedia](https://en.wikipedia.org/wiki/A*_search_algorithm) - History, optimality proofs, and variants. Originally published by Hart, Nilsson, Raphael (1968).
-- [Dijkstra's Algorithm - Wikipedia](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm) - Original 1959 paper reference, complexity analysis with different heap implementations.
-- [Interpolation Search - Wikipedia](https://en.wikipedia.org/wiki/Interpolation_search) - Average-case O(log log n) proof for uniformly distributed data.
+- [Hart, Nilsson, Raphael (1968), _A Formal Basis for the Heuristic Determination of Minimum Cost Paths_, IEEE TSSC 4(2):100-107](https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf) — the original A\* paper, with optimality proofs over admissible heuristics.
+- [Dechter & Pearl (1985), _Generalized Best-First Search Strategies and the Optimality of A\*_](https://www.cs.cornell.edu/courses/cs4700/2017fa/lectures/Dechter-Pearl-1985.pdf) — corrects the original optimality claim; demonstrates the role of consistency in graph search.
+- [A\* Search Algorithm — Wikipedia](https://en.wikipedia.org/wiki/A*_search_algorithm) — history, optimality conditions, and variants.
+- [Dijkstra's Algorithm — Wikipedia](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm) — original 1959 paper reference, complexity analysis with different heap implementations.
+- [Perl, Itai & Avni (1978), _Interpolation search — a log log N search_](https://csaws.cs.technion.ac.il/~itai/publications/Algorithms/p550-perl.pdf) — original O(log log n) proof for uniform keys.
+- [Bentley & Yao (1976), _An almost optimal algorithm for unbounded searching_](https://www.sciencedirect.com/science/article/pii/0020019076900715) — the foundational analysis of exponential search.
+- [Korf (1985), _Depth-first iterative-deepening: an optimal admissible tree search_](https://cse.sc.edu/~mgv/csce580sp15/gradPres/korf_IDAStar_1985.pdf) — formal treatment of IDDFS and IDA\*.
 
 **Standards and RFCs:**
 

@@ -1,0 +1,18 @@
+%% Diagram: AbortSignal Propagation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  user["user clicks Cancel"] --> ctrl["AbortController.abort(reason)"]
+  timer["AbortSignal.timeout(ms)"] --> any
+  ctrl --> sig1["controller.signal"]
+  sig1 --> any["AbortSignal.any([sig1, timer])"]
+
+  any --> fetchOp["fetch(url, { signal })&#10;rejects with AbortError"]
+  any --> listener["addEventListener('click', fn, { signal })&#10;listener auto-removed"]
+  any --> stream["ReadableStream / WritableStream&#10;cancel() with reason"]
+  any --> custom["custom API: signal.throwIfAborted()&#10;+ signal.addEventListener('abort')"]
+
+  classDef src fill:#5A4A7E,stroke:#3D305A,color:#ffffff
+  classDef sink fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  class user,timer,ctrl src
+  class fetchOp,listener,stream,custom sink

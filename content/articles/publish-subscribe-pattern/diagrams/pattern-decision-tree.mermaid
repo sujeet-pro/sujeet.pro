@@ -1,0 +1,23 @@
+%% Diagram: Decision tree for selecting Pub/Sub vs Observer vs RPC vs Message Queue
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Q1{Need a response<br/>from the receiver?}
+    Q1 -->|Yes| RPC[Use RPC / direct call.<br/>Pub/Sub hides who replies.]
+    Q1 -->|No| Q2{One known<br/>recipient?}
+
+    Q2 -->|Yes| OBS[Use Observer or<br/>direct callback.<br/>Broker is overhead.]
+    Q2 -->|No - many independent reactors| Q3{Need durable delivery<br/>or cross-process scale?}
+
+    Q3 -->|No - in-process only| PUB[Use in-process Pub/Sub.<br/>Map of topic to Set of cb.]
+    Q3 -->|Yes - durable, multi-process| Q4{Need work distribution<br/>1 of N consumers?}
+
+    Q4 -->|Yes| MQ[Use a queue:<br/>RabbitMQ, SQS, BullMQ.<br/>Competing consumers.]
+    Q4 -->|No - fan-out to all| BRK[Use a distributed broker:<br/>Kafka, Pulsar, NATS,<br/>Redis Streams.]
+
+    classDef decision fill:#e1d5e7,stroke:#9673a6,color:#000
+    classDef pubsub fill:#d5e8d4,stroke:#82b366,color:#000
+    classDef alt fill:#dae8fc,stroke:#6c8ebf,color:#000
+    class Q1,Q2,Q3,Q4 decision
+    class PUB,BRK pubsub
+    class RPC,OBS,MQ alt

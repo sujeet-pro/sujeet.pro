@@ -1,0 +1,15 @@
+%% Diagram: Bit layout of Pinterest's 64-bit object ID
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph ID64["64-bit object ID (signed long)"]
+        direction LR
+        R["Reserved<br/>bits 63-62<br/>2 bits<br/>= 0"]
+        S["Shard ID<br/>bits 61-46<br/>16 bits<br/>0..65,535"]
+        T["Type ID<br/>bits 45-36<br/>10 bits<br/>0..1,023"]
+        L["Local ID<br/>bits 35-0<br/>36 bits<br/>~68B per shard/type"]
+        R --- S --- T --- L
+    end
+
+    EX["Pin 241,294,492,511,762,325<br/>shard=3429, type=1 (Pin), local=7,075,733"]
+    ID64 -.example.-> EX

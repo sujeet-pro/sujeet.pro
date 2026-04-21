@@ -4,17 +4,20 @@ linkTitle: 'Service Workers'
 description: >-
   Offline-first web architecture using the Service Worker lifecycle, Cache API storage strategies, and fetch interception patterns — from precaching and stale-while-revalidate to safe version updates and background sync.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
-  - browser
+  - service-worker
+  - pwa
+  - caching
+  - offline
   - web-apis
+  - browser
   - javascript
-  - accessibility
 ---
 
 # Service Workers and Cache API
 
-A comprehensive exploration of offline-first web architecture, examining how the [Service Worker API](https://w3c.github.io/ServiceWorker/) (W3C Working Draft, January 2026) enables network interception and background processing, how the [Cache API](https://w3c.github.io/ServiceWorker/#cache-interface) provides fine-grained storage for request/response pairs, and how update flows ensure clients transition safely between versions. These APIs form the foundation of Progressive Web Apps (PWAs): service workers intercept fetches and decide response sources, Cache API stores those responses durably, and the lifecycle model ensures exactly one version controls clients at any time.
+A senior-engineer reference for offline-first web architecture: how the [Service Worker API](https://www.w3.org/TR/service-workers/) (W3C Candidate Recommendation Draft, [9 April 2026 publication](https://www.w3.org/standards/history/service-workers/)) intercepts network requests and runs background work, how the [Cache API](https://www.w3.org/TR/service-workers/#cache-interface) stores `Request` → `Response` pairs durably, and how the lifecycle model lets you ship updates without two tabs running incompatible code. These APIs are the substrate of Progressive Web Apps (PWAs): the worker decides where each response comes from, the Cache API persists those responses across browser restarts, and the activation rules guarantee a single controlling version per scope at any moment.
 
 ![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-light.svg "Service workers intercept requests and decide whether to serve from cache, network, or both")
 ![Service workers intercept requests and decide whether to serve from cache, network, or both](./diagrams/service-workers-intercept-requests-and-decide-whether-to-serve-from-cache-networ-dark.svg)
@@ -34,9 +37,11 @@ Service workers represent a fundamental shift from traditional web architecture:
 
 **Critical design decisions:**
 
-- **Event-driven with termination**: The spec notes "the lifetime of a service worker is tied to the execution lifetime of events"—workers may start and stop "many times a second." Global state doesn't persist; use IndexedDB or Cache API
-- **Waiting state by default**: New workers wait until all clients using the old version close. This prevents mid-session version mismatches but means updates don't apply immediately
-- **HTTPS mandatory**: Service workers can intercept any request in their scope, including credentials. Without TLS, attackers could inject malicious workers via MITM
+- **Event-driven with termination**: The spec is explicit that "the lifetime of a service worker is tied to the execution lifetime of events" and that workers "may be started and killed many times a second"[^lifetime]. In-memory globals don't persist between events; use [IndexedDB](https://www.w3.org/TR/IndexedDB/) or Cache API for state.
+- **Waiting state by default**: New workers wait until all clients using the old version close. This prevents mid-session version mismatches but means updates don't apply immediately.
+- **Secure context required**: Service workers can intercept any request in their scope, including credentials, so [registration is restricted to secure contexts](https://www.w3.org/TR/service-workers/#secure-context). HTTPS is required in production; `http://localhost` (and `127.0.0.1`) is exempt for development.
+
+[^lifetime]: [Service Workers Nightly — § Service Worker concept](https://www.w3.org/TR/service-workers/#service-worker-concept), W3C Candidate Recommendation Draft.
 
 ---
 
@@ -115,7 +120,7 @@ cache.add(new Request("https://cdn.example.com/lib.js", { mode: "no-cors" }))
 // Warning: no-cors responses are "opaque"—you can't inspect status or headers
 ```
 
-**`waitUntil()` is critical**: The install event would complete immediately without it, potentially activating before caching finishes. If the promise rejects, the worker becomes `redundant`.
+**`waitUntil()` is critical**: The install event would complete immediately without it, potentially activating before caching finishes. If the promise rejects, the worker [transitions to `redundant`](https://www.w3.org/TR/service-workers/#service-worker-state) and is discarded — so a single broken precache URL kills the entire install.
 
 ### Activate Event: Cleanup
 
@@ -178,11 +183,14 @@ self.addEventListener("activate", (event) => {
 Service workers update when:
 
 1. Navigation to an in-scope page (if >24 hours since last check)
-2. Push/sync event fires (if >24 hours since last check)
+2. Functional events (push, sync) fire while the worker has not been update-checked in the last 24 hours
 3. `registration.update()` called explicitly
-4. Worker script URL changes (rare, avoid this pattern)
+4. Worker script URL changes (rare; avoid this pattern — it strands the old registration)
 
-The browser fetches the worker script and compares bytes. Any difference triggers a new install. The spec notes: "Most browsers default to ignoring caching headers when checking for updates."
+The browser fetches the worker script and compares bytes. Any difference triggers a new install. The 24-hour cap is normative: the [registration is "stale"](https://www.w3.org/TR/service-workers/#dfn-stale) once 86400 seconds have passed since the last check, and the browser then bypasses the HTTP cache regardless of `Cache-Control`.
+
+> [!IMPORTANT]
+> Since [Chrome 68](https://developer.chrome.com/blog/fresher-sw), the HTTP cache is bypassed for the top-level worker script on every update check by default. This is encoded in the registration option `updateViaCache`, which defaults to `'imports'` (consult HTTP cache for `importScripts()`, ignore it for the worker script itself). Use `'none'` to also bypass the cache for `importScripts()`; use `'all'` only if you really want the legacy pre-Chrome-68 behavior.
 
 ```typescript
 // Trigger manual update check
@@ -280,13 +288,17 @@ await cache.match("/api?page=1", { ignoreSearch: true }) // Returns first match
 
 Cache storage counts against the origin's quota:
 
-| Browser | Default Quota                      | Eviction Policy                                      |
-| ------- | ---------------------------------- | ---------------------------------------------------- |
-| Chrome  | 60% of disk (5% in incognito)      | Least Recently Used (LRU) by origin                  |
-| Firefox | Up to 2GB per eTLD+1               | LRU when disk pressure                               |
-| Safari  | ~1GB (prompts for more on desktop) | **7-day cap on script-writable storage** (see below) |
+| Browser | Per-origin quota                                                                                                       | Eviction / lifetime                                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Chrome  | Up to 60% of total disk per origin; ~100 MiB per origin in incognito[^chrome-quota]                                    | LRU eviction when global storage is over budget; persistent storage exempt                                           |
+| Firefox | Best-effort: `min(10% of total disk, 10 GiB)` shared across an eTLD+1 group; persistent storage up to 50% / 8 TiB[^ff] | LRU eviction across best-effort origins under disk pressure                                                          |
+| Safari  | ~1 GB on desktop (prompts for more)                                                                                    | **7-day cap on script-writable storage** wipes Cache API, IndexedDB, and SW registrations without user interaction[^safari-itp] |
 
-**Safari's 7-day limit**: Since March 2020, Safari deletes all script-writable storage (IndexedDB, Cache API, service worker registrations) after 7 days without user interaction. This resets when the user visits the site. PWAs added to home screen are exempt.
+[^chrome-quota]: [Chrome — Storage for the web](https://web.dev/articles/storage-for-the-web) (60% per-origin, total disk denominator) and [Workbox — Understanding storage quota](https://developer.chrome.com/docs/workbox/understanding-storage-quota) (~100 MiB incognito cap).
+[^ff]: [MDN — Storage quotas and eviction criteria](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria), Firefox section.
+[^safari-itp]: [WebKit blog — Full Third-Party Cookie Blocking and More](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) (March 2020). Cache, IndexedDB, LocalStorage, SessionStorage, SW registrations, and JS-set cookies are all included.
+
+**Safari's 7-day limit** is the dominant operational concern for PWAs targeting iOS/macOS. The clock measures Safari _browser use_ without a [meaningful first-party interaction](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/) on your origin. Web apps added to the home screen run as standalone PWAs and are exempt; everything else loses its precache (and any IndexedDB-backed offline state) after a week.
 
 Check quota with the Storage API:
 
@@ -307,7 +319,10 @@ if (persistent) {
 
 ## Caching Strategies
 
-The fetch event is where caching strategies execute. Each strategy trades off freshness, speed, and offline capability:
+The fetch event is where caching strategies execute. Each strategy trades off freshness, speed, and offline capability. Pick one per resource class — not one per service worker:
+
+![Decision tree for picking a caching strategy per resource class](./diagrams/caching-strategy-decision-tree-light.svg "Decision tree: pick a caching strategy from request method, URL versioning, and freshness tolerance.")
+![Decision tree for picking a caching strategy per resource class](./diagrams/caching-strategy-decision-tree-dark.svg)
 
 ### Cache-First (Cache Falling Back to Network)
 
@@ -633,7 +648,10 @@ self.addEventListener("fetch", (event) => {
 
 ### Background Sync for Offline Actions
 
-Queue failed mutations for retry when online:
+Queue failed mutations for retry when online.
+
+> [!WARNING]
+> The [Background Sync API](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API) is **Chromium-only**. As of 2026, [Firefox and Safari do not implement it](https://caniuse.com/background-sync). Treat it as a progressive enhancement: feature-detect `'SyncManager' in self`, and fall back to retry-on-next-load (e.g., on `controllerchange` or app start) for the rest of the audience.
 
 ```typescript title="page.js" collapse={1-3}
 // Queue the request for background sync
@@ -843,9 +861,10 @@ Caching strategies represent trade-offs, not best practices. Cache-first sacrifi
 
 **Specifications (Primary Sources)**
 
-- [Service Workers](https://w3c.github.io/ServiceWorker/) - W3C Working Draft (defines registration, lifecycle, fetch events, cache interface)
-- [Fetch Standard](https://fetch.spec.whatwg.org/) - WHATWG Living Standard (defines Request, Response, fetch algorithm)
-- [Storage Standard](https://storage.spec.whatwg.org/) - WHATWG Living Standard (defines quota, persistence, storage buckets)
+- [Service Workers](https://www.w3.org/TR/service-workers/) — W3C Candidate Recommendation Draft (registration, lifecycle, fetch events, cache interface, navigation preload)
+- [Fetch Standard](https://fetch.spec.whatwg.org/) — WHATWG Living Standard (Request, Response, fetch algorithm, opaque responses)
+- [Storage Standard](https://storage.spec.whatwg.org/) — WHATWG Living Standard (quota, persistence, storage buckets)
+- [Web Background Synchronization](https://wicg.github.io/background-sync/) — W3C WICG Editor's Draft (Chromium-only)
 
 **Official Documentation**
 

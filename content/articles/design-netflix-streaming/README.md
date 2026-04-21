@@ -2,513 +2,383 @@
 title: Design Netflix Video Streaming
 linkTitle: 'Netflix'
 description: >-
-  A deep dive into Netflix's streaming architecture — covering the Open Connect CDN,
-  per-title and shot-based encoding pipelines, adaptive bitrate delivery, and the
-  personalization systems that drive 80% of viewing hours.
+  A deep dive into Netflix's streaming architecture — Open Connect CDN,
+  per-title and shot-based encoding, AV1 rollout, adaptive bitrate playback,
+  multi-DRM, and the personalization stack that drives most viewing hours.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - architecture
+  - case-study
+  - media
+  - cdn
 ---
 
 # Design Netflix Video Streaming
 
-Netflix serves 300+ million subscribers across 190+ countries, delivering 94 billion hours of content in H2 2024 alone. Unlike user-generated video platforms (YouTube), Netflix is a consumption-first architecture—the challenge is not upload volume but delivering pre-encoded content with sub-second playback start times while optimizing for quality-per-bit across wildly different devices and network conditions. This design covers the Open Connect CDN, per-title/shot-based encoding pipeline, adaptive bitrate delivery, and the personalization systems that drive 80% of viewing hours.
+Netflix ended 2024 with [301.63 million paid subscribers](https://about.netflix.com/news/netflix-q4-2024-letter-to-shareholders) and [94 billion hours of viewing in H2 2024 alone](https://about.netflix.com/news/what-we-watched-the-second-half-of-2024). Unlike user-generated platforms (YouTube, TikTok), Netflix is a *consumption-first* architecture: the catalog is finite and known in advance, so the design problem is not ingest at scale — it is delivering pre-encoded bytes to the player with sub-2-second start, near-zero rebuffering, and the highest perceptual quality the path can sustain. This article is the system design view of how that works: the [Open Connect](https://openconnect.netflix.com/en/) CDN, the [Cosmos](https://netflixtechblog.com/the-netflix-cosmos-platform-35c14d9351ad) encoding pipeline, per-title and shot-based optimization, adaptive bitrate playback, multi-DRM, and the personalization stack that decides what to play and what artwork to show.
 
-![High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-light.svg "High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.")
-![High-level architecture: content preparation → proactive distribution to Open Connect edge → client playback with personalized steering.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-dark.svg)
+![Netflix high-level architecture: content preparation feeds the Open Connect fill pipeline that proactively positions files at edge OCAs; the AWS control plane authenticates, generates manifests, and steers each client to an OCA.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-light.svg "Netflix high-level architecture: content preparation feeds the Open Connect fill pipeline that proactively positions files at edge OCAs; the AWS control plane authenticates, generates manifests, and steers each client to an OCA.")
+![Netflix high-level architecture: content preparation feeds the Open Connect fill pipeline that proactively positions files at edge OCAs; the AWS control plane authenticates, generates manifests, and steers each client to an OCA.](./diagrams/high-level-architecture-content-preparation-proactive-distribution-to-open-conne-dark.svg)
 
-## Abstract
+## Mental model
 
-Netflix's streaming architecture is shaped by three fundamental constraints:
+Three constraints shape almost every decision in Netflix's streaming stack:
 
-1. **Pre-known catalog enables proactive caching**: Unlike YouTube's real-time uploads, Netflix's finite catalog (~7,500 titles in US) allows overnight proactive distribution to edge servers. This achieves 98%+ cache hit rates without origin egress during playback.
+1. **Predictable catalog enables proactive caching.** A finite, slowly-changing library lets Netflix populate edge caches *before* anyone presses play, instead of relying on demand-driven cache fills. That is what the [Open Connect](https://openconnect.netflix.com/en/) program is built around.
+2. **Quality-per-bit varies by content.** A talking-heads interview compresses dramatically more efficiently than an action sequence at the same perceptual quality. Per-title and per-shot encoding turn that variance into bandwidth savings without losing perceived quality, measured with [VMAF](https://github.com/Netflix/vmaf).
+3. **Device fragmentation forces a multi-codec strategy.** A 2015 smart TV decodes only H.264; a 2024 smart TV decodes [AV1 in hardware](https://netflixtechblog.com/bringing-av1-streaming-to-netflix-members-tvs-b7fc88e42320). Netflix encodes each title in several codecs and serves the best one each device can decode, which is why AV1 [now powers about 30% of Netflix viewing](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80).
 
-2. **Quality perception varies by content**: A documentary with static shots compresses efficiently at 2 Mbps; an action sequence needs 8+ Mbps for equivalent perceptual quality. Per-title and shot-based encoding optimizes each scene independently.
+Two architectural splits hold the whole stack together:
 
-3. **Device fragmentation demands multi-codec strategy**: Smart TVs from 2015 support only H.264; modern browsers support AV1. Netflix encodes each title in multiple codecs (H.264, HEVC, VP9, AV1) to maximize quality-per-bit on each device class.
-
-The core mechanisms:
-
-- **Open Connect CDN** embeds Netflix appliances directly in ISP networks, serving 100% of video traffic from 1,000+ locations
-- **Per-title encoding** analyzes content complexity and generates custom bitrate ladders, achieving 20% average bandwidth savings
-- **Shot-based (Dynamic Optimizer) encoding** allocates bits per-scene, achieving 50% bitrate reduction for equivalent quality
-- **VMAF-driven quality control** ensures perceptual quality targets (93+) rather than arbitrary bitrate thresholds
-- **Proactive fill pipeline** pre-positions content during off-peak hours based on predicted popularity
+- **Control plane on AWS, data plane on Open Connect.** API requests, manifests, DRM licenses, and personalization run on EC2 / Titus inside [a few AWS regions](https://aws.amazon.com/solutions/case-studies/netflix-case-study/). Bytes of video never leave Open Connect.
+- **Pipeline first, playback second.** Anything that can be precomputed (encoding, popularity prediction, fill placement) runs offline. Online playback is mostly just edge fetches plus a thin manifest/license round-trip.
 
 ## Requirements
 
-### Functional Requirements
+### Functional
 
 | Requirement                  | Priority | Notes                                         |
 | ---------------------------- | -------- | --------------------------------------------- |
-| Video playback               | Core     | Adaptive streaming, multiple quality levels   |
+| Adaptive video playback      | Core     | Multiple bitrates and codecs per title        |
 | Multi-device support         | Core     | TVs, mobile, tablets, browsers, game consoles |
-| Personalized recommendations | Core     | 80% of viewing driven by recommendations      |
+| Personalized recommendations | Core     | Drives roughly 80% of viewing                 |
 | Continue watching            | Core     | Cross-device position sync                    |
 | Multiple profiles            | Core     | Per-user personalization                      |
 | Offline downloads            | Core     | Mobile viewing without connectivity           |
 | Search and browse            | Core     | Full catalog discovery                        |
 | Subtitles and audio tracks   | Core     | Multiple languages per title                  |
 | DRM protection               | Core     | Content security across all platforms         |
-| Parental controls            | Extended | Content filtering by rating                   |
-| Live streaming               | Extended | Events (recently added)                       |
+| Parental controls            | Extended | Content filtering by maturity rating          |
+| Live streaming               | Extended | Sport and event streaming, recently added     |
 
-### Non-Functional Requirements
+### Non-functional targets
 
-| Requirement            | Target                  | Rationale                              |
-| ---------------------- | ----------------------- | -------------------------------------- |
-| Playback availability  | 99.99%                  | Revenue-critical, subscriber retention |
-| Playback start latency | p99 < 2s                | Industry benchmark, user experience    |
-| Rebuffering ratio      | < 0.1% of playback time | Netflix target, premium experience     |
-| Video quality          | VMAF > 93               | Perceptual quality standard            |
-| Catalog availability   | 99.999%                 | Entire catalog playable                |
-| CDN cache hit rate     | > 95%                   | Origin cost and latency                |
-| Concurrent streams     | Support 20M+            | Peak evening traffic                   |
+| Property               | Target                  | Source / rationale                                                                 |
+| ---------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| Playback availability  | ~99.99%                 | Subscription churn cost; chaos engineering bar                                     |
+| Playback start latency | p99 < 2 s               | Industry rule of thumb; Netflix QoE target                                         |
+| Rebuffering ratio      | < 0.1% of playback time | AV1 rollout cut buffering by [45% on TVs](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) |
+| Perceptual quality     | VMAF > 93               | Netflix's deployment threshold                                                     |
+| Edge cache hit rate    | > 95%                   | Origin egress cost dominates without it                                            |
 
-### Scale Estimation
+### Scale baseline (publicly disclosed and inferred)
 
-**Netflix-scale baseline (Q4 2024):**
+```text title="Scale baseline" wrap
+Subscribers (paid, Q4 2024): 301.63M, in 190+ countries
+Viewing (H2 2024):           94B hours, +5% YoY
+Live peak (Nov 2024):        65M concurrent streams (Tyson v Paul fight)
 
-```
-Subscribers: 301.63 million (global)
-DAU estimate: ~150M (50% daily engagement)
-Concurrent peak estimate: 20M+ streams
+Edge footprint:
+  ISP partners:       1,000+ (Open Connect program)
+  Locations:          ~1,000+ (Netflix; an academic snapshot in 2016 mapped 4,669 servers)
+  ASNs in BGP:        AS2906 (Netflix POPs), AS40027 (embedded OCAs), AS55095
 
-Viewing traffic:
-- H2 2024: 94 billion hours watched
-- Daily average: ~500M hours/day
-- Peak concurrent: 20M streams × 8 Mbps average = 160 Tbps
-- With 98% edge hit rate: 3.2 Tbps from origin (worst case)
-
-Content library:
-- US catalog: ~7,500 titles (3,800 movies, 1,800 TV shows)
-- ~59% Netflix Originals
-- Storage per title: 10-50 encoded variants × 2-8 GB each
-- Total encoded storage: ~5-10 PB estimated
-
-Open Connect scale:
-- 1,000+ deployment locations
-- 4,669+ servers mapped by researchers
-- Single OCA: up to 400 Gbps serving capacity
+AWS estate (control plane only — no video bytes):
+  EVCache (Memcached): ~200 clusters, ~22,000 instances, ~400M ops/sec,
+                       ~2T cached items, ~14.3 PB of memory
 ```
 
-**Live streaming record (November 2024):**
+> [!NOTE]
+> Concurrent-stream and DAU figures are not published at full granularity. The 65M concurrent peak above is from a single live event; steady-state evening peaks are not officially disclosed. Daily active subscribers, total encoded storage, and the absolute video-traffic figure are educated estimates, not Netflix releases.
 
-```
-Tyson vs Paul fight: 65 million concurrent viewers
-Demonstrates burst capacity handling for events
-```
+## Two viable design paths
 
-## Design Paths
+For interview / decision contexts, contrast a commercial-CDN design with the custom-CDN design Netflix actually runs.
 
-### Path A: Third-Party CDN (Traditional)
+### Path A — third-party CDN
 
-**Best when:**
+**Best when** the catalog is small, the geographic footprint is narrow, traffic is variable, or the team cannot justify dedicated hardware.
 
-- Smaller catalog (< 1,000 titles)
-- Limited geographic scope
-- Variable/unpredictable traffic patterns
-- Cost-sensitive at small scale
-
-**Architecture:**
-
-- Use commercial CDN (Akamai, CloudFront, Fastly)
-- Origin servers in cloud provider
-- CDN handles caching, routing, TLS termination
+- Use a commercial CDN ([Akamai](https://www.akamai.com/), [CloudFront](https://aws.amazon.com/cloudfront/), [Fastly](https://www.fastly.com/), [Cloudflare](https://www.cloudflare.com/)).
+- Origin lives in a cloud provider; CDN handles caching, routing, and TLS termination.
 
 **Trade-offs:**
 
-- ✅ No infrastructure investment
-- ✅ Pay-per-GB pricing aligns with usage
-- ✅ Instant global reach
-- ❌ Per-GB costs prohibitive at scale (Netflix would pay billions)
-- ❌ No ISP-level embedding (additional network hops)
-- ❌ Less control over quality-of-experience
-- ❌ Generic caching strategies, not content-aware
+- **Pros:** zero infrastructure investment, pay-per-GB pricing aligned with usage, instant global reach, vendor handles TLS/cert hygiene.
+- **Cons:** per-GB costs become punitive at scale; no ISP-level embedding, so an extra peering hop on every byte; less control over cache key / eviction; harder to ship content-aware optimisation.
 
-**Real-world example:** Most OTT services (Hulu, Peacock, Paramount+) rely on commercial CDNs. Acceptable when scale doesn't justify custom infrastructure.
+Most OTT services (Hulu, Disney+, Peacock, Paramount+) live here.
 
-### Path B: Custom CDN with ISP Embedding (Netflix Model)
+### Path B — custom CDN with ISP embedding (Netflix's model)
 
-**Best when:**
+**Best when** the catalog is large and predictable, scale justifies hardware, and quality differentiation is a competitive lever.
 
-- Massive scale (100M+ subscribers)
-- Predictable catalog enables proactive caching
-- Quality differentiation is competitive advantage
-- Long-term investment justifies infrastructure
-
-**Architecture:**
-
-- Custom appliances (OCAs) deployed in ISP facilities
-- Proactive overnight content distribution
-- No per-GB transit costs after hardware investment
-- Direct peering eliminates intermediate hops
+- Custom appliances ([OCAs](https://openconnect.netflix.com/en/appliances/)) deployed inside ISP facilities or at IXPs.
+- Proactive overnight content distribution from S3 origin to OCAs.
+- No per-GB transit costs after hardware investment; direct peering kills intermediate hops.
 
 **Trade-offs:**
 
-- ✅ 98%+ cache hit rates with proactive fill
-- ✅ Sub-millisecond latency to end users
-- ✅ Amortized cost far below commercial CDN at scale
-- ✅ Complete control over caching and routing
-- ❌ Massive upfront hardware investment
-- ❌ ISP relationship management complexity
-- ❌ Operational burden (hardware, software, support)
-- ❌ Long deployment lead times for new regions
+- **Pros:** ~98% edge hit rate with proactive fill; sub-millisecond OCA-to-subscriber latency; amortised cost far below commercial CDN at Netflix scale; complete control over caching and steering.
+- **Cons:** large upfront hardware investment; ISP relationship management is a real organisation; long lead times for new regions; you own all the hardware and on-call.
 
-**Real-world example:** Netflix Open Connect handles 100% of Netflix traffic. Google has similar infrastructure (Google Global Cache) for YouTube.
+Real-world parallels: Google does the equivalent with [Google Global Cache](https://peering.google.com/#/options/google-global-cache) for YouTube; Meta operates [Facebook Edge Network](https://engineering.fb.com/2018/05/02/data-infrastructure/facebook-edge-network/).
 
-### Path Comparison
+### Path comparison
 
-| Factor         | Third-Party CDN    | Custom CDN (Open Connect) |
-| -------------- | ------------------ | ------------------------- |
-| Setup time     | Hours              | Months                    |
-| Upfront cost   | None               | $100M+ in hardware        |
-| Per-GB cost    | $0.02-0.10         | Near-zero (amortized)     |
-| ISP latency    | +10-50ms (peering) | +1-5ms (embedded)         |
-| Cache hit rate | 85-95%             | 98%+                      |
-| Control        | Limited            | Complete                  |
-| Best for       | < 50M subscribers  | > 100M subscribers        |
+| Factor          | Third-party CDN     | Custom CDN (Open Connect) |
+| --------------- | ------------------- | ------------------------- |
+| Setup time      | Hours               | Months                    |
+| Upfront cost    | None                | Hardware-heavy            |
+| Per-GB cost     | $0.02 – $0.10       | Near-zero amortised       |
+| ISP RTT add     | +10 – 50 ms peering | +1 – 5 ms embedded        |
+| Edge hit rate   | 85 – 95%            | ~98%                      |
+| Operational ownership | Vendor       | You                       |
+| Sweet spot      | < 50M subscribers   | > 100M subscribers        |
 
-### This Article's Focus
+The rest of this article focuses on **Path B**: it is what makes Netflix's architecture distinctive, and most of the engineering reasoning generalises to any service willing to invest in an edge.
 
-This article focuses on **Path B (Custom CDN)** because:
+## High-level design
 
-1. Netflix scale justifies the infrastructure investment
-2. The proactive fill model is unique to predictable catalogs
-3. ISP embedding provides measurable quality differentiation
-4. The architecture demonstrates principles applicable to any large-scale streaming service
+### Component overview
 
-## High-Level Design
+The control plane and data plane are operated as two independent stacks. The split is deliberate — the workloads have different scaling, security, and failure properties, and treating them separately keeps each one tractable.
 
-### Component Overview
+![Control-plane components on AWS: API gateway fronts auth, playback, license, steering, and personalization services; metadata sits in Cassandra fronted by EVCache.](./diagrams/system-architecture-control-plane-light.svg "Control-plane components on AWS: API gateway fronts auth, playback, license, steering, and personalization services; metadata sits in Cassandra fronted by EVCache.")
+![Control-plane components on AWS: API gateway fronts auth, playback, license, steering, and personalization services; metadata sits in Cassandra fronted by EVCache.](./diagrams/system-architecture-control-plane-dark.svg)
 
-![System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.](./diagrams/system-architecture-control-plane-light.svg "System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.")
-![System architecture (control plane): AWS hosts gateway, auth, playback, and personalization services.](./diagrams/system-architecture-control-plane-dark.svg)
+![Content pipeline and edge delivery: ingest feeds the Cosmos encoding platform, packaged outputs land in S3, the fill pipeline pre-positions files at OCAs, and the steering service tells each client which OCA to use.](./diagrams/system-architecture-content-delivery-light.svg "Content pipeline and edge delivery: ingest feeds the Cosmos encoding platform, packaged outputs land in S3, the fill pipeline pre-positions files at OCAs, and the steering service tells each client which OCA to use.")
+![Content pipeline and edge delivery: ingest feeds the Cosmos encoding platform, packaged outputs land in S3, the fill pipeline pre-positions files at OCAs, and the steering service tells each client which OCA to use.](./diagrams/system-architecture-content-delivery-dark.svg)
 
-![System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.](./diagrams/system-architecture-content-delivery-light.svg "System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.")
-![System architecture (content delivery): ingest → encode → S3 origin → Open Connect CDN, steered per-client.](./diagrams/system-architecture-content-delivery-dark.svg)
+### Traffic split: AWS vs Open Connect
 
-### Traffic Split: AWS vs Open Connect
+| Traffic type        | Infrastructure      | Why it lives there                      |
+| ------------------- | ------------------- | --------------------------------------- |
+| Video segments      | Open Connect (100%) | Bandwidth-heavy, latency-sensitive      |
+| API requests        | AWS                 | Compute-heavy, elastic                  |
+| Personalization     | AWS                 | ML training and inference, data-heavy   |
+| DRM license issuance| AWS                 | Security-critical, transactional        |
+| Manifest generation | AWS                 | Per-request, device-specific            |
 
-Netflix pioneered a clean separation:
+This is the single most important architectural decision in the system. Each side optimises for its workload: AWS scales millions of small API requests; Open Connect scales hundreds of terabits of video bytes.
 
-| Traffic Type        | Infrastructure      | Rationale                              |
-| ------------------- | ------------------- | -------------------------------------- |
-| Video streaming     | Open Connect (100%) | Bandwidth-intensive, latency-sensitive |
-| API requests        | AWS                 | Compute-intensive, scalable            |
-| Personalization     | AWS                 | ML workloads, data-intensive           |
-| License acquisition | AWS                 | Security-sensitive, transactional      |
+### Playback flow at request time
 
-This separation allows each infrastructure to optimize for its workload. AWS handles millions of API requests; Open Connect handles hundreds of terabits of video.
+1. **Client requests playback** → API gateway (Netflix-internal [Zuul](https://github.com/Netflix/zuul)) authenticates and routes to the Playback service.
+2. **Playback service generates a manifest** → device-specific list of streams (codec, resolution, bitrate, audio, subtitle).
+3. **Steering service ranks OCAs** → returns a sorted list keyed on proximity, current load, and health.
+4. **Client acquires a DRM license** → key exchange with the License service, in parallel with the first segment fetch.
+5. **Client fetches segments from the chosen OCA** → ABR algorithm picks a quality rung per segment.
+6. **Playback proceeds** → continuous adaptation based on buffer level and observed throughput.
 
-### Playback Flow
+### Control plane vs data plane
 
-1. **Client requests playback** → API Gateway authenticates, routes to Playback Service
-2. **Playback Service generates manifest** → Lists available streams (codecs, resolutions, bitrates)
-3. **Steering Service selects OCAs** → Returns ranked list based on proximity, load, health
-4. **Client acquires license** → DRM key exchange with License Service
-5. **Client fetches segments from OCA** → ABR algorithm selects quality
-6. **Playback begins** → Continuous quality adaptation based on buffer and throughput
-
-### Control Plane vs Data Plane
-
-**Control plane (AWS):**
-
-- Authentication and authorization
-- Manifest generation
-- DRM license issuance
-- Personalization and recommendations
-- A/B testing
-- Billing and account management
-
-**Data plane (Open Connect):**
-
-- Video segment delivery
-- Cache management
-- BGP routing announcements
-- Health reporting
+| Plane          | Where             | Responsibilities                                                                    |
+| -------------- | ----------------- | ----------------------------------------------------------------------------------- |
+| Control plane  | AWS               | Auth, manifest generation, DRM licensing, recommendations, A/B tests, billing       |
+| Data plane     | Open Connect      | Video segment delivery, OCA cache management, BGP route announcements, telemetry    |
 
 ## Open Connect CDN
 
-### Architecture
+### Topology
 
-![Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-light.svg "Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.")
-![Open Connect topology: ISP-embedded OCAs serve most traffic; IXP clusters handle cache misses; origin serves ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-dark.svg)
+![Open Connect topology: ISP-embedded OCAs serve most subscriber traffic; IXP clusters cover ISPs without an embedded OCA and absorb cache misses; the AWS S3 origin only sees the residual ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-light.svg "Open Connect topology: ISP-embedded OCAs serve most subscriber traffic; IXP clusters cover ISPs without an embedded OCA and absorb cache misses; the AWS S3 origin only sees the residual ~2% of requests.")
+![Open Connect topology: ISP-embedded OCAs serve most subscriber traffic; IXP clusters cover ISPs without an embedded OCA and absorb cache misses; the AWS S3 origin only sees the residual ~2% of requests.](./diagrams/open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-dark.svg)
 
-### OCA Appliance Specifications
+### OCA appliance specifications
 
-Netflix offers multiple OCA configurations to ISP partners:
+Netflix currently publishes two OCA hardware tiers on the Open Connect site:[^oca-specs]
 
-| Appliance Type     | Storage      | Throughput | Use Case                      |
-| ------------------ | ------------ | ---------- | ----------------------------- |
-| **Standard Flash** | 24 TB NVMe   | 190 Gbps   | High-traffic ISPs             |
-| **Large Storage**  | 120 TB HDD   | 18 Gbps    | Broad catalog, lower traffic  |
-| **Large Flash**    | 360 TB mixed | 96 Gbps    | Balanced performance/capacity |
+| Appliance         | Raw storage  | Operational throughput | Typical use                                      |
+| ----------------- | ------------ | ---------------------- | ------------------------------------------------ |
+| Storage appliance | up to 120 TB | ~200 Gbps              | High-traffic ISPs that need most of the catalog  |
+| Global appliance  | up to 60 TB  | ~80 Gbps               | Smaller ISPs / emerging markets                  |
 
-**Performance milestones:**
+[^oca-specs]: [Netflix Open Connect Appliances](https://openconnect.netflix.com/en/appliances/) (current as of 2025–2026). Earlier appliance lines (Standard Flash, Large Storage, Large Flash) were retired; the current spec sheet supersedes any older description.
 
-- **2017**: 100 Gbps TLS streaming from single server (FreeBSD, NGINX)
-- **2021**: 400 Gbps from single server with TLS offload to NIC
+A single appliance has come a long way at the per-server throughput frontier:
 
-**2021 configuration achieving 400 Gbps:**
+- **2017** — [serving 100 Gbps from a single OCA](https://netflixtechblog.com/serving-100-gbps-from-an-open-connect-appliance-cdb51dda3b99) by combining FreeBSD, NGINX, and a careful NUMA layout. The earlier ~90 Gbps milestone was for *mostly unencrypted* traffic; reaching 100 Gbps with TLS required moving encryption into the kernel TLS path.
+- **2021** — [400 Gbps from a single FreeBSD server](https://papers.freebsd.org/2021/eurobsdcon/gallatin-netflix-freebsd-400gbps/) by offloading TLS to the NIC. Without that offload, throughput was capped at roughly 240 Gbps by memory bandwidth and CPU encryption cost.
 
-```
-CPU: AMD EPYC 7502p (32 cores, Rome)
-Memory: 256 GB DDR4-3200
-Storage: 18 × 2TB Western Digital SN720 NVMe
-Network: 2 × Mellanox ConnectX-6 Dx (PCIe 4.0 x16)
-OS: FreeBSD
-Web Server: NGINX
-TLS: Offloaded to NIC (key enabler for 400 Gbps)
+```text title="Reference 2021 single-server config (EuroBSDcon paper)" wrap
+CPU:        AMD EPYC 7502P (32-core "Rome")
+Memory:     256 GB DDR4-3200 (8 channels)
+Storage:    18 x 2 TB Western Digital SN720 NVMe (PCIe Gen3 x4)
+Network:    2 x Mellanox ConnectX-6 Dx (PCIe Gen4 x16, 4 x 100 GbE)
+OS / WS:    FreeBSD-CURRENT, NGINX
+TLS:        Kernel TLS with NIC offload (key enabler for 400 Gbps)
 ```
 
-TLS offloading to the NIC was the critical optimization—without it, throughput capped at ~240 Gbps due to CPU-bound encryption.
+### Deployment models
 
-### Deployment Models
+**Embedded (inside ISP network):** OCA sits in the ISP's data center. Zero transit cost for the ISP, lowest possible RTT (often 1–5 ms) to subscribers, and the ISP supplies power, space, and connectivity.
 
-**Embedded (Inside ISP Network):**
+**Peering (at an IXP):** OCA cluster sits at an Internet Exchange Point such as [Equinix](https://www.equinix.com/) or [DE-CIX](https://www.de-cix.net/). Serves multiple ISPs via peering. Higher RTT than embedded (roughly 10–50 ms), but no ISP partnership required.
 
-- OCA deployed in ISP data center
-- Zero transit cost for ISP
-- Lowest latency to subscribers (1-5ms)
-- ISP provides power, space, connectivity
+In practice, an ISP starts on the peering side and graduates to embedded once its Netflix traffic justifies hardware on-prem.
 
-**Peering (Internet Exchange Point):**
+### BGP routing
 
-- OCA deployed at IXP (e.g., Equinix, DE-CIX)
-- Serves multiple ISPs via peering
-- Higher latency than embedded (10-50ms)
-- Used for ISPs without embedded partnership
+OCAs announce routes via BGP so traffic stays as close to the subscriber as possible. The Open Connect partner docs are the source of truth here:[^asn]
 
-### BGP Routing
-
-OCAs announce routes via BGP to attract Netflix traffic:
-
-```
-Netflix ASN: 2906 (customer-facing)
-Open Connect ASN: 40027 (OCA infrastructure)
-
-Route announcement:
-- OCA announces covering prefix (e.g., 45.57.0.0/17)
-- ISP router prefers local OCA routes
-- Traffic stays within ISP network
+```text title="Netflix BGP / ASN layout"
+AS2906   Netflix Streaming Services    (POPs and direct peering)
+AS40027  Netflix Streaming Services    (embedded OCAs)
+AS55095  Netflix Streaming Services    (additional OCA prefixes)
+as-set   AS-NFLX                       (covers all three)
 ```
 
-**Route selection criteria (in order):**
+[^asn]: [Netflix Open Connect — Network configuration](https://openconnect.zendesk.com/hc/en-us/articles/360035533071-Network-configuration). When an ISP has both peering with AS2906 and an embedded OCA in AS40027, the OCA wins because the embedded route has a shorter AS path.
 
-1. OCA availability and health
-2. Route specificity (most specific prefix wins)
-3. AS path length
-4. MED (Multi-Exit Discriminator)
-5. Geographic proximity
+Route preference at the partner router, in the usual BGP order:
 
-### Fill Pipeline
+1. OCA availability and health (BGP withdrawn if the OCA is unhealthy)
+2. Most-specific prefix wins
+3. Shortest AS path
+4. MED (multi-exit discriminator)
+5. Geographic / iBGP tie-breakers
 
-**Proactive caching philosophy:**
+### Fill pipeline
 
-Netflix doesn't wait for cache misses. The Fill Pipeline predicts content demand and pre-positions files during off-peak hours.
+Netflix doesn't wait for cache misses. The fill pipeline predicts demand and pre-positions files during off-peak hours.
 
-**Fill process:**
+![Open Connect fill pipeline: a daily popularity model converts view telemetry and catalog metadata into per-OCA fill manifests; the actual transfer runs in the configured off-peak window from S3 origin to each OCA, with checksum verification on the receiving side.](./diagrams/fill-pipeline-light.svg "Open Connect fill pipeline: a daily popularity model converts view telemetry and catalog metadata into per-OCA fill manifests; the actual transfer runs in the configured off-peak window from S3 origin to each OCA, with checksum verification on the receiving side.")
+![Open Connect fill pipeline: a daily popularity model converts view telemetry and catalog metadata into per-OCA fill manifests; the actual transfer runs in the configured off-peak window from S3 origin to each OCA, with checksum verification on the receiving side.](./diagrams/fill-pipeline-dark.svg)
 
-1. **Popularity computation**: Daily prediction of what members will watch
-2. **Replica calculation**: More popular content → more replicas across clusters
-3. **Manifest generation**: Each OCA receives custom file list
-4. **Off-peak transfer**: Nightly downloads during configurable windows
-5. **Verification**: Checksum validation after transfer
+The crucial optimisation came from switching from *title-level* popularity to *file-level* popularity. Not every file for a title is equally popular — the 4K HDR AV1 file is only useful on capable devices, while the 720p H.264 fallback might serve the long tail. By ranking files individually, Netflix reached the same effective hit rate with [roughly half the storage footprint per OCA](https://netflixtechblog.com/distributing-content-to-open-connect-3e3e391d4dc9).
 
-**Optimization milestone:**
+### Cache performance
 
-- Original: Title-level popularity rankings
-- Improved: File-level popularity (specific resolution/codec combinations)
-- Result: Same cache efficiency with **50% less storage**
-
-This works because not all files for a title are equally popular. 4K HDR files are only needed for capable devices; most streams use 720p or 1080p.
-
-### Cache Performance
-
-| Metric              | Target | Achieved                   |
+| Metric              | Target | Achieved (publicly stated) |
 | ------------------- | ------ | -------------------------- |
 | Edge cache hit rate | > 95%  | ~98%                       |
 | Origin fetch rate   | < 5%   | ~2%                        |
-| Fill accuracy       | > 90%  | High (exact not published) |
 
-At Netflix scale, a 1% improvement in cache hit rate eliminates terabytes of daily origin egress.
+At Netflix scale, a 1% improvement in edge hit rate eliminates terabytes of daily egress from S3 and transit cost everywhere upstream of the OCA.
 
-## Video Encoding Pipeline
+## Video encoding pipeline
 
-### The Cosmos Platform
+### Cosmos: the platform under everything
 
-Netflix rebuilt its encoding pipeline on Cosmos (completed September 2023), replacing the previous Reloaded system.
+Netflix completed migration of its video pipeline from the legacy [Reloaded](https://netflixtechblog.com/the-evolution-of-the-netflix-video-pipeline-43b1cd5dbb1c) system to [Cosmos in September 2023](https://netflixtechblog.com/rebuilding-netflix-video-processing-pipeline-with-microservices-4e5e6310e359). Cosmos is "orchestrated functions as a service" — a media-centric microservice platform built around three subsystems and an asynchronous bus:[^cosmos]
 
-![Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-light.svg "Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.")
-![Cosmos encoding pipeline: analysis → encoding → quality control → packaging. Failed VMAF segments are re-encoded at higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-dark.svg)
+| Component | Role                                                                  |
+| --------- | --------------------------------------------------------------------- |
+| Optimus   | API layer — maps external requests to internal media business models  |
+| Plato     | Workflow orchestration — DAGs / rule-based step modelling             |
+| Stratum   | Serverless compute — stateless containers for CPU-heavy work          |
+| Timestone | High-priority asynchronous messaging between the layers above         |
 
-**Platform components:**
+[^cosmos]: [The Netflix Cosmos Platform](https://netflixtechblog.com/the-netflix-cosmos-platform-35c14d9351ad) and [The Making of VES — the Cosmos microservice for Netflix video encoding](https://netflixtechblog.com/the-making-of-ves-the-cosmos-microservice-for-netflix-video-encoding-946b9b3cd300).
 
-| Component     | Purpose                     |
-| ------------- | --------------------------- |
-| **Optimus**   | API layer                   |
-| **Plato**     | Workflow orchestration      |
-| **Stratum**   | Serverless compute layer    |
-| **Timestone** | High-scale priority queuing |
+A Stranger Things episode with an average shot length of around four seconds runs through about 900 shots per episode through that pipeline, which is the practical scale that justifies the workflow orchestration layer.[^900-shots]
 
-**Processing scale:**
+[^900-shots]: [Optimized shot-based encodes: Now Streaming!](https://netflixtechblog.com/optimized-shot-based-encodes-now-streaming-4b9464204830) — example used by Netflix to illustrate per-episode shot counts.
 
-A single Stranger Things episode requires processing **900 shots** through the pipeline.
+![Cosmos encoding pipeline: ingest feeds analysis (complexity, ladder generation), encoding runs in parallel, and the VMAF quality gate either passes the segment to packaging or sends it back for re-encoding at a higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-light.svg "Cosmos encoding pipeline: ingest feeds analysis (complexity, ladder generation), encoding runs in parallel, and the VMAF quality gate either passes the segment to packaging or sends it back for re-encoding at a higher bitrate.")
+![Cosmos encoding pipeline: ingest feeds analysis (complexity, ladder generation), encoding runs in parallel, and the VMAF quality gate either passes the segment to packaging or sends it back for re-encoding at a higher bitrate.](./diagrams/cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-dark.svg)
 
-### Per-Title Encoding
+### From fixed ladder to per-shot allocation
 
-Introduced in 2015, per-title encoding customizes bitrate ladders based on content complexity.
+The encoding strategy has evolved through three generations, each one trading more CPU for fewer bits at the same perceptual quality.
 
-**Why fixed ladders fail:**
+![Encoding strategy evolution: the fixed ladder gave every title the same bitrate at each rung; per-title encoding (2015) ran a convex-hull search per title to set custom bitrates; shot-based / Dynamic Optimizer (2018+) re-allocates bits scene-by-scene, which is what unlocked 4K at ~8 Mbps and the HDR storage cut.](./diagrams/encoding-strategy-comparison-light.svg "Encoding strategy evolution: the fixed ladder gave every title the same bitrate at each rung; per-title encoding (2015) ran a convex-hull search per title to set custom bitrates; shot-based / Dynamic Optimizer (2018+) re-allocates bits scene-by-scene, which is what unlocked 4K at ~8 Mbps and the HDR storage cut.")
+![Encoding strategy evolution: the fixed ladder gave every title the same bitrate at each rung; per-title encoding (2015) ran a convex-hull search per title to set custom bitrates; shot-based / Dynamic Optimizer (2018+) re-allocates bits scene-by-scene, which is what unlocked 4K at ~8 Mbps and the HDR storage cut.](./diagrams/encoding-strategy-comparison-dark.svg)
 
-```
-Fixed ladder (traditional):
-720p: 3 Mbps
-1080p: 5 Mbps
-4K: 16 Mbps
+#### Per-title encoding (2015)
 
-Reality:
-- Documentary (low motion): VMAF 93 at 720p/1.5 Mbps
-- Action movie (high motion): VMAF 93 at 720p/4 Mbps
+Introduced in [December 2015](https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2). Netflix runs hundreds of trial encodes per title at varying resolutions and quantization parameters, plots the resulting (bitrate, VMAF) points, and selects the convex-hull points as the bitrate ladder for that specific title.
 
-Result: Fixed ladder wastes 2.5 Mbps on documentaries, under-serves action movies
-```
+Worked example from the original blog: *Orange Is the New Black*'s 1080p top rung dropped from **5800 kbps** on the fixed ladder to **4640 kbps** on the per-title ladder — a 20% reduction at the same quality. Light-motion content (animations, talking-head shows) sees larger savings; high-motion content sees smaller ones.
 
-**Per-title methodology:**
+#### Shot-based encoding / Dynamic Optimizer (2018+)
 
-1. Encode source to hundreds of resolution/bitrate combinations
-2. Compute VMAF score for each combination
-3. Plot quality vs. bitrate curve (convex hull analysis)
-4. Select optimal points on the curve as the custom ladder
+Per-title still applies a uniform bitrate within a single rung. The [Dynamic Optimizer](https://netflixtechblog.com/dynamic-optimizer-a-perceptual-video-encoding-optimization-framework-e19f1e3a277f) goes further: it segments the source on shot boundaries, scores each shot's complexity, and allocates bits per shot. The pipeline then assembles the shots back together, with IDR frames aligned to shot boundaries so the assembly remains valid.
 
-**Results:**
+Reported impact:
 
-- Average: **20% bandwidth savings** without quality loss
-- Some titles: **50%+ reduction** (low-complexity content)
+| Improvement                | Headline number                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| 4K SDR top-rung bitrate    | ~8 Mbps average vs the prior 16 Mbps ceiling[^do-4k]                                           |
+| HDR catalog storage        | DO ladder uses ~58% of the fixed-ladder storage footprint (full HDR catalog by [June 2023](https://netflixtechblog.com/all-of-netflixs-hdr-video-streaming-is-now-dynamically-optimized-e9e0cb15f2ba)) |
+| Per-codec bitrate savings  | ~28% on x264, ~34% on HEVC, ~38% on VP9 vs fixed-QP[^do-codec]                                  |
 
-### Shot-Based Encoding (Dynamic Optimizer)
+[^do-4k]: [Optimized shot-based encodes for 4K: Now streaming!](https://netflixtechblog.com/optimized-shot-based-encodes-for-4k-now-streaming-d8c8a73f0fbf).
+[^do-codec]: Per-codec figures reported in [Streaming Media's coverage](https://www.streamingmedia.com/Articles/Columns/The-Producers-View/Announcing-the-Swift-Death-of-Per-Title-Encoding-2015-2019-132484.aspx) of Netflix's 2019 dynamic-optimization work.
 
-Per-title improved on fixed ladders, but applied uniform bitrate across an entire title. Shot-based encoding optimizes each scene independently.
+### Codec strategy
 
-**How it works:**
+Netflix encodes each title in multiple codecs and serves the best one each device can decode in hardware. The current line-up:
 
-1. **Shot detection**: Identify scene boundaries (cuts, fades, motion discontinuities)
-2. **Complexity analysis**: Compute per-shot complexity (motion, texture, film grain)
-3. **Bitrate allocation**: Allocate more bits to complex shots, fewer to simple ones
-4. **Encoding**: IDR frames aligned with shot boundaries
-5. **Assembly**: Concatenate variable-bitrate shots
+| Codec       | Bandwidth vs H.264 | Device support                          | Encoding cost | Netflix usage                                                                    |
+| ----------- | ------------------ | --------------------------------------- | ------------- | -------------------------------------------------------------------------------- |
+| H.264 (AVC) | Baseline           | Universal                               | 1x            | Legacy fallback                                                                  |
+| H.265 (HEVC)| ~50% better        | iOS, Safari, modern smart TVs           | 2 – 4x        | Apple ecosystem and recent HDR TVs                                               |
+| VP9         | ~50% better        | Chrome, Firefox, Android, many TVs      | 2 – 3x        | Web and Android baseline                                                         |
+| AV1         | ~30 – 50% vs VP9   | Modern browsers, recent TVs and Apple silicon | 5 – 10x | [~30% of all Netflix viewing as of Dec 2025](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) |
 
-**Results:**
+Netflix's [December 2025 AV1 update](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) reports that AV1 streams averaged **+4.3 VMAF over AVC** and **+0.9 VMAF over HEVC** at roughly **one-third less bandwidth**, and contributed to a **45% reduction in rebuffering on TVs**. Since 2023, almost every device submitted for Netflix certification has supported AV1, and Netflix expects AV1 to become the primary delivery codec.
 
-| Improvement                | Metric                          |
-| -------------------------- | ------------------------------- |
-| Bitrate reduction          | **30%** vs fixed-QP encoding    |
-| Quality-equivalent bitrate | **50% lower** for same VMAF     |
-| 4K achievement             | **8 Mbps** (previously 16 Mbps) |
-| HDR storage                | **58%** of fixed ladder storage |
+The decision logic the player uses at startup, in pseudocode:
 
-**Example scene:**
-
-```
-Scene 1: Dialogue in dim room (low complexity)
-  - Fixed: 5 Mbps, VMAF 96
-  - Dynamic: 2 Mbps, VMAF 95
-  - Savings: 3 Mbps, negligible quality loss
-
-Scene 2: Car chase with explosions (high complexity)
-  - Fixed: 5 Mbps, VMAF 82 (quality loss)
-  - Dynamic: 9 Mbps, VMAF 93
-  - Improvement: 11 VMAF points
-
-Result: Same average bitrate, but quality is optimized per-scene
+```python title="codec selection (player side)"
+def pick_codec(device):
+    if device.supports_hardware("av1"):
+        return "av1"
+    if device.supports_hardware("vp9"):
+        return "vp9"
+    if device.supports_hardware("hevc") and device.platform == "apple":
+        return "hevc"
+    return "h264"
 ```
 
-### Codec Strategy
+> [!IMPORTANT]
+> "Supports AV1" almost always means *hardware decode* — software decode of AV1 in a TV main loop melts the CPU and battery. The Android rollout used the [`dav1d`](https://code.videolan.org/videolan/dav1d) software decoder as a stopgap, but TV adoption only became viable once hardware decoders were widespread.
 
-| Codec            | Bandwidth vs H.264 | Device Support           | Encoding Cost | Netflix Usage        |
-| ---------------- | ------------------ | ------------------------ | ------------- | -------------------- |
-| **H.264 (AVC)**  | Baseline           | Universal                | 1x            | Legacy fallback      |
-| **H.265 (HEVC)** | 50% better         | iOS, Safari, some TVs    | 2-4x          | Apple ecosystem      |
-| **VP9**          | 50% better         | Chrome, Firefox, Android | 2-3x          | Web, Android         |
-| **AV1**          | 30-50% vs VP9      | Modern browsers, new TVs | 5-10x         | **30% of streaming** |
+### VMAF: the quality metric that replaced PSNR
 
-**AV1 adoption (as of 2024):**
+[Video Multimethod Assessment Fusion (VMAF)](https://github.com/Netflix/vmaf) was [open-sourced by Netflix in June 2016](https://netflixtechblog.com/toward-a-practical-perceptual-video-quality-metric-653f208b9652), built jointly with USC, IPI/LS2N Nantes, and the UT Austin LIVE lab.
 
-Netflix reported AV1 now powers ~30% of streaming traffic, becoming their primary format for capable devices. On TVs specifically, AV1 delivers **1/3 less bandwidth** than H.264/HEVC for equivalent quality.
+**Components fused via SVM regression:**
 
-**Encoding decision tree:**
+- **Visual Information Fidelity (VIF)** at four spatial scales
+- **Detail Loss Metric (DLM)**
+- **Motion** — average absolute pixel difference between adjacent frames
 
-```
-if device.supports(AV1):
-    serve AV1
-elif device.supports(VP9):
-    serve VP9
-elif device.supports(HEVC) and device.is_apple:
-    serve HEVC
-else:
-    serve H.264
-```
+**Score interpretation Netflix uses internally:**
 
-### VMAF Quality Metric
+| VMAF score | Quality level                |
+| ---------- | ---------------------------- |
+| 93+        | Excellent (deployment target)|
+| 85 – 93    | Good                         |
+| 70 – 85    | Fair                         |
+| < 70       | Poor — re-encode             |
 
-Video Multimethod Assessment Fusion (VMAF) is Netflix's open-source perceptual quality metric, developed with USC, IPI/LS2N Nantes, and UT Austin LIVE lab.
+PSNR is a decent signal-to-noise metric, but it correlates poorly with what humans actually see: film grain looks fine to viewers but tanks PSNR; smoothed/blurred output looks bad to viewers but scores well. VMAF was trained against subjective Mean Opinion Score (MOS) data, which is what made it adoptable as an industry-wide quality target.
 
-**Components:**
+## Adaptive bitrate streaming
 
-- Visual Information Fidelity (VIF)
-- Detail Loss Metric (DLM)
-- Mean Co-Located Pixel Difference (MCPD)
-- Fused via SVM regression
+### Streaming protocols
 
-**Score interpretation:**
+| Protocol  | Where Netflix uses it     | Notes                                                                                                        |
+| --------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| MPEG-DASH | Most non-Apple devices    | [ISO/IEC 23009-1](https://www.iso.org/standard/83314.html) (5th edition, 2022)                               |
+| HLS       | Safari, iOS, Apple TV     | [RFC 8216](https://www.rfc-editor.org/rfc/rfc8216) (Informational, 2017); [`draft-pantos-hls-rfc8216bis`](https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/) is the active 2nd-edition draft (rev 21, March 2026) |
+| CMAF      | Underlying packaging      | [ISO/IEC 23000-19](https://www.iso.org/standard/85623.html); single fMP4 serves both HLS and DASH            |
 
-| VMAF Score | Quality Level              |
-| ---------- | -------------------------- |
-| 93+        | Excellent (Netflix target) |
-| 85-93      | Good                       |
-| 70-85      | Fair                       |
-| < 70       | Poor (triggers re-encode)  |
+Netflix [uses CMAF](https://netflixtechblog.com/packaging-award-winning-shows-with-award-winning-technology-c1010594ba39) (Common Media Application Format) so a single set of fragmented MP4 segments serves both HLS and DASH manifests; the per-protocol manifest just changes how the same byte ranges are described. CMAF also defines the *chunk* unit inside a segment, which is what enables low-latency variants — HLS Low-Latency (`#EXT-X-PART`) and DASH-LL both publish chunks as soon as the encoder closes them, instead of waiting for the full segment to land.
 
-**Why VMAF replaced PSNR:**
+![CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.](./diagrams/cmaf-chunk-timeline-light.svg "CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.")
+![CMAF chunk timeline: each 4-second segment is sliced into ~200 ms chunks; HLS partial-segment tags and DASH SegmentTimeline both reference the same underlying fMP4 byte ranges so one packaging job feeds both protocols.](./diagrams/cmaf-chunk-timeline-dark.svg)
 
-- PSNR measures pixel-level difference, not human perception
-- Film grain scores poorly on PSNR but looks natural to viewers
-- Blurring scores well on PSNR but looks bad to viewers
-- VMAF correlates with Mean Opinion Score (MOS) from human evaluations
+### Manifest generation
 
-Netflix replaced PSNR with VMAF in **June 2016**.
+When a client requests playback, the Playback service generates a *per-device* manifest containing:
 
-## Adaptive Bitrate Streaming
-
-### Streaming Protocols
-
-| Protocol      | Usage                    | Notes                        |
-| ------------- | ------------------------ | ---------------------------- |
-| **MPEG-DASH** | Primary for most devices | ISO standard                 |
-| **HLS**       | Safari, iOS, Apple TV    | Apple ecosystem              |
-| **CMAF**      | Unified packaging        | Single source for HLS + DASH |
-
-Netflix uses CMAF (Common Media Application Format) for packaging, which allows generating both HLS and DASH manifests from the same encoded segments.
-
-### Manifest Generation
-
-When a client requests playback, the Playback Service generates a device-specific manifest:
-
-**Manifest contents:**
-
-- Available bitrate ladder (device-appropriate)
-- Codec options (filtered by device capability)
-- Audio track options (languages, formats)
+- The bitrate ladder filtered to what the device can actually decode and render
+- The codec set the device hardware supports
+- Audio tracks (languages, formats including spatial audio where supported)
 - Subtitle tracks
-- DRM information (license server URL, key IDs)
-- CDN URLs (OCA endpoints)
+- DRM information — license server URL, key IDs, robustness level
+- A ranked list of OCA URLs from the steering service
 
-**Example HLS variant playlist (simplified):**
+A simplified HLS variant playlist for an AV1 ladder:
 
-```m3u8
+```m3u8 title="HLS variant playlist (simplified)"
 #EXTM3U
 #EXT-X-VERSION:7
 
@@ -525,336 +395,290 @@ When a client requests playback, the Playback Service generates a device-specifi
 480p-av1/playlist.m3u8
 ```
 
-### ABR Algorithm
+### ABR algorithm
 
-Netflix's ABR algorithm balances multiple objectives:
+Netflix's ABR work is published in pieces — the highest-signal references are the [*Buffer-Based Approach*](https://research.netflix.com/publication/a-buffer-based-approach-to-rate-adaptation) paper (Huang et al., SIGCOMM 2014) and follow-up work on RL-based ABR. The deployed algorithm is hybrid: throughput estimation gates *what is safe*, buffer level decides *whether to climb or hold*. The two academic baselines worth knowing in this space are [BOLA](https://arxiv.org/abs/1601.06748) (Spiteri et al., INFOCOM 2016) — a near-optimal Lyapunov-based buffer-only controller, used in dash.js — and [MPC](https://users.ece.cmu.edu/~xia/resources/Documents/SIGCOMM2015_FINAL.pdf) (Yin et al., SIGCOMM 2015), which formulates ABR as a model-predictive control problem over a short horizon. Netflix's production controller is closer in spirit to a hybrid buffer-based approach with throughput as the safety floor.
 
-**Input signals:**
+![ABR quality-selection state machine: the player starts conservatively, climbs to steady state when the buffer is healthy, defends quality when the buffer dips below half the target, and falls to the lowest rung (or switches OCA) in emergency.](./diagrams/abr-quality-selection-light.svg "ABR quality-selection state machine: the player starts conservatively, climbs to steady state when the buffer is healthy, defends quality when the buffer dips below half the target, and falls to the lowest rung (or switches OCA) in emergency.")
+![ABR quality-selection state machine: the player starts conservatively, climbs to steady state when the buffer is healthy, defends quality when the buffer dips below half the target, and falls to the lowest rung (or switches OCA) in emergency.](./diagrams/abr-quality-selection-dark.svg)
 
-- Buffer level (seconds of content buffered)
-- Throughput history (recent segment download speeds)
-- Device constraints (memory, CPU, battery)
-- Network type (WiFi vs cellular)
+**Inputs the ABR controller actually consumes:**
 
-**Algorithm approach (hybrid):**
+- Buffer level (seconds of playable content already downloaded)
+- Throughput history (exponential weighted moving average of recent segment download rates)
+- Device constraints (memory ceiling, CPU headroom, battery state on mobile)
+- Network type (Wi-Fi vs cellular — cellular has tighter caps and harsher tails)
 
-```
-Throughput estimation:
-- Exponential weighted moving average of recent downloads
-- Conservative safety margin (70% of estimated)
+**Sketch of the selection rule:**
 
-Buffer-based adjustment:
-- Low buffer (< 10s): Prioritize stability, drop quality
-- Target buffer (30s): Normal operation
-- High buffer (> 45s): Allow quality increase
-
-Quality selection:
-safe_bitrate = throughput_estimate × 0.7
+```text title="ABR selection (sketch)"
+safe_bitrate = throughput_estimate * safety_margin   # safety_margin ~ 0.7 in practice
 buffer_factor = buffer_level / target_buffer
 
-if rebuffering_recent:
-    selected = lowest_quality
+if just_rebuffered:
+    selected = lowest_rung
 elif buffer_factor < 0.5:
-    selected = quality_below_safe_bitrate
+    selected = highest rung strictly below safe_bitrate
 else:
-    selected = highest_quality_below_safe_bitrate
+    selected = highest rung <= safe_bitrate
 ```
 
-**Startup behavior:**
+**Startup behaviour:** open at a conservative quality (often 720p or below), fetch the first few segments to fill the buffer past 10 s, then ramp up. Reaching the target rung typically takes 15 – 30 s of healthy network.
 
-1. Start at conservative quality (720p or below)
-2. Fetch first few segments quickly to build buffer
-3. Ramp up quality as buffer exceeds 10 seconds
-4. Reach target quality within 15-30 seconds
+> [!TIP]
+> Practical guard-rails most ABR implementations enforce: a minimum dwell time (~10 s) between rung switches to prevent oscillation, a maximum drop of two rungs per switch under normal conditions, and an emergency drop to the lowest rung if the buffer falls under ~5 s. Exact thresholds vary by client.
 
-**Quality switch constraints:**
+### Rebuffering prevention
 
-- Minimum dwell time between switches: 10 seconds (prevents oscillation)
-- Maximum drop per switch: 2 quality levels
-- Emergency drop: Any level if buffer < 5 seconds
+Netflix targets a rebuffering ratio under 0.1% of playback time. The mechanisms that get there:
 
-### Rebuffering Prevention
+| Mechanism               | How it helps                                                |
+| ----------------------- | ----------------------------------------------------------- |
+| Proactive quality drop  | Drop a rung *before* the buffer empties, not after          |
+| Aggressive prefetch     | Always fetch enough segments to absorb a brief stall        |
+| OCA fallback            | Switch to the next OCA in the steered list if current degrades |
+| Conservative startup    | Avoid overcommitting on the first few segments              |
 
-Netflix targets < 0.1% rebuffering ratio (industry-leading).
+The recent AV1 rollout deserves a callout here: the Dec 2025 update credits AV1 with a ~45% reduction in TV rebuffering versus prior codecs, mostly because the smaller segment sizes are more resilient to bursty network conditions.
 
-**Mechanisms:**
+## DRM and license management
 
-| Mechanism              | How It Helps                  |
-| ---------------------- | ----------------------------- |
-| Proactive quality drop | Drop before buffer empties    |
-| Segment prefetch       | Always fetch ahead            |
-| OCA fallback           | Switch OCA if current is slow |
-| Conservative startup   | Don't overcommit early        |
+### Multi-DRM strategy
 
-## DRM and License Management
+Netflix encrypts each segment once using [MPEG Common Encryption (CENC)](https://www.iso.org/standard/68042.html) and decrypts on-device using whichever DRM the platform exposes:
 
-### Multi-DRM Strategy
+| DRM       | Vendor    | Devices                    |
+| --------- | --------- | -------------------------- |
+| Widevine  | Google    | Android, Chrome, smart TVs |
+| PlayReady | Microsoft | Windows, Xbox, Edge        |
+| FairPlay  | Apple     | iOS, macOS, Safari, tvOS   |
 
-Netflix uses three DRM systems to cover all devices:
+CENC isn't fully uniform — FairPlay historically requires CBCS encryption inside HLS packaging, while Widevine and PlayReady traditionally use CTR inside DASH, though the AOMedia work on AV1 is converging on CBCS for both. The orchestration logic on the License service sits on top of those differences.
 
-| DRM System    | Provider  | Devices                    |
-| ------------- | --------- | -------------------------- |
-| **Widevine**  | Google    | Android, Chrome, smart TVs |
-| **PlayReady** | Microsoft | Windows, Xbox, Edge        |
-| **FairPlay**  | Apple     | iOS, Safari, Apple TV      |
+### License acquisition flow
 
-All three use CENC (Common Encryption) for the encrypted content, so Netflix encrypts once and decrypts with any compatible DRM.
+![DRM license flow: the player fetches an encrypted segment with its PSSH box, the platform CDM generates a license request, the License service validates entitlement and returns the per-key license, and the CDM then decrypts content frames for the player to render.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-light.svg "DRM license flow: the player fetches an encrypted segment with its PSSH box, the platform CDM generates a license request, the License service validates entitlement and returns the per-key license, and the CDM then decrypts content frames for the player to render.")
+![DRM license flow: the player fetches an encrypted segment with its PSSH box, the platform CDM generates a license request, the License service validates entitlement and returns the per-key license, and the CDM then decrypts content frames for the player to render.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-dark.svg)
 
-### License Acquisition Flow
+**Security layers actually enforced:**
 
-![DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-light.svg "DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.")
-![DRM flow: player requests encrypted content, CDM generates license request, license server validates and returns keys.](./diagrams/drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-dark.svg)
+- **Device attestation** — the CDM proves it is a legitimate, untampered implementation; broken keys get revoked
+- **Entitlement check** — the License service verifies the subscription is active for that title
+- **Key rotation** — periodic re-keying for long sessions and live content
+- **Output protection** — HDCP enforcement on the output port for HD/4K rungs (no HDCP, no high-rung license)
 
-**Security layers:**
+### Offline downloads
 
-- **Device attestation**: CDM proves it's a legitimate device
-- **Entitlement check**: License server verifies subscription
-- **Key rotation**: Periodic re-keying for live content
-- **Output protection**: HDCP enforcement for HD/4K
+1. Client requests a *download* license — longer expiration, often 7 – 30 days.
+2. Segments are downloaded and stored re-encrypted on device.
+3. The download license expires; playback after expiration requires online renewal.
+4. The mobile-only [AVCHi-Mobile and VP9-Mobile encodes](https://netflixtechblog.com/more-efficient-mobile-encodes-for-netflix-downloads-625d7b082909) trade some quality for substantially smaller download sizes.
 
-### Offline Download
+The hard parts of offline aren't cryptographic — they are storage estimation, codec / bitrate changes that invalidate stored content, and license expiration UX.
 
-**Download architecture:**
+## Personalization
 
-1. Client requests download license (more permissive duration)
-2. Segments downloaded and encrypted to device storage
-3. Offline license has expiration (typically 7-30 days)
-4. Playback requires periodic license renewal when online
+### Recommendation architecture
 
-**Challenges:**
+Netflix's own published estimate — from the Gomez-Uribe and Hunt paper *The Netflix Recommender System* (ACM TMIS, 2016) — is that recommendations drive about **80% of viewing hours** and that the combined personalization stack is worth **on the order of $1B per year in retention**. That economic case is what funds the entire personalization organisation.
 
-- Storage estimation before download
-- Codec/bitrate changes require re-download
-- License expiration handling
-- Device storage management
+![Two-stage recommendation architecture: an offline pipeline trains user/content embeddings and builds an ANN index; the online path retrieves a few thousand candidates, ranks them with a deep learning Personalised Video Ranking (PVR) model, then applies row-level diversification before returning rows to the homepage.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--light.svg "Two-stage recommendation architecture: an offline pipeline trains user/content embeddings and builds an ANN index; the online path retrieves a few thousand candidates, ranks them with a deep learning Personalised Video Ranking (PVR) model, then applies row-level diversification before returning rows to the homepage.")
+![Two-stage recommendation architecture: an offline pipeline trains user/content embeddings and builds an ANN index; the online path retrieves a few thousand candidates, ranks them with a deep learning Personalised Video Ranking (PVR) model, then applies row-level diversification before returning rows to the homepage.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--dark.svg)
 
-## Personalization System
+### Algorithm families
 
-### Recommendation Architecture
+| Family                     | Where it shows up                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| Collaborative filtering    | Long-running baseline — "users like you watched"                                   |
+| Content-based              | Cold-start for new titles, taste similarity                                        |
+| Matrix factorization       | Latent-factor models for user × title preference                                   |
+| Deep learning (PVR)        | Personalised Video Ranking — the production ranking model                          |
+| Contextual bandits         | Artwork selection, row ordering — explore vs exploit                               |
+| Reinforcement learning     | Long-horizon engagement objectives                                                 |
 
-Netflix recommendations drive **75-80% of viewing hours**. The system is estimated to save over **$1 billion annually** by reducing subscriber churn.
+### Personalised artwork
 
-![Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--light.svg "Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.")
-![Two-stage recommendation: retrieve candidates via embedding similarity, rank with Personalized Video Ranking (PVR) model.](./diagrams/two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--dark.svg)
+The thumbnail you see for a given title is not the thumbnail your friend sees. Netflix runs [contextual bandits](https://netflixtechblog.com/artwork-personalization-c589f074ad76) over a pool of candidate images per title, optimising for click-through subject to long-term engagement signals (so the system doesn't degenerate into clickbait).
 
-### Algorithm Types
+Components that make this practical:
 
-| Algorithm                   | Purpose                            |
-| --------------------------- | ---------------------------------- |
-| **Collaborative filtering** | Similar users like similar content |
-| **Content-based**           | Similar content features           |
-| **Matrix factorization**    | Latent factor models               |
-| **Deep learning (PVR)**     | Personalized ranking               |
-| **Contextual bandits**      | Explore/exploit balance            |
-| **Reinforcement learning**  | Long-term engagement               |
+- A pool of artwork variants per title, often featuring different actors / scenes / moods
+- Pre-computed image features (faces, scenes, dominant colours, mood tags)
+- A bandit model that picks per-impression based on the viewer's signal vector
+- A heavy A/B framework underneath, so wins are confirmed before going to 100%
 
-### Personalized Artwork
+### A/B testing scale
 
-Netflix dynamically selects thumbnail artwork per user:
+Every meaningful product change passes through A/B testing. Worth knowing about Netflix's setup specifically:
 
-**How it works:**
+- A given user is in many concurrent tests; the platform handles orthogonality
+- Tests run long enough to measure *retention*, not just immediate engagement
+- Causal-inference techniques (CUPED, surrogate metrics) let small effects be detected sooner
+- Multi-objective optimisation balances engagement against satisfaction, account behaviour, and downstream churn
 
-- Each title has multiple artwork variants
-- Contextual bandit model predicts which variant will maximize click-through
-- If Netflix knows you like Uma Thurman, Pulp Fiction shows Uma's image
-- If you like action, the same movie shows an action scene
+## Frontend / client
 
-**Technical implementation:**
+### Client architecture
 
-- Pre-computed personalized artwork at render time
-- Cached results for fast serving
-- Labels components in artwork (actors, genres, moods)
-- A/B testing validates selections
+Netflix's TV, mobile, and web clients share the same skeleton:
 
-### A/B Testing Scale
+| Component        | Responsibility                                       |
+| ---------------- | ---------------------------------------------------- |
+| Manifest parser  | HLS / DASH parsing                                   |
+| ABR controller   | Quality selection (the state machine above)          |
+| Buffer manager   | Segment scheduling and prefetch                      |
+| DRM handler      | License acquisition, key management                  |
+| Player core      | Decode, render, audio sync                           |
+| Telemetry        | QoE metrics — start time, rebuffer events, quality   |
 
-Every product change goes through rigorous A/B testing:
+### Playback start optimisation
 
-- Users may be in multiple concurrent tests
-- Tests run for weeks to measure long-term retention
-- Causal inference prevents confounding
-- Multi-objective optimization balances engagement vs. satisfaction
+The published target is *first frame in under 2 seconds*. The startup budget breaks down roughly as:
 
-## Frontend Considerations
+![Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.](./diagrams/playback-startup-timeline-light.svg "Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.")
+![Playback startup waterfall: DNS and TLS run early (often pre-resolved and 0-RTT resumed), the manifest is edge-cached to a fast fetch, license acquisition runs in parallel with the first segment fetch, and decode/render finishes well inside the 2-second target.](./diagrams/playback-startup-timeline-dark.svg)
 
-### Client Architecture
+| Phase           | Typical budget | Levers used to hit it                          |
+| --------------- | -------------- | ---------------------------------------------- |
+| DNS             | < 20 ms        | Pre-resolved CDN domains during browsing       |
+| TLS handshake   | < 50 ms        | TLS 1.3, 0-RTT resumption                      |
+| Manifest fetch  | < 100 ms       | Edge-cached, often pre-fetched on hover        |
+| License fetch   | < 200 ms       | Issued in parallel with first segment          |
+| First segment   | < 500 ms       | Small initial segments at lower rung           |
+| Decode + render | < 200 ms       | Hardware decode in mainstream codecs           |
 
-Netflix clients (TV, mobile, web) share common patterns:
+The non-obvious unlock is doing license acquisition *in parallel* with the first segment fetch, not serially after it.
 
-**Core responsibilities:**
+### Offline playback (mobile)
 
-| Component           | Function                            |
-| ------------------- | ----------------------------------- |
-| **Manifest parser** | HLS/DASH parsing                    |
-| **ABR controller**  | Quality selection                   |
-| **Buffer manager**  | Segment prefetch                    |
-| **DRM handler**     | License acquisition, key management |
-| **Player core**     | Decode, render, audio sync          |
-| **Telemetry**       | QoE metrics collection              |
+Mobile downloads add a few responsibilities:
 
-### Playback Start Optimization
+- **Storage estimation** — show the file size before download starts
+- **Partial downloads** — resume cleanly after interruption
+- **Smart downloads** — auto-fetch the next episode in a binge
+- **License handling** — gracefully prompt for renewal when offline tokens expire
+- **Quality choice** — let the user pick a download tier, with mobile-specific encodes underneath
 
-**Target: < 2 seconds to first frame**
+## Infrastructure (control plane on AWS)
 
-| Phase           | Target  | Optimization                |
-| --------------- | ------- | --------------------------- |
-| DNS             | < 20ms  | Pre-resolved CDN domains    |
-| TLS             | < 50ms  | TLS 1.3, 0-RTT resumption   |
-| Manifest        | < 100ms | Edge-cached, pre-fetched    |
-| License         | < 200ms | Parallel with first segment |
-| First segment   | < 500ms | Small initial segments      |
-| Decode + render | < 200ms | Hardware decode             |
+Netflix runs every non-video service on AWS. The build-up below is a load-bearing snapshot of the current shape.
 
-**Techniques:**
+| Service           | AWS / Netflix component                          | Purpose                              |
+| ----------------- | ------------------------------------------------ | ------------------------------------ |
+| API gateway       | [Zuul](https://github.com/Netflix/zuul) + ELB    | Request routing, auth, fan-out       |
+| Service discovery | [Eureka](https://github.com/Netflix/eureka)      | Dynamic service registry             |
+| Microservices     | EC2 + [Titus](https://netflix.github.io/titus/) (containers) | Hundreds of services           |
+| Caching           | [EVCache](https://github.com/Netflix/EVCache) (Memcached) | Hot data, fronted on Cassandra |
+| Databases         | Cassandra, RDS / MySQL                           | Metadata, profiles, billing          |
+| Streaming events  | Kafka, Spark, [Flink](https://flink.apache.org/) | Real-time analytics, ML features     |
 
-- DNS prefetch for OCA domains
-- TLS session resumption
-- Manifest pre-fetch while browsing
-- License acquisition in parallel with segment fetch
-- Initial segment at lower quality for fast decode
+> [!NOTE]
+> The open-source Spring Cloud wrappers around Netflix OSS (Spring Cloud Netflix Eureka, Zuul 1, Ribbon) are in maintenance mode for the broader community. Netflix continues to maintain Zuul and Eureka internally; community projects such as [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) and [Spring Cloud LoadBalancer](https://spring.io/projects/spring-cloud) have superseded them in many non-Netflix stacks.
 
-### Offline Playback
+EVCache itself is operated at extreme scale — current reporting puts it at roughly [200 clusters, 22,000 instances, 400 million ops/sec, 2 trillion items, and 14.3 PB of memory](https://www.infoq.com/articles/netflix-global-cache/).
 
-Mobile apps support offline downloads with:
+### Resilience and chaos engineering
 
-- **Storage estimation**: Show size before download
-- **Partial downloads**: Resume interrupted downloads
-- **Smart downloads**: Auto-download next episodes
-- **License management**: Handle expiration gracefully
-- **Quality selection**: User chooses download quality
+Netflix popularised chaos engineering as a discipline. The tooling is part of the architecture, not just a process.
 
-**Mobile-optimized encoding:**
+| Tool          | Function                                                   |
+| ------------- | ---------------------------------------------------------- |
+| Chaos Monkey  | Randomly terminates production instances                   |
+| Chaos Gorilla | Drops an entire AWS Availability Zone                      |
+| Chaos Kong    | Drops an entire AWS Region                                 |
+| FIT           | Failure Injection Testing — targeted dependency failure    |
 
-Netflix introduced AVCHi-Mobile and VP9-Mobile encodes specifically optimized for mobile screens and storage constraints.
+The philosophy is that resilience is a property you can only verify under failure, so the system is failure-tested constantly in production.
 
-## Infrastructure
+### Global architecture
 
-### AWS Architecture
+![Global control plane: Netflix runs API services across a few AWS regions for failover; Open Connect operates global edge regions in parallel.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-light.svg "Global control plane: Netflix runs API services across a few AWS regions for failover; Open Connect operates global edge regions in parallel.")
+![Global control plane: Netflix runs API services across a few AWS regions for failover; Open Connect operates global edge regions in parallel.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-dark.svg)
 
-Netflix runs all non-video services on AWS:
+## Failure modes worth designing for
 
-| Service           | AWS Component            | Purpose                  |
-| ----------------- | ------------------------ | ------------------------ |
-| API Gateway       | Custom (Zuul) + ELB      | Request routing, auth    |
-| Service Discovery | Eureka                   | Dynamic service registry |
-| Load Balancing    | Ribbon (client-side)     | Client-side balancing    |
-| Microservices     | EC2 + Titus (containers) | 1000+ services           |
-| Cache             | EVCache (Memcached)      | Hot data caching         |
-| Database          | Cassandra, MySQL         | Metadata, user data      |
-| Analytics         | Kafka, Spark             | Event processing         |
+A few failure modes are useful to think through, both as an interview lens and as design heuristics for a system like this:
 
-**EVCache scale (distributed cache):**
+- **OCA hardware failure** → BGP withdraws the route, steering returns the next OCA in the ranked list, the client switches mid-stream. The client should be able to switch OCAs without rebuffering.
+- **Encoded variant missing** → manifest validation must catch this before the client sees a 404 mid-segment. A missing 4K variant should silently fall back to the next rung.
+- **Cosmos DAG failure** → Plato re-runs the failed Stratum step; failed VMAF segments are re-encoded at higher bitrate without re-encoding the whole title.
+- **License service degradation** → clients enter a soft-fail state and continue playing previously-licensed content; new playback fails closed.
+- **Hot live event** (e.g., the Tyson v Paul fight) → the OCA fleet must absorb the ramp; the [Netflix engineering retro of that fight](https://about.netflix.com/news/60-million-households-tuned-in-live-for-jake-paul-vs-mike-tyson) acknowledged player-side issues at peak, which is why live still gets called out as a *separate* engineering problem from on-demand.
 
-```
-Clusters: 200 Memcached clusters
-Instances: 22,000 server instances
-Operations: 400 million ops/second
-Items: 2 trillion cached items
-Storage: 14.3 petabytes total
-```
+## Practical takeaways
 
-### Resilience (Chaos Engineering)
-
-Netflix pioneered chaos engineering to ensure resilience:
-
-| Tool              | Function                                 |
-| ----------------- | ---------------------------------------- |
-| **Chaos Monkey**  | Randomly terminates production instances |
-| **Chaos Gorilla** | Drops entire AWS Availability Zone       |
-| **Chaos Kong**    | Drops entire AWS Region                  |
-| **FIT**           | Targeted failure injection               |
-
-**Philosophy:**
-
-Systems should be resilient to failure by design. Random production failures ensure this resilience is real, not theoretical.
-
-### Global Architecture
-
-![Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-light.svg "Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.")
-![Netflix operates in 4 AWS regions for control plane; Open Connect provides global video delivery.](./diagrams/netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-dark.svg)
-
-## Conclusion
-
-Designing Netflix-scale streaming requires different optimizations than user-generated video platforms:
-
-**Key architectural decisions:**
-
-1. **Custom CDN (Open Connect)** eliminates transit costs and reduces latency by embedding in ISP networks
-2. **Proactive fill pipeline** achieves 98%+ cache hit rates by predicting demand and pre-positioning content
-3. **Per-title and shot-based encoding** saves 30-50% bandwidth by optimizing each scene independently
-4. **Multi-codec strategy** (H.264 → VP9 → AV1) maximizes quality-per-bit for each device class
-5. **VMAF-driven quality control** ensures perceptual quality targets rather than arbitrary bitrate thresholds
-6. **Personalization at scale** drives 80% of viewing, justifying massive recommendation infrastructure investment
-
-**What this design optimizes for:**
-
-- Sub-2-second playback start
-- Industry-leading rebuffering ratio (< 0.1%)
-- Bandwidth efficiency (best quality per bit)
-- Global scale (300M+ subscribers, 190+ countries)
-
-**What this design sacrifices:**
-
-- Upfront infrastructure investment ($100M+ in Open Connect)
-- Operational complexity (ISP relationships, custom hardware)
-- Encoding compute costs (per-title/shot analysis is expensive)
-
-**When to choose this design:**
-
-- Premium streaming services where quality is a differentiator
-- Scale justifies custom infrastructure investment (> 100M subscribers)
-- Predictable catalog enables proactive caching (not user-generated)
+- **Custom CDN economics only flip past a certain scale.** Don't build Open Connect for a 10M-subscriber service; pay Akamai. Build one when the per-GB transit savings dwarf the hardware capex.
+- **Proactive caching beats reactive caching when the catalog is predictable.** Netflix's 98% hit rate is not a smarter LRU; it is a popularity model that pre-positions before anyone presses play.
+- **Encode for perceptual quality, not for a fixed bitrate.** The progression from fixed ladder → per-title → shot-based is what unlocked 4K at sane bitrates.
+- **Pick your codec based on the device, not the encoder.** AV1 is a clear win on capable hardware; H.264 is still required for the long tail.
+- **Separate control plane from data plane.** They have different scaling, failure, and security shapes; treating them as one stack will eventually pin the wrong constraint.
+- **Personalization is a load-bearing system, not a UX nicety.** It's worth >$1B/yr in retention; design the infra accordingly.
 
 ## Appendix
 
 ### Prerequisites
 
-- CDN architecture: edge caching, origin shield concepts
+- CDN architecture: edge caching, origin shield, peering vs embedded
 - Video encoding: codecs, containers, bitrates, transcoding
-- Streaming protocols: HLS, DASH fundamentals
+- Streaming protocols: HLS, DASH, CMAF
 - DRM: encryption, license servers, CDM integration
-- Distributed systems: microservices, caching, eventual consistency
+- Distributed systems fundamentals: microservices, caching, eventual consistency
 
 ### Terminology
 
-| Term                    | Definition                                                               |
-| ----------------------- | ------------------------------------------------------------------------ |
-| **ABR**                 | Adaptive Bitrate—dynamically selecting video quality based on conditions |
-| **AV1**                 | AOMedia Video 1—open, royalty-free video codec                           |
-| **CDM**                 | Content Decryption Module—browser component handling DRM                 |
-| **CMAF**                | Common Media Application Format—unified packaging for HLS/DASH           |
-| **DASH**                | Dynamic Adaptive Streaming over HTTP—ISO streaming standard              |
-| **HEVC**                | High Efficiency Video Coding (H.265)—successor to H.264                  |
-| **HLS**                 | HTTP Live Streaming—Apple's adaptive streaming protocol                  |
-| **OCA**                 | Open Connect Appliance—Netflix's edge cache server                       |
-| **Per-title encoding**  | Custom bitrate ladder based on content complexity                        |
-| **Shot-based encoding** | Variable bitrate allocation per scene                                    |
-| **VMAF**                | Video Multimethod Assessment Fusion—perceptual quality metric            |
-| **VP9**                 | Google's video codec, predecessor to AV1                                 |
+| Term        | Definition                                                                |
+| ----------- | ------------------------------------------------------------------------- |
+| ABR         | Adaptive Bitrate — dynamically selecting video quality at runtime         |
+| AOM / AV1   | Open, royalty-free video codec from the Alliance for Open Media           |
+| CDM         | Content Decryption Module — platform component handling DRM               |
+| CMAF        | Common Media Application Format — fMP4 packaging shared across HLS/DASH   |
+| DASH        | Dynamic Adaptive Streaming over HTTP (ISO/IEC 23009-1)                    |
+| HEVC        | High Efficiency Video Coding (H.265), successor to H.264                  |
+| HLS         | HTTP Live Streaming (Apple)                                               |
+| OCA         | Open Connect Appliance — Netflix's edge cache server                      |
+| Per-title   | Bitrate ladder customised per title from a convex-hull search             |
+| Shot-based  | Variable bitrate allocation per scene / shot                              |
+| VMAF        | Video Multimethod Assessment Fusion — perceptual quality metric           |
+| VP9         | Google's open codec, predecessor to AV1                                   |
 
 ### Summary
 
-- Netflix separates control plane (AWS) from data plane (Open Connect) for optimal scaling
-- Open Connect embeds cache servers in 1,000+ ISP locations, serving 100% of video traffic
-- Per-title encoding analyzes content complexity to generate custom bitrate ladders (20% savings)
-- Shot-based encoding allocates bits per-scene for 30-50% additional efficiency
-- AV1 codec now powers 30% of streaming, delivering 50%+ bandwidth savings over H.264
-- Proactive fill pipeline pre-positions content overnight, achieving 98%+ cache hit rates
-- Personalization (recommendations, artwork) drives 80% of viewing hours
+- Netflix splits control plane (AWS) from data plane (Open Connect) to scale each independently.
+- Open Connect places OCAs inside ISP networks via embedding or peering, achieving ~98% edge hit rate via proactive overnight fill.
+- A single OCA scaled from 100 Gbps in 2017 to 400 Gbps in 2021, with NIC-offloaded TLS as the key unlock.
+- Per-title (2015) and shot-based / Dynamic Optimizer (2018+) encoding cut bitrate at fixed VMAF; HDR is now wholly dynamically optimised.
+- AV1 powers ~30% of viewing as of Dec 2025 with measurable VMAF and rebuffer wins; H.264 remains the long-tail fallback.
+- Multi-DRM (Widevine / PlayReady / FairPlay) over CENC; license acquisition is parallelised with the first segment fetch.
+- Personalization (recommendations, artwork) drives most viewing hours and is worth ~$1B/yr in retention.
 
 ### References
 
-- [Netflix Open Connect](https://openconnect.netflix.com/en_gb/) - Official CDN documentation
-- [Netflix Open Connect Appliances](https://openconnect.netflix.com/en/appliances/) - OCA specifications
-- [Netflix Tech Blog - Per-Title Encode Optimization](https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2) - Per-title encoding methodology
-- [Netflix Tech Blog - Dynamic Optimizer](https://netflixtechblog.com/dynamic-optimizer-a-perceptual-video-encoding-optimization-framework-e19f1e3a277f) - Shot-based encoding
-- [Netflix Tech Blog - Serving 100 Gbps](https://netflixtechblog.com/serving-100-gbps-from-an-open-connect-appliance-cdb51dda3b99) - OCA performance optimization
-- [FreeBSD 400Gbps Presentation](https://papers.freebsd.org/2021/eurobsdcon/gallatin-netflix-freebsd-400gbps/) - 400 Gbps achievement details
-- [Netflix Tech Blog - Rebuilding Video Processing Pipeline](https://netflixtechblog.com/rebuilding-netflix-video-processing-pipeline-with-microservices-4e5e6310e359) - Cosmos platform architecture
-- [Netflix Tech Blog - The Netflix Cosmos Platform](https://netflixtechblog.com/the-netflix-cosmos-platform-35c14d9351ad) - Pipeline components
-- [Netflix VMAF GitHub](https://github.com/Netflix/vmaf) - Quality metric source and documentation
-- [Netflix Tech Blog - HDR Dynamic Optimization](https://netflixtechblog.com/all-of-netflixs-hdr-video-streaming-is-now-dynamically-optimized-e9e0cb15f2ba) - HDR encoding optimization
-- [Netflix EVCache GitHub](https://github.com/Netflix/EVCache) - Distributed caching system
-- [Netflix Research - Recommendations](https://research.netflix.com/research-area/recommendations) - Recommendation system overview
-- [HLS Specification (RFC 8216)](https://www.rfc-editor.org/rfc/rfc8216) - HTTP Live Streaming standard
-- [DASH Specification (ISO/IEC 23009-1)](https://www.iso.org/standard/79329.html) - MPEG-DASH standard
+- [Netflix Open Connect](https://openconnect.netflix.com/en/) — official CDN site
+- [Open Connect Appliance specs](https://openconnect.netflix.com/en/appliances/) — current published OCA tiers
+- [Open Connect Network Configuration](https://openconnect.zendesk.com/hc/en-us/articles/360035533071-Network-configuration) — ASN / BGP details
+- [Per-Title Encode Optimization](https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2) — Netflix Tech Blog (Dec 2015)
+- [Dynamic Optimizer — perceptual video encoding](https://netflixtechblog.com/dynamic-optimizer-a-perceptual-video-encoding-optimization-framework-e19f1e3a277f) — Netflix Tech Blog
+- [Optimized shot-based encodes for 4K: Now Streaming](https://netflixtechblog.com/optimized-shot-based-encodes-for-4k-now-streaming-d8c8a73f0fbf) — Netflix Tech Blog (Aug 2020)
+- [All of Netflix's HDR Streaming is Dynamically Optimized](https://netflixtechblog.com/all-of-netflixs-hdr-video-streaming-is-now-dynamically-optimized-e9e0cb15f2ba) — Netflix Tech Blog (Jun 2023)
+- [AV1 — Now Powering 30% of Netflix Streaming](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80) — Netflix Tech Blog (Dec 2025)
+- [Bringing AV1 Streaming to Netflix Members' TVs](https://netflixtechblog.com/bringing-av1-streaming-to-netflix-members-tvs-b7fc88e42320) — Netflix Tech Blog
+- [Toward A Practical Perceptual Video Quality Metric (VMAF)](https://netflixtechblog.com/toward-a-practical-perceptual-video-quality-metric-653f208b9652) — Netflix Tech Blog (Jun 2016)
+- [Serving 100 Gbps from an Open Connect Appliance](https://netflixtechblog.com/serving-100-gbps-from-an-open-connect-appliance-cdb51dda3b99) — Netflix Tech Blog
+- [Serving Netflix Video at 400 Gb/s on FreeBSD](https://papers.freebsd.org/2021/eurobsdcon/gallatin-netflix-freebsd-400gbps/) — EuroBSDcon 2021
+- [Rebuilding Netflix Video Processing Pipeline with Microservices](https://netflixtechblog.com/rebuilding-netflix-video-processing-pipeline-with-microservices-4e5e6310e359) — Netflix Tech Blog (Feb 2024)
+- [The Netflix Cosmos Platform](https://netflixtechblog.com/the-netflix-cosmos-platform-35c14d9351ad) — Netflix Tech Blog (Mar 2021)
+- [Packaging award-winning shows with award-winning technology](https://netflixtechblog.com/packaging-award-winning-shows-with-award-winning-technology-c1010594ba39) — CMAF at Netflix
+- [Netflix VMAF GitHub](https://github.com/Netflix/vmaf)
+- [Netflix EVCache GitHub](https://github.com/Netflix/EVCache)
+- [Building a Global Caching System at Netflix (EVCache)](https://www.infoq.com/articles/netflix-global-cache/) — InfoQ
+- [Artwork Personalization at Netflix](https://netflixtechblog.com/artwork-personalization-c589f074ad76) — Netflix Tech Blog
+- [The Netflix Recommender System (Gomez-Uribe & Hunt, ACM TMIS 2016)](https://dl.acm.org/doi/10.1145/2843948)
+- [HLS Specification (RFC 8216, Informational, 2017)](https://www.rfc-editor.org/rfc/rfc8216)
+- [HLS 2nd Edition draft (`draft-pantos-hls-rfc8216bis`)](https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/) — active IETF Internet-Draft (rev 21, March 2026)
+- [DASH Specification (ISO/IEC 23009-1, 5th edition, 2022)](https://www.iso.org/standard/83314.html)
+- [CMAF Specification (ISO/IEC 23000-19)](https://www.iso.org/standard/85623.html)
+- [A Buffer-Based Approach to Rate Adaptation (Huang et al., SIGCOMM 2014)](https://research.netflix.com/publication/a-buffer-based-approach-to-rate-adaptation)
+- [BOLA: Near-Optimal Bitrate Adaptation for Online Videos (Spiteri et al., INFOCOM 2016)](https://arxiv.org/abs/1601.06748)
+- [A Control-Theoretic Approach for Dynamic Adaptive Video Streaming (MPC; Yin et al., SIGCOMM 2015)](https://users.ece.cmu.edu/~xia/resources/Documents/SIGCOMM2015_FINAL.pdf)
+- [What We Watched — H2 2024](https://about.netflix.com/news/what-we-watched-the-second-half-of-2024) — Netflix Engagement Report
+- [60 Million Households Tuned in for Tyson v Paul](https://about.netflix.com/news/60-million-households-tuned-in-live-for-jake-paul-vs-mike-tyson) — Netflix newsroom

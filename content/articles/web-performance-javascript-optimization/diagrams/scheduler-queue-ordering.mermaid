@@ -1,0 +1,33 @@
+%% Diagram: scheduler.yield() vs setTimeout(0) queue position
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    T1["Long task at user-visible priority<br/>processItem(0..49)"]
+    T1 --> T2["await yield mechanism"]
+
+    T2 --> SY["scheduler.yield()"]
+    T2 --> ST["setTimeout(0)"]
+
+    subgraph SYG["Resume order with scheduler.yield()"]
+        direction TB
+        SY1["1. Pending input event<br/>(user-blocking)"]
+        SY2["2. Continuation queue<br/>at user-visible — chunk 2"]
+        SY3["3. Regular task queue<br/>at user-visible — other postTask work"]
+        SY4["4. Background tasks"]
+        SY1 --> SY2 --> SY3 --> SY4
+    end
+
+    subgraph STG["Resume order with setTimeout(0)"]
+        direction TB
+        ST1["1. Pending input event"]
+        ST2["2. All other queued tasks<br/>(any priority, any origin)"]
+        ST3["3. Other 4ms-clamped timers"]
+        ST4["4. Chunk 2 — back of queue"]
+        ST1 --> ST2 --> ST3 --> ST4
+    end
+
+    SY --> SYG
+    ST --> STG
+
+    style SY2 fill:#c8e6c9,stroke:#2e7d32
+    style ST4 fill:#ffcdd2,stroke:#c62828

@@ -1,0 +1,33 @@
+%% Diagram: Loading a board with its pins - colocation collapses most reads to one shard, the tail fans out in parallel
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application
+    participant Cache as Memcache / Redis
+    participant DB1 as MySQL shard 3429 (board's home)
+    participant DB2 as MySQL shard 4172 (repinned pin)
+    participant DB3 as MySQL shard 5018 (repinned pin)
+
+    App->>Cache: GET board:<board_id>
+    Cache-->>App: miss
+    App->>DB1: SELECT data FROM boards WHERE local_id = ...
+    DB1-->>App: board JSON
+
+    App->>Cache: GET board_has_pins:<board_id>
+    Cache-->>App: miss
+    App->>DB1: SELECT pin_id FROM board_has_pins ORDER BY sequence DESC LIMIT 50
+    DB1-->>App: 50 pin_ids
+
+    par parallel batch read per shard
+        App->>DB1: SELECT data FROM pins WHERE local_id IN (... colocated 48 ids ...)
+    and
+        App->>DB2: SELECT data FROM pins WHERE local_id IN (... 1 id ...)
+    and
+        App->>DB3: SELECT data FROM pins WHERE local_id IN (... 1 id ...)
+    end
+
+    DB1-->>App: 48 pin blobs
+    DB2-->>App: 1 pin blob
+    DB3-->>App: 1 pin blob
+
+    Note over App: Wall-clock latency = slowest single shard query

@@ -6,18 +6,20 @@ description: >-
   indexing (LexoRank) for drag-and-drop ordering, project-specific workflow
   definitions, per-column cursor pagination, and WebSocket-based real-time board sync.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - architecture
+  - databases
 ---
 
 # Design an Issue Tracker (Jira/Linear)
 
 A comprehensive system design for an issue tracking and project management tool covering API design for dynamic workflows, efficient kanban board pagination, drag-and-drop ordering without full row updates, concurrent edit handling, and real-time synchronization. This design addresses the challenges of project-specific column configurations while maintaining consistent user-defined ordering across views.
 
-![High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.](./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba-light.svg "High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.")
-![High-level architecture: API gateway routing to domain services, with WebSocket-based real-time sync and Redis pub/sub for broadcast.](./diagrams/high-level-architecture-api-gateway-routing-to-domain-services-with-websocket-ba-dark.svg)
+![High-level architecture: API gateway routes domain services, WebSocket sync fans out via Redis pub/sub.](./diagrams/high-level-architecture-light.svg "High-level architecture: API gateway routes domain services, WebSocket sync fans out via Redis pub/sub.")
+![High-level architecture: API gateway routes domain services, WebSocket sync fans out via Redis pub/sub.](./diagrams/high-level-architecture-dark.svg)
 
 ## Abstract
 
@@ -25,14 +27,19 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Core architectural decisions:**
 
-| Decision           | Choice                                | Rationale                                       |
-| ------------------ | ------------------------------------- | ----------------------------------------------- |
-| Ordering algorithm | Fractional indexing (LexoRank)        | O(1) insertions without row updates             |
-| API style          | GraphQL with REST fallback            | Flexible field selection for varied board views |
-| Pagination         | Per-column cursor-based               | Ensures all columns load incrementally          |
-| Concurrency        | Optimistic locking with version field | Low conflict rate in practice                   |
-| Real-time sync     | WebSocket + last-write-wins           | Sub-200ms propagation, simple conflict model    |
-| Workflow storage   | Polymorphic per-project               | Projects own their status definitions           |
+| Decision            | Choice                                                | Rationale                                                  |
+| ------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| Ordering algorithm  | Fractional indexing (LexoRank)                        | O(1) insertions without row updates                        |
+| API style           | GraphQL with REST fallback                            | Flexible field selection for varied board views            |
+| Pagination          | Per-column cursor-based                               | Ensures all columns load incrementally                     |
+| Concurrency         | Optimistic locking with version field                 | Low conflict rate in practice                              |
+| Real-time sync      | WebSocket transaction stream + last-write-wins        | Sub-200ms propagation, simple conflict model               |
+| Rich-text fields    | CRDT (Yjs / Automerge) only on description / comments | Conflict-free concurrent editing where it actually matters |
+| Workflow storage    | Polymorphic per-project                               | Projects own their status definitions                      |
+| Authorization       | RBAC at project + ABAC overlay for issue visibility   | Mirrors Jira's project-role + issue-security split         |
+| Search              | Postgres FTS for small tenants, OpenSearch at scale   | Same query API; switch backend per tenant size             |
+| Attachments         | S3-class object store + presigned multipart           | Keep large blobs out of Postgres                           |
+| Notifications       | Event bus + per-channel queues + per-user digest      | Independent retry / backpressure per channel               |
 
 **Key trade-offs accepted:**
 
@@ -115,8 +122,8 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![REST API request flow for issue moves: client patches the API, the API persists the change in Postgres and fans the event out through a WebSocket layer.](./diagrams/rest-api-flow-light.svg "REST API request flow for issue moves: client patches the API, the API persists the change in Postgres and fans the event out through a WebSocket layer.")
+![REST API request flow for issue moves: client patches the API, the API persists the change in Postgres and fans the event out through a WebSocket layer.](./diagrams/rest-api-flow-dark.svg)
 
 **Trade-offs:**
 
@@ -127,7 +134,7 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 - ❌ Multiple round trips for complex operations
 - ❌ Real-time requires separate WebSocket layer
 
-**Real-world example:** Jira Cloud uses REST API with LexoRank for ordering and WebSocket for real-time updates.
+**Real-world example:** Jira Cloud exposes a REST API for issue and board operations and uses LexoRank for ordering ([Jira Software Cloud REST API](https://developer.atlassian.com/cloud/jira/software/rest/intro/), [Atlassian KB: LexoRank](https://support.atlassian.com/jira/kb/troubleshooting-lexorank-system-issues/)).
 
 ### Path B: Local-First with Sync Engine
 
@@ -140,8 +147,8 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Local-first sync architecture: UI talks to a local IndexedDB-backed object graph; a sync client streams deltas to the server.](./diagrams/local-first-architecture-light.svg "Local-first sync architecture: UI talks to a local IndexedDB-backed object graph; a sync client streams deltas to the server.")
+![Local-first sync architecture: UI talks to a local IndexedDB-backed object graph; a sync client streams deltas to the server.](./diagrams/local-first-architecture-dark.svg)
 
 **Trade-offs:**
 
@@ -152,7 +159,7 @@ Issue tracking systems solve three interconnected problems: **flexible workflows
 - ❌ Conflict resolution complexity
 - ❌ Larger client-side footprint
 
-**Real-world example:** Linear loads all issues into IndexedDB on startup, achieving 0ms search latency. Their sync engine uses last-write-wins for most fields with CRDTs for rich text descriptions.
+**Real-world example:** Linear bootstraps a workspace into IndexedDB and a MobX-managed in-memory object graph, then keeps it in sync over a WebSocket transaction stream — letting the UI read and write locally with no network in the hot path ([Scaling the Linear Sync Engine](https://linear.app/now/scaling-the-linear-sync-engine)). Each server-acknowledged write bumps a workspace-wide `lastSyncId`; clients use it as a cursor to ask for missed deltas after a reconnect. The sync model is last-write-wins for scalar fields, with CRDTs reserved for rich-text issue descriptions ([reverse-linear-sync-engine](https://github.com/wzhudev/reverse-linear-sync-engine)).
 
 ### Path C: GraphQL with Optimistic Updates
 
@@ -203,7 +210,7 @@ subscription OnBoardUpdate($boardId: ID!) {
 - ❌ Rate limiting harder
 - ❌ Learning curve for teams
 
-**Real-world example:** Linear uses GraphQL for all API operations—the same schema powers their web app, mobile app, and public API.
+**Real-world example:** Linear's public API is GraphQL-only and is the same API its web and desktop clients use ([Linear GraphQL API](https://linear.app/developers/graphql)). GitHub also exposes its issue and project surface via GraphQL ([GitHub GraphQL API](https://docs.github.com/en/graphql)).
 
 ### Path Comparison
 
@@ -223,14 +230,14 @@ This article focuses on **Path C (GraphQL with REST fallback)** because:
 1. Flexible field selection suits varied board configurations
 2. Subscriptions provide native real-time support
 3. REST endpoints can coexist for webhooks and simple integrations
-4. Most modern issue trackers (Linear, Notion) use this approach
+4. It matches what modern issue trackers expose externally — Linear's API is GraphQL-only, and GitHub Issues / Projects ship a GraphQL surface alongside REST
 
 ## High-Level Design
 
 ### Component Overview
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Service decomposition: GraphQL/REST/WebSocket fronting Issue, Project, Workflow, Board, Search, and Activity services on Postgres, Redis, Elasticsearch, and Kafka.](./diagrams/component-overview-light.svg "Service decomposition: GraphQL/REST/WebSocket fronting Issue, Project, Workflow, Board, Search, and Activity services on Postgres, Redis, Elasticsearch, and Kafka.")
+![Service decomposition: GraphQL/REST/WebSocket fronting Issue, Project, Workflow, Board, Search, and Activity services on Postgres, Redis, Elasticsearch, and Kafka.](./diagrams/component-overview-dark.svg)
 
 ### Issue Service
 
@@ -288,8 +295,8 @@ Enforces workflow rules and transitions.
 
 **Transition validation flow:**
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Workflow transition validation: Issue Service asks Workflow Service whether the proposed status change is allowed before persisting the update.](./diagrams/workflow-transition-validation-light.svg "Workflow transition validation: Issue Service asks Workflow Service whether the proposed status change is allowed before persisting the update.")
+![Workflow transition validation: Issue Service asks Workflow Service whether the proposed status change is allowed before persisting the update.](./diagrams/workflow-transition-validation-dark.svg)
 
 ## API Design
 
@@ -827,7 +834,7 @@ HSET issue:{issue_id}:card
 
 Traditional integer-based ordering has a fundamental problem:
 
-```
+```text
 Before: [A:1, B:2, C:3, D:4]
 Insert X between B and C:
 After:  [A:1, B:2, X:3, C:4, D:5]  ← Must update C, D
@@ -835,9 +842,9 @@ After:  [A:1, B:2, X:3, C:4, D:5]  ← Must update C, D
 
 With N items and frequent reorders, this is O(N) updates per operation.
 
-**LexoRank solution:** Use lexicographically sortable strings where you can always find a value between any two existing values.
+**Fractional indexing solution:** Use lexicographically sortable strings where you can always find a value between any two existing values, so an insert only writes the moved row's rank — siblings are untouched. Figma uses the same idea, with arbitrary-precision base-95 fractions stored as strings, for ordering children inside a frame ([Figma — Realtime Editing of Ordered Sequences](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/)).
 
-```
+```text
 Before: [A:"aaa", B:"bbb", C:"ccc"]
 Insert X between B and C:
 After:  [A:"aaa", B:"bbb", X:"bbc", C:"ccc"]  ← Only X updated
@@ -845,15 +852,18 @@ After:  [A:"aaa", B:"bbb", X:"bbc", C:"ccc"]  ← Only X updated
 
 ### LexoRank Format
 
-Jira's LexoRank uses the format: `bucket|value`
+Jira's LexoRank uses the format `bucket|value`, where the bucket is a single digit and the value is a base-36 alphanumeric string ([Atlassian KB: LexoRank](https://support.atlassian.com/jira/kb/troubleshooting-lexorank-system-issues/)):
 
-```
+```text
 0|hzzzzz
-│ └─ Alphanumeric value (base-36)
+│ └─ Alphanumeric value (base-36, "0"–"9" + "a"–"z")
 └── Bucket (0, 1, or 2)
 ```
 
-**Bucket rotation:** Three buckets enable rebalancing without locking. While bucket 0 rebalances, new operations use bucket 1.
+> [!NOTE]
+> Production Jira ranks also carry a sub-rank after a `:` separator (for example `0|hzzzzz:`), used to disambiguate concurrent inserts. The illustrations below collapse that detail; treat the `value` segment as the LexoRank "core" you would actually compute against.
+
+**Bucket rotation:** The three buckets exist to support background rebalancing without taking writes offline. The balancer copies issues from the current bucket to the next one in the round-robin (`0 → 1 → 2 → 0`); new inserts can keep ranking against the source bucket while in-flight rows fan out to the destination ([LexoRankBalanceOperation API](https://docs.atlassian.com/jira-software/10.4.0/com/atlassian/greenhopper/service/lexorank/balance/LexoRankBalanceOperation.html)).
 
 ### Rank Calculation Algorithm
 
@@ -933,9 +943,9 @@ function calculateNewRank(before: string | null, after: string | null, bucket: n
 
 ### Rebalancing Strategy
 
-LexoRank strings grow as items are repeatedly inserted between adjacent values:
+LexoRank strings grow whenever you keep inserting between two adjacent values:
 
-```
+```text
 Initial:  "i"
 After 1:  "ii"
 After 2:  "iii"
@@ -943,11 +953,16 @@ After 2:  "iii"
 After 50: "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
 ```
 
-**Jira's rebalancing thresholds:**
+**Jira's rebalancing thresholds (8.9.0+, per Atlassian KB)** ([source](https://support.atlassian.com/jira/kb/troubleshooting-lexorank-system-issues/)):
 
-1. Rank length > 64 chars → Schedule rebalance within 12 hours
-2. Second trigger within 12 hours → Immediate rebalance
-3. Rank length > 254 chars → Disable ranking until complete
+| Max rank length      | Action                                                                                                  |
+| :------------------- | :------------------------------------------------------------------------------------------------------ |
+| 128–159 characters   | Rebalance is scheduled to run within 12 hours.                                                          |
+| 160–253 characters   | Rebalance starts immediately.                                                                           |
+| ≥ 254 characters     | Rebalance starts immediately; ranking still works, but any operation whose target rank would itself exceed 254 characters fails until normalisation completes. |
+
+> [!CAUTION]
+> The pre-8.9 behaviour was different: the immediate trigger fired at 200 characters and ranking was disabled past that. Older "blog wisdom" floating around the internet still cites those numbers — verify against the Atlassian KB before turning them into runbook thresholds.
 
 **Rebalancing algorithm:**
 
@@ -1001,8 +1016,8 @@ async function rebalanceColumn(projectId: string, statusId: string): Promise<voi
 
 ### Optimistic Locking Flow
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Optimistic locking with version field: two clients load version 5; the first write succeeds, the second collides on a version-conditional UPDATE and must refetch.](./diagrams/optimistic-locking-flow-light.svg "Optimistic locking with version field: two clients load version 5; the first write succeeds, the second collides on a version-conditional UPDATE and must refetch.")
+![Optimistic locking with version field: two clients load version 5; the first write succeeds, the second collides on a version-conditional UPDATE and must refetch.](./diagrams/optimistic-locking-flow-dark.svg)
 
 ### Implementation
 
@@ -1229,8 +1244,8 @@ async function moveIssue(input: MoveIssueInput): Promise<UpdateResult> {
 
 Each project has its own workflow, defined by statuses and transitions.
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Workflow data model: a Project owns its Statuses and Workflow Transitions; transitions reference from/to status rows.](./diagrams/workflow-data-model-light.svg "Workflow data model: a Project owns its Statuses and Workflow Transitions; transitions reference from/to status rows.")
+![Workflow data model: a Project owns its Statuses and Workflow Transitions; transitions reference from/to status rows.](./diagrams/workflow-data-model-dark.svg)
 
 ### Fetching Workflow Configuration
 
@@ -1378,6 +1393,281 @@ class WorkflowValidator {
   }
 }
 ```
+
+## Low-Level Design: Sync Engine and Offline Reconciliation
+
+Path C above describes the GraphQL story; this section captures what changes when the same product needs Linear-grade local-first behaviour and offline edits. The mechanism is independent of the wire protocol — it works equally well over GraphQL subscriptions or a raw WebSocket transaction stream.
+
+### Data plane
+
+Every workspace has a single monotonically increasing `lastSyncId`. The server bumps it on each persisted mutation and stamps the resulting **delta packet** with the new value before fanning it out to subscribers. Clients persist `lastSyncId` alongside the local model store so they can resume where they left off ([Scaling the Linear Sync Engine](https://linear.app/now/scaling-the-linear-sync-engine), [reverse-linear-sync-engine](https://github.com/wzhudev/reverse-linear-sync-engine)).
+
+![Sync engine flow: local mutations enqueue transactions, the server assigns a sync ID, and delta packets are fanned out and applied to the in-memory pool.](./diagrams/sync-engine-flow-light.svg "Sync engine flow: local mutations enqueue transactions, the server assigns a sync ID, and delta packets are fanned out and applied to the in-memory pool.")
+![Sync engine flow: local mutations enqueue transactions, the server assigns a sync ID, and delta packets are fanned out and applied to the in-memory pool.](./diagrams/sync-engine-flow-dark.svg)
+
+Three bootstrap modes hydrate the local store on app start ([reverse-linear-sync-engine](https://github.com/wzhudev/reverse-linear-sync-engine)):
+
+| Bootstrap | When                                              | Payload                                                   |
+| :-------- | :------------------------------------------------ | :-------------------------------------------------------- |
+| Full      | First load on a device                            | Full set of hot models (Issue, Project, User, Cycle)      |
+| Partial   | Returning user with cached state but missed range | `lastSyncId` cursor + deferred models (Comment, History)  |
+| Local     | Subsequent in-session loads                       | Hydrate from IndexedDB only; no network until first write |
+
+### Mutation lifecycle
+
+A local edit follows a fixed lifecycle:
+
+1. UI calls a mutator on the in-memory model. The change is applied to the MobX object pool optimistically — the UI re-renders with no network in the hot path.
+2. A `Transaction` record `{op, entity, fields, baseSyncId, clientId}` is appended to the local queue and persisted to IndexedDB.
+3. The sync client streams pending transactions over the WebSocket. When the server acks `{txId, lastSyncId=N}`, the client drops the transaction from the queue.
+4. The server fans the resulting delta packet out to every other connected client; remote clients apply the `SyncAction` set to their pool and bump their `lastSyncId`.
+
+If the device is offline, steps 3–4 are deferred. Transactions stay in IndexedDB until the WebSocket reconnects.
+
+### Reconnect and rebase
+
+On reconnect, the client cannot just replay the queue against the live server — the workspace may have advanced. The Linear-style protocol is:
+
+```text
+1. open WebSocket, send {lastSyncId: baseSyncId}
+2. server streams missed delta packets up to current lastSyncId
+3. client applies them to the pool — server state is now caught up
+4. for each queued Tx: rebase fields against the new base, re-apply
+5. flush queued Tx; server acks normally
+```
+
+Rebasing is field-level last-write-wins: if the server already moved `assignee` while the client was offline, the client's pending `assignee` write replaces it on reconnect. For free-form text (issue description, comment body) the rebase step instead hands off to a CRDT (Yjs / Automerge), which merges concurrent inserts without losing characters[^crdt-tech].
+
+### Idempotency and exactly-once delivery
+
+The transaction queue is the only retry source, so every mutation needs an idempotency key:
+
+- Each `Transaction` carries `{clientId, clientTxSeq}`. The server stores the last applied `clientTxSeq` per `clientId` and rejects re-deliveries silently with the original `lastSyncId`.
+- Each delta packet carries its `lastSyncId`. Clients drop packets whose `lastSyncId <= localLastSyncId` — natural deduplication on reconnect storms.
+- HTTP fallbacks (file uploads, third-party integrations) use an `Idempotency-Key` header per the Stripe pattern[^stripe-idempotency].
+
+### Why not vector / hybrid logical clocks?
+
+Vector clocks correctly capture concurrency but cost O(N) per write where N is the number of replicas — not viable for a workspace with 100k clients. Hybrid Logical Clocks (HLC) bound that cost but still require multiple participants to agree on causality at write time[^hlc]. A single server-assigned `lastSyncId` is the cheapest correct choice for issue trackers, where conflicts between two humans editing the same field within milliseconds are rare in practice.
+
+> [!IMPORTANT]
+> The sync engine is the single point that writes are serialised through. Sharding it (per workspace, never per entity) is fine; splitting it across entities inside a workspace breaks the global ordering guarantee that makes LWW safe.
+
+## Low-Level Design: Permissions and Issue-Level Security
+
+Issue trackers consistently land on a hybrid model: RBAC for project-scoped operations, ABAC-style overlays for per-issue visibility. Jira's three layers are the canonical reference[^jira-perms]:
+
+| Layer            | Granted to                          | Examples                                             |
+| :--------------- | :---------------------------------- | :--------------------------------------------------- |
+| Global           | Users / groups                      | `SYS_ADMIN`, `BROWSE_USERS`                          |
+| Project          | Project roles via permission scheme | `BROWSE_PROJECTS`, `CREATE_ISSUES`, `EDIT_ISSUES`    |
+| Issue-level      | Roles / groups / users via security | Restrict an HR-tagged issue to the HR security level |
+
+Role assignments are project-scoped: a user may be a `Developer` in one project and an `Observer` in another. This avoids the role explosion that pure global RBAC produces and matches how teams reason about access ("who is in this project, and what can each role do here?")[^osohq-rbac-abac].
+
+### Resolution flow
+
+![Permission resolution: deny by default, then short-circuit through global, project (RBAC), and issue-level security checks.](./diagrams/permission-resolution-light.svg "Permission resolution: deny by default, then short-circuit through global, project (RBAC), and issue-level security checks.")
+![Permission resolution: deny by default, then short-circuit through global, project (RBAC), and issue-level security checks.](./diagrams/permission-resolution-dark.svg)
+
+Resolution is short-circuit: if a global permission grants the action, no project / issue check runs. Otherwise the project's permission scheme is consulted via the user's project roles, and finally the issue's security level (if any) gates visibility.
+
+Two often-missed properties:
+
+- **Inheritance.** Sub-tasks inherit the parent's security level and cannot override it[^jira-perms]. This is what stops a contractor from being able to see a sub-task whose parent is hidden.
+- **No field-level permissions in Jira.** Once an issue is visible, every field on it is visible. Field-level redaction requires either a custom screen or an external authorisation layer[^jira-perms].
+
+### Schema
+
+```sql
+CREATE TABLE project_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,
+    UNIQUE (project_id, name)
+);
+
+CREATE TABLE project_role_members (
+    role_id UUID NOT NULL REFERENCES project_roles(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id),
+    group_id UUID REFERENCES groups(id),
+    PRIMARY KEY (role_id, COALESCE(user_id, group_id))
+);
+
+CREATE TABLE permission_scheme_grants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    permission VARCHAR(64) NOT NULL,        -- 'EDIT_ISSUES', 'TRANSITION_ISSUES', ...
+    role_id UUID REFERENCES project_roles(id) ON DELETE CASCADE,
+    group_id UUID REFERENCES groups(id),
+    user_id UUID REFERENCES users(id)
+);
+CREATE INDEX idx_pscheme_lookup ON permission_scheme_grants(project_id, permission);
+
+CREATE TABLE issue_security_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(64) NOT NULL,
+    UNIQUE (project_id, name)
+);
+
+CREATE TABLE issue_security_level_members (
+    level_id UUID NOT NULL REFERENCES issue_security_levels(id) ON DELETE CASCADE,
+    role_id UUID REFERENCES project_roles(id) ON DELETE CASCADE,
+    group_id UUID REFERENCES groups(id),
+    user_id UUID REFERENCES users(id)
+);
+
+ALTER TABLE issues
+    ADD COLUMN security_level_id UUID REFERENCES issue_security_levels(id);
+```
+
+### Caching authorisation
+
+Per-request resolution against four joins is too slow on hot paths (board load, search). Two safe caches:
+
+- **Effective-permission cache.** `(user_id, project_id) → bitset of granted permissions`, invalidated on role / scheme change. Lives in Redis with a 5-minute TTL plus pub/sub-driven busting.
+- **Visible-issue filter.** For search and listing, materialise per-user `(user_id, project_id) → security_level_ids[]` and inject the filter into the search query so the engine never returns rows the caller cannot read.
+
+Never cache a deny decision longer than an allow decision — the failure mode is "user briefly sees too much", which is precisely what authorisation must prevent.
+
+## Low-Level Design: Search Subsystem
+
+Issue search has a distinctive shape: many filters (`assignee = me AND status in (...) AND label = ...`), modest text payloads (titles + descriptions + comments), and a strong demand for typo tolerance and "as-you-type" feedback. The choice of engine matters more than for a typical full-text workload.
+
+### Engine selection
+
+| Engine            | Architecture                  | Best for                                         | Watch-outs                                                         |
+| :---------------- | :---------------------------- | :----------------------------------------------- | :----------------------------------------------------------------- |
+| Postgres FTS      | `tsvector` + GIN, in-database | Single-tenant or small multi-tenant; sovereignty | `tsvector` ≤ 1 MB; lexeme positions ≤ 16 384; no native typo[^pg-fts] |
+| Meilisearch       | Single-node Rust              | Fast as-you-type, small datasets                 | Memory-resident index; HA story is weak                            |
+| Typesense         | Distributed C++, Raft         | Sweet spot for SaaS scale + simple API           | Smaller community; fewer aggregation primitives                    |
+| OpenSearch / ES   | Distributed Java + Lucene     | Multi-tenant SaaS, faceted analytics             | Operational cost; index sizing and JVM tuning                      |
+
+A pragmatic split many teams adopt: ship Postgres FTS for the first 10⁴ issues per tenant, and promote to OpenSearch / Typesense once a tenant crosses an indexable-bytes threshold. Keep the query API engine-agnostic so the swap is a routing change.
+
+### Ingestion pipeline
+
+Issue documents are denormalised projections (issue + status + assignee + comments concatenated for body). They must be eventually consistent with Postgres but can lag the primary store by seconds.
+
+![Search ingestion pipeline: outbox + CDC stream issue changes through Kafka into OpenSearch, with index aliases for zero-downtime reindex.](./diagrams/search-ingestion-light.svg "Search ingestion pipeline: outbox + CDC stream issue changes through Kafka into OpenSearch, with index aliases for zero-downtime reindex.")
+![Search ingestion pipeline: outbox + CDC stream issue changes through Kafka into OpenSearch, with index aliases for zero-downtime reindex.](./diagrams/search-ingestion-dark.svg)
+
+Three patterns sit behind that diagram:
+
+- **Outbox + CDC** — every write to `issues` also inserts into an `outbox` table in the same transaction; Debezium (or Postgres logical replication) tails the outbox and publishes to Kafka. Avoids dual-writes drifting on partial failure[^debezium-outbox].
+- **Indexer is idempotent** — every doc carries the source `version`; the indexer drops any update whose `version` is older than what the index already holds.
+- **Alias-swap reindex** — full rebuilds write to `issues_v(N+1)` and atomically point the `issues` alias at it once caught up. No downtime, no half-indexed reads.
+
+### Query path
+
+A typical board-search query combines text + filters + facets:
+
+```json
+{
+  "size": 50,
+  "query": {
+    "bool": {
+      "must":   [{ "multi_match": { "query": "login bug", "fields": ["title^3", "body"] } }],
+      "filter": [
+        { "term": { "project_id": "p-1" } },
+        { "terms": { "security_level_id": ["lvl-public", "lvl-eng"] } },
+        { "term": { "status_category": "in_progress" } }
+      ]
+    }
+  },
+  "aggs": {
+    "by_assignee": { "terms": { "field": "assignee_id", "size": 10 } }
+  }
+}
+```
+
+The `security_level_id` filter is injected by the API layer from the per-user visibility cache (above). Never trust a client-supplied security filter — clients only get to choose project, status, assignee, etc.
+
+## Low-Level Design: Notifications
+
+Notifications are the system's most unbounded fan-out path: a single `@team` mention on a 200-person project can produce 200 deliveries across four channels each. The design priorities are channel isolation, idempotency, and backpressure.
+
+![Notification fan-out: domain events flow through a router into per-channel queues, with a digest aggregator for email and a dead-letter queue for failures.](./diagrams/notification-fanout-light.svg "Notification fan-out: domain events flow through a router into per-channel queues, with a digest aggregator for email and a dead-letter queue for failures.")
+![Notification fan-out: domain events flow through a router into per-channel queues, with a digest aggregator for email and a dead-letter queue for failures.](./diagrams/notification-fanout-dark.svg)
+
+### Pipeline
+
+1. **Domain event** is published to a Kafka topic (`issue.commented`, `issue.assigned`, `mention.created`).
+2. **Router** resolves subscribers by union of: assignee, reporter, watchers, mentioned users, project subscribers. It then filters by per-user channel preferences and current presence (no mobile push if the user is online on web — Slack's well-documented heuristic[^slack-notif]).
+3. **Per-channel queues** (`in-app`, `push`, `email`, `webhook`) decouple delivery so a failing email provider does not block in-app delivery.
+4. **Delivery workers** call APNs / FCM / SES / outbound webhooks with retry + DLQ. Each worker carries an idempotency key derived from `(event_id, user_id, channel)` so retries cannot double-deliver.
+5. **Digest aggregator** holds email events in a per-user window (e.g. 5 minutes for mentions, 24 hours for low-priority changes) and emits one combined message; this is what stops a busy issue from spamming a watcher inbox.
+
+### Watcher / subscription model
+
+```sql
+CREATE TABLE notification_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(20) NOT NULL,    -- 'issue', 'project', 'epic'
+    target_id UUID NOT NULL,
+    reason VARCHAR(20) NOT NULL,         -- 'assignee', 'mention', 'watch', 'subscribed_to_project'
+    UNIQUE (user_id, target_type, target_id, reason)
+);
+CREATE INDEX idx_notif_sub_target ON notification_subscriptions(target_type, target_id);
+
+CREATE TABLE notification_preferences (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    channels JSONB NOT NULL DEFAULT '{"in_app":true,"push":true,"email":"digest"}'::jsonb
+);
+```
+
+The `reason` column is what the UI surfaces ("You were assigned", "You were mentioned"); it is also what allows a user to unsubscribe selectively rather than from the whole project.
+
+### Audit log vs notification log
+
+These are two systems, not one:
+
+- **Activity / audit log** (`activity_log` table, append-only) is the system of record for what changed, who changed it, when. It feeds the issue history view and compliance exports. Never delete from it — soft-deletes only.
+- **Notification log** records what was *delivered* to whom, on which channel, with which result. It is what the inbox reads from and what powers idempotency. It can be aged out (90-day TTL is typical).
+
+## Low-Level Design: Attachments
+
+Attachments are the only part of the system with multi-MB payloads on the hot path. The design rule is "blobs in object storage, references in Postgres". Jira Cloud, GitHub, Linear, and Asana all converge on the same three primitives: presigned uploads, antivirus scanning, and per-tenant quotas[^jira-attachments].
+
+![Attachment upload: client requests a presigned multipart URL, uploads parts directly to S3, the server completes and triggers an antivirus scanner that promotes clean objects to a clean bucket and quarantines infected ones.](./diagrams/attachment-upload-flow-light.svg "Attachment upload: client requests a presigned multipart URL, uploads parts directly to S3, the server completes and triggers an antivirus scanner that promotes clean objects to a clean bucket and quarantines infected ones.")
+![Attachment upload: client requests a presigned multipart URL, uploads parts directly to S3, the server completes and triggers an antivirus scanner that promotes clean objects to a clean bucket and quarantines infected ones.](./diagrams/attachment-upload-flow-dark.svg)
+
+### Upload contract
+
+- **Presigned multipart upload.** API issues a presigned `CreateMultipartUpload` URL plus per-part PUT URLs scoped to a single object key in the *incoming* bucket. The server never proxies the bytes; this keeps API instances small and avoids egress cost spikes.
+- **Quota gate before signing.** Tenant size + per-issue size + per-file size caps are enforced at sign time. A signed URL is the authorisation; once issued, S3 will accept the upload, so the gate must fire here.
+- **Mime / extension allow-list** is also enforced at sign time. Block executable extensions by default; let admins opt in.
+
+### Scan and promote
+
+S3 `ObjectCreated` events fan out to an antivirus stage:
+
+| Option                                | Notes                                                                                                                |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------- |
+| Lambda + ClamAV layer                 | Cheap up to ~250 MB; cold-start friendly; Lambda's `/tmp` is the bottleneck for huge files                           |
+| ECS / EKS scanner pool                | Required for multi-GB files (CI artefacts, screen recordings); scales horizontally                                   |
+| AWS GuardDuty Malware Protection for S3 | Managed alternative; charged per GB scanned; useful when you don't want to operate ClamAV[^guardduty]               |
+
+Clean objects are copied to the *clean* bucket and an `attachments` row is committed with the object key and content hash; infected objects are moved to a *quarantine* bucket and the attachment is marked `infected`. Only clean attachments are exposed via the download URL.
+
+### Download and serving
+
+- Downloads are also presigned, scoped per-request to a short TTL (5 minutes), and gated by the same permission resolver as the parent issue.
+- Image / PDF previews are pre-generated by an async worker writing thumbnails to a sibling key (`<key>/preview-256.webp`); this keeps the issue card fast and avoids fetching multi-MB originals for the avatar grid.
+- Cache attachments behind a CDN with `Cache-Control: private, max-age=...` and use signed URLs as the cache key — public CDN caching of private content is the classic SaaS data-leak.
+
+[^crdt-tech]: [Conflict-free Replicated Data Types](https://crdt.tech/) — overview of CRDT families used for collaborative text.
+[^stripe-idempotency]: [Stripe — Idempotent requests](https://docs.stripe.com/api/idempotent_requests) — canonical `Idempotency-Key` header semantics.
+[^hlc]: Kulkarni et al., [Logical Physical Clocks and Consistent Snapshots in Globally Distributed Databases](https://cse.buffalo.edu/tech-reports/2014-04.pdf) (HLC).
+[^jira-perms]: [JIRA Permissions General Overview](https://support.atlassian.com/jira/kb/jira-permissions-general-overview/) and [Configuring issue-level security](https://confluence.atlassian.com/adminjiraserver/configuring-issue-level-security-938847117.html).
+[^osohq-rbac-abac]: Oso, [RBAC vs ABAC vs PBAC](https://www.osohq.com/learn/rbac-vs-abac-vs-pbac).
+[^pg-fts]: PostgreSQL docs, [Text Search — Limitations](https://www.postgresql.org/docs/current/textsearch-limitations.html).
+[^debezium-outbox]: Debezium, [Outbox Event Router](https://debezium.io/documentation/reference/transformations/outbox-event-router.html).
+[^slack-notif]: Slack via Courier, [How Slack builds smart notification systems](https://www.courier.com/blog/how-slack-builds-smart-notification-systems-users-want).
+[^jira-attachments]: Atlassian, [Configure file attachments](https://support.atlassian.com/jira-cloud-administration/docs/configure-file-attachments/).
+[^guardduty]: AWS, [GuardDuty Malware Protection for S3](https://docs.aws.amazon.com/guardduty/latest/ug/gdu-malware-protection-s3.html).
 
 ## Frontend Considerations
 
@@ -1635,8 +1925,8 @@ function VirtualizedColumn({
 
 ### AWS Reference Architecture
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![AWS reference architecture: CloudFront and ALB front Fargate-hosted GraphQL/REST/WebSocket services backed by RDS, ElastiCache, OpenSearch, MSK, and S3.](./diagrams/aws-reference-architecture-light.svg "AWS reference architecture: CloudFront and ALB front Fargate-hosted GraphQL/REST/WebSocket services backed by RDS, ElastiCache, OpenSearch, MSK, and S3.")
+![AWS reference architecture: CloudFront and ALB front Fargate-hosted GraphQL/REST/WebSocket services backed by RDS, ElastiCache, OpenSearch, MSK, and S3.](./diagrams/aws-reference-architecture-dark.svg)
 
 **Service configurations:**
 
@@ -1673,30 +1963,36 @@ function VirtualizedColumn({
 
 This design provides a flexible issue tracking system with:
 
-1. **O(1) reordering** via LexoRank eliminates cascading updates
-2. **Per-column pagination** ensures all columns load incrementally
-3. **Optimistic locking** handles concurrent edits with minimal conflict
-4. **Project-scoped workflows** allow team customization without global impact
-5. **Real-time sync** via GraphQL subscriptions provides sub-300ms propagation
+1. **O(1) reordering** via LexoRank eliminates cascading updates.
+2. **Per-column cursor pagination** ensures all columns load incrementally.
+3. **Optimistic locking** handles concurrent edits with minimal conflict.
+4. **Project-scoped workflows** allow team customisation without global impact.
+5. **Real-time sync** via a server-assigned `lastSyncId` plus delta packets gives sub-300 ms propagation and a clean offline-reconnect story.
+6. **Hybrid RBAC + issue-level security** mirrors how teams reason about access; permission resolution is short-circuit and cached per request.
+7. **Outbox + CDC search ingestion** keeps OpenSearch eventually consistent without dual-write drift.
+8. **Per-channel notification fan-out** with per-user digest avoids cross-channel head-of-line blocking.
+9. **Presigned multipart uploads** and an async antivirus stage keep large blobs out of the API and out of Postgres.
 
 **Key architectural decisions:**
 
-- LexoRank for ordering trades storage (growing strings) for write efficiency
-- Per-column pagination over global pagination ensures balanced board views
-- Last-write-wins is acceptable for most fields; CRDTs reserved for rich text
-- Denormalized Redis cache trades consistency for read performance
+- LexoRank for ordering trades storage (growing strings) for write efficiency.
+- Per-column pagination over global pagination ensures balanced board views.
+- Last-write-wins is acceptable for most fields; CRDTs reserved for rich text.
+- Denormalised Redis cache trades consistency for read performance.
+- Server-assigned monotonic `lastSyncId` is preferred over vector / hybrid logical clocks for issue-tracker workloads where conflicts are rare.
 
 **Known limitations:**
 
-- LexoRank requires periodic rebalancing (background job)
-- Last-write-wins may lose concurrent edits on same field
-- Large boards (>1000 issues) need virtualization
+- LexoRank requires periodic rebalancing (background job).
+- Last-write-wins may lose concurrent edits on the same scalar field.
+- Large boards (>1000 issues) need virtualisation.
+- Postgres FTS caps out around the `tsvector` size limit; promote to OpenSearch / Typesense per tenant.
 
 **Future enhancements:**
 
-- Local-first architecture for offline support (Linear-style sync engine)
-- Field-level CRDTs for conflict-free concurrent editing
-- GraphQL federation for microservices decomposition
+- Field-level CRDTs for conflict-free concurrent editing on scalar fields where it is worth the cost.
+- GraphQL federation for microservices decomposition.
+- Per-tenant search engine routing (Postgres FTS for small tenants, OpenSearch for large).
 
 ## Appendix
 
@@ -1731,25 +2027,46 @@ This design provides a flexible issue tracking system with:
 
 **Issue Tracker APIs:**
 
-- [Jira Software Cloud REST API](https://developer.atlassian.com/cloud/jira/software/rest/intro/) - Board and agile endpoints
-- [Jira Cloud Platform REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v3/) - Issue and workflow endpoints
-- [Linear Developers - GraphQL API](https://linear.app/developers/graphql) - GraphQL schema and patterns
-- [Asana Developers](https://developers.asana.com/reference/) - Task and section ordering
+- [Jira Software Cloud REST API](https://developer.atlassian.com/cloud/jira/software/rest/intro/) — board and agile endpoints
+- [Jira Cloud Platform REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v3/) — issue and workflow endpoints
+- [Linear Developers — GraphQL API](https://linear.app/developers/graphql) — GraphQL schema and usage
+- [GitHub GraphQL API](https://docs.github.com/en/graphql) — issues and projects via GraphQL
+- [Asana API reference](https://developers.asana.com/reference/) — task and section ordering
 
 **Ordering Algorithms:**
 
-- [Figma Blog - Realtime Editing of Ordered Sequences](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/) - Fractional indexing at scale
-- [Understanding LexoRank](https://support.atlassian.com/jira/kb/understanding-and-managing-lexorank-in-jira-server/) - Jira's ranking system
-- [LexoRank Explained](https://tmcalm.nl/blog/lexorank-jira-ranking-system-explained/) - Detailed algorithm walkthrough
-- [rocicorp/fractional-indexing](https://github.com/rocicorp/fractional-indexing) - Reference implementation
+- [Figma — Realtime Editing of Ordered Sequences](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/) — fractional indexing at scale
+- [Atlassian KB — Troubleshooting LexoRank System Issues](https://support.atlassian.com/jira/kb/troubleshooting-lexorank-system-issues/) — bucket model, rebalance thresholds, integrity checks
+- [Atlassian Greenhopper — `LexoRankBalanceOperation` API](https://docs.atlassian.com/jira-software/10.4.0/com/atlassian/greenhopper/service/lexorank/balance/LexoRankBalanceOperation.html) — bucket round-robin reference
+- [`rocicorp/fractional-indexing`](https://github.com/rocicorp/fractional-indexing) — reference implementation
 
 **Sync and Real-time:**
 
-- [Scaling the Linear Sync Engine](https://linear.app/now/scaling-the-linear-sync-engine) - Local-first architecture
-- [Reverse Engineering Linear's Sync Engine](https://github.com/wzhudev/reverse-linear-sync-engine) - Technical deep-dive
-- [Conflict-free Replicated Data Types](https://crdt.tech/) - CRDT resources
+- [Scaling the Linear Sync Engine](https://linear.app/now/scaling-the-linear-sync-engine) — local-first architecture (first-party)
+- [Reverse-engineering Linear's sync engine](https://github.com/wzhudev/reverse-linear-sync-engine) — endorsed by Linear's CTO; LWW + selective CRDT detail
+- [Conflict-free Replicated Data Types](https://crdt.tech/) — CRDT resources
+
+**Permissions and AuthZ:**
+
+- [JIRA Permissions General Overview](https://support.atlassian.com/jira/kb/jira-permissions-general-overview/) — global / project / issue-level layers
+- [Configuring issue-level security (Jira)](https://confluence.atlassian.com/adminjiraserver/configuring-issue-level-security-938847117.html) — security schemes and inheritance rules
+- [Oso — RBAC vs ABAC vs PBAC](https://www.osohq.com/learn/rbac-vs-abac-vs-pbac) — access-control model trade-offs
+
+**Search:**
+
+- [PostgreSQL — Text Search Limitations](https://www.postgresql.org/docs/current/textsearch-limitations.html) — `tsvector` and lexeme-position caps
+- [Debezium — Outbox Event Router](https://debezium.io/documentation/reference/transformations/outbox-event-router.html) — outbox + CDC pattern
+- [Typesense vs Algolia vs Elasticsearch vs Meilisearch](https://typesense.org/typesense-vs-algolia-vs-elasticsearch-vs-meilisearch) — engine comparison
+
+**Notifications and Attachments:**
+
+- [How Slack builds smart notification systems (Courier)](https://www.courier.com/blog/how-slack-builds-smart-notification-systems-users-want) — presence-aware routing
+- [Configure file attachments (Jira Cloud)](https://support.atlassian.com/jira-cloud-administration/docs/configure-file-attachments/) — per-tenant size and quota model
+- [GuardDuty Malware Protection for S3](https://docs.aws.amazon.com/guardduty/latest/ug/gdu-malware-protection-s3.html) — managed AV-on-upload
 
 **System Design:**
 
-- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control) - Concurrency patterns
-- [Cursor-based Pagination](https://relay.dev/graphql/connections.htm) - Relay connection specification
+- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control) — concurrency patterns
+- [Relay Cursor Connections specification](https://relay.dev/graphql/connections.htm) — cursor-based pagination contract
+- [Stripe — Idempotent requests](https://docs.stripe.com/api/idempotent_requests) — `Idempotency-Key` semantics
+- Kulkarni et al., [Logical Physical Clocks and Consistent Snapshots](https://cse.buffalo.edu/tech-reports/2014-04.pdf) — HLC reference

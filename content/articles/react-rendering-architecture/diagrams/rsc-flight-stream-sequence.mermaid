@@ -1,0 +1,21 @@
+%% Diagram: Rsc Flight Stream Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant E as Edge / Node\n(SSR + RSC runtime)
+    participant DB as Database
+
+    B->>E: GET /products
+    E->>E: Render server tree\n(server components)
+    E->>DB: Query products
+    DB-->>E: Rows
+    E-->>B: HTML shell\n+ first Flight chunks
+    Note over E,B: Server keeps streaming\nas Suspense boundaries resolve
+    E->>DB: Query reviews\n(suspended boundary)
+    DB-->>E: Rows
+    E-->>B: Flight chunk\nfor reviews subtree
+    B->>B: Patch DOM placeholder\n(react-server-dom-* runtime)
+    B->>B: Hydrate client islands\n(use client modules)
+    Note over B: Server component code\nnever crosses the wire

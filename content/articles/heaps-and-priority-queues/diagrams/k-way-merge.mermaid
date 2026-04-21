@@ -1,0 +1,39 @@
+%% Diagram: K-way merge using a size-k min-heap
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph Streams["k sorted input streams"]
+    direction TB
+    S1["Stream A: 1, 4, 7, 12, ..."]
+    S2["Stream B: 2, 3, 9, 11, ..."]
+    S3["Stream C: 5, 6, 10, 14, ..."]
+    Sk["Stream k: 8, 13, 15, ..."]
+  end
+
+  subgraph Heap["Min-heap of k front elements"]
+    direction TB
+    H0(("min: 1<br/>(from A)"))
+    H1(("2<br/>(from B)"))
+    H2(("5<br/>(from C)"))
+    H3(("8<br/>(from k)"))
+    H0 --- H1
+    H0 --- H2
+    H1 --- H3
+  end
+
+  Output["Output stream<br/>1 -> 2 -> 3 -> 4 -> 5 -> ..."]
+
+  S1 -. "front" .-> H0
+  S2 -. "front" .-> H1
+  S3 -. "front" .-> H2
+  Sk -. "front" .-> H3
+
+  H0 -- "pop min, emit" --> Output
+  Output -. "refill from same stream" .-> H0
+
+  classDef stream fill:#e3f2fd,stroke:#1565c0
+  classDef heapNode fill:#fff3e0,stroke:#ef6c00
+  classDef out fill:#e8f5e9,stroke:#2e7d32
+  class S1,S2,S3,Sk stream
+  class H0,H1,H2,H3 heapNode
+  class Output out

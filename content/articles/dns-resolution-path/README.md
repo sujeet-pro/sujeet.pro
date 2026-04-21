@@ -6,7 +6,7 @@ description: >-
   authoritative chain — with packet-level detail on iterative resolution,
   caching decisions, glue records, and common failure modes like SERVFAIL.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - networking
   - http
@@ -32,6 +32,24 @@ Key mental model:
 - **Authoritative**: Holds zone data, returns definitive answers or referrals
 - **Caching**: Dominates real-world latency; a cached response returns in <1ms, uncached may take 100-400ms
 - **Failure modes**: NXDOMAIN (domain doesn't exist), SERVFAIL (upstream failure), REFUSED (policy rejection), timeouts (network/server issues)
+
+## Pre-Resolution Cache Layers
+
+Before a query ever leaves the host, several caches and overrides are consulted in order. Most "DNS is slow" reports actually live in this section, not in the iterative walk.
+
+![Local cache lookup chain checked before any packet leaves the host.](./diagrams/pre-resolution-cache-chain-light.svg "Application requests pass through browser cache, hosts file, mDNS, and the OS resolver cache before the stub ever speaks to a recursive resolver.")
+![Local cache lookup chain checked before any packet leaves the host.](./diagrams/pre-resolution-cache-chain-dark.svg)
+
+| Layer | What it is | Bypass / control |
+| :--- | :--- | :--- |
+| Browser internal cache | Per-process `HostResolver` (Chrome / Edge / Brave) or `nsHostResolver` (Firefox). Holds recent name → address mappings, gated by the OS-returned TTL and a fixed cap on entries. Inspected via `chrome://net-internals/#dns` and `about:networking#dns`. | Cleared on browser restart, network change, or via the debug pages. Speculative entries seeded by `<link rel="dns-prefetch">` and `rel="preconnect"` live here too. |
+| `hosts` file / NSS | `/etc/hosts` (Linux/macOS) or `%SystemRoot%\System32\drivers\etc\hosts` (Windows). On Linux, ordering is governed by `/etc/nsswitch.conf` (`hosts: files dns ...`). On Windows, hosts entries are preloaded into the DNS Client cache, so they show up under `ipconfig /displaydns`. | Static mapping; bypasses every downstream resolver entirely. Useful for pinning hostnames during incident response or local development. |
+| Multicast DNS (mDNS) | RFC 6762. Names ending in `.local` resolve via multicast on `224.0.0.251` / `FF02::FB`, port 5353, with no central server. Implemented by Apple Bonjour, `systemd-resolved`, and `avahi`. | Stays on the link; never reaches a recursive resolver. Disable per-interface to suppress noisy multicast on production hosts. |
+| OS / system resolver cache | Windows DNS Client service (`Dnscache`), `systemd-resolved`, macOS `mDNSResponder`. Honors the TTL returned by the recursive resolver. Optionally extended by Windows' Name Resolution Policy Table (NRPT) for split DNS, DNSSEC enforcement, or per-namespace resolver pinning. | Flush via `ipconfig /flushdns` (Windows), `sudo resolvectl flush-caches` (Linux), `sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder` (macOS). |
+| Stub resolver | The DNS client library proper (glibc `getaddrinfo`, `mDNSResponder`, Windows DNS Client). Caches little or nothing of its own — it sits on top of the system cache. | Configured via `/etc/resolv.conf`, NetworkManager, `systemd-resolved`, or DHCP-pushed servers. |
+
+> [!IMPORTANT]
+> A browser DNS cache hit can mask a stale recursive answer. When debugging propagation, also clear the in-browser cache (`chrome://net-internals/#dns`, `about:networking#dns`) before declaring a TTL-related issue resolved.
 
 ## DNS Actors and Their Roles
 
@@ -68,13 +86,18 @@ The recursive resolver (also called a full-service resolver or caching resolver)
 - May validate DNSSEC signatures
 - Implements rate limiting, prefetching, and serve-stale policies
 
-**Design decision—why iterative, not recursive all the way down?**
+**Recursive vs iterative — two modes, one resolver:**
 
-RFC 1034 specifies that recursive resolvers use iterative queries to authoritative servers. The recursive resolver asks "where should I go next?" and follows referrals itself, rather than asking each server to do the full resolution. This design:
+The same word "resolver" describes two distinct query modes. RFC 9499 §6 nails the contract:
 
-- **Optimizes caching**: The recursive resolver sees all intermediate referrals and caches them
-- **Limits trust**: Authoritative servers only answer for their zones, not arbitrary queries
-- **Reduces load on authoritative servers**: They don't need to implement recursive logic
+- **Recursive mode** (stub → recursive). The client sets RD=1 and the server is obligated to return either a final answer or an error. The client never sees referrals.
+- **Iterative mode** (recursive → authoritative). The client sets RD=0 and the server returns *whatever it knows* — an authoritative answer for its own zones, or an NS-set referral pointing the client one step closer. The client follows referrals itself.
+
+A "recursive resolver" is the actor that *takes* recursive queries from stubs and *makes* iterative queries to authoritative servers. This split exists for three reasons:
+
+- **Caching leverage**: every referral the recursive resolver collects (root → TLD → registrar nameservers) is cacheable and reusable by every downstream client.
+- **Trust isolation**: an authoritative server only ever has to answer for its own zones. It never executes arbitrary lookups for unknown clients.
+- **Operational separation**: authoritative servers can be rate-limited, geo-restricted, or DDoS-mitigated independently from the recursive layer.
 
 Popular recursive resolvers include BIND, Unbound, PowerDNS Recursor, and public services like Google Public DNS (8.8.8.8), Cloudflare (1.1.1.1), and Quad9 (9.9.9.9).
 
@@ -88,7 +111,7 @@ Authoritative servers hold the definitive DNS records for zones they serve. They
 
 **The authoritative hierarchy:**
 
-```
+```text
 . (root)
 ├── com. (TLD)
 │   └── example.com. (domain)
@@ -99,7 +122,7 @@ Authoritative servers hold the definitive DNS records for zones they serve. They
 
 Each level delegates to the next. Root servers know TLD servers; TLD servers know domain nameservers; domain nameservers know their subdomains.
 
-**Root servers** are the entry point when the recursive resolver has no cached data. There are 13 logical root servers (A through M), operated by 12 independent organizations. As of 2024, over 1,700 physical instances exist worldwide, all using anycast for geographic distribution.
+**Root servers** are the entry point when the recursive resolver has no cached data. There are 13 logical root server identifiers (A through M), operated by 12 independent organizations. As of April 2026 the root system reports roughly 2,000 anycast instances worldwide ([root-servers.org](https://root-servers.org/)), all sharing the same set of IPv4 + IPv6 addresses through BGP anycast.
 
 **TLD servers** handle generic TLDs (.com, .org, .net) and country-code TLDs (.uk, .de, .jp). They return referrals to the authoritative nameservers for second-level domains.
 
@@ -119,7 +142,7 @@ This priming query ensures the resolver has accurate root server data, not stale
 
 ### Step 2: Query the Root
 
-```
+```text
 Query:  api.example.com. IN A
 From:   Recursive resolver
 To:     Root server (e.g., 198.41.0.4, A-root)
@@ -141,7 +164,7 @@ The root server returns a referral—NS records for the `.com` TLD along with gl
 
 ### Step 3: Query the TLD
 
-```
+```text
 Query:  api.example.com. IN A
 From:   Recursive resolver
 To:     a.gtld-servers.net (192.5.6.30)
@@ -160,7 +183,7 @@ The TLD server returns another referral, pointing to the authoritative nameserve
 
 ### Step 4: Query the Authoritative Server
 
-```
+```text
 Query:  api.example.com. IN A
 From:   Recursive resolver
 To:     ns1.example.com (93.184.216.34)
@@ -187,6 +210,9 @@ The authoritative server returns the final answer with the AA flag set. The recu
 
 ## Caching Layers and TTL Mechanics
 
+![Caching layers along the resolution path with TTL countdown direction.](./diagrams/caching-layers-and-ttl-light.svg "Each hop caches answers it sees; TTL is set authoritatively and counts down at every downstream cache.")
+![Caching layers along the resolution path with TTL countdown direction.](./diagrams/caching-layers-and-ttl-dark.svg)
+
 ### TTL Semantics
 
 TTL (Time To Live) is a 32-bit unsigned integer specifying the maximum duration a record may be cached, in seconds. Per RFC 1035, TTL "specifies the time interval that the resource record may be cached before the source of the information should again be consulted."
@@ -209,7 +235,7 @@ TTL (Time To Live) is a 32-bit unsigned integer specifying the maximum duration 
 
 Negative responses (NXDOMAIN, NODATA) are cached to reduce load on authoritative servers. RFC 2308 specifies that the negative cache TTL is:
 
-```
+```text
 Negative TTL = min(SOA.MINIMUM, SOA TTL)
 ```
 
@@ -219,34 +245,82 @@ Authoritative servers MUST include the SOA record in the Authority section of ne
 
 ### Resolution Failure Caching
 
-RFC 9520 (December 2023) introduces mandatory caching of resolution failures—situations where no useful response was received (timeouts, SERVFAIL from all servers). This prevents "query storms" where failed authoritative servers receive 10x normal load from retrying resolvers.
+[RFC 9520](https://datatracker.ietf.org/doc/rfc9520/) (December 2023) makes caching of *resolution failures* mandatory — situations where no useful response was received at all (timeouts, malformed responses, SERVFAIL from every authoritative target, DNSSEC validation failures). Without it, retrying resolvers can multiply authoritative-server load by 10× during incidents.
+
+The normative requirements are tight:
+
+- Resolvers **MUST** cache each resolution failure for at least 1 second.
+- They **MUST NOT** cache a single failure for longer than 5 minutes (300 s).
+- For persistent failures, resolvers **SHOULD** apply exponential or linear backoff up to that 5-minute ceiling.
+- During the cached window, the resolver **MUST NOT** issue any outgoing query that would match the failed entry.
 
 **Distinction:**
 
-- **NXDOMAIN/NODATA**: Not failures—the server provided a useful (negative) answer
-- **Resolution failure**: No useful response received; cache to prevent retry floods
+- **NXDOMAIN / NODATA** — not failures; the authoritative server gave a useful negative answer (cached per RFC 2308).
+- **Resolution failure** — no useful answer received at all; cached per RFC 9520 to prevent retry floods.
 
 ### Prefetching
 
 Modern resolvers prefetch records before TTL expiry to eliminate cache-miss latency for popular domains:
 
-| Resolver | Trigger Condition             | Eligibility              |
-| -------- | ----------------------------- | ------------------------ |
-| BIND     | 2 seconds remaining TTL       | Original TTL > 9 seconds |
-| Unbound  | 10% of original TTL remaining | All records              |
-| PowerDNS | Configurable percentage       | Popular domains          |
+| Resolver | Trigger Condition             | Eligibility                                      |
+| -------- | ----------------------------- | ------------------------------------------------ |
+| BIND 9   | ≤ 2 s remaining TTL (default) | Original TTL ≥ 9 s ([ISC docs](https://kb.isc.org/docs/aa-01122)) |
+| Unbound  | ~10% of original TTL remaining | `prefetch: yes` opt-in; popular records         |
+| PowerDNS | Configurable percentage        | Popular domains                                  |
 
 ### Serve-Stale (RFC 8767)
 
-When an authoritative server is unreachable, resolvers MAY serve expired cache data rather than returning SERVFAIL:
+When an authoritative server is unreachable, [RFC 8767](https://datatracker.ietf.org/doc/html/rfc8767) lets resolvers serve expired cache data rather than returning SERVFAIL:
 
-- Stale response TTL: 30 seconds (recommended)
-- Maximum stale timer: Configurable upper bound on how long past-TTL data is served
-- Resolver continues refresh attempts in background
+- **Stale answer TTL** — TTL stamped on the served stale record. RFC 8767 §4 mandates a value `> 0` and recommends **30 seconds**.
+- **Max stale TTL** — upper bound on how long past-original-TTL data may be served. RFC 8767 §5.11 suggests **1 to 3 days**.
+- **Stale-refresh timer** — the resolver keeps trying the authoritative server in the background; until it succeeds, repeat queries are answered from the stale cache to absorb load.
 
-This improves resilience during authoritative outages at the cost of potentially serving outdated data.
+This improves resilience during authoritative outages at the cost of potentially serving outdated data — the trade-off is explicit and operator-tunable.
+
+## EDNS Client Subnet (ECS)
+
+A geo-aware authoritative server has a problem: by default it only sees the *recursive resolver's* IP, not the client's. A user in Tokyo on Google Public DNS looks indistinguishable from a user in São Paulo on the same resolver — and gets the same nearest-PoP answer, which may be wildly wrong.
+
+EDNS Client Subnet, defined in [RFC 7871](https://www.rfc-editor.org/rfc/rfc7871), is the EDNS0 option that lets a recursive resolver forward a *prefix* of the client's address to the authoritative server, so geo-aware authoritatives (CDN DNS, traffic managers) can answer based on client location instead of resolver location.
+
+![ECS sequence: recursive forwards client subnet, authoritative scopes the answer, recursive caches per subnet.](./diagrams/ecs-geo-dns-light.svg "Recursive resolver trims the client IP to a /24 (or /56 for IPv6), forwards it as ECS, and caches the geo-targeted answer keyed on the returned scope.")
+![ECS sequence: recursive forwards client subnet, authoritative scopes the answer, recursive caches per subnet.](./diagrams/ecs-geo-dns-dark.svg)
+
+### How ECS changes the cache key
+
+The ECS option carries three fields: `FAMILY` (IPv4/IPv6), `SOURCE PREFIX-LENGTH` (how many bits the resolver is willing to share, typically `/24` for IPv4 and `/56` for IPv6), and `SCOPE PREFIX-LENGTH` (how broadly the authoritative says the answer applies). RFC 7871 §7.3.1 makes the cache-key behavior explicit: an ECS-aware recursive must extend its cache key with the returned `SCOPE` subnet. A single popular hostname can balloon from one cache entry to thousands — one per `/24` of the user base — which is the main reason ECS makes recursive cache footprints grow.
+
+### Operator policy: who runs ECS today
+
+| Public resolver | ECS behavior | Source |
+| :--- | :--- | :--- |
+| Google Public DNS (`8.8.8.8`) | Forwards ECS by default at `/24` (IPv4) and `/56` (IPv6) | [Google ECS docs](https://developers.google.com/speed/public-dns/docs/ecs) |
+| OpenDNS / Cisco Umbrella | Forwards ECS by default | OpenDNS engineering posts |
+| Cloudflare 1.1.1.1 | Strips ECS by default; relies on its own anycast PoP density to localize answers | [Cloudflare 1.1.1.1 announcement](https://blog.cloudflare.com/announcing-1111/) |
+| Quad9 | Does not forward ECS | Quad9 privacy policy |
+
+### Privacy and operational trade-offs
+
+RFC 7871 itself opens with an unusually candid privacy warning: ECS exposes a slice of the user's network identity to every authoritative on the resolution path, which is exactly the leakage that DoT and DoH set out to remove. [RFC 7626 (DNS Privacy Considerations)](https://www.rfc-editor.org/rfc/rfc7626) §2.5 calls ECS out as one of the "active" privacy degradations of DNS in deployment.
+
+Operationally, ECS is a sharp tool. It is the right answer when:
+
+- The authoritative is a CDN traffic manager that needs to map clients to nearest PoP.
+- The recursive is closer to the authoritative than to its own clients (e.g., a centralized open resolver).
+
+It is the wrong answer when:
+
+- The recursive is *already* close to the user (ISP resolver, on-net resolver, dense anycast like Cloudflare). The added cache cardinality and privacy cost buy nothing.
+- DNSSEC is in use end-to-end and you want responses that depend only on the QNAME, for cacheable, signature-stable answers.
+
+Per RFC 7871 §12.1, the spec recommends ECS be **off by default** and enabled only where it provides measurable benefit; a recursive can also signal anonymity to authoritatives by sending `SOURCE=0` (the wildcard).
 
 ## Failure Modes and Response Codes
+
+![Decision tree mapping observed resolver behaviour to the underlying DNS failure mode.](./diagrams/failure-mode-decision-tree-light.svg "Use the response shape — RCODE, presence of an answer, or pure timeout — to decide where in the resolution path to start debugging.")
+![Decision tree mapping observed resolver behaviour to the underlying DNS failure mode.](./diagrams/failure-mode-decision-tree-dark.svg)
 
 ### RCODE Values
 
@@ -272,7 +346,7 @@ $ dig nonexistent.example.com
 ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN
 ```
 
-RFC 8020 clarifies NXDOMAIN behavior: if a resolver receives NXDOMAIN for `foo.example.com`, it MAY assume that `bar.foo.example.com` also doesn't exist (NXDOMAIN cut), reducing unnecessary queries.
+[RFC 8020](https://www.rfc-editor.org/rfc/rfc8020) tightens NXDOMAIN semantics: an NXDOMAIN at name `N` means *nothing exists at or below* `N`. A resolver receiving NXDOMAIN for `foo.example.com` **MUST** treat any descendant query (`bar.foo.example.com`, `baz.bar.foo.example.com`, …) as NXDOMAIN as well — the "NXDOMAIN cut". This collapses entire query subtrees into a single cached negative answer.
 
 **SERVFAIL (Server Failure)**
 
@@ -325,17 +399,39 @@ RFC 1035 leaves retry logic to implementations. Typical patterns:
 4. **Lame delegations**: NS records pointing to non-responsive servers waste query attempts
 5. **DNSSEC validation**: Additional queries for DNSKEY and DS records
 
-### Anycast
+### Anycast for Roots, TLDs, and Public Resolvers
 
-All root servers and most major TLD/public resolvers use anycast—multiple servers share a single IP address, and BGP routes queries to the topologically nearest instance.
+All root servers and most major TLD and public resolvers use BGP anycast: a single IP (or a small `/24`) is announced from many physical PoPs, and the network routes each client to whichever PoP its provider's BGP best path points to. The same `1.1.1.1` is answered by hundreds of independent servers worldwide.
 
-**Benefits:**
+![Anycast routing: one IP, many PoPs, BGP picks the path.](./diagrams/anycast-resolver-routing-light.svg "Public resolvers like 1.1.1.1 and 8.8.8.8 announce the same /24 from every PoP; clients hit whichever PoP wins the BGP best-path tiebreak from their network.")
+![Anycast routing: one IP, many PoPs, BGP picks the path.](./diagrams/anycast-resolver-routing-dark.svg)
 
-- Reduces RTT by routing to nearby instances
-- Distributes DDoS traffic across instances
-- Improves availability (instance failure → traffic reroutes)
+**What this gets the operator:**
 
-**Caveat:** "Nearest" means fewest network hops, not geographic distance. A query from Tokyo might route to a Singapore instance even if there's one in Tokyo, depending on BGP policies.
+- **Latency**: most clients reach a PoP a few hops away; cold-cache resolution still does the iterative walk, but every leg starts from a nearby box.
+- **DDoS spread**: a volumetric attack lands on hundreds of PoPs in parallel, so each PoP only sees a fraction of the attack.
+- **Availability**: a PoP failure withdraws its BGP announcement and traffic re-converges to the next-best PoP, usually within a few seconds.
+- **Per-PoP cache**: caches are local to each PoP. The same hot record can have a hundred independent TTL countdowns; cache-miss probability for a global domain is higher than the per-PoP hit rate suggests.
+
+**Public resolver architectures (verified):**
+
+- **Cloudflare 1.1.1.1** runs its recursive on its global anycast network, the same fabric that serves CDN traffic. It explicitly strips ECS to keep client identity off the wire and relies on PoP density to localize CDN answers ([1.1.1.1 launch post, 2018](https://blog.cloudflare.com/announcing-1111/)).
+- **Google Public DNS 8.8.8.8** runs anycast across Google's edge POPs; it forwards ECS by default so that geo-aware authoritatives (including non-Google CDNs) can localize answers despite Google's centralized resolver footprint ([Public DNS performance docs](https://developers.google.com/speed/public-dns/docs/performance)).
+- **Quad9 9.9.9.9** anycasts a security-filtering recursive operated by a non-profit; threat-feed-driven blocklists are applied at the recursive layer.
+
+**Caveat:** "nearest" means BGP-shortest, not geographically closest. A Tokyo client may end up at a Singapore PoP because of how its transit provider peers — a useful debugging hypothesis when a single resolver is mysteriously slow from one network.
+
+### DNS over TCP and Large Responses
+
+DNS messages historically used UDP/53 for queries and TCP/53 only for zone transfers. That model broke once DNSSEC, large RRsets, and EDNS(0) pushed responses past the safe UDP MTU.
+
+[RFC 7766](https://www.rfc-editor.org/rfc/rfc7766) updates the contract: every modern DNS implementation **MUST** support both UDP and TCP. Servers must accept TCP for any standard query, not just zone transfers, and clients must fall back to TCP when a response arrives with the TC (truncation) bit set or when EDNS-advertised UDP buffer sizes are too small.
+
+In practice, this matters because:
+
+- DNSSEC-signed responses regularly exceed 1232 bytes (the modern recommended EDNS UDP buffer), forcing TC=1 and a TCP retry.
+- Stateful firewalls that only allow UDP/53 silently break DNSSEC validation; symptoms look like SERVFAIL or timeouts.
+- DoT (RFC 7858) and DoH (RFC 8484) are pure TCP/TLS — TCP support is the foundation that the encrypted transports build on.
 
 ### Mitigation Strategies
 
@@ -349,11 +445,29 @@ All root servers and most major TLD/public resolvers use anycast—multiple serv
 
 ### Browser DNS Prefetching
 
-Browsers speculatively resolve hostnames found in page links:
+Browsers speculatively resolve hostnames discovered in page links and resource hints:
 
-- Reduces perceived latency by parallelizing DNS with page load
-- Disabled by default on HTTPS pages (privacy concern)
-- Controlled via `X-DNS-Prefetch-Control` header or `<link rel="dns-prefetch">`
+- Reduces perceived latency by overlapping DNS with HTML parsing and rendering.
+- Behaviour varies by browser and context — some browsers disable speculative prefetch on HTTPS-loaded pages or in private-browsing modes for privacy reasons.
+- Controlled per-document via the [`X-DNS-Prefetch-Control`](https://developer.mozilla.org/docs/Web/HTTP/Headers/X-DNS-Prefetch-Control) response header or per-link via [`<link rel="dns-prefetch">`](https://developer.mozilla.org/docs/Web/HTML/Attributes/rel/dns-prefetch).
+
+### Happy Eyeballs and the Dual-Stack DNS Race
+
+Resolution does not end at "got an A record." On a dual-stack host, the connection logic — [RFC 8305 (Happy Eyeballs v2)](https://www.rfc-editor.org/rfc/rfc8305) — interleaves DNS and TCP/QUIC setup to hide IPv6 brokenness from the user.
+
+The salient DNS-side rules from RFC 8305 §3:
+
+- The client issues `AAAA` and `A` queries **in parallel**, with the `AAAA` sent first.
+- It does **not** wait for both responses before continuing.
+- If the `A` response arrives first, the client waits up to a **Resolution Delay of 50 ms** for the `AAAA` (recommended default; tunable). If `AAAA` arrives in that window, IPv6 is preferred.
+- If the delay expires, the client starts connecting using the IPv4 address but keeps the `AAAA` request alive; once any `AAAA` arrives, those addresses are interleaved into the connection list.
+- Connection attempts are then staggered by the **Connection Attempt Delay (250 ms recommended)**, with IPv6 first in the interleaved list.
+
+Implications for the resolution path:
+
+- A slow `AAAA` answer never delays a working IPv4 connection by more than 50 ms — but it does mean the recursive resolver's `AAAA` performance directly shapes IPv6 adoption on the wire.
+- A `SERVFAIL` on `AAAA` for a dual-stack name still allows the client to connect over IPv4. A *timeout*, by contrast, can trigger Happy Eyeballs to fall back later than the user notices, but rarely catastrophically.
+- For latency-sensitive clients, both record types should live in the resolver cache. Negative caching of `AAAA` (NODATA on an IPv4-only host) is just as important as positive caching of `A`.
 
 ## Diagnostics with dig and drill
 
@@ -387,7 +501,7 @@ $ dig +trace api.example.com
 
 Trace mode bypasses the recursive resolver and performs iterative resolution directly, showing each hop:
 
-```
+```text
 .                       518400  IN  NS  a.root-servers.net.
 ...
 com.                    172800  IN  NS  a.gtld-servers.net.
@@ -461,9 +575,17 @@ DNSSEC provides cryptographic authentication of DNS responses:
 
 **Adoption:** DNSSEC is widely deployed at TLDs but inconsistently at domain level. Validation failures result in SERVFAIL, which can break resolution for misconfigured zones.
 
+## Related articles in this series
+
+This article focuses on the resolution path itself. The other entries in the **Networking Protocols** series go deeper on the surrounding topics:
+
+- [DNS Records, TTL Strategy, and Cache Behavior](../dns-records-ttl-and-caching/README.md) — every record type, how TTLs propagate, and how to plan migrations around cache layers.
+- [DNS Security: DoH, DoT, and DNSSEC](../dns-security-doh-dot-dnssec/README.md) — encryption-in-transit and authenticated denial in detail.
+- [DNS Troubleshooting Playbook](../dns-troubleshooting-playbook/README.md) — symptom-driven debugging using `dig`, `delv`, and packet captures.
+
 ## Conclusion
 
-DNS resolution is deceptively simple on the surface—a name goes in, an IP comes out. The underlying system is a distributed, hierarchical database with caching at every layer. Performance depends on cache hit rates; reliability depends on redundant authoritative servers and proper delegation. When debugging DNS issues, trace the path: stub → recursive → root → TLD → authoritative. Check TTLs, verify RCODE, and use `+trace` to pinpoint where resolution fails.
+DNS resolution is deceptively simple on the surface — a name goes in, an IP comes out. The underlying system is a distributed, hierarchical database with caching at every layer, starting on the host itself. Performance depends on cache hit rates at each layer (browser, OS, recursive); reliability depends on redundant authoritative servers, proper delegation, and TCP fallback for large or DNSSEC-signed responses. When debugging, walk the layers in order: browser cache → hosts file → OS cache → stub → recursive → root → TLD → authoritative. Check TTLs, verify RCODE, account for ECS-induced cache fragmentation, and use `dig +trace` to pinpoint where resolution fails.
 
 ## Appendix
 
@@ -487,15 +609,23 @@ DNS resolution is deceptively simple on the surface—a name goes in, an IP come
 | **DNSSEC**               | DNS Security Extensions; cryptographic authentication of DNS data |
 | **DoH**                  | DNS over HTTPS (RFC 8484)                                         |
 | **DoT**                  | DNS over TLS (RFC 7858)                                           |
+| **ECS**                  | EDNS Client Subnet (RFC 7871); recursive forwards client prefix to authoritative |
+| **mDNS**                 | Multicast DNS (RFC 6762); link-local resolution for `.local` names |
+| **Happy Eyeballs**       | RFC 8305; parallel A/AAAA queries with 50 ms resolution delay     |
+| **NRPT**                 | Windows Name Resolution Policy Table; per-namespace resolver pinning |
 
 ### Summary
 
-- DNS resolution flows from stub → recursive → root → TLD → authoritative, following referrals down the namespace tree
-- Caching at the recursive resolver dominates latency; TTLs control cache lifetime
-- Negative responses (NXDOMAIN, NODATA) are cached using SOA.MINIMUM
+- Resolution starts in pre-network caches (browser → hosts/NSS → mDNS → OS) before any packet leaves the host
+- The wire path then flows from stub → recursive → root → TLD → authoritative, following referrals down the namespace tree
+- "Recursive" and "iterative" are two query modes; one resolver does both — recursive toward stubs, iterative toward authoritatives
+- Caching at the recursive resolver dominates latency; TTLs control cache lifetime; RFC 9520 makes failure caching mandatory
+- Negative responses (NXDOMAIN, NODATA) are cached using SOA.MINIMUM; RFC 8020 turns NXDOMAIN into a subtree cut
 - SERVFAIL indicates resolution failure; use `dig +trace` to identify the failing hop
-- Modern DNS adds encryption (DoH, DoT) and authentication (DNSSEC)
-- Anycast distributes load and reduces latency for root/TLD servers
+- ECS (RFC 7871) is the price geo-DNS pays for centralized resolvers; Cloudflare 1.1.1.1 opts out, Google 8.8.8.8 opts in
+- Modern DNS adds encryption (DoH, DoT) and authentication (DNSSEC); TCP support is mandatory per RFC 7766
+- Anycast distributes load and reduces latency for root, TLD, and major public resolvers — but "nearest" means BGP-shortest, not geographic
+- Happy Eyeballs (RFC 8305) means dual-stack clients race A and AAAA in parallel with a 50 ms resolution delay
 
 ### References
 
@@ -513,4 +643,12 @@ DNS resolution is deceptively simple on the surface—a name goes in, an IP come
 - [RFC 8767 - Serving Stale Data to Improve DNS Resiliency](https://datatracker.ietf.org/doc/html/rfc8767) - Stale data serving
 - [RFC 9609 - Initializing a DNS Resolver with Priming Queries](https://datatracker.ietf.org/doc/rfc9609/) - Root priming (obsoletes RFC 8109)
 - [RFC 8020 - NXDOMAIN: There Really Is Nothing Underneath](https://www.rfc-editor.org/rfc/rfc8020) - NXDOMAIN cut behavior
+- [RFC 7626 - DNS Privacy Considerations](https://www.rfc-editor.org/rfc/rfc7626) - Threat model that motivated DoT, DoH, and ECS opt-out
+- [RFC 7766 - DNS Transport over TCP - Implementation Requirements](https://www.rfc-editor.org/rfc/rfc7766) - TCP is mandatory; truncation and EDNS interaction
+- [RFC 7871 - Client Subnet in DNS Queries (ECS)](https://www.rfc-editor.org/rfc/rfc7871) - ECS option, scope semantics, privacy guidance
+- [RFC 8305 - Happy Eyeballs Version 2](https://www.rfc-editor.org/rfc/rfc8305) - Parallel A/AAAA, Resolution Delay, Connection Attempt Delay
+- [RFC 6762 - Multicast DNS](https://www.rfc-editor.org/rfc/rfc6762) - `.local` resolution on the link
+- [Cloudflare 1.1.1.1 launch post](https://blog.cloudflare.com/announcing-1111/) - Anycast architecture and ECS policy of a major public resolver
+- [Google Public DNS — Performance](https://developers.google.com/speed/public-dns/docs/performance) - 8.8.8.8 anycast and ECS posture
+- [root-servers.org](https://root-servers.org/) - Live count of root anycast instances per letter
 - [IANA DNS Parameters](https://www.iana.org/assignments/dns-parameters) - Authoritative RCODE, QTYPE registries

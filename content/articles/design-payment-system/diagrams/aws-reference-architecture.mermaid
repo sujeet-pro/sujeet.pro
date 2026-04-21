@@ -1,0 +1,45 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge"]
+        CF["CloudFront"]
+        WAF["AWS WAF"]
+        SHIELD["AWS Shield"]
+    end
+
+    subgraph Compute["Compute"]
+        ALB["Application Load Balancer"]
+        ECS["ECS Fargate (Payment API)"]
+        LAMBDA["Lambda (webhook consumer)"]
+    end
+
+    subgraph Data["Data"]
+        RDS[("RDS PostgreSQL Multi-AZ")]
+        REDIS[("ElastiCache Redis (idempotency)")]
+        SQS["SQS FIFO (exactly-once)"]
+        STREAM["Kinesis Data Streams"]
+        S3[("S3 (settlement archives)")]
+    end
+
+    subgraph Security["Security + ops"]
+        KMS["AWS KMS (CMK)"]
+        SECRETS["Secrets Manager"]
+        CW["CloudWatch + X-Ray"]
+    end
+
+    Users["Cardholders"] --> CF
+    CF --> WAF
+    WAF --> SHIELD
+    SHIELD --> ALB
+    ALB --> ECS
+    ECS --> RDS
+    ECS --> REDIS
+    ECS --> SQS
+    SQS --> LAMBDA
+    LAMBDA --> RDS
+    LAMBDA --> STREAM
+    STREAM --> S3
+    ECS --> KMS
+    ECS --> SECRETS
+    ECS --> CW

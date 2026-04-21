@@ -1,0 +1,11 @@
+%% Diagram: IntersectionObserver callback in the rendering pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  raf["requestAnimationFrame"] --> layout["Style + layout"]
+  layout --> uio["Update intersection<br/>observations"]
+  uio --> dec{"changed?"}
+  dec -->|"no"| paint["Paint frame"]
+  dec -->|"yes"| q["Append entry;<br/>queue task<br/>(coalesced per doc)"]
+  q --> paint
+  paint --> notify["Later turn:<br/>drain queue;<br/>run callbacks"]

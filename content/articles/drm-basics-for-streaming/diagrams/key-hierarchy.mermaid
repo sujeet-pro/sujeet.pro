@@ -1,0 +1,36 @@
+%% Diagram: DRM key hierarchy from root of trust to media samples
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Server["Operator side"]
+        ROOT[Operator root key<br/>HSM / KMS, never leaves boundary]
+        MASTER[Per-asset master key]
+        CK[Content key + KID<br/>per asset / per track / per period]
+        ROOT -->|derive / wrap| MASTER
+        MASTER -->|derive / wrap| CK
+    end
+
+    subgraph Wire["License response"]
+        WRAP[Content key wrapped to device<br/>policy + KID + expiry]
+    end
+
+    subgraph Client["Device CDM (TEE / Secure Enclave)"]
+        DEV[Device certificate + private key<br/>provisioned in factory]
+        SESS[Session key<br/>derived per license exchange]
+        CKD[Content key, in the clear<br/>only inside the secure boundary]
+        DEV --> SESS
+        SESS -->|unwrap| CKD
+        CKD -->|AES-CTR / AES-CBC| SAMPLES["Decrypted samples<br/>protected video path → display"]
+    end
+
+    CK --> WRAP
+    WRAP --> SESS
+
+    classDef trust fill:#fff2cc,stroke:#d6b656,color:#000
+    classDef key fill:#dae8fc,stroke:#6c8ebf,color:#000
+    classDef secret fill:#f8cecc,stroke:#b85450,color:#000
+    classDef out fill:#d5e8d4,stroke:#82b366,color:#000
+    class ROOT,DEV trust
+    class MASTER,CK,SESS,WRAP key
+    class CKD secret
+    class SAMPLES out

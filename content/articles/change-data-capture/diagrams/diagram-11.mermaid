@@ -1,10 +1,19 @@
-%% Diagram: Diagram 11
+%% Diagram: Transactional outbox relayed by CDC
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph "Application Transaction"
-        U[Update User] --> O[Write to Outbox]
+flowchart LR
+    subgraph TX ["Application transaction (atomic)"]
+        direction TB
+        APP[Service code] -->|"UPDATE users SET ..."| BIZ[(Business tables)]
+        APP -->|"INSERT INTO outbox (..., payload)"| OUT[(outbox table)]
     end
-    O --> CDC[CDC]
-    CDC --> K[Kafka]
-    K --> C[Consumers]
+
+    BIZ -. "WAL / binlog" .-> CDC
+    OUT -. "WAL / binlog" .-> CDC[CDC connector<br/>Debezium]
+    CDC -->|"EventRouter SMT<br/>topic = events.${aggregate}"| K[Kafka topic per aggregate]
+    K --> C1[Search index sink]
+    K --> C2[Cache invalidator]
+    K --> C3[Downstream service]
+
+    classDef ok fill:#f4fcf4,stroke:#2f9e44,color:#1f5f2c
+    class TX ok

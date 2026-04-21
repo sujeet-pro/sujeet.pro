@@ -1,0 +1,40 @@
+%% Diagram: AWS reference architecture for a "build your own" web search
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TB
+    subgraph Edge["Edge layer"]
+        CF[CloudFront]
+        R53[Route 53<br/>GeoDNS]
+    end
+
+    subgraph Compute["Compute layer"]
+        ALB[Application load balancer]
+        ECS[ECS Fargate<br/>Query servers]
+        BATCH[AWS Batch<br/>Index building]
+    end
+
+    subgraph Storage["Storage layer"]
+        DYNAMO[(DynamoDB<br/>URL frontier)]
+        S3[(S3<br/>Raw pages)]
+        OPENSEARCH[(OpenSearch<br/>Inverted index)]
+    end
+
+    subgraph Cache["Cache layer"]
+        ELASTICACHE[(ElastiCache<br/>Query cache)]
+        DAX[(DAX<br/>DynamoDB cache)]
+    end
+
+    subgraph Queue["Queue layer"]
+        SQS[SQS<br/>Crawl jobs]
+        KINESIS[Kinesis<br/>Index updates]
+    end
+
+    R53 --> CF --> ALB
+    ALB --> ECS
+    ECS --> ELASTICACHE
+    ECS --> OPENSEARCH
+    ECS --> DYNAMO
+    SQS --> BATCH
+    BATCH --> S3
+    BATCH --> OPENSEARCH
+    KINESIS --> OPENSEARCH

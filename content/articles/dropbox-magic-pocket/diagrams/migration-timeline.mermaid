@@ -1,0 +1,20 @@
+%% Diagram: S3 to Magic Pocket migration timeline
+%% Type: gantt
+%%{init: {'htmlLabels': false}}%%
+gantt
+    title S3 -> Magic Pocket migration (2013-2017)
+    dateFormat YYYY-MM-DD
+    axisFormat %Y-%b
+    section Build
+    Prototype + design (<6 engineers)        :a1, 2013-06-01, 2014-07-31
+    Production code + automation             :a2, after a1, 180d
+    section Mirror
+    Dark launch: dual-write to MP + S3       :b1, 2014-08-01, 2015-02-26
+    section Cutover
+    D-day: serve user data exclusively from MP   :milestone, 2015-02-27, 1d
+    BASE Jump: rack/install rush, ~0.5 Tbps peak :c1, 2015-04-30, 160d
+    90% of user data on MP                       :milestone, 2015-10-07, 1d
+    section Wind-down
+    Extra S3 backups retained                :d1, 2015-02-27, 180d
+    Public announcement + blog series        :milestone, 2016-03-14, 1d
+    Net $74.6M opex savings (S-1)            :e1, 2016-01-01, 730d

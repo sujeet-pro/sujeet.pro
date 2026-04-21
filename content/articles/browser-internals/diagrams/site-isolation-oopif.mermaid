@@ -1,0 +1,39 @@
+%% Diagram: Site Isolation process allocation with an out-of-process iframe (OOPIF)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Browser["Browser Process (privileged)"]
+        RFHTop["RenderFrameHost (top frame)"]
+        RFHIframe["RenderFrameHost (OOPIF)"]
+        Policy["ChildProcessSecurityPolicy (site lock check)"]
+    end
+
+    subgraph RA["Renderer A — locked to https://shop.example"]
+        FrameA["Top frame: shop.example/checkout"]
+        DOMa["Blink DOM + V8 isolate"]
+    end
+
+    subgraph RB["Renderer B — locked to https://pay.thirdparty"]
+        FrameB["iframe: pay.thirdparty/widget"]
+        DOMb["Blink DOM + V8 isolate"]
+    end
+
+    subgraph Viz["GPU / Viz Process"]
+        DC["Display Compositor"]
+    end
+
+    RFHTop -- Mojo --> FrameA
+    RFHIframe -- Mojo --> FrameB
+    FrameA <-- "postMessage only (no sync DOM)" --> FrameB
+
+    FrameA -- "compositor frame" --> DC
+    FrameB -- "compositor frame" --> DC
+    DC --> Stitched["Single stitched frame to screen"]
+
+    Policy -. "rejects cross-site IPC" .-> RA
+    Policy -. "rejects cross-site IPC" .-> RB
+
+    style Browser fill:#e3f2fd
+    style RA fill:#e8f5e8
+    style RB fill:#fce4ec
+    style Viz fill:#f3e5f5

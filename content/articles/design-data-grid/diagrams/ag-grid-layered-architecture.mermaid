@@ -1,0 +1,29 @@
+%% Diagram: AG Grid layered architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Features["Feature Modules"]
+        direction TB
+        Sort[Sorting]
+        Filter[Filtering]
+        Group[Row Grouping]
+        Pivot[Pivoting]
+        Export[Excel Export]
+    end
+
+    subgraph Core["Native JavaScript Core"]
+        direction TB
+        GridCore[Grid Core]
+        RowModel[Row Model Manager]
+        ColModel[Column Model]
+        Virtual[Virtualization Engine]
+    end
+
+    subgraph Wrappers["Framework Wrappers"]
+        direction TB
+        ReactW[React Wrapper]
+        AngularW[Angular Wrapper]
+        VueW[Vue Wrapper]
+    end
+
+    Features --> Core --> Wrappers

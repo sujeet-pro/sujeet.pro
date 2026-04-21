@@ -1,0 +1,34 @@
+%% Diagram: Infrastructure performance layers and TTFB contributions
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'nodeSpacing': 30, 'rankSpacing': 35}}}%%
+flowchart TB
+    subgraph CONN["Connection layer (50-300 ms)"]
+        DNS["DNS lookup<br/>+ HTTPS RR (alpn h3)"]
+        QUIC["QUIC + TLS 1.3<br/>1-RTT or 0-RTT"]
+    end
+
+    subgraph EDGE["Edge layer (5-20 ms)"]
+        POP["CDN PoP cache<br/>HTML / JSON / static"]
+        EDGEFN["Edge functions<br/>auth, geo, A/B"]
+    end
+
+    subgraph PAY["Payload layer (size, not time)"]
+        COMP["Brotli 11 (static)<br/>Brotli 4-5 / zstd (dynamic)"]
+    end
+
+    subgraph ORIGIN["Origin layer (50-500 ms)"]
+        LB["Load balancer"]
+        APP["App tier"]
+        CACHE["Redis / Memcached"]
+        DB["Primary + read replicas"]
+    end
+
+    DNS --> QUIC --> POP
+    POP -- "miss" --> EDGEFN --> LB
+    POP --> COMP
+    LB --> APP --> CACHE --> DB
+    APP --> COMP
+
+    classDef goal fill:#0f766e,color:#fff,stroke:#0f766e
+    GOAL["Goal: TTFB &lt; 200 ms<br/>Origin offload &gt; 80% bytes"]:::goal
+    POP --> GOAL

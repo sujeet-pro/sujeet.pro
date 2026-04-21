@@ -1,0 +1,18 @@
+%% Diagram: Spanner TrueTime Commit Wait
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant Leader as Spanner Leader
+    participant TT as TrueTime
+    participant Replicas
+
+    Client->>Leader: Begin transaction
+    Leader->>Replicas: Acquire locks (Paxos)
+    Leader->>TT: TT.now() returns [earliest, latest]
+    Note over Leader: Pick s = TT.now().latest
+    Leader->>Replicas: Replicate write at timestamp s
+    Replicas-->>Leader: Quorum ack
+    Note over Leader: Commit wait — block until\nTT.now().earliest > s\n(typically ~2 epsilon, 8-14 ms)
+    Leader-->>Client: Commit ack
+    Note over Client,Replicas: External consistency: any later\ntransaction observes T1's effects

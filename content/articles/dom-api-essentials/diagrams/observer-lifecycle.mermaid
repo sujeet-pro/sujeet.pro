@@ -1,0 +1,22 @@
+%% Diagram: Observer Lifecycle and Cleanup
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  ctor(["new Observer(callback)"]) --> obs["observe(target, options)"]
+  obs --> reg["agent registers (target, observer)&#10;in the per-document observation list"]
+  reg --> wait{"timing slot reached?"}
+  wait -->|"MutationObserver: microtask checkpoint"| cb["callback runs with batched records"]
+  wait -->|"ResizeObserver: between layout and paint"| cb
+  wait -->|"IntersectionObserver: rendering steps"| cb
+  wait -->|"PerformanceObserver: queued entries"| cb
+  cb --> drain["entries delivered;&#10;callback may schedule more work"]
+  drain --> wait
+
+  obs -.->|"observer.unobserve(t)"| stop1["stop watching one target"]
+  obs -.->|"observer.disconnect()"| stop2["stop watching all targets&#10;callback may still see takeRecords()"]
+  obs -.->|"AbortSignal.abort()&#10;(addEventListener pattern only)"| stop3["listener auto-removed"]
+
+  classDef cb fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef stop fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+  class cb cb
+  class stop1,stop2,stop3 stop

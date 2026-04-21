@@ -1,0 +1,21 @@
+%% Diagram: Variable-height measurement and correction flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant S as Scroll handler
+    participant V as Virtualizer
+    participant C as Height cache
+    participant D as DOM
+    participant R as ResizeObserver
+
+    U->>S: scroll event (rAF batched)
+    S->>V: scrollTop changed
+    V->>C: lookup heights for range
+    C-->>V: measured + estimated mix
+    V->>D: render visible window<br/>(transform: translateY)
+    D->>R: items mounted
+    R-->>V: actual heights via callback
+    V->>C: write measured heights
+    V->>V: recompute total height,<br/>adjust scroll if anchored
+    Note over V,D: If estimates were wrong,<br/>visible jump can occur —<br/>buffer + anchoring mitigates.

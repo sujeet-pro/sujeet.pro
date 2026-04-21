@@ -1,0 +1,25 @@
+%% Diagram: Promise reaction lifecycle from .then() to handler invocation
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User code
+    participant P as Promise (engine)
+    participant H as Host (browser/Node)
+    participant Q as Host queue (microtask / V8 µtask)
+    participant J as Job runner
+
+    U->>P: p.then(handler)
+    note over P: HostMakeJobCallback(handler) captures incumbent realm and settings object
+    alt p already settled
+        P->>H: HostEnqueuePromiseJob(NewPromiseReactionJob)
+    else p settles later
+        Note over P: Reaction stored on the promise
+        U-->>P: resolve(value)
+        P->>H: HostEnqueuePromiseJob(NewPromiseReactionJob)
+    end
+    H->>Q: append job (FIFO per HostEnqueuePromiseJob order)
+    note over U,J: Current synchronous Job runs to completion and the execution context stack drains
+    J->>Q: drain queue at microtask checkpoint or between callbacks
+    Q->>J: pop oldest job
+    J->>P: HostCallJobCallback(handler, value)
+    P->>U: handler executes inside its captured realm

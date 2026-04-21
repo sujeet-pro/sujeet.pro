@@ -1,0 +1,40 @@
+%% Diagram: Cache Stampede Mechanism and Mitigations
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph stampede["Problem: stampede without mitigation"]
+        direction TB
+        s_exp["Hot key TTL expires"] --> s_burst["N concurrent requests<br/>see miss simultaneously"]
+        s_burst --> s_thunder["All N hit the origin"]
+        s_thunder --> s_overload["Origin saturates;<br/>latency cascades, cache stays cold"]
+    end
+
+    subgraph mitigations["Three independent mitigations (combine freely)"]
+        direction LR
+        subgraph m_single["Single-flight / request coalescing"]
+            direction TB
+            sf_miss["Miss for key K"] --> sf_dedup["In-process map keyed by K:<br/>only first fetch runs"]
+            sf_dedup --> sf_share["All waiters receive the<br/>same Promise / Future"]
+        end
+        subgraph m_lock["Distributed lock (cross-process)"]
+            direction TB
+            l_miss["Miss"] --> l_acquire["One node acquires lock<br/>on K (Redis SETNX, etc.)"]
+            l_acquire --> l_fetch["Fetches from origin,<br/>writes back"]
+            l_fetch --> l_others["Other nodes serve stale<br/>or short-poll the cache"]
+        end
+        subgraph m_xfetch["Probabilistic early refresh (XFetch)"]
+            direction TB
+            x_check["On every read, evaluate:<br/>now - delta * beta * ln(rand) >= expiry"] --> x_decide{"Triggered?"}
+            x_decide -- yes --> x_async["Refresh in background,<br/>still serve current value"]
+            x_decide -- no --> x_serve["Serve cached value"]
+        end
+    end
+
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class s_exp,s_burst neutral
+    class s_thunder,s_overload bad
+    class l_acquire,l_fetch,sf_dedup,sf_share,x_async,x_serve ok
+    class l_miss,sf_miss,x_check,x_decide,l_others neutral

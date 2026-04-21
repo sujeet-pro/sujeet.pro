@@ -1,0 +1,40 @@
+%% Diagram: Flash sale system overview (logical layers + per-phase calls)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Users(["Users (10M concurrent)"])
+
+    subgraph Edge["CDN edge"]
+        WR[Virtual waiting room: static HTML + JS]
+        CDN[CDN cache + WAF]
+    end
+
+    subgraph Gateway["API gateway"]
+        RL[Rate limiter / throttle]
+        Auth[Auth + bot scoring]
+    end
+
+    subgraph Core["Flash-sale services"]
+        QS[Queue service: admission tokens]
+        IS[Inventory service: atomic reserve]
+        OS[Order service: idempotent enqueue]
+        PS[Payment service: idempotent charge]
+    end
+
+    subgraph Data["Data + messaging"]
+        Redis[(Redis cluster: stock + tokens)]
+        MQ[[Order queue: SQS / Kafka]]
+        DB[(PostgreSQL: orders / users)]
+        OBS[/Metrics + traces + DLQ alerts/]
+    end
+
+    Users -->|1. join queue| WR --> CDN --> RL --> Auth --> QS
+    QS -->|2. admit| IS
+    IS -->|3. reserve| Redis
+    IS -->|4. checkout ok| OS
+    OS -->|5. enqueue| MQ
+    MQ -->|6. drain| OS
+    OS -->|7. charge| PS
+    OS -->|8. persist| DB
+    OS -. confirm/release .-> Redis
+    Core --> OBS

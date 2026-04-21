@@ -1,0 +1,26 @@
+%% Diagram: S2 vs H3 spatial cell hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph S2["Google S2 — quadrilateral cells, strict 4-way hierarchy (levels 0–30)"]
+        S2Sphere["Sphere"] --> S2Cube["Project to cube (6 faces)"]
+        S2Cube --> S2L0["Level 0: 6 face cells"]
+        S2L0 --> S2L1["Level 1: 24 cells (4 children each)"]
+        S2L1 --> S2L2["Level 2: 96 cells"]
+        S2L2 --> S2L30["...Level 30 (~0.7 cm² cells)"]
+        S2L30 --> S2ID["64-bit cell ID along<br/>a single Hilbert curve<br/>(spatial locality preserved)"]
+    end
+
+    subgraph H3["Uber H3 — hexagons on icosahedron, approximate hierarchy (resolutions 0–15)"]
+        H3Sphere["Sphere"] --> H3Ico["Project to icosahedron (20 faces)"]
+        H3Ico --> H3R0["Resolution 0: 122 cells (110 hex + 12 pentagons)"]
+        H3R0 --> H3R1["Resolution 1: ~7× more cells"]
+        H3R1 --> H3R15["...Resolution 15 (~0.9 m² avg)"]
+        H3R15 --> H3Note["Children may extend<br/>outside the parent —<br/>containment is approximate"]
+    end
+
+    subgraph Tradeoff["When to use which"]
+        UseS2["S2: arbitrary polygon coverage,<br/>strict containment, range scans on a B-tree"]
+        UseH3["H3: aggregations, heatmaps,<br/>uniform neighbor distance"]
+        UseGH["Geohash: prefix queries on plain KV stores,<br/>tolerate latitude distortion"]
+    end

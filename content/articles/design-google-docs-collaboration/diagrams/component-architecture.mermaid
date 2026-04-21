@@ -1,0 +1,51 @@
+%% Diagram: Component architecture — client to persistence
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph ClientLayer["Client"]
+        EDITOR["Rich-text editor<br/>(ProseMirror / Slate / Quill)"]
+        OT_CLIENT["OT client<br/>(transform + state machine)"]
+        WS_CLIENT["WebSocket client"]
+        LOCAL_STORE["IndexedDB<br/>(offline buffer)"]
+    end
+
+    subgraph EdgeLayer["Edge"]
+        CDN["CDN<br/>(static assets)"]
+        ALB["Load balancer<br/>(sticky by document)"]
+    end
+
+    subgraph CollabLayer["Collaboration tier"]
+        WS_GW["WebSocket gateway"]
+        DOC_PROC["Document processor<br/>(OT engine)"]
+        PRESENCE["Presence service<br/>(in-memory)"]
+    end
+
+    subgraph PersistenceLayer["Persistence tier"]
+        DOC_API["Document API"]
+        REDIS["Redis cluster<br/>(active doc state)"]
+        POSTGRES[("PostgreSQL<br/>metadata + ACL")]
+        OPLOG[("DynamoDB<br/>op log")]
+        S3["Object store<br/>(snapshots, media)"]
+    end
+
+    subgraph AsyncLayer["Async pipeline"]
+        KAFKA["Kafka<br/>(operation stream)"]
+        SNAPSHOT["Snapshot worker"]
+        INDEX["Search indexer"]
+    end
+
+    EDITOR --> OT_CLIENT
+    OT_CLIENT <--> WS_CLIENT
+    OT_CLIENT --> LOCAL_STORE
+    WS_CLIENT --> ALB
+    ALB --> WS_GW
+    WS_GW <--> DOC_PROC
+    WS_GW <--> PRESENCE
+    DOC_PROC --> DOC_API
+    DOC_API --> REDIS
+    DOC_API --> POSTGRES
+    DOC_API --> OPLOG
+    DOC_API --> KAFKA
+    KAFKA --> SNAPSHOT
+    KAFKA --> INDEX
+    SNAPSHOT --> S3

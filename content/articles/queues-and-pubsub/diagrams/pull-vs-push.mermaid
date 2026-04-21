@@ -1,0 +1,28 @@
+%% Diagram: Pull vs Push Backpressure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph pull["Pull (Kafka, SQS)"]
+        direction TB
+        Br1{{Broker}}:::broker
+        Cn1[Consumer]:::consumer
+        Cn1 -- "1 - poll(N)" --> Br1
+        Br1 -- "2 - up to N msgs" --> Cn1
+        Cn1 -- "3 - commit" --> Br1
+    end
+
+    subgraph push["Push (RabbitMQ, Pub/Sub push)"]
+        direction TB
+        Br2{{Broker}}:::broker
+        Cn2[Consumer]:::consumer
+        Br2 -- "1 - deliver(msg)" --> Cn2
+        Cn2 -- "2 - ack" --> Br2
+    end
+
+    note["Pull: consumer paces intake; broker holds.\nPush: broker paces; prefetch caps unacked."]:::neutral
+    pull --- note
+    push --- note
+
+    classDef broker fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef consumer fill:#1F6E68,stroke:#155752,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

@@ -1,0 +1,29 @@
+%% Diagram: Layered bot defense
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Request --> Layer1
+    Layer1 --> Layer2
+    Layer2 --> Layer3
+    Layer3 --> Queue
+
+    subgraph Layer1["L1 - edge (WAF)"]
+        direction TB
+        WAF[Managed rules]
+        IP[Per-IP rate limit]
+        GEO[Geo block]
+    end
+
+    subgraph Layer2["L2 - application"]
+        direction TB
+        FP[Device fingerprint]
+        BEHAV[Behavioural signals]
+        CAPTCHA[CAPTCHA challenge]
+    end
+
+    subgraph Layer3["L3 - queue"]
+        direction TB
+        DUP[Duplicate join detection]
+        VEL[Velocity checks]
+        PATTERN[Account-level patterns]
+    end

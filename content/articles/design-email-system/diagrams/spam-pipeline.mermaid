@@ -1,0 +1,13 @@
+%% Diagram: Spam classification pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    MSG["Incoming<br/>Message"] --> BL["Blocklist<br/>Check"]
+    BL -->|Listed| SPAM["Spam<br/>Folder"]
+    BL -->|Clean| AUTH["SPF/DKIM/<br/>DMARC"]
+    AUTH -->|Fail| SPAM
+    AUTH -->|Pass/Partial| HEUR["Heuristic<br/>Rules"]
+    HEUR --> ML["Bayesian +<br/>ML Classifier"]
+    ML --> DECISION{"Score<br/>&gt; 0.9?"}
+    DECISION -->|Yes| SPAM
+    DECISION -->|No| INBOX["Inbox"]

@@ -1,0 +1,22 @@
+%% Diagram: Per-request flow through a circuit breaker
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    request([Caller]) --> admit{Admit?}
+    admit -- yes --> invoke[Call dependency] --> record[Record outcome]
+    admit -- no --> fb[Fallback]
+    record --> eval{Threshold\nbreached?}
+    eval -- yes --> trip[Trip to Open]
+    eval -- no --> done([Return])
+    fb --> done
+    trip --> done
+
+    classDef control fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef io fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class admit,eval control
+    class invoke,record io
+    class trip,fb warn
+    class request,done neutral

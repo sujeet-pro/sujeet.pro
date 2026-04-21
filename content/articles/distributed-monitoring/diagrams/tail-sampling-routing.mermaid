@@ -1,0 +1,37 @@
+%% Diagram: Two-tier OpenTelemetry Collector for tail-based sampling
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Apps["Instrumented services"]
+        direction LR
+        S1["Service A<br/>span: trace=abc"]
+        S2["Service B<br/>span: trace=abc"]
+        S3["Service C<br/>span: trace=def"]
+    end
+
+    subgraph LB["Load-balancing tier (stateless)<br/>hash(trace_id) → sampler"]
+        direction LR
+        LB1["Collector LB1"]
+        LB2["Collector LB2"]
+    end
+
+    subgraph Sample["Sampling tier (buffers complete traces)"]
+        direction LR
+        SP1["Sampler 1<br/>buffer trace=abc"]
+        SP2["Sampler 2<br/>buffer trace=def"]
+    end
+
+    Backend[(Trace backend)]
+    Drop[/Drop/]
+
+    S1 --> LB1
+    S2 --> LB2
+    S3 --> LB1
+    LB1 -- "trace=abc" --> SP1
+    LB2 -- "trace=abc" --> SP1
+    LB1 -- "trace=def" --> SP2
+
+    SP1 -- error / latency / probabilistic --> Backend
+    SP1 -- policy=drop --> Drop
+    SP2 -- error / latency / probabilistic --> Backend
+    SP2 -- policy=drop --> Drop

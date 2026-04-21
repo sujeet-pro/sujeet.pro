@@ -1,0 +1,18 @@
+%% Diagram: Content-aware (saliency) crop pipeline — offline focal point + online window solver
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Offline (on upload)"
+        Up[Asset uploaded] --> DS[Decode + downscale to 256-512 px]
+        DS --> Sal["Saliency model (DeepGaze-II / smartcrop / entropy)"]
+        Sal --> Pt[Persist focal point + score map]
+    end
+
+    subgraph "Online (g_smart request)"
+        Req[Transform request: w_X-h_Y-g_smart] --> Fp[Fetch focal point + score map]
+        Fp --> Win[Solve max-score window of target aspect]
+        Win --> Crop[libvips extract + resize]
+        Crop --> Out[Encode AVIF or WebP, cache]
+    end
+
+    Pt -. focal point .-> Fp

@@ -1,0 +1,32 @@
+%% Diagram: Presence Pipeline
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client as Client
+    participant GW as Gateway pod
+    participant Redis as Redis (TTL state)
+    participant PS as Redis pub/sub
+    participant SubGW as Subscriber gateways
+    participant Sub as Subscribed clients
+
+    loop every 30s
+        Client->>GW: heartbeat
+        GW->>Redis: HSET presence:{u} status=online
+        GW->>Redis: EXPIRE presence:{u} 120
+    end
+
+    Note over Client,GW: state change (online/offline/typing)
+
+    Client->>GW: typing.start(convId)
+    GW->>Redis: SETEX typing:{conv}:{u} 5
+    GW->>PS: PUBLISH presence:changes {delta}
+
+    PS-->>SubGW: deliver delta
+    SubGW->>SubGW: filter by subscribed users
+    SubGW-->>Sub: presence.update / typing.update
+
+    Note over Client,GW: missed heartbeat (3 ticks)
+    GW->>Redis: key TTL expires
+    Redis-->>PS: keyspace notification
+    PS-->>SubGW: presence offline
+    SubGW-->>Sub: status=offline (last_seen=now)

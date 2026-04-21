@@ -1,0 +1,43 @@
+%% Diagram: Engine vs host contract — what ECMA-262 specifies and what hosts implement
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph engine["JavaScript Engine\n(V8 / SpiderMonkey / JavaScriptCore)"]
+        eval["ECMA-262 evaluation\nrun-to-completion"]:::engine
+        promises["Promise / await\nNewPromiseReactionJob"]:::engine
+        weak["WeakRef / FinalizationRegistry"]:::engine
+        atomics["SharedArrayBuffer / Atomics\nMemory Model"]:::engine
+    end
+
+    subgraph hooks["ECMA-262 Host Hooks\n(§9.5 Jobs and Host Operations)"]
+        hp["HostEnqueuePromiseJob"]:::hook
+        hg["HostEnqueueGenericJob"]:::hook
+        ht["HostEnqueueTimeoutJob"]:::hook
+        hf["HostEnqueueFinalizationRegistryCleanupJob"]:::hook
+        hm["HostMakeJobCallback /\nHostCallJobCallback"]:::hook
+    end
+
+    subgraph host["Host Environment\n(WHATWG HTML / Node.js / WinterCG / Deno)"]
+        loop["Concrete event loop\ntask + microtask queues, phases"]:::host
+        io["I/O, timers, scheduler,\nrendering, GC integration"]:::host
+    end
+
+    eval --> promises
+    promises --> hp
+    eval --> ht
+    weak --> hf
+    eval --> hg
+    promises --> hm
+
+    hp --> loop
+    hg --> loop
+    ht --> loop
+    hf --> loop
+    hm --> loop
+    loop --> io
+
+    loop -. "When stack empty,\ninvoke Job Abstract Closure" .-> eval
+
+    classDef engine fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef hook fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef host fill:#1F6E68,stroke:#155752,color:#fff

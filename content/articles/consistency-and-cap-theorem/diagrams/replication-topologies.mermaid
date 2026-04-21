@@ -1,0 +1,43 @@
+%% Diagram: Replication Topologies
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SL["Single-Leader"]
+        direction LR
+        SL_C(("Client")):::actor
+        SL_L["Leader"]:::primary
+        SL_F1["Follower"]:::secondary
+        SL_F2["Follower"]:::secondary
+        SL_C -- "writes\nlinearizable reads" --> SL_L
+        SL_L --> SL_F1
+        SL_L --> SL_F2
+        SL_C -. "stale reads" .-> SL_F1
+    end
+
+    subgraph ML["Multi-Leader"]
+        direction LR
+        ML_CA(("Client A")):::actor
+        ML_CB(("Client B")):::actor
+        ML_LA["Leader DC-A"]:::primary
+        ML_LB["Leader DC-B"]:::primary
+        ML_CA --> ML_LA
+        ML_CB --> ML_LB
+        ML_LA <-- "replicate\n+ resolve" --> ML_LB
+    end
+
+    subgraph LL["Leaderless (Quorum)"]
+        direction LR
+        LL_C(("Client")):::actor
+        LL_N1["Node 1"]:::secondary
+        LL_N2["Node 2"]:::secondary
+        LL_N3["Node 3"]:::secondary
+        LL_C -- "W writes" --> LL_N1
+        LL_C -- "W writes" --> LL_N2
+        LL_C -. "R reads" .-> LL_N3
+    end
+
+    SL --> ML --> LL
+
+    classDef actor fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff

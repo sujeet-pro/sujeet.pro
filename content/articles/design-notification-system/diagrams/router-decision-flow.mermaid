@@ -1,0 +1,30 @@
+%% Diagram: Router decision flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    IN["Notification dequeued\n(user_id, notification_id, category)"]
+    DEDUP{"Dedup check\nSETNX dedup:user:nid"}
+    PREF{"User preference\nallows category?"}
+    QUIET{"Quiet hours active?\n(non-critical only)"}
+    RATE{"Rate limit\ntokens available?"}
+    AGG{"Aggregation rule\nmatches?"}
+    CHAN["Select channels\n(preference + fallback)"]
+    DROP_DUP["Drop:\nduplicate"]
+    DROP_PREF["Drop:\nopted-out"]
+    DEFER_QUIET["Defer to\nquiet-hours end"]
+    DEFER_RATE["Defer or drop:\nrate exceeded"]
+    BUFFER["Buffer for\ndigest window"]
+    DISPATCH["Dispatch to\nchannel processors"]
+
+    IN --> DEDUP
+    DEDUP -- "exists" --> DROP_DUP
+    DEDUP -- "new" --> PREF
+    PREF -- "no" --> DROP_PREF
+    PREF -- "yes" --> QUIET
+    QUIET -- "yes" --> DEFER_QUIET
+    QUIET -- "no" --> RATE
+    RATE -- "no" --> DEFER_RATE
+    RATE -- "yes" --> AGG
+    AGG -- "yes" --> BUFFER
+    AGG -- "no" --> CHAN
+    CHAN --> DISPATCH

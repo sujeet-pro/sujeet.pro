@@ -1,0 +1,24 @@
+%% Diagram: PostgreSQL HOT vs non-HOT update — write amplification mechanism
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([UPDATE on a row])
+    Q1{"Update touches\nany indexed column?"}
+    Q2{"Same heap page\nhas free space?"}
+
+    HOT[HOT update]
+    HOTSteps["Write new tuple on same page\nLink old ctid to new ctid\nNo secondary index writes"]
+
+    NonHOT[Non-HOT update]
+    NonHOTSteps["Write new tuple\noften on a new page\nInsert new entry in EVERY secondary index\nWAL records every index change"]
+
+    WriteAmp[Write amplification ≈ 1 + n_indexes]
+    Cheap[Write amplification ≈ 1]
+
+    Start --> Q1
+    Q1 -->|"no"| Q2
+    Q1 -->|"yes"| NonHOT
+    Q2 -->|"yes"| HOT
+    Q2 -->|"no"| NonHOT
+    HOT --> HOTSteps --> Cheap
+    NonHOT --> NonHOTSteps --> WriteAmp

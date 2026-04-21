@@ -1,0 +1,57 @@
+%% Diagram: Web crawler high-level architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Seed["Seeds"]
+        Seeds[Seed URL list]
+    end
+
+    subgraph Frontier["URL Frontier"]
+        FrontQ[Front queues<br/>priority]
+        BackQ[Back queues<br/>per host]
+        Sched[Scheduler]
+    end
+
+    subgraph Fetch["Fetcher tier"]
+        DNS[DNS cache]
+        Robots[robots.txt cache]
+        HTTP[HTTP fetcher pool]
+    end
+
+    subgraph Render["Render tier (separate queue)"]
+        RQueue[Render queue]
+        Headless[Headless Chromium pool]
+    end
+
+    subgraph Parse["Parser tier"]
+        Extract[Content extractor]
+        Links[Link extractor]
+        Dedup[Dedup<br/>Bloom + SimHash]
+    end
+
+    subgraph Store["Storage"]
+        URLStore[(URL metadata)]
+        Content[(Content archive)]
+        Index[(Search index)]
+        Graph[(Web graph)]
+    end
+
+    subgraph Coord["Coordination"]
+        Kafka[(Kafka topic<br/>partition by host hash)]
+        ZK[Config / leader election]
+    end
+
+    Seeds --> FrontQ
+    FrontQ --> Sched
+    BackQ --> Sched
+    Sched --> DNS --> Robots --> HTTP
+    HTTP -->|static HTML| Extract
+    HTTP -->|JS-heavy host| RQueue --> Headless --> Extract
+    Extract --> Content
+    Extract --> Links --> Dedup
+    Dedup -->|new URL| FrontQ
+    Dedup --> URLStore
+    Content --> Index
+    Links --> Graph
+    Frontier <--> Kafka
+    ZK --> Fetch

@@ -1,25 +1,25 @@
-%% Diagram: All Rendering Models Csr Ssr Rsc Use The Fiber Reconciler Ssr And Rsc Require Hy
+%% Diagram: Rendering Models Overview
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Fiber["Fiber Reconciler"]
         direction LR
-        Render["Render Phase<br/>(Interruptible, 5ms slices)"]
-        Commit["Commit Phase<br/>(Synchronous)"]
+        Render["Render Phase\n(Interruptible, 5 ms slices)"]
+        Commit["Commit Phase\n(Synchronous)"]
         Render --> Commit
     end
 
     subgraph Execution["Rendering Models"]
         direction TB
-        CSR["CSR<br/>Client builds DOM"]
-        SSR["SSR/Streaming<br/>Server renders HTML"]
-        RSC["RSC<br/>Server components + Flight"]
+        CSR["CSR\nClient builds DOM"]
+        SSR["SSR / Streaming\nServer renders HTML"]
+        RSC["RSC\nServer components + Flight"]
     end
 
     Fiber --> CSR
     Fiber --> SSR
     Fiber --> RSC
 
-    SSR --> Hydration["Hydration<br/>Attach React to SSR HTML"]
-    RSC --> Flight["Flight stream<br/>Server component payload"]
-    Flight --> ClientBoundaries["Hydrate client boundaries<br/>where interactivity exists"]
+    SSR --> Hydration["Hydration\nAttach React to SSR HTML"]
+    RSC --> Flight["Flight stream\nServer component payload"]
+    Flight --> ClientBoundaries["Hydrate client boundaries\nwhere interactivity exists"]

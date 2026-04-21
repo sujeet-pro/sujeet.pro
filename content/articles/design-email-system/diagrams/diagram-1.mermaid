@@ -1,7 +1,0 @@
-%% Diagram: Diagram 1
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    SMTP["SMTP<br/>(Postfix/Exim)"] --> FILTER["SpamAssassin"]
-    FILTER --> STORE["Dovecot<br/>(IMAP + Storage)"]
-    STORE --> FS["Local Filesystem<br/>(Maildir)"]

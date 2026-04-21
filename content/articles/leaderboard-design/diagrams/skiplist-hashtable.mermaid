@@ -1,0 +1,23 @@
+%% Diagram: Redis ZSET dual structure - skip list (ordered by score) + hash table (member -> score)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SkipList["Skip list (ordered by score, ascending)"]
+        direction LR
+        L3H["L3 head"] --> N3a["alice<br/>1500"] --> N3b["dave<br/>1900"] --> L3T["NIL"]
+        L2H["L2 head"] --> N2a["alice<br/>1500"] --> N2b["bob<br/>1700"] --> N2c["dave<br/>1900"] --> L2T["NIL"]
+        L1H["L1 head"] --> N1a["alice<br/>1500"] --> N1b["carol<br/>1600"] --> N1c["bob<br/>1700"] --> N1d["dave<br/>1900"] --> L1T["NIL"]
+        L0H["L0 head"] --> N0a["alice<br/>1500"] --> N0b["carol<br/>1600"] --> N0c["bob<br/>1700"] --> N0d["dave<br/>1900"] --> L0T["NIL"]
+    end
+
+    subgraph HashTable["Hash table (member -> score, O(1) lookup)"]
+        H1["alice -> 1500"]
+        H2["bob -> 1700"]
+        H3["carol -> 1600"]
+        H4["dave -> 1900"]
+    end
+
+    HashTable -. "score lookup feeds<br/>ZSCORE / ZADD update" .-> SkipList
+
+    style SkipList fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
+    style HashTable fill:#fef3c7,stroke:#b45309,color:#7c2d12

@@ -1,0 +1,25 @@
+%% Diagram: useEffect synchronization lifecycle on dependency change
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant R as React
+    participant E as useEffect
+    participant X as External system (chat server)
+
+    U->>R: Mount ChatRoom roomId="alpha"
+    R->>E: Run setup with roomId="alpha"
+    E->>X: connect("alpha")
+    X-->>E: connected
+
+    U->>R: Re-render with roomId="beta"
+    R->>E: Run cleanup for "alpha"
+    E->>X: disconnect("alpha")
+    R->>E: Run setup with roomId="beta"
+    E->>X: connect("beta")
+
+    U->>R: Unmount ChatRoom
+    R->>E: Run cleanup for "beta"
+    E->>X: disconnect("beta")
+
+    Note over R,E: In Strict Mode dev builds, React<br/>also runs setup → cleanup → setup once<br/>at mount to surface missing cleanup.

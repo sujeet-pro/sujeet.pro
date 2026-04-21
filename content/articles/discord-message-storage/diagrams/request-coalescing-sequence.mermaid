@@ -1,0 +1,15 @@
+%% Diagram: Request Coalescing in Discord Data Services
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as Users A,B,C
+    participant DS as Data Service
+    participant DB as ScyllaDB
+
+    U->>DS: 3 GETs\nchannel=42 (hash → same DS)
+    Note over DS: First req spawns worker.\nB and C subscribe to it.
+    DS->>DB: SELECT messages\n(channel_id=42, bucket=N)
+    DB-->>DS: rows
+    DS-->>U: fan-out same result\nto all 3 subscribers
+
+    Note over DS,DB: 3 reads → 1 DB query

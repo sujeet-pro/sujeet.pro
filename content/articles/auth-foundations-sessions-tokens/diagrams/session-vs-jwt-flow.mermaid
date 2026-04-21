@@ -1,0 +1,23 @@
+%% Diagram: Session cookie vs JWT request flow side-by-side
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SessionFlow["Session cookie flow (server-side state)"]
+        direction TB
+        S_C[Client request<br/>Cookie: sid=abc] --> S_LB[Load balancer]
+        S_LB --> S_App[App server]
+        S_App -->|Lookup sid| S_Store[(Session store<br/>Redis / DB)]
+        S_Store -->|user, roles, ttl| S_App
+        S_App -->|200 OK| S_C
+    end
+
+    subgraph JwtFlow["JWT bearer flow (self-contained)"]
+        direction TB
+        J_C[Client request<br/>Authorization: Bearer eyJ...] --> J_LB[Load balancer]
+        J_LB --> J_App[App server]
+        J_App -->|Verify signature<br/>+ aud, iss, exp| J_App
+        J_App -->|Cached JWKS| J_KS[(JWKS endpoint<br/>fetched once / TTL)]
+        J_App -->|200 OK| J_C
+    end
+
+    SessionFlow ~~~ JwtFlow

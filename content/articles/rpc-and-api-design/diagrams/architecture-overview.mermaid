@@ -1,0 +1,39 @@
+%% Diagram: Protocol families across the request lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Clients["Clients"]
+        Browser[Browser]
+        Mobile[Mobile App]
+        Partner[Partner / Server-to-Server]
+        Service[Internal Service]
+    end
+
+    subgraph Edge["Edge"]
+        CDN[CDN / Cache]
+        Gateway[API Gateway<br/>auth, rate limit, version routing]
+    end
+
+    subgraph Protocols["Protocol Surface"]
+        REST[REST / JSON over HTTP]
+        GraphQL[GraphQL over HTTP/WS]
+        gRPC[gRPC over HTTP/2]
+        gRPCWeb[gRPC-Web]
+    end
+
+    subgraph Backend["Backend"]
+        BFF[BFF / Aggregator]
+        Svc[Domain Services]
+        Stream[Streaming / Pub-Sub]
+    end
+
+    Browser --> CDN --> Gateway
+    Mobile --> Gateway
+    Partner --> Gateway
+    Service --> Gateway
+
+    Gateway --> REST --> BFF
+    Gateway --> GraphQL --> BFF
+    Gateway --> gRPCWeb --> BFF
+    BFF --> gRPC --> Svc
+    Svc --> Stream

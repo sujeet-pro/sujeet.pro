@@ -4,38 +4,42 @@ linkTitle: 'Instagram'
 description: >-
   Photo-sharing platform design at Instagram scale covering hybrid fan-out feed
   generation, multi-resolution image processing pipelines, 24-hour TTL Stories
-  architecture, and ML-powered Explore recommendations serving 500M+ daily active users.
+  architecture, and ML-powered Explore recommendations serving billions of users.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
+  - architecture
+  - distributed-systems
+  - databases
   - interview-prep
 ---
 
 # Design Instagram: Photo Sharing at Scale
 
-A photo-sharing social platform at Instagram scale handles 1+ billion photos uploaded daily, serves feeds to 500M+ daily active users, and delivers sub-second playback for Stories. This design covers the image upload pipeline, feed generation with fan-out strategies, Stories architecture, and the recommendation systems that power Explore—focusing on the architectural decisions that enable Instagram to process 95M+ daily uploads while maintaining real-time feed delivery.
+Instagram crossed [3 billion monthly active users in September 2025](https://www.cnbc.com/2025/09/24/instagram-now-has-3-billion-monthly-active-users.html), serving photo and short-video traffic at a scale where every architectural choice — fan-out shape, image variant count, TTL on ephemeral media, ranking model topology — is dictated by power-law follower distributions, mobile network constraints, and ML inference budgets measured in milliseconds. This design walks through the image upload pipeline, the hybrid fan-out that bounds write amplification, the Stories TTL architecture, the MQTT-based real-time messaging path, and the multi-stage Explore recommender, citing the Instagram and Meta engineering posts that document each subsystem.
+
+> [!NOTE]
+> Meta [stopped disclosing per-app daily active user (DAU) numbers in April 2024](https://www.cnbc.com/2025/09/24/instagram-now-has-3-billion-monthly-active-users.html), so any DAU figure in this article is an industry estimate, not an official metric. Treat the order-of-magnitude as load-shaping context, not a published number.
 
 ![High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.](./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-light.svg "High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.")
 ![High-level architecture: upload → process → store → deliver. Feed generation uses hybrid fan-out; Stories have separate TTL-aware caching. Discovery systems run 1000+ ML models for personalization.](./diagrams/high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-dark.svg)
 
 ## Abstract
 
-Instagram's architecture addresses three fundamental challenges:
+Instagram's architecture is structured around three load-shaping problems that any photo-sharing platform faces once it crosses a few hundred million users:
 
-1. **Write amplification vs. read latency**: A single post from a user with 10M followers could generate 10M timeline cache writes. The hybrid fan-out strategy (push for regular users, pull for celebrities) bounds write amplification while keeping read latency under 100ms.
+1. **Write amplification vs. read latency.** A post from a celebrity with tens of millions of followers would, under naive write-time fan-out, force tens of millions of timeline cache updates. A hybrid fan-out — push for "normal" accounts, pull-merge for high-fan-out accounts — bounds the per-post write cost while keeping cached reads in the low-millisecond range.
+2. **Ephemeral vs. persistent content.** Stories (24-hour TTL) and feed posts (permanent) have different read patterns and different lifetime budgets. Stories ride aggressive client prefetch and TTL-synced caching; posts ride tiered object storage with CDN caching.
+3. **Cold start vs. engagement optimization.** New sessions need value immediately; returning sessions need personalization. Meta's [Instagram Explore recommender](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/) uses Two Towers retrieval to narrow billions of candidates to thousands, then a multi-task neural ranker to produce the final ordering, and now spans [over 1,000 production ML models](https://engineering.fb.com/2025/05/21/production-engineering/journey-to-1000-models-scaling-instagrams-recommendation-system/).
 
-2. **Ephemeral vs. persistent content**: Stories (24-hour TTL) and posts (permanent) require different storage strategies. Stories use aggressive client-side caching with TTL sync; posts use tiered storage with CDN caching.
+Core mechanisms covered below:
 
-3. **Cold start vs. engagement optimization**: New users need immediate value (trending content); returning users need personalized feeds. The Explore system runs 1000+ ML models simultaneously, using Two Towers neural networks for candidate retrieval and multi-task ranking for final selection.
-
-Core mechanisms:
-
-- **Hybrid fan-out**: Push to followers' timeline caches for users with <10K followers; merge celebrity content at read time
-- **Image processing pipeline**: Generate 6+ resolution variants synchronously; apply filters via GPU shaders
-- **Stories architecture**: 24-hour TTL with aggressive prefetch; target <200ms load time
-- **Feed ranking**: 100K+ dense features processed by neural networks; models fine-tuned hourly
-- **MQTT for real-time**: Powers DMs, notifications, and presence with 6-8% less power than HTTP
+- **Hybrid fan-out** — push to follower timeline caches for the long tail of accounts; pull-merge for high-fan-out accounts at read time.
+- **Multi-resolution image pipeline** — variants generated for the [320–1080 px supported width range](https://help.instagram.com/1631821640426723/), with filtering offloaded to GPU on-device.
+- **Stories architecture** — 24-hour TTL with aggressive prefetch targeting sub-200 ms perceived load.
+- **Feed ranking** — multi-task neural networks fine-tuned continually on engagement events.
+- **MQTT for real-time** — [pioneered for Facebook Messenger in 2011](https://engineering.fb.com/2011/08/12/android/building-facebook-messenger/) and now powers Instagram DMs, notifications, and presence over a [2-byte minimum-overhead binary protocol](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.pdf).
 
 ## Requirements
 
@@ -71,44 +75,44 @@ Core mechanisms:
 
 ### Scale Estimation
 
-**Instagram-scale baseline (2025):**
+These numbers blend Meta's published headline figures (MAU, ML model count) with order-of-magnitude estimates that are common in system-design write-ups but **not** officially disclosed (DAU, uploads/day, average image size). Treat them as load-shaping context for capacity decisions, not as a published specification.
 
+```text title="Instagram-scale capacity model (2025 baseline)"
+Monthly active users:   3,000M  (Meta, Sept 2025 announcement)
+Daily active users:     ~500M   (industry estimate; Meta no longer discloses)
+Photos uploaded daily:  ~100M   (estimate; older "95M+" figures from circa 2018)
+
+Upload traffic (estimate)
+  100M uploads/day        ≈ 1,150 uploads/second average
+  Peak (3x)               ≈ 3,500 uploads/second
+  Avg compressed payload  ≈ 2 MB per image
+  Daily ingestion         ≈ 200 TB/day at the wire
+
+Per-image storage (estimate)
+  Original                  2 MB
+  Resolution variants       4 widths (1080 / 640 / 320 / 150 px)
+  Aspect variants           ×2 (square + original aspect)
+  Total variants            ≈ 8 derived files
+  Total stored per image    ≈ 5 MB across variants
+  Daily storage growth      ≈ 500 TB/day
+
+Feed reads (estimate)
+  500M DAU × 20 sessions    ≈ 10B feed reads/day
+  Average rate              ≈ 115K reads/second
+  Peak                      ≈ 350K+ reads/second
+
+Social graph (estimate)
+  Average followers/user    ~150 (skewed by power law)
+  Accounts with > 1M followers ~50,000
+  Graph edges               ~10^11
 ```
-Monthly active users: 3 billion
-Daily active users: 500M+
-Photos uploaded daily: 95M-100M (conservative estimate)
 
-Upload traffic:
-- 100M uploads/day = ~1,150 uploads/second average
-- Peak: 3x average = ~3,500 uploads/second
-- Average image size: 2MB (after client compression)
-- Daily upload ingestion: ~200TB/day
+**CDN efficiency.** Photo and video traffic follows a strong power-law: a small fraction of media accounts for most reads. Assuming a 95% edge cache hit rate (which is what an Instagram-shape CDN should be tuned for), the origin only sees the cold tail:
 
-Storage per image:
-- Original: 2MB
-- Resolutions: 1080p, 640p, 320p, 150p (thumbnail) × 2 (square + original aspect)
-- Total variants: ~8 files
-- Average total per image: ~5MB (compressed variants)
-- Daily storage growth: ~500TB/day
-
-Feed reads:
-- 500M DAU × 20 feed opens/day = 10B feed reads/day
-- = ~115K feed reads/second average
-- Peak: 350K+ reads/second
-
-Social graph:
-- Average followers per user: ~150
-- Celebrity accounts (>1M followers): ~50,000
-- Graph edges: billions
-```
-
-**CDN efficiency:**
-
-```
-Without CDN: All reads from origin
-With 95% cache hit rate (power-law distribution):
-- 5% cache misses = 17.5K requests/second to origin
-- Popular content served entirely from edge
+```text title="origin load with a 95% CDN hit rate"
+Reads to origin    ≈ 5% × 350K rps peak ≈ 17K rps
+Hot content        served almost entirely from CDN edge
+Cold tail          dominates origin egress and storage I/O
 ```
 
 ## Design Paths
@@ -133,7 +137,7 @@ On post creation, push the post ID to every follower's timeline cache. Reads are
 - ❌ Wasted writes for inactive followers
 - ❌ Storage explosion (N copies per post where N = followers)
 
-**Real-world example:** Twitter (2010-2012) used pure push model initially. A single Bieber tweet caused 10M+ cache writes.
+**Real-world example:** Early Twitter (~2010–2012) is the canonical illustration of push-only running into a celebrity wall: a single high-fan-out tweet had to be written into millions of follower timelines, which is why Twitter moved to a hybrid model later in that period.
 
 ### Path B: Pull-Only Fan-out
 
@@ -156,7 +160,7 @@ On feed request, query the social graph for followed users, fetch their recent p
 - ❌ Expensive computation per request
 - ❌ Difficult to rank effectively (limited time for ML)
 
-**Real-world example:** Early Facebook News Feed used pull model; abandoned due to latency issues at scale.
+**Real-world example:** Early News Feed implementations on social platforms (pre-2010) used pull-only computation and abandoned it as following counts grew, since per-request graph traversal blew the read latency budget.
 
 ### Path C: Hybrid Fan-out (Instagram Model)
 
@@ -164,43 +168,44 @@ On feed request, query the social graph for followed users, fetch their recent p
 
 - Massive scale with power-law follower distribution
 - Sub-second read latency required
-- Celebrity accounts exist (>1M followers)
+- High-fan-out accounts exist (>1M followers)
 
 **Architecture:**
 
-- **Regular users (<10K followers)**: Push to followers' timeline caches on post
-- **Celebrity accounts (>10K followers)**: Store posts separately; merge at read time
-- **Inactive users**: Skip fan-out; compute on demand if they return
+- **Long-tail accounts (low follower count, commonly modeled at < 5–10K followers in public write-ups)**: push the new post id into each follower's timeline cache on write.
+- **High-fan-out accounts (above the threshold)**: keep posts in a per-author store and merge them in at read time.
+- **Inactive followers**: skip fan-out for them and compute on demand if they return.
+
+> [!NOTE]
+> Instagram and Twitter both use hybrid fan-out, but neither has officially published its production threshold. The 5–10K follower band shows up consistently in [community write-ups of the architecture](https://www.abstractalgorithms.dev/write-time-vs-read-time-fan-out) and is best treated as a tunable knob, not a magic number. The right threshold for any platform is the point where the marginal cost of a fan-out write exceeds the marginal cost of a read-time merge.
 
 **Trade-offs:**
 
-- ✅ Bounded write amplification (max 10K writes per post)
-- ✅ Fast reads for most users (cache + small merge)
+- ✅ Bounded write amplification (capped at the threshold)
+- ✅ Fast reads for most users (cache hit + small merge)
 - ✅ Handles celebrity scale without storage explosion
 - ❌ Two code paths to maintain
 - ❌ Merge logic adds complexity
-- ❌ Celebrity posts have slight latency penalty
-
-**Real-world example:** Instagram and Twitter (post-2012) use hybrid models. Instagram's feed team explicitly tuned the threshold based on write cost analysis.
+- ❌ Posts from above-threshold accounts pay a small read-time merge cost
 
 ### Path Comparison
 
 | Factor              | Push-First   | Pull-Only            | Hybrid                                              |
 | ------------------- | ------------ | -------------------- | --------------------------------------------------- |
 | Read latency        | O(1)         | O(following × posts) | O(1) + O(celebrities)                               |
-| Write amplification | O(followers) | O(1)                 | O(min(followers, 10K))                              |
-| Storage per post    | O(followers) | O(1)                 | O(min(followers, 10K))                              |
+| Write amplification | O(followers) | O(1)                 | O(min(followers, threshold))                        |
+| Storage per post    | O(followers) | O(1)                 | O(min(followers, threshold))                        |
 | Code complexity     | Low          | Low                  | Medium                                              |
 | Freshness           | Immediate    | Immediate            | Immediate (regular), slight delay (celebrity merge) |
 | Best scale          | <100M users  | <10M users           | Billions                                            |
 
 ### This Article's Focus
 
-This article focuses on **Path C (Hybrid Fan-out)** because:
+The rest of this article assumes **Path C (Hybrid Fan-out)** as the production design, because:
 
-1. Instagram's scale (3B MAU) requires bounding write amplification
-2. Celebrity accounts (Ronaldo: 600M+ followers) would otherwise cause catastrophic write storms
-3. The hybrid model is well-documented in Instagram engineering posts
+1. At Instagram's scale (3B MAU as of [Sept 2025](https://www.cnbc.com/2025/09/24/instagram-now-has-3-billion-monthly-active-users.html)) the per-post write cost has to be bounded.
+2. The top of the follower distribution (Cristiano Ronaldo's account is in the 650M-follower range) makes pure push impractical — a single post would dominate the cluster's write capacity.
+3. The hybrid model is the design Instagram and Twitter both publicly describe, even if exact thresholds are not.
 
 ## High-Level Design
 
@@ -235,14 +240,13 @@ This article focuses on **Path C (Hybrid Fan-out)** because:
 
 ### Image Processing Pipeline
 
-**Input validation:**
+**Input validation** mirrors what Instagram documents in its [image resolution help center page](https://help.instagram.com/1631821640426723/):
 
-- Maximum file size: 30MB (client-side compression typically yields 2-5MB)
-- Supported formats: JPEG, PNG, HEIC (converted to JPEG)
-- Minimum resolution: 320px (smaller images upscaled)
-- Maximum resolution: 1080px width (larger images downscaled)
+- Supported feed widths land in the **320–1080 px** band; sub-320 px uploads get upscaled to 320 px and >1080 px uploads get downscaled to 1080 px.
+- Supported source formats: JPEG, PNG, HEIC (HEIC is normalized to JPEG/HEIF for delivery).
+- Maximum upload size is generous on the wire (tens of MB), but client-side compression typically lands the post in the 2–5 MB range before the server sees it.
 
-**Resolution variants generated:**
+**Resolution variants generated.** The exact ladder is implementation-specific; the shape below is representative of what a power-law CDN footprint requires:
 
 | Variant   | Dimensions   | Use Case                      |
 | --------- | ------------ | ----------------------------- |
@@ -252,15 +256,14 @@ This article focuses on **Path C (Hybrid Fan-out)** because:
 | Small     | 320 × 320    | Grid view, thumbnails         |
 | Thumbnail | 150 × 150    | Notifications, search results |
 
-**Filter processing:**
+**Filter processing.** On modern devices the heavy lifting is done on-device via GPU shaders (Metal on iOS, OpenGL ES / Vulkan on Android), so the server pipeline only has to deal with already-baked pixels for filtered uploads. Server-side filtering is a fallback path (for example, web uploads). Conceptually a filter is:
 
-Instagram applies filters using GPU shaders (GPUImage framework on mobile, server-side for web uploads).
+```text title="filter pipeline"
+output = Blend( Adjust( LUT(input) ) )
 
-```
-Filter = Color LUT + Adjustments + Blending
-- LUT (Look-Up Table): 3D color mapping
-- Adjustments: Brightness, contrast, saturation, warmth
-- Blending: Vignette, frame overlays
+  LUT        3D color look-up table (per-filter asset)
+  Adjust     brightness / contrast / saturation / warmth
+  Blend      vignette, frame, grain overlay
 ```
 
 **Processing time budget:**
@@ -277,7 +280,7 @@ Filter = Color LUT + Adjustments + Blending
 
 **Object storage layout:**
 
-```
+```text title="object key layout"
 s3://instagram-media/
   /{user_id}/
     /{media_id}/
@@ -298,18 +301,30 @@ s3://instagram-media/
 | Profile pictures | 1 hour         | `{user_id}/profile`   |
 | Stories media    | 24 hours       | `{story_id}/media`    |
 
-**Storage tiering (power-law optimization):**
+**Storage tiering (power-law optimization):** photo workloads at this scale follow a textbook hot/warm/cold split, and Meta has published the two papers that shape the canonical design — [Haystack](https://www.usenix.org/legacy/event/osdi10/tech/full_papers/Beaver.pdf) for hot blobs (OSDI 2010) and [f4](https://www.usenix.org/system/files/conference/osdi14/osdi14-paper-muralidhar.pdf) for warm blobs (OSDI 2014). The conceptual ladder used by any photo-sharing platform of this shape is:
 
-```
-Hot tier (SSD): Last 7 days of uploads, frequently accessed
-Warm tier (HDD): 7 days - 1 year, moderate access
-Cold tier (archive): > 1 year, rare access
+| Tier | Inspired by | Storage shape | Replication | Access pattern |
+| ---- | ----------- | ------------- | ----------- | -------------- |
+| Hot  | Haystack    | Append-only volume files; in-memory needle index; one disk seek per read | 3x replicated | Recent uploads, top of the long-tail |
+| Warm | f4          | Reed-Solomon (10,4) erasure coding inside a cell; XOR coding across regions | Effective replication ~2.1x (vs. 3.6x in Haystack) | Older content, access rate has decayed |
+| Cold | Archive     | Deep archive on cheap media | Geo-redundant | Rarely accessed, kept for durability + recall |
+
+```text title="tiering policy"
+Hot tier (SSD-backed Haystack-style volumes): Last 7 days of uploads, frequently accessed
+Warm tier (f4-style erasure-coded cells):     7 days - 1 year, moderate access
+Cold tier (deep archive):                     > 1 year, rare access
 
 Migration policy:
 - Content accessed > 10x/day stays hot
 - Content accessed < 1x/week moves to warm
 - Content not accessed in 90 days moves to cold
 ```
+
+> [!NOTE]
+> Haystack's central optimization is keeping the (volume, offset, size) index for every needle in main memory, so a hot read is at most one disk seek. f4 trades a small read-amplification penalty for a large storage win — its production Reed-Solomon (10,4) configuration tolerates four simultaneous failures inside a cell while cutting effective replication from 3.6x to 2.1x. The hot-vs-warm decision is a function of access rate and age, not file type.
+
+![Photo storage tiers: Haystack-style hot tier, f4-style warm tier with Reed-Solomon (10,4), cold archive with XOR geo-replication.](./diagrams/photo-storage-tiers-light.svg "Photo storage tiers: Haystack-style hot tier, f4-style warm tier with Reed-Solomon (10,4), cold archive with XOR geo-replication.")
+![Photo storage tiers: Haystack-style hot tier, f4-style warm tier with Reed-Solomon (10,4), cold archive with XOR geo-replication.](./diagrams/photo-storage-tiers-dark.svg)
 
 ## Feed Generation Service
 
@@ -375,7 +390,7 @@ def get_feed(user_id, cursor=None, limit=20):
 
 ### Feed Ranking
 
-Instagram's ranking system uses deep neural networks with 100K+ features.
+Instagram's ranking system uses deep neural networks fed by tens-to-hundreds of thousands of dense and sparse features (the [Explore engineering post](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/) describes the same shape for the discovery surface).
 
 **Signal categories:**
 
@@ -389,10 +404,10 @@ Instagram's ranking system uses deep neural networks with 100K+ features.
 
 **Ranking model architecture:**
 
-```
+```text title="multi-task ranker"
 Input: User embeddings + Post embeddings + Context features
   ↓
-Feature extraction (100K+ dense features)
+Feature extraction (10K–100K+ dense + sparse features)
   ↓
 Multi-task neural network
   ↓
@@ -502,7 +517,7 @@ ZADD user:{viewer_id}:story_ring {engagement_score} {author_id}
 
 **Client-side behavior:**
 
-```
+```text title="prefetch behavior"
 On app open:
 1. Fetch story ring ordering (lightweight API call)
 2. Prefetch first 3 story authors' media (background)
@@ -544,18 +559,18 @@ Instagram DMs handle real-time messaging with E2E encryption support.
 
 ### MQTT for Real-time
 
-Instagram chose MQTT over WebSockets for mobile optimization:
+Meta has used MQTT for mobile messaging since [Lucy Zhang's 2011 "Building Facebook Messenger" post](https://engineering.fb.com/2011/08/12/android/building-facebook-messenger/) — the original argument was that a persistent, lightweight pub/sub session beats HTTP polling on both latency and battery on mobile networks. Instagram DMs ride the same family of infrastructure.
 
-| Property          | MQTT                                      | WebSocket             |
-| ----------------- | ----------------------------------------- | --------------------- |
-| Protocol overhead | 2 bytes minimum                           | 2-14 bytes            |
-| Power consumption | 6-8% lower                                | Higher (keep-alive)   |
-| Reconnection      | Built-in session resumption               | Manual implementation |
-| QoS levels        | At-most-once, at-least-once, exactly-once | Manual                |
+| Property          | MQTT                                                                                                          | WebSocket                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Protocol overhead | [2-byte fixed header minimum](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.pdf)                       | 2–14 bytes per frame     |
+| Power consumption | Lower on mobile vs. HTTP polling (Meta's 2011 post argues the win comes from one persistent session and tiny keepalives; not separately quantified) | Higher (app must run its own keepalive cadence) |
+| Reconnection      | Built-in session resumption + persistent sessions                                                             | Application-defined      |
+| QoS levels        | At-most-once / at-least-once / exactly-once                                                                   | Application-defined      |
 
 **MQTT topic structure:**
 
-```
+```text title="example MQTT topic layout"
 # User's DM inbox (subscribe on connect)
 /u/{user_id}/inbox
 
@@ -568,7 +583,7 @@ Instagram chose MQTT over WebSockets for mobile optimization:
 
 ### Direct's Mutation Manager (DMM)
 
-Instagram's engineering team built a dedicated mutation manager for DMs to handle:
+Instagram's engineering team [built a dedicated mutation manager (DMM) for Direct](https://instagram-engineering.com/making-direct-messages-reliable-and-fast-a152bdfd697f) to handle:
 
 1. **Optimistic UI**: Show sent message immediately, reconcile with server response
 2. **Offline support**: Queue messages when offline, sync when reconnected
@@ -630,11 +645,11 @@ CREATE TABLE user_inbox (
 
 ### System Scale
 
-Instagram's Explore recommendation system:
+Per Meta's own engineering posts, Instagram's Explore recommender:
 
-- **Serves hundreds of millions of daily visitors**
-- **Chooses from billions of content options** in real-time
-- **Runs 1,000+ ML models simultaneously**
+- Serves hundreds of millions of daily visitors at sub-second latency.
+- Selects from a candidate pool of [billions of items](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/).
+- Runs [1,000+ production ML models](https://engineering.fb.com/2025/05/21/production-engineering/journey-to-1000-models-scaling-instagrams-recommendation-system/) across the surface, with the ranking funnel split into retrieval, early-stage ranking, and late-stage ranking.
 
 ### Three-Stage Recommendation Pipeline
 
@@ -643,9 +658,11 @@ Instagram's Explore recommendation system:
 
 ### Two Towers Model (Retrieval)
 
+Meta's [Explore architecture post](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/) describes the same two-tower retrieval shape: independent user and item towers produce embeddings that get compared via dot product, with item embeddings precomputed and indexed in an Approximate Nearest Neighbor service for online lookup.
+
 **Architecture:**
 
-```
+```text title="two-tower retrieval"
 User Tower:                     Item Tower:
 [User features]                 [Item features]
       ↓                              ↓
@@ -676,7 +693,7 @@ User embedding (128d)           Item embedding (128d)
 
 The late-stage ranker predicts multiple objectives simultaneously:
 
-```
+```text title="multi-task scoring"
 Outputs:
 - P(like)        weight: 1.0
 - P(comment)     weight: 2.0  (higher engagement)
@@ -706,7 +723,7 @@ Final score = Σ(weight × probability)
 
 ### Photo Upload
 
-```
+```http title="POST /api/v1/media/upload"
 POST /api/v1/media/upload
 Content-Type: multipart/form-data
 
@@ -730,7 +747,7 @@ Response (200 OK):
 
 ### Create Post
 
-```
+```http title="POST /api/v1/posts"
 POST /api/v1/posts
 
 Request:
@@ -758,7 +775,7 @@ Errors:
 
 ### Feed
 
-```
+```http title="GET /api/v1/feed"
 GET /api/v1/feed?cursor={cursor}&limit=20
 
 Response (200 OK):
@@ -796,7 +813,7 @@ Response (200 OK):
 
 ### Stories
 
-```
+```http title="GET /api/v1/stories/feed"
 GET /api/v1/stories/feed
 
 Response (200 OK):
@@ -828,7 +845,7 @@ Response (200 OK):
 
 ### Direct Messages
 
-```
+```http title="POST /api/v1/direct/threads/{thread_id}/messages"
 POST /api/v1/direct/threads/{thread_id}/messages
 
 Request:
@@ -930,6 +947,8 @@ CREATE INDEX idx_likes_target ON likes(target_type, target_id);
 
 ### Cassandra Schema (Social Graph)
 
+The social graph is the read-heaviest surface in the system: every feed read, every notification, every Stories ring computation hits it. Meta describes its graph store as [TAO](https://www.usenix.org/system/files/conference/atc13/atc13-bronson.pdf) (USENIX ATC 2013) — a read-optimized, geo-distributed graph cache layered over MySQL that exposes only two primitives: typed **objects** (nodes — users, posts, comments) and typed **associations** (directed edges — `FOLLOWS`, `LIKES`, `AUTHORED`, time-stamped and optionally carrying data). Most reads in TAO are single-edge or per-object lookups served from leader/follower cache tiers; writes go through the leader to keep cache invalidation correct. The Cassandra-backed schema below is the open-stack equivalent of the same shape: dual edge tables to make both directions of traversal partition-local, plus a per-user activity stream.
+
 ```cql
 -- Follows (partitioned by follower for "who do I follow" queries)
 CREATE TABLE follows (
@@ -962,7 +981,7 @@ CREATE TABLE activity (
 
 ### ID Generation (Instagram's Approach)
 
-Instagram's famous sharding and ID generation system:
+Instagram's [original sharding and ID generation post](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c) defines a 64-bit, time-sortable ID minted inside PL/pgSQL on each logical shard:
 
 ```sql
 -- PL/pgSQL function for globally unique, time-sorted IDs
@@ -1036,21 +1055,20 @@ $$ LANGUAGE PLPGSQL;
 
 ### Instagram's Migration (AWS → Facebook)
 
-Instagram migrated from AWS to Facebook's data centers in 2014:
+Instagram migrated its production stack from AWS to Facebook's data centers in 2013–2014, an internal project nicknamed ["Instagration"](https://instagram-engineering.com/migrating-from-aws-to-fb-86b16f6766e2). The team [started at 8 engineers and grew to ~20 over roughly a year](https://www.wired.com/2014/06/facebook-instagram/), and used a custom networking layer ("Neti") to bridge EC2/VPC and Facebook's internal network.
 
 **Before (AWS):**
 
-- 12 PostgreSQL instances (Quadruple Extra-Large memory)
-- 12 read replicas
-- 6 Memcached instances
+- A Postgres-on-EC2 sharded fleet with read replicas
+- Memcached for hot caching
 - S3 for media storage
 
 **After (Facebook infrastructure):**
 
-- 1 Facebook server ≈ 3 Amazon servers (efficiency)
-- Shared infrastructure with Facebook
-- Private fiber network between data centers
-- No service disruption during migration (8 engineers, ~1 year)
+- Higher per-server efficiency on Facebook hardware (Wired's coverage cites a roughly 3:1 consolidation ratio versus the prior EC2 footprint).
+- Shared access to Facebook's caching, monitoring, and storage stacks.
+- Private long-haul network between data centers.
+- No user-visible disruption during the cutover.
 
 ## Frontend Considerations
 
@@ -1166,17 +1184,16 @@ const LikeButton = ({ post }) => {
 
 ## Conclusion
 
-Instagram's architecture demonstrates several key principles for building photo-sharing platforms at scale:
+Instagram's architecture demonstrates several principles that recur in any photo- or short-video sharing platform at this scale:
 
 **Architectural decisions:**
 
-1. **Hybrid fan-out** bounds write amplification while maintaining sub-second feed loads. The 10K follower threshold is tuned based on write cost analysis.
-
-2. **Separate storage strategies** for ephemeral (Stories) vs. persistent (Posts) content optimize for their different access patterns and lifetime requirements.
-
-3. **Three-stage recommendation pipeline** (retrieval → early ranking → late ranking) enables personalization across billions of content items with <100ms latency.
-
-4. **MQTT for real-time** provides significant power and bandwidth savings over HTTP polling, critical for mobile-first platforms.
+1. **Hybrid fan-out** bounds per-post write amplification while keeping cached reads cheap. The follower threshold is a tunable knob — Instagram and Twitter both keep theirs unpublished — rather than a magic number.
+2. **Tiered blob storage** matches the read distribution: a [Haystack](https://www.usenix.org/legacy/event/osdi10/tech/full_papers/Beaver.pdf)-shaped hot tier for fresh uploads, an [f4](https://www.usenix.org/system/files/conference/osdi14/osdi14-paper-muralidhar.pdf)-shaped warm tier (Reed-Solomon (10,4), ~2.1x effective replication) for the long tail, and a cold archive for everything else.
+3. **A purpose-built graph store** ([TAO](https://www.usenix.org/system/files/conference/atc13/atc13-bronson.pdf)-style objects and associations) keeps the dominant read shape — single-hop edge lookups — partition-local and cache-resident.
+4. **Separate storage strategies** for ephemeral (Stories) and persistent (Posts) content match each surface's access pattern and lifetime budget.
+5. **Three-stage recommendation funnel** (retrieval → early ranking → late ranking, as described in [Meta's Explore architecture post](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/)) enables personalization across billions of items inside an inference budget measured in milliseconds.
+6. **MQTT for real-time** keeps a persistent, low-overhead channel open on mobile, which has been Meta's preferred shape for chat infrastructure [since 2011](https://engineering.fb.com/2011/08/12/android/building-facebook-messenger/).
 
 **Optimizations this design achieves:**
 
@@ -1187,10 +1204,10 @@ Instagram's architecture demonstrates several key principles for building photo-
 
 **Known limitations:**
 
-- Hybrid fan-out requires maintaining two code paths
-- Celebrity threshold (10K) is a tunable but imperfect heuristic
-- Ranking model hourly retraining introduces slight staleness
-- Multi-region eventual consistency means brief windows of inconsistency
+- Hybrid fan-out requires maintaining two read paths and a merge step.
+- The high-fan-out follower threshold is a tunable heuristic; the right value drifts as social-graph distributions shift.
+- Continual / hourly fine-tuning of the ranker introduces a small staleness window around fast-moving content.
+- Multi-region replication is asynchronous, so reads that race a write can briefly see stale state.
 
 **Alternative approaches not chosen:**
 
@@ -1210,21 +1227,31 @@ Instagram's architecture demonstrates several key principles for building photo-
 
 ### Summary
 
-- **Hybrid fan-out** (push for <10K followers, pull for celebrities) bounds write amplification while keeping reads fast
-- **Image processing pipeline** generates 6+ variants synchronously; filters use GPU shaders
-- **Stories architecture** uses 24-hour TTL with aggressive prefetch for <200ms load times
-- **Feed ranking** uses 100K+ features with neural networks; models fine-tuned hourly
-- **Explore recommendation** runs 1000+ ML models; Two Towers for retrieval, multi-task ranking for final selection
-- **MQTT powers real-time** features (DMs, notifications) with 6-8% less power than HTTP
+- **Hybrid fan-out** — push to follower timeline caches for the long tail of accounts; pull-merge above a tunable follower threshold to bound write amplification.
+- **Image processing pipeline** — variants generated for the 320–1080 px supported range; filters offloaded to GPU on-device.
+- **Tiered photo storage** — Haystack-style hot tier (in-memory needle index, ~1 disk seek per read), f4-style warm tier (Reed-Solomon (10,4), ~2.1x effective replication), cold archive for the long tail.
+- **Social graph storage** — TAO-style objects + associations layered over a sharded relational store, with leader/follower caches keeping cross-region reads fast.
+- **Stories architecture** — 24-hour TTL with aggressive prefetch targeting sub-200 ms perceived load.
+- **Feed ranking** — multi-task neural networks fed by tens-to-hundreds of thousands of features, fine-tuned continually on engagement events.
+- **Explore recommendation** — three-stage funnel (Two Towers retrieval → early ranking → late ranking) over 1,000+ production ML models.
+- **MQTT for real-time** — persistent low-overhead channel for DMs, notifications, and presence; Meta's preferred mobile chat substrate since 2011.
 
 ### References
 
-- [Sharding & IDs at Instagram](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c) - Original ID generation design
-- [What Powers Instagram](https://instagram-engineering.com/what-powers-instagram-hundreds-of-instances-dozens-of-technologies-adf2e22da2ad) - Early architecture overview
-- [Migrating from AWS to Facebook](https://instagram-engineering.com/migrating-from-aws-to-fb-86b16f6766e2) - Infrastructure migration case study
-- [Making Direct Messages Reliable and Fast](https://instagram-engineering.com/making-direct-messages-reliable-and-fast-a152bdfd697f) - DM architecture details
-- [Scaling Instagram's Explore Recommendations](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/) - Recommendation system architecture
-- [Journey to 1000 Models](https://engineering.fb.com/2025/05/21/production-engineering/journey-to-1000-models-scaling-instagrams-recommendation-system/) - ML infrastructure at scale
-- [Instagram Video Processing and Encoding Reduction](https://engineering.fb.com/2022/11/04/video-engineering/instagram-video-processing-encoding-reduction/) - Video pipeline optimization
-- [Introducing mcrouter](https://engineering.fb.com/2014/09/15/web/introducing-mcrouter-a-memcached-protocol-router-for-scaling-memcached-deployments/) - Caching infrastructure
-- [Powered by AI: Instagram's Explore Recommender System](https://ai.meta.com/blog/powered-by-ai-instagrams-explore-recommender-system/) - Two Towers model details
+- [Finding a Needle in Haystack: Facebook's Photo Storage](https://www.usenix.org/legacy/event/osdi10/tech/full_papers/Beaver.pdf) — hot-tier blob store with in-memory needle index (OSDI 2010).
+- [f4: Facebook's Warm BLOB Storage System](https://www.usenix.org/system/files/conference/osdi14/osdi14-paper-muralidhar.pdf) — warm-tier Reed-Solomon (10,4) erasure coding (OSDI 2014).
+- [TAO: Facebook's Distributed Data Store for the Social Graph](https://www.usenix.org/system/files/conference/atc13/atc13-bronson.pdf) — objects + associations graph store (USENIX ATC 2013).
+- [Sharding & IDs at Instagram](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c) — original 64-bit ID generation design (Instagram Engineering).
+- [What Powers Instagram](https://instagram-engineering.com/what-powers-instagram-hundreds-of-instances-dozens-of-technologies-adf2e22da2ad) — early architecture overview (Instagram Engineering).
+- [Migrating from AWS to Facebook](https://instagram-engineering.com/migrating-from-aws-to-fb-86b16f6766e2) — the "Instagration" project (Instagram Engineering).
+- [How Facebook Moved 20 Billion Instagram Photos Without You Noticing](https://www.wired.com/2014/06/facebook-instagram/) — secondary coverage of the migration (Wired, 2014).
+- [Making Direct Messages Reliable and Fast](https://instagram-engineering.com/making-direct-messages-reliable-and-fast-a152bdfd697f) — DM architecture and the Mutation Manager (Instagram Engineering).
+- [Building Facebook Messenger](https://engineering.fb.com/2011/08/12/android/building-facebook-messenger/) — origin of MQTT use for Meta's mobile chat (Engineering at Meta, 2011).
+- [Scaling the Instagram Explore Recommendations System](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/) — three-stage funnel and Two Towers architecture (Engineering at Meta, 2023).
+- [Journey to 1000 Models](https://engineering.fb.com/2025/05/21/production-engineering/journey-to-1000-models-scaling-instagrams-recommendation-system/) — ML infrastructure at scale (Engineering at Meta, 2025).
+- [Powered by AI: Instagram's Explore Recommender System](https://ai.meta.com/blog/powered-by-ai-instagrams-explore-recommender-system/) — earlier deep-dive on Explore retrieval (Meta AI).
+- [Instagram Video Processing and Encoding Reduction](https://engineering.fb.com/2022/11/04/video-engineering/instagram-video-processing-encoding-reduction/) — video pipeline optimization (Engineering at Meta, 2022).
+- [Introducing mcrouter](https://engineering.fb.com/2014/09/15/web/introducing-mcrouter-a-memcached-protocol-router-for-scaling-memcached-deployments/) — caching infrastructure (Engineering at Meta, 2014).
+- [Image resolution of photos you share on Instagram](https://help.instagram.com/1631821640426723/) — supported widths and resize behavior (Instagram Help Center).
+- [Instagram now has 3 billion monthly active users](https://www.cnbc.com/2025/09/24/instagram-now-has-3-billion-monthly-active-users.html) — Sept 2025 announcement (CNBC).
+- [MQTT Version 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.pdf) — protocol specification (OASIS).

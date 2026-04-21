@@ -1,0 +1,23 @@
+%% Diagram: dig +trace failure points by hop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Stub["Stub resolver<br/>(your machine)"]
+    Root["Root NS<br/>(a-m.root-servers.net)"]
+    TLD["TLD NS<br/>(e.g. a.gtld-servers.net)"]
+    Auth["Zone NS<br/>(ns1.example.com)"]
+    Answer(["Answer with AA flag"])
+
+    Stub -->|"NS ."| Root
+    Root -->|"NS com."| TLD
+    TLD -->|"NS example.com."| Auth
+    Auth -->|"A example.com."| Answer
+
+    Stub -. "no root NS reply" .-> F1["Local network or<br/>port 53 blocked"]
+    Root -. "REFUSED at TLD" .-> F2["Cold-cache resolver<br/>or anycast loss"]
+    TLD -. "no NS for zone" .-> F3["Delegation missing<br/>at registry"]
+    Auth -. "no AA flag" .-> F4["Lame delegation —<br/>NS not loaded"]
+    Auth -. "SERVFAIL" .-> F5["Zone load error<br/>or DNSSEC bogus"]
+
+    classDef fail fill:#fee,stroke:#c33,stroke-width:1px,color:#900;
+    class F1,F2,F3,F4,F5 fail;

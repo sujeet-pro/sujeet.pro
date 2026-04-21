@@ -1,0 +1,16 @@
+%% Diagram: DNS Failure Mode Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start(["Query issued"]) --> Resp{"Response<br/>received?"}
+    Resp -- "No" --> Timeout["Timeout<br/>net / firewall<br/>UDP-53 blocked"]
+    Resp -- "Yes" --> RC{"RCODE?"}
+
+    RC -- "0 NOERROR" --> Ans{"Answer<br/>section empty?"}
+    Ans -- "Yes" --> Nodata["NODATA<br/>name exists,<br/>no record of type"]
+    Ans -- "No" --> OK["Answer returned<br/>cache + serve"]
+
+    RC -- "3 NXDOMAIN" --> Nx["NXDOMAIN<br/>name does not exist<br/>RFC 8020 cut"]
+    RC -- "2 SERVFAIL" --> SF["SERVFAIL<br/>resolver failed<br/>DNSSEC / lame / upstream"]
+    RC -- "5 REFUSED" --> Ref["REFUSED<br/>policy: ACL,<br/>rate-limit"]
+    RC -- "1/4 other" --> Other["FORMERR / NOTIMP<br/>malformed or<br/>unsupported"]

@@ -1,0 +1,20 @@
+%% Diagram: Decision tree for choosing a script loading strategy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Need to load a script?]) --> Q1{"ES module<br/>import / export?"}
+    Q1 -- Yes --> Q2{"Independent<br/>of app state?"}
+    Q2 -- Yes --> ModAsync["type=module async"]
+    Q2 -- No --> Module["type=module<br/>deferred by default"]
+    Q1 -- No --> Q3{"Order matters<br/>vs other scripts?"}
+    Q3 -- Yes --> Defer["defer"]
+    Q3 -- No --> Q4{"Independent 3rd-party<br/>analytics, ads?"}
+    Q4 -- Yes --> Async["async"]
+    Q4 -- No --> Q5{"Truly legacy<br/>needs document.write?"}
+    Q5 -- Yes --> Sync["default<br/>parser-blocking"]
+    Q5 -- No --> Defer
+
+    classDef good fill:#e8f5e9,stroke:#2e7d32
+    classDef bad fill:#ffebee,stroke:#c62828
+    class Defer,Module,ModAsync,Async good
+    class Sync bad

@@ -1,0 +1,31 @@
+%% Diagram: Transactional outbox solves the dual-write problem
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    APP["Application"]
+
+    subgraph DB["Single ACID transaction"]
+        direction TB
+        BIZ["Business table\n(orders, accounts, ...)"]
+        OUT["OUTBOX table\n(event payloads)"]
+    end
+
+    APP -- "BEGIN; UPDATE biz; INSERT outbox; COMMIT" --> DB
+
+    subgraph RELAY["Async relay"]
+        direction TB
+        POLL["Poller / CDC\n(Debezium)"]
+    end
+
+    OUT -.read.-> POLL
+    POLL -- "publish (at-least-once)" --> KAFKA["Message broker"]
+    POLL -.mark processed.-> OUT
+
+    KAFKA --> CONS["Consumers\n(must be idempotent\nvia event id)"]
+
+    classDef tx fill:#d5e8d4,stroke:#82b366,color:#1b3a1b
+    classDef relay fill:#fff2cc,stroke:#d6b656,color:#3a2f00
+    classDef bus fill:#dae8fc,stroke:#6c8ebf,color:#0b2750
+    class BIZ,OUT tx
+    class POLL relay
+    class KAFKA,CONS bus

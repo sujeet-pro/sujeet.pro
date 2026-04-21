@@ -1,0 +1,27 @@
+%% Diagram: Spanner default multi-region topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Client"]
+
+    subgraph RW1["Default leader region (read-write)"]
+        L["Leader replica"]
+        F1["Voting replica"]
+    end
+
+    subgraph RW2["Second read-write region"]
+        F2["Voting replica"]
+        F3["Voting replica"]
+    end
+
+    subgraph WIT["Witness region"]
+        W["Witness replica<br/>(votes, no data)"]
+    end
+
+    Client -->|"Write"| L
+    L <-->|"Paxos"| F1
+    L <-->|"Paxos"| F2
+    L <-->|"Paxos"| F3
+    L <-->|"Paxos"| W
+
+    L -->|"Commit when 3 of 5 ack<br/>+ TrueTime wait"| Client

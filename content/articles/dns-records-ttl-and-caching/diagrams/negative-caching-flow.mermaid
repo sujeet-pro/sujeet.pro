@@ -1,0 +1,27 @@
+%% Diagram: Negative caching of NXDOMAIN/NODATA per RFC 2308
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant Client as Stub client
+    participant Recursive as Recursive resolver
+    participant Auth as Authoritative server
+
+    Client->>Recursive: Q: missing.example.com A?
+    Recursive->>Auth: Q: missing.example.com A?
+    Auth-->>Recursive: NXDOMAIN<br/>Authority: SOA (MINIMUM=3600, TTL=86400)
+    Note over Recursive: ncache TTL = min(SOA.MINIMUM, SOA TTL)<br/>= min(3600, 86400) = 3600s
+    Recursive-->>Client: NXDOMAIN (TTL 3600)
+
+    rect rgb(248, 235, 235)
+        Note over Client,Recursive: Within 3600s — name is created in DNS
+        Client->>Recursive: Q: missing.example.com A?
+        Recursive-->>Client: NXDOMAIN from negative cache<br/>(no upstream query)
+    end
+
+    rect rgb(232, 245, 233)
+        Note over Recursive: After 3600s
+        Client->>Recursive: Q: missing.example.com A?
+        Recursive->>Auth: Q: missing.example.com A?
+        Auth-->>Recursive: A 192.0.2.10
+        Recursive-->>Client: A 192.0.2.10
+    end

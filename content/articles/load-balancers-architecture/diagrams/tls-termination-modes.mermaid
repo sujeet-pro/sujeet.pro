@@ -1,0 +1,21 @@
+%% Diagram: Three TLS termination modes at a load balancer
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Terminate["Terminate at LB"]
+        direction LR
+        CT[Client] -- TLS --> LBT[L7 LB<br/>decrypts]
+        LBT -- plaintext HTTP --> BT[Backend]
+    end
+
+    subgraph Passthrough["TLS passthrough"]
+        direction LR
+        CP[Client] -- TLS --> LBP[L4 LB<br/>SNI + 5-tuple<br/>no decrypt]
+        LBP -- TLS --> BP[Backend<br/>terminates]
+    end
+
+    subgraph Reencrypt["Re-encrypt (TLS bridging)"]
+        direction LR
+        CR[Client] -- TLS<br/>(public PKI) --> LBR[L7 LB<br/>decrypts + inspects]
+        LBR -- TLS<br/>(internal PKI) --> BR[Backend]
+    end

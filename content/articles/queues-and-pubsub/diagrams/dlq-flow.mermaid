@@ -1,0 +1,33 @@
+%% Diagram: Retry and Dead Letter Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    P[Producer]:::producer
+    Q{{"Main queue / topic"}}:::broker
+    C[Consumer]:::consumer
+    OK([Processed]):::ok
+    transient{"Transient\nfailure?"}:::decision
+    poison{"Delivery count\nover threshold?"}:::decision
+    DLQ[("Dead letter queue\n(audited, alerted)")]:::storage
+    OPS[On-call / replay tool]:::neutral
+
+    P --> Q --> C
+    C --> transient
+    transient -- "no - success" --> OK
+    transient -- "yes - timeout, 5xx" --> backoff["Requeue\nexponential backoff + jitter"]:::retry
+    backoff --> Q
+    transient -- "permanent - schema, validation" --> poison
+    C -. "redelivery N+1" .-> poison
+    poison -- "yes" --> DLQ
+    poison -- "no" --> backoff
+    DLQ --> OPS
+    OPS -. "fix and replay" .-> Q
+
+    classDef producer fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef broker fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef consumer fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef decision fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef retry fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

@@ -1,0 +1,23 @@
+%% Diagram: Join algorithm comparison — nested loop vs hash join vs merge join
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Join two relations on key])
+    Q1{"Equality join?"}
+    Q2{"Outer relation small<br/>+ inner has index on key?"}
+    Q3{"Inner build side fits<br/>in work_mem?"}
+    Q4{"Both inputs already<br/>sorted on key?"}
+
+    NL["Nested Loop<br/>O(R · S) without index<br/>O(R · log S) with inner index<br/>only choice for non-equality joins"]
+    HJ["Hash Join<br/>build phase: O(S)<br/>probe phase: O(R)<br/>spills to disk if > work_mem"]
+    MJ["Merge Join<br/>O(R + S) after sort<br/>O((R + S) log) if sort needed<br/>streams in sorted order"]
+
+    Start --> Q1
+    Q1 -->|"no — &lt;, &gt;, !="| NL
+    Q1 -->|"yes"| Q2
+    Q2 -->|"yes"| NL
+    Q2 -->|"no"| Q3
+    Q3 -->|"yes"| HJ
+    Q3 -->|"no"| Q4
+    Q4 -->|"yes"| MJ
+    Q4 -->|"no"| HJ

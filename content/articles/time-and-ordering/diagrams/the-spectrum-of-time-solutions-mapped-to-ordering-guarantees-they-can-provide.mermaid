@@ -1,29 +1,33 @@
-%% Diagram: The Spectrum Of Time Solutions Mapped To Ordering Guarantees They Can Provide
+%% Diagram: The Spectrum of Time Solutions Mapped to Ordering Guarantees
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Time Solutions Spectrum"
+    subgraph TIME["Time Solutions"]
         direction LR
-        PHYSICAL["Physical Clocks<br/>NTP, PTP, TrueTime<br/>Wall-clock ordering"]
-        LOGICAL["Logical Clocks<br/>Lamport, Vector<br/>Causal ordering"]
-        HYBRID["Hybrid Clocks<br/>HLC<br/>Best of both"]
+        PHYSICAL["Physical clocks\nNTP, PTP, TrueTime\nWall-clock + bounds"]
+        LOGICAL["Logical clocks\nLamport, Vector\nCausality only"]
+        HYBRID["Hybrid Logical Clocks\nHLC\nWall-clock + causal"]
     end
 
-    subgraph "Ordering Guarantees"
+    subgraph ORDER["Ordering Guarantees"]
         direction TB
-        TOTAL["Total Order<br/>All events ordered<br/>Single timeline"]
-        CAUSAL["Causal Order<br/>Cause before effect<br/>Concurrent events unordered"]
-        PARTIAL["Partial Order<br/>Some events comparable<br/>Minimal coordination"]
+        TOTAL["Total order\nAll events ordered"]
+        CAUSAL["Causal order\nCause precedes effect"]
+        PARTIAL["Partial order\nMinimal coordination"]
     end
 
     PHYSICAL --> TOTAL
     LOGICAL --> CAUSAL
     HYBRID --> CAUSAL
     HYBRID -.->|"with bounded uncertainty"| TOTAL
+    LOGICAL -.-> PARTIAL
 
-    style PHYSICAL fill:#dae8fc,stroke:#6c8ebf
-    style LOGICAL fill:#d5e8d4,stroke:#82b366
-    style HYBRID fill:#fff2cc,stroke:#d6b656
-    style TOTAL fill:#f8cecc,stroke:#b85450
-    style CAUSAL fill:#e1d5e7,stroke:#9673a6
-    style PARTIAL fill:#ffe6cc,stroke:#d79b00
+    classDef physical fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef logical fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef hybrid fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef order fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class PHYSICAL physical
+    class LOGICAL logical
+    class HYBRID hybrid
+    class TOTAL,CAUSAL,PARTIAL order

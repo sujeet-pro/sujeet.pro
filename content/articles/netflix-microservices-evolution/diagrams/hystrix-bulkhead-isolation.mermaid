@@ -1,0 +1,27 @@
+%% Diagram: Hystrix bulkhead isolation — without vs with per-dependency thread pools
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph NoIso["Without bulkheads: cascading failure"]
+        direction TB
+        ClientA["Caller A"] --> SharedPool["Shared thread pool"]
+        SharedPool --> DepX["Dep X (slow)"]
+        SharedPool --> DepY["Dep Y (ok)"]
+        SharedPool --> DepZ["Dep Z (ok)"]
+        DepX -.->|"threads pile up"| SharedPool
+        SharedPool ==>|"pool exhausted"| Fail["A unresponsive — cascade upstream"]
+    end
+
+    NoIso --> Iso
+
+    subgraph Iso["With Hystrix bulkheads"]
+        direction TB
+        ClientB["Caller A"] --> PoolX["Pool for X"]
+        ClientB --> PoolY["Pool for Y"]
+        ClientB --> PoolZ["Pool for Z"]
+        PoolX --> DX["Dep X (slow)"]
+        PoolY --> DY["Dep Y (ok)"]
+        PoolZ --> DZ["Dep Z (ok)"]
+        DX -.->|"timeout, circuit may open"| Fallback["Fallback / fast-fail for X"]
+        DY --> OkY["Y traffic unaffected"]
+        DZ --> OkZ["Z traffic unaffected"]
+    end

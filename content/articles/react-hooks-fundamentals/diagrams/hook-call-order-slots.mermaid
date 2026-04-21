@@ -1,0 +1,33 @@
+%% Diagram: Hook call-order slot model
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart LR
+    subgraph render1["Render 1 (initial)"]
+        direction TB
+        c1a["useState(0)\ncall #1"] --> c1b["useState('')\ncall #2"] --> c1c["useEffect(...)\ncall #3"]
+    end
+
+    subgraph slots["React fiber's hook list"]
+        direction TB
+        s1["slot[0]\nstate = 0\nsetter A"]
+        s2["slot[1]\nstate = ''\nsetter B"]
+        s3["slot[2]\neffect deps + cleanup"]
+        s1 --> s2 --> s3
+    end
+
+    subgraph render2["Render 2 (next)"]
+        direction TB
+        c2a["useState(0)\ncall #1"] --> c2b["useState('')\ncall #2"] --> c2c["useEffect(...)\ncall #3"]
+    end
+
+    c1a -. "writes" .-> s1
+    c1b -. "writes" .-> s2
+    c1c -. "writes" .-> s3
+    s1 -. "reads" .-> c2a
+    s2 -. "reads" .-> c2b
+    s3 -. "reads" .-> c2c
+
+    classDef hookCall fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class c1a,c1b,c1c,c2a,c2b,c2c hookCall
+    classDef hookSlot fill:#1F6E68,stroke:#155752,color:#ffffff
+    class s1,s2,s3 hookSlot

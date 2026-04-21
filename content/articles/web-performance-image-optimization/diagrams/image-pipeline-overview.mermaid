@@ -1,0 +1,31 @@
+%% Diagram: Image Optimization Pipeline Overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph DECISIONS["Decision Stages"]
+        direction TB
+        FORMAT["1. Format\nAVIF / WebP / JPEG"]
+        RESPONSIVE["2. Sizing\nsrcset + sizes"]
+        LOADING["3. Loading\neager / lazy + fetchpriority"]
+        DECODE["4. Decoding\nsync / async"]
+
+        FORMAT --> RESPONSIVE
+        RESPONSIVE --> LOADING
+        LOADING --> DECODE
+    end
+
+    subgraph WINS["Compounding Wins"]
+        direction TB
+        BW["Bandwidth\n50-80% reduction"]
+        LCP["LCP\nfaster paint of hero"]
+        CLS["CLS\nstable layout from width/height"]
+    end
+
+    DECODE --> BW
+    DECODE --> LCP
+    DECODE --> CLS
+
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef win fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class FORMAT,RESPONSIVE,LOADING,DECODE stage
+    class BW,LCP,CLS win

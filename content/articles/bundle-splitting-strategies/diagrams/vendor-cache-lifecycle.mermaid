@@ -1,0 +1,28 @@
+%% Diagram: Vendor Cache Lifecycle Across Deployments
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph deploy_v1["Deploy v1"]
+        direction TB
+        A1["app.HASH1.js"]
+        V1["vendor-react.HASH_R1.js"]
+        U1["vendor-ui.HASH_U1.js"]
+    end
+    subgraph cache["Browser HTTP cache"]
+        direction TB
+        C1["app.HASH1.js"]
+        CV["vendor-react.HASH_R1.js"]
+        CU["vendor-ui.HASH_U1.js"]
+    end
+    subgraph deploy_v2["Deploy v2 - app code only changed"]
+        direction TB
+        A2["app.HASH2.js"]
+        V2["vendor-react.HASH_R1.js"]
+        U2["vendor-ui.HASH_U1.js"]
+    end
+    A1 --> C1
+    V1 --> CV
+    U1 --> CU
+    A2 -.->|miss - fetch| cache
+    V2 -.->|hit - reuse| cache
+    U2 -.->|hit - reuse| cache

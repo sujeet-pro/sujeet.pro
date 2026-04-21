@@ -1,0 +1,33 @@
+%% Diagram: Monolith vs Micro-Frontends — coupling and ownership boundaries
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph mono["Frontend Monolith"]
+        direction TB
+        repo[Single Repo\nSingle Build]
+        dep[Shared Runtime\nDependencies]
+        rel[Coordinated\nRelease Train]
+        repo --> dep --> rel
+    end
+
+    subgraph mfe["Micro-Frontend Composition"]
+        direction TB
+        shell[Shell or\nEdge Composer]
+        mA[Catalog\nTeam A · React]
+        mB[Cart\nTeam B · Vue]
+        mC[Checkout\nTeam C · Svelte]
+        shell --> mA
+        shell --> mB
+        shell --> mC
+    end
+
+    mono ~~~ mfe
+
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef svc fill:#1F6E68,stroke:#155752,color:#ffffff
+
+    class repo,dep,rel warn
+    class shell ok
+    class mA,mB,mC svc

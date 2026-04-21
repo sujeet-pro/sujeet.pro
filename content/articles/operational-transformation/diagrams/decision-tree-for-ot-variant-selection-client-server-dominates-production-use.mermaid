@@ -1,13 +1,14 @@
-%% Diagram: Decision Tree For Ot Variant Selection Client Server Dominates Production Use
+%% Diagram: OT variant decision tree
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TD
-    A[Need collaborative editing] --> B{Offline-first required?}
-    B -->|Yes| C{Memory constraints?}
-    B -->|No| D[Client-Server OT]
-    C -->|Tight| E[Consider CRDTs instead]
-    C -->|Flexible| F{Need provable correctness?}
-    F -->|Yes| G[TTF or COT]
-    F -->|Pragmatic| H[Client-Server + sync queue]
-    D --> I[Jupiter/Wave model]
-    I --> J[Wait for ACK between batches]
+flowchart TD
+    A["Need real-time collaborative editing"] --> B{"Can mandate central server\nand acceptable RTT?"}
+    B -->|Yes| C["Client-server OT\n(Jupiter / Wave model)"]
+    C --> C1["TP1 only; ACK rule;\nGoogle Docs, Office 365,\nCKEditor 5, ShareDB, ot.js"]
+
+    B -->|No — offline-first or P2P| D{"Strict OT semantics required?\n(per-op intent, op log auditable)"}
+    D -->|No — eventual convergence is enough| E["Use a CRDT\n(Yjs, Automerge, RGA)"]
+    D -->|Yes — must be OT| F{"Topology"}
+    F -->|"Mostly central with\nrare offline windows"| C
+    F -->|"True P2P / federated"| G["Extended-signature OT\n(TTF or COT)"]
+    G --> G1["TP2 satisfied via tombstones\nor context vectors;\nlimited production exposure"]

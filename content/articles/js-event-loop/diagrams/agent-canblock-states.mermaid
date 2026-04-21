@@ -1,0 +1,22 @@
+%% Diagram: Agent execution states under [[CanBlock]] and the wait/notify contract
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Running
+    Running --> Idle: execution context stack empties
+    Idle --> Running: host invokes a queued Job
+
+    Running --> Blocked: Atomics.wait\n(only when [[CanBlock]] = true)
+    Blocked --> Running: Atomics.notify on same address\nor timeout
+    Blocked --> [*]: agent terminated
+
+    Running --> Throws: Atomics.wait called when\n[[CanBlock]] = false (TypeError)
+
+    note right of Blocked
+        Spec §9.8 Forward Progress:
+        an agent may not block another agent
+        except via explicit blocking APIs.
+        Browser main-thread agents have
+        [[CanBlock]] = false — only Workers
+        and Node main thread can suspend.
+    end note

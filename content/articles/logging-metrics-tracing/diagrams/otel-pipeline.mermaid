@@ -1,0 +1,35 @@
+%% Diagram: OpenTelemetry SDK + Collector pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph App["Application process"]
+        direction TB
+        Code["App code"]
+        Auto["Zero-code /<br/>auto-instrumentation"]
+        SDK["OpenTelemetry SDK<br/>(API + Bridge + SDK)"]
+        Code --> SDK
+        Auto --> SDK
+    end
+
+    subgraph Collector["OpenTelemetry Collector"]
+        direction LR
+        Recv["Receivers<br/>OTLP / Prometheus /<br/>Jaeger / Zipkin"]
+        Proc["Processors<br/>batch · memory_limiter ·<br/>tail_sampling · attributes"]
+        Exp["Exporters<br/>OTLP / Prom RW /<br/>Loki / Datadog"]
+        Recv --> Proc --> Exp
+    end
+
+    subgraph Backends["Storage backends"]
+        direction TB
+        TBackend["Trace store<br/>Tempo / Jaeger"]
+        MBackend["Metric store<br/>Prometheus / Mimir"]
+        LBackend["Log store<br/>Loki / Elastic"]
+    end
+
+    SDK -->|"OTLP push<br/>(gRPC / HTTP)"| Recv
+    Exp --> TBackend
+    Exp --> MBackend
+    Exp --> LBackend
+
+    classDef edge fill:#eef,stroke:#339,color:#114
+    class Recv,Exp edge

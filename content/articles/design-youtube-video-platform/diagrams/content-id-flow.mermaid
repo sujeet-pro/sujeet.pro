@@ -1,0 +1,32 @@
+%% Diagram: Content ID and moderation pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Reference["Rights-holder onboarding (offline)"]
+        OWNER[Rights holder] --> REFUP[Upload reference asset]
+        REFUP --> REFFP[Fingerprint extraction<br/>video + audio + melody]
+        REFFP --> REFDB[(Reference fingerprint DB)]
+        OWNER --> POLICY[Asset policy<br/>block / monetize / track]
+        POLICY --> POLDB[(Policy store)]
+    end
+
+    subgraph Ingest["Per-upload moderation (online)"]
+        UP[Creator upload] --> SAFEFP[Safety hash match<br/>CSAM / terror PhotoDNA-style]
+        SAFEFP -->|hit| HARDBLOCK[Hard block + report]
+        SAFEFP -->|miss| MLCLASS[ML classifiers<br/>nudity, violence, spam]
+        MLCLASS --> CIDFP[Content ID fingerprint<br/>scene-chunked, robust to re-encode]
+        CIDFP --> MATCH{Match in<br/>reference DB?}
+    end
+
+    REFDB --> MATCH
+    POLDB --> APPLY
+    MATCH -->|no| PUBLISH[Publish + queue human review for<br/>uncertain ML signals]
+    MATCH -->|yes| APPLY[Apply rights-holder policy]
+    APPLY --> ACT{Action}
+    ACT -->|Block| BLK[Remove from public catalog]
+    ACT -->|Monetize| MON[Run ads, route revenue to owner]
+    ACT -->|Track| TRK[Publish, share analytics]
+
+    MON --> DISPUTE[Creator dispute]
+    BLK --> DISPUTE
+    DISPUTE --> APPEAL[Owner review or escalation]

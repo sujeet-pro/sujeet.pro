@@ -1,20 +1,24 @@
-%% Diagram: The Caching Hierarchy From Cpu To Origin Server Showing Typical Latency At Each
+%% Diagram: The Caching Hierarchy — CPU registers to origin server
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph "Caching Hierarchy"
-        direction TB
-        CPU["CPU Caches<br/>L1/L2/L3<br/>~1-100ns"]
-        APP["Application Cache<br/>In-memory<br/>~1ms"]
-        DIST["Distributed Cache<br/>Redis/Memcached<br/>~1-10ms"]
-        CDN["CDN Edge<br/>Cloudflare/Fastly<br/>~10-50ms"]
-        ORIGIN["Origin Server<br/>Database/API<br/>~50-500ms"]
-    end
+flowchart LR
+    CPU["CPU caches<br/>L1 / L2 / L3<br/>~1–40 ns"]
+    DRAM["DRAM<br/>System memory<br/>~50–100 ns"]
+    APP["In-process cache<br/>Caffeine / Guava<br/>microseconds"]
+    DIST["Distributed cache<br/>Redis / Memcached<br/>~0.5–1 ms (same DC)"]
+    CDN["CDN edge<br/>Cloudflare / Fastly<br/>~10–50 ms"]
+    ORIGIN["Origin<br/>Database / API<br/>~50–500 ms"]
 
-    CPU --> APP --> DIST --> CDN --> ORIGIN
+    CPU -- "10×" --> DRAM
+    DRAM -- "10×" --> APP
+    APP -- "100×–1000×" --> DIST
+    DIST -- "10×–100×" --> CDN
+    CDN -- "10×" --> ORIGIN
 
-    style CPU fill:#d5e8d4,stroke:#82b366
-    style APP fill:#dae8fc,stroke:#6c8ebf
-    style DIST fill:#fff2cc,stroke:#d6b656
-    style CDN fill:#f8cecc,stroke:#b85450
-    style ORIGIN fill:#e1d5e7,stroke:#9673a6
+    classDef fast fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef mid  fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef slow fill:#B43A3A,stroke:#8E2828,color:#ffffff
+
+    class CPU,DRAM fast
+    class APP,DIST mid
+    class CDN,ORIGIN slow

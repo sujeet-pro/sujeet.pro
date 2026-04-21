@@ -1,0 +1,21 @@
+%% Diagram: Test-time SDK Injection Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Test as Vitest test
+    participant Provider as TestSdkProvider
+    participant Mock as createMockSdk(overrides)
+    participant Sdk as SdkContext.Provider
+    participant Cmp as AddToCartButton
+    participant Hook as useSdk()
+
+    Test->>Provider: render(TestSdkProvider overrides=...)
+    Provider->>Mock: build mocked services
+    Mock-->>Provider: mocked SdkServices
+    Provider->>Sdk: provide value=mockedServices
+    Sdk->>Cmp: mount tree
+    Cmp->>Hook: useSdk()
+    Hook->>Sdk: read context
+    Sdk-->>Hook: mockedServices
+    Cmp->>Cmp: invoke http.post / analytics.track
+    Cmp-->>Test: assertions on mocked spies

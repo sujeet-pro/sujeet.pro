@@ -1,8 +1,0 @@
-%% Diagram: Diagram 4
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TD
-    App[Application] --> Abstraction["lib/tripstore abstraction"]
-    Abstraction --> |"Always"| PG[(PostgreSQL)]
-    Abstraction --> |"Feature flag"| Schema[(Schemaless)]
-    Abstraction --> |"Shadow reads"| Compare{Compare Results}

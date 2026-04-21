@@ -1,0 +1,27 @@
+%% Diagram: ScyllaDB migration timeline
+%% Type: gantt
+gantt
+    title Discord Cassandra to ScyllaDB migration (2022)
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section Build
+    Stand up ScyllaDB cluster (super-disk)        :done, infra, 2022-01-15, 30d
+    Rust data services in production              :done, ds, 2022-01-15, 60d
+
+    section Dual-write
+    Begin dual-writes to Cassandra and ScyllaDB    :done, dw, 2022-03-01, 75d
+
+    section Backfill
+    Spark migrator tuning (rejected, ~3mo eta)     :crit, spark, 2022-03-15, 14d
+    Rust migrator built (an afternoon)             :milestone, rust1, 2022-03-29, 0d
+    Backfill at up to 3.2M msgs/sec                 :active, rust2, 2022-03-29, 9d
+    Compact final tombstone-heavy token range      :crit, compact, 2022-04-07, 1d
+
+    section Cutover
+    Mirror reads, automated comparison              :done, validate, 2022-04-08, 21d
+    Flip primary read path to ScyllaDB              :milestone, cutover, 2022-05-15, 0d
+    Decommission Cassandra cluster                  :done, decom, 2022-05-15, 30d
+
+    section Validation
+    World Cup Final live traffic                    :milestone, wc, 2022-12-18, 0d

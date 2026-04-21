@@ -1,0 +1,31 @@
+%% Diagram: defer vs async vs module execution timing relative to HTML parsing
+%% Type: gantt
+%%{init: {'htmlLabels': false}}%%
+gantt
+    title Script loading and execution relative to HTML parsing
+    dateFormat X
+    axisFormat %s
+
+    section HTML parser
+    Parse head            :p1, 0, 4
+    Parse body            :p2, 4, 12
+    DOMContentLoaded      :milestone, m1, 14, 0
+
+    section Default script
+    Download              :s1, 1, 5
+    Execute (parser blocked) :crit, s2, 5, 7
+    Parser resume         :milestone, s3, 7, 0
+
+    section async script
+    Download              :a1, 1, 7
+    Execute when ready    :crit, a2, 7, 8
+
+    section defer script
+    Download              :d1, 1, 6
+    Wait for parse end    :d2, 6, 12
+    Execute in order      :d3, 12, 13
+
+    section type=module
+    Fetch module graph    :m2, 1, 9
+    Wait for parse end    :m3, 9, 12
+    Execute deferred      :m4, 12, 13

@@ -1,0 +1,41 @@
+%% Diagram: Bulkheads at three scales — thread pools, cells, zones
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Process["In-process bulkheads (per dependency)"]
+        direction LR
+        Caller["Caller code"]
+        PoolA["Thread pool A\n(Payments)"]
+        PoolB["Thread pool B\n(Search)"]
+        PoolC["Thread pool C\n(Analytics)"]
+        DepA["Payments service"]
+        DepB["Search service"]
+        DepC["Analytics service"]
+        Caller --> PoolA --> DepA
+        Caller --> PoolB --> DepB
+        Caller --> PoolC --> DepC
+    end
+
+    subgraph Cells["Cell-based isolation (per tenant subset)"]
+        direction LR
+        Router["Cell router"]
+        Cell1["Cell 1\nfull stack"]
+        Cell2["Cell 2\nfull stack"]
+        Cell3["Cell 3\nfull stack"]
+        Router --> Cell1
+        Router --> Cell2
+        Router --> Cell3
+    end
+
+    subgraph Zones["Zonal isolation (per AZ)"]
+        direction LR
+        Edge["Regional edge"]
+        AZ1["AZ-a\nindependent stack"]
+        AZ2["AZ-b\nindependent stack"]
+        AZ3["AZ-c\nindependent stack"]
+        Edge --> AZ1
+        Edge --> AZ2
+        Edge --> AZ3
+    end
+
+    Process --> Cells --> Zones

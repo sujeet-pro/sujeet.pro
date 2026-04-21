@@ -1,0 +1,46 @@
+%% Diagram: Strangler Fig Migration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph t0["Phase 0 — Baseline"]
+    legacy0["Legacy UI<br/>(monolith)"]
+    user0(["User"])
+    user0 --> legacy0
+  end
+
+  subgraph t1["Phase 1 — Seam"]
+    user1(["User"])
+    router1["Edge router /<br/>shell mount points"]
+    legacy1["Legacy UI"]
+    new1["New domain UI<br/>(behind contract)"]
+    user1 --> router1
+    router1 --> legacy1
+    router1 --> new1
+  end
+
+  subgraph t2["Phase 2 — Migration"]
+    user2(["User"])
+    router2["Edge router /<br/>shell mount points"]
+    legacyShrunk["Shrinking legacy<br/>surfaces"]
+    newGrown["Growing new surfaces<br/>(versioned contracts,<br/>shared design system)"]
+    user2 --> router2
+    router2 --> legacyShrunk
+    router2 --> newGrown
+  end
+
+  subgraph t3["Phase 3 — Retired"]
+    user3(["User"])
+    router3["Edge router /<br/>shell mount points"]
+    newOnly["New domain UI<br/>(legacy retired<br/>on a dated plan)"]
+    user3 --> router3
+    router3 --> newOnly
+  end
+
+  t0 --> t1
+  t1 --> t2
+  t2 --> t3
+
+  classDef legacy fill:#fde2e1,stroke:#b03a2e,color:#5a1812;
+  classDef newSurface fill:#dff5e1,stroke:#1f7a3a,color:#0c3d1d;
+  class legacy0,legacy1,legacyShrunk legacy;
+  class new1,newGrown,newOnly newSurface;

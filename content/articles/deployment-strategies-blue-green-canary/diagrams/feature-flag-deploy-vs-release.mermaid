@@ -1,0 +1,29 @@
+%% Diagram: Feature Flag — Deploy vs Release Decoupling
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Deploy["Deployment - Infrastructure"]
+        direction TB
+        D1["v1.0 live"]
+        D2["v1.1 in prod, flag OFF"]
+        D1 --> D2
+    end
+
+    subgraph Release["Release - Application Layer"]
+        direction TB
+        F1["0% - internal only"]
+        F2["1% - canary cohort"]
+        F3["10% - early users"]
+        F4["100% - all users"]
+        F1 --> F2 --> F3 --> F4
+    end
+
+    subgraph Rollback["Rollback Path"]
+        direction TB
+        R1["Disable flag"]
+        R2["Effective in milliseconds"]
+        R1 --> R2
+    end
+
+    Deploy -.->|"decouple deploy from release"| Release
+    Release -.->|"toggle anywhere in rollout"| Rollback

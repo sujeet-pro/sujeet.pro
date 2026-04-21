@@ -1,0 +1,33 @@
+%% Diagram: Persistence Flow Journal Checkpoint Recovery
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Browser Client
+    participant MP as Multiplayer<br/>(Rust process)
+    participant J as DynamoDB<br/>Journal (WAL)
+    participant S as S3 Checkpoint
+    participant R as Recovery /<br/>New Process
+
+    Note over C,MP: Steady-state edit loop
+    C->>MP: delta @ ~33ms
+    MP->>MP: apply to in-memory state<br/>assign sequence #
+
+    par Frequent journal write
+        MP->>J: append delta<br/>(every ~0.5s)
+        J-->>MP: ack (p95 ~600ms)
+    and Infrequent checkpoint
+        MP->>S: full snapshot<br/>(every 30-60s)
+        S-->>MP: ack
+    end
+
+    Note over MP: Process crash
+    MP-XR: lost in-memory state
+
+    R->>S: load latest checkpoint
+    S-->>R: snapshot @ seq=N
+    R->>J: read journal entries<br/>where seq > N
+    J-->>R: deltas N+1 ... M
+    R->>R: replay → state @ seq=M
+
+    Note over R,J: Worst-case data loss < 1s<br/>(vs 60s checkpoint-only)

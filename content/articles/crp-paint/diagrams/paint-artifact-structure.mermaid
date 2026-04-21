@@ -1,0 +1,27 @@
+%% Diagram: Paint Artifact Structure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Artifact["Paint Artifact"]
+        direction TB
+        subgraph Chunk1["Paint Chunk #1"]
+            P1[PropertyTreeState<br/>t=root, c=root, e=root, s=root]
+            DI1[DrawingDisplayItem<br/>body background]
+            DI2[DrawingDisplayItem<br/>header borders]
+        end
+        subgraph Chunk2["Paint Chunk #2"]
+            P2[PropertyTreeState<br/>t=card.transform, c=root, e=root, s=root]
+            DI3[DrawingDisplayItem<br/>card background]
+            DI4[DrawingDisplayItem<br/>card text]
+        end
+        subgraph Chunk3["Paint Chunk #3"]
+            P3[PropertyTreeState<br/>t=root, c=overflow.clip, e=root, s=scroll]
+            DI5[ScrollHitTestDisplayItem]
+            DI6[DrawingDisplayItem<br/>list items]
+        end
+    end
+
+    Artifact --> Layerize[Layerize<br/>chunk to cc::Layer mapping]
+
+    style Chunk2 stroke:#2e7d32,stroke-width:2px
+    style Chunk3 stroke:#1565c0,stroke-width:2px

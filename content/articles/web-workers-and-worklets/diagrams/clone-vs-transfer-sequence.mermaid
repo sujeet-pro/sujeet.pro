@@ -1,0 +1,19 @@
+%% Diagram: Structured clone vs transfer over postMessage
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Main
+    participant SCA as Clone
+    participant Worker
+
+    note over Main,Worker: Clone path
+    Main->>SCA: serialize(value)
+    SCA-->>SCA: walk graph,\ncopy bytes,\ntrack cycles
+    SCA->>Worker: deserialize(copy)
+    note right of Main: original\nkeeps ownership
+
+    note over Main,Worker: Transfer path
+    Main->>SCA: serialize(value, [arrayBuf])
+    SCA-->>Main: detach\n(byteLength = 0)
+    SCA->>Worker: hand over backing memory
+    note right of Worker: zero-copy\nregardless of size

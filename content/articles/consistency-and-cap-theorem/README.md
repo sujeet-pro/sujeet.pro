@@ -2,36 +2,31 @@
 title: Consistency Models and the CAP Theorem
 linkTitle: 'CAP Theorem'
 description: >-
-  The CAP theorem demystified, PACELC's latency-consistency trade-off, and the full consistency
+  The CAP theorem demystified, PACELC's latency–consistency trade-off, and the full consistency
   spectrum from linearizability to eventual consistency — with guidance on choosing per-operation guarantees.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - system-design
   - reliability
+  - databases
 ---
 
 # Consistency Models and the CAP Theorem
 
-Understanding consistency guarantees in distributed systems: from the theoretical foundations of CAP to practical consistency models, their trade-offs, and when to choose each for production systems.
+A working mental model of consistency for senior engineers: the CAP theorem as it was actually proved, the PACELC extension that captures the trade-off you face every request, the consistency spectrum from linearizability down to eventual, and the replication / quorum mechanics that implement each level. The goal is to pick the weakest guarantee that satisfies the operation, not "CP vs AP" as a system-wide religion.
 
-![The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability](./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically-light.svg "The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability")
-![The consistency spectrum mapped to CAP trade-offs: stronger consistency typically requires partition intolerance or reduced availability](./diagrams/the-consistency-spectrum-mapped-to-cap-trade-offs-stronger-consistency-typically-dark.svg)
+![Consistency model hierarchy from linearizable down to eventual](./diagrams/consistency-hierarchy-light.svg "The consistency hierarchy: stronger models add real-time / cross-client ordering at the cost of coordination latency.")
+![Consistency model hierarchy from linearizable down to eventual](./diagrams/consistency-hierarchy-dark.svg)
 
-## Abstract
+## Mental model in five lines
 
-The CAP theorem establishes that during a network partition, a distributed system must choose between consistency (C) and availability (A)—it cannot provide both. However, CAP is often misunderstood: partitions are rare, and the more practical trade-off during normal operation is between **consistency and latency** (PACELC theorem).
-
-**The mental model:**
-
-- **Consistency** isn't binary—it's a spectrum from linearizability (strongest) to eventual consistency (weakest)
-- **CAP applies only during partitions**—most systems spend >99.9% of time partition-free
-- **PACELC captures the real trade-off**—when no partition (E), choose between latency (L) and consistency (C)
-- **Tunable consistency** lets you choose per-operation, not per-system
-- **Session guarantees** (read-your-writes, monotonic reads) often provide sufficient consistency for applications without the cost of strong consistency
-
-**Key insight:** The choice isn't "CP or AP"—it's understanding which consistency guarantees your application actually needs and at what cost.
+- **Consistency is a hierarchy**, not a binary. Linearizability sits at the top, eventual sits at the bottom, and almost every useful guarantee in between is some form of "ordering you can rely on" — sequential per-process, causal across dependencies, monotonic per-session.
+- **CAP applies only during a partition.** When the network is healthy, both strong consistency and full availability are achievable; the cost just changes from "rejected requests" to "extra latency".
+- **PACELC names the always-on trade-off.** Outside partitions, every coordination-bearing operation pays in latency. That cost shows up on every request, not once a quarter.
+- **Per-operation tunability beats per-system religion.** Mature databases (DynamoDB, Cassandra, Cosmos DB, Spanner read-only transactions) let one application read strongly for one query and eventually for the next.
+- **Session guarantees usually suffice for user-facing reads.** Read-your-writes, monotonic reads, and causal ordering remove almost all UX surprises without paying for global linearizability.
 
 ## The CAP Theorem
 
@@ -43,6 +38,9 @@ The proof uses a simple construction: consider two nodes that cannot communicate
 
 1. Return potentially stale data (sacrifice consistency for availability)
 2. Block the read until partition heals (sacrifice availability for consistency)
+
+![Sequence diagram of a network partition with one client writing on one side and reading on the other; CP refuses, AP returns stale](./diagrams/partition-scenario-light.svg "Partition scenario: the same client write/read pair forces CP and AP systems to make opposite choices.")
+![Sequence diagram of a network partition with one client writing on one side and reading on the other; CP refuses, AP returns stale](./diagrams/partition-scenario-dark.svg)
 
 ### Precise Definitions
 
@@ -66,42 +64,60 @@ As Brewer clarified in his [2012 retrospective](https://www.infoq.com/articles/c
 ### Common Misconceptions
 
 **Misconception 1: CAP applies all the time.**
-Reality: CAP only constrains behavior during partitions. Most systems experience partitions infrequently—Google reports partition events lasting seconds to minutes occurring a few times per year in well-engineered systems.
+CAP only constrains behavior *during a partition*. The frequency and duration of partitions vary widely by deployment — surveys of operator data report rates from "many minutes per month inside a single rack" to "a handful of regional events per year on hyperscaler backbones" — but virtually every production network experiences at least intermittent partitions, so designing as if they will not happen is the actual mistake. See [Bailis and Kingsbury's "The Network is Reliable"](https://queue.acm.org/detail.cfm?id=2655736) for the data behind these numbers.
 
 **Misconception 2: You must choose CP or AP globally.**
-Reality: Different operations can make different trade-offs. A banking system might be CP for balance updates but AP for viewing transaction history.
+Different operations can pick different trade-offs inside the same product. A banking system can be CP for balance updates and AP for viewing transaction history; DynamoDB lets the same table serve both `ConsistentRead: true` (CP-leaning) and `ConsistentRead: false` (AP-leaning) reads side by side.
 
 **Misconception 3: Eventual consistency means "no consistency."**
-Reality: Eventual consistency is a specific guarantee—given no new updates, all replicas eventually converge. It's not "anything goes."
+Eventual consistency is a specific [liveness](https://en.wikipedia.org/wiki/Liveness) guarantee — given no new updates, all replicas converge. It is silent on **how long** convergence takes, and on what intermediate states are visible, so the application has to reason about both.
+
+**Misconception 4: A database is "a CP database" or "an AP database."**
+Martin Kleppmann's ["Please stop calling databases CP or AP"](https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html) (2015) makes the case explicit: most production databases satisfy neither the formal "C" (linearizability) nor the formal "A" (every non-failing node responds) once you read the Gilbert–Lynch definitions carefully. The CAP labels at best describe one operation under one configuration. Pick a per-operation guarantee instead.
+
+### CAP and the FLP Impossibility
+
+CAP is often confused with the older [FLP impossibility result](https://groups.csail.mit.edu/tds/papers/Lynch/jacm85.pdf) (Fischer, Lynch, Paterson, JACM 1985), which proves that in a fully **asynchronous** system with even one crash failure, no deterministic protocol can solve consensus while guaranteeing both *agreement* and *termination*. The two results are complementary:
+
+- **FLP** rules out a deterministic, always-terminating consensus algorithm in a model where you cannot tell a slow node from a failed one. Real systems escape it by adding partial synchrony (Paxos / Raft use timeouts) or randomization.
+- **CAP** is a safety statement *given* that partitions can occur; it constrains what the resulting consensus-backed system can promise to clients during a partition.
+
+Practically: Paxos and Raft sidestep FLP by assuming bounded message delay "eventually", and they hit CAP head-on by giving up availability (`PC`) when a quorum is unreachable.
 
 ## PACELC: Beyond CAP
 
 ### The Consistency-Latency Trade-off
 
-[Daniel Abadi proposed PACELC](https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf) in 2010 to capture a trade-off CAP ignores: during normal operation (no partition), systems must still choose between **latency** and **consistency**.
+[Daniel Abadi formalized PACELC in 2012](https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf) to capture a trade-off CAP ignores: during normal operation (no partition), systems must still choose between **latency** and **consistency**.
 
-**PACELC states:** If there is a Partition (P), choose between Availability (A) and Consistency (C); Else (E), even when operating normally, choose between Latency (L) and Consistency (C).
+**PACELC states:** if there is a Partition (P), choose between Availability (A) and Consistency (C); Else (E), even when operating normally, choose between Latency (L) and Consistency (C).
 
-This explains why systems sacrifice consistency even when partitions aren't occurring—coordination takes time.
+This explains why systems sacrifice consistency even when partitions aren't occurring — coordination takes time on the wire whether or not the network is broken.
+
+![PACELC quadrants showing how systems choose during partition (PA/PC) and during normal operation (EL/EC)](./diagrams/pacelc-quadrants-light.svg "PACELC: each system independently picks behaviour for partitions (top) and for normal operation (bottom).")
+![PACELC quadrants showing how systems choose during partition (PA/PC) and during normal operation (EL/EC)](./diagrams/pacelc-quadrants-dark.svg)
 
 ### The Four PACELC Configurations
 
 | Configuration | During Partition | Normal Operation | Example Systems                                |
 | ------------- | ---------------- | ---------------- | ---------------------------------------------- |
 | **PA/EL**     | Availability     | Latency          | Cassandra (default), DynamoDB (eventual reads) |
-| **PA/EC**     | Availability     | Consistency      | MongoDB (default)                              |
+| **PA/EC**     | Availability     | Consistency      | MongoDB (default majority writes)              |
 | **PC/EL**     | Consistency      | Latency          | PNUTS, Cosmos DB (bounded staleness)           |
-| **PC/EC**     | Consistency      | Consistency      | Spanner, CockroachDB, traditional RDBMS        |
+| **PC/EC**     | Consistency      | Consistency      | Spanner, CockroachDB, classic single-leader RDBMS |
 
-**PA/EL** systems optimize for performance in both scenarios, accepting weaker consistency. These dominate high-throughput, latency-sensitive workloads.
+**PA/EL** systems optimize for throughput and tail latency in both scenarios, accepting weaker consistency. They dominate high-throughput, latency-sensitive workloads (feeds, sessions, telemetry).
 
-**PC/EC** systems never compromise consistency, accepting higher latency and reduced availability. Financial systems and coordination services typically require this.
+**PC/EC** systems never compromise consistency, paying with higher commit latency and reduced availability during partitions. Financial ledgers, coordination services (etcd, ZooKeeper), and metadata stores live here.
 
 ### Why PACELC Matters More in Practice
 
-Partitions are rare. Network redundancy, careful datacenter design, and robust networking mean most production systems experience partitions for minutes per year. The latency-consistency trade-off affects every single request.
+Partitions are intermittent; coordination cost is **per request**. Even an inter-AZ Paxos round inside a single region adds 1–3 ms to every write, and a synchronous cross-region replica adds the round-trip latency of the slowest leg. Asynchronous replication acks the write locally and lets the application observe stale reads in exchange.
 
-Consider replication: synchronous replication (wait for replicas) provides strong consistency but adds latency equal to the slowest replica's response time. Asynchronous replication returns immediately but allows stale reads.
+The two replication modes therefore set the floor for how a system slots into the PACELC table:
+
+- **Synchronous to a quorum** → enables PC behaviour at the cost of one extra round trip per write.
+- **Asynchronous to followers** → enables PA / EL behaviour at the cost of windowed staleness.
 
 ## The Consistency Spectrum
 
@@ -113,6 +129,11 @@ Consistency isn't binary—it's a hierarchy of models with different guarantees 
 
 **Definition:** Operations appear to execute atomically at some point between their invocation and completion. All clients see the same ordering of operations.
 
+**Definition (formal):** Defined by [Herlihy and Wing in TOPLAS 1990](https://dl.acm.org/doi/10.1145/78969.78972). Each operation appears to take effect atomically at a single point — its **linearization point** — between its invocation and its response, and that point order respects real time across all clients. If `op_a` returned before `op_b` started, no execution may order `op_b` before `op_a`.
+
+![Gantt-style timeline of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-light.svg "Linearizability: each operation collapses to a single point in real time; later operations must observe earlier ones.")
+![Gantt-style timeline of three clients reading and writing the same key, with linearization points consistent with wall-clock order](./diagrams/linearizable-timeline-dark.svg)
+
 **Mechanism:** Typically requires single-leader architecture or consensus protocols (Paxos, Raft) for coordination.
 
 **Trade-offs:**
@@ -122,7 +143,10 @@ Consistency isn't binary—it's a hierarchy of models with different guarantees 
 - ❌ Highest latency—requires cross-replica coordination
 - ❌ Reduced availability during partitions—must sacrifice A to maintain C
 
-**Real-world:** Google Spanner achieves linearizability across global datacenters using TrueTime. The [2012 Spanner paper](https://research.google.com/archive/spanner-osdi2012.pdf) describes how GPS and atomic clocks provide bounded clock uncertainty (typically <7ms), enabling a "commit wait" mechanism that ensures linearizable transactions without always requiring synchronous coordination.
+**Real-world:** Google Spanner achieves linearizability for transactions ("external consistency") across global datacenters using TrueTime. The [2012 Spanner paper](https://research.google.com/archive/spanner-osdi2012.pdf) reports a TrueTime uncertainty interval `ε` typically between **1 ms and 7 ms** (≈ 4 ms most of the time), produced by GPS receivers and atomic clocks at each datacenter. Spanner exploits this bound with a commit-wait mechanism: after assigning a commit timestamp `s = TT.now().latest`, the leader blocks until `TT.now().earliest > s` — at most ≈ 2 ε. The follow-up "[Spanner, TrueTime & The CAP Theorem](https://research.google.com/pubs/archive/45855.pdf)" article clarifies that external consistency is the multi-object equivalent of linearizability; Spanner is therefore CP under partition, with read-only transactions free to run at a chosen snapshot timestamp without coordination.
+
+![Sequence diagram of a Spanner write showing TrueTime, Paxos quorum, and the commit-wait phase before acknowledging the client](./diagrams/spanner-truetime-commit-wait-light.svg "Spanner commit path: Paxos quorum first, then commit-wait blocks until TrueTime is certain the timestamp is in the past.")
+![Sequence diagram of a Spanner write showing TrueTime, Paxos quorum, and the commit-wait phase before acknowledging the client](./diagrams/spanner-truetime-commit-wait-dark.svg)
 
 #### Sequential Consistency
 
@@ -141,23 +165,23 @@ Consistency isn't binary—it's a hierarchy of models with different guarantees 
 
 ### Causal Consistency
 
-**Definition:** Operations that are causally related must be seen by all processes in the same order. Concurrent (non-causally-related) operations may be seen in different orders. [Defined by Hutto and Ahamad in 1990](https://en.wikipedia.org/wiki/Causal_consistency).
+**Definition:** Operations that are causally related must be observed by every process in the same order. Concurrent (non-causally-related) operations may be observed in different orders on different replicas. The canonical formal definition is [Ahamad, Neiger, Burns, Kohli, and Hutto's "Causal memory" (Distributed Computing, 1995)](https://link.springer.com/article/10.1007/BF01784241).
 
-**Mechanism:** Tracks causal dependencies (often via vector clocks or hybrid logical clocks) and ensures dependent operations are ordered.
+**Mechanism:** Track causal dependencies — typically with vector clocks or [hybrid logical clocks (HLCs)](https://cse.buffalo.edu/tech-reports/2014-04.pdf) — and ensure dependent operations are visible only after their predecessors.
 
 **Trade-offs:**
 
-- ✅ Available under partition (unlike linearizability)
-- ✅ Matches programmer intuition about causality
-- ✅ Lower coordination overhead than strong consistency
-- ❌ Concurrent operations may diverge across replicas
-- ❌ Requires dependency tracking overhead
+- ✅ Remains available under partition, unlike linearizability ([CAP corollary](https://www.bailis.org/blog/causal-consistency-tagging-on-some-numbers/)).
+- ✅ Matches programmer intuition about causality (a reply is never delivered before the message it replies to).
+- ✅ Lower coordination overhead than strong consistency — only dependent ops wait.
+- ❌ Concurrent writes can diverge across replicas and require an application-defined merge.
+- ❌ Per-operation dependency tracking adds metadata to every message.
 
-**Real-world:** Slack uses [hybrid logical clocks](https://www.cockroachlabs.com/blog/living-without-atomic-clocks/) for message ordering. Physical timestamps alone caused message reordering with 50ms+ clock skew; HLCs preserve causal ordering while tolerating clock drift.
+**Real-world:** [CockroachDB uses HLCs](https://www.cockroachlabs.com/blog/living-without-atomic-clocks/) to track causality across nodes without GPS / atomic-clock infrastructure, and MongoDB's causal-consistency sessions use a similar hybrid timestamp inside each cluster's oplog. HLCs combine a physical timestamp with a logical counter so that causal order survives even when wall-clock skew is in the tens of milliseconds.
 
 ### Session Guarantees
 
-These are practical guarantees that provide useful consistency within a client session without requiring system-wide coordination. [Defined by Terry et al.](https://www.cs.cornell.edu/courses/cs734/2000FA/cached%20papers/SessionGuaranteesPDIS_1.html)
+These are practical guarantees that provide useful consistency within a client session without requiring system-wide coordination. [Defined by Terry et al. for the Bayou system](https://www.cs.cornell.edu/courses/cs734/2000FA/cached%20papers/SessionGuaranteesPDIS_1.html) (1994). Bayou's central insight was that even on a partitioned, eventually consistent store, *per-session* ordering is enough for almost every UX requirement — and Bailis et al.'s [Highly Available Transactions](http://www.vldb.org/pvldb/vol7/p181-bailis.pdf) (VLDB 2014) later proved that read-your-writes, monotonic reads/writes, writes-follow-reads, plus several useful isolation levels (read committed, monotonic atomic view) are achievable **without** sacrificing availability or partition tolerance.
 
 #### Read-Your-Writes
 
@@ -208,6 +232,11 @@ These are practical guarantees that provide useful consistency within a client s
 
 ### Choice 1: Replication Strategy
 
+The replication topology you pick determines the achievable consistency floor and the failure modes you have to design for.
+
+![Three replication topologies side by side: single-leader, multi-leader, and leaderless quorum](./diagrams/replication-topologies-light.svg "Replication topologies: single-leader funnels writes through one node, multi-leader localises writes per region with conflict resolution, leaderless distributes writes across a quorum.")
+![Three replication topologies side by side: single-leader, multi-leader, and leaderless quorum](./diagrams/replication-topologies-dark.svg)
+
 #### Single-Leader Replication
 
 **Mechanism:** One node accepts writes; followers replicate asynchronously or synchronously.
@@ -225,7 +254,7 @@ These are practical guarantees that provide useful consistency within a client s
 - ❌ Leader is write bottleneck
 - ❌ Failover causes brief unavailability or potential data loss
 
-**Real-world:** PostgreSQL streaming replication, MySQL with semi-sync replication. [DynamoDB uses single-leader per partition](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html)—"Only the leader replica can serve write and strongly consistent read requests."
+**Real-world:** PostgreSQL streaming replication and MySQL with semi-sync replication are the canonical OLTP examples. DynamoDB uses single-leader per partition under the hood — the [USENIX ATC 2022 DynamoDB paper](https://www.usenix.org/conference/atc22/presentation/elhemali) (and the [companion engineering retrospective](https://www.amazon.science/blog/lessons-learned-from-10-years-of-dynamodb)) describe a Multi-Paxos replication group of three replicas across availability zones, with the leader serving all writes and all strongly consistent reads while the followers serve eventually consistent reads.
 
 #### Multi-Leader Replication
 
@@ -246,9 +275,9 @@ These are practical guarantees that provide useful consistency within a client s
 
 **Conflict resolution strategies:**
 
-- **Last-write-wins (LWW):** Simple but loses data
-- **Merge:** Application-specific logic combines concurrent updates
-- **CRDTs:** Mathematically guaranteed convergence without coordination
+- **Last-write-wins (LWW):** Simple but loses data.
+- **Merge:** Application-specific logic combines concurrent updates.
+- **CRDTs:** [Conflict-free Replicated Data Types (Shapiro et al., INRIA 2011)](https://hal.inria.fr/inria-00609399v1/document) guarantee convergence without coordination by constraining the data type to a join-semilattice (state-based) or commutative operations (op-based). Used by Riak, Redis Enterprise CRDB, Automerge, Yjs, and Apple's Notes sync.
 
 #### Leaderless Replication
 
@@ -269,19 +298,24 @@ These are practical guarantees that provide useful consistency within a client s
 
 ### Choice 2: Quorum Configuration
 
-For a system with N replicas, writes require W acknowledgments and reads require R replicas.
+For a leaderless system with N replicas, writes require W acknowledgments and reads contact R replicas. The intersection rule is the source of strong consistency:
 
-**Strong consistency:** W + R > N ensures reads see the latest write.
+$$W + R > N$$
+
+When the rule holds, every read quorum overlaps every write quorum in at least one replica, so the read sees a copy that already contains the latest acknowledged write. The same intersection idea is what Paxos and Raft majority quorums rely on for log-entry agreement.
+
+![Quorum overlap diagram showing N=3, W=2, R=2 with one replica in both quorums](./diagrams/quorum-overlap-light.svg "Quorum overlap: with N=3, W=2, R=2 the writer and reader always share at least one replica, so the reader observes the latest write.")
+![Quorum overlap diagram showing N=3, W=2, R=2 with one replica in both quorums](./diagrams/quorum-overlap-dark.svg)
 
 **Typical configurations:**
 
 | W       | R       | N   | Guarantee                   | Use Case                |
 | ------- | ------- | --- | --------------------------- | ----------------------- |
 | N       | 1       | N   | Write to all, read from any | Rare writes, many reads |
-| (N+1)/2 | (N+1)/2 | N   | Majority quorum             | Balanced workload       |
+| ⌈(N+1)/2⌉ | ⌈(N+1)/2⌉ | N   | Majority quorum             | Balanced workload       |
 | 1       | N       | N   | Write to any, read from all | Many writes, rare reads |
 
-**Real-world:** [Cassandra's LOCAL_QUORUM](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/dml/dmlConfigConsistency.html) uses W=R=(RF/2)+1 within a datacenter. With RF=3, writing to 2 and reading from 2 guarantees strong consistency locally while avoiding cross-datacenter latency.
+**Real-world:** [Cassandra's LOCAL_QUORUM](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/dml/dmlConfigConsistency.html) uses `W = R = ⌊RF/2⌋ + 1` within a datacenter. With `RF = 3`, writing to 2 replicas and reading from 2 replicas gives intra-DC strong consistency while avoiding the cross-DC round trip required by `QUORUM`.
 
 ### Choice 3: Consistency Level Selection
 
@@ -289,34 +323,34 @@ Modern databases offer per-operation consistency tuning:
 
 #### DynamoDB Example
 
-```
-// Eventually consistent read (default, half the cost)
-const item = await dynamodb.getItem({
-    TableName: 'users',
-    Key: { userId: '123' }
+```ts title="dynamodb-read.ts"
+const eventual = await dynamodb.getItem({
+  TableName: 'users',
+  Key: { userId: '123' },
 });
 
-// Strongly consistent read (2x cost, may fail during partition)
-const item = await dynamodb.getItem({
-    TableName: 'users',
-    Key: { userId: '123' },
-    ConsistentRead: true
+const strong = await dynamodb.getItem({
+  TableName: 'users',
+  Key: { userId: '123' },
+  ConsistentRead: true,
 });
 ```
 
-**Design decision:** DynamoDB defaults to eventual consistency because most reads tolerate staleness, and strong reads cost 2x as many read capacity units.
+**Design decision:** DynamoDB defaults to eventual consistency because most reads tolerate staleness, and strongly consistent reads [cost twice as many read capacity units](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html) and may fail during a partition that isolates the leader.
 
 #### Cassandra Example
 
-```cql
--- Eventual consistency (fastest)
-SELECT * FROM users WHERE user_id = '123' USING CONSISTENCY ONE;
+`USING CONSISTENCY` inside a `SELECT` was deprecated in CQL 3; the supported way to set the consistency level interactively is the `cqlsh` `CONSISTENCY` command (or the `setConsistencyLevel` method on the driver's statement object).
 
--- Strong consistency (requires quorum)
-SELECT * FROM users WHERE user_id = '123' USING CONSISTENCY LOCAL_QUORUM;
+```cql title="cqlsh"
+CONSISTENCY ONE;
+SELECT * FROM users WHERE user_id = '123';
 
--- Cross-datacenter strong consistency (highest latency)
-SELECT * FROM users WHERE user_id = '123' USING CONSISTENCY QUORUM;
+CONSISTENCY LOCAL_QUORUM;
+SELECT * FROM users WHERE user_id = '123';
+
+CONSISTENCY QUORUM;
+SELECT * FROM users WHERE user_id = '123';
 ```
 
 ### Decision Matrix: Choosing Consistency Level
@@ -335,20 +369,20 @@ SELECT * FROM users WHERE user_id = '123' USING CONSISTENCY QUORUM;
 
 ### Google Spanner: PC/EC with TrueTime
 
-**Problem:** Global transactions with external consistency across continents.
+**Problem:** Globally distributed transactions with external consistency across continents.
 
-**Approach:** TrueTime provides bounded clock uncertainty using GPS and atomic clocks. Spanner's commit wait ensures transaction T2 starting after T1 commits has a later timestamp than T1.
+**Approach:** TrueTime provides bounded clock uncertainty using GPS receivers and atomic clocks at every datacenter. Spanner's commit wait ensures that any transaction `T2` starting *after* `T1` commits in real time receives a later timestamp than `T1`, giving the multi-object generalisation of linearizability the [Spanner CAP paper](https://research.google.com/pubs/archive/45855.pdf) calls **external consistency**.
 
 **Implementation details:**
 
-- Clock uncertainty typically 1-7ms
-- Commit wait = 2 × uncertainty (worst case)
-- External consistency: stronger than linearizability for transactions
-- Read-only transactions can read from any replica at a chosen timestamp
+- TrueTime uncertainty `ε` is typically **1–7 ms**, around 4 ms most of the time ([Spanner OSDI 2012, §3](https://research.google.com/archive/spanner-osdi2012.pdf)).
+- After choosing `s = TT.now().latest`, the leader blocks until `TT.now().earliest > s` — at most ≈ 2 ε of commit wait.
+- Read-only transactions read at a chosen timestamp from any sufficiently up-to-date replica, with no commit wait and no locks.
+- Writes still go through Paxos for the partition's replication group; commit wait is *added* on top of the Paxos round.
 
-**Trade-off accepted:** Higher write latency (commit wait) in exchange for global consistency without coordination overhead.
+**Trade-off accepted:** A bounded extra wait on every commit (≈ 2 ε) in exchange for global serialisable transactions whose timestamps reflect real time.
 
-**When to use:** Global financial systems, systems requiring distributed transactions with foreign key constraints, anywhere ACID across regions is required.
+**When to use:** Global financial systems, distributed transactions that span foreign keys, anywhere ACID across regions is required.
 
 ### DynamoDB: PA/EL with Tunable Reads
 
@@ -367,22 +401,23 @@ SELECT * FROM users WHERE user_id = '123' USING CONSISTENCY QUORUM;
 
 **When to use:** High-throughput applications where most reads tolerate bounded staleness.
 
-### CockroachDB: PC/EC without Atomic Clocks
+### CockroachDB: Serializable without Atomic Clocks
 
-**Problem:** Spanner-like consistency without Google's hardware.
+**Problem:** Spanner-like SQL semantics without Google's hardware.
 
-**Approach:** [Serializable Snapshot Isolation](https://www.cockroachlabs.com/blog/serializable-lockless-distributed-isolation-cockroachdb/) with hybrid logical clocks.
+**Approach:** [Serializable isolation backed by hybrid logical clocks](https://www.cockroachlabs.com/blog/living-without-atomic-clocks/), with an "uncertainty interval" that sits in for TrueTime's ε.
 
 **Implementation details:**
 
-- Uses NTP for clock sync (100-250ms uncertainty vs. Spanner's 7ms)
-- Hybrid Logical Clocks (HLC) track causality
-- Read refresh mechanism handles clock skew: if a transaction reads stale data due to clock skew, it's automatically refreshed
-- Default SERIALIZABLE isolation (strongest SQL standard level)
+- The **maximum clock offset** is a configured bound, not a measured one. The default is **500 ms** ([Cockroach Labs production checklist](https://www.cockroachlabs.com/docs/stable/recommended-production-settings)); Cockroach Labs recommends lowering it to **250 ms** when using multi-region SQL abstractions, while production NTP usually keeps actual skew in the single-digit-millisecond range.
+- Hybrid Logical Clocks (HLC) attach a physical timestamp plus a logical counter to every transaction so causal order is preserved across clock skew.
+- A **read refresh** mechanism resolves the uncertainty interval: if a read encounters a value within the uncertainty window, the transaction either restarts at a higher timestamp or refreshes its read set.
+- Nodes whose clocks drift beyond 80 % of `--max-offset` against the cluster majority **self-terminate** to protect serialisability.
+- The default isolation level is `SERIALIZABLE` (the strongest SQL standard level), but, unlike Spanner, CockroachDB does **not** claim global linearizability — only serialisable transactions plus per-key linearizability.
 
-**Trade-off accepted:** Occasional transaction restarts due to clock skew, in exchange for strong consistency without specialized hardware.
+**Trade-off accepted:** Occasional transaction restarts under contention or clock skew in exchange for strong relational semantics on commodity hardware.
 
-**When to use:** Teams wanting Spanner-like guarantees on commodity hardware or across clouds.
+**When to use:** Teams that want Spanner-like SQL on a multi-cloud / on-prem footprint and can tolerate uncertainty-restart retry logic.
 
 ### Cassandra: PA/EL with Tunable Consistency
 
@@ -538,24 +573,35 @@ Understanding this spectrum—from the theoretical foundations of CAP through th
 
 #### Foundational Papers
 
-- [Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf) - Gilbert and Lynch, 2002. The formal proof of the CAP theorem.
-- [CAP Twelve Years Later: How the "Rules" Have Changed](https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/) - Brewer, 2012. Brewer's retrospective on CAP.
-- [Consistency Tradeoffs in Modern Distributed Database System Design](https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf) - Abadi, 2012. The PACELC theorem.
-- [How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs](https://lamport.azurewebsites.net/pubs/multi.pdf) - Lamport, 1979. Defines sequential consistency.
-- [Session Guarantees for Weakly Consistent Replicated Data](https://www.cs.cornell.edu/courses/cs734/2000FA/cached%20papers/SessionGuaranteesPDIS_1.html) - Terry et al., 1994. Defines session consistency guarantees.
+- [Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf) — Gilbert and Lynch, 2002. The formal proof of the CAP theorem.
+- [CAP Twelve Years Later: How the "Rules" Have Changed](https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/) — Brewer, 2012. Author's retrospective on CAP.
+- [Consistency Tradeoffs in Modern Distributed Database System Design](https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf) — Abadi, 2012. The PACELC theorem.
+- [How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs](https://lamport.azurewebsites.net/pubs/multi.pdf) — Lamport, 1979. Defines sequential consistency.
+- [Linearizability: A Correctness Condition for Concurrent Objects](https://dl.acm.org/doi/10.1145/78969.78972) — Herlihy and Wing, 1990. Defines linearizability.
+- [Causal Memory: Definitions, Implementation, and Programming](https://link.springer.com/article/10.1007/BF01784241) — Ahamad, Neiger, Burns, Kohli, Hutto, 1995. Formal definition of causal consistency.
+- [Session Guarantees for Weakly Consistent Replicated Data](https://www.cs.cornell.edu/courses/cs734/2000FA/cached%20papers/SessionGuaranteesPDIS_1.html) — Terry et al., 1994. Defines session consistency guarantees.
+- [Logical Physical Clocks and Consistent Snapshots in Globally Distributed Databases](https://cse.buffalo.edu/tech-reports/2014-04.pdf) — Kulkarni, Demirbas et al., 2014. The HLC paper.
+- [The Network is Reliable](https://queue.acm.org/detail.cfm?id=2655736) — Bailis and Kingsbury, 2014. Survey of real-world network partition rates.
+- [Highly Available Transactions: Virtues and Limitations](http://www.vldb.org/pvldb/vol7/p181-bailis.pdf) — Bailis, Davidson, Fekete, Ghodsi, Hellerstein, Stoica, VLDB 2014. Maps which isolation/consistency levels can coexist with availability and partition tolerance.
+- [Impossibility of Distributed Consensus with One Faulty Process](https://groups.csail.mit.edu/tds/papers/Lynch/jacm85.pdf) — Fischer, Lynch, Paterson, JACM 1985. The FLP impossibility result.
+- [Conflict-free Replicated Data Types](https://hal.inria.fr/inria-00609399v1/document) — Shapiro, Preguiça, Baquero, Zawirski, INRIA RR-7687, 2011. The canonical CRDT taxonomy.
+- [Please stop calling databases CP or AP](https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html) — Kleppmann, 2015. Why CAP labels usually mislead.
 
 #### System Papers
 
-- [Spanner: Google's Globally-Distributed Database](https://research.google.com/archive/spanner-osdi2012.pdf) - Corbett et al., 2012. TrueTime and external consistency.
-- [Spanner, TrueTime & The CAP Theorem](https://research.google.com/pubs/archive/45855.pdf) - Google's clarification on how Spanner relates to CAP.
+- [Spanner: Google's Globally-Distributed Database](https://research.google.com/archive/spanner-osdi2012.pdf) — Corbett et al., 2012. TrueTime and external consistency.
+- [Spanner, TrueTime & The CAP Theorem](https://research.google.com/pubs/archive/45855.pdf) — Google's clarification on how Spanner relates to CAP.
+- [Amazon DynamoDB: A Scalable, Predictably Performant, and Fully Managed NoSQL Database Service](https://www.usenix.org/conference/atc22/presentation/elhemali) — DynamoDB team, USENIX ATC 2022. Multi-Paxos, leader-based replication.
+- [Dynamo: Amazon's Highly Available Key-value Store](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf) — DeCandia et al., 2007. The original eventual-consistency design.
 
 #### Documentation
 
-- [DynamoDB Read Consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html) - AWS documentation on consistency options
-- [Cassandra Consistency Levels](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/dml/dmlConfigConsistency.html) - DataStax documentation
-- [CockroachDB Consistency Model](https://www.cockroachlabs.com/blog/consistency-model/) - CockroachDB's approach explained
-- [Jepsen Consistency Models](https://jepsen.io/consistency) - Visual hierarchy of consistency models
+- [DynamoDB Read Consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html) — AWS documentation on consistency options.
+- [Cassandra Consistency Levels](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/dml/dmlConfigConsistency.html) — DataStax documentation.
+- [CockroachDB Consistency Model](https://www.cockroachlabs.com/blog/consistency-model/) — CockroachDB's approach explained.
+- [Cockroach Labs Production Checklist (clock sync)](https://www.cockroachlabs.com/docs/stable/recommended-production-settings) — Default `--max-offset` and clock sync recommendations.
+- [Jepsen Consistency Models](https://jepsen.io/consistency) — Visual hierarchy of consistency models, with linked Jepsen test reports.
 
 #### Books
 
-- [Designing Data-Intensive Applications](https://dataintensive.net/) - Kleppmann, 2017. Comprehensive coverage of distributed systems concepts including consistency models.
+- [Designing Data-Intensive Applications](https://dataintensive.net/) — Kleppmann, 2017. Chapters 5 and 9 cover replication and consistency in depth.

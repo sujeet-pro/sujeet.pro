@@ -1,0 +1,31 @@
+%% Diagram: Core Web Vitals measurement architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph LAB["Lab (controlled)"]
+        LH["Lighthouse / WPT<br/>Headless Chrome"]
+    end
+
+    subgraph BR["Real Chrome (real users)"]
+        APIS["PerformanceObserver<br/>LCP / layout-shift / event<br/>long-animation-frame"]
+        WV["web-vitals.js<br/>onLCP / onINP / onCLS<br/>+ /attribution"]
+    end
+
+    subgraph PIPE["Field aggregation"]
+        RUM["Custom RUM<br/>p75 by route / device"]
+        CRUX["CrUX<br/>28-day p75, opted-in users"]
+    end
+
+    subgraph CONS["Consumers"]
+        PSI["PageSpeed Insights<br/>lab + field side-by-side"]
+        SC["Search Console<br/>CWV report"]
+        DASH["Internal dashboards<br/>attribution debugging"]
+    end
+
+    LH --> PSI
+    APIS --> WV
+    WV --> RUM
+    BR -.opt-in telemetry.-> CRUX
+    CRUX --> PSI
+    CRUX --> SC
+    RUM --> DASH

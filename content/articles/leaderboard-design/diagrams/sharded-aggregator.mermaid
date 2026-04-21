@@ -1,0 +1,38 @@
+%% Diagram: Hash-sharded leaderboard with periodic top-K aggregator
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    W["Score writers<br/>route by hash(player_id) % N"]
+
+    subgraph Shards["Per-shard ZSETs (own full slice of players)"]
+        S0["lb:s0"]
+        S1["lb:s1"]
+        S2["lb:s2"]
+        SN["lb:sN"]
+    end
+
+    W --> S0
+    W --> S1
+    W --> S2
+    W --> SN
+
+    subgraph Agg["Aggregator (periodic, every 1-10s)"]
+        Pull["scatter:<br/>ZREVRANGE 0 K-1 WITHSCORES<br/>per shard"]
+        Merge["gather:<br/>k-way merge over a<br/>bounded min-heap of size K"]
+    end
+
+    S0 -. top-K .-> Pull
+    S1 -. top-K .-> Pull
+    S2 -. top-K .-> Pull
+    SN -. top-K .-> Pull
+    Pull --> Merge
+
+    GT["ZSET lb:global-top<br/>(merged top-K, refreshed)"]
+    Merge --> GT
+
+    Reads["Top-N reads -> lb:global-top<br/>Per-player rank stays in own shard"]
+    GT --> Reads
+
+    style Shards fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
+    style Agg fill:#fef3c7,stroke:#b45309,color:#7c2d12
+    style GT fill:#dcfce7,stroke:#15803d,color:#14532d

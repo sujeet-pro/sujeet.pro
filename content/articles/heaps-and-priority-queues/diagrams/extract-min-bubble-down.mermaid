@@ -1,0 +1,46 @@
+%% Diagram: Extract-min and bubble-down on a binary min-heap
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph Step1["1. Extract root (1)"]
+    direction TB
+    S1_0(("1"))
+    S1_1(("3"))
+    S1_2(("2"))
+    S1_3(("7"))
+    S1_4(("5"))
+    S1_4b(("9"))
+    S1_0 --- S1_1
+    S1_0 --- S1_2
+    S1_1 --- S1_3
+    S1_1 --- S1_4
+    S1_2 --- S1_4b
+  end
+
+  subgraph Step2["2. Move 9 to root, pop tail"]
+    direction TB
+    S2_0(("9"))
+    S2_1(("3"))
+    S2_2(("2"))
+    S2_3(("7"))
+    S2_4(("5"))
+    S2_0 --- S2_1
+    S2_0 --- S2_2
+    S2_1 --- S2_3
+    S2_1 --- S2_4
+  end
+
+  subgraph Step3["3. Swap with smaller child (2)"]
+    direction TB
+    S3_0(("2"))
+    S3_1(("3"))
+    S3_2(("9"))
+    S3_3(("7"))
+    S3_4(("5"))
+    S3_0 --- S3_1
+    S3_0 --- S3_2
+    S3_1 --- S3_3
+    S3_1 --- S3_4
+  end
+
+  Step1 --> Step2 --> Step3

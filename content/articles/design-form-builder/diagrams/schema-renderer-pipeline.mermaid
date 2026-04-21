@@ -1,0 +1,16 @@
+%% Diagram: Schema to mounted form pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Schema["Schema document"] --> Parse["Parse + normalize<br/>(coerce shapes, defaults)"]
+    Parse --> Resolve["Resolve $ref / inheritance"]
+    Resolve --> Tree["Internal field tree"]
+    Tree --> Walk["Walk tree"]
+    Walk --> Lookup["Lookup component<br/>in registry by type"]
+    Lookup --> Mount["Mount component"]
+    Mount --> Wire["Wire state subscription<br/>+ field validator"]
+    Wire --> Ready["Form ready"]
+    Schema --> Compile["Compile validators<br/>(AJV / Zod / Yup)"]
+    Compile --> Wire
+    Schema --> Logic["Build conditional<br/>dependency graph"]
+    Logic --> Wire

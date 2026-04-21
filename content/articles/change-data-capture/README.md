@@ -5,11 +5,13 @@ description: >-
   Log-based, trigger-based, and polling-based CDC approaches compared, with Debezium implementation
   details, Kafka integration patterns, and the trade-offs that make log-based CDC the production standard.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - patterns
   - system-design
+  - databases
+  - data-engineering
 ---
 
 # Change Data Capture
@@ -21,25 +23,25 @@ This article covers CDC approaches, log-based implementation internals, producti
 ![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-light.svg "CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.")
 ![CDC captures changes from the database's transaction log and emits structured change events to downstream consumers—each event contains the operation type, before/after state, and source metadata.](./diagrams/cdc-captures-changes-from-the-database-s-transaction-log-and-emits-structured-ch-dark.svg)
 
-## Abstract
+## Mental Model
 
-CDC provides **eventually-consistent data propagation** without application-level dual writes. The fundamental insight: databases already track all changes internally for durability and replication—CDC exposes this stream externally.
+CDC provides **eventually-consistent data propagation without application-level dual writes**. The insight that makes it work: databases already record every change internally — for crash recovery and physical replication — so CDC is "expose that internal stream as a public, consumer-facing API."
 
-**Core mental model:**
+Three approaches, ordered by how much database cooperation they require:
 
-- **Log-based CDC** reads the database's Write-Ahead Log (WAL) or binary log. Non-invasive, captures all changes including those from direct SQL. The gold standard for production.
-- **Trigger-based CDC** uses database triggers to capture changes. Higher database overhead, but works when log access is unavailable.
-- **Polling-based CDC** queries for changes via timestamps or sequence columns. Misses hard deletes, adds query load, but requires no special database access.
+- **Log-based CDC** tails the database's transaction log (PostgreSQL WAL, MySQL binlog, MongoDB oplog, SQL Server transaction log). Non-invasive on the write path, captures *every* committed change including direct SQL and migrations, preserves commit order. The production default.
+- **Trigger-based CDC** installs `AFTER INSERT/UPDATE/DELETE` triggers that copy mutations to a shadow table. Works on locked-down or legacy databases without log access, at the cost of write-path latency and shadow-table contention.
+- **Polling-based CDC** runs `SELECT ... WHERE updated_at > :hwm` against a read replica. No special database privileges, but it cannot see hard deletes and pays a perpetual query tax.
 
-**Key insight**: The choice between approaches is a **source access vs. operational complexity** tradeoff. Log-based requires database configuration and replication slots but captures everything with minimal overhead. Polling requires no special access but misses deletions and adds query load.
+**The decision axis is source access vs. operational footprint**: log-based asks the DB team to expose replication slots / binlog access in exchange for minimal runtime cost; polling avoids that conversation but loses fidelity. Trigger-based is the in-between option for environments where neither extreme is available.
 
-**Production reality**: Log-based CDC dominates production systems. Debezium (open-source) and AWS DMS (managed) are the primary tools. Most implementations use Kafka as the change event transport.
+**Production reality**: log-based CDC dominates. The two anchor tools are [Debezium](https://debezium.io/) (self-managed, sub-second, runs on Kafka Connect) and [AWS DMS](https://aws.amazon.com/dms/) (managed, seconds-to-minutes, AWS-native sinks). Kafka is the default transport — partly because it preserves order per partition, partly because Schema Registry + Kafka Connect Sinks form a pre-built fan-out into search indexes, caches, warehouses, and downstream services.
 
-## The Problem
+## The Problem CDC Solves
 
 ### Why Naive Solutions Fail
 
-**Approach 1: Dual Writes in Application Code**
+**Approach 1: dual writes in application code.**
 
 ```typescript collapse={1-5}
 async function updateUser(userId: string, data: UserData) {
@@ -48,14 +50,17 @@ async function updateUser(userId: string, data: UserData) {
 }
 ```
 
+> [!CAUTION]
+> The dual-write pattern is the most common cause of long-tail data divergence between OLTP and downstream systems. Two independent commits with no shared transaction is, by construction, an unsolved consensus problem.
+
 Fails because:
 
 - **Partial failures**: Database commits but Kafka publish fails. Data is now inconsistent.
-- **Distributed transaction complexity**: 2PC across database and Kafka is slow and fragile.
-- **Missed changes**: Direct SQL updates, migrations, and other services bypass the publish logic.
-- **Ordering**: No guarantee that Kafka messages arrive in commit order.
+- **Distributed transaction complexity**: XA/2PC across an RDBMS and Kafka exists but is slow, fragile, and not supported by Kafka's open-source brokers.
+- **Missed changes**: Direct SQL updates, migrations, replicas, and other services bypass the publish logic entirely.
+- **Ordering**: Kafka messages may interleave or arrive out of database commit order.
 
-**Approach 2: Polling with Timestamps**
+**Approach 2: polling with timestamps.**
 
 ```sql
 SELECT * FROM users WHERE updated_at > :last_poll_time
@@ -64,11 +69,11 @@ SELECT * FROM users WHERE updated_at > :last_poll_time
 Fails because:
 
 - **Misses hard deletes**: Deleted rows don't appear in query results.
-- **Clock skew**: `updated_at` timestamp may not reflect actual commit order across replicas.
-- **Polling interval trade-off**: Frequent polling adds load; infrequent polling adds latency.
-- **Transaction visibility**: May read uncommitted or partially committed transactions.
+- **Clock skew**: `updated_at` may not reflect commit order — especially across replicas, or under multi-statement transactions where `now()` is captured at statement start.
+- **Polling interval trade-off**: frequent polling adds DB load; infrequent polling adds end-to-end latency.
+- **Transaction visibility**: may read mid-transaction state if isolation isn't tight.
 
-**Approach 3: Trigger-Based Capture**
+**Approach 3: trigger-based capture.**
 
 ```sql
 CREATE TRIGGER user_changes AFTER INSERT OR UPDATE OR DELETE ON users
@@ -77,9 +82,9 @@ FOR EACH ROW EXECUTE FUNCTION capture_change();
 
 Fails at scale because:
 
-- **Transaction overhead**: Trigger executes within the transaction, adding latency to every write.
-- **Lock contention**: Writing to a change table can create lock conflicts.
-- **Operational burden**: Triggers must be maintained across schema changes.
+- **Transaction overhead**: trigger runs synchronously within the transaction, adding latency to every write.
+- **Lock contention**: writing to a shadow table from every transaction concentrates contention on a single hot relation.
+- **Operational burden**: triggers must be re-applied on every schema change and replicated to every shard.
 
 ### The Core Challenge
 
@@ -170,8 +175,8 @@ CDC resolves this by **reading changes where they're already reliably recorded**
 
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![CDC approach decision tree: log access → log-based; otherwise triggers; if no triggers and no hard deletes, polling.](./diagrams/diagram-1-light.svg "Decision tree for picking a CDC approach based on database access and delete semantics.")
+![CDC approach decision tree: log access → log-based; otherwise triggers; if no triggers and no hard deletes, polling.](./diagrams/diagram-1-dark.svg)
 
 ## Log-Based CDC Internals
 
@@ -181,8 +186,8 @@ PostgreSQL's CDC uses **logical replication**, which decodes the physical WAL in
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![PostgreSQL logical replication: writes hit the WAL, logical decoding emits row-level changes through a replication slot to the CDC connector, which publishes to Kafka.](./diagrams/diagram-2-light.svg "PostgreSQL logical replication path from WAL to Kafka via a replication slot.")
+![PostgreSQL logical replication: writes hit the WAL, logical decoding emits row-level changes through a replication slot to the CDC connector, which publishes to Kafka.](./diagrams/diagram-2-dark.svg)
 
 **Configuration requirements:**
 
@@ -222,7 +227,8 @@ Without `max_slot_wal_keep_size`, an inactive slot can fill the disk. This is th
 
 **Version evolution:**
 
-> **PostgreSQL 17 (2024)**: Introduced logical replication failover. Replication slot state can be synchronized to standby servers, enabling CDC continuity during primary failover. Prior versions required re-snapshotting after failover.
+> [!NOTE]
+> **PostgreSQL 17 (released 2024-09-26)** added [logical replication failover slot synchronization](https://www.postgresql.org/docs/17/logical-replication-failover.html). Slots created with `failover = true` are propagated to physical standbys via the `slotsync` worker, so a promoted standby can resume CDC without re-snapshotting. Prior versions required external tooling (e.g. `pg_failover_slots`) or a full re-snapshot after primary failover.
 
 ### MySQL: Binary Log
 
@@ -304,8 +310,8 @@ changeStream.on("change", (change) => {
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Debezium architecture: source database → Debezium connector running inside Kafka Connect → Kafka topic per table → Schema Registry + downstream consumers.](./diagrams/diagram-3-light.svg "Debezium connector hosted inside Kafka Connect, fanning out per-table topics to consumers.")
+![Debezium architecture: source database → Debezium connector running inside Kafka Connect → Kafka topic per table → Schema Registry + downstream consumers.](./diagrams/diagram-3-dark.svg)
 
 **When to choose this path:**
 
@@ -352,21 +358,22 @@ changeStream.on("change", (change) => {
 
 **Trade-offs vs other paths:**
 
-| Aspect             | Debezium            | AWS DMS         | Fivetran         |
-| ------------------ | ------------------- | --------------- | ---------------- |
-| Latency            | Sub-second          | Seconds-minutes | Seconds-minutes  |
-| Cost (100GB/day)   | Infrastructure only | ~$200-400/mo    | ~$1,500-3,000/mo |
-| Operational burden | High                | Low             | Very low         |
-| Customization      | Full control        | Limited         | Limited          |
-| Schema handling    | Schema Registry     | Basic           | Automatic        |
+| Aspect             | Debezium                      | AWS DMS                              | Fivetran                                  |
+| ------------------ | ----------------------------- | ------------------------------------ | ----------------------------------------- |
+| Latency            | Sub-second                    | Seconds-minutes                      | Seconds-minutes                           |
+| Cost shape         | Self-managed Kafka Connect + Kafka infra | Hourly replication instance or DCU-hour serverless | Per-million rows (MAR-based subscription) |
+| Operational burden | High                          | Low                                  | Very low                                  |
+| Customization      | Full control                  | Limited                              | Limited                                   |
+| Schema handling    | Schema Registry               | Basic                                | Automatic                                 |
+
+> [!NOTE]
+> Resist comparing these on absolute dollars — Fivetran's [MAR-based pricing](https://www.fivetran.com/pricing) and AWS DMS's serverless DCU model both shift price as your CDC volume changes, while Debezium's cost is dominated by the size of your Kafka cluster. Build a small spreadsheet against your actual change volume before you decide.
 
 **Real-world: Shopify**
 
-Shopify migrated from query-based to Debezium CDC:
+Shopify retired their batch extraction service ("Longboat") in favor of [log-based CDC on Debezium + Kafka Connect](https://shopify.engineering/capturing-every-change-shopify-sharded-monolith), running ~150 connectors on Kubernetes against their sharded MySQL monolith. Schema evolution is mediated by Confluent Schema Registry; large tables use a custom snapshot mode that does not block binlog tailing.
 
-- **Scale**: 173B requests on Black Friday 2024, 12TB data/minute peak
-- **Implementation**: Debezium + Kafka Connect on Kubernetes
-- **Outcome**: Real-time analytics replaced batch processing; fraud detection went from minutes to milliseconds
+For scale context, [Tobi Lütke reported](https://x.com/tobi/status/1862908953715503396) Shopify's 2024 Black Friday peak at 284M edge requests/min and 66M Kafka messages/sec — that Kafka layer is downstream of the same CDC pipeline. The CDC stream itself is a fraction of total edge traffic, but the design point is "every committed write reaches Kafka without application participation."
 
 ### Path 2: AWS Database Migration Service
 
@@ -374,8 +381,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![AWS DMS architecture: source database → DMS replication instance → S3 / Redshift / DynamoDB / Kinesis as targets, with CloudWatch metrics on the side.](./diagrams/diagram-4-light.svg "AWS DMS replication instance fanning ongoing CDC into native AWS sinks.")
+![AWS DMS architecture: source database → DMS replication instance → S3 / Redshift / DynamoDB / Kinesis as targets, with CloudWatch metrics on the side.](./diagrams/diagram-4-dark.svg)
 
 **When to choose this path:**
 
@@ -398,13 +405,17 @@ Shopify migrated from query-based to Debezium CDC:
 - **Large transactions**: Can cause significant lag
 - **DDL propagation**: Limited support; may require manual intervention
 
-**Cost model (2025):**
+**Cost model:**
 
-| Component            | Pricing                             |
-| -------------------- | ----------------------------------- |
-| Replication instance | $0.016-$0.624/hour (size-dependent) |
-| Data transfer        | Standard AWS rates                  |
-| Storage              | $0.10/GB-month                      |
+| Component            | Pricing model                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Replication instance | Hourly, size-dependent (T3/C5/C6i/R5/R6i families). T3 small classes start in the cents/hour range; large R-series instances run dollars/hour. |
+| DMS Serverless       | Per-hour DCU (1 DCU ≈ 2 GB RAM); auto-scales with workload. Minimum billing window applies.                   |
+| Data transfer        | Standard AWS rates; cross-AZ and egress charged separately.                                                   |
+| Storage              | Per-GB/month for replication instance log + cache storage.                                                    |
+
+> [!NOTE]
+> Confirm current rates at [aws.amazon.com/dms/pricing](https://aws.amazon.com/dms/pricing/) — the published price list moves frequently and DMS Serverless adds a separate DCU-hour line item that did not exist in the original DMS launch pricing.
 
 ### Path 3: Maxwell's Daemon (MySQL-Specific)
 
@@ -412,8 +423,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Maxwell's Daemon architecture: single MySQL → Maxwell process tailing the binlog → JSON output to Kafka, Kinesis, RabbitMQ, or stdout.](./diagrams/diagram-5-light.svg "Maxwell's Daemon as a lightweight single-process MySQL binlog tailer with JSON output.")
+![Maxwell's Daemon architecture: single MySQL → Maxwell process tailing the binlog → JSON output to Kafka, Kinesis, RabbitMQ, or stdout.](./diagrams/diagram-5-dark.svg)
 
 **When to choose:**
 
@@ -463,8 +474,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![LinkedIn Databus architecture: OLTP source → relay servers with in-memory circular buffers → live consumers; a separate bootstrap server hydrates new or fallen-behind consumers.](./diagrams/diagram-6-light.svg "LinkedIn Databus relay + bootstrap-server pattern.")
+![LinkedIn Databus architecture: OLTP source → relay servers with in-memory circular buffers → live consumers; a separate bootstrap server hydrates new or fallen-behind consumers.](./diagrams/diagram-6-dark.svg)
 
 **Implementation details:**
 
@@ -495,8 +506,8 @@ Shopify migrated from query-based to Debezium CDC:
 
 **Riverbed (materialized views):**
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![Airbnb Riverbed pipeline: SpinalTap CDC connectors fan multiple OLTP sources into Kafka, Spark Streaming joins them, and the result lands in materialized-view stores (search, payments).](./diagrams/diagram-7-light.svg "SpinalTap → Kafka → Spark → materialized views in Airbnb's Riverbed framework.")
+![Airbnb Riverbed pipeline: SpinalTap CDC connectors fan multiple OLTP sources into Kafka, Spark Streaming joins them, and the result lands in materialized-view stores (search, payments).](./diagrams/diagram-7-dark.svg)
 
 **Scale (2024):**
 
@@ -536,11 +547,21 @@ DBLog approach:
 - Snapshot can be paused/resumed
 - Works alongside live traffic
 
+The watermark technique looks like this in practice — chunk-by-chunk SELECTs interleave with the live log via two marker writes that bracket each chunk:
+
+![Snapshot + stream switchover using DBLog watermarks: the connector writes LOW and HIGH watermarks to a sentinel table, selects a primary-key chunk between them, and reconciles in-memory chunk rows against any live log events that touched the same keys.](./diagrams/snapshot-stream-switchover-light.svg "DBLog watermark technique: the live log keeps flowing while a chunked SELECT is reconciled against any conflicting log events.")
+![Snapshot + stream switchover using DBLog watermarks: the connector writes LOW and HIGH watermarks to a sentinel table, selects a primary-key chunk between them, and reconciles in-memory chunk rows against any live log events that touched the same keys.](./diagrams/snapshot-stream-switchover-dark.svg)
+
+The original algorithm is described in the [DBLog paper (Andreakis et al., 2020)](https://arxiv.org/abs/2010.12597); Debezium adopted it as its default ad-hoc snapshot mode.
+
 **Production since 2018:**
 
-- Powers Delta platform (data synchronization)
+- Powers Netflix's Delta platform (data synchronization) and the broader [Data Mesh](https://netflixtechblog.com/data-mesh-a-data-movement-and-processing-platform-netflix-1288bcab2873) movement / processing layer
 - Studio applications event processing
-- Connectors for MySQL, PostgreSQL, CockroachDB, Cassandra
+- DBLog itself is RDBMS-only (MySQL, PostgreSQL); CockroachDB, Cassandra, and other non-relational stores feed Data Mesh via separate, source-specific connectors (e.g. CockroachDB changefeeds)
+
+> [!TIP]
+> The DBLog watermark technique was adopted upstream as Debezium's [incremental snapshot](https://debezium.io/blog/2021/10/07/incremental-snapshots/) (Debezium 1.6, 2021). If you use Debezium today, you already get a DBLog-style snapshot via the signaling table.
 
 ### WePay: Cassandra CDC
 
@@ -548,8 +569,8 @@ DBLog approach:
 
 **Implementation:**
 
-![Diagram](./diagrams/diagram-8-light.svg)
-![Diagram](./diagrams/diagram-8-dark.svg)
+![WePay Cassandra CDC: a CDC agent runs on every Cassandra node and reads its local commit log; agents are partitioned as primary for disjoint key ranges to avoid duplicate emissions into Kafka.](./diagrams/diagram-8-light.svg "Per-node Cassandra CDC agents with primary-agent partitioning into Kafka.")
+![WePay Cassandra CDC: a CDC agent runs on every Cassandra node and reads its local commit log; agents are partitioned as primary for disjoint key ranges to avoid duplicate emissions into Kafka.](./diagrams/diagram-8-dark.svg)
 
 **Key design decisions:**
 
@@ -557,7 +578,7 @@ DBLog approach:
 - **Primary agent pattern**: Each agent is "primary" for a subset of partition keys, avoiding duplicates
 - **Exactly-once**: Achieved at agent level through offset tracking
 
-**Open-sourced**: Now part of Debezium as incubating Cassandra connector.
+**Open-sourced**: Donated upstream and now lives as the [Debezium Cassandra connector](https://debezium.io/documentation/reference/stable/connectors/cassandra.html) (still flagged as incubating). Unlike most Debezium connectors, it runs as a **standalone JVM agent on each Cassandra node** rather than as a Kafka Connect task — there is no central process that can read commit logs from a remote node.
 
 ### Implementation Comparison
 
@@ -584,8 +605,8 @@ CDC events must carry schema information. When source schema changes, downstream
 
 ### Schema Registry Integration
 
-![Diagram](./diagrams/diagram-9-light.svg)
-![Diagram](./diagrams/diagram-9-dark.svg)
+![Schema Registry flow: Debezium registers Avro schemas in the registry and embeds the schema ID in each Kafka record; consumers fetch schemas by ID and cache them for decoding.](./diagrams/diagram-9-light.svg "Schema Registry decouples schemas from Kafka payloads — schema IDs travel with each record.")
+![Schema Registry flow: Debezium registers Avro schemas in the registry and embeds the schema ID in each Kafka record; consumers fetch schemas by ID and cache them for decoding.](./diagrams/diagram-9-dark.svg)
 
 **How it works:**
 
@@ -623,14 +644,10 @@ CDC events must carry schema information. When source schema changes, downstream
 
 **Migration pattern for breaking changes:**
 
-```
-1. Add new column (nullable)
-2. Deploy producers writing to new column
-3. Backfill new column from old column
-4. Deploy consumers reading new column
-5. Stop writing old column
-6. Remove old column
-```
+The order matters — every intermediate state must be readable by **both** the previous and the next code version, otherwise the CDC stream serializes a state nobody can decode.
+
+![Schema-evolution migration: add nullable column, dual-write, backfill, switch readers, stop writing the old column, drop. Each step is gated by a Schema Registry compatibility check, CDC stream health, and consumer lag.](./diagrams/schema-evolution-migration-light.svg "Breaking-change migration pattern under CDC: every intermediate state stays BACKWARD-compatible.")
+![Schema-evolution migration: add nullable column, dual-write, backfill, switch readers, stop writing the old column, drop. Each step is gated by a Schema Registry compatibility check, CDC stream health, and consumer lag.](./diagrams/schema-evolution-migration-dark.svg)
 
 ### Debezium Schema Handling
 
@@ -701,34 +718,42 @@ isolation.level=read_committed
 
 Consumer only sees committed transactional messages.
 
-### Debezium EOS (Kafka 3.3.0+)
+### Debezium EOS (Kafka Connect 3.3+, KIP-618)
 
-Debezium source connectors support exactly-once when:
+[KIP-618](https://cwiki.apache.org/confluence/display/KAFKA/KIP-618%3A+Exactly-Once+Support+for+Source+Connectors) landed in Kafka 3.3.0 (Oct 2022) and exposed exactly-once semantics to Kafka Connect *source* connectors. Debezium opted in incrementally; [Debezium 3.3.0 (Oct 2025)](https://debezium.io/blog/2025/10/01/debezium-3-3-final-released/) extended EOS to all core connectors (MariaDB, MongoDB, MySQL, Oracle, PostgreSQL, SQL Server).
 
-1. Kafka Connect configured for exactly-once source
-2. Kafka version 3.3.0+ with KRaft
-3. Connector offset storage in Kafka
+Prerequisites per the [Debezium EOS reference](https://debezium.io/documentation/reference/stable/configuration/eos.html):
 
-```properties
-# Kafka Connect worker config
+1. Kafka Connect 3.3+ in **distributed mode** (standalone mode is not supported).
+2. Worker config `exactly.once.source.support=enabled`.
+3. Connector config `exactly.once.support=required`.
+4. Connector offset topic stored in Kafka (the default).
+
+```properties title="connect-distributed.properties"
 exactly.once.source.support=enabled
 ```
 
+```properties title="connector.properties"
+exactly.once.support=required
+```
+
+KRaft is **not** a hard requirement — EOS works against ZooKeeper-backed brokers too — but new Kafka 3.x clusters generally run KRaft, and ZooKeeper mode is removed in Kafka 4.0.
+
 **How it works:**
 
-1. Connector reads changes and offset atomically
-2. Writes records + offset update in single Kafka transaction
-3. On restart, resumes from last committed offset
-4. No duplicate events published to Kafka
+1. Connector reads changes and writes the source offset inside a Kafka transaction.
+2. Records + offset commit are written atomically; partial failures roll back.
+3. On restart, the connector resumes from the last *committed* offset (any aborted transaction's records are filtered out by `read_committed` consumers).
 
-**Important caveat**: This is exactly-once from database to Kafka. Consumer-to-target still needs idempotent handling.
+> [!IMPORTANT]
+> EOS here is "database → Kafka" only. Consumers (sinks, services) still need idempotent application — by source LSN/GTID/resume token — to make the *end-to-end* path exactly-once.
 
 ### End-to-End Exactly-Once
 
 For true end-to-end exactly-once:
 
-![Diagram](./diagrams/diagram-10-light.svg)
-![Diagram](./diagrams/diagram-10-dark.svg)
+![End-to-end exactly-once: source DB → Debezium with EOS → Kafka with EOS → consumer reads at-least-once → idempotent write to target keyed on source LSN.](./diagrams/diagram-10-light.svg "EOS holds DB → Kafka; the consumer closes the loop with idempotent writes keyed on source LSN.")
+![End-to-end exactly-once: source DB → Debezium with EOS → Kafka with EOS → consumer reads at-least-once → idempotent write to target keyed on source LSN.](./diagrams/diagram-10-dark.svg)
 
 Consumer-side idempotency:
 
@@ -755,10 +780,13 @@ async function processChange(change: ChangeEvent) {
 
 ### Transactional Outbox Integration
 
-The **transactional outbox pattern** ensures reliable event publishing by writing events to a database table (outbox) within the same transaction as business data.
+The **transactional outbox pattern** ([Chris Richardson](https://microservices.io/patterns/data/transactional-outbox.html)) ensures reliable event publishing by writing events to a database table (`outbox`) within the **same transaction** as business data. CDC tails the outbox and replays it onto Kafka, replacing the dual-write anti-pattern from §"Why Naive Solutions Fail" with a single atomic commit.
 
-![Diagram](./diagrams/diagram-11-light.svg)
-![Diagram](./diagrams/diagram-11-dark.svg)
+![Dual-write anti-pattern (left) vs transactional outbox + CDC (right): the outbox merges the two writes into one transaction, leaving CDC to replay the outbox onto Kafka.](./diagrams/dual-write-vs-outbox-cdc-light.svg "Outbox + CDC replaces the dual-write anti-pattern with one atomic commit and one log to tail.")
+![Dual-write anti-pattern (left) vs transactional outbox + CDC (right): the outbox merges the two writes into one transaction, leaving CDC to replay the outbox onto Kafka.](./diagrams/dual-write-vs-outbox-cdc-dark.svg)
+
+![Transactional outbox relay: the application transaction updates business tables and inserts an event row into the outbox table atomically; CDC tails the outbox and Debezium's EventRouter SMT routes events to per-aggregate Kafka topics.](./diagrams/diagram-11-light.svg "Transactional outbox keeps event publishing atomic with the originating DB write; EventRouter SMT shapes the topic.")
+![Transactional outbox relay: the application transaction updates business tables and inserts an event row into the outbox table atomically; CDC tails the outbox and Debezium's EventRouter SMT routes events to per-aggregate Kafka topics.](./diagrams/diagram-11-dark.svg)
 
 **CDC as outbox relay:**
 
@@ -797,8 +825,8 @@ COMMIT;
 
 CDC enables event-driven cache invalidation without TTL guessing:
 
-![Diagram](./diagrams/diagram-12-light.svg)
-![Diagram](./diagrams/diagram-12-dark.svg)
+![Event-driven cache invalidation: PostgreSQL writes flow through Debezium and Kafka into a cache invalidator service that deletes or warms Redis entries; the application reads through Redis with DB fallback.](./diagrams/diagram-12-light.svg "CDC-driven cache invalidation replaces TTL guessing with deterministic invalidation events.")
+![Event-driven cache invalidation: PostgreSQL writes flow through Debezium and Kafka into a cache invalidator service that deletes or warms Redis entries; the application reads through Redis with DB fallback.](./diagrams/diagram-12-dark.svg)
 
 **Implementation:**
 
@@ -834,8 +862,8 @@ async function handleChange(change: ChangeEvent) {
 
 CDC keeps search indices in sync with source of truth:
 
-![Diagram](./diagrams/diagram-13-light.svg)
-![Diagram](./diagrams/diagram-13-dark.svg)
+![Search index synchronization: PostgreSQL → Debezium → Kafka → Elasticsearch sink connector → Elasticsearch index, with tombstone events translated into deletes.](./diagrams/diagram-13-light.svg "CDC keeps Elasticsearch indexes synchronized with the OLTP source of truth.")
+![Search index synchronization: PostgreSQL → Debezium → Kafka → Elasticsearch sink connector → Elasticsearch index, with tombstone events translated into deletes.](./diagrams/diagram-13-dark.svg)
 
 **Kafka Connect Elasticsearch sink:**
 
@@ -861,8 +889,8 @@ CDC keeps search indices in sync with source of truth:
 
 CDC enables real-time analytics without batch ETL:
 
-![Diagram](./diagrams/diagram-14-light.svg)
-![Diagram](./diagrams/diagram-14-dark.svg)
+![Real-time analytics pipeline: OLTP DB → Debezium → Kafka → Flink streaming job → both a data warehouse and a real-time dashboard.](./diagrams/diagram-14-light.svg "CDC + a stream processor collapses the lambda-architecture batch and stream paths into one pipeline.")
+![Real-time analytics pipeline: OLTP DB → Debezium → Kafka → Flink streaming job → both a data warehouse and a real-time dashboard.](./diagrams/diagram-14-dark.svg)
 
 **Lambda architecture simplification:**
 
@@ -877,11 +905,12 @@ CDC enables real-time analytics without batch ETL:
 
 ### 1. Replication Slot Disk Bloat (PostgreSQL)
 
-**The mistake**: Not monitoring replication slot lag.
+> [!CAUTION]
+> An inactive logical replication slot will pin WAL **forever** by default (`max_slot_wal_keep_size = -1`, meaning unlimited). If your CDC connector dies and nobody notices, the primary's pg_wal directory grows until disk is full and Postgres refuses writes. This is the single most common Postgres-CDC production incident.
 
-**What happens**: CDC connector goes down or can't keep up. PostgreSQL retains all WAL since last consumed position. Disk fills. Database crashes.
+**What happens**: CDC connector goes down or can't keep up. PostgreSQL retains all WAL since the slot's `restart_lsn`. Disk fills. Database crashes.
 
-**Example**: Connector had network issue for 2 hours. 50GB of WAL accumulated. Recovery required manual slot deletion and re-snapshot.
+**Example**: Connector had a 2-hour network partition. 50 GB of WAL accumulated. Recovery required manual slot deletion and a full re-snapshot.
 
 **Solutions:**
 
@@ -892,12 +921,14 @@ SELECT slot_name,
        active
 FROM pg_replication_slots;
 
--- Set maximum retained WAL (PostgreSQL 13+)
+-- Cap retained WAL per slot (PostgreSQL 13+ — default is -1 / unlimited)
 ALTER SYSTEM SET max_slot_wal_keep_size = '10GB';
 
 -- Alert on inactive slots
 SELECT slot_name FROM pg_replication_slots WHERE NOT active;
 ```
+
+Setting `max_slot_wal_keep_size` trades durability of the CDC stream for primary availability: once a slot exceeds the cap, PostgreSQL invalidates it and the connector must re-snapshot. Pick the value such that it covers your worst expected connector outage but leaves disk headroom — Gunnar Morling's [replication slot deep-dive](https://www.morling.dev/blog/mastering-postgres-replication-slots/) is the best operational reference.
 
 ### 2. Tables Without Primary Keys
 
@@ -979,8 +1010,8 @@ Consumer must be idempotent to handle potential duplicates during snapshot-to-st
 
 ### Starting Point Decision
 
-![Diagram](./diagrams/diagram-15-light.svg)
-![Diagram](./diagrams/diagram-15-dark.svg)
+![Starting-point decision tree: branch on team experience, then on budget for managed services or required latency, ending in concrete tool recommendations (Fivetran, AWS DMS+MSK, Debezium self-managed, or Debezium + Confluent Cloud).](./diagrams/diagram-15-light.svg "Choosing a CDC starting point based on team experience, budget, latency, and infrastructure preference.")
+![Starting-point decision tree: branch on team experience, then on budget for managed services or required latency, ending in concrete tool recommendations (Fivetran, AWS DMS+MSK, Debezium self-managed, or Debezium + Confluent Cloud).](./diagrams/diagram-15-dark.svg)
 
 ### Checklist for Production CDC
 
@@ -1073,7 +1104,7 @@ CDC transforms database changes into reliable event streams, enabling real-time 
 - **Log-based CDC** (Debezium, DMS) is the production standard—captures all operations including deletes and DDL
 - **PostgreSQL** uses logical replication slots; monitor `max_slot_wal_keep_size` to prevent disk bloat
 - **MySQL** requires `binlog_format=ROW` and benefits from GTID for resumability across failover
-- **Exactly-once semantics** require Kafka 3.3.0+ with KRaft; consumer-side idempotency for end-to-end guarantees
+- **Exactly-once semantics** require Kafka Connect 3.3+ in distributed mode (KIP-618); consumer-side idempotency keyed on source LSN/GTID is what closes the end-to-end loop
 - **Schema evolution** needs Schema Registry with BACKWARD compatibility; coordinate schema changes with consumer deployments
 - **Transactional outbox** pattern integrates naturally with CDC for reliable event publishing
 
@@ -1082,13 +1113,17 @@ CDC transforms database changes into reliable event streams, enabling real-time 
 **Official Documentation:**
 
 - [Debezium Documentation](https://debezium.io/documentation/reference/stable/architecture.html) - Architecture, connectors, and configuration
-- [Debezium Exactly-Once Delivery](https://debezium.io/blog/2023/06/22/towards-exactly-once-delivery/) - EOS implementation details
+- [Debezium Exactly-Once Delivery](https://debezium.io/documentation/reference/stable/configuration/eos.html) - EOS prerequisites and connector configuration
+- [Debezium 3.3.0.Final release notes](https://debezium.io/blog/2025/10/01/debezium-3-3-final-released/) - EOS extended to all core connectors
+- [Debezium Incremental Snapshots](https://debezium.io/blog/2021/10/07/incremental-snapshots/) - Watermark-based snapshot, post-Netflix DBLog
 - [PostgreSQL Logical Replication](https://www.postgresql.org/docs/current/logical-replication.html) - Native PostgreSQL replication
 - [PostgreSQL Logical Decoding](https://www.postgresql.org/docs/current/logicaldecoding.html) - WAL decoding internals
+- [PostgreSQL 17 Logical Replication Failover](https://www.postgresql.org/docs/17/logical-replication-failover.html) - `failover = true` slot synchronization
 - [MySQL Binary Log](https://dev.mysql.com/doc/refman/8.0/en/binary-log.html) - Binlog configuration and format
 - [MySQL GTID](https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-concepts.html) - Global Transaction ID concepts
 - [MongoDB Change Streams](https://www.mongodb.com/docs/manual/changeStreams/) - Change Stream API reference
 - [AWS DMS CDC](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Task.CDC.html) - DMS ongoing replication
+- [AWS DMS pricing](https://aws.amazon.com/dms/pricing/) - On-demand replication instances and DMS Serverless DCU model
 
 **Engineering Blogs:**
 
@@ -1107,4 +1142,5 @@ CDC transforms database changes into reliable event streams, enabling real-time 
 **Kafka Exactly-Once:**
 
 - [Kafka Exactly-Once Semantics](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/) - Confluent explanation
-- [KIP-98: Exactly Once Delivery](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) - Original Kafka proposal
+- [KIP-98: Exactly Once Delivery](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) - Original Kafka transactional producer proposal
+- [KIP-618: Exactly-Once Support for Source Connectors](https://cwiki.apache.org/confluence/display/KAFKA/KIP-618%3A+Exactly-Once+Support+for+Source+Connectors) - Source-side EOS in Kafka Connect 3.3+

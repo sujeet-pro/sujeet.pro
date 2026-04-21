@@ -1,0 +1,29 @@
+%% Diagram: Cascading failure from a deep liveness probe
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant DB as Slow Dependency (DB)
+    participant Pod as Service Pod
+    participant Kube as kubelet (livenessProbe)
+    participant LB as Load Balancer
+
+    Note over DB,Pod: Database slows under load
+    Kube->>Pod: GET /healthz (deep check)
+    Pod->>DB: SELECT 1
+    DB--xPod: timeout
+    Pod-->>Kube: 503 / no response
+    Kube->>Pod: SIGKILL + restart
+
+    Note over Pod,LB: Capacity drops by 1 replica
+    LB->>Pod: redirect requests to surviving pods
+    Pod->>DB: more queries per pod
+    DB--xPod: queries get slower
+
+    Note over Kube: Repeats across replicas
+    loop For each replica
+        Kube->>Pod: GET /healthz
+        Pod--xKube: timeout
+        Kube->>Pod: restart
+    end
+
+    Note over DB,LB: Outage: every replica restarting on a sick dependency

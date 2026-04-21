@@ -1,0 +1,38 @@
+%% Diagram: Hot-key mitigation via sharded counter (single SKU spread across N buckets)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Naive["Naive: one counter, one shard"]
+        direction TB
+        C1["Clients (500K RPS)"]
+        K1["inventory:sku-001 = 10000"]
+        S1[("Redis shard 7<br/>CPU saturated")]
+        C1 --> K1 --> S1
+    end
+
+    subgraph Sharded["Sharded: N sub-counters across shards"]
+        direction TB
+        C2["Clients (500K RPS)<br/>pick bucket = hash(user) % N"]
+        subgraph Buckets[" "]
+            direction LR
+            K2a["inventory:sku-001:b0 = 10000/N"]
+            K2b["inventory:sku-001:b1 = 10000/N"]
+            K2c["inventory:sku-001:b2 = ..."]
+            K2d["inventory:sku-001:bN-1 = 10000/N"]
+        end
+        S2a[("Shard A")]
+        S2b[("Shard B")]
+        S2c[("Shard C")]
+        S2d[("Shard D")]
+        C2 --> K2a --> S2a
+        C2 --> K2b --> S2b
+        C2 --> K2c --> S2c
+        C2 --> K2d --> S2d
+    end
+
+    Naive -.->|"split key,<br/>scatter writes"| Sharded
+
+    classDef hot fill:#ffebee,stroke:#b71c1c;
+    classDef cool fill:#e8f5e9,stroke:#2e7d32;
+    class S1 hot;
+    class S2a,S2b,S2c,S2d cool;

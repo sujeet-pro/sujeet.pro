@@ -1,0 +1,30 @@
+%% Diagram: End-to-end request sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Br as Browser
+    participant LB as Load Balancer
+    participant API as Ingestion API<br/>(WebFlux)
+    participant K as Kafka<br/>(csp-violations)
+    participant Co as Consumer
+    participant R as Valkey<br/>(dedup)
+    participant S as Snowflake
+
+    Br->>LB: POST /csp/report
+    LB->>API: forward
+    API->>API: parse + validate JSON
+    API-->>K: produce (acks=1)
+    API-->>Br: 204 No Content
+    Note over API,Br: Response is sent before<br/>Kafka ack returns.
+    Co->>K: poll batch
+    Co->>Co: normalize + hash
+    Co->>R: SET hash NX EX 600
+    alt new violation
+        R-->>Co: OK
+        Co->>S: micro-batch insert
+    else duplicate
+        R-->>Co: nil
+        Co->>Co: drop record
+    end
+    Co->>K: commit offset

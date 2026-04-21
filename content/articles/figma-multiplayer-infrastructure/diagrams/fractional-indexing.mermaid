@@ -1,0 +1,31 @@
+%% Diagram: Fractional Indexing Inserts
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph S0["Initial siblings"]
+        direction TB
+        A0["A — index V"]
+        B0["B — index r"]
+    end
+
+    subgraph S1["Insert C between A and B"]
+        direction TB
+        A1["A — V"]
+        C1["C — midpoint(V,r) = g"]
+        B1["B — r"]
+    end
+
+    subgraph S2["Concurrent insert collision"]
+        direction TB
+        col["Client 1 inserts X between A,B → g<br/>Client 2 inserts Y between A,B → g<br/>Server detects collision and<br/>generates a unique key for Y → h"]
+    end
+
+    subgraph S3["Trade-off — interleaving"]
+        direction TB
+        inter["Client A bulk-inserts a,b,c at position P<br/>Client B bulk-inserts x,y,z at position P<br/>Result may interleave: a,x,b,y,c,z<br/>Accepted: rare in design tools"]
+    end
+
+    S0 --> S1 --> S2 --> S3
+
+    classDef nt fill:#fff,stroke:#888,stroke-dasharray: 4 2
+    class col,inter nt

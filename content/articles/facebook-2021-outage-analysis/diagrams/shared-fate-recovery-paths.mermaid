@@ -1,0 +1,27 @@
+%% Diagram: Shared-Fate Recovery Paths
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Recovery["Recovery paths an SRE would normally use"]
+        direction TB
+        SSH["SSH to backbone routers"]
+        OOB["Out-of-band consoles"]
+        WIKI["Internal wiki / runbooks"]
+        WORK["Workplace / chat"]
+        DASH["Dashboards / monitoring"]
+        BADGE["Data center badge readers"]
+    end
+
+    BACKBONE[("Facebook backbone\nFAILED")]:::failed
+
+    SSH --> BACKBONE
+    OOB --> BACKBONE
+    WIKI --> BACKBONE
+    WORK --> BACKBONE
+    DASH --> BACKBONE
+    BADGE --> BACKBONE
+
+    BACKBONE --> PHYS["Physical dispatch\n(only working channel)"]:::ok
+
+    classDef failed fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff

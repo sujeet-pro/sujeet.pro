@@ -1,0 +1,16 @@
+%% Diagram: Sharding + replication decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start{"Bottleneck?"}
+    Start -->|writes| Q1{"Strong<br/>consistency?"}
+    Start -->|reads| Q2{"Strong<br/>consistency?"}
+    Start -->|geo| Q3{"Eventual<br/>OK?"}
+    Start -->|HA| A4["Leaderless<br/>quorum"]
+
+    Q1 -->|yes| A1["Range +<br/>Multi-Raft<br/>Cockroach,<br/>TiDB, Spanner"]
+    Q1 -->|no| A2["Hash +<br/>leaderless<br/>Cassandra,<br/>DynamoDB"]
+    Q2 -->|yes| B1["Single-leader<br/>read from<br/>leader"]
+    Q2 -->|no| B2["Leaderless<br/>tunable W,R"]
+    Q3 -->|yes| C1["Multi-leader<br/>+ CRDT/LWW"]
+    Q3 -->|no| C2["Per-region<br/>leader +<br/>Paxos"]

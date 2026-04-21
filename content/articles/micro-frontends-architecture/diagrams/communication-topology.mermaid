@@ -1,0 +1,56 @@
+%% Diagram: Cross-MFE communication hierarchy — local first, then URL, then events, store as last resort
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    a[MFE A · Catalog]
+    b[MFE B · Cart]
+    c[MFE C · Checkout]
+    d[MFE D · Recommendations]
+
+    subgraph local["1 · Local state (per MFE)"]
+        direction LR
+        la[State + server cache]
+    end
+
+    subgraph url["2 · URL as cross-MFE state"]
+        direction LR
+        lu[Filters · Tabs · Modal flags]
+    end
+
+    subgraph events["3 · Custom events (composed: true)"]
+        direction LR
+        bus[(EventTarget bus)]
+    end
+
+    subgraph store["4 · Shared store (last resort)"]
+        direction LR
+        ss[Auth · Theme · Feature flags]
+    end
+
+    a --> la
+    b --> la
+    c --> la
+    d --> la
+
+    a -. reads/writes .-> lu
+    b -. reads/writes .-> lu
+    c -. reads/writes .-> lu
+
+    a -- emit --> bus
+    bus -- listen --> b
+    bus -- listen --> d
+
+    a --> ss
+    b --> ss
+    c --> ss
+    d --> ss
+
+    classDef mfe fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef good fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef neutral fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class a,b,c,d mfe
+    class la good
+    class lu,bus neutral
+    class ss warn

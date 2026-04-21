@@ -1,0 +1,35 @@
+%% Diagram: CSS 2.1 Appendix E Paint Order
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Stacking context root])
+
+    subgraph Background["Background pass"]
+        direction LR
+        S1["1. Element background<br/>and borders"]
+    end
+
+    subgraph BehindFlow["Behind in-flow content"]
+        direction LR
+        S2["2. Negative z-index<br/>child contexts"]
+    end
+
+    subgraph InFlow["In-flow content"]
+        direction LR
+        S3["3. Block-level<br/>descendants"] --> S4["4. Floats"] --> S5["5. Inline-level<br/>descendants"]
+    end
+
+    subgraph Above["Positioned and above"]
+        direction LR
+        S6["6. Positioned with<br/>z-index auto / 0"] --> S7["7. Positive z-index<br/>child contexts"]
+    end
+
+    subgraph Final["Decoration pass"]
+        direction LR
+        S8["8. Outlines"]
+    end
+
+    Start --> Background --> BehindFlow --> InFlow --> Above --> Final
+
+    style Background fill:#e3f2fd,stroke:#1565c0
+    style Above fill:#fff8e1,stroke:#ef6c00

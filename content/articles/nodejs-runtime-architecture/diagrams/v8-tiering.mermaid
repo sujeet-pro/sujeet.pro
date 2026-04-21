@@ -1,0 +1,25 @@
+%% Diagram: V8 tiering pipeline with deoptimization
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  start([Function defined])
+  ig["Ignition\ninterpreter"]
+  sp["Sparkplug\nbaseline JIT\nbytecode → machine code"]
+  mg["Maglev\nmid-tier optimizer\nSSA-based CFG"]
+  tf["TurboFan\nspeculative optimizer\npeak throughput"]
+
+  start --> ig
+  ig -- "~8 invocations\n(no feedback needed)" --> sp
+  sp -- "~500 invocations\n+ stable feedback" --> mg
+  mg -- "~6000 invocations\n+ stable feedback" --> tf
+
+  tf -. "deopt\nspeculation failed" .-> ig
+  mg -. "deopt" .-> ig
+  sp -. "deopt (rare)" .-> ig
+
+  classDef tier fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef hot fill:#B43A3A,stroke:#8E2828,color:#ffffff
+  classDef entry fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+  class ig,sp tier
+  class mg,tf hot
+  class start entry

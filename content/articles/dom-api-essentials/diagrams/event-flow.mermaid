@@ -1,0 +1,35 @@
+%% Diagram: DOM Event Flow with Shadow DOM Retargeting
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  win["Window"]
+  doc["Document"]
+  body["body"]
+  host["custom-element (shadow host)"]
+  root["#shadow-root (mode: open)"]
+  inner["button (real target inside shadow)"]
+
+  win --> doc --> body --> host --> root --> inner
+
+  subgraph cap["1. Capture phase (Window → target)"]
+    direction LR
+    cap1["capture listeners on Window, Document, body, host"]
+  end
+
+  subgraph tgt["2. Target phase"]
+    direction LR
+    tgt1["listeners on the actual target&#10;(both capture+bubble fire here)"]
+  end
+
+  subgraph bub["3. Bubble phase (target → Window)"]
+    direction LR
+    bub1["non-passive listeners may call preventDefault()&#10;stopPropagation halts the rest of the path"]
+  end
+
+  inner -.->|"event.target retargeted to host&#10;outside the shadow boundary"| host
+  inner -.->|"composedPath() returns full crossing path&#10;only when event.composed === true"| win
+
+  classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef shadow fill:#5A4A7E,stroke:#3D305A,color:#ffffff
+  class cap,tgt,bub phase
+  class root,inner shadow

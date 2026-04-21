@@ -4,11 +4,14 @@ linkTitle: 'YouTube + Vitess'
 description: >-
   How YouTube built Vitess to scale MySQL from 4 shards to 256 across tens of thousands of nodes, solving cascading connection storms, enabling zero-downtime resharding, and serving millions of queries per second — and why they eventually migrated to Spanner anyway.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
+  - databases
+  - distributed-systems
   - data
   - migrations
+  - architecture
 ---
 
 # YouTube: Scaling MySQL to Serve Billions with Vitess
@@ -22,40 +25,42 @@ How YouTube built Vitess to horizontally scale MySQL from 4 shards to 256 across
 
 Vitess answers a question most teams face eventually: what happens when MySQL can't keep up, but migrating to a different database is more expensive than scaling the one you have?
 
-- **The core insight**: Instead of replacing MySQL, insert a proxy layer (VTGate + VTTablet) that handles connection pooling, query routing, and shard management. Applications talk to Vitess as if it were a single MySQL instance. The proxy parses SQL—a foundational decision that enabled query rewriting, shard routing, and safety mechanisms impossible with a pass-through proxy.
-- **Connection pooling came first**: YouTube's immediate crisis was 5,000 simultaneous connections crashing primaries on failover. VTTablet's connection pool was Vitess's first feature, keeping MySQL at optimal connection counts regardless of application-side traffic spikes.
-- **Sharding evolved from vertical to horizontal**: YouTube split unrelated table groups (user data, video metadata, fraud tables) into separate databases first, then horizontally sharded individual tables using Vindexes—pluggable functions that map column values to shard locations.
-- **Resharding without downtime**: VReplication copies data to new shards while replication keeps them in sync. Traffic switches atomically (seconds of write unavailability). YouTube grew from 4 shards to 256 through exponential splitting.
-- **The trade-off**: Vitess sacrifices cross-shard transaction isolation, stored procedures, window functions, and foreign keys across shards. It optimizes for the 95% of queries that are single-shard lookups and index scans.
+- **The core insight**: Instead of replacing MySQL, insert a proxy layer (VTGate + VTTablet) that handles connection pooling, query routing, and shard management. Applications talk to Vitess as if it were a single MySQL instance. The proxy parses SQL — a foundational decision that enabled query rewriting, shard routing, and safety mechanisms a pass-through proxy can never achieve.
+- **Connection pooling came first**: YouTube's immediate crisis was thousands of application-side connections stampeding a freshly-promoted primary on failover. VTTablet's bounded connection pool was Vitess's first feature, holding MySQL at a safe connection count regardless of application-fleet size.
+- **Sharding evolved from vertical to horizontal**: YouTube split unrelated table groups (user data, video metadata, fraud tables) into separate keyspaces first, then horizontally sharded individual tables using Vindexes — pluggable functions that map column values to keyspace IDs and therefore to shards.
+- **Resharding without downtime**: VReplication copies data to new shards while a binlog stream keeps them in sync. `SwitchTraffic` atomically updates topology, and VTGate buffers in-flight queries during the sub-second cutover window. YouTube's largest keyspace eventually reached 256 shards through repeated exponential splitting.
+- **The trade-off**: Vitess sacrifices cross-shard transaction isolation, stored procedures, window functions, and foreign keys across shards. It optimizes for the dominant case — single-shard lookups and index scans — and pushes the rest of the burden into application design or two-phase commit.
 
 ## Context
 
 ### The System
 
-YouTube was acquired by Google in October 2006 for $1.65 billion. At the time, YouTube's backend ran on MySQL—a decision made by the original founding team and one that would persist for over a decade.
+YouTube was [acquired by Google in October 2006 for $1.65 billion in stock](https://www.sec.gov/Archives/edgar/data/1288776/000119312506206884/dex991.htm). At the time, YouTube's backend ran on MySQL—a decision made by the original founding team and one that would persist for over a decade.
 
-| Attribute          | Detail                                                                |
-| ------------------ | --------------------------------------------------------------------- |
-| **Database**       | MySQL (InnoDB)                                                        |
-| **Sharding**       | 4 application-level shards at the time Vitess was conceived           |
-| **Connections**    | ~5,000 simultaneous connections to each primary                       |
-| **Replicas**       | 75 per primary at peak (later 80-100)                                 |
-| **Data centers**   | 20 globally distributed cells                                         |
-| **Write topology** | All writes concentrated in Mountain View; reads load-balanced locally |
+| Attribute          | Detail                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Database**       | MySQL (InnoDB)                                                                                        |
+| **Sharding**       | Application-level sharding before Vitess; YouTube's largest keyspace eventually reached 256 shards[^1] |
+| **Connections**    | Several thousand simultaneous connections per primary at peak (the original failure trigger)           |
+| **Replicas**       | 80–100 replicas per primary on the largest keyspace[^1]                                               |
+| **Data centers**   | 20 globally distributed cells[^1]                                                                     |
+| **Write topology** | All writes concentrated in Mountain View; reads load-balanced to local replicas in each cell[^1]      |
+
+[^1]: Jiten Vaidya and Sugu Sougoumarane, [Kubernetes Podcast Episode 81: Vitess](https://kubernetespodcast.com/episode/081-vitess/) (Nov 2019). Jiten describes YouTube's largest keyspace as "256 shards" with "between 80 to 100 replicas distributed across 20 data centers."
 
 ### The Trigger
 
-**Date**: Late 2006, approximately three years after Google's acquisition.
+**Date**: 2010, when Vitess development began. By that point YouTube had already manually sharded its database, and feature velocity was suffering under the weight of application-resident sharding logic[^1].
 
-YouTube was experiencing exponential growth in outages. The team had already manually sharded to 4 databases, but outages were occurring multiple times per day. The pattern was consistent: a traffic spike or a failover event would cause all web servers to simultaneously reconnect to a new primary, overwhelming it with 5,000+ connections—causing the new primary to crash, triggering another failover, in a cascading loop.
+The acute failure mode was a cascading connection storm. A traffic spike or a failover event caused every web server to simultaneously reconnect to a new primary, overwhelming it with thousands of connections at once—crashing the new primary, triggering another failover, in a cascading loop. As Sugu Sougoumarane and Mike Solomon catalogued YouTube's MySQL pain points[^2], a single root cause kept surfacing: there was no layer between the application fleet and MySQL that could enforce discipline at the connection or query level.
 
-Sugu Sougoumarane, who would co-create Vitess, described the situation: the team's tolerance for downtime was decreasing while the number of engineers writing database-affecting code was increasing. Iterative fixes were not keeping pace with the growing outage rate.
+[^2]: Sugu Sougoumarane and Mike Solomon, [Vitess: Scaling MySQL at YouTube Using Go](https://www.usenix.org/conference/lisa12/vitess-scaling-mysql-youtube-using-go), USENIX LISA '12 (Dec 2012).
 
 ### Constraints
 
 - **MySQL was non-negotiable**: YouTube's entire stack—schemas, queries, operational tooling—was built on MySQL. A migration to a different database would have been a multi-year effort affecting every team.
-- **Google's infrastructure was MySQL-hostile**: Inside Google, Borg (the predecessor to Kubernetes) treated local disk as ephemeral. The well-supported storage options were Bigtable and Colossus. There was no first-class MySQL support—no mounted block storage, no official tooling.
-- **Application code owned sharding logic**: Every query in the codebase knew which shard to target. The application determined read-replica routing and shard selection based on WHERE clauses. Cross-shard indexes were maintained manually.
+- **Google's infrastructure was MySQL-hostile**: Inside Google, Borg (the predecessor to Kubernetes) treated local disk as ephemeral. The well-supported storage options were Bigtable and Colossus. There was no first-class MySQL support—no mounted block storage, no official tooling[^1].
+- **Application code owned sharding logic**: Every query in the codebase knew which shard to target. The application determined read-replica routing and shard selection based on WHERE clauses. Cross-shard indexes were maintained manually[^1].
 - **Schema changes were dangerous**: Any DDL (Data Definition Language) operation on large tables risked locking the database and causing outages.
 
 ## The Problem
@@ -64,25 +69,27 @@ Sugu Sougoumarane, who would co-create Vitess, described the situation: the team
 
 The failure mode was a cascading connection storm:
 
-1. A primary MySQL instance would degrade (slow queries, hardware issue, or planned maintenance)
-2. The instance would be removed from serving, triggering failover to a replica
-3. All ~5,000 web server connections would simultaneously open against the new primary
-4. The new primary, already catching up on replication, couldn't handle the connection stampede
-5. The new primary would crash or become unresponsive
-6. Another failover would trigger, repeating the cycle
+1. A primary MySQL instance would degrade (slow queries, hardware issue, or planned maintenance).
+2. The instance would be removed from serving, triggering failover to a replica.
+3. Thousands of web-server connections would simultaneously open against the new primary.
+4. The new primary, already catching up on replication, couldn't absorb the connection stampede.
+5. The new primary would crash or become unresponsive.
+6. Another failover would trigger, repeating the cycle.
 
 **Timeline of escalation:**
 
-- **2006-2009**: Outages increase from occasional to multiple per day
-- **Late 2006**: Sugu Sougoumarane and Mike Solomon begin cataloging every database problem YouTube faces
-- **2010**: Vitess development begins with connection pooling as the first feature
-- **2011**: Vitess becomes the core of YouTube's MySQL serving infrastructure
+- **Late 2000s**: Manual application-level sharding produces brittle operations and slows feature velocity[^1].
+- **2010**: Sugu Sougoumarane and Mike Solomon begin building Vitess; VTTablet (connection pooling and query safety) ships as the first component[^3].
+- **2012**: First public release on `code.google.com`; first conference talk at USENIX LISA[^2].
+- **2013**: A Google-wide mandate moves YouTube data into Google's own data centers; Vitess is forced to run on Borg with ephemeral local disk[^1].
+
+[^3]: PlanetScale / Vitess engineering, [Connection pooling in Vitess](https://vitess.io/blog/2023-03-27-connection-pooling-in-vitess/) (Mar 2023). VTTablet was built in 2010 specifically to solve unbounded connection growth.
 
 ### Root Cause Analysis
 
 **Investigation process:**
 
-Solomon spent several days creating a spreadsheet documenting every database problem, current solutions, and ideal solutions. The analysis revealed that individual fixes (better monitoring, faster failover, query optimization) addressed symptoms but not the architectural flaw.
+Solomon spent several days cataloging every database problem, the current workaround, and what an ideal solution would look like[^2]. The exercise revealed that individual fixes (better monitoring, faster failover, query optimization) addressed symptoms but not the architectural flaw.
 
 **The actual root cause:**
 
@@ -129,12 +136,14 @@ The problems appeared to be independent: connection storms, slow queries, schema
 
 **Cons:**
 
-- Spanner was not yet production-ready in 2010 (the Spanner paper was published in 2012)
-- Megastore had significant performance limitations for OLTP (Online Transaction Processing) workloads
-- Migration from MySQL's schema and query patterns would still be extensive
-- YouTube's query patterns didn't require global strong consistency for most data
+- Spanner was not externally documented until [OSDI 2012](https://research.google/pubs/spanner-googles-globally-distributed-database-2/), and not generally available outside Google for years after.
+- [Megastore](https://www.cidrdb.org/cidr2011/Papers/CIDR11_Paper32.pdf) had significant performance limitations for OLTP — the Spanner paper itself notes Megastore's "relatively poor write throughput" with conflict on Paxos groups[^4].
+- Migration from MySQL's schema and query patterns would still be extensive.
+- YouTube's query patterns didn't require global strong consistency for most data.
 
-**Why not chosen:** The timing didn't work. When Vitess development started in 2010, Spanner wasn't available. Megastore's performance characteristics didn't match YouTube's OLTP workload. Notably, Google later mandated migrating YouTube to Spanner around 2019—a policy decision as much as a technical one.
+**Why not chosen:** The timing didn't work. When Vitess development started in 2010, Spanner wasn't available. Megastore's performance characteristics didn't match YouTube's OLTP workload. YouTube did eventually migrate substantial workloads to Spanner around the time Vitess graduated CNCF — see [The Spanner Migration](#the-spanner-migration) below.
+
+[^4]: James C. Corbett et al., [Spanner: Google's Globally-Distributed Database](https://www.usenix.org/system/files/conference/osdi12/osdi12-final-16.pdf), OSDI '12, §1.
 
 ### Option 3: Modify MySQL Source Code
 
@@ -186,7 +195,7 @@ The problems appeared to be independent: connection storms, slow queries, schema
 
 ### The Foundational Decision: Building a SQL Parser
 
-The single most important architectural decision was building a full SQL parser in Go. Sugu Sougoumarane called this "the most difficult decision" and "the one decision that has definitely paid off."
+The single most important architectural decision was building a full SQL parser in Go. The choice to *not* fork MySQL itself — and instead solve every problem in a middleware layer — was deliberate, driven by the maintenance cost of tracking upstream MySQL releases and security patches[^1].
 
 **Why it mattered:** A pass-through proxy can pool connections and route based on database names, but it can't:
 
@@ -214,7 +223,7 @@ VTGate is the entry point for all application queries. It speaks both the MySQL 
 - **Result aggregation**: Handles ORDER BY, GROUP BY, and LIMIT across shards at the proxy level
 - **Transaction coordination**: Routes multi-statement transactions and coordinates two-phase commits when needed
 
-VTGate is stateless—it can be horizontally scaled behind a load balancer. If one VTGate instance fails, clients reconnect to another with no state loss. At YouTube, VTGate handled 90% of query traffic statelessly.
+VTGate is stateless—it can be horizontally scaled behind a load balancer. If one VTGate instance fails, clients reconnect to another with no state loss. Stateful coordination (locking, transaction state when 2PC is in use) lives in lower layers, so adding VTGate capacity is a straightforward horizontal-scale operation.
 
 #### VTTablet: The Per-MySQL Sidecar
 
@@ -222,11 +231,11 @@ Every MySQL instance has a VTTablet process running alongside it. VTTablet was t
 
 **Responsibilities:**
 
-- **Connection pooling**: Maintains a fixed pool of connections to MySQL, preventing the unbounded connection growth that caused cascading failures. The pool implementation uses lock-free algorithms with atomic operations and non-blocking data structures.
-- **Query safety**: Automatically adds LIMIT clauses to unbounded queries (default: 10,001 rows, returning an error if exceeded rather than silently truncating). Kills queries exceeding configurable time limits (default: 30 seconds).
-- **Query deduplication**: When identical queries execute simultaneously, VTTablet holds subsequent queries until the first completes and shares the result. At YouTube, a user with 250,000 uploaded videos would trigger expensive count queries on every page view—deduplication collapsed these into a single query.
-- **Row-level caching**: Uses an optional memcached-backed cache for individual rows by primary key, with real-time invalidation via MySQL's replication stream.
-- **Query blacklisting**: Operators can block specific query patterns (by fingerprint) without application deployment.
+- **Connection pooling**: Maintains a fixed pool of connections to MySQL, preventing the unbounded connection growth that caused cascading failures. The pool uses lock-free algorithms with atomic operations and non-blocking data structures[^3].
+- **Query safety**: Caps result-set sizes (default `queryserver-config-max-result-size` is [10,000 rows](https://vitess.io/docs/22.0/user-guides/configuration-basic/vttablet-mysql/) — exceeding it returns an error rather than silently truncating) and kills queries exceeding configurable time limits (default `queryserver-config-query-timeout` is 30s).
+- **Query deduplication (consolidator)**: When identical read-only queries execute simultaneously, VTTablet's consolidator holds subsequent queries until the first completes and serves the same result to all waiters. This collapses thundering-herd patterns where many viewers hit the same hot row at once.
+- **Row-level caching (legacy)**: Earlier Vitess versions shipped an optional memcached-backed row cache invalidated by the binlog stream. The row cache has since been deprecated in favor of pushing caching upward into application/CDN layers.
+- **Query blacklisting**: Operators can block specific query patterns (by fingerprint) without an application deployment — useful for shutting down a noisy bad query in seconds.
 
 #### Topology Service: The Metadata Store
 
@@ -247,81 +256,82 @@ VTGate caches topology data locally and refreshes periodically, avoiding the top
 
 YouTube's sharding evolved through two phases:
 
-**Phase 1: Vertical sharding.** Unrelated table groups were separated into distinct keyspaces (logical databases). User data, video metadata, and fraud detection tables each got their own keyspace. This provided immediate relief but has a practical ceiling—Sugu noted you can typically do 4-5 vertical splits before running out of table groups to separate.
+**Phase 1: Vertical sharding.** Unrelated table groups were separated into distinct keyspaces (logical databases). User data, video metadata, and fraud detection tables each got their own keyspace. This buys real relief but has a hard ceiling: once every loosely-coupled table group lives in its own keyspace, the only way to keep scaling is to split a single keyspace horizontally.
 
-**Phase 2: Horizontal sharding with Vindexes.** Tables within a keyspace were split across shards based on a sharding key.
+**Phase 2: Horizontal sharding with Vindexes.** Tables within a keyspace are split across shards based on a sharding key. A Vindex (Virtual Index) is a pluggable function that maps a column value to a keyspace ID, which in turn determines the target shard[^5]. Vitess ships predefined Vindexes and lets users plug in custom ones; the planner picks the lowest-cost applicable Vindex for each query.
 
-A Vindex (Virtual Index) is a pluggable function that maps a column value to a keyspace ID, which in turn determines the target shard. Vitess supports several Vindex types:
+| Vindex type             | Mechanism                                                 | Use case                                            | Cost     |
+| ----------------------- | --------------------------------------------------------- | --------------------------------------------------- | -------- |
+| **Identity / numeric**  | Column value used directly as keyspace ID                 | Pre-hashed data, integer keys with good distribution | 0        |
+| **Hash / xxhash**       | Deterministic hash of column value (functional Vindex)    | Even distribution, point lookups                    | 1        |
+| **Lookup (Unique)**     | Persistent backing table mapping values to a keyspace ID  | Secondary index on a non-sharding column            | 10       |
+| **Lookup (NonUnique)**  | Same, but one-to-many mapping                             | Search by a non-unique attribute                    | 20       |
+| **Region / multicol**   | Multi-column or geo-prefix functions                      | Tenant-based or geographic partitioning             | 1+       |
+| **Custom**              | User-provided function                                    | Vendor-based routing, custom partitioning           | Variable |
 
-| Vindex Type             | Mechanism                                               | Use Case                                      | Cost     |
-| ----------------------- | ------------------------------------------------------- | --------------------------------------------- | -------- |
-| **Hash**                | Deterministic hash of column value                      | Even distribution, point lookups              | 1        |
-| **Identity**            | Column value used directly as keyspace ID               | Pre-hashed data                               | 0        |
-| **Lookup (Unique)**     | Persistent backing table mapping values to keyspace IDs | Secondary index on non-sharding column        | 10       |
-| **Lookup (Non-unique)** | Same, but one-to-many mapping                           | Search by non-unique attributes               | 20       |
-| **Custom**              | User-provided function                                  | Vendor-based routing, geographic partitioning | Variable |
+[^5]: [Vindexes — The Vitess Docs](https://vitess.io/docs/22.0/reference/features/vindexes/). The cost column is taken directly from the official cost table; lower-cost Vindexes are chosen first by the planner.
 
-The cost values determine query planning priority—VTGate uses the applicable Vindex with the lowest cost for routing.
+**Critical design constraint**: Horizontal sharding requires converting many-to-many relationships into one-to-one or one-to-many hierarchies. Cross-shard relationships are maintained through lookup Vindexes that are updated during writes — Vitess offers `consistent_lookup` and `consistent_lookup_unique` variants that avoid two-phase commit by using carefully ordered locking[^5].
 
-**Critical design constraint**: Horizontal sharding requires converting many-to-many relationships into one-to-one or one-to-many hierarchies. Cross-shard relationships must be maintained through asynchronous consistency—lookup Vindexes that are updated during writes.
+### Resharding: Growing to 256 Shards
 
-### Resharding: Growing from 4 to 256 Shards
+YouTube grew its largest keyspace to 256 shards through repeated splitting, where each pass doubled capacity. The mechanism is a multi-phase workflow built on VReplication:
 
-YouTube grew from 4 shards to 256 through exponential splitting, each split doubling capacity. The resharding workflow uses VReplication:
+1. **Create target shards.** New empty MySQL instances are provisioned for the target shard ranges.
+2. **Start VReplication streams.** VReplication copies all data from source shards to target shards using a "pull" model — target tablets subscribe to source change events via the binary log[^6].
+3. **Catch up.** Once the bulk copy completes, VReplication enters streaming mode, applying ongoing changes to keep targets in lockstep with sources.
+4. **Verify.** [VDiff](https://vitess.io/docs/22.0/reference/vreplication/vdiff/) compares source and target data for row-level consistency.
+5. **Switch traffic.** [`SwitchTraffic`](https://vitess.io/docs/22.0/reference/vreplication/reshard/) stops writes on source primaries, waits for the target to reach the recorded source position, then atomically updates the topology so VTGate routes traffic to the new shards. The default catchup timeout is 30 s; VTGate buffers in-flight queries during the swap to keep the application-visible blip well under a second[^7].
+6. **Cleanup.** Old shards and replication artifacts are removed once `ReverseTraffic` rollback is no longer needed.
 
-1. **Create target shards**: New empty MySQL instances are provisioned
-2. **Start VReplication streams**: VReplication copies all data from source shards to target shards using a "pull" model—target tablets subscribe to source change events
-3. **Catch up**: Once the bulk copy completes, VReplication enters streaming mode, applying ongoing changes to keep targets in sync
-4. **Verify**: VDiff compares source and target data for consistency
-5. **Switch traffic**: SwitchTraffic first stops writes on source primaries, waits for replication to catch up (typically seconds), then atomically updates the topology to route all traffic to the new shards
-6. **Cleanup**: Old shards and replication artifacts are removed
+Capacity planning at YouTube was a monthly meeting that decided which keyspaces needed another split[^1]. Because each split doubles capacity, growth quickly outruns the need to reshard — Sugu and Jiten describe a state where capacity becomes "no-stress" once you are several doublings ahead of demand.
 
-The write unavailability during the cutover step is typically a few seconds. At 256 shards, Sugu believed they might never need to reshard again—each subsequent split doubles capacity exponentially.
+![VReplication-driven resharding workflow at Vitess: VReplication streams populate target shards while sources keep serving, VDiff verifies row-level parity, then SwitchTraffic atomically flips topology with VTGate buffering bridging the cutover.](./diagrams/vreplication-resharding-workflow-light.svg "VReplication-driven resharding workflow: copy + stream, verify, then atomically switch with VTGate buffering masking the sub-second write pause.")
+![VReplication-driven resharding workflow at Vitess: VReplication streams populate target shards while sources keep serving, VDiff verifies row-level parity, then SwitchTraffic atomically flips topology with VTGate buffering bridging the cutover.](./diagrams/vreplication-resharding-workflow-dark.svg)
+
+[^6]: [VReplication Overview — The Vitess Docs](https://vitess.io/docs/22.0/reference/vreplication/vreplication/) and [VStream](https://vitess.io/docs/22.0/reference/vreplication/vstream/).
+[^7]: [Reshard — The Vitess Docs](https://vitess.io/docs/22.0/reference/vreplication/reshard/). VTGate query buffering during cutover is documented in the same page under "How traffic is switched."
 
 ### Running on Borg: Cloud-Native Before Cloud-Native
 
-In 2013, Google mandated that YouTube move all data into Google's internal infrastructure (Borg). This constraint inadvertently made Vitess cloud-native:
+In 2013, Google mandated that YouTube move all data into Google's internal infrastructure (Borg). This constraint inadvertently made Vitess cloud-native[^1]:
 
-- **Ephemeral local disk**: Borg treated local storage as temporary. Vitess had to handle MySQL running on storage that could disappear.
-- **Semi-synchronous replication**: To ensure durability despite ephemeral storage, Vitess configured MySQL so primaries only acknowledge commits after at least one replica has received the transaction in its relay log. This guaranteed that data survived even if the primary's disk was reclaimed.
-- **Automated failover**: With ephemeral infrastructure, node loss was routine. Vitess automated the entire reparenting process:
-  - **PlannedReparentShard**: For scheduled maintenance—gracefully transitions the primary role to a chosen replica
-  - **EmergencyReparentShard**: For unplanned failures—promotes the most advanced replica based on GTID (Global Transaction Identifier) position
+- **Ephemeral local disk**: Borg treated local storage as temporary. Vitess had to handle MySQL running on storage that could disappear at any reschedule.
+- **Semi-synchronous replication**: To preserve durability despite ephemeral storage, MySQL was configured so a primary only acknowledges a commit after at least one replica has received the transaction in its relay log[^1]. This guaranteed that data survived even if the primary's local disk was reclaimed.
+- **Automated failover**: With ephemeral infrastructure, node loss was routine. Vitess automated the entire reparenting process via [`PlannedReparentShard`](https://vitess.io/docs/22.0/user-guides/configuration-advanced/reparenting/#plannedreparentshard) (graceful, for scheduled maintenance) and [`EmergencyReparentShard`](https://vitess.io/docs/22.0/user-guides/configuration-advanced/reparenting/#emergencyreparentshard) (promotes the most advanced replica based on GTID position).
 
-This Borg experience directly translated to Kubernetes compatibility when Vitess was open-sourced. The assumption that infrastructure is ephemeral—the core tenet of cloud-native design—was baked in from 2013.
+This Borg experience translated directly to Kubernetes compatibility when Vitess open-sourced. The assumption that infrastructure is ephemeral — the core tenet of cloud-native design — was baked in from 2013, well before the term existed in CNCF marketing.
 
 ### Language Choice: Go
 
-Vitess was written in Go starting in 2010, before Go 1.0 was released. Sugu described the decision as trusting the language's creators—Rob Pike, Russ Cox, Ken Thompson, and Robert Griesemer—and called it "one of the best decisions we have ever made."
+Vitess was written in Go starting in 2010, before Go 1.0 was released. Sugu described the decision as trusting the language's creators — Rob Pike, Russ Cox, Ken Thompson, and Robert Griesemer — and called it "one of the best decisions we have ever made"[^1].
 
 Go's goroutines and channels mapped naturally to Vitess's concurrency model: handling thousands of simultaneous database connections, parallel query execution across shards, and streaming replication events.
 
 ### VReplication: The Underlying Primitive
 
-VReplication is a change-data-capture (CDC) system built into Vitess. Sugu called it "one of the best technologies we ever built in Vitess." It subscribes to MySQL's binary log events and materializes tables in different forms elsewhere.
+VReplication is the change-data-capture (CDC) substrate built into Vitess. It subscribes to MySQL's binary log events on the source side and materializes the result on the target side — possibly with filtering, transformation, or projection[^6].
 
 **Uses:**
 
-- **Resharding**: Copies and streams data during shard splits
-- **Online DDL**: Creates a shadow table with the new schema, uses VReplication to populate it, then atomically switches. This replaced the need for external tools like gh-ost or pt-online-schema-change, though Vitess also supports those.
-- **Materialized views**: Creates denormalized copies of data in other keyspaces
-- **Cross-cluster replication**: Feeds data to analytics systems or disaster recovery clusters
-
-VReplication provides INSERT, UPDATE, and DELETE events via the VStream API, eliminating the need for separate ETL tooling for change data capture.
+- **Resharding**: Copies and streams data during shard splits (described above).
+- **Online DDL**: Creates a shadow table with the new schema, uses VReplication to backfill and tail it, then atomically switches. Vitess can also delegate to external tools like `gh-ost` or `pt-online-schema-change`.
+- **Materialized views and `MoveTables`**: Builds denormalized copies of data in other keyspaces, or moves whole tables between keyspaces with the same workflow as resharding.
+- **Cross-cluster replication / CDC**: Feeds data to analytics systems or disaster-recovery clusters via the [VStream](https://vitess.io/docs/22.0/reference/vreplication/vstream/) gRPC API. Debezium and similar tools consume VStream directly.
 
 ## Outcome
 
 ### Scale Achieved
 
-| Metric                          | Value                                                 |
-| ------------------------------- | ----------------------------------------------------- |
-| **Peak QPS**                    | Tens of millions (50M+ reported by secondary sources) |
-| **MySQL instances**             | 10,000+ across 20+ cells                              |
-| **Maximum shards per keyspace** | 256                                                   |
-| **Replicas per primary**        | 75 (up to 80-100)                                     |
-| **Active serving period**       | 2011-2019 (all YouTube database traffic)              |
-| **Users served**                | 2.49 billion monthly active users                     |
-| **Uptime**                      | 99.99%                                                |
+| Metric                          | Value                                                                 |
+| ------------------------------- | --------------------------------------------------------------------- |
+| **Peak QPS (YouTube-wide)**     | Tens of millions of QPS at peak[^1]                                   |
+| **MySQL instances**             | Thousands of MySQL instances managed under Vitess[^1]                 |
+| **Maximum shards per keyspace** | 256[^1]                                                               |
+| **Replicas per primary**        | 80–100[^1]                                                            |
+| **Cells (data centers)**        | 20[^1]                                                                |
+| **Active serving period**       | ~2011 onward as the core MySQL serving infrastructure[^2]             |
+| **Users served (2024)**         | ~2.49 billion monthly active YouTube users (2024 figure)              |
 
 ### Operational Improvements
 
@@ -336,34 +346,41 @@ VReplication provides INSERT, UPDATE, and DELETE events via the VStream API, eli
 
 ### The Spanner Migration
 
-Between 2011 and 2019, Vitess served all YouTube database traffic. Around 2019, YouTube began migrating to Google Cloud Spanner. The drivers were both technical and organizational:
+> [!NOTE]
+> Specifics of YouTube's internal database migration to Spanner are not described in any official Google publication. The summary below is reconstructed from community discussion and the publicly known trajectory of Google's storage standardization on Spanner; treat exact dates and scope as approximate.
+
+In the late 2010s, parts of YouTube's data layer began moving to Google Cloud Spanner. Plausible drivers were both technical and organizational:
 
 **Technical factors:**
 
-- Spanner offered global strong consistency without the CAP-theorem trade-offs inherent in MySQL replication
-- Cross-shard transactions in Vitess lacked isolation guarantees (concurrent reads could observe partial commits)
-- Spanner eliminated the operational overhead of managing MySQL replication topology
+- Spanner provides global, externally-consistent transactions[^4] — something Vitess's two-phase commit can approximate within a cluster but not at the global, single-snapshot level Spanner offers.
+- Cross-shard transactions in Vitess require either careful application sequencing or 2PC; the latter has well-known throughput costs[^1].
+- Spanner removes the operational overhead of managing MySQL primary/replica topology entirely.
 
 **Organizational factors:**
 
-- Google policy was to standardize on Spanner across the organization. As one insider noted, this was "not a technical decision" but a corporate standardization choice.
+- Google's broader strategy has been to standardize on Spanner internally; once a managed Spanner offering exists and is mandated, the marginal cost to YouTube of running its own MySQL fleet rises every year.
 
-This migration validates a key lesson: Vitess was the right solution for 2010-2019, buying YouTube nearly a decade of MySQL scaling while Spanner matured. The middleware approach is inherently a bridge—it extends MySQL's useful life but doesn't eliminate its fundamental limitations around distributed transactions and global consistency.
+This trajectory underlines a recurring lesson: Vitess was the right solution for the 2010s, buying YouTube nearly a decade of MySQL scaling while Spanner matured. The middleware approach is inherently a bridge — it extends a relational database's useful life but doesn't eliminate its fundamental limits around distributed transactions and global consistency.
 
 ### Industry Adoption
 
 After YouTube, Vitess was adopted by companies facing similar scaling challenges:
 
-| Company          | Scale                                             | Use Case                                                                                |
-| ---------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **Slack**        | 2.3M QPS at peak, 3-year migration (2017-2020)    | Replaced workspace-based sharding; resharded by channel ID for better load distribution |
-| **GitHub**       | Maintains a public Vitess fork (github/vitess-gh) | MySQL horizontal partitioning                                                           |
-| **HubSpot**      | 400 to 700 MySQL clusters, 3-5 person team        | Provisioning reduced from days to minutes; failover in seconds                          |
-| **JD.com**       | 30M QPS during peak sales (reported)              | E-commerce transaction data in containerized environments                               |
-| **Square/Block** | 16+ shards                                        | Cash App financial transactions                                                         |
-| **Shopify**      | Multi-terabyte, billions of rows                  | Shop app horizontal scaling; schema migrations reduced from weeks to hours              |
+| Company          | Scale                                                                | Use case                                                                                  |
+| ---------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Slack**        | 2.3M QPS at peak (2M reads + 300K writes); ~3-year migration to 99% by Dec 2020 | Replaced workspace-based sharding with channel-ID sharding to spread load and survive 2020 traffic surges[^8] |
+| **GitHub**       | Public fork at [github/vitess-gh](https://github.com/github/vitess-gh) | MySQL horizontal partitioning for GitHub.com                                              |
+| **HubSpot**      | >1,000 MySQL clusters per environment; ~750 Vitess shards per data center; ~1M QPS steady state | Vitess on Kubernetes for HA and managed failover[^9]                                       |
+| **JD.com**       | Tens of thousands of MySQL containers; millions of tables, trillions of rows | E-commerce data on Kubernetes-managed Vitess[^10]                                          |
+| **Square/Block** | Cash App on Vitess (sharded across tens of shards as of last public talks) | Financial transaction data                                                                |
+| **Shopify**      | Multi-terabyte, billions of rows                                     | Shop-app horizontal scaling                                                               |
 
-Vitess graduated as a CNCF (Cloud Native Computing Foundation) project in November 2019—the eighth project to graduate after Kubernetes, Prometheus, Envoy, CoreDNS, containerd, Fluentd, and Jaeger. PlanetScale, founded in 2018 by Vitess co-creators Sugu Sougoumarane and Jiten Vaidya, commercialized Vitess as a managed database service.
+Vitess graduated as a [CNCF project on November 5, 2019](https://www.cncf.io/announcements/2019/11/05/cloud-native-computing-foundation-announces-vitess-graduation/) — the eighth project to graduate, after Kubernetes, Prometheus, Envoy, CoreDNS, containerd, Fluentd, and Jaeger. [PlanetScale](https://planetscale.com), founded in 2018 by Vitess co-founders Sugu Sougoumarane and Jiten Vaidya, commercialized Vitess as a managed database service[^1].
+
+[^8]: Rafael Chacón Vivas, [Scaling Datastores at Slack with Vitess](https://slack.engineering/scaling-datastores-at-slack-with-vitess/), Slack Engineering (Dec 2020).
+[^9]: HubSpot Product & Engineering, [Improving Reliability: Building a Vitess Balancer to Minimize MySQL Downtime](https://product.hubspot.com/blog/improving-reliability) and [How HubSpot Upgraded a Thousand MySQL Clusters at Once](https://product.hubspot.com/blog/hubspot-upgrades-mysql).
+[^10]: CNCF, [How JD.com uses Vitess to manage scaling databases for hyperscale](https://www.cncf.io/blog/2019/08/01/how-jd-com-uses-vitess-to-manage-scaling-databases-for-hyperscale/) (Aug 2019).
 
 ## Lessons Learned
 
@@ -381,13 +398,13 @@ Vitess graduated as a CNCF (Cloud Native Computing Foundation) project in Novemb
 
 **The insight:** MySQL's connection model (one thread per connection, significant per-connection memory overhead) makes unbounded connections a reliability risk. VTTablet's lock-free connection pool was the first Vitess feature because cascading connection storms were the most immediate threat.
 
-**How it applies elsewhere:** Any system with a connection-per-request model will eventually hit a ceiling. The answer isn't "just add more connections"—it's centralizing connection management in a pool with a hard ceiling. MySQL's SSL handshake can add up to 50ms per connection, making connection reuse critical for latency-sensitive workloads.
+**How it applies elsewhere:** Any system with a connection-per-request model will eventually hit a ceiling. The answer isn't "just add more connections" — it's centralizing connection management in a pool with a hard ceiling. MySQL's SSL handshake alone can add up to ~50 ms per connection[^3], making reuse critical for latency-sensitive workloads.
 
 **Warning signs to watch for:** If your database connection count correlates linearly with your application fleet size, you will eventually hit the database's connection limit during a traffic spike or failover event.
 
 #### 3. Middleware Buys Time, Not Eternity
 
-**The insight:** Vitess gave YouTube nearly a decade of MySQL scaling (2011-2019). But the fundamental limitations of MySQL-with-middleware—no cross-shard transaction isolation, no global strong consistency, operational complexity of managing replication—remained. YouTube eventually migrated to Spanner when it matured.
+**The insight:** Vitess gave YouTube the better part of a decade of MySQL scaling (early 2010s onward). But the fundamental limitations of MySQL-with-middleware — no cross-shard transaction isolation, no global strong consistency, operational complexity of managing replication — remained. YouTube eventually moved substantial workloads to Spanner once it matured.
 
 **How it applies elsewhere:** If you're evaluating Vitess or similar middleware, understand that it extends your current database's useful life but doesn't eliminate its architectural constraints. Plan for the eventual migration—the middleware phase should be buying time while you evaluate and prepare for the next platform, not avoiding the decision indefinitely.
 
@@ -415,7 +432,7 @@ Vitess graduated as a CNCF (Cloud Native Computing Foundation) project in Novemb
 
 #### 1. Corporate Standardization Can Override Technical Fit
 
-YouTube's migration from Vitess to Spanner was partly driven by Google's policy to standardize on Spanner—not purely by technical limitations of Vitess. This is a common pattern in large organizations: the "best" technology for a team may lose to the "standard" technology for the organization.
+YouTube's migration toward Spanner was driven partly by Google's broader push to standardize on Spanner — not purely by technical limitations of Vitess. This is a common pattern in large organizations: the "best" technology for a team may lose to the "standard" technology for the organization.
 
 **Implication:** When building systems, consider both technical fit and organizational trajectory. If your organization is converging on a standard data platform, building extensive middleware for an alternative may create technical debt that accelerates rather than defers migration.
 
@@ -462,11 +479,11 @@ If you want to explore Vitess:
 
 Vitess represents a pragmatic engineering philosophy: rather than rebuilding from scratch, extend what works. YouTube took a database (MySQL) that was well-understood, well-tested, and deeply embedded in their stack, and built a middleware layer that addressed its scaling limitations without abandoning its strengths.
 
-The architectural bet—building a full SQL parser in a proxy layer—was the critical decision. It transformed a connection pooler into a distributed database that served 2.49 billion users across tens of thousands of MySQL instances for nearly a decade.
+The architectural bet — building a full SQL parser in a proxy layer — was the critical decision. It transformed a connection pooler into a distributed database that fronted thousands of MySQL instances across 20 cells and served YouTube's billions of monthly users for the better part of a decade.
 
-But Vitess also illustrates the limits of the middleware approach. Cross-shard transaction isolation, global strong consistency, and the operational complexity of managing MySQL replication topology at scale are fundamental constraints that a proxy layer cannot fully resolve. YouTube's eventual migration to Spanner confirms that middleware extends, but does not eliminate, the need for purpose-built distributed databases at global scale.
+But Vitess also illustrates the limits of the middleware approach. Cross-shard transaction isolation, global strong consistency, and the operational complexity of managing MySQL replication topology at scale are fundamental constraints that a proxy layer cannot fully resolve. YouTube's eventual migration of substantial workloads to Spanner reinforces the point: middleware extends, but does not eliminate, the need for a purpose-built distributed database at global scale.
 
-For the majority of organizations—those that need horizontal MySQL scaling but operate at less than YouTube's 50M QPS—Vitess remains one of the most battle-tested solutions available. The key is understanding what it optimizes (single-shard OLTP, operational automation, transparent resharding) and what it sacrifices (cross-shard isolation, full MySQL feature compatibility).
+For the majority of organizations — those that need horizontal MySQL scaling but operate at meaningfully less than YouTube's tens-of-millions QPS — Vitess remains one of the most battle-tested solutions available. The key is understanding what it optimizes (single-shard OLTP, operational automation, transparent resharding) and what it sacrifices (cross-shard isolation, full MySQL feature compatibility).
 
 ## Appendix
 
@@ -489,30 +506,16 @@ For the majority of organizations—those that need horizontal MySQL scaling but
 | **Topology Service** | Distributed metadata store (etcd, ZooKeeper, or Consul) holding shard maps and tablet information           |
 | **Keyspace ID**      | A computed value that determines which shard a row belongs to                                               |
 
-### Summary
+### Further reading
 
-- YouTube built Vitess starting in 2010 to address cascading connection storms and operational fragility in their MySQL infrastructure, which had been manually sharded to 4 databases
-- The foundational decision was building a full SQL parser, which enabled query routing, safety enforcement, deduplication, and transparent resharding—transforming a connection pooler into a distributed database
-- VTTablet's connection pool was the first feature, solving the immediate crisis of 5,000 simultaneous connections crashing primaries on failover
-- YouTube scaled from 4 shards to 256, with 75+ replicas per primary across 20 data centers, serving tens of millions of QPS
-- Vitess served all YouTube database traffic from 2011 to 2019 before YouTube migrated to Google Spanner, driven by both technical needs (global consistency) and organizational standardization
-- The project graduated from CNCF in November 2019 and is now used by Slack, GitHub, HubSpot, JD.com, Square, and Shopify, among others
-
-### References
-
-- [Vitess: Scaling MySQL at YouTube Using Go - USENIX LISA '12](https://www.usenix.org/conference/lisa12/vitess-scaling-mysql-youtube-using-go) - Sugu Sougoumarane and Mike Solomon's original presentation (December 2012)
-- [Vitess Official Documentation - History](https://vitess.io/docs/22.0/overview/history/) - Project timeline and milestones
-- [SE Radio 560: Sugu Sougoumarane on Distributed SQL with Vitess](https://se-radio.net/2023/04/se-radio-560-sugu-sougoumarane-on-distributed-sql-with-vitess/) - Detailed interview covering architecture, design decisions, and YouTube scale numbers
-- [Percona Live Talk: Vitess: The Complete Story](https://vitess.io/blog/2016-03-10-percona-live-featured-talk-with-sugu-sougoumarane-vitess-the-complete-story/) - Sugu Sougoumarane's comprehensive talk on Vitess origins and naming
-- [The Changelog #485: The Story of Vitess](https://changelog.com/podcast/485) - Deepthi Sigireddi on Vitess history and architecture
-- [Software at Scale 29: Sugu Sougoumarane, CTO PlanetScale](https://www.softwareatscale.dev/p/software-at-scale-29-sugu-sougoumarane) - Origin story, naming, YouTube scale details
-- [CNCF Vitess Graduation Announcement](https://www.cncf.io/announcements/2019/11/05/cloud-native-computing-foundation-announces-vitess-graduation/) - Graduation details and adopter list
-- [CNCF Vitess Project Journey Report](https://www.cncf.io/reports/vitess-project-journey-report/) - Contributor and adoption metrics
-- [Scaling Datastores at Slack with Vitess](https://slack.engineering/scaling-datastores-at-slack-with-vitess/) - Slack's 3-year migration case study
-- [Vitess Connection Pooling Blog](https://vitess.io/blog/2023-03-27-connection-pooling-in-vitess/) - Connection pooling technical details
-- [Vitess Distributed Transactions](https://vitess.io/blog/2016-06-07-distributed-transactions-in-vitess/) - 2PC implementation and trade-offs
-- [Vitess MySQL Compatibility](https://vitess.io/docs/22.0/reference/compatibility/mysql-compatibility/) - Complete list of supported and unsupported MySQL features
-- [Vitess Vindexes Documentation](https://vitess.io/docs/22.0/reference/features/vindexes/) - Vindex types, cost model, and configuration
-- [PlanetScale: One Million QPS with MySQL](https://planetscale.com/blog/one-million-queries-per-second-with-mysql) - Benchmark demonstrating linear scaling with shard count
-- [They Scaled YouTube—Now They'll Shard Everyone with PlanetScale (TechCrunch)](https://techcrunch.com/2018/12/13/planetscale/) - PlanetScale founding and Vitess commercialization
-- [Kubernetes Podcast Episode 81: Vitess](https://kubernetespodcast.com/episode/081-vitess/) - Jiten Vaidya and Sugu Sougoumarane on Vitess and PlanetScale
+- [Vitess: Scaling MySQL at YouTube Using Go](https://www.usenix.org/conference/lisa12/vitess-scaling-mysql-youtube-using-go) — Sugu Sougoumarane and Mike Solomon's original presentation (USENIX LISA '12, December 2012).
+- [Vitess Official Documentation — History](https://vitess.io/docs/22.0/overview/history/) — project timeline and milestones.
+- [Vitess Documentation — Sharding & Vindexes](https://vitess.io/docs/22.0/reference/features/vindexes/) — Vindex types, cost model, and configuration.
+- [Vitess Documentation — VReplication](https://vitess.io/docs/22.0/reference/vreplication/vreplication/) and [Reshard](https://vitess.io/docs/22.0/reference/vreplication/reshard/) — the resharding workflow in detail.
+- [Vitess Documentation — MySQL compatibility](https://vitess.io/docs/22.0/reference/compatibility/mysql-compatibility/) — complete list of supported and unsupported MySQL features.
+- [Connection pooling in Vitess](https://vitess.io/blog/2023-03-27-connection-pooling-in-vitess/) — VTTablet pool implementation, settings pool, and tradeoffs.
+- [Distributed transactions in Vitess](https://vitess.io/blog/2016-06-07-distributed-transactions-in-vitess/) — 2PC implementation and the three transaction modes.
+- [CNCF Vitess Graduation Announcement](https://www.cncf.io/announcements/2019/11/05/cloud-native-computing-foundation-announces-vitess-graduation/) and [Vitess Project Journey Report](https://www.cncf.io/reports/vitess-project-journey-report/) — adoption and community metrics.
+- [Scaling Datastores at Slack with Vitess](https://slack.engineering/scaling-datastores-at-slack-with-vitess/) — Slack's 3-year migration case study.
+- [Kubernetes Podcast Episode 81: Vitess](https://kubernetespodcast.com/episode/081-vitess/) — Jiten Vaidya and Sugu Sougoumarane on Vitess origin, YouTube scale, Borg, and PlanetScale.
+- [Spanner: Google's Globally-Distributed Database](https://research.google/pubs/spanner-googles-globally-distributed-database-2/) — OSDI 2012 paper, the database YouTube eventually targets.

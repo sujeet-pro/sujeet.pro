@@ -6,23 +6,26 @@ description: >-
   collector caused unavoidable 2-minute latency spikes by scanning millions of live
   cache entries, and Rust's ownership model eliminated them entirely.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - reliability
-  - outages
+  - performance
+  - rust
+  - go
+  - garbage-collection
 ---
 
 # Discord: Rewriting Read States from Go to Rust
 
 How Discord eliminated periodic latency spikes in their most heavily accessed service by rewriting it from Go to Rust—and why the garbage collector, not the application code, was the bottleneck. The Read States service tracks which channels every user has read across billions of states, and its performance directly affects every connection, every message send, and every message acknowledgment on the platform.
 
-![Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.](./diagrams/discord-s-read-states-service-before-and-after-the-rust-rewrite-the-go-gc-had-to-light.svg "Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.")
-![Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.](./diagrams/discord-s-read-states-service-before-and-after-the-rust-rewrite-the-go-gc-had-to-dark.svg)
+![Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.](./diagrams/architecture-before-after-light.svg "Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.")
+![Discord's Read States service before and after the Rust rewrite. The Go GC had to scan the entire LRU cache every 2 minutes; Rust's ownership model frees evicted entries immediately with zero scanning overhead.](./diagrams/architecture-before-after-dark.svg)
 
 ## Abstract
 
-Discord's Read States service is a cache-heavy, latency-sensitive system that tracks per-user, per-channel read positions across billions of states. The Go implementation suffered periodic latency spikes of 10–40 ms every ~2 minutes—not because of application bugs, but because Go's garbage collector must scan the entire live heap to determine reachability, and the service held tens of millions of live objects in an LRU (Least Recently Used) cache.
+Discord's [Read States service](https://discord.com/blog/why-discord-is-switching-from-go-to-rust) is a cache-heavy, latency-sensitive system that tracks per-user, per-channel read positions across billions of states. The Go implementation suffered periodic latency spikes every ~2 minutes—not because of application bugs, but because Go's garbage collector must scan the entire live heap to determine reachability, and the service held tens of millions of live objects in an LRU (Least Recently Used) cache.
 
 The core mental model:
 
@@ -40,19 +43,22 @@ The transferable insight: for services with large in-memory caches (millions of 
 
 ### The System
 
-Discord's Read States service tracks which channels and messages each user has read. There is one Read State per user per channel, containing:
+Discord's Read States service tracks which channels and messages each user has read. There is one Read State per user per channel. Discord's blog post explicitly names only one field — an **@mention counter** — and notes each Read State carries "several counters that need to be updated atomically and often reset to 0". The product behavior implies at minimum:
 
-- **channel_id** — the channel this state applies to
-- **last_message_id** — the Snowflake ID of the last message the user acknowledged
-- **mention_count** — number of unread @mentions in that channel
+- A **last-acknowledged message reference** (Snowflake ID) — drives the unread indicator (white dot on channels)
+- A **mention counter** — drives the @mention badge counts on servers and channels
+- Channel scoping (one Read State per user per channel)
 
-This data powers the unread indicator (white dot on channels), @mention badge counts on servers and channels, and notification state across all devices.
+This data powers the unread indicator, @mention badges, and notification state across all devices.
 
 The service sits in the **hot path** of three critical flows:
 
 1. **User connection**: the WebSocket `READY` event includes the full read states array
 2. **Message send**: updates mention counts for @mentioned users
-3. **Message acknowledgment**: updates `last_message_id` when a user reads a channel
+3. **Message acknowledgment**: updates the last-acknowledged message ID when a user reads a channel
+
+![Single Read States server node — clients hit an in-process LRU cache holding tens of millions of Read States, with deferred and eviction-time writes flushing to Cassandra.](./diagrams/read-states-architecture-light.svg "Single Read States server node — clients hit an in-process LRU cache holding tens of millions of Read States, with deferred and eviction-time writes flushing to Cassandra.")
+![Single Read States server node — clients hit an in-process LRU cache holding tens of millions of Read States, with deferred and eviction-time writes flushing to Cassandra.](./diagrams/read-states-architecture-dark.svg)
 
 ### Scale at the Time of Rewrite (~2019)
 
@@ -72,7 +78,11 @@ Each Read States server node maintains an in-memory LRU cache backed by Cassandr
 2. **Write path**: Update the Read State atomically in the LRU cache. Schedule a Cassandra write 30 seconds in the future (batching dirty entries).
 3. **Eviction path**: When the LRU evicts an entry, commit it to Cassandra immediately before freeing memory.
 
-> **Prior to the Go implementation**, Read States used Redis with Lua scripts for atomic counter operations. That approach hit performance limits at Discord's scale, leading to the Go service backed by Cassandra.
+![Read, write, and eviction paths through one Read States node. The write path acks the caller in microseconds and defers the Cassandra round-trip; eviction flushes before freeing memory.](./diagrams/read-write-paths-light.svg "Read, write, and eviction paths through one Read States node. The write path acks the caller in microseconds and defers the Cassandra round-trip; eviction flushes before freeing memory.")
+![Read, write, and eviction paths through one Read States node. The write path acks the caller in microseconds and defers the Cassandra round-trip; eviction flushes before freeing memory.](./diagrams/read-write-paths-dark.svg)
+
+> [!NOTE]
+> A predecessor Redis + Lua implementation is mentioned in the Hacker News discussion of the post by Discord engineers, not in the primary blog. Treat it as supplementary context rather than a load-bearing claim.
 
 ### Constraints
 
@@ -84,10 +94,13 @@ Each Read States server node maintains an in-memory LRU cache backed by Cassandr
 
 ### Symptoms
 
-The Go implementation exhibited a distinctive **sawtooth latency pattern**: every roughly 2 minutes, response times spiked from microseconds to **10–40 milliseconds**, with corresponding CPU spikes. The pattern was perfectly periodic, independent of traffic volume, and affected every node identically.
+The Go implementation exhibited a distinctive **sawtooth latency pattern**: every roughly 2 minutes, response times spiked from microseconds into the **tens of milliseconds**, with corresponding CPU spikes. The pattern was perfectly periodic, independent of traffic volume, and affected every node identically.
 
-![Stylized representation of the Go service's sawtooth latency pattern. Every ~2 minutes, latency spiked to 10–40 ms before returning to baseline. Based on the latency chart from Discord's engineering blog.](./diagrams/stylized-representation-of-the-go-service-s-sawtooth-latency-pattern-every-2-min-light.svg "Stylized representation of the Go service's sawtooth latency pattern. Every ~2 minutes, latency spiked to 10–40 ms before returning to baseline. Based on the latency chart from Discord's engineering blog.")
-![Stylized representation of the Go service's sawtooth latency pattern. Every ~2 minutes, latency spiked to 10–40 ms before returning to baseline. Based on the latency chart from Discord's engineering blog.](./diagrams/stylized-representation-of-the-go-service-s-sawtooth-latency-pattern-every-2-min-dark.svg)
+> [!NOTE]
+> Discord's blog reports the spikes as charts rather than precise percentile values. The pattern—periodic spikes correlated with GC, latency two-to-three orders of magnitude above baseline—is what matters; the exact magnitudes are visual reads from the published graphs.
+
+![Stylized read of Discord's published charts: Go's response time spikes into the tens of milliseconds every ~2 minutes; the Rust port's response time stays flat in the sub-millisecond range with no GC cycles.](./diagrams/go-sawtooth-latency-light.svg "Stylized read of Discord's published charts: Go's response time spikes into the tens of milliseconds every ~2 minutes; the Rust port's response time stays flat in the sub-millisecond range with no GC cycles.")
+![Stylized read of Discord's published charts: Go's response time spikes into the tens of milliseconds every ~2 minutes; the Rust port's response time stays flat in the sub-millisecond range with no GC cycles.](./diagrams/go-sawtooth-latency-dark.svg)
 
 ### Root Cause Analysis
 
@@ -101,7 +114,7 @@ The Go implementation exhibited a distinctive **sawtooth latency pattern**: ever
 
 ### Why the 2-Minute Cycle Was Inescapable
 
-Go's runtime includes a background monitor goroutine (`sysmon`) that forces a garbage collection if none has occurred in the last 2 minutes (`forcegcperiod`). This is hardcoded in the Go runtime. Even if the service allocates almost no new memory—meaning the heap-growth-based GOGC trigger never fires—`sysmon` forces a full GC every 2 minutes regardless.
+Go's runtime includes a background monitor goroutine (`sysmon`) that forces a garbage collection if none has occurred in the last 2 minutes. The trigger is the [`forcegcperiod` constant](https://github.com/golang/go/blob/release-branch.go1.9/src/runtime/proc.go) defined as `2 * 60 * 1e9` nanoseconds in `runtime/proc.go`—the exact constant Discord's engineers found while tracing the spikes ([Howarth, 2020](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)). Even if the service allocates almost no new memory—meaning the heap-growth-based GOGC trigger never fires—`sysmon` forces a full GC every 2 minutes regardless.
 
 For a service with a massive live heap and minimal garbage production, this creates an unavoidable periodic penalty: the forced GC must walk the entire live heap even when there is almost nothing to collect.
 
@@ -200,7 +213,7 @@ The service architecture remained conceptually identical—an LRU cache backed b
 
 **Before (Go):**
 
-```
+```text
 Request → LRU Cache (HashMap, Go-managed heap)
                 ↓ eviction
          GC eventually frees memory
@@ -211,7 +224,7 @@ Request → LRU Cache (HashMap, Go-managed heap)
 
 **After (Rust):**
 
-```
+```text
 Request → LRU Cache (BTreeMap, Rust ownership)
                 ↓ eviction
          Drop trait frees memory immediately
@@ -248,7 +261,7 @@ The Rust rewrite used the **Tokio** async runtime. In early 2019, Rust's `async`
 
 During deployment, Tokio released version 0.2—a major rewrite of the runtime. Discord upgraded and received CPU performance improvements for free, without any application code changes.
 
-A Discord engineer specifically noted Rust's futures model as a developer experience improvement over Go: dropping a future cancels it automatically, compared to Go's pattern of threading `context.Context` through every function for cancellation.
+A Discord engineer (HN handle `jhgg`) specifically noted Rust's futures model as a developer experience improvement over Go: dropping a future cancels it automatically, compared to Go's pattern of threading `context.Context` through every function for cancellation, and channel sends to a closed receiver surface a typed error rather than blocking forever.[^hn-jhgg]
 
 #### Post-Launch Optimizations
 
@@ -290,7 +303,8 @@ Discord did not publish specific details about their rollout strategy (canary pe
 | LRU cache capacity      | Constrained (to limit GC impact) | **8 million entries** | Unconstrained by GC            |
 | CPU spike during GC     | Visible every ~2 min             | **None**              | No GC exists                   |
 
-> **Note:** Discord's blog post presents before/after comparisons as charts rather than exact percentile values. The improvements are qualitative (flat vs. sawtooth) rather than precise p99 numbers. Third-party analysis of the charts estimated roughly **6.5x improvement at best case and up to 160x at worst case** (during Go's GC spikes), but these numbers are approximate visual readings.
+> [!NOTE]
+> Discord's post presents before/after as charts, not percentile tables. The improvement is qualitative — flat vs. sawtooth — and the post quotes the Rust steady-state as **microseconds for average and milliseconds for the @mention max**. The often-cited **6.5x – 160x** figure refers to Discord's earlier Elixir → Rust [`SortedSet` NIF rewrite](https://discord.com/blog/using-rust-to-scale-elixir-for-11-million-concurrent-users), not Read States; do not attribute it to this service.
 
 ### Timeline
 
@@ -316,7 +330,7 @@ Discord did not publish specific details about their rollout strategy (canary pe
 
 #### 1. GC Cost Scales with Live Heap, Not Garbage Volume
 
-**The insight:** In Go's tri-color mark-and-sweep GC, the mark phase must trace every pointer in every live object. The cost is approximately 4 CPU-milliseconds per MB of live heap. For a service holding millions of cache entries, this means significant CPU time is spent on GC even when the service produces almost no garbage. The forced 2-minute GC cycle (`sysmon`'s `forcegcperiod`) makes this inescapable.
+**The insight:** In Go's [tri-color mark-and-sweep GC](https://tip.golang.org/doc/gc-guide), the mark phase must trace every pointer in every live object. The cost is roughly proportional to the size of the live heap—not the volume of garbage. For a service holding millions of cache entries, this means significant CPU time is spent on GC even when the service produces almost no garbage. The forced 2-minute GC cycle (`sysmon`'s `forcegcperiod`) makes this inescapable.
 
 **How it applies elsewhere:**
 
@@ -417,7 +431,7 @@ The Read States rewrite was one step in a broader pattern of Rust adoption at Di
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ~2018 | **Elixir NIFs**: Sorted set implementation for member list management (6.5x–160x improvement over Elixir). Open-sourced as `discord/sorted_set_nif`.                                        |
 | ~2019 | **Read States service** rewritten from Go. **Video encoding pipeline** for Go Live feature.                                                                                                 |
-| 2022  | **Data services layer**: Rust gRPC intermediaries between API and ScyllaDB with request coalescing. **Data migration tool** for Cassandra-to-ScyllaDB migration (3.2 million messages/sec). |
+| 2022  | **Data services layer**: Rust gRPC intermediaries between API and ScyllaDB with request coalescing. **Data migration tool** for Cassandra-to-ScyllaDB migration (3.2 million records/sec; 9 days end-to-end; cluster shrunk from 177 → 72 nodes). |
 | 2023  | **Message indexing router**: Rust/Tokio `MessageRouter` streams from Google Cloud Pub/Sub and batches for Elasticsearch.                                                                    |
 | 2024+ | Rust established as Discord's primary language for performance-critical data services.                                                                                                      |
 
@@ -477,3 +491,5 @@ The broader lesson: for most services, GC overhead is an acceptable cost for dev
 - [Go's March to Low-Latency GC](https://blog.twitch.tv/en/2016/07/05/gos-march-to-low-latency-gc-a6fa96eb7/) — Twitch Engineering, July 2016. Go GC pause evolution across versions.
 - [Hacker News Discussion: Why Discord is switching from Go to Rust](https://news.ycombinator.com/item?id=22238335) — February 2020. Contains comments from Discord engineer "jhgg" with supplementary technical details.
 - [The Rust Programming Language — Ownership](https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html) — Official Rust documentation. Ownership model and deterministic deallocation.
+
+[^hn-jhgg]: Discord engineer `jhgg`'s comments across the [2020 Hacker News thread](https://news.ycombinator.com/item?id=22238335) and the [2022 re-post thread](https://news.ycombinator.com/item?id=31019234) on the Read States internals (~20 µs in-process processing time, futures vs. `context.Context` cancellation, channel-send error semantics). Treat as primary-source-adjacent practitioner notes, not as the canonical blog.

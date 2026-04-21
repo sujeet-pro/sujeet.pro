@@ -1,0 +1,17 @@
+%% Diagram: OR-Set add-wins concurrent add/remove
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Replica A
+    participant B as Replica B
+    Note over A,B: Both start with {x: ∅}
+    A->>A: add(x) → tag t1<br/>{x: {t1}}
+    B->>B: add(x) → tag t2<br/>{x: {t2}}
+    A-->>B: sync {x: {t1}}
+    B-->>A: sync {x: {t2}}
+    Note over A,B: Both: {x: {t1, t2}}
+    A->>A: remove(x)<br/>(only observes {t1, t2})<br/>{x: ∅}
+    B->>B: add(x) → tag t3<br/>{x: {t1, t2, t3}}
+    A-->>B: sync remove of {t1, t2}
+    B-->>A: sync {x: {t1, t2, t3}}
+    Note over A,B: Add-wins: t3 was not<br/>observed by remove → {x: {t3}}

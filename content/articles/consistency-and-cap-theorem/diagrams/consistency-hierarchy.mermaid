@@ -1,0 +1,15 @@
+%% Diagram: Consistency Model Hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    LIN["Linearizability\nReal-time order for all clients"]:::primary
+    SEQ["Sequential\nProgram order per process"]:::primary
+    CAU["Causal\nDependent operations ordered"]:::secondary
+    SES["Session\nRYW, monotonic reads/writes"]:::secondary
+    EVE["Eventual\nReplicas converge when quiescent"]:::storage
+
+    LIN --> SEQ --> CAU --> SES --> EVE
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff

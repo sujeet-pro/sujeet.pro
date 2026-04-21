@@ -1,0 +1,24 @@
+%% Diagram: Hybrid feed fan-out — push for normal accounts, pull for celebrities, merge at read
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Write["Write path (post created)"]
+        Post["New post by user U"]
+        Decision{"U has<br/>< follower threshold?"}
+        Post --> Decision
+        Decision -- "Yes (push)" --> FanOut["Fan-out worker<br/>writes media id to<br/>each follower's<br/>inbox_activities row"]
+        Decision -- "No (pull)" --> Skip["Skip fan-out<br/>store post in<br/>celebrity feed only"]
+    end
+
+    subgraph Read["Read path (feed render)"]
+        ReqFeed["GET /feed for user V"]
+        Cache{{"LRU feed cache hit?"}}
+        ReqFeed --> Cache
+        Cache -- "Hit" --> Merge
+        Cache -- "Miss" --> Parallel
+        Parallel["Parallel fetch:<br/>pre-computed inbox<br/>(Cassandra wide row)<br/>+ celebrity posts<br/>(pull, on demand)"] --> Merge["Merge & sort by time"]
+        Merge --> Resp["Render feed response"]
+    end
+
+    FanOut -. "writes" .-> Parallel
+    Skip -. "fetched on demand" .-> Parallel

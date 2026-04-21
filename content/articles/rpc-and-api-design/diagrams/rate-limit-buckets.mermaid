@@ -1,0 +1,22 @@
+%% Diagram: Token bucket vs leaky bucket — burst behavior at the edge
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Req([Request]) --> Mode{Algorithm}
+
+    Mode -- token bucket --> TBCheck{Token<br/>available?}
+    Refill[Refiller<br/>+r tokens/sec] --> Bucket[(Bucket<br/>capacity = burst)]
+    Bucket --> TBCheck
+    TBCheck -- yes --> TBPass[Pass<br/>burst-friendly]
+    TBCheck -- no --> TBDrop[429 Too Many Requests]
+
+    Mode -- leaky bucket --> LBQ{Queue<br/>full?}
+    LBQ -- no --> Queue[(Queue capacity)]
+    LBQ -- yes --> LBDrop[429 Too Many Requests]
+    Queue --> Leak[Drain at fixed rate r]
+    Leak --> LBPass[Pass<br/>smoothed output]
+
+    style TBPass fill:#cfc,stroke:#3a3
+    style LBPass fill:#cfc,stroke:#3a3
+    style TBDrop fill:#fcc,stroke:#a33
+    style LBDrop fill:#fcc,stroke:#a33

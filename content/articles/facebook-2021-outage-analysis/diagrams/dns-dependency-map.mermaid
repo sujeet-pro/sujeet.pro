@@ -1,0 +1,46 @@
+%% Diagram: DNS dependency map -- what the backbone makes possible
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    BB[("Facebook backbone\n(AS32934 internal WAN)")]:::failed
+
+    subgraph EDGE["Edge facilities (PoPs)"]
+        HEALTH["Backbone health probe"]
+        BGP["BGP advertisement\nof DNS-bearing prefixes\n(e.g. 129.134.30.0/24)"]
+        AUTHDNS["a–d.ns.facebook.com\nauthoritative DNS"]
+        HEALTH --> BGP
+        BGP --> AUTHDNS
+    end
+
+    subgraph PUBLIC["Public Internet"]
+        TRANSIT["Tier-1 transit + IXP peers\nrelay BGP routes"]
+        RES["Recursive resolvers\n1.1.1.1, 8.8.8.8, ISP"]
+        TRANSIT --> RES
+    end
+
+    subgraph META["Meta-owned services"]
+        FB["facebook.com"]
+        IG["instagram.com"]
+        WA["whatsapp.com"]
+        MS["messenger.com"]
+    end
+
+    subgraph EXT["External shared-fate consumers"]
+        OAUTH["3rd-party 'Login with Facebook'\nOAuth callbacks"]
+        SDK["Embedded FB SDK / Pixel\non IR Top 100 sites"]
+    end
+
+    subgraph CORP["Internal / corporate"]
+        WORK["Workplace, wikis,\ndashboards"]
+        OOB["OOB consoles, SSH"]
+        BADGE["Badge readers /\ndoor access"]
+    end
+
+    BB --> EDGE
+    AUTHDNS --> TRANSIT
+    RES --> META
+    META --> OAUTH
+    META --> SDK
+    BB --> CORP
+
+    classDef failed fill:#B43A3A,stroke:#8E2828,color:#ffffff

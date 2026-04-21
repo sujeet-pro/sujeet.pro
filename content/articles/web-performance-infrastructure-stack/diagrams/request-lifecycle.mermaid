@@ -1,0 +1,38 @@
+%% Diagram: Request lifecycle with optimization levers per stage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CONN["Connection (50-300 ms)"]
+        direction TB
+        DNS["DNS<br/>+ HTTPS RR alpn=h3"]
+        HS["QUIC + TLS 1.3<br/>1-RTT or 0-RTT"]
+        DNS --> HS
+    end
+
+    subgraph EDGEL["Edge (5-20 ms)"]
+        direction TB
+        POP["CDN PoP cache"]
+        EFN["Edge function"]
+        POP -->|miss| EFN
+    end
+
+    subgraph ORIGINL["Origin (50-500 ms)"]
+        direction TB
+        LB["Load balancer"]
+        APP["App + Redis"]
+        DB[("DB / replica")]
+        LB --> APP
+        APP -->|cache miss| DB
+    end
+
+    U(("User")) --> CONN
+    HS --> POP
+    POP -->|hit| RESP(("Bytes"))
+    EFN -->|VPC| LB
+    APP --> RESP
+
+    classDef lever fill:#dbeafe,stroke:#1e40af,color:#0f172a
+    classDef warn fill:#fef3c7,stroke:#b45309,color:#0f172a
+    POP:::lever
+    EFN:::lever
+    DB:::warn

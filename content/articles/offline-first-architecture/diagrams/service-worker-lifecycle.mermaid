@@ -1,0 +1,18 @@
+%% Diagram: Service Worker lifecycle states and transitions
+%% Type: stateDiagram
+stateDiagram-v2
+    [*] --> Parsed: register()
+    Parsed --> Installing: install event
+    Installing --> Installed: install handler resolved
+    Installing --> Redundant: install rejected
+    Installed --> Waiting: previous SW still controls clients
+    Installed --> Activating: no previous SW OR skipWaiting()
+    Waiting --> Activating: clients close OR skipWaiting()
+    Activating --> Activated: activate handler resolved
+    Activated --> Idle: nothing to do
+    Idle --> Running: fetch / sync / message event
+    Running --> Idle: handler resolved
+    Idle --> Terminated: browser frees memory
+    Terminated --> Running: next event wakes worker
+    Activated --> Redundant: replaced by newer SW
+    Redundant --> [*]

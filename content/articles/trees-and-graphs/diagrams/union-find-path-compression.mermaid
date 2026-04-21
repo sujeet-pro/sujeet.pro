@@ -1,0 +1,31 @@
+%% Diagram: Union-Find path compression - before / after find(7)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph before["Before find(7)"]
+        direction TB
+        b1["1 (rep)"]:::rep
+        b3["3"]:::child
+        b5["5"]:::child
+        b7["7"]:::target
+        b3 --> b1
+        b5 --> b3
+        b7 --> b5
+    end
+
+    subgraph after["After find(7) - path compressed"]
+        direction TB
+        a1["1 (rep)"]:::rep
+        a3["3"]:::child
+        a5["5"]:::child
+        a7["7"]:::target
+        a3 --> a1
+        a5 --> a1
+        a7 --> a1
+    end
+
+    before ~~~ after
+
+    classDef rep fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef target fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef child fill:#5A5A5A,stroke:#3D3D3D,color:#fff

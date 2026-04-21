@@ -1,0 +1,19 @@
+%% Diagram: CRDT replication topology — symmetric peers, optional relay
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Device1["Device A"]
+        D1_DOC["Local document"]
+        D1_CRDT["CRDT replica"]
+    end
+    subgraph Device2["Device B"]
+        D2_DOC["Local document"]
+        D2_CRDT["CRDT replica"]
+    end
+    subgraph Server["Sync relay (optional)"]
+        S_RELAY["Persistence + fan-out"]
+    end
+
+    D1_CRDT <-->|"deltas"| S_RELAY
+    D2_CRDT <-->|"deltas"| S_RELAY
+    D1_CRDT <-.->|"P2P delta exchange"| D2_CRDT

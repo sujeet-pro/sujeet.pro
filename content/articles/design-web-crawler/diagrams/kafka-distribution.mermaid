@@ -1,0 +1,31 @@
+%% Diagram: Kafka partition distribution by host hash
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Producers["URL producers"]
+        S[Seeds and<br/>discovered links]
+    end
+
+    subgraph Topics["Kafka topic urls<br/>partition key = host hash"]
+        T0[partition 0]
+        T1[partition 1]
+        T2[partition 2]
+        TN[partition N-1]
+    end
+
+    subgraph Consumers["Crawler consumer group"]
+        C1[Crawler 1<br/>owns hosts H mod N == 0]
+        C2[Crawler 2<br/>owns hosts H mod N == 1]
+        C3[Crawler 3<br/>owns hosts H mod N == 2]
+        CN[Crawler N<br/>owns ...]
+    end
+
+    S -->|hash by host| T0 & T1 & T2 & TN
+    T0 -->|exclusive read| C1
+    T1 -->|exclusive read| C2
+    T2 -->|exclusive read| C3
+    TN -->|exclusive read| CN
+
+    C1 -->|new URLs| S
+    C2 -->|new URLs| S
+    C3 -->|new URLs| S

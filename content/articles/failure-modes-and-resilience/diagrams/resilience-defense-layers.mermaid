@@ -1,0 +1,37 @@
+%% Diagram: Resilience defense layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Failures["Failure modes"]
+        direction TB
+        Crash["Fail-stop / crash-recovery"]
+        Omission["Omission"]
+        Timing["Timing"]
+        Byzantine["Byzantine"]
+        Gray["Gray failure"]
+    end
+
+    subgraph Detection["Detection"]
+        Heartbeat["Heartbeats"]
+        Timeout["Timeouts"]
+        HealthCheck["Health checks"]
+        Differential["Differential observability"]
+    end
+
+    subgraph Mitigation["Resilience patterns"]
+        Retry["Retries + backoff + jitter"]
+        CB["Circuit breaker"]
+        Bulkhead["Bulkhead"]
+        Shed["Load shedding"]
+        Fallback["Fallback"]
+    end
+
+    subgraph Isolation["Blast radius"]
+        Cell["Cell architecture"]
+        Shuffle["Shuffle sharding"]
+        Zone["Zone / region isolation"]
+    end
+
+    Failures --> Detection
+    Detection --> Mitigation
+    Mitigation --> Isolation

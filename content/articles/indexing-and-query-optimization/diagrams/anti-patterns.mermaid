@@ -1,0 +1,24 @@
+%% Diagram: Common SQL indexing anti-patterns and their sargable rewrites
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Bad["Non-sargable (index ignored)"]
+        direction TB
+        B1["WHERE DATE(created_at) = '2026-04-21'<br/>(function on indexed column)"]
+        B2["WHERE name LIKE '%term%'<br/>(leading wildcard)"]
+        B3["WHERE LOWER(email) = ?<br/>(case folding on column)"]
+        B4["WHERE a = ? OR b = ?<br/>(separate single-column indexes)"]
+    end
+
+    subgraph Good["Sargable rewrite"]
+        direction TB
+        G1["WHERE created_at >= '2026-04-21'<br/>AND created_at < '2026-04-22'"]
+        G2["WHERE name LIKE 'term%'<br/>or use trigram / FTS index"]
+        G3["CREATE INDEX ... (LOWER(email))<br/>(expression index) + same predicate"]
+        G4["BitmapOr of two single-column indexes<br/>or one composite index<br/>or UNION ALL of two index scans"]
+    end
+
+    B1 -->|"rewrite"| G1
+    B2 -->|"rewrite"| G2
+    B3 -->|"rewrite"| G3
+    B4 -->|"rewrite"| G4

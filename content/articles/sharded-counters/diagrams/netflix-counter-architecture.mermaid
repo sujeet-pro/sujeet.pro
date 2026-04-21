@@ -1,0 +1,42 @@
+%% Diagram: Netflix Distributed Counter Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph API["Client API"]
+        AddCount["AddCount"]
+        GetCount["GetCount"]
+        ClearCount["ClearCount"]
+    end
+
+    subgraph DGW["Netflix Data Gateway"]
+        Router["Mode router"]
+    end
+
+    AddCount --> Router
+    GetCount --> Router
+    ClearCount --> Router
+
+    subgraph BER["Best-Effort Regional"]
+        EVCacheReg["EVCache atomic<br/>incr/decr (regional)"]
+    end
+
+    subgraph EVT["Event Log (durable, global)"]
+        TS["TimeSeries Abstraction<br/>backed by Cassandra"]
+    end
+
+    subgraph ROLLUP["Rollup pipeline"]
+        Worker["Rollup worker<br/>(dynamic batching,<br/>parallel aggregation,<br/>immutable windows)"]
+    end
+
+    subgraph CACHE["Aggregated cache"]
+        EVCacheAgg["EVCache rollup totals"]
+    end
+
+    Router -- "Best-Effort Regional" --> EVCacheReg
+    Router -- "Eventually Consistent / Accurate Global" --> TS
+    TS --> Worker
+    Worker --> EVCacheAgg
+    EVCacheAgg --> Router
+    EVCacheReg --> Router
+
+    Worker -. "Accurate Global:<br/>read pre-rollup +<br/>live event delta" .-> Router

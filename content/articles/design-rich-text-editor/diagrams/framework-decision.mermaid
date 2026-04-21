@@ -1,0 +1,24 @@
+%% Diagram: Editor framework decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start[/Need a rich text editor/]
+    Start --> Q1{Hierarchy beyond paragraphs and lists?}
+
+    Q1 -- "No" --> Q2{Need real-time collab?}
+    Q2 -- "No" --> Quill["Quill\nLinear ops, contentEditable\nFastest path to ship"]
+    Q2 -- "Yes, OT-friendly" --> Quill
+
+    Q1 -- "Yes" --> Q3{Need pixel-level rendering control or framework agnostic?}
+    Q3 -- "Yes" --> Lexical["Lexical\nCustom reconciler\nMeta scale, headless"]
+    Q3 -- "No" --> Q4{Schema-enforced model?}
+    Q4 -- "Yes" --> ProseMirror["ProseMirror\nSchema + Steps + StepMap\nMature collab via prosemirror-collab"]
+    Q4 -- "No, schemaless flexibility" --> Slate["Slate\nNormalization-based\nReact-first"]
+
+    ProseMirror --> Collab1{Need offline-first collab?}
+    Lexical --> Collab2{Need offline-first collab?}
+    Slate --> Collab3{Need offline-first collab?}
+
+    Collab1 -- "Yes" --> Yjs["Add Yjs via y-prosemirror"]
+    Collab2 -- "Yes" --> Yjs2["Add Yjs via @lexical/yjs"]
+    Collab3 -- "Yes" --> Yjs3["Add Yjs via slate-yjs"]

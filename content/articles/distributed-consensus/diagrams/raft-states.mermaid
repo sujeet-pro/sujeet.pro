@@ -1,0 +1,15 @@
+%% Diagram: Raft node state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> Follower
+    Follower --> PreCandidate: election timeout (PreVote on)
+    Follower --> Candidate: election timeout (PreVote off)
+    PreCandidate --> Candidate: pre-vote majority\n(safe to bump term)
+    PreCandidate --> Follower: pre-vote denied\n(higher term seen)
+    Candidate --> Leader: vote majority\n(term unchanged)
+    Candidate --> Follower: discover current leader\nor higher term
+    Candidate --> Candidate: split vote\n(retry with new randomized timeout)
+    Leader --> Follower: discover higher term\nor lose lease
+    Leader --> [*]: shutdown

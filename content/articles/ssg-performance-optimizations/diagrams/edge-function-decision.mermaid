@@ -1,0 +1,25 @@
+%% Diagram: CloudFront Functions vs Lambda@Edge decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart TB
+    entry(["Edge logic"])
+    q1{"Network access?"}
+    q2{"Mutate body?"}
+    q3{"> 1 ms or\nnon-JS?"}
+    cff["CloudFront Functions\n0.10 USD/1M\nsub-ms, JS, every POP"]
+    le["Lambda@Edge\n0.60 USD/1M + GB-s\nNode or Python\n15 regional caches"]
+
+    entry --> q1
+    q1 -- yes --> le
+    q1 -- no --> q2
+    q2 -- yes --> le
+    q2 -- no --> q3
+    q3 -- yes --> le
+    q3 -- no --> cff
+
+    classDef primaryC fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef accentC fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef neutralC fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class entry neutralC
+    class q1,q2,q3 accentC
+    class cff,le primaryC

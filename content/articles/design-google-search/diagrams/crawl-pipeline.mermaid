@@ -1,0 +1,47 @@
+%% Diagram: Crawl pipeline — discovery → frontier → fetch → process → store
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Discovery["Discovery"]
+        direction TB
+        SEED[Seed URLs]
+        SITEMAP[XML sitemaps]
+        LINKS[Extracted links]
+    end
+
+    subgraph Frontier["URL frontier"]
+        direction TB
+        PRIO[Priority queue]
+        DEDUP[URL dedup]
+        POLITENESS[Politeness scheduler]
+    end
+
+    subgraph Fetch["Fetching"]
+        direction TB
+        DNS_R[DNS resolution]
+        ROBOTS[robots.txt check]
+        FETCH[HTTP fetch]
+        RENDER[JS rendering]
+    end
+
+    subgraph Process["Processing"]
+        direction TB
+        PARSE[HTML parsing]
+        EXTRACT[Link extraction]
+        CONTENT[Content extraction]
+        SIMHASH[SimHash near-dup]
+    end
+
+    subgraph Store["Storage"]
+        direction TB
+        BIGTABLE[(Bigtable)]
+        INDEX[Indexer queue]
+    end
+
+    SEED & SITEMAP & LINKS --> PRIO
+    PRIO --> DEDUP --> POLITENESS
+    POLITENESS --> DNS_R --> ROBOTS --> FETCH
+    FETCH --> RENDER --> PARSE
+    PARSE --> EXTRACT --> PRIO
+    PARSE --> CONTENT --> SIMHASH
+    SIMHASH --> BIGTABLE --> INDEX

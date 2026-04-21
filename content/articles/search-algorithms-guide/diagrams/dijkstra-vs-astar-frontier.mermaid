@@ -1,0 +1,28 @@
+%% Diagram: Frontier shape — Dijkstra explores uniformly, A* biases toward goal
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Dijkstra["Dijkstra — uniform expansion"]
+        direction TB
+        DS((Start))
+        DG((Goal))
+        DN1[Frontier grows<br/>equally in every<br/>direction]
+        DS --- DN1
+        DN1 --- DG
+    end
+
+    subgraph Astar["A* with admissible heuristic — biased toward goal"]
+        direction TB
+        AS((Start))
+        AG((Goal))
+        AN1[Frontier stretches<br/>toward the goal,<br/>side branches pruned]
+        AS --- AN1
+        AN1 --- AG
+    end
+
+    classDef start fill:#16a34a,stroke:#14532d,color:#ffffff
+    classDef goal fill:#dc2626,stroke:#7f1d1d,color:#ffffff
+    classDef note fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    class DS,AS start
+    class DG,AG goal
+    class DN1,AN1 note

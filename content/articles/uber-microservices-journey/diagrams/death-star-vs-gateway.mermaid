@@ -1,0 +1,34 @@
+%% Diagram: Pre vs Post DOMA call pattern
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph before["Before DOMA: direct calls"]
+        direction LR
+        C1[Consumer A] --> S1[svc 1]
+        C1 --> S2[svc 2]
+        C1 --> S3[svc 3]
+        C2[Consumer B] --> S2
+        C2 --> S4[svc 4]
+        C2 --> S5[svc 5]
+        C3[Consumer C] --> S1
+        C3 --> S3
+        C3 --> S5
+        S1 --> S6[svc 6]
+        S2 --> S6
+        S3 --> S6
+        S4 --> S6
+        S5 --> S6
+    end
+
+    subgraph after["After DOMA: domain gateway"]
+        direction LR
+        D1[Consumer A] --> G[Domain gateway]
+        D2[Consumer B] --> G
+        D3[Consumer C] --> G
+        G --> I1[svc 1]
+        G --> I2[svc 2]
+        G --> I3[svc 3]
+        G --> I4[svc 4]
+        G --> I5[svc 5]
+        G --> I6[svc 6]
+    end

@@ -1,0 +1,19 @@
+%% Diagram: CvRDT vs CmRDT vs delta-state — what travels over the wire
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Replica A
+    participant N as Network
+    participant B as Replica B
+    Note over A,B: State-based (CvRDT)<br/>any delivery order, dups OK
+    A->>N: full state S_A (large)
+    N->>B: full state S_A
+    B->>B: S_B := S_A ⊔ S_B
+    Note over A,B: Operation-based (CmRDT)<br/>requires causal exactly-once
+    A->>N: op (small)
+    N->>B: op (in causal order)
+    B->>B: apply(op)
+    Note over A,B: Delta-state<br/>any delivery order, peer sync vector
+    A->>N: delta δ since v_B (small)
+    N->>B: delta δ
+    B->>B: S_B := S_B ⊔ δ

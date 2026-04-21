@@ -1,0 +1,23 @@
+%% Diagram: Background Fetch handoff from page to service worker
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant P as Page
+    participant SW as Service Worker
+    participant BF as Browser BackgroundFetch
+    participant S as Server / Storage
+
+    P->>SW: navigator.serviceWorker.ready
+    P->>BF: reg.backgroundFetch.fetch(id,\n[Request, ...], {uploadTotal, title, icons})
+    BF-->>P: BackgroundFetchRegistration
+
+    Note over P,BF: User may navigate away or close tab
+
+    BF->>S: HTTP request(s)
+    S-->>BF: bytes / 2xx
+    Note over BF: Browser pauses + resumes\nacross network changes\nshows OS-level UI
+
+    BF->>SW: dispatch backgroundfetchsuccess
+    SW->>SW: read MatchAll records,\npersist offsets / final URLs,\nshow notification
+
+    Note over BF,SW: On failure: backgroundfetchfail\nOn user cancel: backgroundfetchabort

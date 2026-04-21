@@ -1,0 +1,10 @@
+%% Diagram: migration-recipe
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    A[1 Audit<br/>routes by content shape:<br/>per-user, change rate,<br/>build budget] --> B[2 Split rendering boundary<br/>SSG / ISR / PPR / SSR<br/>per route]
+    B --> C[3 Cache strategy<br/>TTLs, surrogate keys,<br/>tag-based purge,<br/>edge bucketing key]
+    C --> D[4 Strangler rollout<br/>10 to 25 to 50 to 100<br/>by route family]
+    D --> E[5 Measure CWV<br/>RUM + synthetic + APM<br/>per bucket, per route]
+    E -->|regression| C
+    E -->|stable| F[6 Decommission SSG<br/>retire build pipeline]

@@ -1,0 +1,27 @@
+%% Diagram: Shopify pod overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph "Edge / Request path"
+        LB["nginx + OpenResty<br/>load balancers"] --> SH["Sorting Hat<br/>(Lua)"]
+        SH -->|"X-Sorting-Hat-PodId header"| APP["Shared application workers<br/>(Kubernetes / GKE)"]
+    end
+
+    subgraph "Pod 1..N (each fully isolated)"
+        MYSQL["MySQL shard<br/>(petabyte tier)"]
+        REDIS["Redis"]
+        MEMCACHED["Memcached"]
+        CRON["Cron / job runners"]
+    end
+
+    APP -->|"shop_id routing"| MYSQL
+    APP --> REDIS
+    APP --> MEMCACHED
+    APP --> CRON
+
+    subgraph "Cross-pod analytics (read-only, eventually consistent)"
+        CDC["Debezium CDC<br/>(~150 connectors)"] --> KAFKA["Apache Kafka"]
+        KAFKA --> DW["Data warehouse<br/>(Presto)"]
+    end
+
+    MYSQL -.->|"binlog"| CDC

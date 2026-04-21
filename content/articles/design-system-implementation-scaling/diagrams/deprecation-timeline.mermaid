@@ -1,0 +1,8 @@
+%% Diagram: Component deprecation timeline — from "stable" to "removed" with explicit windows
+%% Type: timeline
+timeline
+    title Component lifecycle stages with concrete signals
+    Stable      : @stable in docs : No console warnings : Codemods not yet relevant
+    Deprecated  : @deprecated JSDoc : Runtime console.warn (dev only) : Docs page lists replacement : Codemod published with the deprecation
+    Sunset      : 2 minor versions of warning runway : Usage analytics show < 5% adoption of replacement is a blocker : Outreach to lagging teams
+    Removed     : Next major release : Source deleted : Codemod still installable for late upgraders : Figma component renamed to "[removed]"

@@ -1,0 +1,21 @@
+%% Diagram: Distributed search engine - architecture overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CL["Application"]
+    QP["Query Parser & Planner"]
+    AGG["Result Aggregator"]
+
+    subgraph SHARD["Shard (replicated 0..N)"]
+        PRIMARY["Primary"]
+        REPLICA["Replica"]
+        SEG["Segments\n(immutable, FST term dict, posting lists)"]
+        TL["Translog"]
+        PRIMARY -.->|sync| REPLICA
+        PRIMARY --> SEG
+        PRIMARY --> TL
+    end
+
+    CL -->|query| QP -->|scatter| PRIMARY
+    PRIMARY -->|local top-K| AGG
+    AGG -->|global top-K| CL

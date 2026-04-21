@@ -1,0 +1,16 @@
+%% Diagram: Write path for a new Pin - shard derived from the board ID, no lookup service
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application
+    participant Cfg as Shard config (ZooKeeper)
+    participant DB as MySQL master for shard 3429
+
+    App->>App: shard_id = (board_id >> 46) & 0xFFFF -> 3429
+    App->>Cfg: which host serves shard 3429?
+    Cfg-->>App: MySQL007A
+    App->>DB: INSERT INTO db03429.pins (data) VALUES ('<JSON>')
+    DB-->>App: AUTO_INCREMENT local_id = 7075734
+    App->>App: pin_id = (3429 << 46) | (1 << 36) | 7075734
+    App->>DB: INSERT INTO db03429.board_has_pins (board_id, pin_id, sequence)
+    DB-->>App: OK

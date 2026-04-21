@@ -1,408 +1,334 @@
 ---
-title: 'K-Crystal Balls Problem: Jump Search Pattern'
+title: 'K-Crystal Balls Problem: Drops, Floors, and the Optimal DP'
 linkTitle: 'K Crystal Balls'
 description: >-
-  How consumable test resources change optimal search strategy — deriving the
-  O(n^(1/k)) jump search pattern from first principles, with applications to
-  version bisection, MTU discovery, and reliability testing.
+  How to find a breaking-floor threshold with k consumable test resources.
+  Full derivation of the optimal egg-drop strategy: the k=2 closed form
+  T = ⌈(√(8N+1)−1)/2⌉, the floors-covered DP recurrence
+  f(k, m) = f(k-1, m-1) + f(k, m-1) + 1, its binomial closed form,
+  and the O(k log N) algorithm.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - algorithms
   - data-structures
   - computer-science
 ---
 
-# K-Crystal Balls Problem: Jump Search Pattern
+# K-Crystal Balls Problem: Drops, Floors, and the Optimal DP
 
-The K-crystal balls (or K-egg drop) problem demonstrates how constrained resources fundamentally change optimal search strategy. With unlimited test resources, binary search achieves O(log n). With exactly k resources that are consumed on failure, the optimal worst-case complexity becomes O(n^(1/k))—a jump search pattern where each resource enables one level of hierarchical partitioning.
+The K-crystal balls problem — better known in the algorithms canon as the **egg-drop problem** — asks for the worst-case-optimal number of test drops needed to find a breaking-floor threshold when each broken test resource is permanently consumed. The two-egg case has a clean closed form $T = \lceil (\sqrt{8N+1}-1)/2 \rceil$, and the general case has a sharp dynamic-programming solution built on the recurrence $f(k, m) = f(k-1, m-1) + f(k, m-1) + 1$, where $f(k, m)$ is the maximum number of floors a budget of $k$ eggs and $m$ drops can resolve. This article derives both, walks the DP table, gives an $O(k \log N)$ algorithm, and shows where the model genuinely applies in production systems.
 
-![Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-light.svg "Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).")
-![Resource count determines search depth: each additional resource enables one more level of hierarchical partitioning, reducing worst-case from O(n) toward O(log n).](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-dark.svg)
-
-## Abstract
-
-The K-crystal balls problem models **threshold detection with consumable test resources**—a pattern appearing in software version bisection, network MTU discovery, and reliability testing.
-
-**Core insight**: When resources are limited, balance work across all phases by making each phase contribute equally to worst-case cost. For k resources and n positions:
-
-- **Jump size at phase i**: $n^{(k-i)/k}$
-- **Worst-case operations**: $k \cdot n^{1/k}$
-- **Complexity**: $O(n^{1/k})$ for fixed k
-
-The formula emerges from setting all phase costs equal and solving the resulting geometric sequence. This isn't arbitrary—it's the unique configuration where no phase can be improved without making another worse.
-
-| Resources (k) | Jump Pattern                    | Worst Case | Complexity |
-| ------------- | ------------------------------- | ---------- | ---------- |
-| 1             | Linear only                     | n          | O(n)       |
-| 2             | √n → linear                     | 2√n        | O(√n)      |
-| 3             | n^(2/3) → n^(1/3) → linear      | 3·∛n       | O(∛n)      |
-| k             | n^((k-1)/k) → ... → n^(1/k) → 1 | k·n^(1/k)  | O(n^(1/k)) |
-| log n         | 2 → 2 → ...                     | 2·log n    | O(log n)   |
+![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-light.svg "Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.")
+![Worst-case drops to find a threshold among N floors as the egg budget k grows from 1 to infinity.](./diagrams/resource-count-determines-search-depth-each-additional-resource-enables-one-more-dark.svg)
 
 ## Problem Definition
 
-Given k identical crystal balls and a structure with n floors, find the exact threshold floor where balls start breaking using minimum drops in the **worst case**.
+Given $k$ identical, indistinguishable eggs (or crystal balls, or destructive probes) and a building with $N$ floors numbered $1 \ldots N$, find the lowest floor $f^* \in \{1, \ldots, N+1\}$ from which an egg breaks. An egg dropped from floor $i$ either survives (and can be reused) or breaks (and is consumed forever). All eggs share the same unknown breaking floor.
 
-**Formal model**:
+The objective is the **worst-case** number of drops over an adversarially chosen $f^*$.
 
-- Floors form a sorted boolean array: `[false, false, ..., false, true, true, ..., true]`
-- All floors below threshold are safe (false); threshold and above break (true)
-- A broken ball is permanently consumed
-- **Objective**: Minimize maximum drops across all possible threshold positions
+```text title="Formal model"
+state    : (k, n) = (eggs remaining, floors still in scope)
+action   : pick a floor x in [1..n], drop an egg
+outcome  : break  -> (k-1, x-1) below, scope = floors below x
+           hold   -> (k,   n-x) above, scope = floors above x
+goal     : minimize the maximum drops to identify f*
+```
 
-**Why worst-case matters**: In production systems, you often can't afford to rely on average-case luck. The worst-case bound guarantees performance regardless of where the threshold lies.
+The classic instance — $k=2$ eggs, $N=100$ floors — is featured in Knuth's exercises, in Skiena's coverage of dynamic programming, and as LeetCode 887 ("Super Egg Drop") and LeetCode 1884 ("Egg Drop with 2 Eggs and N Floors").
+
+> [!NOTE]
+> The literature calls these **eggs** by convention. "Crystal balls" is the Frontend Masters / interview rebrand of the same model. Treat the two terms as synonyms.
 
 ## Why Binary Search Fails
 
-Binary search seems natural—it's optimal for searching sorted data. With k=2 balls and n=100 floors:
+Binary search is optimal when each probe is non-destructive — the response narrows the search space symmetrically and you can keep probing. The egg-drop problem breaks that symmetry: a *break* both narrows the space **and** removes one of your only test resources.
 
-1. Drop from floor 50
-2. If it breaks, you have 1 ball left and must linear search floors 1-49
-3. Worst case: 1 + 49 = 50 drops
+Consider $k=2$, $N=100$, first drop at floor 50 (the binary-search choice):
 
-The problem: **binary search assumes tests are non-destructive**. When a test consumes the resource on failure, the search space constraints change asymmetrically. After a break, you lose both the ball and the ability to take risks.
+- If it survives: 1 egg consumed mentally, 50 floors remain, 2 eggs left — you can recurse.
+- If it breaks: 1 egg gone, 49 floors remain, only 1 egg left — you are now forced into a linear scan of floors 1..49. Worst case: $1 + 49 = 50$ drops.
 
-This asymmetry is why the optimal strategy for k=2 isn't "binary then linear" (worst case ~n/2) but "jump √n then linear" (worst case 2√n). The sqrt improvement comes from properly accounting for resource consumption.
+Pure binary search gives $\Theta(N)$ drops in the worst case for $k = 2$. The optimum is dramatically better — 14 drops for $N=100$ — and the rest of the article derives why.
 
-## Building the Solution: k=1, k=2, k=3
+The asymmetry generalizes: at any state $(k, n)$, dropping at floor $x$ exposes you to either the *break* branch (which loses an egg) or the *hold* branch (which loses floors). The optimum at $(k, n)$ is the floor that **equalizes the worst case across both branches**, not the floor that halves the floor count.
 
-### Case k=1: No Risk Tolerance
+## The Two-Egg Case
 
-With one ball, any break ends the search without finding the threshold. The only safe strategy is linear search.
+The $k=2$ case has the cleanest derivation and shows up most often in interviews and incident bisection. It is worth doing in full.
 
-**Strategy**: Test floors 1, 2, 3, ..., n sequentially
+### Setting up the recurrence
 
-**Worst case**: n drops (threshold is at floor n)
+Let $T$ be the floor of the very first drop. There are two cases.
 
-**Complexity**: O(n)
+1. **Egg #1 breaks at $T$.** Egg #2 must linearly scan floors $1, 2, \ldots, T-1$ to identify $f^*$. Worst case: $1 + (T-1) = T$ drops.
+2. **Egg #1 holds at $T$.** Floor $f^*$ is somewhere in $T+1, \ldots, N$. We are now in state $(2, N-T)$ and the *next* drop is some floor $T + s_2$ with $s_2 \le T - 1$ — because if it broke there, egg #2 would scan a window of size $s_2 - 1$ and the total would be $2 + (s_2 - 1) = s_2 + 1$, which must stay $\le T$ to keep our worst case bounded by $T$.
 
-This establishes the baseline—with zero tolerance for resource loss, you cannot exploit structure.
+Continuing inductively, the optimal first-egg drops are at floors
 
-### Case k=2: One Exploratory Break Allowed
+$$T,\quad T + (T-1),\quad T + (T-1) + (T-2),\quad \ldots$$
 
-With two balls, you can afford one "exploratory" break before falling back to linear search.
+The largest reachable floor after $T$ drops is
 
-**Strategy**:
+$$T + (T-1) + (T-2) + \cdots + 1 = \frac{T(T+1)}{2}.$$
 
-1. Jump by interval j with the first ball
-2. When it breaks at some floor, linear search the previous j floors with the second ball
+We need this sum to cover all $N$ floors:
 
-**Analysis**:
+$$\frac{T(T+1)}{2} \ge N.$$
 
-- Number of jumps before break: at most ⌈n/j⌉
-- Linear search after break: at most j-1 steps
-- Total worst case: n/j + j (approximately)
+Solving the quadratic:
 
-**Optimization**: Minimize f(j) = n/j + j
+$$T \ge \frac{-1 + \sqrt{1 + 8N}}{2}, \qquad T = \left\lceil \frac{-1 + \sqrt{8N+1}}{2} \right\rceil.$$
 
-Taking the derivative:
-$$f'(j) = -\frac{n}{j^2} + 1 = 0$$
+For $N=100$: $\sqrt{801} \approx 28.30$, so $T = \lceil 27.30 / 2 \rceil = 14$. And indeed $14 \cdot 15 / 2 = 105 \ge 100$.
 
-Solving:
-$$j^2 = n \implies j = \sqrt{n}$$
+### Why a fixed jump is not optimal
 
-Second derivative confirms minimum: $f''(j) = \frac{2n}{j^3} > 0$
+A common first attempt is "jump by $\sqrt{N}$ each time, then linear scan". For $N=100$ that is jumps of 10 with worst case $10 + 9 = 19$ drops. The decreasing-step plan above bounds the worst case at 14 drops — five fewer.
 
-**Worst case**: $\frac{n}{\sqrt{n}} + \sqrt{n} = 2\sqrt{n}$
+The improvement comes from spending later drops on **smaller** windows: by the time egg #1 has survived $i$ drops, it has already used $i$ drops, so the second egg can only afford $T - i$ more — meaning the next jump must shrink to keep the window walkable in $T - i - 1$ steps.
 
-**Complexity**: O(√n)
+### Decision tree
 
-### Case k=3: Two Exploratory Breaks
+![Decision tree for the optimal k=2 plan with N=100, showing how every leaf is bounded by 14 drops.](./diagrams/k2-decision-tree-light.svg "Decision tree for the optimal k=2 plan with N=100; every leaf is bounded by 14 drops.")
+![Decision tree for the optimal k=2 plan with N=100, showing how every leaf is bounded by 14 drops.](./diagrams/k2-decision-tree-dark.svg)
 
-With three balls, you can partition twice before linear search.
+### Concrete trace
 
-**Strategy**:
+For $N=100$ with threshold $f^* = 37$:
 
-1. Jump by j₁ with the first ball
-2. Within the broken segment, jump by j₂ with the second ball
-3. Linear search the final segment with the third ball
+![Trace of the optimal k=2 plan for N=100 finding threshold 37 in 13 drops.](./diagrams/k2-search-trace-light.svg "Trace of the optimal k=2 plan for N=100 finding threshold 37 in 13 drops, well within the worst-case bound of 14.")
+![Trace of the optimal k=2 plan for N=100 finding threshold 37 in 13 drops.](./diagrams/k2-search-trace-dark.svg)
 
-**Analysis**:
+## Naive Dynamic Programming
 
-- Phase 1: n/j₁ jumps
-- Phase 2: j₁/j₂ jumps
-- Phase 3: j₂ linear steps
-- Total: n/j₁ + j₁/j₂ + j₂
+For arbitrary $k$, the textbook DP works directly on $(k, n)$.
 
-**Optimization**: To minimize the maximum of these terms (worst case), make them equal.
+Let $D(k, n)$ be the minimum worst-case drops for $k$ eggs and $n$ floors. From the case analysis above:
 
-Set $\frac{n}{j_1} = \frac{j_1}{j_2} = j_2 = x$
+$$D(k, n) = 1 + \min_{1 \le x \le n} \max\!\big(D(k-1, x-1),\; D(k, n-x)\big),$$
 
-Working backwards:
+with base cases $D(0, n) = \infty$ for $n \ge 1$, $D(k, 0) = 0$, $D(1, n) = n$.
 
-- $j_2 = x$
-- $j_1 = x \cdot j_2 = x^2$
-- $n = x \cdot j_1 = x \cdot x^2 = x^3$
+```ts title="naive-dp.ts"
+function minDropsNaive(k: number, n: number): number {
+  const dp: number[][] = Array.from({ length: k + 1 }, () =>
+    new Array(n + 1).fill(0)
+  )
+  for (let i = 1; i <= n; i++) dp[1][i] = i
+  for (let e = 2; e <= k; e++) {
+    for (let f = 1; f <= n; f++) {
+      let best = Infinity
+      for (let x = 1; x <= f; x++) {
+        const worst = 1 + Math.max(dp[e - 1][x - 1], dp[e][f - x])
+        if (worst < best) best = worst
+      }
+      dp[e][f] = best
+    }
+  }
+  return dp[k][n]
+}
+```
 
-Therefore: $x = n^{1/3}$
+The inner loop scans all candidate floors $x$, so the runtime is $O(k \cdot N^2)$. With memoization on the recurrence the implementation is the same complexity by another path. A quadrangle-inequality / Knuth-style optimization shrinks the inner search to amortized constant ([GeeksforGeeks: Egg Dropping Puzzle DP-11](https://www.geeksforgeeks.org/dsa/egg-dropping-puzzle-dp-11/)), giving $O(k \cdot N)$ — but a much cleaner $O(k \cdot N)$ falls out by inverting the state.
 
-**Jump sizes**:
+## The Optimal Flip: Drops -> Floors
 
-- $j_1 = x^2 = n^{2/3}$
-- $j_2 = x = n^{1/3}$
+Instead of asking "given $k$ eggs and $n$ floors, what is the minimum number of drops?", ask the dual:
 
-**Worst case**: $3 \cdot n^{1/3}$
+> Given $k$ eggs and $m$ drops, what is the maximum number of floors $f(k, m)$ that can be guaranteed-resolved?
 
-**Complexity**: O(n^(1/3))
+Once we have $f(k, m)$, the answer to the original question is the smallest $m$ with $f(k, m) \ge N$, found by simple search.
 
-## General Pattern: k Resources
+### Recurrence
 
-### The Hierarchical Jump Strategy
+Suppose we have $k$ eggs and $m$ drops and we drop the first egg from some floor. There are exactly two outcomes, and we get to design the floor so both outcomes use the remaining budget optimally.
 
-With k resources, create k phases of decreasing granularity:
+- If the egg **breaks**, we have $k-1$ eggs and $m-1$ drops; we can resolve $f(k-1, m-1)$ floors *below* the test floor.
+- If the egg **holds**, we have $k$ eggs and $m-1$ drops; we can resolve $f(k, m-1)$ floors *above* the test floor.
+- The test floor itself contributes 1.
 
-1. **Phase 1**: Jump by $j_1$ until first resource consumed
-2. **Phase 2**: Within that segment, jump by $j_2$ until second consumed
-3. ...
-4. **Phase k**: Linear search (jump by 1)
+So
 
-### Total Operations Formula
+$$f(k, m) = f(k-1, m-1) + f(k, m-1) + 1,$$
 
-$$\text{Total} = \frac{n}{j_1} + \frac{j_1}{j_2} + \frac{j_2}{j_3} + \cdots + j_{k-1}$$
+with $f(0, m) = 0$ (no eggs, no resolution) and $f(k, 0) = 0$ (no drops, no resolution).
 
-Where $j_k = 1$ (linear search in final phase).
+This is the recurrence proved in the [Brilliant: Egg Dropping wiki](https://brilliant.org/wiki/egg-dropping/) and used by the canonical $O(k \log N)$ solution to LeetCode 887.
 
-### Why Equal Terms Minimize Worst Case
+![Cell dependency diagram for the floors-covered DP: every cell f(k, m) reads its left and lower-left neighbors.](./diagrams/dp-recurrence-light.svg "Cell dependency for f(k, m) = f(k-1, m-1) + f(k, m-1) + 1; fill in increasing m, then increasing k.")
+![Cell dependency diagram for the floors-covered DP: every cell f(k, m) reads its left and lower-left neighbors.](./diagrams/dp-recurrence-dark.svg)
 
-Consider any configuration where terms are unequal. The largest term determines the worst case. By reducing the largest term (larger jumps) and increasing smaller terms (smaller jumps), we can improve overall worst case until all terms equalize.
+### Closed form: a binomial sum
 
-Formally: for a fixed product of terms (constrained by n), the sum is minimized when all terms are equal (AM-GM inequality application).
+Unrolling the recurrence yields
 
-### Solving the Recurrence
+$$f(k, m) = \sum_{i=1}^{k} \binom{m}{i}.$$
 
-Set each term equal to x:
-$$\frac{n}{j_1} = \frac{j_1}{j_2} = \frac{j_2}{j_3} = \cdots = j_{k-1} = x$$
+**Inductive proof sketch.** Base case $f(0, m) = 0$ matches the empty sum. Inductive step using Pascal's identity $\binom{m}{i} = \binom{m-1}{i} + \binom{m-1}{i-1}$:
 
-Working backwards from $j_{k-1} = x$:
+$$
+\begin{aligned}
+f(k, m) &= f(k-1, m-1) + f(k, m-1) + 1 \\
+        &= \sum_{i=1}^{k-1} \binom{m-1}{i} + \sum_{i=1}^{k} \binom{m-1}{i} + 1 \\
+        &= \binom{m-1}{0} + \sum_{i=1}^{k-1}\!\Big[\binom{m-1}{i} + \binom{m-1}{i-1}\Big] + \binom{m-1}{k} \\
+        &= \sum_{i=1}^{k} \binom{m}{i}. \qquad\square
+\end{aligned}
+$$
 
-$$j_{k-1} = x$$
-$$j_{k-2} = x \cdot j_{k-1} = x^2$$
-$$j_{k-3} = x \cdot j_{k-2} = x^3$$
-$$\vdots$$
-$$j_1 = x^{k-1}$$
+For $k=2$ this collapses to $f(2, m) = m + \binom{m}{2} = m(m+1)/2$, recovering the two-egg closed form derived earlier. For $k \ge \log_2(N+1)$ the sum exceeds $2^m - 1$ already at $m = \lceil \log_2(N+1) \rceil$, so the egg budget no longer binds and binary search is optimal.
 
-From the first equation:
-$$\frac{n}{j_1} = x \implies n = x \cdot j_1 = x \cdot x^{k-1} = x^k$$
+### Floors-covered growth
 
-**Solution**: $x = n^{1/k}$
+![Floors covered by m drops as the egg budget k grows from 1 to 4.](./diagrams/floors-covered-light.svg "Floors covered by m drops, plotted for k = 1, 2, 3, 4. Each added egg accelerates coverage; k = 4 already covers more than 1000 floors at m = 13.")
+![Floors covered by m drops as the egg budget k grows from 1 to 4.](./diagrams/floors-covered-dark.svg)
 
-### Jump Size Formula
+## Algorithms and Complexity
 
-For phase i (1 ≤ i ≤ k-1):
-$$j_i = n^{(k-i)/k}$$
+| Approach                                    | Time           | Space     | Notes                                                                           |
+| ------------------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------- |
+| Pure recursion, no memo                     | exponential    | $O(N)$    | Pedagogical only.                                                               |
+| DP on $D(k, n)$ with min-max scan           | $O(k N^2)$     | $O(k N)$  | Direct from the original recurrence; works but slow.                            |
+| DP with binary search on the inner $x$      | $O(k N \log N)$| $O(k N)$  | Uses monotonicity of $D(k-1, x-1)$ and $D(k, n-x)$ in $x$.                     |
+| Flipped DP on $f(k, m)$ (tabulation)        | $O(k N)$       | $O(k)$    | Fill columns of $m$ until $f(k, m) \ge N$.                                      |
+| Binomial sum + binary search on $m$         | $O(k \log N)$  | $O(1)$    | Canonical LeetCode 887 solution; uses the closed form above.                    |
 
-This creates a geometric sequence of jump sizes, each smaller than the previous by factor $n^{1/k}$.
+The $O(k \log N)$ algorithm is dominant in practice. It binary-searches $m \in [1, N]$ and at each candidate computes $\sum_{i=1}^{k} \binom{m}{i}$ incrementally, short-circuiting once the partial sum exceeds $N$.
 
-### Complexity Result
+## Worked Examples
 
-**Worst-case operations**: $k \cdot n^{1/k}$
+### k = 2, N = 100
 
-**Time complexity**: O(k · n^(1/k))
+Closed form: $T = \lceil (\sqrt{801} - 1)/2 \rceil = \lceil 13.65 \rceil = 14$. Verify: $14 \cdot 15 / 2 = 105 \ge 100$, $13 \cdot 14 / 2 = 91 < 100$. So 14 drops are necessary and sufficient.
 
-For fixed k, this simplifies to **O(n^(1/k))**.
+### k = 3, N = 100
 
-## Design Reasoning: Why This Structure?
+We need the smallest $m$ with $\binom{m}{1} + \binom{m}{2} + \binom{m}{3} \ge 100$.
 
-### The Balancing Principle
+| $m$ | $\binom{m}{1}$ | $\binom{m}{2}$ | $\binom{m}{3}$ | $f(3, m)$ |
+| --: | --------------: | --------------: | --------------: | --------: |
+|   7 |               7 |              21 |              35 |        63 |
+|   8 |               8 |              28 |              56 |        92 |
+|   9 |               9 |              36 |              84 |       129 |
 
-The solution emerges from a single insight: **balance work across phases**. Any imbalance means one phase dominates worst-case cost, and that phase could be improved by stealing resources from cheaper phases.
+So $f(3, 9) = 129 \ge 100$ but $f(3, 8) = 92 < 100$ — three eggs need **9 drops** worst case for 100 floors, beating two eggs (14) by a third.
 
-This is the **minimax principle** in action—minimizing the maximum cost across all phases.
+### k = 7, N = 100
 
-### Why Not Variable Jump Sizes?
-
-An alternative approach uses decreasing jumps (x, x-1, x-2, ...) to account for "wasted" successful drops. This yields slightly better constants:
-
-For k=2 and n=100:
-
-- Fixed √n jumps: worst case ≈ 20 drops
-- Decreasing jumps (14, 13, 12, ...): worst case = 14 drops
-
-The decreasing approach satisfies $\frac{x(x+1)}{2} \geq n$, giving $x = \lceil\frac{-1 + \sqrt{1+8n}}{2}\rceil$.
-
-However, the fixed jump approach is simpler, has the same asymptotic complexity, and generalizes cleanly to k > 2.
-
-### Diminishing Returns of Additional Resources
-
-Each additional resource reduces the exponent by 1/k(k+1):
-
-| Resources | n = 1,000,000 | Improvement Factor |
-| --------- | ------------- | ------------------ |
-| 1         | 1,000,000     | —                  |
-| 2         | 2,000         | 500×               |
-| 3         | 300           | 6.7×               |
-| 4         | 126           | 2.4×               |
-| 5         | 79            | 1.6×               |
-
-The first few resources provide massive gains; subsequent ones help less. This matches intuition—once you can partition sufficiently, additional partitioning levels add diminishing value.
-
-### Connection to Binary Search
-
-When `n = 2^k`, the equal-phase factor `n^(1/k)` becomes `2`, so the **ratio between phases** approaches binary-style halving. That does **not** mean the first jump is size 2; it means each phase shrinks the remaining search space by roughly a factor of 2.
-
-With unlimited resources (k → ∞), pure binary search is optimal: O(log n).
-
-The K-crystal balls problem thus interpolates between:
-
-- **k=1**: Linear search, no structure exploitation
-- **k=∞**: Binary search, maximum structure exploitation
+$2^7 - 1 = 127 \ge 100$, so seven eggs suffice in $\lceil \log_2(101) \rceil = 7$ drops — the binary-search lower bound. Adding more eggs cannot help.
 
 ## Implementation
 
-```ts title="k-crystal-balls.ts" collapse={1-5, 39-50}
-/**
- * K-Crystal Balls: Jump search with limited test resources
- * Time: O(k * n^(1/k)) where k = number of balls
- * Space: O(n) in this slice-based teaching implementation
- */
-
-function findBreakingFloor(floors: boolean[], k: number): number {
-  const n = floors.length
-  if (n === 0) return -1
-  if (k === 0) return -1 // No resources to test
-
-  // k=1: Must use linear search
-  if (k === 1) {
-    for (let i = 0; i < n; i++) {
-      if (floors[i]) return i
-    }
-    return -1
-  }
-
-  // General case: Jump by n^(1/k), recurse with k-1 resources
-  const jumpSize = Math.max(1, Math.floor(Math.pow(n, (k - 1) / k)))
-
-  let lastSafe = 0
-  let position = jumpSize
-
-  // Phase 1: Jump search with first resource
-  while (position < n && !floors[position]) {
-    lastSafe = position
-    position += jumpSize
-  }
-
-  // Found segment [lastSafe, min(position, n-1)] containing threshold
-  // Recursively search with k-1 resources
-  const segmentStart = lastSafe
-  const segmentEnd = Math.min(position, n - 1)
-  // Slice keeps the recursion easy to read; an index-based version can avoid this copy.
-  const segment = floors.slice(segmentStart, segmentEnd + 1)
-
-  const relativeIndex = findBreakingFloor(segment, k - 1)
-  return relativeIndex === -1 ? -1 : segmentStart + relativeIndex
+```ts title="k-crystal-balls.ts" showLineNumbers
+// Closed-form first drop for k = 2, N floors.
+function firstDropTwoEggs(n: number): number {
+  return Math.ceil((-1 + Math.sqrt(1 + 8 * n)) / 2)
 }
 
-// Iterative version for k=2 (most common case)
-function twoEggDrop(floors: boolean[]): number {
+// Run the optimal k = 2 plan against a sorted boolean array of length n.
+// Returns the index of the threshold floor, or -1 if none.
+function twoEggThreshold(floors: boolean[]): number {
   const n = floors.length
-  const jump = Math.floor(Math.sqrt(n))
+  let step = firstDropTwoEggs(n)
+  let pos = step - 1 // 0-indexed
+  let lastSafe = -1
 
-  let lastSafe = 0
-  let pos = 0
-
-  // Jump phase
-  while (pos < n && !floors[pos]) {
+  while (pos < n) {
+    if (floors[pos]) {
+      for (let i = lastSafe + 1; i < pos; i++) {
+        if (floors[i]) return i
+      }
+      return pos
+    }
     lastSafe = pos
-    pos += jump
-  }
-
-  // Linear phase
-  for (let i = lastSafe; i < Math.min(pos + 1, n); i++) {
-    if (floors[i]) return i
+    step -= 1
+    if (step <= 0) break
+    pos += step
   }
   return -1
 }
+
+// O(k * log N) minimum drops for k eggs and N floors.
+// Binary-searches the smallest m with sum_{i=1..k} C(m, i) >= n.
+function minDrops(k: number, n: number): number {
+  if (n === 0) return 0
+  if (k === 0) return Infinity
+  if (k === 1) return n
+
+  const floorsCoveredCapped = (m: number): number => {
+    let sum = 0
+    let term = 1
+    for (let i = 1; i <= k; i++) {
+      term = (term * (m - i + 1)) / i
+      sum += term
+      if (sum >= n) return n
+    }
+    return sum
+  }
+
+  let lo = 1
+  let hi = n
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (floorsCoveredCapped(mid) >= n) hi = mid
+    else lo = mid + 1
+  }
+  return lo
+}
 ```
 
-## Edge Cases and Failure Modes
+> [!TIP]
+> For very large $N$, compute the binomial product in floating point with the running-quotient form above and short-circuit at the cap; for cryptographic-scale $N$ use `BigInt` arithmetic to avoid loss of precision in the partial sum.
 
-### Edge Cases
+## Edge Cases
 
-| Condition            | Behavior                                       |
-| -------------------- | ---------------------------------------------- |
-| k = 0                | Cannot determine threshold (no test resources) |
-| k > log₂(n)          | Binary search suffices; extra resources unused |
-| n = 0                | No floors to test; return -1                   |
-| n = 1                | Single test determines threshold               |
-| All false            | No breaking floor exists; return -1            |
-| All true             | Threshold at floor 0                           |
-| Threshold at floor 1 | First jump overshoots; linear search finds it  |
-
-### Numerical Precision
-
-For very large n, $n^{1/k}$ may have floating-point errors. Use integer-safe computation:
-
-```ts
-// Avoid: Math.pow(n, 1/k) has precision issues for large n
-// Prefer: Newton's method or integer nth-root algorithms
-```
-
-### Off-by-One Boundaries
-
-The jump search must handle:
-
-- Jumping past the array bounds (clamp to n-1)
-- Segment boundaries (inclusive vs exclusive)
-- The case where threshold is exactly at a jump position
+| Condition                   | Behavior                                                                  |
+| --------------------------- | ------------------------------------------------------------------------- |
+| $k = 0$                     | No probes possible; the threshold cannot be identified. Return `Infinity`.|
+| $k = 1$                     | Linear scan only. Worst case = $N$ drops.                                 |
+| $N = 0$                     | Trivially 0 drops.                                                        |
+| $N = 1$                     | One drop settles the threshold.                                           |
+| $k \ge \lceil\log_2(N+1)\rceil$ | Binary search saturates the bound; extra eggs are unused.             |
+| Floating-point drift        | Use BigInt or the capped running product for $N \gtrsim 10^{15}$.         |
 
 ## Real-World Applications
 
-### Software Version Bisection
+The egg-drop model maps cleanly onto any threshold-detection problem where a *failed* test is more expensive than a successful one. Read each application carefully — the literal "broken egg" interpretation is rare.
 
-**Problem**: A bug exists in version V but not version V-100. Find the introducing commit with minimal builds.
+### Reliability and destructive testing
 
-This is k-crystal-balls with k = number of parallel build machines. With 2 machines, jump by √100 ≈ 10 versions, then linear search the breaking segment.
+Find the load, voltage, or temperature at which a system fails, with a strict budget of destructive runs (hardware burnt, customer-visible incident triggered, account locked out). Each destructive trial is genuinely consumed; the egg-drop model applies one-to-one and the $f(k, m)$ DP gives the tightest run-budget.
 
-### Network MTU Discovery
+### Path MTU discovery (loose analogy)
 
-**Problem**: Find the maximum transmission unit (MTU) for a network path without excessive packet loss.
+Find the largest packet a path will accept without fragmentation. A probe larger than the path MTU is dropped — like a ball breaking — but it can be retried, so the resource is not strictly consumed. The *cost asymmetry* (a failed probe burns an RTT plus possible retransmission) still motivates a similar bias toward bigger jumps early. Real implementations of [PMTUD (RFC 1191)](https://datatracker.ietf.org/doc/html/rfc1191) and [Packetization Layer PMTUD (RFC 4821)](https://www.rfc-editor.org/rfc/rfc4821) explicitly avoid pure binary search and use plateau tables of common MTUs because of this asymmetry.
 
-Packets that exceed MTU are dropped (the "ball breaks"). With limited retransmission budget, jump search finds optimal MTU faster than linear probing.
+### Software version bisection (loose analogy)
 
-### Reliability Testing
+`git bisect` is binary search — each test is non-destructive, so the egg-drop model does not apply. The model becomes relevant only when **builds themselves are expensive and parallel**: with $k$ build agents you can probe $k$ candidates per round and treat each "bad" result as committing one agent to a smaller window. Even then, parallel binary search is usually a better mental model than the egg-drop DP.
 
-**Problem**: Find the load threshold where a system fails, using limited destructive test runs.
+### Database tuning and capacity probing
 
-Each test that causes failure consumes resources (hardware, time, budget). The K-crystal balls strategy minimizes tests needed to bracket the threshold.
+Find the selectivity threshold at which an index becomes beneficial, or the throughput at which p99 latency falls off a cliff, with a fixed budget of benchmark runs. Each benchmark consumes wall-clock time and possibly disrupts neighboring tenants. With a fixed test budget, the $f(k, m)$ schedule gives the tightest probing plan that still bounds the worst-case number of disruptions.
 
-### Database Index Tuning
+## Practical Takeaways
 
-**Problem**: Find the selectivity threshold where an index becomes beneficial, with limited benchmark runs.
+- Re-frame "minimum drops for $N$ floors" as "maximum floors for $m$ drops" — the DP becomes one-line and the closed form falls out.
+- For $k = 2$, memorize $T = \lceil (\sqrt{8N+1}-1)/2 \rceil$ and the decreasing-step plan starting at $T$.
+- For general $k$, prefer the $O(k \log N)$ binomial-sum search over any $O(k N)$ DP — it is shorter, faster, and numerically stable with capped accumulation.
+- The egg budget saturates at $k = \lceil \log_2(N+1) \rceil$. Beyond that, binary search is optimal and extra eggs are dead weight.
+- The model only literally applies when a failed test is *really* consumed; for "expensive but repeatable" tests it is a useful upper bound, not a tight one.
 
-Each benchmark consumes time. Jump search with k benchmark "resources" finds the crossover point efficiently.
+## References
 
-## Appendix
-
-### Prerequisites
-
-- Basic calculus (derivatives for optimization)
-- Understanding of time complexity notation
-- Familiarity with binary search and its assumptions
-
-### Terminology
-
-- **Threshold floor**: The lowest floor where balls break (the target to find)
-- **Worst case**: Maximum operations across all possible threshold positions
-- **Jump search**: Search strategy using fixed-size jumps followed by linear scan
-- **Consumable resource**: A test resource that is destroyed on certain outcomes
-
-### Summary
-
-- K-crystal balls models threshold detection with limited destructive tests
-- Optimal jump size at phase i is $n^{(k-i)/k}$, derived from equalizing phase costs
-- Worst-case complexity is O(n^(1/k)) for fixed k
-- k=1 gives O(n); k=∞ gives O(log n); intermediate k interpolates between these
-- Applications include version bisection, MTU discovery, and reliability testing
-- The solution demonstrates the minimax principle: balance work to minimize maximum cost
-
-### References
-
-- [Egg Dropping - Brilliant Math & Science Wiki](https://brilliant.org/wiki/egg-dropping/) - Comprehensive mathematical derivation with recurrence relations and binomial coefficient approach
-- [Egg Drop Problems: They Are All They Are Cracked Up To Be](https://arxiv.org/html/2511.18330) - Academic treatment with multidimensional generalizations and induction proofs (2025)
-- [The Egg Problem - Spencer Mortensen](https://spencermortensen.com/articles/egg-problem/) - Clear derivation of recurrence relation $D(k,t) = 1 + D(k-1,t-1) + D(k,t-1)$
-- [887. Super Egg Drop - LeetCode](https://leetcode.com/problems/super-egg-drop/) - The classic DP formulation with O(k·n·log n) solution
-- [1884. Egg Drop With 2 Eggs and N Floors - LeetCode](https://leetcode.com/problems/egg-drop-with-2-eggs-and-n-floors/) - Simplified k=2 variant
-- [Two Crystal Balls Problem - Frontend Masters](https://frontendmasters.com/courses/algorithms/two-crystal-balls-problem/) - ThePrimeagen's algorithmic treatment
-- [MIT OCW: Please Do Break the Crystal](https://ocw.mit.edu/courses/6-s095-programming-for-the-puzzled-january-iap-2018/pages/puzzle-4-please-do-break-the-crystal/) - Programming for the Puzzled course material
-- [Egg Drop Problem Applications - AlgoCademy](https://algocademy.com/blog/egg-drop-problem-a-comprehensive-guide-to-this-classic-algorithmic-challenge/) - Real-world applications including version bisection and MTU discovery
+- Brilliant Math & Science Wiki — [Egg Dropping](https://brilliant.org/wiki/egg-dropping/). Recurrence, binomial closed form, and the $k=2$ derivation in full.
+- GeeksforGeeks — [Eggs Dropping Puzzle (Binomial Coefficient + Binary Search)](https://www.geeksforgeeks.org/dsa/eggs-dropping-puzzle-binomial-coefficient-and-binary-search-solution/). Explicit $\sum_{i=1}^{k} \binom{m}{i} \ge N$ algorithm and $O(k \log N)$ implementation.
+- GeeksforGeeks — [Egg Dropping Puzzle | DP-11](https://www.geeksforgeeks.org/dsa/egg-dropping-puzzle-dp-11/). $O(kN^2)$ DP, memoization, and the $O(kN)$ tabulation flip.
+- LeetCode 887 — [Super Egg Drop](https://leetcode.com/problems/super-egg-drop/). Canonical formal write-up for the general $k$ case.
+- LeetCode 1884 — [Egg Drop With 2 Eggs and N Floors](https://leetcode.com/problems/egg-drop-with-2-eggs-and-n-floors/). The $k=2$ instance most readers recognize.
+- Spencer Mortensen — [The Egg Problem](https://spencermortensen.com/articles/egg-problem/). Clean derivation of $D(k, t) = 1 + D(k-1, t-1) + D(k, t-1)$.
+- MIT OCW 6.S095 — [Please Do Break the Crystal](https://ocw.mit.edu/courses/6-s095-programming-for-the-puzzled-january-iap-2018/pages/puzzle-4-please-do-break-the-crystal/). Programming for the Puzzled (IAP 2018), Puzzle 4.
+- Cao, Chen, Miller (2025) — [*Egg Drop Problems: They Are All They Are Cracked Up To Be!*](https://arxiv.org/abs/2511.18330) Modern proof of $P_1(k) \le \lceil k \cdot N^{1/k} \rceil$ and higher-dimensional generalizations.
+- [RFC 1191 — Path MTU Discovery](https://datatracker.ietf.org/doc/html/rfc1191) and [RFC 4821 — Packetization Layer PMTUD](https://www.rfc-editor.org/rfc/rfc4821). Why real PMTUD uses plateau tables instead of pure binary or jump search.
+- Frontend Masters — [Two Crystal Balls Problem](https://frontendmasters.com/courses/algorithms/two-crystal-balls-problem/). ThePrimeagen's walkthrough of the $k=2$ case.

@@ -1,0 +1,34 @@
+%% Diagram: Hot partition before and after the data services layer
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph before["Before: API talks to Cassandra directly"]
+        direction TB
+        u1["N concurrent users\non popular channel 42"]:::accent
+        api1["API monolith\n(no coalescing)"]:::neutral
+        rep1["Replica nodes for\n(channel_id=42, bucket=N)"]:::storage
+        u1 -->|"N independent\nGETs"| api1
+        api1 -->|"N identical\nSELECTs"| rep1
+        rep1 -.->|"quorum reads stall;\nGC pause / hot partition\nbleeds latency to\nunrelated queries on\nthe same nodes"| api1
+    end
+
+    subgraph after["After: Rust data services with consistent-hash routing"]
+        direction TB
+        u2["N concurrent users\non popular channel 42"]:::accent
+        api2["API monolith"]:::neutral
+        ch["Consistent hash\nrouting key = channel_id"]:::secondary
+        ds["Data service instance\n(one worker task per\nin-flight (channel, bucket))"]:::primary
+        rep2["Replica nodes for\n(channel_id=42, bucket=N)"]:::storage
+        u2 -->|"N GETs"| api2
+        api2 --> ch
+        ch -->|"all 42 traffic\nlands on one DS"| ds
+        ds -->|"1 SELECT,\nfan out result\nto N subscribers"| rep2
+    end
+
+    before ==>|"add coalescing layer\nbetween API and DB"| after
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

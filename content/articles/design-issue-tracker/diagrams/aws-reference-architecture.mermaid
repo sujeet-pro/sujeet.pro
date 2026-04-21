@@ -1,0 +1,37 @@
+%% Diagram: AWS reference architecture for the issue tracker
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge"]
+        CF["CloudFront"]
+        ALB["Application Load Balancer"]
+    end
+
+    subgraph Compute["ECS / EKS"]
+        GQL["GraphQL Service<br/>(Fargate)"]
+        API["REST API<br/>(Fargate)"]
+        WS["WebSocket<br/>(Fargate)"]
+        WORKER["Workers<br/>(Fargate Spot)"]
+    end
+
+    subgraph Data["Data Layer"]
+        RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+        REDIS["ElastiCache Redis<br/>Cluster"]
+        ES["OpenSearch<br/>Domain"]
+        S3["S3<br/>Attachments"]
+    end
+
+    subgraph Stream["Event Stream"]
+        MSK["Amazon MSK<br/>(Kafka)"]
+    end
+
+    CF --> ALB
+    ALB --> GQL & API & WS
+    GQL & API --> RDS
+    GQL & API --> REDIS
+    GQL --> ES
+    GQL --> MSK
+    WS --> REDIS
+    MSK --> WORKER
+    WORKER --> ES
+    WORKER --> S3

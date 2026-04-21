@@ -1,0 +1,28 @@
+%% Diagram: Three Pillars of the Component Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph IOC["Inversion of Control"]
+        direction TB
+        IOC1["Components declare WHAT\nthey need (interfaces)"] --> IOC2["Application shell\nprovides implementations"]
+        IOC2 --> IOC3["Tests provide mocks\nvia Context"]
+    end
+
+    subgraph BOUNDARIES["Layered Boundaries"]
+        direction TB
+        B1["Primitives -> Blocks -> Widgets"] --> B2["Each layer imports only\nfrom layers below it"]
+        B2 --> B3["ESLint enforces at lint\nand CI time"]
+    end
+
+    subgraph FRAMEWORK["Framework Isolation"]
+        direction TB
+        F1["SDK abstractions wrap\nNext.js / Remix APIs"] --> F2["Business logic never\nimports framework code"]
+        F2 --> F3["Migration = swap\nSDK implementations"]
+    end
+
+    classDef ioc fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef bnd fill:#1F6E68,stroke:#155752,color:#fff
+    classDef frm fill:#8B5E15,stroke:#6E4810,color:#fff
+    class IOC1,IOC2,IOC3 ioc
+    class B1,B2,B3 bnd
+    class F1,F2,F3 frm

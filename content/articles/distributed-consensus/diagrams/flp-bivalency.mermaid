@@ -1,0 +1,20 @@
+%% Diagram: FLP intuition - the adversarial scheduler keeps the system bivalent forever
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    S0["Initial configuration C0\n(bivalent: could still decide 0 or 1)"]
+    S0 -->|"deliver msg m1"| S1a["Configuration C1a\n(still bivalent)"]
+    S0 -->|"deliver msg m2 first"| S1b["Configuration C1b\n(still bivalent)"]
+
+    S1a -->|"adversary delays decision-forcing message"| S2a["Configuration C2a\n(still bivalent)"]
+    S1b -->|"adversary delays decision-forcing message"| S2b["Configuration C2b\n(still bivalent)"]
+
+    S2a -->|"FLP lemma: a critical msg exists\nwhose ordering decides 0 vs 1.\nDelay it -> stay bivalent."| S3["Configuration C_k\n(still bivalent for all k)"]
+    S2b --> S3
+
+    S3 -->|"Termination would require leaving bivalency,\nbut the schedule above never does."| OUT["No deterministic protocol\nterminates in every execution"]
+
+    classDef bivalent fill:#fbbf24,stroke:#92400e,color:#451a03
+    classDef terminal fill:#f87171,stroke:#7f1d1d,color:#fee2e2
+    class S0,S1a,S1b,S2a,S2b,S3 bivalent
+    class OUT terminal

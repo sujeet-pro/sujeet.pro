@@ -1,0 +1,34 @@
+%% Diagram: Kubernetes deployment topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TB
+    Client["Client"]
+    CDN["CDN"]
+    LB["LB"]
+    IngressCtrl["Nginx Ingress"]
+    Gateway["Image Gateway"]
+    Transform["Transform Engine"]
+    Upload["Asset Ingestion"]
+    Control["Control Plane"]
+    Worker["Workers"]
+    Redis[(Redis)]
+    Postgres[(Postgres)]
+    Queue["RabbitMQ"]
+    S3[(S3)]
+
+    Client --> CDN -->|Miss| LB --> IngressCtrl
+    IngressCtrl --> Gateway
+    IngressCtrl --> Upload
+    IngressCtrl --> Control
+    Gateway --> Transform
+    Gateway --> Redis
+    Gateway --> Postgres
+    Transform --> Redis
+    Transform --> Postgres
+    Transform --> S3
+    Upload --> Queue
+    Upload --> S3
+    Upload --> Postgres
+    Queue --> Worker
+    Worker --> S3
+    Worker --> Postgres

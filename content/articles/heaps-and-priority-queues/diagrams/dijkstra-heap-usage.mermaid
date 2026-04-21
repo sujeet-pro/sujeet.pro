@@ -1,0 +1,30 @@
+%% Diagram: Dijkstra's algorithm using a binary min-heap (duplicate-node strategy)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+  autonumber
+  participant Algo as Dijkstra loop
+  participant Dist as dist[] array
+  participant Heap as Min-heap (PQ)
+  participant Visited as visited set
+
+  Algo->>Dist: dist[source] = 0
+  Algo->>Heap: push(source, 0)
+  loop until heap empty
+    Algo->>Heap: pop() — current min (v, d)
+    Heap-->>Algo: (v, d)
+    Algo->>Visited: contains(v)?
+    alt already visited
+      Note over Algo,Visited: stale entry — skip
+    else first time
+      Algo->>Visited: add(v)
+      loop for each edge (v -> u, w)
+        Algo->>Dist: read dist[u]
+        alt d + w < dist[u]
+          Algo->>Dist: dist[u] = d + w
+          Algo->>Heap: push(u, d + w)
+          Note over Heap: duplicate-node:<br/>old entries skipped on pop
+        end
+      end
+    end
+  end

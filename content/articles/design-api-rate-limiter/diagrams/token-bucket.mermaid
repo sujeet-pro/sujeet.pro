@@ -1,0 +1,16 @@
+%% Diagram: Token bucket — lazy refill
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    REQ["Request arrives at time t"] --> COMPUTE["elapsed = t − last_refill<br/>tokens = min(b, tokens + elapsed × r)"]
+    COMPUTE --> CHECK{"tokens ≥ 1?"}
+    CHECK -->|yes| CONSUME["tokens -= 1<br/>last_refill = t"]
+    CONSUME --> ALLOW["Allow → 200"]
+    CHECK -->|no| BACKOFF["retry_after = (1 − tokens) / r"]
+    BACKOFF --> DENY["429 Too Many Requests<br/>+ Retry-After"]
+
+    subgraph PARAMS["Parameters"]
+        direction LR
+        B["b = bucket capacity (burst)"]
+        R["r = refill rate (tokens/s)"]
+    end

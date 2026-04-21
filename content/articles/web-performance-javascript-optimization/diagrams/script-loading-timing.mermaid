@@ -1,0 +1,27 @@
+%% Diagram: Script loading timing for blocking, async, defer, module
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BLOCK["Blocking (no attribute)"]
+        B1["Parse paused"] --> B2["Fetch + execute"] --> B3["Resume parse"] --> B4(("DCL"))
+    end
+
+    subgraph ASYNC["async"]
+        A1["Parse"] --> A2["Pause + exec on arrival"] --> A3(("DCL"))
+    end
+
+    subgraph DEFER["defer"]
+        D1["Parse + parallel fetch"] --> D2["Execute in document order"] --> D3(("DCL"))
+    end
+
+    subgraph MODULE["type=module (defer + graph resolve)"]
+        M1["Parse + fetch graph"] --> M2["Resolve + execute"] --> M3(("DCL"))
+    end
+
+    BLOCK --> ASYNC --> DEFER --> MODULE
+
+    style B1 fill:#ffcdd2,stroke:#c62828
+    style B2 fill:#ffcdd2,stroke:#c62828
+    style A2 fill:#fff9c4,stroke:#f9a825
+    style D2 fill:#c8e6c9,stroke:#2e7d32
+    style M2 fill:#c8e6c9,stroke:#2e7d32

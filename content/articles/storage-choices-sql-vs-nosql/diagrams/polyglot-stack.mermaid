@@ -1,0 +1,59 @@
+%% Diagram: Polyglot persistence layered stack
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph clients["Application surface"]
+        WEB["Web / mobile"]
+        SVC["Internal services"]
+    end
+
+    subgraph hot["Hot path - sub-millisecond"]
+        CACHE["In-memory cache\nRedis / Memcached\nSession, presence, hot reads"]
+    end
+
+    subgraph oltp["OLTP - tens of milliseconds"]
+        SQL["Relational store\nPostgres / MySQL\nBilling, identity, ACID flows"]
+        DOC["Document store\nMongoDB / DynamoDB\nUser profiles, catalog"]
+    end
+
+    subgraph scale_out["Scale-out - write-heavy"]
+        WIDE["Wide-column\nCassandra / Scylla\nMessages, events, time-series"]
+    end
+
+    subgraph derived["Derived stores"]
+        SEARCH["Search engine\nElasticsearch / OpenSearch"]
+        OLAP["OLAP / analytics\nDruid / ClickHouse / BigQuery"]
+        GRAPH["Graph DB\nNeo4j / proprietary"]
+    end
+
+    subgraph cdc["CDC pipeline"]
+        STREAM["Kafka / Kinesis\nChange streams"]
+    end
+
+    WEB --> CACHE
+    SVC --> CACHE
+    CACHE -.miss.-> SQL
+    CACHE -.miss.-> DOC
+
+    SVC --> SQL
+    SVC --> DOC
+    SVC --> WIDE
+
+    SQL --> STREAM
+    DOC --> STREAM
+    WIDE --> STREAM
+    STREAM --> SEARCH
+    STREAM --> OLAP
+    STREAM --> GRAPH
+
+    classDef client fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef cache fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef sql fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef nosql fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef pipe fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class WEB,SVC client
+    class CACHE cache
+    class SQL sql
+    class DOC,WIDE,SEARCH,OLAP,GRAPH nosql
+    class STREAM pipe

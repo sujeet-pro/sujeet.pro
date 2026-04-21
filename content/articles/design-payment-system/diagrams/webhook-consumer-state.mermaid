@@ -1,0 +1,19 @@
+%% Diagram: Idempotent webhook consumer state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Received: HTTP POST + signature
+    Received --> Rejected: Bad signature / replay window expired
+    Received --> Deduped: event_id already processed
+    Received --> Locked: SETNX event_id lock
+    Locked --> Applied: Mutation succeeds
+    Locked --> Retrying: Transient failure (5xx / timeout)
+    Locked --> Failed: Permanent failure (4xx / schema)
+    Retrying --> Locked: Backoff (exponential, capped)
+    Retrying --> DLQ: Max attempts exceeded
+    Applied --> [*]
+    Deduped --> [*]: Return 200 (no-op)
+    Failed --> DLQ
+    DLQ --> Investigated: On-call replay / manual ledger
+    Investigated --> Locked
+    Rejected --> [*]: 401 / drop

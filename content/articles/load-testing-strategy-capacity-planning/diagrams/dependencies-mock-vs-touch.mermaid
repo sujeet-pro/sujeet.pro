@@ -1,0 +1,15 @@
+%% Diagram: Dependencies — what to mock vs touch
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    DEP["Dependency in scope"] --> Q1{"Owned by your team<br/>or production-equivalent in lab?"}
+    Q1 -->|Yes| TOUCH["Touch the real dependency<br/>(measures realistic contention)"]
+    Q1 -->|No| Q2{"Behavior dominates<br/>tail latency or saturation?"}
+    Q2 -->|Yes| Q3{"Can you stand up a<br/>contract-faithful clone?"}
+    Q3 -->|Yes| CLONE["Sandboxed clone<br/>(same engine, same indexes,<br/>scaled-down data)"]
+    Q3 -->|No| DARK["Dark / shadow path<br/>(mirror prod traffic,<br/>discard side effects)"]
+    Q2 -->|No| MOCK["Contract-tested mock<br/>(latency profile + error rates)"]
+    TOUCH --> ISO["Isolate blast radius:<br/>tenant, account, namespace"]
+    CLONE --> ISO
+    DARK --> ISO
+    MOCK --> ISO

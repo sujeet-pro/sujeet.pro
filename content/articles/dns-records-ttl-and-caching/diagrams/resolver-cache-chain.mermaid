@@ -1,0 +1,32 @@
+%% Diagram: Resolver cache chain — TTL behavior at each layer between authoritative and client
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Auth["Authoritative server"] --> Recursive["Recursive resolver<br/>8.8.8.8, 1.1.1.1, ISP"]
+    Recursive --> OS["OS stub resolver<br/>systemd-resolved / dnsmasq / mDNSResponder"]
+    OS --> Browser["Browser cache<br/>Chrome 60s min, Firefox 60s default"]
+    Browser --> App["Application cache<br/>JVM, .NET, libc"]
+
+    AuthB["Source of truth — sets TTL"]
+    RecursiveB["Honors TTL; may serve stale per RFC 8767"]
+    OSB["Platform-specific cache; may impose TTL floor"]
+    BrowserB["Often shorter than system DNS cache"]
+    AppB["May cache forever without explicit config"]
+
+    Auth -.- AuthB
+    Recursive -.- RecursiveB
+    OS -.- OSB
+    Browser -.- BrowserB
+    App -.- AppB
+
+    classDef source fill:#1e40af,stroke:#1e3a8a,color:#ffffff
+    classDef respect fill:#15803d,stroke:#14532d,color:#ffffff
+    classDef floor fill:#b45309,stroke:#78350f,color:#ffffff
+    classDef ignore fill:#b91c1c,stroke:#7f1d1d,color:#ffffff
+    classDef note fill:#27272a,stroke:#3f3f46,color:#e4e4e7
+
+    class Auth source
+    class Recursive respect
+    class OS,Browser floor
+    class App ignore
+    class AuthB,RecursiveB,OSB,BrowserB,AppB note

@@ -2,72 +2,61 @@
 title: RPC and API Design
 linkTitle: 'RPC & API Design'
 description: >-
-  REST, gRPC, and GraphQL compared — design constraints, wire efficiency, streaming capabilities, and production trade-offs — plus practical guidance on API versioning, pagination, rate limiting, and documentation strategies.
+  REST, gRPC, and GraphQL compared at the wire — design constraints, streaming, and load-balancing behavior — plus production-grade guidance on versioning, pagination, rate limiting, and machine-readable contracts.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - infrastructure
   - system-design
   - distributed-systems
+  - http
+  - api-design
 ---
 
 # RPC and API Design
 
-Choosing communication protocols and patterns for distributed systems. This article covers REST, gRPC, and GraphQL—their design trade-offs, when each excels, and real-world implementations. Also covers API versioning, pagination, rate limiting, and documentation strategies that scale.
+Choosing a wire format and a request shape is a load-bearing architectural decision: it determines what is cacheable at the edge, how breakable the contract is across mobile releases, and how forgiving the system is when a downstream service is slow. This article compares REST, gRPC, and GraphQL at the protocol level, then works through the four cross-cutting concerns that every production API surface eventually has to solve — versioning, pagination, rate limiting, and machine-readable documentation. The audience is a senior engineer who has shipped HTTP APIs but wants the trade-offs explicit before they pick the next one.
 
-![API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.](./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an-light.svg "API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.")
-![API architecture: clients connect through a gateway that handles rate limiting and auth, then routes to appropriate protocol handlers. REST for public APIs, gRPC for internal service-to-service, GraphQL for flexible client queries.](./diagrams/api-architecture-clients-connect-through-a-gateway-that-handles-rate-limiting-an-dark.svg)
+![Protocol families across the request lifecycle: clients reach an edge that handles auth, rate limiting, and version routing, then fan out to REST, GraphQL, and gRPC surfaces over a backend that aggregates and streams.](./diagrams/architecture-overview-light.svg "Protocol families across the request lifecycle. The same request may flow through REST, GraphQL, or gRPC depending on the client and the operation.")
+![Protocol families across the request lifecycle.](./diagrams/architecture-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-API design is about matching communication patterns to constraints:
+API design optimizes against three orthogonal axes. Every protocol pays one of them down to buy the others.
 
-| Protocol    | Optimizes For                            | Sacrifices                         |
-| ----------- | ---------------------------------------- | ---------------------------------- |
-| **REST**    | Cacheability, uniform interface, tooling | Flexibility, efficiency            |
-| **gRPC**    | Performance, type safety, streaming      | Browser support, human readability |
-| **GraphQL** | Query flexibility, reducing round trips  | Caching, complexity                |
+| Axis                        | REST                                                              | gRPC                                                                                  | GraphQL                                                            |
+| --------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Coupling**                | Loose. Resources + media types; clients tolerate added fields.    | Tight. Generated stubs from a `.proto`; field numbers are forever.                    | Medium. Schema is shared, but clients pick the fields per request. |
+| **Wire & runtime cost**     | JSON over HTTP/1.1 or HTTP/2; verbose but cacheable.              | Protobuf over HTTP/2; compact framing; lower CPU on parse.                            | JSON over HTTP/1.1 or HTTP/2; per-field resolver cost on server.   |
+| **Operational ergonomics**  | Universal tooling, CDN-friendly, curl-debuggable.                 | Needs codegen, gRPC-aware load balancing, and a proxy ([gRPC-Web][grpc-web-blog]) for browsers. | Needs query-cost analysis, persisted operations, server-side caching. |
 
-The core trade-off: **coupling vs efficiency**. REST's uniform interface decouples clients from servers but requires multiple round trips. gRPC's contract-first approach enables optimizations but couples clients to schema. GraphQL shifts query logic to clients but complicates server-side caching.
+The decision is rarely "which protocol is best" but "which surface for which client". The decision tree below captures how I split a new API surface between the three.
 
-**Decision heuristic:**
+![Decision tree: pick REST when the browser or third parties are the primary client and queries are stable; pick GraphQL when the client mix needs varying field shapes; pick gRPC for low-latency internal RPC and streaming.](./diagrams/protocol-decision-tree-light.svg "A practical protocol selector. Most production stacks land on more than one branch.")
+![Protocol decision tree.](./diagrams/protocol-decision-tree-dark.svg)
 
-- Public APIs: REST (tooling, cacheability, developer familiarity)
-- Internal microservices: gRPC (performance, type safety)
-- Mobile/frontend with varying data needs: GraphQL (reduce round trips)
-- Real-time bidirectional: gRPC streaming or WebSockets
+## REST: constraints, not a protocol
 
-## REST: Constraints and Trade-offs
+REST is an architectural style — a set of constraints — defined by Roy Fielding in [Chapter 5 of his 2000 dissertation][fielding-rest], written while he was co-authoring the HTTP/1.1 RFCs.[^fielding-context] It is not a protocol, and a system can be "REST" over almost any underlying transport.
 
-### Fielding's Architectural Constraints
+### The six constraints
 
-REST (Representational State Transfer) is an architectural style defined by Roy Fielding in his 2000 dissertation while co-authoring HTTP/1.1. It's not a protocol—it's a set of constraints that, when followed, yield specific architectural properties.
+| Constraint        | What it means                              | Property gained          |
+| ----------------- | ------------------------------------------ | ------------------------ |
+| Client-Server     | Separation of concerns                     | Independent evolution    |
+| Stateless         | No session state on the server             | Horizontal scaling       |
+| Cacheable         | Responses self-describe their cacheability | Latency, lower load      |
+| Uniform Interface | Standardized resource interactions         | Simplicity, visibility   |
+| Layered System    | Client unaware of intermediaries           | Proxies, gateways, CDNs  |
+| Code-on-Demand    | Optional executable code transfer          | Extensibility (rare)     |
 
-**The six constraints:**
+Statelessness is the constraint most teams unintentionally violate; the moment a server stores per-connection session state, horizontal scaling becomes "sticky" and rolling a node becomes a logout event. The trade is real: clients have to send their identity and context (`Authorization`, `Cookie`, idempotency keys) on every request, which inflates payloads.
 
-| Constraint        | What It Means                             | Architectural Property    |
-| ----------------- | ----------------------------------------- | ------------------------- |
-| Client-Server     | Separation of concerns                    | Independent evolution     |
-| Stateless         | No session state on server                | Scalability, reliability  |
-| Cacheable         | Responses labeled cacheable/non-cacheable | Performance, reduced load |
-| Uniform Interface | Standardized resource interactions        | Simplicity, visibility    |
-| Layered System    | Client unaware of intermediaries          | Encapsulation, proxies    |
-| Code-on-Demand    | Optional executable code transfer         | Extensibility             |
+### HATEOAS, and why it almost never ships
 
-**Why statelessness matters:** Each request contains all information needed to process it. Servers don't store session state between requests. This enables:
+The Uniform Interface bundles four sub-constraints; the most-ignored is HATEOAS — *hypermedia as the engine of application state*. The server returns links that drive the next state transition, so the client only needs to know the entry URI and the media types.
 
-- Horizontal scaling (any server can handle any request)
-- Simpler failure recovery (no session loss)
-- Better cacheability
-
-**Trade-off:** Clients must send authentication/context with every request, increasing payload size.
-
-### HATEOAS: The Forgotten Constraint
-
-HATEOAS (Hypermedia As The Engine Of Application State) is REST's most ignored constraint. It requires servers to provide navigation options in responses:
-
-```json collapse={1-4, 20-25}
-// Example: Order resource with hypermedia links
+```json title="Order resource with hypermedia links"
 {
   "orderId": "12345",
   "status": "pending",
@@ -79,132 +68,88 @@ HATEOAS (Hypermedia As The Engine Of Application State) is REST's most ignored c
     "items": { "href": "/orders/12345/items" }
   }
 }
-// After payment, "pay" link disappears, "refund" appears
 ```
 
-**Fielding's 2008 clarification:** "A REST API should be entered with no prior knowledge beyond the initial URI and set of standardized media types."
+Fielding clarified the bar in 2008 with characteristic bluntness:
 
-**Why most APIs ignore it:** HATEOAS requires clients to be generic hypermedia browsers rather than knowing the API structure upfront. In practice, client developers prefer explicit API documentation over runtime discovery. The overhead of parsing links adds latency without practical benefit for known API contracts.
+> A REST API should be entered with no prior knowledge beyond the initial URI (bookmark) and set of standardized media types that are appropriate for the intended audience.[^fielding-2008]
 
-### Richardson Maturity Model
+Almost no production API meets that bar. Mobile and SDK clients prefer compile-time knowledge of the API surface; runtime link-following adds latency, parsing, and a class of "what if the link is missing" bugs that explicit API references never have. [Leonard Richardson's Maturity Model][richardson-maturity] (popularized by Martin Fowler) captures the gap: most "REST" APIs are Level 2 — resources and HTTP verb semantics — and treat HATEOAS as aspirational.
 
-Leonard Richardson's maturity model (popularized by Martin Fowler) categorizes APIs by REST adherence:
+> [!NOTE]
+> Calling a Level-2 design "REST" is a vocabulary fight, not a quality fight. The constraints earn architectural properties; whether you bother with all of them depends on whether you actually need those properties.
 
-| Level | Name         | Description                            | Example                         |
-| ----- | ------------ | -------------------------------------- | ------------------------------- |
-| 0     | Swamp of POX | Single URI, single verb (usually POST) | SOAP over HTTP                  |
-| 1     | Resources    | Multiple URIs, but verbs ignored       | `/getUser`, `/createUser`       |
-| 2     | HTTP Verbs   | Resources + proper verb semantics      | GET `/users/123`, POST `/users` |
-| 3     | Hypermedia   | Full HATEOAS with link navigation      | GitHub API, PayPal              |
+### When REST earns its place
 
-**Production reality:** Most "REST" APIs are Level 2. Level 3 adds complexity without proportional benefit for APIs with stable contracts and good documentation.
+REST is the right default whenever any of the following are true:
 
-### When REST Excels
+- The client is a third-party integrator. Universal tooling (curl, Postman, every HTTP client in every language) and the [`Cache-Control`][rfc9111] / `ETag` model for shared and edge caches are decisive.
+- The data model is CRUD-shaped and the responses are stable.
+- The browser is a first-class client and you want intermediaries (CDN, reverse proxy, browser cache) to do real work.
 
-**Best for:**
+The cost shows up the moment the client wants more or less than the resource shape provides: REST forces over-fetching when the client only wants a few fields, and chains of round trips when the client wants related resources. HTTP/2 and HTTP/3 mitigate the round-trip cost via multiplexing but do not change the response shape.
 
-- Public APIs (universal tooling, curl-debuggable)
-- Cacheable resources (CDN integration, HTTP cache headers)
-- CRUD-dominant operations
-- Browser clients without build tooling
+## gRPC: contracts, framing, and streams
 
-**Real-world:** Stripe, Twilio, and GitHub use REST for public APIs. Stripe's API has maintained backward compatibility since 2011 using REST's uniform interface combined with careful versioning.
+gRPC is an RPC framework over HTTP/2, with [Protocol Buffers][protobuf-encoding] as the default IDL and serialization. The combination buys three things at once: a strict contract, a compact wire format, and four communication patterns that map cleanly onto HTTP/2 streams.
 
-**Limitations:**
+### Wire format and what protobuf actually saves you
 
-- Over-fetching: Fixed response shapes waste bandwidth
-- Under-fetching: Multiple round trips for related data
-- No streaming: HTTP/1.1 request-response only
-- Chatty for mobile: Each resource requires separate request
+A protobuf field on the wire is a tag (field number + wire type, varint-encoded) followed by a value. Field numbers in the **1–15** range fit into a one-byte tag; **16–2047** take two bytes — which is why hot fields should claim the low numbers.[^proto-encoding] Default values for implicit-presence fields are not transmitted, and unknown fields are preserved on the round trip, which is what gives protobuf its forward-compatibility story.[^proto-defaults]
 
-## gRPC: Performance and Type Safety
+The "protobuf is N times faster than JSON" claim is over-circulated. The real shape of the trade is:
 
-### Protocol Buffers and Wire Efficiency
+- For typical record-shaped payloads, protobuf is **smaller** than JSON, often noticeably — Auth0's published benchmark measured roughly 34% smaller and 21% faster for an uncompressed `GET` payload, but only 9% smaller and 4% faster once both were gzipped.[^auth0-protobuf]
+- For string-dominated payloads (long descriptions, base64 blobs), the size win shrinks toward parity because strings are length-prefixed in protobuf and length-quoted in JSON either way.[^victoria-protobuf]
+- The bigger gain in production is parser CPU, not bytes — JSON parsers do allocations and string decoding that a generated protobuf parser skips.
 
-gRPC uses Protocol Buffers (protobuf) for serialization—a binary format that's 3-10x smaller than JSON and 20-100x faster to parse.
+In short: protobuf is reliably smaller and lower-CPU than JSON, but the multiplier depends on data shape. Treat it as 2–10× smaller for record-shaped data, parity for blob-shaped data, and always benchmark your own payloads before quoting a number.
 
-**Wire format efficiency:**
+### HTTP/2 and the four streaming modes
 
-```protobuf collapse={1-2}
-// user.proto
-syntax = "proto3";
+gRPC mandates HTTP/2 end-to-end. It uses HTTP/2 framing, header compression, multiplexing, and trailers, and signals incompatibility with proxies via the [`te: trailers`][grpc-http2] header.[^grpc-http2] All four communication patterns ride on the same `:method POST /Service/Method` HTTP/2 stream:
 
-message User {
-  int64 id = 1;        // Field number 1 (1 byte tag)
-  string name = 2;     // Field number 2
-  repeated string tags = 3;
-}
-```
+| Pattern              | Use case                                | Example                                         |
+| -------------------- | --------------------------------------- | ----------------------------------------------- |
+| Unary                | Request → response                      | `GetUser(id) → User`                            |
+| Server streaming     | Tail logs, large result sets, telemetry | `ListOrders() → stream Order`                   |
+| Client streaming     | Chunked uploads, batched writes         | `stream Chunk → UploadResult`                   |
+| Bidirectional        | Real-time sync, chat, push              | `stream Message ⇄ stream Message`               |
 
-**Encoding details:**
+![Sequence: each gRPC streaming mode shown as messages on a single HTTP/2 stream — unary, server streaming, client streaming, and bidirectional.](./diagrams/grpc-streaming-modes-light.svg "gRPC's four streaming modes mapped onto a single HTTP/2 stream. The protocol buys you all four for free once you have a contract.")
+![gRPC streaming modes.](./diagrams/grpc-streaming-modes-dark.svg)
 
-- Field tags use varint encoding: numbers 1-15 take 1 byte, 16-2047 take 2 bytes
-- Strings are length-prefixed (no delimiters)
-- Default values (0, "", false) aren't transmitted
-- Unknown fields are preserved (forward compatibility)
-
-**Size comparison (same user object):**
-
-| Format   | Size     | Parse Time |
-| -------- | -------- | ---------- |
-| JSON     | 95 bytes | 2.1 ms     |
-| Protobuf | 28 bytes | 0.08 ms    |
-
-### HTTP/2 and Streaming Modes
-
-gRPC mandates HTTP/2, enabling features impossible with HTTP/1.1:
-
-**Multiplexing:** Multiple requests share one TCP connection. No head-of-line blocking at HTTP level (though TCP still has it).
-
-**Four communication patterns:**
-
-| Pattern          | Use Case                             | Example                         |
-| ---------------- | ------------------------------------ | ------------------------------- |
-| Unary            | Request-response                     | GetUser(id) → User              |
-| Server streaming | Large result sets, real-time updates | ListOrders() → stream Order     |
-| Client streaming | File upload, batched writes          | stream Chunk → UploadResult     |
-| Bidirectional    | Chat, real-time sync                 | stream Message ↔ stream Message |
-
-**Server streaming example:**
-
-```protobuf
+```protobuf title="order_service.proto"
 service OrderService {
-  rpc ListOrders(ListRequest) returns (stream Order);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (stream Order);
+  rpc UploadInvoice(stream Chunk) returns (UploadResult);
+  rpc Sync(stream Event) returns (stream Event);
 }
 ```
 
-Client receives orders as they're fetched from database—no need to buffer entire response.
+### Why browsers and load balancers are awkward
 
-### gRPC Performance in Production
+Two operational details are worth internalizing before betting on gRPC for an external API:
 
-**Netflix:** Migrated recommendation serving to gRPC. Results:
+- **Browsers can't speak gRPC natively.** Browser JavaScript cannot read HTTP/2 trailers, and gRPC encodes its status in trailers — so [gRPC-Web][grpc-web-blog] frames the trailers into the body and a proxy (Envoy is the canonical choice) translates between gRPC-Web and gRPC-on-HTTP/2.[^grpc-web]
+- **Load balancing is not free.** A single gRPC channel multiplexes many requests over one long-lived HTTP/2 connection. An L4 load balancer that hashes by connection sees one connection per client and pins all that traffic to one backend; you need an L7 (gRPC-aware) balancer or a client-side load-balancing strategy to fan out per-RPC.[^grpc-lb]
 
-- 90% latency reduction for live predictions
-- 30,000 concurrent prediction requests per node
-- Recommendations delivered in <25ms
+### Where gRPC earns its place
 
-**Why the improvement:** Binary serialization eliminates JSON parsing overhead. HTTP/2 multiplexing reduces connection setup. Streaming enables incremental responses.
+The companies that go all-in on gRPC do so because the framework solves multiple problems in one drop-in: a multilingual fleet gets generated stubs and a single contract; the network gets HTTP/2 multiplexing; the platform gets streaming primitives that are awkward to bolt onto REST.
 
-**Uber:** Uses gRPC for real-time location tracking. Key benefit: low battery impact on mobile from efficient encoding and persistent connections.
+- Netflix runs a deep gRPC stack internally — over 600 applications and 1,300 services on its `jrpc` Java framework, and uses protobuf [`FieldMask`][netflix-fieldmask] to let callers ask for only the fields they need over backend-to-backend gRPC.[^netflix-grpc]
+- Uber rebuilt its mobile push platform on gRPC bidirectional streaming (over QUIC/HTTP/3) to replace battery-draining polling with a single long-lived stream, and used shadow traffic plus circuit breakers to migrate safely from the legacy REST path.[^uber-push]
 
-### gRPC Limitations
+The complement is also true: when there is no codegen budget, no platform discipline around `.proto` review, or no L7 mesh, gRPC tends to leak its internals into the application.
 
-**Browser support:** gRPC-Web requires a proxy (Envoy) to translate between gRPC and browser-compatible format. Native browser gRPC isn't possible due to lack of HTTP/2 trailer support in browser APIs.
+## GraphQL: shifting query shape to the client
 
-**Debugging:** Binary format isn't human-readable. Requires tooling (grpcurl, Postman) instead of curl.
+GraphQL flips the request/response contract: the client picks fields, and the server's job is to resolve any tree the schema permits. The first-order win is that one round trip can replace two or three REST calls; the second-order cost is that every field is a potential query path on the server.
 
-**Load balancer compatibility:** L7 load balancers need gRPC-aware configuration. Connection-level balancing (L4) doesn't distribute requests evenly because gRPC multiplexes requests over persistent connections.
-
-**Recommendation:** Use gRPC between services you control. Keep REST for public APIs and browser clients.
-
-## GraphQL: Query Flexibility
-
-### Solving Over-fetching and Under-fetching
-
-GraphQL lets clients specify exactly what data they need:
-
-```graphql
-query {
+```graphql title="orders.gql"
+query Orders {
   user(id: "123") {
     name
     email
@@ -219,36 +164,18 @@ query {
 }
 ```
 
-**REST equivalent:** 3 requests minimum (`/users/123`, `/users/123/orders`, `/orders/{id}/items` for each order).
+In REST, the same data needs at least three trips (`/users/123`, `/users/123/orders`, then per-order `/orders/{id}/items`) and the client throws away anything it didn't ask for. In GraphQL, it is one POST with a known cost — provided the server can resolve the tree without falling into N+1.
 
-**Trade-off:** Server complexity increases. Each field is a potential code path. Authorization becomes per-field instead of per-endpoint.
+### N+1, DataLoader, and per-request scoping
 
-### The N+1 Problem and DataLoader
+Per-field resolvers create the N+1 problem: a query that returns 100 orders and asks for each order's user issues 1 query for the orders and 100 follow-ups for the users. The standard fix is [Facebook's DataLoader pattern][graphql-dataloader] — coalesce all the `load(key)` calls inside a single tick of the event loop, then issue a single `WHERE id IN (...)` query.[^dataloader]
 
-GraphQL's per-field resolvers create the N+1 query problem:
-
-```
-Query: users(first: 100) { orders { ... } }
-
-Naive execution:
-1. SELECT * FROM users LIMIT 100           -- 1 query
-2. SELECT * FROM orders WHERE user_id = 1  -- 100 queries
-3. SELECT * FROM orders WHERE user_id = 2
-... (N+1 total)
-```
-
-**DataLoader solution (Facebook):** Batch and deduplicate requests within a single tick of the event loop:
-
-```javascript collapse={1-3, 15-20}
-// DataLoader batches loads within same execution frame
+```javascript title="user-loader.js"
 const userLoader = new DataLoader(async (userIds) => {
-  // Single query: SELECT * FROM users WHERE id IN (1, 2, 3, ...)
   const users = await db.users.findByIds(userIds)
-  // Return in same order as input keys (DataLoader contract)
   return userIds.map((id) => users.find((u) => u.id === id))
 })
 
-// In resolver
 const resolvers = {
   Order: {
     user: (order) => userLoader.load(order.userId),
@@ -256,142 +183,95 @@ const resolvers = {
 }
 ```
 
-**Critical rule:** Create new DataLoader instance per request. Sharing loaders leaks data between users.
+![Sequence: without DataLoader the resolver fires one DB query per order (N+1); with DataLoader, all loads issued in the same tick coalesce into a single batched query before the engine resolves the next field.](./diagrams/n-plus-one-dataloader-light.svg "DataLoader collapses N per-field reads into one batched query per request, executed at the end of the event-loop tick.")
+![N+1 vs DataLoader batching.](./diagrams/n-plus-one-dataloader-dark.svg)
 
-**Shopify's approach:** Built GraphQL Batch Ruby library inspired by DataLoader. Reduced database queries by 10-100x for complex queries.
+> [!IMPORTANT]
+> DataLoader caches **per-instance**, and the recommended pattern is one DataLoader instance per request. Sharing a loader between requests leaks data (and identity) between users.[^dataloader]
 
-### GraphQL Caching Challenges
+[Shopify's GraphQL Batch][shopify-graphql-batch] is the Ruby equivalent: same pattern, same gotcha. The performance impact in their stack is reported as a step-change in query count, not a constant factor.[^shopify-batch]
 
-**HTTP caching doesn't work:** GraphQL uses POST for all queries (to send query body). POST responses aren't cached by CDNs or browsers.
+### Caching, complexity, and the security surface
 
-**Solutions:**
+GraphQL throws away two things REST gets for free:
 
-1. **Persisted queries:** Hash queries server-side, clients send hash instead of full query. Enables GET requests and CDN caching.
-2. **Response caching:** Cache at resolver level (per-field), not HTTP level.
-3. **Client-side:** Apollo Client normalizes responses into entity cache.
+- **HTTP caching.** Queries are POSTed (the body holds the query), so CDNs and browsers won't cache the response by URL. The mitigation is a **persisted operation** model (sometimes called *trusted documents*): the server keeps an allowlist of pre-registered queries, the client sends a SHA-256 hash, and the request becomes idempotent and `GET`-able — and as a bonus, ad-hoc malicious queries are rejected at the gateway.[^trusted-docs] Apollo's *automatic persisted queries* (APQ) is the bandwidth-only version of the same idea.
+- **Bounded server work.** Every field is a code path. Without depth and complexity limits, an attacker (or a sloppy client) can ask for `friends { friends { friends { ... } } }` and burn server budget. Production GraphQL gateways enforce maximum depth, weight-based query complexity, and per-cost rate limiting.
 
-**Real-world:** GitHub's GraphQL API uses persisted queries for their mobile apps. Reduces payload size and enables caching.
+GitHub's public GraphQL API illustrates both ends: it ships an explicit schema-first surface alongside the older REST API, uses persisted queries for the mobile clients, and publishes its [query cost limits][github-rate-limits] up front.[^github-graphql]
 
-### When GraphQL Fits
+### When GraphQL earns its place
 
-**Best for:**
+- Mobile clients with heterogeneous data needs (different screens, different field selections per release).
+- BFF / aggregator nodes consolidating multiple downstream services into one request shape.
+- Frontends that iterate faster than the backend can ship endpoints.
 
-- Mobile apps with varying data requirements (reduce round trips)
-- Aggregating multiple backend services (BFF pattern)
-- Rapidly evolving frontends (no backend changes for new field combinations)
+It is rarely a fit for simple CRUD APIs (the abstraction tax is real), file uploads (multipart extension required), or fully-public APIs where you cannot enforce persisted operations.
 
-**Not suitable for:**
+## API versioning
 
-- Simple CRUD APIs (overhead not justified)
-- File uploads (requires multipart extensions)
-- Public APIs (attack surface for malicious queries)
+A version strategy is a contract about how the API will break, not whether. Three families dominate.
 
-**Query complexity protection:** Production GraphQL servers must limit:
+### URL path versioning
 
-- Query depth (prevent deeply nested queries)
-- Query complexity (weighted field costs)
-- Rate limiting per query cost, not just requests
+```http title="URL path"
+GET /v1/users
+GET /v2/users
+```
 
-## API Versioning Strategies
+Trade-offs:
 
-### Design Choices
+- **Wins:** explicit, impossible to miss; load balancer can route on path; multiple versions can be separate deployments.
+- **Loses:** versioned URLs aren't really resource identifiers; clients must update every URL on a major bump.
+- **Used by:** Twitter, Facebook, Google. Long-lived versions with multi-year overlap are normal.
 
-#### URL Path Versioning
+### Header-based versioning
 
-**Mechanism:** Version in URL path: `/v1/users`, `/v2/users`
-
-**When to use:**
-
-- Public APIs with long-lived versions
-- Need to run multiple versions simultaneously
-- Clear separation between versions
-
-**Trade-offs:**
-
-- ✅ Explicit, impossible to miss
-- ✅ Easy routing at load balancer/gateway
-- ✅ Different versions can be separate deployments
-- ❌ URL pollution (not a resource attribute)
-- ❌ Clients must update all URLs for new version
-
-**Real-world:** Twitter, Facebook, and Google Maps use URL versioning. Google runs v1 and v2 simultaneously for years during migrations.
-
-#### Header-Based Versioning
-
-**Mechanism:** Version in custom header or Accept header
-
-```http
+```http title="Custom Accept media type"
 GET /users HTTP/1.1
 Accept: application/vnd.myapi.v2+json
 ```
 
-**When to use:**
+Trade-offs:
 
-- Clean URLs are priority
-- Gradual migration between versions
-- Same resource, different representations
+- **Wins:** URLs stay stable; the version sits in content negotiation where it semantically belongs.
+- **Loses:** invisible in browser address bars and curl-by-default; some intermediaries silently strip custom headers; harder to test with "just change the URL".
 
-**Trade-offs:**
+### Date-based versioning (Stripe's model)
 
-- ✅ URLs remain stable
-- ✅ Easier version negotiation
-- ❌ Hidden—easy to forget
-- ❌ Harder to test (can't just change URL)
-- ❌ Some tools don't support custom headers easily
+[Stripe's API versioning][stripe-versioning] is the most quoted example of API stability as a feature. The version is a date, e.g. `Stripe-Version: 2024-10-01`. The mechanism that makes it work is layered:
 
-#### Date-Based Versioning (Stripe's Approach)
+1. **Account pinning.** The first API call from a new account pins it to the most recent version.[^stripe-versioning]
+2. **Header override.** A `Stripe-Version` header on a request overrides the pin, used for testing the next version before flipping the account.
+3. **Compatibility layers.** Internal code is always written against the latest schema; request and response transformation modules walk older versions backward to the request's pinned date.
 
-**Mechanism:** Version by release date: `Stripe-Version: 2024-01-28`
-
-**How Stripe implements it:**
-
-1. **Account pinning:** First API call pins account to current version
-2. **Header override:** `Stripe-Version` header overrides for testing
-3. **Version change modules:** Internal code transforms responses between versions
-
-```http
+```http title="Date-pinned request"
 GET /v1/customers HTTP/1.1
-Stripe-Version: 2024-01-28
+Stripe-Version: 2024-10-01
+Authorization: Bearer sk_test_...
 ```
 
-**Why it works for Stripe:**
+The architectural cost is real: the transformation modules accumulate, and the backend is permanently responsible for older shapes. The win is that code written against the API in 2011 still works in 2026.[^stripe-2011]
 
-- Breaking changes are rare (biannual)
-- Version modules handle transformation at edges
-- Core code stays clean—versions are an adapter layer
-- 72-hour rollback window after upgrade
+### What counts as a breaking change
 
-**Trade-off accepted:** Complex internal architecture. Version transformation code accumulates over time.
+| Breaking                                | Additive (safe)                                 |
+| --------------------------------------- | ----------------------------------------------- |
+| Removing a field                        | Adding a new optional field                     |
+| Changing a field's type or semantics    | Adding a new endpoint                           |
+| Removing or renaming an endpoint        | Adding a new optional query parameter           |
+| Changing an error code or shape         | Adding a new enum value (if clients tolerate it) |
+| Tightening a previously-loose validation | Loosening a previously-strict validation        |
 
-**Result:** Code from 2011 still works. Stripe prioritizes API stability as infrastructure.
+The safest deprecation pattern is to keep the old field, return both, and surface a structured deprecation warning so consumers can act before the sunset:
 
-### Breaking Change Management
-
-**What constitutes a breaking change:**
-
-- Removing fields
-- Changing field types
-- Changing field semantics
-- Removing endpoints
-- Changing error codes
-
-**Safe changes (additive):**
-
-- Adding new fields
-- Adding new endpoints
-- Adding new optional parameters
-- Adding new enum values (if clients handle unknown values)
-
-**Deprecation pattern:**
-
-```json collapse={1-2, 10-15}
-// Response includes deprecation warning
+```json title="Deprecation envelope"
 {
-  "data": { ... },
+  "data": { "id": "cus_123", "legacy_id": "cus_123" },
   "_warnings": [
     {
       "code": "deprecated_field",
-      "message": "Field 'legacy_id' deprecated. Use 'id' instead.",
+      "message": "Field 'legacy_id' is deprecated. Use 'id' instead.",
       "deprecated_at": "2024-01-01",
       "sunset_at": "2025-01-01"
     }
@@ -399,225 +279,138 @@ Stripe-Version: 2024-01-28
 }
 ```
 
-## API Pagination Strategies
+## Pagination
 
-### Offset Pagination
+The right pagination model is dictated by the data model and the access pattern, not by personal preference.
 
-**Mechanism:** `LIMIT x OFFSET y`
+![Three pagination strategies against the same B-tree index. Offset scans and discards every preceding row; cursor and keyset both seek directly to the next page.](./diagrams/pagination-strategies-light.svg "Offset, cursor, and keyset against the same composite index. Offset's cost grows with page depth; cursor and keyset stay flat.")
+![Pagination strategies on a B-tree index.](./diagrams/pagination-strategies-dark.svg)
 
-```http
+### Offset
+
+```http title="Offset request"
 GET /orders?limit=20&offset=40
 ```
 
-**When to use:**
+Postgres (and every other relational engine) implements `LIMIT n OFFSET k` by walking the result set and discarding the first `k` rows. Page 1 is fast; page 1,000 is not.[^cursor-pagination]
 
-- Small datasets (<10K records)
-- Need "jump to page X" functionality
-- Data changes infrequently
+| Use when               | Avoid when                          |
+| ---------------------- | ----------------------------------- |
+| Datasets < ~10K rows   | Datasets where users page deep      |
+| Need "jump to page N"  | Underlying data churns              |
+| Data is mostly static  | Latency at depth must stay constant |
 
-**Trade-offs:**
+### Cursor
 
-- ✅ Simple to implement
-- ✅ Supports arbitrary page access
-- ✅ Easy to calculate total pages
-- ❌ Performance degrades with offset (database scans and discards rows)
-- ❌ Inconsistent results if data changes between pages
-
-**Performance cliff:** At offset 10,000, Postgres scans and discards 10,000 rows. Page 1: 10ms. Page 1000: several seconds.
-
-### Cursor Pagination
-
-**Mechanism:** Opaque cursor points to position in result set
-
-```http
-GET /orders?limit=20&after=eyJpZCI6MTIzNH0=
+```http title="Cursor request"
+GET /orders?limit=20&after=eyJpZCI6MTIzNH0
 ```
 
-**How it works:**
+A cursor is an opaque token — usually a base64-encoded JSON of the sort key — that tells the server "resume after this row". Internally:
 
-1. Encode last item's sort key as cursor (often base64 JSON)
-2. Query: `WHERE id > cursor_id ORDER BY id LIMIT 20`
-3. Return `next_cursor` with response
+```sql title="Cursor seek"
+SELECT *
+FROM orders
+WHERE (created_at, id) > ($cursor_created_at, $cursor_id)
+ORDER BY created_at, id
+LIMIT 20;
+```
 
-**When to use:**
+Index seek instead of scan-and-discard; latency stays flat regardless of depth.
 
-- Large datasets
-- Infinite scroll / real-time feeds
-- Data changes frequently
+### Keyset
 
-**Trade-offs:**
+Same shape as cursor, but the keys travel as named query parameters instead of an opaque token:
 
-- ✅ Consistent performance regardless of page depth
-- ✅ Stable results despite concurrent inserts
-- ✅ 17x faster than offset for deep pagination (measured on 1M rows)
-- ❌ No "jump to page" capability
-- ❌ Can't easily show "page 5 of 100"
-
-**Real-world:** Twitter, Facebook, and Slack use cursor pagination for feeds. Twitter's cursor encodes timestamp + tweet ID for deterministic ordering.
-
-### Keyset Pagination
-
-**Mechanism:** Use actual column values instead of opaque cursor
-
-```http
+```http title="Keyset request"
 GET /orders?limit=20&created_after=2024-01-15T10:30:00Z&id_after=12345
 ```
 
-**Why two columns:** Timestamps alone aren't unique. Tie-breaker (usually ID) ensures deterministic ordering.
+Keyset trades opacity for debuggability. The query is the same, and so is the cost — but the schema leaks into the URL, so a future change of sort columns is a breaking change.
 
-**Query:**
+### Decision matrix
 
-```sql
-SELECT * FROM orders
-WHERE (created_at, id) > ('2024-01-15T10:30:00Z', 12345)
-ORDER BY created_at, id
-LIMIT 20
-```
+| Factor                  | Offset       | Cursor | Keyset |
+| ----------------------- | ------------ | ------ | ------ |
+| Dataset size            | < 10K        | Any    | Any    |
+| Page depth              | Shallow only | Any    | Any    |
+| "Jump to page" UI       | Yes          | No     | No     |
+| Data churns mid-scroll  | Skips, dups  | Stable | Stable |
+| Implementation cost     | Trivial      | Medium | Medium |
+| Latency vs depth        | O(offset)    | O(1)   | O(1)   |
 
-**Requires:** Composite index on `(created_at, id)`
+A reproducible benchmark on a 1,000,000-row table puts the gap at roughly **17×** at depth — keyset/cursor in the tens of milliseconds, offset in the hundreds.[^cursor-pagination] The exact multiplier varies with the index; the shape never does.
 
-**Trade-offs:**
+## Rate limiting
 
-- ✅ Same performance benefits as cursor
-- ✅ Debuggable (values visible, not encoded)
-- ❌ Exposes internal schema
-- ❌ Harder if sort order changes dynamically
+Rate limiting is two decisions in a trench coat: which algorithm shapes the traffic, and which response contract the client uses to back off.
 
-### Decision Matrix
+![Side-by-side: token bucket allows bursts up to capacity then enforces refill rate; leaky bucket queues requests and drains at a constant rate.](./diagrams/rate-limit-buckets-light.svg "Token bucket favors burst-friendly clients; leaky bucket smooths the output rate at the cost of queue latency.")
+![Token vs leaky bucket.](./diagrams/rate-limit-buckets-dark.svg)
 
-| Factor             | Offset       | Cursor | Keyset |
-| ------------------ | ------------ | ------ | ------ |
-| Dataset size       | <10K         | Any    | Any    |
-| Page depth         | Shallow only | Any    | Any    |
-| Jump to page       | ✅           | ❌     | ❌     |
-| Real-time data     | ❌           | ✅     | ✅     |
-| Implementation     | Simple       | Medium | Medium |
-| Performance (deep) | O(offset)    | O(1)   | O(1)   |
+### Token bucket
 
-## Rate Limiting Algorithms
+A bucket of capacity `B` is refilled at rate `r` tokens/sec. Each request consumes one token; an empty bucket means a `429`. Bursts up to `B` are allowed; sustained throughput is bounded by `r`.
 
-### Token Bucket
+[AWS API Gateway][aws-apigw-throttle] uses a token bucket per region, per account, per stage, per method, per usage-plan client — a small hierarchy of buckets evaluated bottom-up.[^aws-apigw] The default account-level steady-state is 10,000 requests/sec with a 5,000-request burst capacity.[^aws-apigw-quotas]
 
-**Mechanism:** Bucket holds tokens. Each request consumes a token. Tokens refill at fixed rate up to bucket capacity.
+> [!TIP]
+> Token bucket's biggest footgun is that the burst is accumulated capacity, not "extra throughput". If a long-idle client floods the API with `B` requests, your downstreams are responsible for surviving them, not the rate limiter.
 
-**Parameters:**
+### Leaky bucket
 
-- Bucket capacity: Maximum burst size
-- Refill rate: Sustained request rate
+A queue of capacity `Q` drains at constant rate `r`. Bursts are absorbed by the queue, not by passing through; if the queue is full, the request is rejected. Output is perfectly smooth at the cost of queue latency.
 
-**Behavior:**
+Leaky bucket is the right shape when the downstream cannot tolerate bursts — a third-party API with its own throttle, a legacy system with low concurrency, or a database with a known slow path. It is the wrong shape for a UI that benefits from immediate feedback.
 
-- Allows bursts up to capacity
-- After burst, rate limited to refill rate
-- Unused capacity accumulates (up to max)
+### Sliding window
 
-```
-Capacity: 10, Refill: 1/second
+| Variant         | Memory      | Accuracy    | Burst behavior |
+| --------------- | ----------- | ----------- | -------------- |
+| Sliding window log     | O(requests in window) | Exact       | Smooth        |
+| Sliding window counter | O(1)                  | Approximate | Smooth        |
 
-t=0: 10 tokens, 10 requests → 0 tokens
-t=5: 5 tokens (refilled), 3 requests → 2 tokens
-t=10: 7 tokens (2 + 5 refilled)
-```
+The counter variant blends the current and previous fixed window with a weighted overlap: if the previous 60-second window saw 50 requests and we are 25 seconds into a window with 30 so far, the effective count is `30 + 50 × (35/60) ≈ 59.2`. Redis-backed implementations almost always pick the counter variant for its O(1) memory footprint and good-enough accuracy.
 
-**Trade-offs:**
+### Headers and the contract with the client
 
-- ✅ Allows legitimate bursts
-- ✅ Simple state (count + timestamp)
-- ✅ Memory efficient
-- ❌ Burst can overwhelm downstream
-- ❌ Requires tuning capacity vs refill rate
+[RFC 6585][rfc6585] defines the `429 Too Many Requests` status code, and the [`Retry-After`][rfc-retry-after] header tells the client how long to wait. The IETF [`draft-ietf-httpapi-ratelimit-headers`][rl-headers-draft] standardizes the header surface for advertising the current rate-limit state. The current draft (`-10`) consolidates everything into a single structured `RateLimit` field; older drafts shipped as separate `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` headers, which is what most existing APIs still emit.[^ratelimit-headers]
 
-**Real-world:** AWS API Gateway, Nginx use token bucket. AWS allows bursts of 5000 requests, then 10,000/second sustained.
-
-### Leaky Bucket
-
-**Mechanism:** Requests enter bucket, leak out at constant rate. Overflow rejected.
-
-**Key difference from token bucket:** Output rate is constant, not bursty.
-
-**Trade-offs:**
-
-- ✅ Smooth, predictable output rate
-- ✅ Protects downstream from bursts
-- ❌ No burst allowance—legitimate spikes rejected
-- ❌ Can reject requests even under limit if they arrive in bursts
-
-**Use case:** Traffic shaping where downstream can't handle bursts (legacy systems, rate-limited third-party APIs).
-
-### Sliding Window
-
-**Sliding Window Log:** Store timestamp of each request. Count requests in last N seconds.
-
-**Sliding Window Counter:** Combine current window count with weighted previous window.
-
-```
-Window: 60 seconds
-Previous window: 50 requests
-Current window: 30 requests (25 seconds in)
-Effective count: 30 + (50 × 35/60) = 59.2 requests
-```
-
-**Trade-offs:**
-
-| Variant | Memory      | Accuracy    | Burst Handling |
-| ------- | ----------- | ----------- | -------------- |
-| Log     | O(requests) | Exact       | Smooth         |
-| Counter | O(1)        | Approximate | Smooth         |
-
-**Real-world:** Redis-based rate limiters often use sliding window counter for balance of accuracy and memory efficiency.
-
-### Rate Limit Headers
-
-Standard headers (RFC 6585 + draft-ietf-httpapi-ratelimit-headers):
-
-```http
+```http title="Rate-limit response (legacy split-header form)"
 HTTP/1.1 429 Too Many Requests
 RateLimit-Limit: 100
 RateLimit-Remaining: 0
-RateLimit-Reset: 1640995200
+RateLimit-Reset: 30
 Retry-After: 30
+Content-Type: application/json
 ```
 
-**Best practice:** Always include headers so clients can back off gracefully. Include `Retry-After` on 429 responses.
+```http title="Rate-limit response (current draft, single structured field)"
+HTTP/1.1 429 Too Many Requests
+RateLimit: "default"; r=0; t=30
+Retry-After: 30
+Content-Type: application/json
+```
 
-## API Documentation
+Either form should be present on success responses too, not only on `429`s — clients that can see "remaining = 12" pace themselves; clients that only see `429` retry-storm.
 
-### OpenAPI (Swagger)
+## Machine-readable contracts
 
-**Current version:** OpenAPI 3.1 (2021) achieved full JSON Schema compatibility.
+### OpenAPI
 
-**What it defines:**
+[OpenAPI 3.1.0 (released February 2021)][openapi-31] aligned the schema dialect with [JSON Schema 2020-12][openapi-jsonschema-blog]; before that, OpenAPI's schema language was a near-but-not-quite subset of JSON Schema, and the two ecosystems didn't compose cleanly.[^openapi-31] The practical implication is that any modern tool that speaks JSON Schema — code generators, validators, IDE plugins — can validate against an OpenAPI 3.1 document directly.
 
-- Endpoints, methods, parameters
-- Request/response schemas
-- Authentication methods
-- Server URLs
+Authoring rule of thumb: generate the spec from code annotations (`@RequestMapping`, `@OperationId`, decorators in Python/TS) rather than handwriting YAML; the spec drifts the moment the source of truth lives in a different file from the implementation.
 
-**Tooling ecosystem:**
+### AsyncAPI
 
-- Code generation (client SDKs, server stubs)
-- Documentation (Swagger UI, Redoc)
-- Testing (Postman, Insomnia import)
-- Validation (request/response checking)
+OpenAPI describes request/response APIs. [AsyncAPI][asyncapi-30] describes message-driven ones — Kafka topics, AMQP queues, MQTT channels, WebSockets — using a similar shape but a different vocabulary: *channels* instead of paths, and *operations* (`send`/`receive`) instead of HTTP verbs. The 3.0 release decouples channels from operations, so a single channel can host multiple operations and be referenced across services.[^asyncapi-30]
 
-**Best practice:** Generate OpenAPI from code annotations (not manual YAML). Keeps spec synchronized with implementation.
-
-### AsyncAPI for Event-Driven APIs
-
-**Purpose:** OpenAPI equivalent for message-based APIs (Kafka, RabbitMQ, WebSockets).
-
-**Key differences from OpenAPI:**
-
-- Channels instead of paths
-- Messages instead of request/response
-- Bindings for protocol-specific config
-
-```yaml collapse={1-5}
+```yaml title="orders.asyncapi.yaml"
 asyncapi: 3.0.0
 info:
   title: Order Events
   version: 1.0.0
-
 channels:
   orderCreated:
     address: orders/created
@@ -628,147 +421,160 @@ channels:
           properties:
             orderId: { type: string }
             total: { type: number }
+operations:
+  publishOrderCreated:
+    action: send
+    channel:
+      $ref: '#/channels/orderCreated'
 ```
 
-**Tooling:** Springwolf generates AsyncAPI from Spring Kafka/RabbitMQ annotations.
+[Springwolf][springwolf] is the canonical Spring-side generator: it scans `@KafkaListener`, Spring AMQP, JMS, and SNS/SQS annotations and emits an AsyncAPI document at runtime, with a UI similar to Swagger UI.[^springwolf]
 
-## Real-World Protocol Decisions
+## Real-world surfaces
 
-### Slack: Hybrid Approach
+The pattern most production systems converge on is **multiple protocols, one team**.
 
-**Problem:** Needed real-time messaging, REST-like simplicity for integrations, efficient mobile sync.
+### Slack: REST + Events API + Socket Mode
 
-**Solution:**
+Slack ships a REST [Web API][slack-apis] for outbound calls (post message, list channels), an [Events API][slack-events] for inbound webhooks ("a user reacted to a message"), and Socket Mode (WebSocket) for apps that can't expose a public webhook endpoint. The legacy [RTM API][slack-rtm] (raw WebSocket pushed by the server) is in long-tail deprecation — modern Slack apps cannot use it, and `rtm.start` no longer behaves as advertised.[^slack-rtm] The choice is deliberate: REST keeps the integration developer experience accessible (no protobuf, no codegen), and the asynchronous channel is split between webhooks (default) and Socket Mode (firewall-friendly).
 
-- **Web API:** REST for third-party integrations (familiar, cacheable)
-- **RTM API:** WebSocket for real-time events
-- **Events API:** Webhooks for server-to-server
+### Netflix: gRPC inside the wall
 
-**Why not just gRPC:** Slack prioritized developer experience. REST + WebSocket was more accessible than requiring protobuf tooling from integration developers.
+Netflix runs gRPC for backend-to-backend traffic across hundreds of services and a thousand-plus contracts in its `jrpc` Java framework, and uses protobuf `FieldMask` to let callers ask for partial response shapes — a clean way to dodge the over-fetching that any RPC framework with a fixed message shape inherits.[^netflix-grpc] The REST surface lives at the edge for browser clients and cacheable assets.
 
-### Netflix: All-In on gRPC
+### GitHub: REST and GraphQL side-by-side
 
-**Scale:** 100% internal traffic uses gRPC.
+GitHub kept its REST API and added [GraphQL][github-graphql-docs] alongside it. The GraphQL API is the better fit for the mobile and integration surfaces that need flexible field selection; REST stays around for backward compatibility and for ops that benefit from HTTP caching. GraphQL clients use persisted operations to enable caching and to enforce a query allowlist.[^github-graphql]
 
-**Why:**
+## Common pitfalls
 
-- Multilingual services (Java, Node, Python) need shared contract
-- Built-in load balancing and health checking
-- Streaming for large recommendation payloads
-- Protocol buffers reduce bandwidth (significant at Netflix scale)
+### Treating gRPC as a REST replacement on the browser
 
-**Trade-off accepted:** Built custom tooling for debugging. Invested in gRPC-Web proxy for admin UIs.
+The mistake: a benchmark says gRPC is faster, so the team ships it for the browser API too. The price: every request now needs a gRPC-Web proxy, browser DevTools can't read the body, and the build pipeline owns a `.proto`-to-TS toolchain it didn't budget for.[^grpc-web] The fix: gRPC for service-to-service, REST or GraphQL for the browser.
 
-### GitHub: GraphQL for Public API
+### GraphQL without complexity limits
 
-**Problem:** Mobile app needed flexible queries. REST API required many round trips.
+The mistake: a public GraphQL endpoint with no depth or cost ceiling. The price: a single attacker query exhausts your CPU. The fix: depth limit (10–15 is typical), per-field cost weights, and either a persisted-operation allowlist or strict cost-based rate limiting.
 
-**Solution:** GraphQL API alongside REST.
+### Offset pagination as the default
 
-**Implementation details:**
+The mistake: `LIMIT 20 OFFSET 100000` ships fine in dev (small dataset) and falls over in prod. The price: deep pages take seconds, and the database CPU graph looks like a sawtooth. The fix: default to cursor or keyset pagination, and cap the maximum offset if "jump to page" is a hard requirement.
 
-- Persisted queries for mobile (reduced payload, enabled caching)
-- Query complexity limits (prevent abuse)
-- REST API maintained for backward compatibility
+### Breaking the API "because no one uses that field"
 
-**Outcome:** Mobile app performance improved. Developer adoption slower than expected—GraphQL learning curve higher than REST.
+The mistake: a field is removed in a point release because the team can't see anyone using it in their analytics. The price: a long tail of mobile clients fail until users update — except the users who have notifications off and never will. The fix: treat the API as infrastructure. Additive changes only. Deprecate, sunset, then remove — and surface the sunset date in the response.
 
-## Common Pitfalls
+## Practical takeaways
 
-### 1. Treating gRPC as HTTP/JSON Replacement
+| Constraint            | REST                  | gRPC               | GraphQL                    |
+| --------------------- | --------------------- | ------------------ | -------------------------- |
+| Public API            | Default               | Proxy required     | Lock down with allowlist   |
+| Internal services     | Verbose at scale      | Default            | Usually overkill           |
+| Mobile apps           | Many round trips      | Efficient + streams| Flexible field selection   |
+| Browser direct        | Native                | Needs gRPC-Web     | Native                     |
+| Streaming             | SSE / workarounds     | First-class        | Subscriptions (extra spec) |
+| Edge caching          | First-class           | Custom             | Persisted operations       |
 
-**The mistake:** Using gRPC for browser-facing APIs expecting same ease as REST.
+A defensible default for a greenfield surface in 2026:
 
-**Why it happens:** Performance benchmarks show gRPC faster. Teams assume faster = better everywhere.
-
-**The consequence:** Need gRPC-Web proxy, lose browser DevTools debugging, complicate frontend build.
-
-**The fix:** Use gRPC for service-to-service. Keep REST/GraphQL for browser clients.
-
-### 2. GraphQL Without Complexity Limits
-
-**The mistake:** Exposing GraphQL without query depth/cost limits.
-
-**Why it happens:** Focus on functionality, security as afterthought.
-
-**The consequence:** Malicious queries exhaust server resources:
-
-```graphql
-query {
-  users { friends { friends { friends { friends { ... } } } } }
-}
-```
-
-**The fix:** Implement query complexity analysis. Limit depth (typically 10-15). Assign costs to fields. Reject queries exceeding budget.
-
-### 3. Offset Pagination on Large Tables
-
-**The mistake:** Using `LIMIT 20 OFFSET 100000` for API pagination.
-
-**Why it happens:** Offset pagination is intuitive and works fine in development.
-
-**The consequence:** Production queries take 10+ seconds. Database CPU spikes. Users report "infinite loading" on deep pages.
-
-**The fix:** Switch to cursor pagination. If "jump to page" needed, limit maximum offset (e.g., 10,000).
-
-### 4. Breaking API Changes Without Versioning
-
-**The mistake:** Changing field types or removing fields in production API.
-
-**Why it happens:** "It's just a small change" or "no one uses that field."
-
-**The consequence:** Client applications break. Mobile apps (can't force update) fail for weeks.
-
-**The fix:** Treat API as infrastructure. Additive changes only. Version for breaking changes. Deprecate before removing.
-
-## Conclusion
-
-Protocol selection requires matching characteristics to constraints:
-
-| Constraint        | REST                | gRPC            | GraphQL                  |
-| ----------------- | ------------------- | --------------- | ------------------------ |
-| Public API        | ✅ Best             | ❌ Proxy needed | ⚠️ Query limits required |
-| Internal services | ⚠️ Verbose          | ✅ Best         | ⚠️ Overkill              |
-| Mobile apps       | ⚠️ Many round trips | ✅ Efficient    | ✅ Flexible              |
-| Browser direct    | ✅ Native           | ❌ gRPC-Web     | ✅ Works                 |
-| Streaming         | ❌ Workarounds      | ✅ Native       | ⚠️ Subscriptions         |
-| Caching           | ✅ HTTP native      | ❌ Custom       | ⚠️ Complex               |
-
-**The pragmatic approach:**
-
-- REST for public APIs and browser-direct calls
-- gRPC for internal service mesh
-- GraphQL when client flexibility outweighs server complexity
-- Often: multiple protocols in the same system
-
-Versioning, pagination, and rate limiting aren't optional add-ons—they're fundamental to operating APIs at scale. Stripe's decade of API stability demonstrates that treating APIs as infrastructure pays long-term dividends.
+- REST + OpenAPI for the public surface.
+- gRPC for the internal mesh (with `FieldMask` if you need partial responses).
+- GraphQL only where the client mix actually benefits from query flexibility — a BFF, a mobile app with many surfaces, or a developer platform — and only with persisted operations and cost limits.
+- For every protocol: cursor pagination, [`RateLimit`][rl-headers-draft] headers on every response (not just `429`), and date-based or path-based versioning chosen for how often the contract will break.
 
 ## Appendix
 
 ### Prerequisites
 
-- HTTP/1.1 and HTTP/2 fundamentals
-- Basic understanding of serialization formats (JSON, binary)
-- Database query basics (for pagination section)
+- HTTP/1.1 and HTTP/2 fundamentals.
+- Familiarity with JSON and at least one binary serialization format.
+- Working knowledge of relational query plans for the pagination section.
 
-### Summary
+### Footnotes
 
-- REST optimizes for cacheability and uniform interface; most "REST" APIs are Level 2 Richardson Maturity
-- gRPC provides 3-10x efficiency over JSON with binary serialization and HTTP/2 streaming; use for internal services
-- GraphQL shifts query complexity to clients; requires N+1 mitigation (DataLoader) and query complexity limits
-- Cursor pagination outperforms offset by 17x on large datasets; use offset only for small, static data
-- Token bucket allows bursts, leaky bucket enforces constant rate—choose based on downstream tolerance
-- Version APIs from day one; Stripe's date-based versioning maintains 13+ years of backward compatibility
+[^fielding-context]: Fielding was co-author of [RFC 2616][rfc2616] (HTTP/1.1) while writing the dissertation, which is why REST is so tightly coupled to HTTP semantics.
+
+[^fielding-2008]: Roy T. Fielding, [REST APIs must be hypertext-driven][fielding-2008], 2008.
+
+[^proto-encoding]: [Protocol Buffers — Encoding][protobuf-encoding] documents the varint tag layout, field-number costs, and the wire types.
+
+[^proto-defaults]: [Language Guide (proto 3) — Default values and unknown fields][protobuf-proto3].
+
+[^auth0-protobuf]: Auth0, [Beating JSON performance with Protobuf][auth0-protobuf]. Concrete benchmark on real REST traffic; the gap shrinks once gzip is involved.
+
+[^victoria-protobuf]: VictoriaMetrics, [How Protobuf Works — The Art of Data Encoding][victoria-protobuf]. Includes a Go benchmark for parse cost; the parser CPU difference is consistently larger than the byte-size difference.
+
+[^grpc-http2]: [gRPC over HTTP/2][grpc-http2] (gRPC core docs) — pseudo-headers, framing, and trailer semantics.
+
+[^grpc-web]: [The state of gRPC in the browser][grpc-web-blog]. Trailers in body, proxy required.
+
+[^grpc-lb]: [gRPC Load Balancing][grpc-lb] — explains why a multiplexed HTTP/2 connection breaks naive L4 balancing and what client-side balancing or look-aside LB does instead.
+
+[^netflix-grpc]: Netflix Tech Blog, [Practical API Design at Netflix, Part 1: Using protobuf FieldMask][netflix-fieldmask].
+
+[^uber-push]: Uber Engineering, [Uber's Next Gen Push Platform on gRPC][uber-push]. Shadow-traffic migration and circuit-breaker fallback are the operational details worth copying.
+
+[^dataloader]: [`graphql/dataloader`][graphql-dataloader] — README documents the per-request cache rule and the single-tick batching contract.
+
+[^shopify-batch]: Shopify Engineering, [Solving the N+1 Problem for GraphQL through Batching][shopify-graphql-batch].
+
+[^trusted-docs]: Benjie Gillam, [GraphQL Trusted Documents][trusted-docs] — the security framing for persisted operations.
+
+[^github-graphql]: [GitHub GraphQL API documentation][github-graphql-docs] and the public [rate limits page][github-rate-limits].
+
+[^stripe-versioning]: Stripe Engineering, [APIs as infrastructure: future-proofing Stripe with versioning][stripe-versioning]. The compatibility-layer architecture is the actual lesson.
+
+[^stripe-2011]: The Stripe API has been stable since launch in 2011; the same pinned 2011 request shape still works today.
+
+[^cursor-pagination]: Milan Jovanović, [Understanding Cursor Pagination and Why It's So Fast — Deep Dive][cursor-pagination]. Benchmark and SQL plans for offset vs keyset on a million-row table.
+
+[^aws-apigw]: AWS, [Throttle requests to your REST APIs in API Gateway][aws-apigw-throttle].
+
+[^aws-apigw-quotas]: AWS, [Amazon API Gateway quotas][aws-apigw-quotas].
+
+[^ratelimit-headers]: IETF, [`draft-ietf-httpapi-ratelimit-headers`][rl-headers-draft]. The RFC editors moved from three separate headers to a single structured field; both are still in the wild.
+
+[^openapi-31]: OpenAPI Initiative, [OpenAPI Specification 3.1.0 released][openapi-31].
+
+[^asyncapi-30]: AsyncAPI Initiative, [AsyncAPI 3.0 specification][asyncapi-30].
+
+[^springwolf]: Baeldung, [Documenting Spring Event-Driven API Using AsyncAPI and Springwolf][springwolf].
+
+[^slack-rtm]: Slack, [Slack APIs overview][slack-apis] and the [`rtm.start` deprecation note][slack-rtm-deprecation].
 
 ### References
 
-- [Martin Fowler: Richardson Maturity Model](https://martinfowler.com/articles/richardsonMaturityModel.html) - REST maturity levels explained
-- [gRPC Core Concepts](https://grpc.io/docs/what-is-grpc/core-concepts/) - Official gRPC documentation
-- [Protocol Buffers Encoding](https://protobuf.dev/programming-guides/encoding/) - Wire format specification
-- [GraphQL Specification](https://spec.graphql.org/) - Official GraphQL spec
-- [Solving N+1 with DataLoader](https://www.graphql-js.org/docs/n1-dataloader/) - GraphQL.js DataLoader documentation
-- [Shopify: Solving N+1 through Batching](https://shopify.engineering/solving-the-n-1-problem-for-graphql-through-batching) - Production GraphQL optimization
-- [Stripe: API Versioning](https://stripe.com/blog/api-versioning) - Date-based versioning strategy
-- [Understanding Cursor Pagination](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive) - Performance deep dive
-- [Rate Limiting Algorithms](https://blog.algomaster.io/p/rate-limiting-algorithms-explained-with-code) - Algorithm comparison with implementations
-- [AsyncAPI Specification](https://www.asyncapi.com/docs/reference/specification/v3.0.0) - Event-driven API documentation standard
+[fielding-rest]: https://roy.gbiv.com/pubs/dissertation/rest_arch_style.htm
+[fielding-2008]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven
+[richardson-maturity]: https://martinfowler.com/articles/richardsonMaturityModel.html
+[rfc2616]: https://www.rfc-editor.org/rfc/rfc2616
+[rfc9111]: https://www.rfc-editor.org/rfc/rfc9111
+[rfc6585]: https://www.rfc-editor.org/rfc/rfc6585
+[rfc-retry-after]: https://www.rfc-editor.org/rfc/rfc9110#field.retry-after
+[protobuf-encoding]: https://protobuf.dev/programming-guides/encoding/
+[protobuf-proto3]: https://protobuf.dev/programming-guides/proto3/
+[auth0-protobuf]: https://auth0.com/blog/beating-json-performance-with-protobuf/
+[victoria-protobuf]: https://victoriametrics.com/blog/go-protobuf/
+[grpc-http2]: https://grpc.github.io/grpc/core/md_doc__p_r_o_t_o_c_o_l-_h_t_t_p2.html
+[grpc-web-blog]: https://grpc.io/blog/state-of-grpc-web/
+[grpc-lb]: https://grpc.io/blog/grpc-load-balancing/
+[netflix-fieldmask]: https://netflixtechblog.com/practical-api-design-at-netflix-part-1-using-protobuf-fieldmask-35cfdc606518
+[uber-push]: https://www.uber.com/us/en/blog/ubers-next-gen-push-platform-on-grpc/
+[graphql-dataloader]: https://github.com/graphql/dataloader
+[shopify-graphql-batch]: https://shopify.engineering/solving-the-n-1-problem-for-graphql-through-batching
+[trusted-docs]: https://benjie.dev/graphql/trusted-documents
+[github-graphql-docs]: https://docs.github.com/en/graphql
+[github-rate-limits]: https://docs.github.com/en/graphql/overview/resource-limitations
+[stripe-versioning]: https://stripe.com/blog/api-versioning
+[cursor-pagination]: https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive
+[aws-apigw-throttle]: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html
+[aws-apigw-quotas]: https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html
+[rl-headers-draft]: https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers
+[openapi-31]: https://www.openapis.org/blog/2021/02/18/openapi-specification-3-1-released
+[openapi-jsonschema-blog]: https://json-schema.org/blog/posts/validating-openapi-and-json-schema
+[asyncapi-30]: https://www.asyncapi.com/docs/reference/specification/v3.0.0
+[springwolf]: https://www.baeldung.com/java-spring-doc-asyncapi-springwolf
+[slack-apis]: https://docs.slack.dev/apis/
+[slack-events]: https://api.slack.com/apis/connections/events-api
+[slack-rtm]: https://docs.slack.dev/tools/node-slack-sdk/rtm-api/
+[slack-rtm-deprecation]: https://docs.slack.dev/changelog/2021-10-rtm-start-to-stop

@@ -1,0 +1,17 @@
+%% Diagram: PSK resumption with optional 0-RTT early data
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Previous full handshake
+    S->>C: NewSessionTicket (PSK identity, max_early_data)
+
+    Note over C,S: Resumed connection
+    C->>S: ClientHello + pre_shared_key + early_data ext
+    C->>S: 0-RTT application data (replayable)
+    S->>C: ServerHello (psk_key_exchange_mode)
+    S->>C: EncryptedExtensions + Finished
+    C->>S: EndOfEarlyData + Finished
+    Note over C,S: 1-RTT keys now active

@@ -1,0 +1,22 @@
+%% Diagram: Thread Pool Lifecycle (uv_queue_work)
+%% Type: sequence
+sequenceDiagram
+    participant App as Caller on main thread
+    participant EL as Event Loop
+    participant Queue as Work Queue
+    participant W as Worker Thread
+    participant CB as after_work_cb on main thread
+    App->>EL: call uv_queue_work with req and callbacks
+    EL->>Queue: enqueue uv_work_t
+    Note over EL: Pool initialised lazily on first queued work
+    Queue->>W: dequeue, next idle worker
+    activate W
+    W->>W: run work_cb, blocking or CPU-bound
+    Note over W: req->data carries context across threads
+    W-->>EL: signal completion via async wakeup
+    deactivate W
+    EL->>CB: schedule after_work_cb on next iteration
+    activate CB
+    CB->>CB: read req->data, free resources
+    deactivate CB
+    Note over App,CB: uv_cancel cancels only queued, not running, work

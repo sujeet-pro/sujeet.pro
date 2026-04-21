@@ -1,0 +1,34 @@
+%% Diagram: Client debounce + AbortController sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant I as Input
+    participant D as Debouncer (250ms)
+    participant A as AbortController
+    participant API as Suggestion API
+
+    U->>I: keystroke "p"
+    I->>D: schedule(250ms)
+    U->>I: keystroke "pr" (90ms later)
+    I->>D: cancel + reschedule(250ms)
+    U->>I: keystroke "pro" (90ms later)
+    I->>D: cancel + reschedule(250ms)
+    U->>I: keystroke "prog" (90ms later)
+    I->>D: cancel + reschedule(250ms)
+
+    Note over U,I: typing pause > 250ms
+
+    D->>A: signal = new AbortController()
+    D->>API: GET /suggestions?q=prog (signal)
+    API-->>D: 200 top-N
+
+    U->>I: keystroke "progr" (later)
+    I->>D: schedule(250ms)
+    Note over D,A: previous request still in flight
+    D->>A: abort() previous request
+    D->>A: new signal
+    D->>API: GET /suggestions?q=progr (signal)
+    API-->>D: 200 top-N
+    D->>I: render top-N for "progr"

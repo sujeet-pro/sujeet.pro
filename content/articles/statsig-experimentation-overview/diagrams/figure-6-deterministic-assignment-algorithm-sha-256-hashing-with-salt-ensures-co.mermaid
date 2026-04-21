@@ -1,21 +1,18 @@
-%% Diagram: Figure 6 Deterministic Assignment Algorithm Sha 256 Hashing With Salt Ensures Co
+%% Diagram: Deterministic bucket assignment via SHA-256
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TD
-    A[User ID] --> B[Salt Generation]
-    B --> C[Input Concatenation]
-    C --> D[SHA-256 Hashing]
-    D --> E[Extract First 8 Bytes]
-    E --> F[Convert to Integer]
-    F --> G[Modulo Operation]
-    G --> H[Bucket Assignment]
+flowchart LR
+    UnitID["unitID<br/>(userID / stableID / customID)"]
+    Salt["Per-rule salt"]
+    Concat["concat(salt, unitID)"]
+    Hash["SHA-256 digest"]
+    Reduce["Leading bytes to integer"]
+    ModExp{"% 10000<br/>experiments"}
+    ModLay{"% 1000<br/>layers"}
+    Variant["Compare to allocation thresholds<br/>then map to variant"]
 
-    B1[Rule Salt] --> C
-    C1[Salt + UserID] --> C
-
-    G1[Mod 10,000 for Experiments] --> G
-    G2[Mod 1,000 for Layers] --> G
-
-    style A fill:#e1f5fe
-    style H fill:#c8e6c9
-    style D fill:#fff3e0
+    UnitID --> Concat
+    Salt --> Concat
+    Concat --> Hash --> Reduce
+    Reduce --> ModExp --> Variant
+    Reduce --> ModLay --> Variant

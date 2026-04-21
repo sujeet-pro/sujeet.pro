@@ -1,0 +1,31 @@
+%% Diagram: 3D Secure 2 frictionless vs challenge flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Cardholder
+    participant M as Merchant
+    participant DS as 3DS Server (PSP)
+    participant DSV as Directory Server (Visa / MC)
+    participant ACS as Issuer ACS
+
+    C->>M: Submit payment
+    M->>DS: AReq (browser / device data, txn context)
+    DS->>DSV: Routed AReq
+    DSV->>ACS: Routed AReq
+    ACS->>ACS: Risk-based authentication
+
+    alt Frictionless (~95% of low-risk traffic)
+        ACS-->>DSV: ARes authenticated (no challenge)
+        DSV-->>DS: ARes
+        DS-->>M: Authenticated, liability shift to issuer
+        M->>M: Authorize via acquirer
+    else Challenge required (PSD2 SCA / high risk)
+        ACS-->>DSV: ARes challenge required
+        DSV-->>DS: ARes
+        DS-->>M: Need challenge
+        M-->>C: Render CReq (biometric / OTP / push)
+        C->>ACS: Complete challenge
+        ACS-->>DS: RReq result
+        DS-->>M: Authenticated (or failed)
+        M->>M: Authorize or decline
+    end

@@ -1,0 +1,15 @@
+%% Diagram: Outbound send pipeline (block flow)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    SUBMIT["Submission<br/>(API / port 587<br/>RFC 6409)"] --> POLICY["Per-tenant<br/>policy + quota"]
+    POLICY --> SIGN["DKIM signer<br/>oversign From,<br/>2048-bit RSA"]
+    SIGN --> QUEUE[("Outbound queue<br/>partition by<br/>recipient domain")]
+    QUEUE --> RESOLVE["MX + TLSA<br/>+ MTA-STS<br/>policy lookup"]
+    RESOLVE --> POOL["Connection pool<br/>per destination"]
+    POOL --> DELIVER{"SMTP<br/>response"}
+    DELIVER -->|2xx| OK["Mark delivered<br/>store DSN"]
+    DELIVER -->|4xx| BACK["Backoff +<br/>requeue"]
+    DELIVER -->|5xx| BOUNCE["Generate bounce<br/>(NDR via SRS)"]
+    BACK --> QUEUE
+    BOUNCE --> SUPPRESS["Suppression list<br/>+ FBL feedback"]

@@ -1,0 +1,31 @@
+%% Diagram: ReadIndex vs lease-based linearizable read in etcd
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant L as Leader
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+
+    Note over C,F2: Mode 1 - ReadIndex (default, safe)
+    C->>L: linearizable get(k)
+    L->>L: capture commitIndex i
+    par Heartbeat round
+        L->>F1: heartbeat
+        L->>F2: heartbeat
+    end
+    F1-->>L: heartbeat ack
+    F2-->>L: heartbeat ack
+    Note over L: Quorum confirmed leadership at i
+    L->>L: wait until applied >= i
+    L-->>C: value at i
+
+    Note over C,F2: Mode 2 - Lease-based read (faster, assumes bounded clock drift)
+    C->>L: linearizable get(k)
+    Note over L: Lease still valid in local clock?
+    alt Lease valid
+        L->>L: serve from local state
+        L-->>C: value
+    else Lease expired
+        L->>L: fall back to ReadIndex
+    end

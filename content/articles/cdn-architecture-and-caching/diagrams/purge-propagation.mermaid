@@ -1,0 +1,29 @@
+%% Diagram: Surrogate-key purge propagation across a global PoP fleet (Fastly-style bimodal multicast)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant App as Origin app
+    participant API as Purge API\n(any PoP)
+    participant PoP1 as Ingress PoP
+    participant Peers as Other PoPs\n(global fleet)
+    participant Cache as Cache servers\nin each PoP
+    participant User
+
+    App->>API: POST /purge\nSurrogate-Key: product-123
+    Note over API: Validate auth, expand key
+    API->>PoP1: Accept purge (≈ 5 ms)
+    PoP1-)Peers: UDP broadcast\n(double-delivered to ≥2 nodes/PoP)
+    Peers-)Peers: Gossip / anti-entropy\n(repair lost packets)
+    Note over Peers,Cache: No ACKs — latency bounded by\nspeed-of-light transit, not RTT round-trips
+    Peers->>Cache: Mark matching objects stale\n(soft) or evict (hard)
+    Note over Cache: Median global propagation ≈ 150 ms
+
+    User->>Cache: GET /product/123
+    alt Soft purge
+        Cache-->>User: Stale 200 (revalidate in background)
+    else Hard purge
+        Cache->>App: Conditional GET / origin fetch
+        App-->>Cache: 200 fresh
+        Cache-->>User: 200 fresh
+    end

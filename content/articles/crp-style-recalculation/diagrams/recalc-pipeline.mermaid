@@ -1,0 +1,36 @@
+%% Diagram: Style Recalculation pipeline (Blink StyleResolver)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph inputs["Inputs"]
+        direction TB
+        DOM[DOM Tree]
+        CSSOM[CSSOM Tree]
+    end
+
+    subgraph engine["Style Engine - Blink StyleResolver"]
+        direction TB
+        RI["Rule Indexing\nRuleSet partitions by ID, class, tag"]
+        SM["Selector Matching\nRight-to-left + Bloom rejection"]
+        CA["Cascade Algorithm\nOrigin > Layer > Specificity > Order"]
+        VC["Value Computation\nRelative units, inherit, currentcolor"]
+        RI --> SM --> CA --> VC
+    end
+
+    subgraph output["Output"]
+        direction TB
+        CS["ComputedStyle per Element\nimmutable after kStyleClean"]
+        Layout["Layout Stage"]
+        CS --> Layout
+    end
+
+    DOM --> RI
+    CSSOM --> RI
+    VC --> CS
+
+    classDef input fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef result fill:#1F6E68,stroke:#155752,color:#ffffff
+    class DOM,CSSOM input
+    class RI,SM,CA,VC stage
+    class CS,Layout result

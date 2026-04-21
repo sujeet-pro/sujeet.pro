@@ -1,0 +1,37 @@
+%% Diagram: Service Worker cache strategies side-by-side
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CF["Cache-First"]
+        direction TB
+        CF1[fetch event] --> CF2{in cache?}
+        CF2 -->|hit| CF3[return cached]
+        CF2 -->|miss| CF4[network fetch]
+        CF4 --> CF5[put in cache]
+        CF5 --> CF6[return response]
+    end
+
+    subgraph NF["Network-First"]
+        direction TB
+        NF1[fetch event] --> NF2[network fetch + timeout]
+        NF2 -->|ok| NF3[put in cache + return]
+        NF2 -->|fail| NF4{in cache?}
+        NF4 -->|hit| NF5[return stale]
+        NF4 -->|miss| NF6[throw / offline page]
+    end
+
+    subgraph SWR["Stale-While-Revalidate"]
+        direction TB
+        SWR1[fetch event] --> SWR2{in cache?}
+        SWR2 -->|hit| SWR3[return cached now]
+        SWR2 -->|miss| SWR4[await network]
+        SWR3 --> SWR5[refresh cache in bg]
+        SWR4 --> SWR5
+    end
+
+    subgraph CO["Cache-Only"]
+        direction TB
+        CO1[fetch event] --> CO2{in cache?}
+        CO2 -->|hit| CO3[return cached]
+        CO2 -->|miss| CO4[throw / offline page]
+    end

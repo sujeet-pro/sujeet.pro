@@ -4,7 +4,7 @@ linkTitle: 'React Hooks'
 description: >-
   A ground-up guide to React Hooks covering the call-order linked list model, core hooks like useState, useEffect, useRef, useMemo, and useCallback, plus patterns for building composable custom hooks.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - react
   - design-systems
@@ -14,7 +14,7 @@ tags:
 
 # React Hooks Fundamentals: Rules, Core Hooks, and Custom Hooks
 
-React Hooks enable functional components to manage state and side effects. Introduced in React 16.8 (February 2019), hooks replaced class components as the recommended approach for most use cases. This article covers the architectural principles, core hooks, and patterns for building production applications.
+React Hooks let functional components own state and side effects without classes. Introduced in [React 16.8 in February 2019](https://react.dev/blog/2019/02/06/react-v16.8.0), hooks are now the default API for components. This is part one of a two-article series; specialized concurrent hooks (`useTransition`, `useDeferredValue`, `useLayoutEffect`, `useSyncExternalStore`, `useId`, `use`) live in [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md). This article covers the architectural principles, core hooks, and patterns you reach for daily.
 
 ![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-light.svg "React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.")
 ![React 19 hook categories. State hooks manage component data; effect hooks synchronize with external systems; performance hooks optimize rendering.](./diagrams/react-19-hook-categories-state-hooks-manage-component-data-effect-hooks-synchron-dark.svg)
@@ -30,7 +30,7 @@ The core mental model:
 - **Memoization breaks render cascades**: `useMemo` and `useCallback` preserve referential equality to prevent unnecessary re-renders of memoized children—not to optimize individual calculations.
 - **Custom hooks compose without collision**: Because each hook call gets its own slot in the linked list, two hooks using the same internal hook don't conflict.
 
-As of React 19 (December 2024), new hooks like `useActionState`, `useOptimistic`, and the `use` API extend hooks to handle async data and form actions natively.
+As of [React 19 (released 2024-12-05)](https://react.dev/blog/2024/12/05/react-19), new hooks like `useActionState`, `useOptimistic`, and the `use` API extend hooks to handle async data and form actions natively.
 
 ## Why Hooks Exist: The Class Component Problems
 
@@ -46,7 +46,10 @@ Before React 16.8, class components had three architectural problems that hooks 
 
 ## The Rules of Hooks: Why Call Order Matters
 
-Hooks have two rules that stem from a single implementation decision: React tracks hook state in a **linked list indexed by call order**, not by name.
+Hooks have [two rules](https://react.dev/reference/rules/rules-of-hooks) that stem from a single implementation decision: React tracks hook state in a **linked list of slots indexed by call order**, not by name. Each slot is owned by the fiber for the current component instance, so the same component rendered in two places gets two independent lists.
+
+![Hook call order maps to fixed slots on the fiber. Each render's hook calls read from and write to the same positionally-indexed slots.](./diagrams/hook-call-order-slots-light.svg "Hook call order maps to fixed slots on the fiber. Each render's hook calls read from and write to the same positionally-indexed slots.")
+![Hook call order maps to fixed slots on the fiber. Each render's hook calls read from and write to the same positionally-indexed slots.](./diagrams/hook-call-order-slots-dark.svg)
 
 ### Rule 1: Only Call Hooks at the Top Level
 
@@ -133,7 +136,7 @@ function Counter() {
 }
 ```
 
-**Object state**: React uses `Object.is` to detect changes. Mutating an object and calling the setter won't trigger a re-render because the reference hasn't changed.
+**Object state**: React uses [`Object.is`](https://react.dev/reference/react/useState#caveats) to detect changes. Mutating an object and calling the setter won't trigger a re-render because the reference hasn't changed.
 
 ```tsx title="useState-object-mutation.tsx"
 // ❌ Mutation: React sees same reference, skips re-render
@@ -229,6 +232,9 @@ function ChatRoom({ roomId }) {
 
 When `roomId` changes: cleanup runs (disconnect old room) → setup runs (connect new room). This is synchronization, not lifecycle.
 
+![useEffect treats each dependency change as a re-sync: cleanup tears down the old binding before setup establishes the new one. Strict Mode runs the cycle once at mount in development to surface missing cleanup.](./diagrams/useeffect-sync-lifecycle-light.svg "useEffect treats each dependency change as a re-sync: cleanup tears down the old binding before setup establishes the new one. Strict Mode runs the cycle once at mount in development to surface missing cleanup.")
+![useEffect treats each dependency change as a re-sync: cleanup tears down the old binding before setup establishes the new one. Strict Mode runs the cycle once at mount in development to surface missing cleanup.](./diagrams/useeffect-sync-lifecycle-dark.svg)
+
 **Dependency array behavior:**
 
 ```tsx title="useEffect-dependencies.tsx"
@@ -263,7 +269,7 @@ function Profile({ userId }) {
 }
 ```
 
-**Strict Mode double-invocation**: In development, React mounts → unmounts → mounts components to surface missing cleanup. If your effect breaks on remount, it's missing cleanup.
+**Strict Mode double-invocation**: In development, [`<StrictMode>` mounts, unmounts, then remounts components](https://react.dev/reference/react/StrictMode#fixing-bugs-found-by-re-running-effects-in-development) so every effect's setup/cleanup pair runs at least once at mount. If your effect breaks on remount, it is missing cleanup — production builds skip this and your bug ships silently.
 
 ### useRef: Mutable Values Outside the Render Cycle
 
@@ -354,7 +360,9 @@ function Parent() {
 
 ### React Compiler (React 19+)
 
-The React Compiler (currently opt-in) auto-memoizes values and functions at compile time. When widely adopted, manual `useMemo`/`useCallback` will be unnecessary in most cases.
+The [React Compiler reached Release Candidate on 2025-04-21](https://react.dev/blog/2025/04/21/react-compiler-rc) and is considered safe for production. It is a build-time Babel plugin that statically analyses components, then inserts memoization for values, functions, and JSX trees so re-renders only recompute what actually depends on changed inputs. Compiler-aware diagnostics now ship inside `eslint-plugin-react-hooks`.
+
+When the compiler is enabled, manual `useMemo` and `useCallback` calls become an escape hatch rather than a default. Keep reaching for them in code the compiler explicitly opts out of (via the `"use no memo"` directive), in performance-critical paths where you want guaranteed memoization independent of the compiler version, and in libraries that must work with consumers who do not run the compiler.
 
 ## Custom Hooks
 
@@ -489,9 +497,12 @@ export function useFetch<T>(url: string | null) {
 
 **Key behaviors:**
 
-- Cancels in-flight request when URL changes or component unmounts
-- Ignores `AbortError` to avoid spurious error states
-- Uses reducer for atomic state transitions
+- Cancels in-flight request when URL changes or component unmounts via [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController), the [Fetch standard's cancellation primitive](https://fetch.spec.whatwg.org/#abortable-fetch).
+- Ignores `AbortError` to avoid spurious error states.
+- Uses reducer for atomic state transitions.
+
+![A second request supersedes an in-flight first one: the cleanup aborts the stale fetch so a slow response can never overwrite the newer state.](./diagrams/usefetch-race-cancellation-light.svg "A second request supersedes an in-flight first one: the cleanup aborts the stale fetch so a slow response can never overwrite the newer state.")
+![A second request supersedes an in-flight first one: the cleanup aborts the stale fetch so a slow response can never overwrite the newer state.](./diagrams/usefetch-race-cancellation-dark.svg)
 
 ### useLocalStorage: Persistent State
 
@@ -624,11 +635,11 @@ function Form() {
 }
 ```
 
-The React Compiler (opt-in in React 19) will auto-memoize values and functions, reducing the need for manual `useMemo`/`useCallback`.
+The [React Compiler RC](https://react.dev/blog/2025/04/21/react-compiler-rc) auto-memoizes values and functions at build time, reducing the need for manual `useMemo`/`useCallback` in projects that adopt it.
 
 ## Conclusion
 
-Hooks solve class component problems through a single mechanism: call-order-based state tracking. Master the core hooks (`useState`, `useEffect`, `useRef`), understand their mental models (snapshots, synchronization, mutable refs), and compose custom hooks for reusable logic.
+Hooks solve class component problems through a single mechanism: call-order-based state tracking. Master the core hooks (`useState`, `useEffect`, `useRef`), understand their mental models (snapshots, synchronization, mutable refs), and compose custom hooks for reusable logic. The next part of the series — [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md) — picks up where this leaves off and walks through the specialized hooks (`useTransition`, `useDeferredValue`, `useLayoutEffect`, `useInsertionEffect`, `useSyncExternalStore`, `useId`, and the React 19 `use` API) that exist to solve concurrent-rendering, paint-timing, external-store, and SSR problems the core hooks cannot.
 
 ## Appendix
 
@@ -664,5 +675,9 @@ Hooks solve class component problems through a single mechanism: call-order-base
 - [Dan Abramov: Why Do Hooks Rely on Call Order?](https://overreacted.io/why-do-hooks-rely-on-call-order/) - Design rationale from React core team
 - [React Documentation: Synchronizing with Effects](https://react.dev/learn/synchronizing-with-effects) - Mental model for useEffect
 - [React Documentation: Reusing Logic with Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks) - Custom hooks patterns
-- [React 19 Release Notes](https://react.dev/blog/2024/04/25/react-19) - New hooks and features
-- [React Compiler Documentation](https://react.dev/learn/react-compiler) - Automatic memoization
+- [React 19 Release (2024-12-05)](https://react.dev/blog/2024/12/05/react-19) - Stable launch announcement and new hooks
+- [React Compiler RC (2025-04-21)](https://react.dev/blog/2025/04/21/react-compiler-rc) - Build-time auto-memoization, ESLint integration
+- [React Compiler Documentation](https://react.dev/learn/react-compiler) - Setup and adoption guidance
+- [Strict Mode reference](https://react.dev/reference/react/StrictMode) - Mount/unmount/mount and re-running effects in development
+- [Fetch standard: abortable fetch](https://fetch.spec.whatwg.org/#abortable-fetch) - Spec for `AbortController` cancellation
+- [React Hooks Advanced Patterns](../react-hooks-advanced-patterns/README.md) - Concurrent and specialized hooks

@@ -1,0 +1,25 @@
+%% Diagram: SIEVE eviction - hand sweep with visited bit
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Eviction needed"]) --> Look["hand reads slot"]
+
+    Look --> Check{{"visited bit?"}}
+    Check -->|"1 (give second chance)"| Clear["clear bit, move hand"]
+    Check -->|"0"| Evict["evict slot, move hand"]
+
+    Clear --> Look
+    Evict --> Done(["done"])
+
+    Hit(["get(key) - hit"]) -->|"set visited = 1<br/>no list manipulation"| Item["entry stays in place"]
+    Miss(["put(key) - miss"]) -->|"insert at head<br/>visited = 0"| Item
+
+    classDef io fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+    classDef step fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+    classDef decide fill:#5A4D8B,stroke:#9673a6,stroke-width:2px,color:#ffffff
+    classDef item fill:#8B5E15,stroke:#d6b656,stroke-width:2px,color:#ffffff
+
+    class Start,Done,Hit,Miss io
+    class Look,Clear,Evict step
+    class Check decide
+    class Item item

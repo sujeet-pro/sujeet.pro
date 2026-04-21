@@ -1,0 +1,19 @@
+%% Diagram: Path A — Push-based flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant P as Producer
+    participant API as Notification API
+    participant Q as Priority Queue
+    participant R as Router
+    participant GW as Gateway
+    participant U as User Device
+
+    P->>API: Send notification
+    API->>Q: Enqueue (high priority)
+    Q->>R: Dequeue immediately
+    R->>R: Check preferences, throttle
+    R->>GW: Push to user's connection
+    GW->>U: Deliver via WebSocket
+    U->>GW: Acknowledge
+    GW->>R: Update delivery status

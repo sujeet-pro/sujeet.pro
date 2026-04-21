@@ -1,0 +1,56 @@
+%% Diagram: Distributed monitoring overview - signals, collection, storage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Apps["Applications and infrastructure"]
+        direction LR
+        SVC["Service / pod / VM<br/>instrumentation SDK"]
+        EBPF["eBPF auto-instrumentation<br/>(no app changes)"]
+    end
+
+    subgraph Collection["Collection plane"]
+        direction TB
+        PULL["Pull-based scrape<br/>(Prometheus /metrics)"]
+        PUSH["Push-based OTLP<br/>(OTel SDK / agents)"]
+        OTEL["OpenTelemetry Collector<br/>receive · process · export"]
+    end
+
+    subgraph Signals["Signals"]
+        direction LR
+        METRICS["Metrics<br/>numeric, low cardinality"]
+        LOGS["Logs<br/>events, high cardinality"]
+        TRACES["Traces<br/>span trees, sampled"]
+    end
+
+    subgraph Storage["Storage and query"]
+        direction TB
+        TSDB["TSDB<br/>Prometheus, VictoriaMetrics<br/>Gorilla compression"]
+        LOGDB["Log store<br/>Loki, Elasticsearch, ClickHouse"]
+        TRACEDB["Trace store<br/>Tempo, Jaeger, BigTable"]
+    end
+
+    subgraph Consumers["Consumption"]
+        direction LR
+        DASH["Dashboards"]
+        ALERT["Alerting<br/>SLO burn-rate"]
+        EXPLORE["Exemplars<br/>trace / log drill-down"]
+    end
+
+    SVC --> PULL
+    SVC --> PUSH
+    EBPF --> PUSH
+    PULL --> METRICS
+    PUSH --> OTEL
+    OTEL --> METRICS
+    OTEL --> LOGS
+    OTEL --> TRACES
+
+    METRICS --> TSDB
+    LOGS --> LOGDB
+    TRACES --> TRACEDB
+
+    TSDB --> DASH
+    TSDB --> ALERT
+    TSDB -. exemplar trace_id .-> TRACEDB
+    LOGDB --> EXPLORE
+    TRACEDB --> EXPLORE

@@ -1,0 +1,44 @@
+%% Diagram: RUM Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph browser["Browser"]
+        cwv["Core Web Vitals\nLCP / INP / CLS"]:::source
+        custom["Custom Metrics\nUser Timing marks"]:::source
+        errors["JS Errors\nonerror, unhandledrejection"]:::source
+        apis["Performance APIs\nPerformanceObserver"]:::primary
+        collector["Metrics Collector\nbatch + sample"]:::primary
+        beacon[/"navigator.sendBeacon\nfetch keepalive"/]:::accent
+    end
+
+    subgraph edge["Collection Edge"]
+        ingest["Ingest Endpoint\nschema validate"]:::secondary
+        queue[("Stream / Queue\nKafka, Kinesis")]:::storage
+    end
+
+    subgraph backend["Backend"]
+        agg["Aggregation\np75 / p98 windows"]:::secondary
+        store[("Time-series Store\nClickHouse / Druid")]:::storage
+        dash["Dashboards"]:::neutral
+        alert["Alerting"]:::alert
+    end
+
+    cwv --> apis
+    custom --> apis
+    errors --> apis
+    apis --> collector
+    collector --> beacon
+    beacon --> ingest
+    ingest --> queue
+    queue --> agg
+    agg --> store
+    store --> dash
+    store --> alert
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef source fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#fff

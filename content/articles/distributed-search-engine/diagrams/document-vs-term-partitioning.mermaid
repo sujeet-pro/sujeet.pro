@@ -1,0 +1,22 @@
+%% Diagram: Document vs Term Partitioning
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph DOC["Document-based partitioning (horizontal)"]
+        QD["Query: distributed AND search"]
+        QD --> SD1["Shard 1\nDocs 1-1M\nFull index over local docs"]
+        QD --> SD2["Shard 2\nDocs 1M-2M\nFull index over local docs"]
+        QD --> SD3["Shard 3\nDocs 2M-3M\nFull index over local docs"]
+        SD1 --> MD["Coordinator\nMerge top-K"]
+        SD2 --> MD
+        SD3 --> MD
+    end
+
+    subgraph TERM["Term-based partitioning (vertical)"]
+        QT["Query: distributed AND search"]
+        QT --> ST1["Shard A\nTerms a-h\nholds posting list for 'distributed'"]
+        QT --> ST2["Shard B\nTerms i-q\nholds nothing for this query"]
+        QT --> ST3["Shard C\nTerms r-z\nholds posting list for 'search'"]
+        ST1 -->|posting list| MT["Coordinator\nIntersect lists"]
+        ST3 -->|posting list| MT
+    end

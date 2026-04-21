@@ -1,0 +1,27 @@
+%% Diagram: Layout thrashing — interleaved reads/writes vs batched
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant JS as Main thread (JS)
+    participant L as Layout engine
+
+    Note over JS,L: Bad — interleaved reads and writes
+    JS->>L: write style.width on item[0]
+    Note over L: layout dirty
+    JS->>L: read offsetWidth on item[1]
+    L-->>JS: forces synchronous layout (1)
+    JS->>L: write style.width on item[1]
+    Note over L: layout dirty again
+    JS->>L: read offsetWidth on item[2]
+    L-->>JS: forces synchronous layout (2)
+    JS->>L: write style.width on item[2]
+    Note over L: layout dirty again
+    JS->>L: read offsetWidth on item[3]
+    L-->>JS: forces synchronous layout (3)
+
+    Note over JS,L: Good — batch reads then batch writes
+    JS->>L: read offsetWidth on item[0..N]
+    L-->>JS: one synchronous layout (1)
+    JS->>L: write style.width on item[0..N]
+    Note over L: layout deferred to next frame

@@ -1,0 +1,21 @@
+%% Diagram: Life of a Frame — VSync drives BeginFrame through Viz, the renderer compositor, the main thread, and back to GPU swap and presentation.
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant OS as OS / Display
+    participant Viz as Viz (GPU process)
+    participant CC as Renderer Compositor (cc)
+    participant Main as Renderer Main Thread
+    participant GPU as GPU Main Thread
+
+    OS-->>Viz: VSync (~16.67 ms @ 60 Hz)
+    Viz->>CC: BeginFrame (per FrameSink)
+    CC->>Main: BeginMainFrame (if main-thread damage)
+    Main-->>CC: Commit (property trees + display lists)
+    Note over CC: Wait for raster, then Activate
+    CC-->>Viz: SubmitCompositorFrame (or DidNotProduce)
+    Note over Viz: SurfaceAggregator merges<br/>frames from every FrameSink
+    Viz->>GPU: Draw Frame — record DDLs / GPU commands
+    GPU->>GPU: Replay commands on GPU
+    GPU->>OS: SwapBuffers / overlay scanout
+    OS-->>OS: Display controller scans out at next VBlank
+    Note over Viz,OS: If DisplayScheduler hits its deadline,<br/>Viz draws what has been submitted; missing<br/>clients fall back to their previous surface.

@@ -1,0 +1,29 @@
+%% Diagram: Attachment upload — presigned multipart upload with antivirus scan
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant API as Issue API
+    participant S3I as S3 incoming bucket
+    participant SCAN as Scanner (Lambda + ClamAV / GuardDuty)
+    participant S3C as S3 clean bucket
+    participant S3Q as S3 quarantine bucket
+    participant DB as Postgres
+
+    C->>API: POST /attachments {filename, size, mime}
+    API->>API: validate quota, mime, size cap
+    API-->>C: presigned multipart URL + objectKey
+    C->>S3I: PUT parts (direct upload, multipart)
+    S3I-->>C: ETag per part
+    C->>API: complete upload
+    API->>S3I: CompleteMultipartUpload
+    S3I-->>SCAN: S3:ObjectCreated event
+    SCAN->>SCAN: scan(objectKey)
+    alt clean
+        SCAN->>S3C: copy + delete from incoming
+        SCAN->>API: notify(clean, objectKey)
+        API->>DB: insert attachments(issue_id, key, size)
+    else infected
+        SCAN->>S3Q: copy + delete from incoming
+        SCAN->>API: notify(infected, objectKey)
+    end

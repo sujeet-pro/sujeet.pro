@@ -1,0 +1,24 @@
+%% Diagram: Checkerboard fallback decision and recovery
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Scroll["Scroll / viewport change<br/>new tiles enter NOW"]
+    Check{"NOW tile<br/>rasterized?"}
+    Draw["Display compositor<br/>draws fresh tile"]
+    LowRes{"Low-resolution<br/>tiling available?"}
+    DrawLow["Draw low-res tile<br/>(transient blur)"]
+    DrawCheck["Draw checkerboard<br/>(empty quad)"]
+    Schedule["TileManager raises priority<br/>schedules raster on worker pool"]
+    Raster["Raster worker<br/>fills high-res tile"]
+    Replace["Next BeginFrame<br/>swaps in fresh tile"]
+
+    Scroll --> Check
+    Check -- "yes" --> Draw
+    Check -- "no" --> LowRes
+    LowRes -- "yes" --> DrawLow
+    LowRes -- "no" --> DrawCheck
+    DrawLow --> Schedule
+    DrawCheck --> Schedule
+    Schedule --> Raster
+    Raster --> Replace
+    Replace --> Draw

@@ -1,0 +1,20 @@
+%% Diagram: IndexedDB transaction lifecycle and the auto-commit trap
+%% Type: stateDiagram
+stateDiagram-v2
+    [*] --> Active: db.transaction(stores, mode)
+    Active --> Active: store.put / get / index ops
+    Active --> Inactive: control returns to event loop
+    Inactive --> Active: success/error event for a pending request
+    Inactive --> Committed: no pending requests, event loop idle
+    Active --> Committed: tx.commit() called explicitly
+    Active --> Aborted: tx.abort() or write error
+    Inactive --> Aborted: write error on pending request
+    Committed --> [*]
+    Aborted --> [*]
+
+    note right of Inactive
+        Any await on a non-IDB
+        promise lands here.
+        New IDB ops throw
+        TransactionInactiveError.
+    end note

@@ -1,0 +1,29 @@
+%% Diagram: Free/busy intersection — union attendees' busy intervals, find gaps >= meeting duration
+%% Type: gantt
+gantt
+    dateFormat HH:mm
+    axisFormat %H:%M
+    title Free/Busy intersection across a 09:00-17:00 working window
+
+    section Alice (busy)
+    Standup           :a1, 09:00, 30m
+    1:1               :a2, 11:00, 60m
+    Lunch             :a3, 12:30, 60m
+
+    section Bob (busy)
+    Design review     :b1, 10:00, 90m
+    Lunch             :b2, 12:30, 30m
+
+    section Room A (busy)
+    Workshop          :r1, 14:00, 120m
+
+    section Union (busy after merge)
+    Block 1           :crit, m1, 09:00, 30m
+    Block 2           :crit, m2, 10:00, 150m
+    Block 3           :crit, m3, 12:30, 60m
+    Block 4           :crit, m4, 14:00, 120m
+
+    section Open slots (>= 30 min)
+    Slot 1            :done, s1, 09:30, 30m
+    Slot 2            :done, s2, 13:30, 30m
+    Slot 3            :done, s3, 16:00, 60m

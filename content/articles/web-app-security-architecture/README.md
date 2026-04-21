@@ -1,147 +1,155 @@
 ---
 title: Web Application Security Architecture
-linkTitle: 'Web App Security'
+linkTitle: "Web App Security"
 description: >-
-  Defense-in-depth security for web applications — layering TLS, CSP, authentication, and cryptography controls across the OWASP Top 10:2025 threat landscape, with concrete implementation patterns for each security boundary.
+  Defense-in-depth for web apps in 2026 — strict CSP, Trusted Types, passkeys,
+  Argon2id, SSRF defenses, and the OWASP Top 10:2025, with concrete patterns at
+  each boundary.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21
 tags:
   - security
-  - authentication
   - web-security
+  - authentication
 ---
 
 # Web Application Security Architecture
 
-A defense-in-depth guide to security controls, threat mitigation strategies, and implementation patterns for modern web applications—covering security headers, authentication, cryptography, and the OWASP Top 10:2025.
+Web application security is a layered control problem: every boundary — edge,
+browser, application, data, observability — owns a slice of the attack
+surface, and any single layer must be assumed to fail. This article maps the
+2026 control set onto that model: where strict
+[Content Security Policy (CSP)](https://www.w3.org/TR/CSP3/) and
+[Trusted Types](https://www.w3.org/TR/trusted-types/) eliminate XSS classes,
+where [WebAuthn](https://www.w3.org/TR/webauthn-3/) eliminates phishing, where
+[Argon2id](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+eliminates GPU-friendly cracking, and where the
+[OWASP Top 10:2025](https://owasp.org/Top10/2025/) tells us the operational
+defects that still dominate breaches.
 
-![Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.](./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f-light.svg "Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.")
-![Defense in depth: multiple security layers where each compensates for potential failures in others. Attackers must bypass all layers to compromise the system.](./diagrams/defense-in-depth-multiple-security-layers-where-each-compensates-for-potential-f-dark.svg)
+![Defense in depth — layered controls across edge, browser, app, data, and observability boundaries; each layer compensates for failure of the others.](./diagrams/defense-in-depth-layers-light.svg "Defense in depth — layered controls across edge, browser, app, data, and observability boundaries; each layer compensates for failure of the others.")
+![Defense in depth — layered controls across edge, browser, app, data, and observability boundaries; each layer compensates for failure of the others.](./diagrams/defense-in-depth-layers-dark.svg)
 
-## Abstract
+## Mental model
 
-Web security operates on a layered defense model where controls at each layer compensate for potential failures in others:
+Three claims drive every decision in this article:
 
-- **Network layer**: TLS 1.3 encrypts transport; HSTS prevents downgrade; WAF filters malicious requests
-- **Browser layer**: CSP restricts resource origins and blocks inline scripts; security headers disable dangerous features
-- **Application layer**: Authentication verifies identity; authorization enforces access boundaries; input validation rejects malformed data
-- **Data layer**: Argon2id hashes passwords; AES-256-GCM encrypts sensitive data; secure random generation prevents predictability
+1. **No single control holds.** Treat each layer as a probabilistic filter,
+   not a guarantee. A WAF rule, a CSP directive, a parameterized query, and a
+   request-time authorization check are independent — when one fails, the
+   others must still bound the blast radius.
+2. **Configuration is the failure mode.** The
+   [OWASP Top 10:2025](https://owasp.org/Top10/2025/0x00_2025-Introduction/)
+   keeps Broken Access Control at #1 and elevates Security Misconfiguration to
+   #2 — both are categories where the technology is sound and the deployment
+   is not.[^owasp-intro]
+3. **Cryptographic proof beats reputation.** The 2016 Google study
+   *"CSP Is Dead, Long Live CSP!"* showed that **94.72%** of real CSP policies
+   were bypassable due to allowlisted hosts that exposed JSONP or vulnerable
+   AngularJS endpoints.[^csp-dead] Modern controls — nonces, SRI, signed
+   artifacts, passkeys — replace "this domain is friendly" with "this hash /
+   signature matches".
 
-The OWASP Top 10:2025 identifies Broken Access Control as the primary threat—not because it's technically sophisticated, but because authorization logic is scattered throughout applications and easy to miss. CSP's shift from domain allowlists to nonce-based validation represents a similar evolution: cryptographic proof of trust replaces reputation-based assumptions.
+| Boundary       | Primary control                              | What it catches                                         |
+| :------------- | :------------------------------------------- | :------------------------------------------------------ |
+| Edge           | TLS 1.3, HSTS, WAF                           | Network interception, generic exploit signatures        |
+| Browser policy | Strict CSP + nonces, Trusted Types, COOP/COEP | XSS execution, clickjacking, cross-origin leaks         |
+| Application    | AuthN, central AuthZ middleware, validation  | IDOR, privilege escalation, injection                   |
+| Data           | Argon2id, AES-256-GCM, parameterized queries | Credential cracking, dump replay, query injection       |
+| Observability  | Audit log, anomaly detection, alerting       | Slow breaches, abuse patterns, post-incident forensics  |
 
-## Foundational Security Principles
+## Foundational principles
 
-Security architecture rests on principles that, when consistently applied, prevent entire vulnerability classes rather than patching individual instances.
+### Defense in depth
 
-### Defense in Depth
+No single control is infallible. Defense in depth layers controls so that the
+*probability of all layers failing simultaneously* is negligible, even when
+each layer alone has known weaknesses.
 
-No single control is infallible. Defense in depth layers multiple independent controls so that one failure doesn't compromise the system.
+The classic anti-pattern is treating one layer as load-bearing — typically a
+WAF as the only XSS defense. WAF signature evasion is a well-explored attack
+class (e.g., HTML-spec edge cases, mutation-XSS payloads) and a WAF cannot
+sandbox JavaScript executed by a real DOM. The right position is: WAF is a
+coarse pre-filter, CSP is the structural control, output encoding is the per-
+sink control, and Trusted Types removes the unsafe sinks entirely.
 
-**Why this design**: Military fortification theory—breaching outer walls doesn't grant access to inner keeps. Applied to software: a Cross-Site Scripting (XSS) attack that bypasses input validation still fails against a properly configured Content Security Policy (CSP).
+### Least privilege
 
-**Layer interaction**:
+Grant the minimum permissions a task requires, scoped tightly enough that a
+compromise has narrow blast radius.
 
-| Layer       | Control                           | Compensates For                     |
-| ----------- | --------------------------------- | ----------------------------------- |
-| Network     | WAF rules                         | Unknown application vulnerabilities |
-| Transport   | TLS 1.3, HSTS                     | Network interception                |
-| Browser     | CSP, security headers             | XSS, clickjacking                   |
-| Application | Input validation, output encoding | Injection attacks                   |
-| Data        | Encryption at rest                | Database compromise                 |
-| Monitoring  | Anomaly detection                 | Undetected breaches                 |
-
-**Failure mode**: Over-reliance on a single layer. A common antipattern is treating WAF as the sole XSS defense—attackers craft payloads that bypass WAF signatures but execute in browsers.
-
-### Principle of Least Privilege
-
-Grant minimum permissions required for a specific function, nothing more.
-
-**Why this design**: Limits blast radius. A compromised service account with read-only database access can't exfiltrate data via `DELETE` statements or modify records.
-
-**Implementation pattern**:
-
-```javascript collapse={1-3}
-// Least privilege: service accounts scoped to specific operations
+```javascript title="service-permissions.js"
 const servicePermissions = {
   "api-read-service": {
     database: ["SELECT"],
     tables: ["users", "products"],
-    columns: { users: ["id", "name", "email"] }, // No password_hash
+    columns: { users: ["id", "name", "email"] },
   },
   "api-write-service": {
     database: ["INSERT", "UPDATE"],
     tables: ["orders", "cart"],
-    // Cannot access users table at all
   },
 }
 ```
 
-**Edge case**: Temporary privilege elevation. When a user needs admin access for a specific task, grant time-bounded permissions that auto-revoke. Never grant persistent elevated access for occasional needs.
+The harder version of this principle is *temporal* least privilege: grant
+elevated rights for a bounded window (just-in-time), then revoke. Persistent
+admin grants for occasional needs are how a routine credential leak becomes a
+domain-admin event.
 
-### Fail Secure
+### Fail secure
 
-Systems must default to a secure state when errors occur. Ambiguous conditions should deny access, not grant it.
+Errors in security-critical code paths must default to *deny*. Attackers
+deliberately craft inputs that drive code into exception paths.
 
-**Why this design**: Attackers deliberately trigger error conditions to bypass controls. If authentication errors result in access granted, every exception becomes an attack vector.
-
-**Secure vs insecure failure**:
-
-```javascript
-// INSECURE: Fails open - errors grant access
-async function checkAccess(userId, resource) {
-  try {
-    const allowed = await authService.check(userId, resource)
-    return allowed
-  } catch (error) {
-    console.error("Auth check failed:", error)
-    return true // Dangerous: failure grants access
-  }
-}
-
-// SECURE: Fails closed - errors deny access
+```javascript title="auth-check.js"
 async function checkAccessSecure(userId, resource) {
   try {
     const allowed = await authService.check(userId, resource)
-    return allowed === true // Explicit true check
+    return allowed === true
   } catch (error) {
     logger.error("Auth check failed", { userId, resource, error: error.message })
-    return false // Safe: failure denies access
+    return false
   }
 }
 ```
 
-**Gotcha**: Error messages must not leak information. "Invalid username" vs "Invalid password" tells attackers which half of the credential pair is correct. Always use generic messages: "Invalid credentials."
+> [!CAUTION]
+> Error messages must not leak information. `Invalid username` vs
+> `Invalid password` reveals which half of the credential pair is correct.
+> Use a single generic `Invalid credentials` for both branches and log the
+> distinction server-side only.
 
 ## OWASP Top 10:2025
 
-The OWASP Top 10:2025 represents a shift from symptom-based to root-cause categorization. Server-Side Request Forgery (SSRF), previously standalone, now rolls into Broken Access Control. Two new categories address supply chain and exception handling—reflecting real-world breach patterns.
+The [2025 edition](https://owasp.org/Top10/2025/0x00_2025-Introduction/) was
+published in November 2025 and is the eighth installment of the list.[^owasp-intro]
+It capped each category at 40 mapped CWEs, consolidated SSRF into Broken
+Access Control, and introduced two new categories driven by recent breach
+patterns: **A03 Software Supply Chain Failures** (broadened from the 2021
+"Vulnerable and Outdated Components") and **A10 Mishandling of Exceptional
+Conditions**.[^owasp-intro]
+
+| Rank   | Category                                | Notable change                                  |
+| :----- | :-------------------------------------- | :---------------------------------------------- |
+| A01    | Broken Access Control                   | Unchanged from 2021; SSRF folded in             |
+| A02    | Security Misconfiguration               | Up from #5 (2021)                               |
+| A03    | Software Supply Chain Failures          | New framing of "Vulnerable & Outdated Components" |
+| A04    | Cryptographic Failures                  | Down from #2 (2021)                             |
+| A05    | Injection                               | Down from #3 (2021)                             |
+| A06    | Insecure Design                         | New in 2021, retained                           |
+| A07    | Authentication Failures                 |                                                 |
+| A08    | Software or Data Integrity Failures     |                                                 |
+| A09    | Security Logging & Alerting Failures    |                                                 |
+| A10    | Mishandling of Exceptional Conditions   | New in 2025                                     |
 
 ### A01: Broken Access Control
 
-**Position**: #1 (unchanged from 2021)
+OWASP reports an average incidence rate of **3.73%** across tested
+applications, mapped to 40 CWEs.[^owasp-a01] Authorization logic is scattered
+across handlers; the fix is structural, not local.
 
-**Root cause**: Authorization logic scattered across application code, inconsistently enforced. 3.73% of tested applications contain at least one of the 40 related CWEs (Common Weakness Enumerations).
-
-**Attack patterns**:
-
-- **Insecure Direct Object Reference (IDOR)**: Manipulating resource identifiers (`/api/users/123` → `/api/users/124`)
-- **Privilege escalation**: Accessing admin endpoints without role verification
-- **SSRF** (now consolidated here): Inducing server-side requests to internal resources
-
-**Vulnerable pattern**:
-
-```javascript
-// VULNERABLE: No authorization check - IDOR exploitable
-app.get("/api/users/:id/documents", async (req, res) => {
-  const documents = await db.documents.findByUserId(req.params.id)
-  res.json(documents) // Anyone can access any user's documents
-})
-```
-
-**Secure implementation**:
-
-```javascript collapse={1-2, 20-25}
-// Authorization middleware
+```javascript title="ownership-middleware.js" mark={9-13}
 const requireOwnership = (resourceType) => async (req, res, next) => {
   const resourceId = req.params.id
   const userId = req.user.id
@@ -156,47 +164,56 @@ const requireOwnership = (resourceType) => async (req, res, next) => {
   next()
 }
 
-// SECURE: Ownership verified before data access
-app.get("/api/users/:id/documents", authenticate, requireOwnership("user"), async (req, res) => {
-  const documents = await db.documents.findByUserId(req.params.id)
-  res.json(documents)
-})
+app.get(
+  "/api/users/:id/documents",
+  authenticate,
+  requireOwnership("user"),
+  async (req, res) => {
+    const documents = await db.documents.findByUserId(req.params.id)
+    res.json(documents)
+  },
+)
 ```
 
-**Design principle**: Centralize authorization in middleware or decorators. Scattered inline checks inevitably have gaps.
+The structural rule is: **every route reads its authorization from a single
+named policy**. Inline `if (req.user.id === resource.ownerId)` checks are how
+endpoints silently drift out of the policy.
+
+OWASP's consolidation of SSRF into A01 reflects a shared root cause: the
+server makes a privileged decision (whether to fetch this URL) on behalf of
+the user without verifying the resulting resource is one the user is
+authorized to reach.[^owasp-intro] We come back to SSRF in
+[Attack vectors](#server-side-request-forgery-ssrf).
 
 ### A02: Security Misconfiguration
 
-**Position**: #2 (up from #5 in 2021)
+Defaults are tuned for developer ergonomics, not production. The most common
+misconfigurations:
 
-**Root cause**: Default configurations optimized for developer convenience, not production security. Debug endpoints exposed, default credentials unchanged, unnecessary features enabled.
+| Component       | Misconfiguration                      | Exploit                       |
+| :-------------- | :------------------------------------ | :---------------------------- |
+| Express.js      | Missing `helmet()` middleware         | XSS via missing CSP / X-Frame |
+| Database        | Default `root` / `password`           | Full database access          |
+| Cloud storage   | Public bucket ACLs                    | Data exfiltration             |
+| Error handling  | Stack traces in production            | Internal structure disclosure |
+| API frameworks  | Verbose CORS (`Access-Control-Allow-Origin: *` with credentials) | Cross-origin data theft |
 
-**Common misconfigurations**:
+A baseline Express configuration that fixes the common defaults:
 
-| Component      | Misconfiguration                      | Exploit                       |
-| -------------- | ------------------------------------- | ----------------------------- |
-| Express.js     | Missing `helmet()` middleware         | XSS via missing headers       |
-| Database       | Default `root`/`password` credentials | Full database access          |
-| Cloud storage  | Public bucket ACLs                    | Data exfiltration             |
-| Error handling | Stack traces in production            | Internal structure disclosure |
-
-**Secure Express configuration**:
-
-```javascript collapse={1-5, 25-35}
+```javascript title="server.js"
 import express from "express"
 import helmet from "helmet"
 import rateLimit from "express-rate-limit"
 
 const app = express()
 
-// Security headers via helmet
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // Review for Trusted Types
+        styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -206,7 +223,6 @@ app.use(
   }),
 )
 
-// Rate limiting
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -216,44 +232,50 @@ app.use(
   }),
 )
 
-// Body parsing with size limits
 app.use(express.json({ limit: "100kb" }))
 
-// Production error handler - no stack traces
 app.use((err, req, res, next) => {
   logger.error("Request error", { error: err.message, requestId: req.id })
   res.status(500).json({ error: "Internal error", requestId: req.id })
 })
 ```
 
-### A03: Software Supply Chain Failures (New)
+> [!TIP]
+> The `'unsafe-inline'` style fallback above is the pragmatic default;
+> migrate to nonces or hashes for `style-src` once the design system stops
+> emitting inline styles. The `script-src` directive should never include
+> `'unsafe-inline'` — see [Strict CSP](#content-security-policy-csp) below.
 
-**Position**: #3 (evolved from "Vulnerable and Outdated Components")
+### A03: Software Supply Chain Failures
 
-**Root cause**: Transitive dependencies introduce unknown vulnerabilities. A direct dependency on package A pulls in packages B, C, D—each with their own vulnerability surface.
+Direct dependencies are the smallest part of the attack surface. A typical
+Node.js application's transitive graph runs into hundreds of packages, any of
+which is a credential-harvesting opportunity if the maintainer account is
+compromised. Recent representative incidents include the
+[`event-stream` 2018 takeover](https://github.com/dominictarr/event-stream/issues/116)
+and the
+[`xz-utils` 2024 backdoor](https://research.swtch.com/xz-script).
+The 2025 OWASP entry broadened the framing from "vulnerable components" to
+the full pipeline: typosquatting, dependency confusion, maintainer account
+compromise, and CI/CD artifact tampering.[^owasp-intro]
 
-**Attack vectors**:
+Baseline mitigations:
 
-- **Typosquatting**: `lodahs` instead of `lodash`
-- **Dependency confusion**: Internal package names shadowed by public registry
-- **Compromised maintainer accounts**: Legitimate packages injected with malicious code
-- **Build pipeline compromise**: CI/CD artifacts modified post-compilation
-
-**Mitigation strategy**:
-
-```json
+```json title="package.json (excerpt)"
 {
   "scripts": {
-    "preinstall": "npm audit --audit-level=high",
-    "postinstall": "npm audit signatures",
-    "security:sbom": "npx @cyclonedx/cyclonedx-npm --output-file sbom.json"
+    "audit": "npm audit --audit-level=high",
+    "audit:signatures": "npm audit signatures",
+    "sbom": "npx @cyclonedx/cyclonedx-npm --output-file sbom.json"
   }
 }
 ```
 
-**Subresource Integrity (SRI)** for CDN resources:
+For browser-loaded third-party assets,
+[Subresource Integrity (SRI)](https://www.w3.org/TR/sri-2/) gives
+cryptographic proof that the served bytes match what was reviewed:
 
-```html
+```html title="index.html"
 <script
   src="https://cdn.example.com/lib.js"
   integrity="sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
@@ -261,34 +283,40 @@ app.use((err, req, res, next) => {
 ></script>
 ```
 
-**Design reasoning**: SRI provides cryptographic proof that CDN-served content matches expected hashes. If the CDN is compromised, browsers reject modified files.
+SRI supports `sha256`, `sha384`, and `sha512` digests and requires
+`crossorigin` because the browser must fetch the resource using the CORS
+protocol to compute and compare the hash.[^sri-spec] The
+[`Integrity-Policy`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Integrity-Policy)
+response header (now in the SRI spec) lets a site enforce that *all*
+matching subresources carry an `integrity` attribute, surfacing accidental
+regressions instead of silently loading unverified bytes.
 
 ### A04: Cryptographic Failures
 
-**Position**: #4 (down from #2 in 2021)
+The 2025 edition retains the broad framing: "data in transit and at rest must
+be encrypted with current algorithms; sensitive data must not exist in places
+it doesn't need to." The OWASP
+[Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+gives the current canonical choices:
 
-**Root cause**: Using deprecated algorithms (MD5, SHA-1 for passwords), improper key management, or skipping encryption entirely.
+| Use case                     | Algorithm    | Configuration                                                    |
+| :--------------------------- | :----------- | :--------------------------------------------------------------- |
+| Password hashing             | Argon2id     | `m=47104` (46 MiB), `t=1`, `p=1` *or* `m=19456` (19 MiB), `t=2`, `p=1` |
+| Password hashing (legacy)    | bcrypt       | Cost ≥ 10; max 72-byte input (Blowfish P-array limit)           |
+| Symmetric encryption         | AES-256-GCM  | 256-bit key, **random 96-bit IV per operation** (NIST SP 800-38D)|
+| Asymmetric encryption        | RSA-OAEP     | 3072-bit minimum, 4096-bit preferred                             |
+| Digital signatures           | Ed25519      | 256-bit keys, deterministic signatures                           |
 
-**Algorithm selection** (OWASP Password Storage Cheat Sheet, 2025):
+Argon2id's two equivalent OWASP profiles trade memory for time: pick the
+memory profile your hardware supports, never lower both.[^owasp-passwords]
 
-| Use Case                  | Algorithm   | Configuration                                   |
-| ------------------------- | ----------- | ----------------------------------------------- |
-| Password hashing          | Argon2id    | m=47104 (46 MiB), t=1, p=1 or m=19456, t=2, p=1 |
-| Password hashing (legacy) | bcrypt      | Cost factor ≥10, max 72 bytes input             |
-| Symmetric encryption      | AES-256-GCM | 256-bit key, random 96-bit IV per operation     |
-| Asymmetric encryption     | RSA-OAEP    | 2048-bit minimum, 4096-bit recommended          |
-| Digital signatures        | Ed25519     | 256-bit keys, deterministic signatures          |
-
-**Secure password hashing**:
-
-```javascript collapse={1-2}
+```javascript title="argon2id.js"
 import { hash, verify } from "@node-rs/argon2"
 
 async function hashPassword(password) {
-  // Argon2id with OWASP-recommended parameters
   return await hash(password, {
-    memoryCost: 47104, // 46 MiB
-    timeCost: 1, // 1 iteration
+    memoryCost: 47104,
+    timeCost: 1,
     parallelism: 1,
   })
 }
@@ -298,50 +326,43 @@ async function verifyPassword(password, hashedPassword) {
 }
 ```
 
-**Why Argon2id over bcrypt**: Argon2 is memory-hard, resisting GPU/ASIC attacks. bcrypt is CPU-hard only—modern GPUs can parallelize bcrypt attacks efficiently. Argon2's memory requirements force sequential memory access patterns that GPUs cannot parallelize.
-
-> **Prior to 2015**: bcrypt was the gold standard. Argon2 won the Password Hashing Competition in 2015, designed specifically to resist hardware-accelerated attacks. OWASP now recommends Argon2id as primary, bcrypt only for legacy systems.
+**Why Argon2id over bcrypt.** Argon2 won the 2015
+[Password Hashing Competition](https://www.password-hashing.net/) explicitly
+to resist hardware-accelerated attacks: its `memoryCost` parameter forces
+each guess into a memory-bound region, neutering the GPU and ASIC parallelism
+advantage that wrecks CPU-bound functions.[^argon2-phc] bcrypt remains
+acceptable for legacy systems but caps password input at 72 bytes (Blowfish's
+18-entry × 4-byte P-array) — modern implementations transparently truncate,
+which can silently mask password-length policies.
 
 ### A05: Injection
 
-**Position**: #5 (down from #3 in 2021)
+Untrusted data interpreted as code, across many command surfaces:
 
-**Root cause**: Untrusted data concatenated into commands or queries, interpreted as code rather than data.
+| Type     | Vector                          | Defense                                         |
+| :------- | :------------------------------ | :---------------------------------------------- |
+| SQL      | String-concatenated queries     | Parameterized queries, ORM placeholders         |
+| NoSQL    | Object property injection (`{$gt: ""}`) | Schema validation; coerce to expected type |
+| Command  | Shell concatenation             | Avoid the shell — `execFile` with array args    |
+| LDAP     | Filter string manipulation      | Escape per RFC 4515 special characters          |
+| Template | User-controlled template syntax | Sandbox or disable user templates entirely      |
 
-**Injection types**:
+```javascript title="sql-injection-defense.js" mark={2,5}
+const query = `SELECT * FROM users WHERE email = '${email}'` // VULNERABLE
 
-| Type     | Vector                        | Defense                           |
-| -------- | ----------------------------- | --------------------------------- |
-| SQL      | Query string concatenation    | Parameterized queries             |
-| NoSQL    | Object property injection     | Schema validation                 |
-| Command  | Shell argument concatenation  | Avoid shell; use `execFile`       |
-| LDAP     | Filter string manipulation    | Escape special characters         |
-| Template | Template syntax in user input | Sandbox or disable user templates |
-
-**SQL injection defense**:
-
-```javascript
-// VULNERABLE: String concatenation
-const query = `SELECT * FROM users WHERE email = '${email}'`
-
-// SECURE: Parameterized query
-const [rows] = await db.execute("SELECT * FROM users WHERE email = ?", [email])
+const [rows] = await db.execute(
+  "SELECT * FROM users WHERE email = ?",
+  [email],
+)
 ```
 
-**Command injection defense**:
-
-```javascript collapse={1-2}
+```javascript title="command-injection-defense.js" mark={4,9}
 import { execFile } from "child_process"
 import { promisify } from "util"
 
 const execFileAsync = promisify(execFile)
 
-// VULNERABLE: Shell interpretation
-// exec(`ping -c 4 ${host}`) // Attacker: "google.com; rm -rf /"
-
-// SECURE: No shell, arguments as array
 async function ping(host) {
-  // Validate input first
   if (!/^[a-zA-Z0-9.-]+$/.test(host)) {
     throw new Error("Invalid hostname")
   }
@@ -350,31 +371,36 @@ async function ping(host) {
 }
 ```
 
-### A06–A10: Summary
+### A06–A10 in one pass
 
-| Rank | Category                           | Key Mitigation                                        |
-| ---- | ---------------------------------- | ----------------------------------------------------- |
-| A06  | Insecure Design                    | Threat modeling during design phase                   |
-| A07  | Authentication Failures            | MFA, rate limiting, secure session management         |
-| A08  | Software/Data Integrity Failures   | Signed artifacts, CI/CD pipeline security             |
-| A09  | Logging & Alerting Failures        | Centralized logging, real-time alerting, audit trails |
-| A10  | Mishandling Exceptional Conditions | Fail-secure defaults, structured error handling       |
+| Rank | Category                              | Defining failure                                  | Operational fix                                       |
+| :--- | :------------------------------------ | :------------------------------------------------ | :---------------------------------------------------- |
+| A06  | Insecure Design                       | Threat model omitted at design time               | Threat-modeling workshops on every new bounded context |
+| A07  | Authentication Failures               | Password reuse, weak MFA, fixed sessions          | Passkeys, MFA, regen session on auth, rate limit      |
+| A08  | Software / Data Integrity Failures    | Unsigned artifacts, mutable releases              | Signed artifacts, SLSA-style provenance, locked images |
+| A09  | Logging & Alerting Failures           | Local logs only, no alerting                      | Centralized logs, real-time alerts on auth & PII paths |
+| A10  | Mishandling Exceptional Conditions    | Catch-all swallowing security failures            | Structured error handling, fail-closed defaults        |
 
-## Security Headers
+## Security headers
 
-HTTP security headers instruct browsers to enforce security policies. They operate at the protocol level, providing defense-in-depth against entire vulnerability classes.
+HTTP security headers move policy enforcement from the application into the
+browser. They are cheap (set once at the edge), composable, and they catch
+classes of bug that application-side fixes miss.
 
 ### Content Security Policy (CSP)
 
-**Specification**: W3C CSP Level 3 (Working Draft, June 2025)
+[CSP Level 3](https://www.w3.org/TR/CSP3/) is a W3C **Working Draft** (most
+recently published 2026-04-01) that restricts where a page may load and
+execute scripts, styles, and other resources.[^csp3]
 
-CSP restricts resource origins, blocking XSS and data exfiltration by preventing unauthorized script execution.
+**Why allowlists fail.** The seminal Google study analyzed ~26,000 distinct
+real CSPs and found **94.72%** were trivially bypassable; 75.81% used script
+allowlists that included a host serving an exploitable JSONP endpoint or a
+vulnerable AngularJS version.[^csp-dead] The fix is to invert trust:
+authenticate every script execution with a per-response cryptographic nonce,
+and let `'strict-dynamic'` propagate trust transitively.
 
-**Why domain allowlists fail**: If `script-src` includes `cdn.example.com` and that CDN is compromised, attackers serve malicious scripts from the allowlisted domain. Google research found that 94.72% of CSP policies could be bypassed due to allowlist-based configurations.
-
-**Nonce-based CSP** (modern approach):
-
-```
+```http title="Strict CSP response header"
 Content-Security-Policy:
   default-src 'self';
   script-src 'self' 'nonce-R4nd0mN0nc3' 'strict-dynamic';
@@ -385,14 +411,20 @@ Content-Security-Policy:
   report-to csp-endpoint
 ```
 
-**How nonces work**:
+![Strict CSP request lifecycle — server emits a per-response nonce; trusted bootstrap is allowed to inject more scripts via 'strict-dynamic'; un-nonced injections are blocked and reported.](./diagrams/csp-nonce-flow-light.svg "Strict CSP request lifecycle — server emits a per-response nonce; trusted bootstrap is allowed to inject more scripts via 'strict-dynamic'; un-nonced injections are blocked and reported.")
+![Strict CSP request lifecycle — server emits a per-response nonce; trusted bootstrap is allowed to inject more scripts via 'strict-dynamic'; un-nonced injections are blocked and reported.](./diagrams/csp-nonce-flow-dark.svg)
 
-1. Server generates cryptographically random nonce per response
-2. Nonce included in CSP header and legitimate `<script>` tags
-3. Browser executes only scripts with matching nonces
-4. `'strict-dynamic'` propagates trust to dynamically loaded scripts
+The mechanism, in four steps:
 
-```javascript collapse={1-3}
+1. **Generate** a fresh nonce per response (≥ 128 bits, base64-encoded).
+2. **Serve** it both in the CSP header and on every legitimate inline /
+   external `<script>` tag the page emits.
+3. **Browser** executes only scripts whose `nonce` attribute matches.
+4. **`'strict-dynamic'`** lets a trusted script load further scripts without
+   listing every URL — the trust travels with the parser-inserted relationship,
+   not with the URL.
+
+```javascript title="csp-middleware.js"
 import crypto from "crypto"
 
 function generateCSP(req, res, next) {
@@ -401,52 +433,44 @@ function generateCSP(req, res, next) {
 
   res.setHeader(
     "Content-Security-Policy",
-    `
-    default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
-    style-src 'self' 'nonce-${nonce}';
-    object-src 'none';
-    base-uri 'self';
-    frame-ancestors 'none';
-  `
-      .replace(/\s+/g, " ")
-      .trim(),
+    [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+      `style-src 'self' 'nonce-${nonce}'`,
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
   )
 
   next()
 }
 ```
 
-**HTML with nonce**:
-
-```html
-<script nonce="R4nd0mN0nc3">
-  // This script executes
-</script>
-<script>
-  // This script blocked - no matching nonce
-</script>
-```
+> [!IMPORTANT]
+> The nonce **must** be unguessable and unique per response. Reusing a nonce
+> across responses lets an attacker who steals one nonce keep injecting
+> indefinitely. Caching layers must vary on the response or strip the header
+> on cache fills.
 
 ### Trusted Types
 
-**Specification**: W3C Trusted Types (integrated with CSP)
+[Trusted Types](https://www.w3.org/TR/trusted-types/) close the
+DOM-XSS gap CSP cannot reach: they refuse to let raw strings reach
+[injection sinks](https://github.com/google/trusted-types/wiki/Sinks)
+like `Element.innerHTML`, `document.write`, or `eval`. As of February 2026
+the API is [Baseline](https://github.com/web-platform-dx/developer-signals/issues/118)
+across all major browsers — Chrome and Edge since 83, Firefox since 148,
+Safari since 26.[^trusted-types-caniuse]
 
-Trusted Types prevent DOM-based XSS by requiring type-safe objects for dangerous DOM sinks like `innerHTML`.
-
-**Browser support**: Chrome 83+, Edge 83+. Firefox and Safari require polyfills.
-
-**Enforcement**:
-
-```
+```http title="Trusted Types enforcement"
 Content-Security-Policy: require-trusted-types-for 'script'; trusted-types myPolicy
 ```
 
-```javascript
-// Create a policy that sanitizes HTML
+```javascript title="trusted-types-policy.js"
 const policy = trustedTypes.createPolicy("myPolicy", {
   createHTML: (input) => DOMPurify.sanitize(input),
-  createScript: (input) => {
+  createScript: () => {
     throw new Error("Scripts not allowed")
   },
   createScriptURL: (input) => {
@@ -458,35 +482,41 @@ const policy = trustedTypes.createPolicy("myPolicy", {
   },
 })
 
-// Usage - raw strings rejected, TrustedHTML required
 element.innerHTML = policy.createHTML(userInput)
 ```
 
-**Design reasoning**: Trusted Types shift XSS prevention from "hope developers remember to sanitize" to "browser rejects unsanitized input." Google reports 60% reduction in DOM XSS after deployment.
+A 2021 Google internal review estimated Trusted Types would have prevented at
+least **61%** of DOM XSS vulnerabilities reported through Google's
+Vulnerability Reward Program, including bugs missed by static analysis
+pipelines.[^trusted-types-google] Its value is structural: instead of asking
+every developer to remember to sanitize, the browser refuses to render the
+unsanitized result.
 
 ### HTTP Strict Transport Security (HSTS)
 
-**Specification**: RFC 6797
+[RFC 6797](https://www.rfc-editor.org/rfc/rfc6797) lets a server tell
+browsers to only ever connect over HTTPS for a given host. Once latched, the
+policy survives until `max-age` expires.
 
-HSTS instructs browsers to only connect via HTTPS, preventing protocol downgrade attacks.
-
-```
+```http
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
 ```
 
-| Directive           | Purpose                                        |
-| ------------------- | ---------------------------------------------- |
-| `max-age`           | Policy duration in seconds (31536000 = 1 year) |
-| `includeSubDomains` | Applies to all subdomains                      |
-| `preload`           | Eligible for browser preload lists             |
+| Directive           | Purpose                                                |
+| :------------------ | :----------------------------------------------------- |
+| `max-age`           | Policy duration in seconds (`31536000` = 1 year)       |
+| `includeSubDomains` | Applies to all subdomains                              |
+| `preload`           | Eligible for the [HSTS preload list](https://hstspreload.org/) |
 
-**HSTS preload**: Browsers ship with hardcoded lists of HSTS-enabled domains. First-visit protection—users never make insecure requests to preloaded sites.
+> [!WARNING]
+> The HSTS preload list is sticky. Once a host ships in a Chromium / Firefox
+> preload list, removal can take **months** to roll out to user populations.
+> Verify *every* subdomain serves valid HTTPS before enabling `includeSubDomains;
+> preload`.
 
-**Gotcha**: Once preloaded, removal takes months. Ensure all subdomains support HTTPS before enabling `includeSubDomains`.
+### Other essential headers
 
-### Other Essential Headers
-
-```
+```http
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
@@ -495,27 +525,29 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-| Header                         | Mitigates                                       |
-| ------------------------------ | ----------------------------------------------- |
-| `X-Content-Type-Options`       | MIME-sniffing attacks                           |
-| `X-Frame-Options`              | Clickjacking (legacy; prefer `frame-ancestors`) |
-| `Referrer-Policy`              | URL leakage to third parties                    |
-| `Permissions-Policy`           | Feature abuse (camera, microphone)              |
-| `Cross-Origin-Opener-Policy`   | Spectre-style side-channel attacks              |
-| `Cross-Origin-Embedder-Policy` | Cross-origin resource leaks                     |
+| Header                         | Mitigates                                              |
+| :----------------------------- | :----------------------------------------------------- |
+| `X-Content-Type-Options`       | MIME-sniffing attacks                                  |
+| `X-Frame-Options`              | Clickjacking (legacy; CSP `frame-ancestors` supersedes it) |
+| `Referrer-Policy`              | URL leakage to third parties                           |
+| `Permissions-Policy`           | Feature abuse (camera, mic, geolocation, etc.)         |
+| `Cross-Origin-Opener-Policy`   | Spectre-style cross-origin side channels               |
+| `Cross-Origin-Embedder-Policy` | Cross-origin resource leaks (paired with COOP for `crossOriginIsolated`) |
 
-## Authentication and Session Security
+## Authentication and session security
 
-### WebAuthn (Passkeys)
+### WebAuthn (passkeys)
 
-**Specification**: W3C WebAuthn Level 3 (Candidate Recommendation, January 2026)
+[WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/) reached W3C Candidate
+Recommendation Snapshot status on 2026-01-13.[^webauthn3] The model is
+public-key cryptography per origin: the authenticator (TPM, Secure Enclave,
+hardware key, or platform passkey) generates a keypair bound to the
+relying-party origin, and the private key never leaves the device.
 
-WebAuthn enables passwordless authentication using public-key cryptography. The private key never leaves the authenticator device.
+![WebAuthn registration ceremony — relying party issues a challenge, browser invokes the authenticator, authenticator returns origin-bound public key + attestation, server stores credential.](./diagrams/webauthn-registration-light.svg "WebAuthn registration ceremony — relying party issues a challenge, browser invokes the authenticator, authenticator returns origin-bound public key + attestation, server stores credential.")
+![WebAuthn registration ceremony — relying party issues a challenge, browser invokes the authenticator, authenticator returns origin-bound public key + attestation, server stores credential.](./diagrams/webauthn-registration-dark.svg)
 
-**Registration flow**:
-
-```javascript collapse={1-5}
-// Client-side registration
+```javascript title="register-passkey.js"
 async function registerPasskey(userId, userName) {
   const challenge = await fetch("/api/webauthn/challenge").then((r) => r.json())
 
@@ -529,13 +561,13 @@ async function registerPasskey(userId, userName) {
         displayName: userName,
       },
       pubKeyCredParams: [
-        { alg: -7, type: "public-key" }, // ES256
+        { alg: -7, type: "public-key" },   // ES256
         { alg: -257, type: "public-key" }, // RS256
       ],
       authenticatorSelection: {
         authenticatorAttachment: "platform",
         userVerification: "required",
-        residentKey: "required", // Discoverable credential for passkeys
+        residentKey: "required",
       },
       timeout: 60000,
     },
@@ -547,29 +579,36 @@ async function registerPasskey(userId, userName) {
       id: credential.id,
       rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))),
       response: {
-        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON))),
-        attestationObject: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject))),
+        clientDataJSON: btoa(
+          String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON)),
+        ),
+        attestationObject: btoa(
+          String.fromCharCode(...new Uint8Array(credential.response.attestationObject)),
+        ),
       },
     }),
   })
 }
 ```
 
-**Why passkeys over passwords**: Phishing-resistant by design. The authenticator verifies the relying party's origin—users cannot accidentally authenticate to attacker-controlled sites. No shared secrets to steal from server databases.
+Passkeys are **phishing-resistant by construction**: the authenticator
+verifies the relying party's `rpId` against the origin the browser is on, so
+a credential issued for `example.com` will silently refuse to sign for
+`exarnple.com`. There is no password to phish, no shared secret to exfiltrate
+from a server dump, and discoverable credentials (`residentKey: required`)
+power the username-less sign-in flow.
 
-### Secure Session Management
+### Secure session cookies
 
-**Cookie configuration**:
-
-```javascript
+```javascript title="session-cookie.js"
 const sessionOptions = {
-  name: "__Host-session", // __Host- prefix enforces Secure + no Domain
+  name: "__Host-session",
   secret: process.env.SESSION_SECRET,
   cookie: {
-    httpOnly: true, // Inaccessible to JavaScript
-    secure: true, // HTTPS only
-    sameSite: "strict", // No cross-site requests
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    maxAge: 15 * 60 * 1000,
     path: "/",
   },
   resave: false,
@@ -577,48 +616,58 @@ const sessionOptions = {
 }
 ```
 
-**SameSite attribute** (RFC 6265bis):
+The `__Host-` prefix is enforced by the browser per
+[RFC 6265bis](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/):
+the cookie *must* be `Secure`, must have `Path=/`, and must **not** carry a
+`Domain` attribute — eliminating the entire class of "subdomain takeover
+sets a cookie that the parent trusts" attacks.
 
-| Value    | Behavior                                               |
-| -------- | ------------------------------------------------------ |
-| `Strict` | Cookie sent only in first-party context                |
-| `Lax`    | Sent with same-site requests and top-level navigations |
-| `None`   | Sent in all contexts (requires `Secure`)               |
+`SameSite` semantics:
 
-> **Default behavior change**: Modern browsers treat cookies without `SameSite` as `Lax` by default. Explicit `SameSite=None; Secure` required for legitimate cross-site use cases.
+| Value    | Sent on                                                | Use for                          |
+| :------- | :----------------------------------------------------- | :------------------------------- |
+| `Strict` | First-party requests only                              | Auth + state-changing actions    |
+| `Lax`    | Same-site + top-level navigations with safe methods    | General-purpose default          |
+| `None`   | All contexts (requires `Secure`)                       | Legitimate cross-site embeds     |
 
-### Token Storage Security
+> [!NOTE]
+> Per RFC 6265bis, modern browsers treat cookies *without* an explicit
+> `SameSite` attribute as `Lax` by default — Chrome shipped this in version
+> 80 (2020) and others followed.[^samesite-default] If you need cross-site
+> cookies, set `SameSite=None; Secure` explicitly; without `Secure`, the
+> cookie is rejected.
 
-| Method               | XSS Risk | CSRF Risk | Recommendation                 |
-| -------------------- | -------- | --------- | ------------------------------ |
-| `localStorage`       | High     | None      | Never for auth tokens          |
-| `sessionStorage`     | High     | None      | Never for auth tokens          |
-| HttpOnly cookie      | None     | Mitigated | Preferred with SameSite=Strict |
-| Memory (JS variable) | Medium   | None      | Short-lived tokens only        |
+### Token storage
 
-**Design reasoning**: HttpOnly cookies are inaccessible to JavaScript, eliminating XSS-based token theft. `SameSite=Strict` prevents CSRF by blocking cross-origin requests from including the cookie.
+| Storage                    | XSS exposure | CSRF exposure | Verdict                                 |
+| :------------------------- | :----------- | :------------ | :-------------------------------------- |
+| `localStorage`             | High         | None          | Never for auth tokens                   |
+| `sessionStorage`           | High         | None          | Never for auth tokens                   |
+| `HttpOnly` cookie          | None         | Mitigable     | **Preferred**, with `SameSite=Strict`   |
+| In-memory JS variable      | Medium       | None          | Short-lived access tokens only          |
 
-## Attack Vectors and Defenses
+`HttpOnly` cookies are inaccessible to JavaScript, so a successful XSS cannot
+read them; `SameSite=Strict` blocks cross-origin requests from including the
+cookie, neutralizing CSRF; `Secure` keeps them off plaintext channels. The
+combination of all three is the strongest stock defense the platform offers.
+
+## Attack vectors and defenses
 
 ### Cross-Site Scripting (XSS)
 
-XSS injects malicious scripts into web pages, executing in victims' browser contexts.
+| Type      | Vector                       | Persistence | Detection                |
+| :-------- | :--------------------------- | :---------- | :----------------------- |
+| Stored    | Database → rendered page     | Permanent   | Server-side scanning     |
+| Reflected | URL parameter → response     | None        | WAF + input validation   |
+| DOM-based | Client-side JS → DOM sink    | None        | Trusted Types + strict CSP |
 
-**Types**:
+DOM XSS is the variant strict CSP cannot directly catch — it lives in
+strings flowing into `innerHTML`, `eval`, `setTimeout(string)`, and similar
+sinks. Trusted Types fixes this at the platform layer:
 
-| Type      | Vector                    | Persistence | Detection             |
-| --------- | ------------------------- | ----------- | --------------------- |
-| Stored    | Database → rendered page  | Permanent   | Server-side scanning  |
-| Reflected | URL parameter → response  | None        | WAF, input validation |
-| DOM-based | Client-side JS → DOM sink | None        | Trusted Types, CSP    |
+```javascript title="trusted-types-vs-raw.js"
+document.getElementById("output").innerHTML = userInput // VULNERABLE
 
-**DOM XSS defense with Trusted Types**:
-
-```javascript
-// Without Trusted Types - vulnerable
-document.getElementById("output").innerHTML = userInput
-
-// With Trusted Types - safe
 const policy = trustedTypes.createPolicy("sanitizer", {
   createHTML: (input) => DOMPurify.sanitize(input),
 })
@@ -627,46 +676,80 @@ document.getElementById("output").innerHTML = policy.createHTML(userInput)
 
 ### Cross-Site Request Forgery (CSRF)
 
-CSRF tricks authenticated users into performing unintended actions.
+CSRF turns a victim's authenticated session into the attacker's submission
+mechanism: the victim's browser is tricked into making a state-changing
+request, and the cookie rides along automatically.
 
-**Defense layers**:
+Defense layers (all three together, not pick-one):
 
-1. **SameSite cookies**: Prevents cross-origin cookie inclusion
-2. **CSRF tokens**: Synchronizer token pattern for state-changing requests
-3. **Origin/Referer validation**: Verify request source
+1. **`SameSite` cookies** (`Strict` for auth, `Lax` for general state).
+2. **Synchronizer / double-submit token** for state-changing requests.
+3. **Origin / Referer validation** as a coarse server-side check.
 
-```javascript collapse={1-4}
-import csrf from "csurf"
+> [!CAUTION]
+> The widely cited [`csurf`](https://www.npmjs.com/package/csurf) package was
+> [deprecated in September 2022](https://github.com/expressjs/discussions/issues/155)
+> and was formally retired by the Express maintainers in
+> [the 2025 legacy-package cleanup](https://expressjs.com/2025/05/16/express-cleanup-legacy-packages.html).
+> Use a maintained signed-double-submit implementation such as
+> [`csrf-csrf`](https://www.npmjs.com/package/csrf-csrf) or the
+> community-maintained [`@dr.pogodin/csurf`](https://www.npmjs.com/package/@dr.pogodin/csurf) fork.
 
-const csrfProtection = csrf({ cookie: { sameSite: "strict", httpOnly: true } })
+```javascript title="csrf-csrf.js"
+import { doubleCsrf } from "csrf-csrf"
 
-app.get("/form", csrfProtection, (req, res) => {
-  res.render("form", { csrfToken: req.csrfToken() })
+const { doubleCsrfProtection, generateToken } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET,
+  cookieName: "__Host-psifi.x-csrf-token",
+  cookieOptions: { sameSite: "strict", httpOnly: true, secure: true, path: "/" },
+  size: 64,
+  getTokenFromRequest: (req) => req.headers["x-csrf-token"],
 })
 
-app.post("/transfer", csrfProtection, (req, res) => {
-  // Token automatically validated by middleware
+app.get("/form", (req, res) => {
+  const token = generateToken(req, res)
+  res.render("form", { csrfToken: token })
+})
+
+app.post("/transfer", doubleCsrfProtection, (req, res) => {
   processTransfer(req.body)
 })
 ```
 
 ### Server-Side Request Forgery (SSRF)
 
-SSRF induces servers to make requests to unintended destinations, often internal networks or cloud metadata services.
+SSRF induces the *server* to make a request the attacker could not make
+themselves, typically to an internal service the attacker cannot route to.
+It is now folded into A01 because the underlying defect is authorization:
+the server makes the request without verifying the destination is one the
+caller is allowed to reach.[^owasp-intro]
 
-**High-value targets**:
+Common high-value SSRF targets:
 
-- `169.254.169.254` - AWS/GCP metadata (credentials, tokens)
-- `localhost:6379` - Redis
-- `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` - Internal networks
+| Target                                              | Why it matters                                        |
+| :-------------------------------------------------- | :---------------------------------------------------- |
+| `169.254.169.254` / `metadata.google.internal`      | Cloud instance metadata (IAM tokens, instance creds)  |
+| `127.0.0.1`, `localhost`                            | Loopback admin endpoints, debug ports                 |
+| `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`     | RFC 1918 private network ranges                       |
+| `fc00::/7`, `fe80::/10`                             | IPv6 private + link-local                             |
 
-**Defense**:
+A robust outbound URL validator combines a deny list with **post-resolution**
+IP checks (because hostnames lie) and re-resolution before reconnect (because
+of [DNS rebinding](https://attack.mitre.org/techniques/T1090/)):
 
-```javascript collapse={1-3}
+![SSRF defense pipeline — parse, scheme check, hostname deny list, DNS resolve, reject if any resolved IP is private / metadata / loopback, then pin the socket to the resolved IP and re-resolve to defeat DNS rebinding.](./diagrams/ssrf-defense-decision-light.svg "SSRF defense pipeline — parse, scheme check, hostname deny list, DNS resolve, reject if any resolved IP is private / metadata / loopback, then pin the socket to the resolved IP and re-resolve to defeat DNS rebinding.")
+![SSRF defense pipeline — parse, scheme check, hostname deny list, DNS resolve, reject if any resolved IP is private / metadata / loopback, then pin the socket to the resolved IP and re-resolve to defeat DNS rebinding.](./diagrams/ssrf-defense-decision-dark.svg)
+
+```javascript title="ssrf-guard.js"
 import { URL } from "url"
 import dns from "dns/promises"
 
-const BLOCKED_HOSTS = new Set(["169.254.169.254", "metadata.google.internal", "localhost", "127.0.0.1"])
+const BLOCKED_HOSTS = new Set([
+  "169.254.169.254",
+  "metadata.google.internal",
+  "localhost",
+  "127.0.0.1",
+])
 
 const PRIVATE_RANGES = [
   { start: 0x0a000000, end: 0x0affffff }, // 10.0.0.0/8
@@ -674,19 +757,17 @@ const PRIVATE_RANGES = [
   { start: 0xc0a80000, end: 0xc0a8ffff }, // 192.168.0.0/16
 ]
 
-async function isAllowedUrl(urlString) {
+export async function isAllowedUrl(urlString) {
   const url = new URL(urlString)
 
-  // Protocol check
   if (!["http:", "https:"].includes(url.protocol)) return false
-
-  // Hostname blocklist
   if (BLOCKED_HOSTS.has(url.hostname)) return false
 
-  // DNS resolution to catch rebinding
   const addresses = await dns.resolve4(url.hostname)
   for (const addr of addresses) {
-    const ip = addr.split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct), 0)
+    const ip = addr
+      .split(".")
+      .reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0)
     if (PRIVATE_RANGES.some((r) => ip >= r.start && ip <= r.end)) {
       return false
     }
@@ -696,102 +777,94 @@ async function isAllowedUrl(urlString) {
 }
 ```
 
-## Security by Rendering Strategy
+> [!WARNING]
+> Allow-listing alone (`isAllowedUrl`) is not enough — the
+> [DNS rebinding](https://en.wikipedia.org/wiki/DNS_rebinding) class of
+> attack defeats it by returning a public IP at validation time and a
+> private IP a few seconds later. Use the resolved IP from validation as the
+> connect target (pin to the IP, send the original `Host` header), and
+> re-validate on every reconnection.
 
-Rendering strategy determines attack surface and appropriate defenses.
+## Security by rendering strategy
 
-### Server-Side Rendering (SSR)
+Different rendering strategies expose different attack surfaces; the control
+set should follow.
 
-**Attack surface**: Template injection, SSRF, session fixation, CSRF
+| Strategy | Primary attack surface                                   | Highest-leverage controls                          |
+| :------- | :------------------------------------------------------- | :------------------------------------------------- |
+| SSR      | Template injection, SSRF, session fixation, CSRF         | Auto-escaping templates, session regen on auth, origin checks, strict CSRF |
+| SSG      | Build-pipeline supply chain, DOM XSS in client JS, cached vulns | SBOM + signature checks in CI, hash-based CSP (stable assets), immutable artifact promotion |
+| CSR      | DOM XSS, token leakage, open redirects                   | Trusted Types, `HttpOnly` cookies, strict CSP with nonces, allow-list redirect targets |
 
-**Key defenses**:
+A SPA running an API behind a CDN inherits all three concern sets — the
+build pipeline of the SSG, the runtime sinks of the CSR, and the
+session/auth surface of the SSR backend.
 
-- Automatic template escaping
-- CSRF tokens for state changes
-- Session regeneration on authentication
-- Request origin validation
+## Practical takeaways
 
-### Static Site Generation (SSG)
-
-**Attack surface**: Build-time supply chain, DOM XSS in client JS, cached vulnerabilities
-
-**Key defenses**:
-
-- Dependency scanning in CI/CD
-- SRI for external resources
-- Hash-based CSP (stable content allows pre-computed hashes)
-- Immutable deployments
-
-### Client-Side Rendering (CSR)
-
-**Attack surface**: DOM XSS, token leakage, open redirects
-
-**Key defenses**:
-
-- Trusted Types
-- HttpOnly cookie tokens
-- Strict CSP with nonces
-- Client-side input validation (defense in depth, not primary)
-
-## Conclusion
-
-Security architecture prioritizes controls that eliminate vulnerability classes over those that patch individual instances. Nonce-based CSP eliminates entire categories of XSS. Argon2id eliminates password cracking as a practical attack vector. HttpOnly cookies eliminate JavaScript-based token theft.
-
-The OWASP Top 10:2025 reflects this shift—Broken Access Control remains #1 not because it's technically sophisticated, but because it requires consistent enforcement across every endpoint. The solution is architectural: centralized authorization middleware, not scattered inline checks.
-
-Defense in depth assumes every layer will fail. Design accordingly.
+- **Centralize authorization in middleware.** Inline `if (req.user.id ===
+  resource.ownerId)` checks are how endpoints quietly drift out of policy.
+- **Strict CSP, not allowlists.** Per-response nonces plus `'strict-dynamic'`
+  beat any reasonable host allowlist.[^csp-dead] Pair with Trusted Types to
+  close the DOM-XSS gap.
+- **Argon2id at the OWASP profile.** Lower the memory only when hardware
+  cannot sustain it, and bump the time cost in compensation.[^owasp-passwords]
+- **Passkeys over passwords for new flows.** Phishing resistance is built in;
+  no shared secret to leak.
+- **Use the `__Host-` prefix and `SameSite=Strict` for session cookies.**
+  Replace any current `csurf` usage with a maintained alternative.
+- **Treat the supply chain as part of the runtime.** SBOM + signature
+  verification + SRI for browser-loaded third-party assets.
+- **Validate outbound URLs after DNS resolution, then pin the socket to the
+  resolved IP.** Hostname allow-lists alone do not stop DNS rebinding.
 
 ## Appendix
 
 ### Prerequisites
 
-- HTTP protocol fundamentals (headers, methods, status codes)
-- Basic cryptography concepts (symmetric vs asymmetric, hashing)
-- JavaScript/Node.js familiarity
-- Web application architecture (client-server model)
+- HTTP fundamentals (headers, methods, status codes, cookies).
+- Same-origin policy and CORS.
+- Public-key cryptography fundamentals (asymmetric vs symmetric, hashing).
+- Node.js / browser JavaScript familiarity.
 
 ### Terminology
 
-- **CSP**: Content Security Policy—browser-enforced resource loading restrictions
-- **CSRF**: Cross-Site Request Forgery—attacks that trick users into unintended actions
-- **HSTS**: HTTP Strict Transport Security—forces HTTPS connections
-- **IDOR**: Insecure Direct Object Reference—unauthorized resource access via ID manipulation
-- **OWASP**: Open Worldwide Application Security Project
-- **SRI**: Subresource Integrity—cryptographic verification of external resources
-- **SSRF**: Server-Side Request Forgery—inducing servers to make unintended requests
-- **XSS**: Cross-Site Scripting—malicious script injection
-- **WAF**: Web Application Firewall—HTTP traffic filtering
-
-### Summary
-
-- OWASP Top 10:2025 prioritizes Broken Access Control (#1) and introduces Supply Chain Failures (#3) and Mishandling Exceptional Conditions (#10)
-- CSP Level 3 shifts from domain allowlists to nonce-based validation for XSS prevention
-- Argon2id replaces bcrypt as the recommended password hashing algorithm
-- WebAuthn Level 3 enables phishing-resistant passwordless authentication
-- SameSite cookies default to `Lax`, mitigating CSRF by default
-- Trusted Types prevent DOM XSS by requiring type-safe DOM operations
-- Defense in depth: layer controls so single failures don't compromise systems
+- **CSP** — Content Security Policy; browser-enforced loading restrictions.
+- **CSRF** — Cross-Site Request Forgery; tricks an authenticated user into a request.
+- **HSTS** — HTTP Strict Transport Security; forces HTTPS.
+- **IDOR** — Insecure Direct Object Reference; unauthorized resource access via ID manipulation.
+- **OWASP** — Open Worldwide Application Security Project.
+- **SBOM** — Software Bill of Materials.
+- **SRI** — Subresource Integrity; cryptographic verification of subresources.
+- **SSRF** — Server-Side Request Forgery.
+- **WAF** — Web Application Firewall.
+- **XSS** — Cross-Site Scripting.
 
 ### References
 
-**Specifications**
+- [OWASP Top 10:2025 — Introduction](https://owasp.org/Top10/2025/0x00_2025-Introduction/)
+- [OWASP Top 10:2025 — A01 Broken Access Control](https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/)
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+- [OWASP CSP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html)
+- [W3C CSP Level 3](https://www.w3.org/TR/CSP3/)
+- [W3C Trusted Types](https://www.w3.org/TR/trusted-types/)
+- [W3C WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/)
+- [W3C Subresource Integrity 2](https://www.w3.org/TR/sri-2/)
+- [RFC 6797 — HSTS](https://www.rfc-editor.org/rfc/rfc6797)
+- [RFC 6265bis — Cookies](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/)
+- [NIST SP 800-38D — AES-GCM](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
+- [Password Hashing Competition](https://www.password-hashing.net/)
+- [Mozilla Observatory](https://observatory.mozilla.org/)
+- [SSL Labs Server Test](https://www.ssllabs.com/ssltest/)
 
-- [OWASP Top 10:2025](https://owasp.org/Top10/2025/) - Current web application security risks
-- [W3C Content Security Policy Level 3](https://www.w3.org/TR/CSP3/) - CSP specification (Working Draft, June 2025)
-- [W3C WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/) - Web Authentication API (Candidate Recommendation, January 2026)
-- [RFC 6797 - HTTP Strict Transport Security](https://datatracker.ietf.org/doc/html/rfc6797) - HSTS specification
-- [RFC 6265bis - Cookies](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/) - HTTP State Management (includes SameSite)
-
-**Official Documentation**
-
-- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) - Password hashing recommendations
-- [OWASP CSP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) - CSP implementation guidance
-- [MDN Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) - CSP documentation
-- [MDN Trusted Types API](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) - Trusted Types documentation
-- [web.dev Trusted Types](https://web.dev/articles/trusted-types) - DOM XSS prevention guide
-
-**Tools**
-
-- [Security Headers](https://securityheaders.com/) - Header analysis
-- [Mozilla Observatory](https://observatory.mozilla.org/) - Web security scanning
-- [SSL Labs Server Test](https://www.ssllabs.com/ssltest/) - TLS configuration analysis
+[^owasp-intro]: [OWASP Top 10:2025 — Introduction](https://owasp.org/Top10/2025/0x00_2025-Introduction/) — published Nov 2025.
+[^owasp-a01]: [OWASP Top 10:2025 — A01: Broken Access Control](https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/) — incidence rate 3.73%, 40 mapped CWEs.
+[^owasp-passwords]: [OWASP Password Storage Cheat Sheet — Argon2id](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id) — five equivalent OWASP Argon2id profiles, all with `p=1`.
+[^csp-dead]: Weichselbaum et al., [CSP Is Dead, Long Live CSP! On the Insecurity of Whitelists and the Future of Content Security Policy](https://research.google/pubs/csp-is-dead-long-live-csp-on-the-insecurity-of-whitelists-and-the-future-of-content-security-policy/), ACM CCS 2016.
+[^csp3]: [W3C Content Security Policy Level 3, Working Draft 2026-04-01](https://www.w3.org/TR/CSP3/).
+[^trusted-types-caniuse]: [caniuse — Trusted Types for DOM manipulation](https://caniuse.com/trusted-types) and [Web Platform DX — Trusted Types Baseline (2026-02-24)](https://github.com/web-platform-dx/developer-signals/issues/118).
+[^trusted-types-google]: Google, [Trusted Types — mid-2021 report](https://storage.googleapis.com/gweb-research2023-media/pubtools/6259.pdf) — analysis of DOM XSS reports to Google's VRP.
+[^webauthn3]: [W3C WebAuthn Level 3, Candidate Recommendation Snapshot 2026-01-13](https://www.w3.org/TR/webauthn-3/).
+[^samesite-default]: [draft-ietf-httpbis-rfc6265bis](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/) — default `Lax` enforcement; Chromium shipped this default in Chrome 80, see [Chromium SameSite FAQ](https://www.chromium.org/updates/same-site/faq/).
+[^argon2-phc]: [Password Hashing Competition](https://www.password-hashing.net/) — Argon2 selected as winner on 2015-07-20; [`P-H-C/phc-winner-argon2`](https://github.com/P-H-C/phc-winner-argon2).
+[^sri-spec]: [W3C Subresource Integrity Level 2, Working Draft](https://www.w3.org/TR/sri-2/) — `sha256`, `sha384`, `sha512` digests; `crossorigin` required.

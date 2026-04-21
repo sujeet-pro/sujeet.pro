@@ -1,0 +1,32 @@
+%% Diagram: List virtualization — viewport, rendered window, and overscan
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph data["Data array (10k items)"]
+        direction TB
+        d1["item 0..N"]
+    end
+
+    subgraph mounted["DOM (mounted nodes)"]
+        direction TB
+        over_top["Overscan above\n(overscanCount rows)"]
+        viewport["Visible viewport\n(scroll container height)"]
+        over_bot["Overscan below\n(overscanCount rows)"]
+        over_top --> viewport --> over_bot
+    end
+
+    subgraph virtual["Virtual / unmounted"]
+        direction TB
+        v1["Items above overscan"]
+        v2["Items below overscan"]
+    end
+
+    data -- "List computes start/stop\nfrom scroll offset + rowHeight" --> mounted
+    mounted -. "Outside this band\n→ unmounted" .-> virtual
+
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef live fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef ghost fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class d1 store
+    class viewport,over_top,over_bot live
+    class v1,v2 ghost

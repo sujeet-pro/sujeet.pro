@@ -1,0 +1,15 @@
+%% Diagram: Event sourcing decision framework
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TD
+    A[Need event sourcing?] --> B{Audit trail or temporal queries critical?}
+    B -->|No| Z[Stick with CRUD + audit table]
+    B -->|Yes| C{Whole system or one bounded context?}
+    C -->|One context| E[Hybrid: ES for that context, CRUD elsewhere]
+    C -->|Whole system| D[Pure event sourcing]
+    D --> F{Read-after-write consistency required?}
+    E --> F
+    F -->|Strong| G[Inline / synchronous projections]
+    F -->|Eventual OK| H{Write throughput target?}
+    H -->|High| I[Async projections + checkpointed subscribers]
+    H -->|Moderate| J[Inline for hot read models, async for the rest]

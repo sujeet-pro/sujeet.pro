@@ -1,0 +1,37 @@
+%% Diagram: SSG on CloudFront — overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph build["Build phase"]
+        sources["Content sources\nMD, CMS, JSON"]
+        templates["Templates\nReact, Astro, Liquid"]
+        ssg["SSG engine\nNext, Astro, Hugo, 11ty"]
+        compress["Pre-compress\nBrotli Q11 + Gzip -9"]
+        sources --> ssg
+        templates --> ssg
+        ssg --> compress
+    end
+
+    subgraph aws["AWS edge plane"]
+        s3["S3 versioned prefix\n/build_NNN/"]
+        edgefn["CloudFront Function\nor Lambda@Edge"]
+        cf["CloudFront distribution\nOrigin Shield, cache policy"]
+        compress --> s3
+        s3 --> cf
+        edgefn -.viewer/origin event.-> cf
+    end
+
+    subgraph serve["Edge delivery"]
+        pop["750+ POPs\n15 regional caches"]
+        users["Browsers worldwide"]
+        cf --> pop
+        pop --> users
+    end
+
+    classDef primaryC fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storageC fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutralC fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class sources,templates,ssg,compress neutralC
+    class s3 storageC
+    class cf,edgefn,pop primaryC
+    class users neutralC

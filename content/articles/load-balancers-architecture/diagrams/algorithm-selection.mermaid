@@ -1,0 +1,18 @@
+%% Diagram: Decision tree for picking a load-balancing algorithm
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start([Pick an algorithm])
+    Start --> Q1{"Need session affinity<br/>by key — user id,<br/>cache key, tenant?"}
+
+    Q1 -->|Yes| Hash{"Pool size and churn?"}
+    Hash -->|Small / stable| Ring["Ring consistent hash<br/>e.g. Ketama, Cassandra vnodes"]
+    Hash -->|Large / churny<br/>connection-oriented| Maglev["Maglev hash<br/>e.g. Envoy, Cloudflare Unimog"]
+
+    Q1 -->|No| Q2{"Variable request cost<br/>or backend capacity?"}
+
+    Q2 -->|No, homogeneous| RR["Round robin<br/>weighted RR for capacity tiers"]
+    Q2 -->|Yes| Q3{"Pool size?"}
+
+    Q3 -->|Tens of backends| LC["Least connections / least requests<br/>e.g. HAProxy leastconn"]
+    Q3 -->|Hundreds+ or<br/>multi-LB pool| P2C["Power of two choices<br/>e.g. Envoy LEAST_REQUEST,<br/>Netflix Zuul Choice-of-2"]

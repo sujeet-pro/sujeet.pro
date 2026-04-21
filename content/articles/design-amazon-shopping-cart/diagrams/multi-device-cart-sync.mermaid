@@ -1,0 +1,37 @@
+%% Diagram: Multi-device cart sync using idempotent line operations
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Phone
+    participant Laptop
+    participant CartSvc as Cart Service
+    participant Redis
+    participant DB as Cart DB
+    participant WS as WebSocket Bus
+
+    Phone->>CartSvc: POST /cart/items {sku:A, qty:1, idem:p1}
+    CartSvc->>Redis: HSET cart:{u} item:A qty=1
+    CartSvc->>DB: upsert (cart_id, sku=A, qty=1) by (cart_id, sku)
+    CartSvc-->>Phone: 201 line v=3
+    CartSvc->>WS: publish line_changed sku=A qty=1 v=3
+    WS-->>Laptop: line_changed sku=A qty=1 v=3
+    Note over Laptop: Reconcile local state v=3
+
+    Laptop->>CartSvc: PATCH /cart/items/A {qty:2, idem:l1, ifMatch:v=3}
+    CartSvc->>Redis: HSET cart:{u} item:A qty=2 v=4
+    CartSvc->>DB: update qty=2 where v=3 returning v=4
+    CartSvc-->>Laptop: 200 line v=4
+    CartSvc->>WS: publish line_changed sku=A qty=2 v=4
+    WS-->>Phone: line_changed sku=A qty=2 v=4
+
+    par Phone retries timed-out POST
+        Phone->>CartSvc: POST /cart/items {sku:A, qty:1, idem:p1}
+        CartSvc->>Redis: GET idempotency:p1 -> cached 201
+        CartSvc-->>Phone: 201 (cached, no-op on cart)
+    and Laptop adds different SKU
+        Laptop->>CartSvc: POST /cart/items {sku:B, qty:1, idem:l2}
+        CartSvc->>DB: upsert sku=B qty=1
+        CartSvc-->>Laptop: 201 line v=5
+        CartSvc->>WS: publish line_changed sku=B qty=1 v=5
+        WS-->>Phone: line_changed sku=B qty=1 v=5
+    end

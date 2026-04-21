@@ -1,0 +1,25 @@
+%% Diagram: Offline-first architecture overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Client["Client (Browser)"]
+        direction TB
+        App[Application UI]
+        SW[Service Worker]
+        IDB[(IndexedDB)]
+        OPFS[(OPFS)]
+        Cache[(Cache API)]
+    end
+
+    subgraph Server["Server"]
+        API[API Server]
+        DB[(Database)]
+    end
+
+    App -->|"1. Read/write locally"| IDB
+    App -->|"2. Render immediately"| App
+    App -.->|"Binary blobs"| OPFS
+    SW -->|"3. Intercept fetch"| Cache
+    SW <-->|"4. Background sync"| API
+    IDB <-->|"5. Reconcile / merge"| API
+    API <--> DB

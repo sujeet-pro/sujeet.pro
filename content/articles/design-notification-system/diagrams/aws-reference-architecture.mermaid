@@ -1,0 +1,44 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge"]
+        R53["Route 53"]
+        ALB["ALB"]
+    end
+
+    subgraph Compute["Compute (Fargate)"]
+        API["Notification API"]
+        ROUTER["Router workers"]
+        CHANNELS["Channel workers\n(Push / Email / SMS / In-App)"]
+        WS["WebSocket gateways"]
+    end
+
+    subgraph Streaming["Streaming"]
+        MSK["Amazon MSK\n(Kafka, priority topics)"]
+        SQS["Amazon SQS\n(Dead-letter)"]
+    end
+
+    subgraph State["State"]
+        REDIS["ElastiCache Redis\n(prefs, dedup, rate-limit)"]
+        RDS[("Amazon RDS\nPostgreSQL\n(templates, prefs)")]
+        KEYSPACES[("Amazon Keyspaces\n(Cassandra-compatible)")]
+    end
+
+    subgraph External["Providers"]
+        APNS["APNs"]
+        FCM["FCM"]
+        SES["Amazon SES"]
+        TWILIO["Twilio"]
+    end
+
+    R53 --> ALB --> API
+    API --> MSK
+    MSK --> ROUTER
+    ROUTER --> CHANNELS
+    CHANNELS --> APNS & FCM & SES & TWILIO
+    ROUTER --> REDIS
+    ROUTER --> RDS
+    ROUTER --> KEYSPACES
+    WS --> REDIS
+    ROUTER -. fail .-> SQS

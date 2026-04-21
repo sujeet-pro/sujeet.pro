@@ -1,0 +1,28 @@
+%% Diagram: Fan Out Parallelism
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  T[Trigger: PR or push] --> L[Lint and format]
+  T --> TC[Typecheck]
+  T --> US1[Unit shard 1]
+  T --> US2[Unit shard 2]
+  T --> US3[Unit shard N]
+  T --> SEC[Secret scan]
+  T --> SCA[Dependency review]
+  L --> J{All cheap checks pass?}
+  TC --> J
+  US1 --> J
+  US2 --> J
+  US3 --> J
+  SEC --> J
+  SCA --> J
+  J -->|No| X[Block merge or queue]
+  J -->|Yes| B[Build once: image addressed by digest]
+  B --> I1[Integration: service A]
+  B --> I2[Integration: service B]
+  B --> SAST[SAST on artifact]
+  B --> ATT[Provenance and SBOM]
+  I1 --> P[Promote candidate to staging]
+  I2 --> P
+  SAST --> P
+  ATT --> P

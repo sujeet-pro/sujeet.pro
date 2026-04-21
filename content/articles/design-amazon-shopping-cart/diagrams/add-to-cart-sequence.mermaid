@@ -1,0 +1,21 @@
+%% Diagram: Add-to-cart request flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant CartService
+    participant InventoryService
+    participant PricingService
+    participant Redis
+    participant CartDB
+
+    Client->>CartService: POST /cart/items
+    CartService->>InventoryService: Check availability (ATS)
+    InventoryService-->>CartService: Available (qty: 50)
+    CartService->>InventoryService: Soft reserve (qty: 1, ttl: 5min)
+    InventoryService-->>CartService: Reservation ID
+    CartService->>PricingService: Get current price
+    PricingService-->>CartService: $29.99
+    CartService->>Redis: Update cart cache
+    CartService->>CartDB: Persist cart (async)
+    CartService-->>Client: 200 OK (cart updated)

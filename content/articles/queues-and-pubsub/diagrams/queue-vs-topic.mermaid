@@ -1,0 +1,35 @@
+%% Diagram: Queue vs Topic
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph queue["Point-to-Point Queue"]
+        direction TB
+        QP1[Producer A]:::producer
+        QP2[Producer B]:::producer
+        Q{{"Queue\n(competing consumers)"}}:::broker
+        QC1[Worker 1]:::consumer
+        QC2[Worker 2]:::consumer
+        QC3[Worker 3]:::consumer
+        QP1 --> Q
+        QP2 --> Q
+        Q --> QC1
+        Q --> QC2
+        Q --> QC3
+    end
+
+    subgraph topic["Pub/Sub Topic"]
+        direction TB
+        TP[Producer]:::producer
+        T{{"Topic\n(fan-out)"}}:::broker
+        TS1[Subscriber A]:::consumer
+        TS2[Subscriber B]:::consumer
+        TS3[Subscriber C]:::consumer
+        TP --> T
+        T --> TS1
+        T --> TS2
+        T --> TS3
+    end
+
+    classDef producer fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef broker fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef consumer fill:#1F6E68,stroke:#155752,color:#fff

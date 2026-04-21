@@ -1,0 +1,16 @@
+%% Diagram: IndexedDB version upgrade handshake across tabs
+%% Type: sequenceDiagram
+sequenceDiagram
+    participant TabA as Tab A (v2 open)
+    participant DB as IndexedDB
+    participant TabB as Tab B (opening v3)
+
+    TabB->>DB: indexedDB.open("myapp", 3)
+    DB-->>TabA: versionchange event
+    Note over TabA: Must call db.close()<br/>to release the connection
+    TabA->>DB: db.close()
+    DB->>TabB: upgradeneeded (oldVersion=2)
+    Note over TabB: Schema migrations run<br/>inside versionchange tx
+    TabB->>DB: createObjectStore / createIndex
+    DB-->>TabB: success
+    Note over DB: If TabA never closes,<br/>TabB gets a blocked event<br/>and the upgrade waits.

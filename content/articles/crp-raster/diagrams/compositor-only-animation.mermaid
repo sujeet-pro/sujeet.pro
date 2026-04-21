@@ -1,0 +1,31 @@
+%% Diagram: Layout-triggering animation vs compositor-only animation paths
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Tick["Animation tick"]
+        T["requestAnimationFrame /<br/>compositor animation tick"]
+    end
+
+    subgraph FullPath["Layout-triggering animation (e.g. top, width, color)"]
+        L1["Style"]
+        L2["Layout"]
+        L3["Paint"]
+        L4["Layerize"]
+        L5["Raster"]
+        L6["Composite + draw"]
+    end
+
+    subgraph FastPath["Compositor-only animation (transform, opacity)"]
+        F1["Compositor updates<br/>property tree"]
+        F2["Re-blend existing textures<br/>on GPU"]
+    end
+
+    T --> L1
+    L1 --> L2 --> L3 --> L4 --> L5 --> L6
+
+    T --> F1 --> F2
+
+    classDef hot fill:#fee,stroke:#c00,color:#000
+    classDef cold fill:#efe,stroke:#070,color:#000
+    class L2,L3,L5 hot
+    class F1,F2 cold

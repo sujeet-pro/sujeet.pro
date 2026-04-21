@@ -1,0 +1,24 @@
+%% Diagram: IME composition sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User as User (CJK keyboard)
+    participant IME as OS IME
+    participant DOM as contentEditable
+    participant Editor as Editor state
+
+    User->>IME: keystroke
+    IME->>DOM: compositionstart
+    DOM->>Editor: mark isComposing = true
+    loop one or more updates
+        IME->>DOM: compositionupdate (provisional text)
+        DOM->>Editor: show preview only
+        IME->>DOM: beforeinput insertCompositionText
+        Note right of DOM: NOT cancelable
+        DOM->>DOM: native DOM update
+    end
+    User->>IME: confirm candidate
+    IME->>DOM: compositionend (final text)
+    DOM->>Editor: commit text + clear isComposing
+    DOM->>Editor: input event fires

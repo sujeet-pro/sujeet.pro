@@ -1,0 +1,20 @@
+%% Diagram: OAuth 2.0 + OIDC token relationships
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Authorization (OAuth 2.0)"
+        AC[Authorization Code]
+        AT[Access Token]
+        RT[Refresh Token]
+        AC -->|Token Exchange| AT
+        AT -->|Expired| RT
+        RT -->|Rotation| AT
+    end
+
+    subgraph "Authentication (OIDC)"
+        ID[ID Token]
+        UI[UserInfo Endpoint]
+    end
+
+    AC -->|OIDC Extension| ID
+    AT -->|Fetch Claims| UI

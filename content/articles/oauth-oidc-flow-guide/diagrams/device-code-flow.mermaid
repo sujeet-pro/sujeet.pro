@@ -1,0 +1,24 @@
+%% Diagram: Device Authorization Grant (RFC 8628)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Device as Device (TV / CLI)
+    participant AuthZ as Authorization Server
+    participant Browser as User Browser
+    participant User
+
+    Device->>AuthZ: POST /device_authorization<br/>client_id, scope
+    AuthZ->>Device: device_code, user_code,<br/>verification_uri[_complete],<br/>expires_in, interval
+    Device->>User: Display user_code + verification_uri<br/>(or QR for verification_uri_complete)
+
+    par User-side approval
+        User->>Browser: Open verification_uri,<br/>enter user_code
+        Browser->>AuthZ: Authenticate + consent
+    and Device polling
+        loop Until approved / expired
+            Device->>AuthZ: POST /token<br/>grant_type=urn:ietf:params:oauth:grant-type:device_code<br/>device_code, client_id
+            AuthZ-->>Device: 400 authorization_pending<br/>or slow_down (back off +5s)
+        end
+    end
+
+    AuthZ->>Device: access_token, refresh_token,<br/>(id_token if openid scope)

@@ -1,0 +1,59 @@
+%% Diagram: Jitter Strategies — Distribution Within the Backoff Window
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph nojitter["No Jitter"]
+        direction TB
+        N0["t = 0\nfailure"]
+        N1["t = 100 ms\nALL clients"]
+        N2["t = 200 ms\nALL clients"]
+        N3["t = 400 ms\nALL clients"]
+        N0 -->|"thundering herd"| N1
+        N1 --> N2 --> N3
+    end
+
+    subgraph full["Full Jitter\nrandom in (0, delay]"]
+        direction TB
+        F0["t = 0\nfailure"]
+        F1["t in (0, 100] ms\nuniform"]
+        F2["t in (0, 200] ms\nwider"]
+        F3["t in (0, 400] ms\nflatter"]
+        F0 -->|"each client picks"| F1
+        F1 --> F2 --> F3
+    end
+
+    subgraph equal["Equal Jitter\nhalf-window + random half"]
+        direction TB
+        E0["t = 0\nfailure"]
+        E1["t in [50, 100] ms"]
+        E2["t in [100, 200] ms"]
+        E3["t in [200, 400] ms"]
+        E0 -->|"min spacing kept"| E1
+        E1 --> E2 --> E3
+    end
+
+    subgraph decorrelated["Decorrelated\nrandom in [base, prev x 3]"]
+        direction TB
+        DC0["t = 0\nfailure"]
+        DC1["t in [base, 3 base]"]
+        DC2["t in [base, 3 prev]\nmay clamp"]
+        DC3["clusters near cap\nonce prev x 3 > cap"]
+        DC0 -->|"window grows"| DC1
+        DC1 --> DC2 --> DC3
+    end
+
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef good fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class N0 neutral
+    class N1,N2,N3 bad
+    class F0 neutral
+    class F1,F2,F3 good
+    class E0 neutral
+    class E1,E2,E3 ok
+    class DC0 neutral
+    class DC1,DC2 ok
+    class DC3 warn

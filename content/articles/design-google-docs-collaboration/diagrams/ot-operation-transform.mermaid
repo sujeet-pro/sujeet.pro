@@ -1,0 +1,37 @@
+%% Diagram: OT operation transform — concrete two-client example
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START["Both clients at rev 5<br/>document: ABC"]
+
+    subgraph Client_A["Client A — local"]
+        A_INTENT["intent: insert 'X' at 0"]
+        A_LOCAL["apply locally → XABC"]
+        A_SEND["send opA = insert('X', 0)<br/>baseRev = 5"]
+    end
+
+    subgraph Client_B["Client B — local"]
+        B_INTENT["intent: delete at 1"]
+        B_LOCAL["apply locally → AC"]
+        B_SEND["send opB = delete(1, 1)<br/>baseRev = 5"]
+    end
+
+    subgraph Server["Server — Jupiter"]
+        S_RECV["receive opA first<br/>(opA.base == server.rev)"]
+        S_APPLY_A["apply opA → XABC<br/>rev 5 → 6"]
+        S_RECV_B["receive opB<br/>(opB.base 5 < server.rev 6)"]
+        S_TRANSFORM["transform opB against opA:<br/>opA inserted 1 char before pos 1<br/>opB' = delete(2, 1)"]
+        S_APPLY_B["apply opB' → XAC<br/>rev 6 → 7"]
+    end
+
+    A_RECV["Client A receives opB' (rev 7)<br/>local already at XABC<br/>apply opB' → XAC ✓"]
+    B_RECV["Client B receives opA (rev 6)<br/>local already at AC<br/>transform opA against opB locally,<br/>apply transformed opA → XAC ✓"]
+
+    START --> A_INTENT
+    START --> B_INTENT
+    A_INTENT --> A_LOCAL --> A_SEND --> S_RECV
+    B_INTENT --> B_LOCAL --> B_SEND --> S_RECV_B
+    S_RECV --> S_APPLY_A --> S_RECV_B
+    S_RECV_B --> S_TRANSFORM --> S_APPLY_B
+    S_APPLY_B --> A_RECV
+    S_APPLY_A --> B_RECV

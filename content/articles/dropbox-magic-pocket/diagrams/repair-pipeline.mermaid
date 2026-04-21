@@ -1,0 +1,24 @@
+%% Diagram: OSD repair pipeline
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant SD as Service Discovery
+    participant M as Master
+    participant RT as Replication Table
+    participant VM as Volume Managers
+    participant SRC as Source OSDs<br/>(hundreds, fanned out)
+    participant DST as Destination OSDs
+
+    SD->>M: OSD X unreachable
+    Note over M: wait 15 min<br/>(absorb routine restart)
+    M->>RT: close all volumes on X<br/>(no new writes)
+    M->>M: build reconstruction plan<br/>(spread reads across<br/>hundreds of OSDs)
+    M->>VM: dispatch copy/EC tasks
+    VM->>SRC: read replicas / EC shards
+    SRC-->>VM: data
+    VM->>DST: write reconstructed volumes<br/>(EC where needed)
+    DST-->>VM: fsync ack
+    VM->>M: tasks complete
+    M->>DST: increment generation number
+    M->>RT: commit new volume->OSD mapping<br/>(atomic repair commit)
+    Note over M,RT: stale X coming back<br/>is detected as out-of-date<br/>via generation number

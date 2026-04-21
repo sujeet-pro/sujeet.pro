@@ -1,0 +1,27 @@
+%% Diagram: Cursor pagination — feed state lifecycle
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Idle: cursor = null
+    Idle --> Loading: sentinel intersects /<br/>fetchNextPage(cursor)
+    Loading --> Loading: duplicate trigger ignored<br/>(in-flight token set)
+    Loading --> AppendingPage: 2xx response,<br/>nextCursor present
+    Loading --> EndOfStream: 2xx response,<br/>nextCursor = null
+    Loading --> Error: 4xx 5xx network
+    Error --> Retrying: backoff + jitter<br/>(only on retryable status)
+    Retrying --> Loading: retry count <= max
+    Retrying --> Failed: retry count exceeded
+    Failed --> Loading: user taps Retry
+    AppendingPage --> Idle: cursor := nextCursor,<br/>append items, evict if<br/>pages > maxPages
+    EndOfStream --> [*]
+
+    note right of AppendingPage
+        Optimistic top-insert:
+        new banner, no scroll jump.
+        Anchor preserved with
+        overflow-anchor: auto.
+    end note
+    note right of Error
+        Retryable: 408, 429, 5xx, network.
+        Non-retryable: 400, 401, 403, 404.
+    end note

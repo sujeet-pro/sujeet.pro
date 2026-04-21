@@ -1,0 +1,14 @@
+%% Diagram: Choosing a CRDT variant
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Need a CRDT] --> B{Reliable causal<br/>delivery available?}
+    B -->|No| C{State size bounded?}
+    B -->|Yes| D{Bandwidth budget?}
+    C -->|Yes| E[State-based<br/>CvRDT]
+    C -->|No| F[Delta-state]
+    D -->|Tight| G[Operation-based<br/>CmRDT]
+    D -->|Generous| F
+    E --> H[Gossip OK,<br/>any order]
+    F --> I[Track sync<br/>vector per peer]
+    G --> J[Invest in causal<br/>broadcast layer]

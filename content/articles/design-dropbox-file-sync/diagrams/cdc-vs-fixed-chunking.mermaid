@@ -1,0 +1,24 @@
+%% Diagram: Why content-defined chunking survives an inserted byte
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Before["Before edit"]
+        F1["Fixed: [ABCD] [EFGH] [IJKL]"]
+        C1["CDC: [ABC | DEF | GHIJ]<br/>boundaries from rolling hash"]
+    end
+
+    subgraph After["After: insert 'X' at position 2"]
+        F2["Fixed: [ABXC] [DEFG] [HIJK] [L...]<br/>3 of 3 blocks change"]
+        C2["CDC: [ABXC | DEF | GHIJ]<br/>1 of 3 blocks changes"]
+    end
+
+    F1 -- "edit shifts byte stream" --> F2
+    C1 -- "edit shifts byte stream" --> C2
+
+    F2 --> FCost["Re-upload all blocks"]
+    C2 --> CCost["Re-upload only ABXC"]
+
+    classDef bad fill:#ffe5e5,stroke:#cc4444
+    classDef good fill:#e5f5e5,stroke:#44aa44
+    class FCost bad
+    class CCost good

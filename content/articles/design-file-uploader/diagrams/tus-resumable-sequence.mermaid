@@ -1,0 +1,32 @@
+%% Diagram: tus 1.0.x resumable upload sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as tus Server
+
+    Note over C,S: Phase 1 - create upload resource
+    C->>S: POST /files\nTus-Resumable: 1.0.0\nUpload-Length: N
+    S-->>C: 201 Created\nLocation: /files/abc
+
+    Note over C,S: Phase 2 - query current offset (resume)
+    C->>S: HEAD /files/abc\nTus-Resumable: 1.0.0
+    S-->>C: 200 OK\nUpload-Offset: K\nUpload-Length: N
+
+    Note over C,S: Phase 3 - append chunks
+    loop while offset < N
+        C->>S: PATCH /files/abc\napplication/offset+octet-stream\nUpload-Offset: K
+        alt offset matches
+            S-->>C: 204 No Content\nUpload-Offset: K + chunk
+        else offset mismatch
+            S-->>C: 409 Conflict
+            C->>S: HEAD /files/abc (re-sync)
+            S-->>C: 200 OK\nUpload-Offset: K'
+        else checksum mismatch (extension)
+            S-->>C: 460 Checksum Mismatch
+            C->>C: re-send same chunk
+        end
+    end
+
+    Note over C,S: Phase 4 - done
+    S-->>C: 204 No Content\nUpload-Offset: N

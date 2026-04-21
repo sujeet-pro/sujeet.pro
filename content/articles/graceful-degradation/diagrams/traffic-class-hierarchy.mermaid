@@ -1,0 +1,31 @@
+%% Diagram: traffic-class-hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge ["Edge: tag at ingress, propagate over RPC"]
+        Tag["Auth + route + intent<br/>↓<br/>criticality header"]
+    end
+
+    subgraph Classes ["Criticality classes (Google SRE convention)"]
+        CP["CRITICAL_PLUS<br/>auth, payments, health checks<br/>shed last; never under steady load"]
+        C["CRITICAL<br/>user-facing reads, checkout flow<br/>provisioned for full traffic"]
+        SP["SHEDDABLE_PLUS<br/>recommendations, search refinements<br/>partial unavailability tolerated"]
+        S["SHEDDABLE<br/>batch, prefetch, analytics<br/>frequent partial loss expected"]
+    end
+
+    subgraph Shedder ["Per-task admission control"]
+        Util["Local utilization<br/>(executor load avg / inflight)"]
+        Order["Reject lowest class first<br/>only shed class N if all<br/>classes &lt; N already shed"]
+    end
+
+    Tag --> CP
+    Tag --> C
+    Tag --> SP
+    Tag --> S
+
+    CP --> Order
+    C --> Order
+    SP --> Order
+    S --> Order
+
+    Util --> Order

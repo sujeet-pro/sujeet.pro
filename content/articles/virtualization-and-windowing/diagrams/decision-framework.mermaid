@@ -1,0 +1,13 @@
+%% Diagram: Virtualization decision framework
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Large list to render] --> B{Need find-in-page<br/>or anchor links?}
+    B -->|Yes| C{Item count under<br/>~10K and memory OK?}
+    C -->|Yes| D[content-visibility: auto<br/>+ contain-intrinsic-size]
+    C -->|No| E[Custom search UI<br/>+ virtualization]
+    B -->|No| F{All items<br/>same height?}
+    F -->|Yes| G[Fixed-height<br/>virtualization]
+    F -->|No| H{Long-running scroll<br/>with GC pauses?}
+    H -->|Yes| I[Variable-height<br/>+ DOM recycling]
+    H -->|No| J[Variable-height<br/>virtualization]

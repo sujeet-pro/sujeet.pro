@@ -1,0 +1,31 @@
+%% Diagram: Undo with concurrent remote ops — invert + transform
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User A (editor)
+    participant L as Local undo stack
+    participant S as Server
+    participant R as Remote clients
+
+    Note over U,R: Doc at rev 10
+    U->>S: opA — insert "foo" at 100 (baseRev 10)
+    S->>S: apply, rev 11
+    S->>U: ack (rev 11)
+    U->>L: push inverse(opA) = delete(100..103) at rev 11
+
+    Note over R,S: Concurrent remote work
+    R->>S: opR1 — insert "X" at 50 (baseRev 11)
+    S->>S: apply, rev 12
+    S->>U: opR1 (rev 12)
+    R->>S: opR2 — delete(80..82) (baseRev 12)
+    S->>S: apply, rev 13
+    S->>U: opR2 (rev 13)
+
+    Note over U: User hits Ctrl-Z at rev 13
+    U->>L: pop inverse(opA)
+    U->>U: transform inverse(opA) against opR1, opR2<br/>→ inverse(opA)' = delete(101..104)
+    U->>S: send inverse(opA)' (baseRev 13)
+    S->>S: apply, rev 14
+    S->>U: ack (rev 14)
+    S->>R: broadcast inverse(opA)' (rev 14)
+    Note over U,R: All clients converge; "foo" gone, opR1/opR2 preserved

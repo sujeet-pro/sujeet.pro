@@ -1,0 +1,24 @@
+%% Diagram: Authorization, capture, and settlement timeline (post-April-2024 Visa rules)
+%% Type: gantt
+gantt
+    dateFormat  YYYY-MM-DD
+    axisFormat  D
+    title Auth -> Capture -> Settle -> Reconcile (calendar days from auth)
+
+    section Card-not-present (CIT)
+    Authorization (hold)               :done, a1, 2026-01-01, 1d
+    Capture window (Visa 10 cal days)  :active, a2, 2026-01-01, 10d
+    Funded payout (T+2)                :a3, 2026-01-03, 1d
+    Daily reconciliation               :crit, a4, 2026-01-04, 1d
+
+    section Card-present (CP)
+    Authorization                      :done, b1, 2026-01-01, 1d
+    Capture window (Visa 5 cal days)   :active, b2, 2026-01-01, 5d
+
+    section Merchant-initiated (MIT)
+    Authorization                      :done, c1, 2026-01-01, 1d
+    Capture window (Visa 5 cal days)   :active, c2, 2026-01-01, 5d
+
+    section Lodging / cruise / vehicle rental
+    Authorization (with EAI)           :done, d1, 2026-01-01, 1d
+    Extended capture window (30 days)  :active, d2, 2026-01-01, 30d

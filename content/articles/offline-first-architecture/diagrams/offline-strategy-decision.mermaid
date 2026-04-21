@@ -1,0 +1,12 @@
+%% Diagram: Choosing an offline strategy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Need offline?] -->|No| B[Traditional SPA]
+    A -->|Yes| C{Offline duration?}
+    C -->|Minutes| D[Cache-only PWA<br/>cache-first / SWR]
+    C -->|Hours-Days| E{Multi-user edits<br/>on same record?}
+    E -->|No| F[Sync queue<br/>+ idempotent server ops]
+    E -->|Yes| G{Always reconnects<br/>to a single server?}
+    G -->|Yes| H[OT-based<br/>e.g. Google Docs]
+    G -->|P2P or<br/>indefinite offline| I[CRDT-based<br/>Yjs / Automerge]

@@ -1,0 +1,26 @@
+%% Diagram: LAN sync — UDP discovery, mTLS HTTPS block fetch
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Client A (has block h)
+    participant LAN as Local network
+    participant B as Client B (needs block h)
+    participant DBX as Dropbox servers
+
+    DBX-->>A: per-namespace SSL cert (rotated on membership change)
+    DBX-->>B: per-namespace SSL cert
+
+    A->>LAN: UDP broadcast on port 17500<br/>(version, namespaces, TCP port, random ID)
+    B->>LAN: UDP broadcast on port 17500
+    LAN-->>A: B's broadcast
+    LAN-->>B: A's broadcast
+
+    Note over B: Need block h for namespace N
+
+    B->>A: HEAD https://A:17500/blocks/N/h<br/>(SNI=N, mTLS with namespace cert)
+    A-->>B: 200 (or 404)
+    B->>A: GET https://A:17500/blocks/N/h
+    A-->>B: encrypted block bytes
+    B->>B: verify SHA-256 == h
+
+    Note over B,DBX: Fall back to block server if<br/>peer unreachable / hash mismatch

@@ -1,0 +1,41 @@
+%% Diagram: Two-tier edge load balancing (L4 in front of L7)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Clients["Clients"]
+        C1[Browser / app]
+        C2[Mobile client]
+        C3[Service-to-service]
+    end
+
+    subgraph Edge["Edge tier (L4)"]
+        DNS[Authoritative DNS / GeoDNS]
+        L4[L4 load balancer<br/>5-tuple hashing<br/>TCP / UDP / QUIC]
+    end
+
+    subgraph Routing["Routing tier (L7)"]
+        L7[L7 load balancer / proxy<br/>TLS termination<br/>HTTP routing &amp; transforms]
+    end
+
+    subgraph Backends["Backend pool"]
+        B1[Service A pods]
+        B2[Service B pods]
+        B3[Service C pods]
+    end
+
+    subgraph Control["Control plane"]
+        SD[Service discovery]
+        HC[Health checks<br/>active + passive]
+    end
+
+    C1 & C2 & C3 --> DNS
+    DNS --> L4
+    L4 --> L7
+    L7 --> B1
+    L7 --> B2
+    L7 --> B3
+    SD -.->|membership| L7
+    HC -.->|liveness + outlier signal| L7
+    HC -.->|probes| B1
+    HC -.->|probes| B2
+    HC -.->|probes| B3

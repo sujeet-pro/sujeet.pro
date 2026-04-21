@@ -1,0 +1,12 @@
+%% Diagram: Figma multiplayer architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    C1[Client 1<br/>local doc] -->|"WebSocket: ops"| S[Multiplayer server<br/>per-document worker]
+    C2[Client 2<br/>local doc] -->|"WebSocket: ops"| S
+    C3[Client 3<br/>local doc] -->|"WebSocket: ops"| S
+    S -->|"server-ordered ops"| C1
+    S -->|"server-ordered ops"| C2
+    S -->|"server-ordered ops"| C3
+    S -->|"transaction log"| L[(DynamoDB)]
+    S -->|"checkpoint every 30-60s"| B[(S3)]

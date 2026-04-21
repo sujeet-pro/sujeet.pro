@@ -1,0 +1,28 @@
+%% Diagram: CDC-driven cross-tier cache invalidation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph writes["Write path"]
+        App[Application] -->|"1. write"| DB[(Primary DB)]
+        DB -->|"2. WAL / binlog"| CDC["CDC capture\n(Debezium, Maxwell,\ndb-native streams)"]
+    end
+
+    CDC -->|"3. change events"| Stream["Durable log\n(Kafka, Pulsar)"]
+
+    subgraph invalidator["Invalidation service"]
+        Stream -->|"4. consume"| Worker["Map row -> cache keys"]
+        Worker -->|"5. DEL key"| L2["L2: Distributed cache\n(Redis Cluster /\nMemcached)"]
+        Worker -->|"5'. publish to fan-out\ntopic per region"| PubSub["Pub/Sub\nbroadcast"]
+    end
+
+    PubSub -->|"6. invalidate L1"| L1A["L1 cache\nApp instance 1"]
+    PubSub -->|"6. invalidate L1"| L1B["L1 cache\nApp instance 2"]
+    PubSub -->|"6. invalidate L1"| L1N["L1 cache\nApp instance N"]
+
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef cdc fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef l1 fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef l2 fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class DB,L2 store
+    class CDC,Stream,Worker,PubSub cdc
+    class L1A,L1B,L1N l1

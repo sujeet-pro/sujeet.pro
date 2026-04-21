@@ -1,0 +1,35 @@
+%% Diagram: Dual-write topology during the Cassandra to ScyllaDB migration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    api["API monolith"]:::neutral
+    ds["Rust data services\n(coalescing + routing)"]:::primary
+
+    subgraph cass_side["Cassandra (legacy primary)"]
+        cass["cassandra-messages\n177 nodes"]:::storage
+    end
+
+    subgraph scylla_side["ScyllaDB (new primary)"]
+        scylla["scylladb-messages\n72 nodes on super-disk"]:::storage
+    end
+
+    mig["Rust migrator\n(token range scan,\nSQLite checkpoints,\nfirehose inserts)"]:::secondary
+
+    api --> ds
+    ds ==>|"dual-write\nnew messages"| cass
+    ds ==>|"dual-write\nnew messages"| scylla
+
+    ds -->|"reads (initially\nprimary path)"| cass
+    ds -.->|"shadow / mirrored\nreads for validation"| scylla
+
+    cass -->|"backfill\nhistorical token\nranges"| mig
+    mig -->|"firehose insert\nup to 3.2M msgs/sec"| scylla
+
+    cutover["Cutover (May 2022):\nflip primary reads to ScyllaDB,\nstop dual-writes,\ndecommission Cassandra"]:::accent
+    scylla -.-> cutover
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

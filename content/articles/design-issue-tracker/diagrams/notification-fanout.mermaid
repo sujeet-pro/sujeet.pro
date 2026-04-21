@@ -1,0 +1,25 @@
+%% Diagram: Notification fan-out — events to per-channel queues with digest aggregation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    EVT["Domain event\n(issue.commented,\nissue.assigned,\n@mention)"]
+    ROUTER["Notification router\nresolve subscribers\n+ user prefs + presence"]
+    INAPP_Q["in-app queue"]
+    PUSH_Q["push queue"]
+    EMAIL_Q["email queue"]
+    WEBHOOK_Q["webhook queue"]
+    DIGEST["Digest aggregator\n(per-user window)"]
+    WS["WebSocket fan-out"]
+    APNS["APNs / FCM"]
+    SES["SES / SendGrid"]
+    HOOK["HTTP delivery\n(retry + DLQ)"]
+    DLQ[("Dead-letter queue")]
+
+    EVT --> ROUTER
+    ROUTER --> INAPP_Q --> WS
+    ROUTER --> PUSH_Q --> APNS
+    ROUTER --> EMAIL_Q --> DIGEST --> SES
+    ROUTER --> WEBHOOK_Q --> HOOK
+    HOOK -.->|max retries| DLQ
+    APNS -.-> DLQ
+    SES -.-> DLQ

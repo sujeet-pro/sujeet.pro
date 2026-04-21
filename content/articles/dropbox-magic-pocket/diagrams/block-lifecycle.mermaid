@@ -1,0 +1,10 @@
+%% Diagram: Block redundancy lifecycle
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    U["Upload<br/>(4 MB block, SHA-256)"] --> H["Hot tier<br/>4x intra-zone replicas<br/>+ async second-zone copy<br/>(~8x effective overhead)"]
+    H -- "volume fills,<br/>access cools" --> V["Volume closed,<br/>buckets aggregated"]
+    V --> WRS["Warm: Reed-Solomon 6+3<br/>1.5x intra-zone<br/>(x 2 zones)"]
+    V --> WLRC["Warm: LRC ~12+2+2<br/>~1.33x intra-zone<br/>tolerates 3 failures<br/>(x 2 zones)"]
+    WRS -- "access cools further" --> CT["Cold tier<br/>2+1 XOR fragments<br/>striped across 3 regions<br/>1.5x cross-zone factor"]
+    WLRC -- "access cools further" --> CT

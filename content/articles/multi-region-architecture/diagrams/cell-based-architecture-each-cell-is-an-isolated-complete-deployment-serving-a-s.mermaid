@@ -1,21 +1,25 @@
-%% Diagram: Cell Based Architecture Each Cell Is An Isolated Complete Deployment Serving A S
+%% Diagram: Cell-based architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Region A"
-        subgraph "Cell A1"
+    Router_A["Cell router<br/>(per-tenant / per-shard)"]
+
+    subgraph Region["Region"]
+        subgraph CellA1["Cell A1 (impaired)"]
             SA1["Services"]
             DA1[("Data")]
+            SA1 --> DA1
         end
-        subgraph "Cell A2"
+        subgraph CellA2["Cell A2"]
             SA2["Services"]
             DA2[("Data")]
+            SA2 --> DA2
         end
-        subgraph "Cell A3"
+        subgraph CellA3["Cell A3"]
             SA3["Services"]
             DA3[("Data")]
+            SA3 --> DA3
         end
-        Router_A["Cell Router"]
     end
 
     Router_A --> SA1 & SA2 & SA3

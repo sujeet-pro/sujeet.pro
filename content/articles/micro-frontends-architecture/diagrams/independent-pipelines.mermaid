@@ -1,0 +1,42 @@
+%% Diagram: Independent CI/CD pipelines per micro-frontend
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph teamA["Team A · Catalog"]
+        direction TB
+        a1[PR Merged] --> a2[Build]
+        a2 --> a3[Contract Tests]
+        a3 --> a4[Canary 5%]
+        a4 --> a5[Promote 100%]
+    end
+
+    subgraph teamB["Team B · Cart"]
+        direction TB
+        b1[PR Merged] --> b2[Build]
+        b2 --> b3[Contract Tests]
+        b3 --> b4[Canary 5%]
+        b4 --> b5[Promote 100%]
+    end
+
+    subgraph teamC["Team C · Checkout"]
+        direction TB
+        c1[PR Merged] --> c2[Build]
+        c2 --> c3[Contract Tests]
+        c3 --> c4[Canary 5%]
+        c4 --> c5[Promote 100%]
+    end
+
+    reg[(Manifest / Import Map\nor MF Registry)]
+    a5 --> reg
+    b5 --> reg
+    c5 --> reg
+    reg --> shell[Shell pulls latest\nat next request]
+
+    classDef step fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+
+    class a1,a2,a3,a4,b1,b2,b3,b4,c1,c2,c3,c4 step
+    class a5,b5,c5 ok
+    class reg store
+    class shell ok

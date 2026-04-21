@@ -1,0 +1,25 @@
+%% Diagram: Maglev hashing — permutation tables populate the M-entry lookup table
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Inputs["Per-backend permutation tables"]
+        direction TB
+        B0["Backend 0<br/>offset = h1(name) mod M<br/>skip   = h2(name) mod (M-1) + 1<br/>perm[j] = (offset + j*skip) mod M"]
+        B1["Backend 1<br/>...same construction..."]
+        B2["Backend 2<br/>...same construction..."]
+    end
+
+    subgraph Populate["Populate phase"]
+        direction TB
+        P[Round-robin across backends<br/>each takes its next-preferred<br/>permutation slot if empty]
+    end
+
+    subgraph Lookup["Lookup table (size M, prime)"]
+        direction TB
+        T["lookup[0..M-1] -> backend index<br/>M = 65537 (small) / 655373 (large)<br/>5-tuple hash mod M -> O(1) lookup"]
+    end
+
+    B0 --> P
+    B1 --> P
+    B2 --> P
+    P --> T

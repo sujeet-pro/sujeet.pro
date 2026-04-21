@@ -1,0 +1,16 @@
+%% Diagram: Workflow transition validation flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant I as Issue Service
+    participant W as Workflow Service
+    participant DB as Database
+
+    C->>I: Move issue to status "Done"
+    I->>W: Allowed: "In Progress" -> "Done"?
+    W->>DB: Load workflow transitions
+    DB-->>W: Transition exists, no conditions
+    W-->>I: Allowed
+    I->>DB: UPDATE issue SET status_id = 'done'
+    I-->>C: Success

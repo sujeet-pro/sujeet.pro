@@ -1,0 +1,25 @@
+%% Diagram: EME license acquisition flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application (JS)
+    participant Video as HTMLMediaElement
+    participant CDM as CDM
+    participant Server as License Server
+
+    App->>Video: src = encrypted MSE buffer
+    Video-->>App: encrypted event (initData)
+    App->>CDM: requestMediaKeySystemAccess(keySystem, config)
+    CDM-->>App: MediaKeySystemAccess
+    App->>CDM: createMediaKeys()
+    CDM-->>App: MediaKeys
+    App->>Video: setMediaKeys(mediaKeys)
+    App->>CDM: mediaKeys.createSession(sessionType)
+    CDM-->>App: MediaKeySession
+    App->>CDM: session.generateRequest(initDataType, initData)
+    CDM-->>App: message event (license request blob)
+    App->>Server: POST license request (+ entitlement token)
+    Server-->>App: License response (signed)
+    App->>CDM: session.update(licenseResponse)
+    CDM-->>Video: keys installed, decryption enabled
+    Video-->>App: playing

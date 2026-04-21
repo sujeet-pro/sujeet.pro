@@ -1,0 +1,29 @@
+%% Diagram: How backpressure propagates backward through a pipe chain
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Src as ReadableStream
+    participant TX as TransformStream
+    participant Sink as WritableStream
+
+    Note over Src,Sink: Steady state. Chunks flow downstream.
+    Src->>TX: enqueue chunk
+    TX->>Sink: write chunk
+    Sink-->>TX: writer ready resolves
+    TX-->>Src: pull called again
+
+    Note over Src,Sink: Sink slows down e.g. disk I/O
+    Src->>TX: enqueue chunk
+    TX->>Sink: write chunk
+    Sink-->>TX: writer ready PENDING
+    Note right of TX: TX queue fills.<br/>Its desiredSize -> 0.
+    TX-->>Src: stops calling pull
+    Note left of Src: Source MUST check<br/>controller desiredSize<br/>before next enqueue.
+    Src->>Src: skip enqueue and retry later
+
+    Note over Src,Sink: Sink drains
+    Sink-->>TX: writer ready resolves
+    TX->>Sink: queued write
+    TX-->>Src: pull resumes
+    Src->>TX: enqueue chunk

@@ -1,0 +1,24 @@
+%% Diagram: Stripe-style idempotency-key request flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant API as Stripe API
+    participant Redis as Idempotency store
+    participant Core as Payment core
+
+    Client->>API: POST /charges (Idempotency-Key: abc123)
+    API->>Redis: GET idem:abc123
+    Redis-->>API: null
+    API->>Redis: SETNX idem:abc123 {status: processing}
+    API->>Core: Process charge
+    Core-->>API: Charge result
+    API->>Redis: SET idem:abc123 {status: done, response, status_code}
+    API-->>Client: 200 OK
+
+    Note over Client,API: Network failure, client retries
+
+    Client->>API: POST /charges (Idempotency-Key: abc123)
+    API->>Redis: GET idem:abc123
+    Redis-->>API: {status: done, response, status_code}
+    API-->>Client: 200 OK (Idempotent-Replayed: true)

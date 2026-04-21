@@ -1,0 +1,29 @@
+%% Diagram: Optimistic update with rollback on failure
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant Cmp as Component
+    participant Lib as Query Library
+    participant Cache as App cache
+    participant Net as Network
+
+    U->>Cmp: edit(name="Alice")
+    Cmp->>Lib: mutate({id, name})
+    Lib->>Lib: onMutate
+    Lib->>Cache: cancelQueries(["users", id])
+    Cache-->>Lib: previous snapshot
+    Lib->>Cache: setQueryData(["users", id], optimistic)
+    Cache-->>Cmp: re-render (instant)
+    Lib->>Net: PUT /users/id (Idempotency-Key)
+    alt 2xx success
+        Net-->>Lib: 200 server-canonical
+        Lib->>Cache: setQueryData(server-canonical)
+        Lib->>Cache: invalidateQueries(["users", id])
+    else error / 4xx / 5xx
+        Net-->>Lib: error
+        Lib->>Cache: setQueryData(previous snapshot)
+        Cache-->>Cmp: rollback re-render
+        Lib->>Cmp: onError(toast)
+    end
+    Lib->>Lib: onSettled

@@ -1,0 +1,29 @@
+%% Diagram: AWS reference architecture for a 300-node deployment
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph MasterTier["Master tier (3 AZs, hot standby)"]
+        M1["Primary master\ni3en.12xlarge"]
+        M2["Shadow master 1\ni3en.12xlarge"]
+        M3["Shadow master 2\ni3en.12xlarge"]
+    end
+
+    subgraph StorageTier["Storage tier (rack ≈ AZ)"]
+        subgraph AZ1["AZ 1"]
+            CS1["d3en.12xlarge × 100"]
+        end
+        subgraph AZ2["AZ 2"]
+            CS2["d3en.12xlarge × 100"]
+        end
+        subgraph AZ3["AZ 3"]
+            CS3["d3en.12xlarge × 100"]
+        end
+    end
+
+    subgraph Network["Network"]
+        VPC["VPC + cluster placement groups"]
+        TGW["Transit Gateway"]
+    end
+
+    M1 & M2 & M3 --> VPC --> TGW
+    CS1 & CS2 & CS3 --> VPC

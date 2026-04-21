@@ -1,0 +1,26 @@
+%% Diagram: License server architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    APP[App backend<br/>auth, subscription] -->|signed entitlement token| ENT
+    PLAY[Player + CDM<br/>EME / FairPlay / PlayReady] -->|license request<br/>+ entitlement token| ENT
+
+    subgraph LS["License server"]
+        ENT[Entitlement service<br/>auth, geo, device limits, policy]
+        KEY[Key service<br/>HSM / KMS, key derivation, rotation]
+        GEN[License generator<br/>per-DRM wrapping & signing]
+        ENT -->|approved policy| GEN
+        KEY -->|content key by KID| GEN
+    end
+
+    GEN -->|signed license<br/>(Widevine / PlayReady) or CKC (FairPlay)| PLAY
+    GEN -. usage / secure-stop .-> ANALYTICS[Concurrency + audit log]
+
+    classDef edge fill:#dae8fc,stroke:#6c8ebf,color:#000
+    classDef core fill:#fff2cc,stroke:#d6b656,color:#000
+    classDef secret fill:#f8cecc,stroke:#b85450,color:#000
+    classDef out fill:#d5e8d4,stroke:#82b366,color:#000
+    class APP,PLAY edge
+    class ENT,GEN core
+    class KEY secret
+    class ANALYTICS out

@@ -6,7 +6,7 @@ description: >-
   TTL strategies for migrations, failover, and caching — and why "DNS
   propagation" is really just cache expiry across resolver layers.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - networking
   - http
@@ -16,10 +16,10 @@ tags:
 
 # DNS Records, TTL Strategy, and Cache Behavior
 
-DNS records encode more than addresses—they define routing policies, ownership verification, security constraints, and service discovery. TTL (Time To Live) values control how long resolvers cache these records, creating a fundamental trade-off between propagation speed and query load. This article covers record types in depth, TTL design decisions for different operational scenarios, and the caching behaviors that determine how quickly DNS changes take effect.
+DNS records encode more than addresses—they define routing policies, ownership verification, security constraints, and service discovery. TTL (Time To Live) values control how long resolvers cache these records, creating a fundamental trade-off between propagation speed and query load. This article covers record types in depth, TTL design decisions for different operational scenarios, and the caching behaviors that determine how quickly DNS changes take effect. Resolution mechanics (stub → recursive → authoritative) live in the sibling [DNS Resolution Path](../dns-resolution-path/README.md) article; transport security (DoH, DoT, DNSSEC) lives in [DNS Security: DoH, DoT, and DNSSEC](../dns-security-doh-dot-dnssec/README.md).
 
-![DNS record types grouped by function, and the caching layers that determine propagation timing.](./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa-light.svg "DNS record types grouped by function, and the caching layers that determine propagation timing.")
-![DNS record types grouped by function, and the caching layers that determine propagation timing.](./diagrams/dns-record-types-grouped-by-function-and-the-caching-layers-that-determine-propa-dark.svg)
+![DNS record types organized into four functional categories: address resolution, zone delegation, service location, and security.](./diagrams/record-type-taxonomy-light.svg "DNS record types organized into four functional categories: address resolution, zone delegation, service location, and security.")
+![DNS record types organized into four functional categories: address resolution, zone delegation, service location, and security.](./diagrams/record-type-taxonomy-dark.svg)
 
 ## Abstract
 
@@ -31,7 +31,7 @@ TTL strategy depends on the operational scenario:
 - **CDN/anycast**: 300s or less enables rapid failover
 - **Migrations**: Lower TTL 24-48 hours before the change, wait for old TTL to expire, then make the change
 
-"DNS propagation" is a misnomer—there is no active push mechanism. Changes take effect as cached records expire across resolver layers. The effective propagation time equals the maximum of: the old record's remaining TTL, negative cache TTL (SOA MINIMUM), and any resolver TTL floors that ignore authoritative values.
+"DNS propagation" is a misnomer — there is no active push mechanism. Changes take effect as cached records expire across resolver layers. The effective propagation time equals the maximum of: the old record's remaining TTL, the negative-cache TTL (SOA MINIMUM) when the name was queried before it existed, any resolver TTL floors that ignore authoritative values, and any RFC 8767 stale-cache window if the authoritative is unreachable during the cutover.
 
 ## Address Resolution Records
 
@@ -53,7 +53,7 @@ api.example.com.    300    IN    A    192.0.2.11
 api.example.com.    300    IN    A    192.0.2.12
 ```
 
-Per RFC 2181, all records in an RRSet (Resource Record Set) must have identical TTLs. If a resolver receives differing TTLs for the same name and type, it must treat this as an error and use the lowest value.
+Per [RFC 2181 §5.2](https://datatracker.ietf.org/doc/html/rfc2181#section-5.2), all records in an RRSet (Resource Record Set) must have identical TTLs. The recovery rule is split: a resolver receiving differing TTLs from a **non-authoritative** source should ignore the entire RRSet and re-fetch from an authoritative source; from an **authoritative** source, it should treat all records as if their TTL equalled the lowest value present.
 
 ### CNAME Records
 
@@ -101,7 +101,7 @@ NS (Name Server) records identify the authoritative DNS servers for a zone. They
 
 **Glue records** solve a circular dependency: if `ns1.example.com` is the nameserver for `example.com`, you'd need to resolve `example.com` to find `ns1.example.com`. Glue records—A/AAAA records embedded in the parent zone's delegation—break this cycle.
 
-Per RFC 9471, glue is required when nameservers are "in-bailiwick" (within or below the delegated zone). The IP addresses in glue must match the authoritative A/AAAA records for those nameservers.
+Per [RFC 9471 §3.1](https://www.rfc-editor.org/rfc/rfc9471.html#section-3.1), an authoritative server **must** include all available glue for **in-domain** name servers (RFC 9471's term for "in-bailiwick" — nameserver names within the delegated zone) in the additional section of a referral, and must set the TC (truncated) flag if message-size constraints prevent including all of them. Glue for **sibling-domain** name servers should be included but is not mandatory. The IP addresses in glue must match the authoritative A/AAAA records for those nameservers.
 
 ```dns title="Delegation with glue records in parent zone"
 ; In the .com zone (parent)
@@ -150,9 +150,12 @@ example.com.    300    IN    MX    20    mail2.example.com.
 
 **Priority semantics:** Lower preference values indicate higher priority. When multiple servers share the same preference, RFC 5321 requires the sending server to randomize selection for load distribution.
 
-**Fallback behavior:** If a domain has no MX records, RFC 5321 specifies an implicit MX of preference 0 pointing to the domain itself (the A/AAAA records). However, if MX records exist, the domain's A/AAAA records must not be used for mail delivery.
+**Fallback behavior:** If a domain has no MX records, [RFC 5321 §5.1](https://datatracker.ietf.org/doc/html/rfc5321#section-5.1) specifies an implicit MX of preference 0 pointing to the domain itself (the A/AAAA records). However, if MX records exist, the domain's A/AAAA records must not be used for mail delivery.
 
-**Critical constraint:** MX targets must resolve to A/AAAA records, never CNAMEs. Per RFC 2181 and RFC 5321, an MX pointing to a CNAME is invalid. Some implementations follow the CNAME anyway, but this behavior is non-standard and unreliable.
+**Critical constraint:** MX targets must resolve to A/AAAA records, never CNAMEs. Per RFC 5321 §5.1 and [RFC 2181 §10.3](https://datatracker.ietf.org/doc/html/rfc2181#section-10.3), an MX pointing to a CNAME is invalid. Some implementations follow the CNAME anyway, but this behavior is non-standard and unreliable.
+
+> [!TIP]
+> If a domain accepts no email, publish a "null MX" per [RFC 7505](https://datatracker.ietf.org/doc/html/rfc7505): a single `MX 0 .` record (preference 0, target is the root label `.`). Senders that honor RFC 7505 hard-fail with SMTP 556 instead of falling back to A/AAAA records, which prevents days of pointless retries against an HTTP-only host. A null MX must be the **only** MX record for the name.
 
 ### SRV Records
 
@@ -226,7 +229,7 @@ example.com.  300  IN  CAA  0  iodef  "mailto:security@example.com"
 - `issuewild`: CAs authorized for wildcard certificates (if absent, `issue` applies)
 - `iodef`: URL or email for violation reports
 
-**CA/Browser Forum mandate:** Since September 2017, CAs must check CAA records before issuance. If CAA records exist and don't authorize the CA, issuance must fail.
+**CA/Browser Forum mandate:** Per [Ballot 187](https://cabforum.org/2017/03/08/ballot-187-make-caa-checking-mandatory/), publicly trusted CAs must check CAA records before issuance, effective **2017-09-08**. If CAA records exist and don't authorize the CA, issuance must fail. The check is repeated within the CAA TTL or 8 hours, whichever is greater. CAs must process the `issue`, `issuewild`, and `iodef` tags.
 
 **Inheritance:** CAA records at `example.com` apply to all subdomains unless overridden. To allow any CA for a subdomain while restricting the parent:
 
@@ -243,11 +246,11 @@ The value `";"` explicitly permits any CA.
 
 TTL is a 32-bit unsigned integer specifying how long a record may be cached, in seconds. Per RFC 1035: "TTL specifies the time interval that the resource record may be cached before the source of the information should again be consulted."
 
-**Bounds (RFC 2181):**
+**Bounds:**
 
 - Minimum: 0 (use only for current transaction, do not cache)
-- Maximum: 2147483647 (2³¹ - 1 seconds, ~68 years)
-- Practical maximum: 604800 (7 days, per RFC 8767 recommendation)
+- Maximum: 2147483647 (2³¹ − 1 seconds, ~68 years), per [RFC 2181 §8](https://datatracker.ietf.org/doc/html/rfc2181#section-8). The most-significant bit of the 32-bit field must be zero; resolvers receiving a TTL with the top bit set must treat it as zero.
+- Practical maximum: 604800 (7 days), per the recommendation in [RFC 8767 §6](https://www.rfc-editor.org/rfc/rfc8767.html#section-6) for caching resolvers.
 
 **Zero TTL behavior:** The record may only be used for the transaction in progress and must not be cached. Use case: SOA records during zone transfers, or extremely volatile data like real-time load balancer targets.
 
@@ -261,13 +264,16 @@ TTL is a 32-bit unsigned integer specifying how long a record may be cached, in 
 | **Development/testing**   | 60s             | Rapid iteration without cache delays                        |
 | **NS records**            | 86400-172800s   | Nameserver changes are rare, high TTL reduces root/TLD load |
 
-**CDN provider behavior:** Cloudflare automatically sets 300s TTL for proxied records (orange cloud) and doesn't allow customization. This ensures their anycast routing changes propagate within 5 minutes.
+**CDN provider behavior:** [Cloudflare proxied records](https://developers.cloudflare.com/dns/manage-dns-records/reference/ttl/) (orange cloud) have TTL `Auto`, which is fixed at 300 s and cannot be customized. This ensures their anycast routing changes propagate within 5 minutes regardless of the TTL the user typed in the dashboard.
 
 **Failover and health checks:** AWS Route 53 recommends 60s or less for health-checked records. Lower TTL means faster failover but higher query volume—a 60s TTL generates 1440 queries per day per caching resolver versus 24 queries for 3600s.
 
 ### Migration TTL Strategy
 
 DNS migrations require careful TTL management to minimize both stale cache impact and query load:
+
+![A six-step TTL lowering timeline aligned with the resolver cache state through a DNS migration window.](./diagrams/migration-ttl-timeline-light.svg "TTL lowering plan: lower TTL → drain old caches → make the change → verify → restore TTL. Resolver-cache state lags the authoritative state by up to one TTL.")
+![A six-step TTL lowering timeline aligned with the resolver cache state through a DNS migration window.](./diagrams/migration-ttl-timeline-dark.svg)
 
 **Pre-migration (24-48 hours before):**
 
@@ -303,37 +309,64 @@ api.example.com.    3600   IN    A    198.51.100.20
 
 ### Caching Layers
 
-DNS responses pass through multiple caching layers, each with distinct behavior:
+DNS responses pass through multiple caching layers, each with distinct behavior. Effective freshness is gated by the *weakest* layer in the chain.
 
-| Layer                  | Typical Cache Duration | Behavior                                                |
-| ---------------------- | ---------------------- | ------------------------------------------------------- |
-| **Authoritative**      | N/A (source of truth)  | Sets TTL in responses                                   |
-| **Recursive resolver** | Honors TTL             | Decrements cached TTL; prefetches popular records       |
-| **OS stub resolver**   | Seconds to minutes     | Platform-dependent; may have minimum TTL floor          |
-| **Browser**            | 1-60 minutes           | Chrome: 1 minute; Firefox: respects TTL; Safari: varies |
-| **Application**        | Varies                 | Some HTTP clients cache DNS independently               |
+![Five-layer DNS cache chain from authoritative server through recursive resolver, OS stub resolver, and browser cache to in-process application caches.](./diagrams/resolver-cache-chain-light.svg "DNS cache chain: each layer can shorten or lengthen the effective TTL. Application caches (JVM, .NET, libc) often retain entries indefinitely without explicit configuration.")
+![Five-layer DNS cache chain from authoritative server through recursive resolver, OS stub resolver, and browser cache to in-process application caches.](./diagrams/resolver-cache-chain-dark.svg)
 
-**Resolver TTL floors:** Some resolvers enforce minimum TTLs regardless of authoritative values. ISP resolvers may cache for longer than specified. Google Public DNS (8.8.8.8) generally respects TTLs but may serve stale data during authoritative outages (RFC 8767 serve-stale).
+| Layer                  | Typical Cache Duration | Behavior                                                                                                                             |
+| ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Authoritative**      | N/A (source of truth)  | Sets TTL in responses                                                                                                                |
+| **Recursive resolver** | Honors TTL             | Decrements cached TTL; prefetches popular records; may serve stale per RFC 8767                                                      |
+| **OS stub resolver**   | Seconds to minutes     | Platform-dependent (`systemd-resolved`, `dnsmasq`, `mDNSResponder`); may impose its own TTL floor                                    |
+| **Browser**            | ~60 seconds            | Chrome's built-in `HostCache` uses a 60 s default TTL when the system resolver returns no TTL ([`host_resolver_system_task.h`](https://chromium.googlesource.com/chromium/src/+/HEAD/net/dns/host_resolver_system_task.h)); Firefox's `network.dnsCacheExpiration` defaults to 60 s plus a grace period; Safari is implementation-defined |
+| **Application**        | Varies                 | JVM (`networkaddress.cache.ttl` historically defaulted to "forever" with a SecurityManager), .NET (`ServicePointManager.DnsRefreshTimeout`), libc with `nscd`, and many HTTP clients keep their own caches |
+
+**Resolver TTL floors:** Some recursive resolvers enforce minimum TTLs regardless of authoritative values; some ISP resolvers cache for longer than specified. Resolvers that implement [RFC 8767](https://www.rfc-editor.org/rfc/rfc8767.html) may also keep records past their TTL and serve them when the authoritative servers are unreachable — covered in [Serving Stale Data (RFC 8767)](#serving-stale-data-rfc-8767) below.
 
 ### Negative Caching
 
-When a name doesn't exist (NXDOMAIN) or exists but has no records of the requested type (NODATA), resolvers cache this negative result. RFC 2308 specifies:
+When a name doesn't exist (NXDOMAIN) or exists but has no records of the requested type (NODATA), resolvers cache this negative result. [RFC 2308 §5](https://datatracker.ietf.org/doc/html/rfc2308#section-5) specifies:
 
 **Negative cache TTL = min(SOA.MINIMUM, SOA TTL)**
 
-Authoritative servers must include the SOA record in the Authority section of negative responses. Without SOA, the response should not be cached—this prevents infinite negative caching loops.
+Authoritative servers must include the SOA record in the Authority section of negative responses. Without SOA, the response should not be cached — this prevents infinite negative caching loops.
 
-**Operational impact:** If you delete a DNS record, resolvers may cache the NXDOMAIN response for up to SOA.MINIMUM seconds. Before deleting, consider:
+![Resolver receives NXDOMAIN with SOA in the authority section, computes the negative TTL from min of SOA MINIMUM and SOA TTL, and serves it from cache until expiry.](./diagrams/negative-caching-flow-light.svg "Negative caching: the resolver caches NXDOMAIN/NODATA for min(SOA.MINIMUM, SOA TTL) seconds. RFC 2308 §5 caps the practical value — defaults of 1–3 hours are sensible; values above 1 day are flagged as problematic.")
+![Resolver receives NXDOMAIN with SOA in the authority section, computes the negative TTL from min of SOA MINIMUM and SOA TTL, and serves it from cache until expiry.](./diagrams/negative-caching-flow-dark.svg)
 
-1. Check your SOA.MINIMUM value
-2. Lower it temporarily if the default is high
-3. Or change the record to point elsewhere rather than deleting
+**Operational impact:** If you delete a DNS record — or query a name *before* you create it — resolvers may cache the NXDOMAIN response for up to the negative TTL. Before deleting, consider:
+
+1. Check your SOA.MINIMUM value (RFC 2308 §5 calls out values above 1 day as "problematic"; 1–3 hours is the recommended sensible default).
+2. Lower it temporarily if the default is high.
+3. Or change the record to point elsewhere rather than deleting it.
 
 ```dns title="SOA MINIMUM affects negative caching"
 ; If SOA.MINIMUM is 3600 (1 hour):
 ; Deleting api.example.com means NXDOMAIN cached for up to 1 hour
 ; Resolver won't re-query until negative cache expires
 ```
+
+### Serving Stale Data (RFC 8767)
+
+[RFC 8767](https://datatracker.ietf.org/doc/html/rfc8767) lets a recursive resolver keep a record in cache *past* its TTL and serve it as a fallback when the authoritative servers cannot be reached — a DDoS, BGP outage, or registry hiccup. The original "active" TTL still controls the freshness contract; stale answers are an availability safety net, not a license to ignore the TTL.
+
+![Sequence: client query, recursive resolver tries authoritative server, the 1.8s client-response timer elapses, resolver returns the stale answer with TTL 30s while continuing to refresh in the background.](./diagrams/serve-stale-fallback-light.svg "Serve-stale fallback: when the authoritative server is unreachable, the recursive resolver returns the previously cached answer (with a short stale-answer TTL) instead of SERVFAIL, while a background task keeps trying to refresh.")
+![Sequence: client query, recursive resolver tries authoritative server, the 1.8s client-response timer elapses, resolver returns the stale answer with TTL 30s while continuing to refresh in the background.](./diagrams/serve-stale-fallback-dark.svg)
+
+[RFC 8767 §6](https://www.rfc-editor.org/rfc/rfc8767.html#section-6) recommends:
+
+| Knob                            | Recommended | Purpose                                                                       |
+| ------------------------------- | ----------- | ----------------------------------------------------------------------------- |
+| Maximum stale TTL (`max-stale`) | 1–3 days    | Cap how long expired records may live in cache.                               |
+| Client-response timer           | 1.8 s       | Sit just below the typical 2 s client timeout before falling back to stale.   |
+| Stale-answer TTL                | 30 s        | TTL on the response so clients re-query soon after the outage ends.           |
+| Failure-recheck timer           | 30 s        | Throttle background refresh against a failing authoritative.                  |
+
+Implementations: BIND 9 (`stale-answer-enable`, `stale-answer-ttl`, `stale-answer-client-timeout`), Unbound (`serve-expired`, `serve-expired-client-timeout`), Knot Resolver (`serve_stale` module), and PowerDNS Recursor (`serve-stale-extensions`). Cloudflare's 1.1.1.1 and Google's 8.8.8.8 ship serve-stale on by default — meaning a record can outlive its TTL by hours from the client's point of view during an upstream outage. Plan migrations against the *effective* freshness window, not just the TTL you typed in the dashboard.
+
+> [!IMPORTANT]
+> Serve-stale is a resilience feature, not a propagation accelerator. It can lengthen the time a *changed* record takes to reach clients if the authoritative is unreachable during the cutover. For planned migrations, lower the TTL well in advance and verify the authoritative is healthy.
 
 ### The "Propagation" Reality
 
@@ -347,10 +380,11 @@ What people mean by "propagation time":
 
 **Why changes seem slow:**
 
-- You lowered TTL to 300s, but the old 86400s TTL hasn't expired everywhere
-- ISP resolver ignores TTL and caches for 24 hours regardless
-- Browser DNS cache retains old entry independent of system resolver
-- Application-level DNS caching (Java, .NET) with separate TTL handling
+- You lowered TTL to 300s, but the old 86400s TTL hasn't expired everywhere yet.
+- An ISP resolver enforces its own minimum TTL floor and caches for hours regardless.
+- A serve-stale-enabled resolver (RFC 8767) is still returning the previous answer because it cannot reach the new authoritative — see [Serving Stale Data](#serving-stale-data-rfc-8767) above.
+- Browser DNS cache retains the old entry independent of the system resolver.
+- Application-level DNS caching (Java, .NET, HTTP client connection pools) ignores the OS resolver entirely.
 
 **Verification approach:**
 
@@ -369,6 +403,9 @@ dig @8.8.8.8 api.example.com
 
 Split-horizon (split-brain) DNS returns different responses based on query source—typically internal vs. external networks.
 
+![Split-horizon DNS resolver routing internal and external clients to separate zone views for the same domain name.](./diagrams/split-horizon-flow-light.svg "Split-horizon DNS: the authoritative server selects a zone view per request based on a source-IP ACL (or, for forwarders, EDNS Client Subnet). Internal clients see private RFC 1918 addresses; external clients see public ones or NXDOMAIN.")
+![Split-horizon DNS resolver routing internal and external clients to separate zone views for the same domain name.](./diagrams/split-horizon-flow-dark.svg)
+
 ### Use Cases
 
 1. **Internal services**: `api.internal.example.com` resolves to `10.0.1.50` internally, NXDOMAIN externally
@@ -378,17 +415,10 @@ Split-horizon (split-brain) DNS returns different responses based on query sourc
 
 ### Implementation Approaches
 
-**Separate servers:**
+There are two common shapes:
 
-```
-                    ┌─────────────────┐
-    Internal DNS ───│ 10.0.0.53       │─── Internal zone files
-                    └─────────────────┘
-
-                    ┌─────────────────┐
-    External DNS ───│ 203.0.113.53    │─── External zone files
-                    └─────────────────┘
-```
+1. **Separate authoritative servers** — one set on the internal network (e.g. `10.0.0.53`) serving internal zone files, one set on a public IP (e.g. `203.0.113.53`) serving external zone files. Routing relies on which resolver each client is configured to use.
+2. **DNS views on a single server** — BIND's `view` blocks, NSD's pattern matching, or a managed-DNS provider's "private resolver" feature select the correct view from a source-IP ACL on every query.
 
 **DNS views (BIND):**
 
@@ -422,6 +452,8 @@ view "external" {
 
 **DNSSEC challenges:** Each view must maintain consistent signatures. Zone signing must happen separately for each view's zone file, complicating key management.
 
+**EDNS Client Subnet leakage:** Recursive resolvers may forward part of the client's source subnet to authoritative servers via [EDNS Client Subnet (RFC 7871)](https://datatracker.ietf.org/doc/html/rfc7871). For an internal-only zone served via split-horizon, an internal recursive resolver can leak internal subnets to external authoritatives if it forwards untrimmed. Disable ECS forwarding on internal recursives, or scope the ECS source prefix to `0` for sensitive zones.
+
 ## Operational Checklists
 
 ### Record Change Checklist
@@ -440,7 +472,7 @@ view "external" {
 - [ ] Glue records present if nameservers are in-bailiwick
 - [ ] SOA record with appropriate MINIMUM for negative caching (typically 3600s)
 - [ ] A/AAAA records for web traffic
-- [ ] MX records pointing to A/AAAA targets (not CNAMEs)
+- [ ] MX records pointing to A/AAAA targets (not CNAMEs), or a null MX (`MX 0 .`) if the domain accepts no mail
 - [ ] SPF TXT record for email authentication
 - [ ] DKIM TXT record(s) for each email provider
 - [ ] DMARC TXT record with policy
@@ -485,6 +517,8 @@ TTL strategy is a trade-off between cache efficiency and change velocity. Static
 | **Negative caching** | Caching of NXDOMAIN/NODATA responses per SOA.MINIMUM                  |
 | **Split-horizon**    | Returning different DNS responses based on query source               |
 | **EDNS0**            | Extension Mechanisms for DNS; enables larger UDP responses            |
+| **EDNS Client Subnet (ECS)** | RFC 7871 option that forwards part of a client's source prefix to authoritatives for GeoDNS |
+| **Null MX**          | RFC 7505 sentinel `MX 0 .` declaring "this domain accepts no email"    |
 
 ### Summary
 
@@ -496,6 +530,7 @@ TTL strategy is a trade-off between cache efficiency and change velocity. Static
 - **TXT** records support SPF, DKIM, DMARC; SPF has 10-lookup limit
 - **CAA** restricts certificate issuance; mandatory CA check since September 2017
 - **TTL strategy**: High for static (3600-86400s), low for failover (60-300s), temporarily low for migrations
+- **Serve-stale (RFC 8767)**: keeps records alive past TTL during outages — improves availability, can stretch the effective propagation window
 - **Propagation = cache expiry**; lower TTL before changes, wait for old TTL to expire
 
 ### References
@@ -513,7 +548,11 @@ TTL strategy is a trade-off between cache efficiency and change velocity. Static
 - [RFC 7208 - Sender Policy Framework (SPF)](https://datatracker.ietf.org/doc/html/rfc7208) - SPF TXT record format
 - [RFC 6376 - DomainKeys Identified Mail (DKIM)](https://datatracker.ietf.org/doc/html/rfc6376) - DKIM TXT record format
 - [RFC 7489 - Domain-based Message Authentication, Reporting, and Conformance (DMARC)](https://datatracker.ietf.org/doc/html/rfc7489) - DMARC policy
-- [RFC 8767 - Serving Stale Data to Improve DNS Resiliency](https://datatracker.ietf.org/doc/html/rfc8767) - Stale serving, TTL cap recommendation
+- [RFC 8767 - Serving Stale Data to Improve DNS Resiliency](https://datatracker.ietf.org/doc/html/rfc8767) - Stale serving, TTL cap recommendation, max-stale / stale-answer-ttl knobs
+- [RFC 9499 - DNS Terminology](https://datatracker.ietf.org/doc/html/rfc9499) - Current canonical DNS terminology (obsoletes RFC 8499)
+- [RFC 7505 - A "Null MX" No Service Resource Record for Domains That Accept No Mail](https://datatracker.ietf.org/doc/html/rfc7505) - Null MX semantics
+- [RFC 7871 - Client Subnet in DNS Queries](https://datatracker.ietf.org/doc/html/rfc7871) - EDNS Client Subnet (ECS), GeoDNS / split-horizon implications
+- [CA/Browser Forum Ballot 187 - Make CAA Checking Mandatory](https://cabforum.org/2017/03/08/ballot-187-make-caa-checking-mandatory/) - 2017-09-08 mandate
 - [Cloudflare - CNAME Flattening](https://blog.cloudflare.com/introducing-cname-flattening-rfc-compliant-cnames-at-a-domains-root/) - Zone apex CNAME workaround
 - [AWS Route 53 Best Practices](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/best-practices-dns.html) - TTL recommendations for failover
 - [Julia Evans - DNS doesn't propagate](https://jvns.ca/blog/2021/12/06/dns-doesn-t-propagate/) - Propagation misconceptions explained

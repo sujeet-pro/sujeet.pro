@@ -1,0 +1,23 @@
+%% Diagram: Redis Cluster slot migration with client redirects
+%% Type: sequence
+sequenceDiagram
+    participant Client
+    participant NodeA as Node A (source)
+    participant NodeB as Node B (target)
+
+    Note over NodeA,NodeB: Slot 7000 MIGRATING on A, IMPORTING on B
+    Client->>NodeA: GET key (CRC16 -> slot 7000)
+    alt Key still on source
+        NodeA-->>Client: Value
+    else Key already migrated
+        NodeA-->>Client: -ASK slot NodeB:port
+        Client->>NodeB: ASKING + GET key
+        NodeB-->>Client: Value
+    end
+
+    NodeA->>NodeB: MIGRATE key (atomic transfer)
+    Note over NodeA,NodeB: After all keys move, cluster bumps slot ownership epoch
+    Client->>NodeA: GET key (stale slot map)
+    NodeA-->>Client: -MOVED slot NodeB:port
+    Client->>NodeB: GET key (updates slot cache)
+    NodeB-->>Client: Value

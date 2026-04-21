@@ -1,0 +1,23 @@
+%% Diagram: Classic three-state circuit breaker (Nygard / Fowler)
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: failure threshold exceeded<br/>(consecutive errors or error rate)
+    Open --> HalfOpen: cool-off timer elapsed
+    HalfOpen --> Closed: trial requests succeed
+    HalfOpen --> Open: trial requests fail
+
+    note right of Closed
+        Requests proxied normally.
+        Failure metrics tracked.
+    end note
+    note right of Open
+        Requests fail fast.
+        Backend not contacted.
+        Saves cascading load.
+    end note
+    note right of HalfOpen
+        Limited probe traffic.
+        Decides whether backend recovered.
+    end note

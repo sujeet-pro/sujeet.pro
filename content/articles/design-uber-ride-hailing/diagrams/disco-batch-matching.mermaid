@@ -1,0 +1,26 @@
+%% Diagram: DISCO Batch Matching
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    REQS[/"Incoming ride requests\n(buffered ~100-200ms)"/]
+    LOOKUP["Per request:\nk-ring lookup in Redis\n(H3 res 9, ~3km)"]
+    CAND[("Candidate drivers\nper request")]
+    PREDICT["Predict ETA per\n(rider, driver) pair\n(DeepETA)"]
+    GRAPH["Build cost matrix\nedge weight = ETA"]
+    SOLVE{"Solve assignment\nminimize total ETA<br/>(Hungarian / auction)"}
+    DISPATCH[/"Dispatch matched drivers\nstate → DISPATCHED"/]
+    REMAIN["Unmatched requests\nrequeue for next batch"]
+
+    REQS --> LOOKUP --> CAND --> PREDICT --> GRAPH --> SOLVE
+    SOLVE --> DISPATCH
+    SOLVE --> REMAIN
+    REMAIN -.-> REQS
+
+    classDef io fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef proc fill:#1F6E68,stroke:#155752,color:#fff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef decide fill:#2E5A88,stroke:#1F4870,color:#fff
+    class REQS,DISPATCH io
+    class LOOKUP,PREDICT,GRAPH,REMAIN proc
+    class CAND store
+    class SOLVE decide

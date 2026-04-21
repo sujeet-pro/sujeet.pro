@@ -1,0 +1,28 @@
+%% Diagram: Single Read States server node — in-process LRU cache backed by Cassandra
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Clients["Hot-path callers"]
+        direction TB
+        Ready["Gateway READY<br/>(every WebSocket connect)"]
+        Send["Message send<br/>(updates @mention counts)"]
+        Ack["Message ack<br/>(updates last_message_id)"]
+    end
+
+    subgraph Node["Read States server node"]
+        direction TB
+        API["RPC handler"]
+        LRU["In-process LRU cache<br/>tens of millions of Read States"]
+        Batcher["Dirty-entry batcher<br/>(commit +30s after update)"]
+        API --> LRU
+        LRU --> Batcher
+    end
+
+    DB[("Cassandra<br/>billions of Read States")]
+
+    Ready --> API
+    Send --> API
+    Ack --> API
+    Batcher -->|"~tens of thousands<br/>writes/s"| DB
+    LRU -.->|"miss → load"| DB
+    LRU -.->|"eviction → flush"| DB

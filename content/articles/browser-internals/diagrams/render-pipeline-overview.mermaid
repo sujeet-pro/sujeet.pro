@@ -1,0 +1,31 @@
+%% Diagram: RenderingNG pipeline across threads and the GPU process
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Main["Main Thread (Blink)"]
+        Parse["HTML parse + CSSOM"]
+        Style["Style + cascade"]
+        Layout["Layout (BlinkNG)"]
+        Paint["Paint -> display lists"]
+    end
+
+    subgraph CC["Compositor Thread (cc/impl)"]
+        Commit["Commit (sync property trees + display lists)"]
+        Layerize["Layerize + tile"]
+        Composite["Composite frame"]
+    end
+
+    subgraph Raster["Raster Workers"]
+        RasterTiles["Rasterize tiles -> textures"]
+    end
+
+    subgraph GPU["GPU / Viz Process"]
+        Display["Display compositor"]
+        Driver["GPU driver -> screen"]
+    end
+
+    Parse --> Style --> Layout --> Paint --> Commit
+    Commit --> Layerize --> RasterTiles
+    RasterTiles --> Composite --> Display --> Driver
+
+    Composite -. "scroll / transform / opacity (no main thread)" .-> Display

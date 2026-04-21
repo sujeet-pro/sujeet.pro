@@ -1,0 +1,18 @@
+%% Diagram: Decision tree — does an estimate justify caching, sharding, multi-region, or a CDN?
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Start([Capacity<br/>estimate]) --> Q1{Peak QPS<br/>&gt; 10k?}
+    Q1 -- "no" --> Q2{Egress &gt; 1 Gbps<br/>or global users?}
+    Q1 -- "yes" --> Replicas[Add read replicas<br/>or stateless fleet]
+    Replicas --> Q3{Write QPS &gt; 5k<br/>or DB &gt; 1 TB?}
+    Q3 -- "no" --> Cache[Cache hot 20%<br/>target &gt;=80% hit rate]
+    Q3 -- "yes" --> Shard[Shard by tenant<br/>or hash key]
+    Cache --> Q2
+    Shard --> Q2
+    Q2 -- "no" --> Done([Single-region<br/>plan complete])
+    Q2 -- "yes" --> CDN[Push static + media<br/>to CDN]
+    CDN --> Q4{Global latency<br/>&lt; 100 ms?}
+    Q4 -- "no" --> Done
+    Q4 -- "yes" --> MultiRegion[Multi-region<br/>active-active]
+    MultiRegion --> Done

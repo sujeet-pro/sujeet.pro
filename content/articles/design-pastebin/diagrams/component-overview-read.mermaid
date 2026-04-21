@@ -1,0 +1,26 @@
+%% Diagram: Component overview — read and lifecycle path
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENTS["Clients<br/>browser · CLI · SDK"]
+    CDN["CDN<br/>immutable cache"]
+    LB["Load balancer"]
+    ROUTER["API router"]
+    READ["Paste Read Service"]
+    EXPIRY["Expiration sweeper"]
+    ABUSE["Abuse detection"]
+
+    subgraph Storage["Storage tier"]
+        REDIS["Redis cluster"]
+        PG[("PostgreSQL")]
+        S3["Object storage"]
+    end
+
+    CLIENTS --> CDN -->|miss| LB --> ROUTER --> READ
+    READ --> REDIS
+    READ -->|cache miss| PG
+    READ -->|cache miss| S3
+    EXPIRY --> REDIS
+    EXPIRY --> PG
+    EXPIRY --> S3
+    ABUSE --> REDIS

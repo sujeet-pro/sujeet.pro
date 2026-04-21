@@ -1,0 +1,38 @@
+%% Diagram: AWS reference architecture — distributors, stateful ingesters, query engines, S3
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge"]
+        NLB[Network Load Balancer]
+    end
+
+    subgraph Compute["EKS Cluster"]
+        subgraph Ingest["Ingestion (Stateless)"]
+            Dist1[Distributor Pod]
+            Dist2[Distributor Pod]
+            Dist3[Distributor Pod]
+        end
+
+        subgraph Storage["Storage (StatefulSet)"]
+            Ing1[Ingester Pod<br/>+ Local NVMe]
+            Ing2[Ingester Pod<br/>+ Local NVMe]
+            Ing3[Ingester Pod<br/>+ Local NVMe]
+        end
+
+        subgraph Query["Query (Stateless)"]
+            QE1[Query Engine]
+            QE2[Query Engine]
+        end
+    end
+
+    subgraph Data["Data Layer"]
+        S3[(S3<br/>Cold Blocks)]
+        Redis[(ElastiCache<br/>Query Cache)]
+    end
+
+    NLB --> Dist1 & Dist2 & Dist3
+    Dist1 & Dist2 & Dist3 --> Ing1 & Ing2 & Ing3
+    Ing1 & Ing2 & Ing3 --> S3
+    QE1 & QE2 --> Redis
+    QE1 & QE2 --> Ing1 & Ing2 & Ing3
+    QE1 & QE2 --> S3

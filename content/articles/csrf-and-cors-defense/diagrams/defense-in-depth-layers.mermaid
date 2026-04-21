@@ -1,0 +1,23 @@
+%% Diagram: CSRF Defense-in-Depth Layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Req["Cross-site state-changing request<br/>arrives at the server"]
+
+    L1["Layer 1 - Browser<br/>SameSite=Strict / Lax cookies<br/>Blocks: most cross-site attachment<br/>Bypassed by: same-site XSS, subdomain takeover"]
+    L2["Layer 2 - Server<br/>Synchronizer or signed double-submit token<br/>Blocks: forged requests without token<br/>Bypassed by: XSS that can read tokens"]
+    L3["Layer 3 - Server<br/>Origin / Referer allowlist<br/>Blocks: cross-site requests carrying wrong Origin<br/>Bypassed by: missing Origin/Referer (~edge cases)"]
+    L4["Layer 4 - Server<br/>Sec-Fetch-Site / -Mode / -Dest filtering<br/>Blocks: cross-site fetches to sensitive endpoints<br/>Bypassed by: legacy browsers without Fetch Metadata"]
+    Allow["Request authorized<br/>(passed all layers)"]
+    Deny["403 + structured security log<br/>(layer that rejected, fetch-site, origin)"]
+
+    Req --> L1
+    L1 -- "passes" --> L2
+    L2 -- "passes" --> L3
+    L3 -- "passes" --> L4
+    L4 -- "passes" --> Allow
+
+    L1 -. "blocks" .-> Deny
+    L2 -. "blocks" .-> Deny
+    L3 -. "blocks" .-> Deny
+    L4 -. "blocks" .-> Deny

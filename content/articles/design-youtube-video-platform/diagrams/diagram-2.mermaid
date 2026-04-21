@@ -1,8 +1,0 @@
-%% Diagram: Diagram 2
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    DNS[DNS Resolver] --> HM{Health Monitor}
-    HM -->|Primary healthy| CDN_A[CDN A]
-    HM -->|Primary down| CDN_B[CDN B]
-    HM -->|Both down| ORIGIN[Direct Origin]

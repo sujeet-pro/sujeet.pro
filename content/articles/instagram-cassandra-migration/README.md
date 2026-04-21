@@ -1,32 +1,37 @@
 ---
-title: 'Instagram: From Redis to Cassandra and the Rocksandra Storage Engine'
-linkTitle: 'Instagram → Cassandra'
+title: "Instagram: From Redis to Cassandra and the Rocksandra Storage Engine"
+linkTitle: "Instagram → Cassandra"
 description: >-
-  How Instagram migrated from Redis to Cassandra for 75% cost savings, then
-  built Rocksandra (a RocksDB-based storage engine) to cut P99 read latency by
-  10x — a seven-year evolution from 12 nodes to 1,000+ across six data centers.
+  How Instagram migrated activity feed and fraud detection from Redis to
+  Cassandra for ≈75% cost savings, then built Rocksandra (a RocksDB-based
+  pluggable storage engine) to drop P99 reads from 60 ms to 20 ms and GC stalls
+  by ~10x — a seven-year evolution from 12 nodes to 1,000+ across six data
+  centres.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - data
   - migrations
+  - distributed-systems
+  - storage
+  - databases
 ---
 
 # Instagram: From Redis to Cassandra and the Rocksandra Storage Engine
 
-How Instagram migrated critical workloads from Redis to Apache Cassandra, achieving 75% cost savings, then engineered a custom RocksDB-based storage engine to eliminate JVM garbage collection stalls and reduce P99 read latency by 10x. A seven-year evolution from 12 nodes to 1,000+ nodes serving billions of operations daily.
+Instagram migrated activity feed, fraud detection, and direct-message workloads from Redis to Apache Cassandra in 2012 to escape memory-bound costs, then built [Rocksandra](https://issues.apache.org/jira/browse/CASSANDRA-13474) — a pluggable storage engine that swaps Cassandra's Java storage path for [RocksDB](http://rocksdb.org/) — to reverse JVM garbage collection stalls that dominated P99 latency at 1,000+ nodes. The pattern reappears at each phase: adopt a proven distributed system, hit a structural ceiling, and replace the offending layer rather than the entire stack. This article reconstructs the seven-year evolution from primary sources — Cassandra Summit talks, the Apache JIRA, the Instagram engineering blog, and the OSDI 2018 Akkio paper — and surfaces the engineering decisions a senior engineer would want to relitigate today.
 
-![Instagram's Cassandra journey: from Redis replacement to a globally distributed, custom-storage-engine deployment spanning six data centers.](./diagrams/instagram-s-cassandra-journey-from-redis-replacement-to-a-globally-distributed-c-light.svg "Instagram's Cassandra journey: from Redis replacement to a globally distributed, custom-storage-engine deployment spanning six data centers.")
-![Instagram's Cassandra journey: from Redis replacement to a globally distributed, custom-storage-engine deployment spanning six data centers.](./diagrams/instagram-s-cassandra-journey-from-redis-replacement-to-a-globally-distributed-c-dark.svg)
+![Instagram's Cassandra journey across four phases: Redis replacement, scale-out to 1,000+ nodes, Rocksandra storage swap, and Akkio-driven geo-locality.](./diagrams/cassandra-journey-timeline-light.svg "Instagram's Cassandra journey: from Redis replacement to a globally distributed, custom-storage-engine deployment spanning six data centres.")
+![Instagram's Cassandra journey across four phases: Redis replacement, scale-out to 1,000+ nodes, Rocksandra storage swap, and Akkio-driven geo-locality.](./diagrams/cassandra-journey-timeline-dark.svg)
 
 ## Abstract
 
 Instagram's Cassandra story is not a single migration but a series of compounding infrastructure decisions spanning 2012 to 2019:
 
-- **The cost problem (2012)**: Redis stored everything in memory. Fraud detection logs and activity feeds were growing faster than Instagram could afford RAM. Cassandra's disk-backed LSM (Log-Structured Merge) tree storage cut infrastructure costs by 75% while adding horizontal scalability.
-- **The latency problem (2017)**: At 1,000+ nodes, JVM Garbage Collection (GC) stalls caused P99 read latencies of 25-60ms. Instagram replaced Cassandra's Java storage engine with a C++-based RocksDB engine (Rocksandra), dropping P99 reads to 20ms and GC stalls from 2.5% to 0.3%.
-- **The locality problem (2018)**: Full data replication across continents wasted storage and forced cross-ocean quorum requests. Akkio, Facebook's data placement service, partitioned data by user geography--US data in US data centers, EU data in EU data centers--reducing latency by up to 50% and storage footprint by 40%.
+- **The cost problem (2012)**: Redis stored everything in memory. Fraud detection logs and activity feeds were growing faster than Instagram could afford RAM. Cassandra's disk-backed LSM (Log-Structured Merge) tree storage cut infrastructure costs by ≈75% while adding horizontal scalability ([Branson, Cassandra Summit 2013](https://www.slideshare.net/slideshow/c-summit-2013-cassandra-at-instagram-23756207/23756207)).
+- **The latency problem (2017)**: At 1,000+ nodes, JVM garbage collection (GC) stalls drove P99 read latencies into the 25–60 ms range. Instagram designed a pluggable storage engine API ([CASSANDRA-13474](https://issues.apache.org/jira/browse/CASSANDRA-13474)) and slotted in a C++ RocksDB-based engine ([Rocksandra](https://issues.apache.org/jira/browse/CASSANDRA-13476)). P99 reads dropped to ≈20 ms, GC stalls from 2.5 % to 0.3 %, and the Instagram engineering team measured "more than 10 times reduction" for some tail-latency-sensitive workloads ([Instagram Engineering, 2018](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589)).
+- **The locality problem (2018)**: Full data replication across continents wasted storage and forced cross-ocean quorum requests. Akkio, Facebook's data placement service, partitioned data by user geography — US data in US data centres, EU data in EU data centres — reducing access latency by up to 50 %, cross-datacentre traffic by up to 50 %, and storage footprint by up to 40 % ([Annamalai et al., OSDI 2018](https://www.usenix.org/system/files/osdi18-annamalai.pdf)).
 
 Each phase built on the previous one. The Redis migration proved Cassandra viable. Scale revealed JVM limits, which drove Rocksandra. Global expansion demanded locality-aware placement. The pattern: adopt, hit limits, engineer past them.
 
@@ -203,7 +208,7 @@ The primary data model replaced Redis lists with Cassandra wide rows:
 
 **Redis (before):**
 
-```
+```redis
 key: inbox:<user_id>
 value: list of activity JSON blobs (LPUSH/LRANGE)
 ```
@@ -255,9 +260,12 @@ The feed system became Cassandra's highest-throughput use case:
 | Average read latency           | 20 ms  |
 | P99 read latency               | 100 ms |
 
-Write path: when a user posted a photo, the system performed fan-out-on-write, pushing the media ID to each follower's feed store. This traded write amplification for read simplicity--rendering a feed was a single partition read rather than a scatter-gather across followed users.
+Write path: when a user posted a photo, the system performed fan-out-on-write, pushing the media id to each follower's feed store. This traded write amplification for read simplicity — rendering a feed became a single partition read rather than a scatter-gather across followed users.
 
-**Celebrity fan-out optimization**: For accounts with millions of followers, fan-out-on-write was prohibitively expensive. Instagram used a hybrid approach: non-celebrity posts were pre-computed (push model), while celebrity content was computed on-demand (pull model). When a user read their feed, parallel threads fetched pre-computed feeds and real-time celebrity feeds, then merged the results. An LRU-eviction cache stored active users' feeds to reduce re-computation.
+**Celebrity fan-out optimisation**: for accounts with millions of followers, fan-out-on-write was prohibitively expensive. Instagram used a hybrid approach: non-celebrity posts were pre-computed (push model), while celebrity content was computed on demand (pull model). When a user read their feed, parallel threads fetched the pre-computed inbox and the small set of celebrity posts the user follows, then merged the results. An LRU-eviction cache stored active users' feeds to reduce re-computation.
+
+![Hybrid fan-out for the home feed: posts from normal accounts are fanned out at write time into per-follower wide rows; celebrity posts are stored once and pulled at read time. The feed renderer issues both fetches in parallel, then merges by timestamp.](./diagrams/feed-fan-out-hybrid-light.svg "Hybrid feed fan-out — push for normal accounts, pull for celebrities, merge at read time.")
+![Hybrid fan-out for the home feed: posts from normal accounts are fanned out at write time into per-follower wide rows; celebrity posts are stored once and pulled at read time. The feed renderer issues both fetches in parallel, then merges by timestamp.](./diagrams/feed-fan-out-hybrid-dark.svg)
 
 #### Proxy Nodes
 
@@ -301,9 +309,15 @@ Despite years of JVM tuning, GC remained the dominant source of tail latency:
 
 The root cause was structural: Cassandra's memtable, compaction, read path, and write path all created short-lived objects on the Java heap. As data volume and throughput increased, so did GC pressure. No amount of tuning could eliminate the fundamental tension between JVM-managed memory and latency-sensitive storage workloads.
 
+![How a JVM stop-the-world Young GC turns a steady-state 5 ms read into a 25-60 ms P99 spike: while mutator threads are paused, incoming reads queue and every queued request inherits the pause length on resume.](./diagrams/gc-pause-tail-latency-light.svg "GC pause impact on tail latency — stop-the-world Young GC freezes mutator threads, queued reads then inherit the full pause and surface as P99 spikes.")
+![How a JVM stop-the-world Young GC turns a steady-state 5 ms read into a 25-60 ms P99 spike: while mutator threads are paused, incoming reads queue and every queued request inherits the pause length on resume.](./diagrams/gc-pause-tail-latency-dark.svg)
+
 #### Architecture: Pluggable Storage Engine
 
 Cassandra had no pluggable storage engine architecture. Instagram designed one from scratch, defining a new `StorageEngine` API that separated Cassandra's distribution layer (gossip, replication, consistency) from its storage layer (memtables, SSTables, compaction).
+
+![Side-by-side architecture: stock Cassandra runs the entire memtable, SSTable, and compaction path on the JVM heap, generating GC pressure; Rocksandra keeps the JVM coordinator unchanged but routes row-level work through a StorageEngine API to a C++ RocksDB engine, removing Java garbage from the storage hot path.](./diagrams/architecture-before-after-rocksandra-light.svg "Architecture before vs after Rocksandra — only the storage layer changes; gossip, replication, and consistency stay on the JVM.")
+![Side-by-side architecture: stock Cassandra runs the entire memtable, SSTable, and compaction path on the JVM heap, generating GC pressure; Rocksandra keeps the JVM coordinator unchanged but routes row-level work through a StorageEngine API to a C++ RocksDB engine, removing Java garbage from the storage hot path.](./diagrams/architecture-before-after-rocksandra-dark.svg)
 
 The three core challenges:
 
@@ -319,36 +333,47 @@ The pluggable engine API was defined at `org.apache.cassandra.engine.StorageEngi
 
 #### Why RocksDB
 
-RocksDB is a C++ embeddable key-value store originally developed at Facebook, optimized for fast storage (SSDs and NVMe). It uses an LSM tree architecture--the same fundamental structure as Cassandra's storage engine--but implemented in C++ with no GC overhead.
+RocksDB is a C++ embeddable key-value store originally developed at Facebook, optimized for fast storage (SSDs and NVMe). It uses an LSM tree architecture--the same fundamental structure as Cassandra's storage engine--but implemented in C++ with arena-allocated memtables and off-heap iterators, so the storage hot path produces no Java garbage at all.
 
 Instagram already operated RocksDB at scale for other Facebook workloads. Using a proven technology that the team understood, rather than adopting a new distributed database like ScyllaDB, minimized adoption risk. As one engineer noted in the Hacker News discussion: why replace a system proven at massive scale with something unproven at that scale?
 
+![Write-path comparison: in stock Cassandra, every step (memtable, flush, compaction) allocates short-lived Java objects and feeds Young GC pressure; in Rocksandra, the same steps run inside RocksDB on off-heap C++ memory, leaving the JVM coordinator unchanged.](./diagrams/write-path-comparison-light.svg "Write-path comparison — Cassandra's Java path churns short-lived heap objects at every stage; Rocksandra's RocksDB path is fully off-heap and produces no Java garbage on writes.")
+![Write-path comparison: in stock Cassandra, every step (memtable, flush, compaction) allocates short-lived Java objects and feeds Young GC pressure; in Rocksandra, the same steps run inside RocksDB on off-heap C++ memory, leaving the JVM coordinator unchanged.](./diagrams/write-path-comparison-dark.svg)
+
 #### Performance Results
 
-After approximately one year of development and testing, Rocksandra was rolled into production clusters:
+After approximately one year of development and testing — the [CASSANDRA-13474 description](https://issues.apache.org/jira/browse/CASSANDRA-13474) confirms the timeline — Rocksandra was rolled into production clusters:
 
-**Production metrics:**
+**Production metrics**: the engineering blog reports a "3-4× reduction on P99 read latency in general, even more than 10 times reduction for some use cases" and a step change in GC behaviour:
 
-| Metric              | Before (Java engine) | After (Rocksandra) | Improvement    |
-| ------------------- | -------------------- | ------------------ | -------------- |
-| P99 read latency    | 60 ms                | 20 ms              | 3x reduction   |
-| GC stall rate       | 2.5%                 | 0.3%               | ~10x reduction |
-| Latency consistency | High variance        | Low variance       | Predictable    |
+| Metric                              | Before (Java engine) | After (Rocksandra) | Improvement                  |
+| ----------------------------------- | -------------------- | ------------------ | ---------------------------- |
+| P99 read latency (one prod cluster) | 60 ms                | 20 ms              | ≈3× reduction                |
+| GC stall rate                       | 2.5 % (peak)         | 0.3 %              | ≈10× reduction               |
+| Latency variance                    | High (GC-driven)     | Low                | Predictable across runs      |
+| Read-only throughput at P99 ≈ 2 ms (NDBench) | ≈30 K ops/s | ≈300 K ops/s       | ≈10× reduction in cost-per-QPS |
 
-**Benchmark environment:**
+> [!NOTE]
+> The "10×" headline in [Instagram's open-source announcement](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589) actually points at two different numbers: the GC stall rate fell ≈10× (2.5 % → 0.3 %) and the read-only NDBench benchmark sustained ≈10× the throughput at the same ≈2 ms P99 (300 K/s vs 30 K/s on Cassandra 3.0). The single-cluster production P99 improvement was closer to 3× (60 ms → 20 ms). Cite the right number for the right workload.
 
-| Parameter   | Value                                    |
-| ----------- | ---------------------------------------- |
-| Instances   | 3 x i3.8xlarge EC2 (32-core, 244 GB RAM) |
-| Storage     | RAID0 with 4 NVMe flash drives           |
-| Dataset     | 250 million rows, 6 KB each              |
-| Concurrency | 128 readers + 128 writers (NDBench)      |
+**Benchmark environment** ([NDBench](https://github.com/Netflix/ndbench) on AWS, per the Instagram blog):
 
-The improvement was not just in absolute latency but in consistency. With the Java engine, P99 latency varied between 25 ms and 60 ms depending on GC timing. With Rocksandra, latency was stable because the C++ storage path had no GC pauses.
+| Parameter   | Value                                                           |
+| ----------- | --------------------------------------------------------------- |
+| Instances   | 3 × i3.8xlarge EC2 (32-core, 244 GB RAM)                        |
+| Storage     | RAID0 across 4 NVMe flash drives (≈500 GB of data per server)   |
+| Schema      | NDBench default `emp` table (`emp_uname` PK + 3 text columns)   |
+| Dataset     | 250 million rows, 6 KB each                                     |
+| Concurrency | 128 readers + 128 writers                                       |
+
+![Rocksandra internal layout: the JVM coordinator drives gossip, replication, and streaming; the StorageEngine API hands rows over JNI to a RocksDB engine that owns encode/decode (CASSANDRA-13476) and a bulk SST ingest path used by streaming, repair, and bootstrap.](./diagrams/rocksandra-architecture-light.svg "Rocksandra internals — the StorageEngine API plus a re-implemented streaming layer that bulk-loads incoming SST files via RocksDB's ingest API, avoiding per-row writes during repair and bootstrap.")
+![Rocksandra internal layout: the JVM coordinator drives gossip, replication, and streaming; the StorageEngine API hands rows over JNI to a RocksDB engine that owns encode/decode (CASSANDRA-13476) and a bulk SST ingest path used by streaming, repair, and bootstrap.](./diagrams/rocksandra-architecture-dark.svg)
+
+The improvement was not just in absolute latency but in consistency. With the Java engine, P99 latency varied between 25 ms and 60 ms depending on GC timing. With Rocksandra the storage hot path produces no Java garbage, so the dominant source of P99 variance is gone — what remains is mostly JVM coordination overhead.
 
 #### Open Source
 
-Instagram open-sourced Rocksandra on GitHub ([Instagram/cassandra](https://github.com/Instagram/cassandra), `rocks_3.0` branch, based on Cassandra 3.0). The repository was archived in September 2023.
+Instagram open-sourced Rocksandra on GitHub ([Instagram/cassandra](https://github.com/Instagram/cassandra), `rocks_3.0` branch, based on Cassandra 3.0). The CASSANDRA-13474 JIRA already referenced the public blog post by April 2017; Rocksandra and the [benchmark framework](https://github.com/Instagram/cassandra-aws-benchmark) were open-sourced in 2017–2018 alongside the F8 2018 talk "[Cassandra on RocksDB at Instagram](https://developers.facebook.com/videos/f8-2018/cassandra-on-rocksdb-at-instagram/)". The repository was archived by Instagram on 28 September 2023.
 
 ### Phase 4: Geographic Data Partitioning with Akkio (2018)
 
@@ -361,38 +386,49 @@ By 2018, Instagram served over 1 billion monthly active users across multiple co
 
 #### Akkio: Facebook's Data Placement Service
 
-Instagram integrated Akkio, a Facebook-internal data placement service that had been in production since 2014 managing approximately 100 PB of data across Facebook's infrastructure.
+Instagram integrated [Akkio](https://engineering.fb.com/2018/10/08/core-infra/akkio/), a Facebook-internal locality management service that had been in production since 2014 and, by the time of [the OSDI 2018 paper](https://www.usenix.org/system/files/osdi18-annamalai.pdf), managed roughly 100 PB across five different storage backends.
 
-**Core concept: microshards (u-shards)**
+**Core concept: microshards (μ-shards)**
 
-Akkio introduced a layer above traditional database shards. Each microshard is an application-defined data unit (typically 100 bytes to several megabytes) that exhibits strong access locality--for Instagram, a user's data.
+Akkio sits between client applications and the underlying datastore. Each μ-shard is an application-defined unit of related data exhibiting access locality. Average μ-shard size at Facebook is ≈200 KB, with typical sizes ranging from a few hundred bytes to a few megabytes; for Instagram's user-keyed data, one user's data is one μ-shard. μ-shards never span shards — Akkio assigns each μ-shard to exactly one underlying shard and migrates it as a unit.
 
 **How it works:**
 
-1. **Access tracking**: A client library embedded in Cassandra clients asynchronously tracked which data center accessed which microshards.
-2. **Placement scoring**: A Data Placement Service scored data centers by historical access frequency (weighted toward recent activity), with ties broken by available resources.
-3. **Migration**: When access patterns shifted (e.g., a user relocated), Akkio triggered data migration: copy data to the target replica set, atomically update the location service, then delete from the source.
+1. **Access tracking**: An Akkio client library wraps every datastore call, asynchronously recording the requesting region against the μ-shard id in a time-windowed counter (10-day retention, typically queried over the last 3 days).
+2. **Placement scoring**: When the Akkio client detects a cross-region access, it hints the Data Placement Service (DPS). The DPS reads the recent access history, scores each region by weighted recency × available capacity, and picks the highest-scoring placement.
+3. **Migration**: If the chosen placement differs from the current one, the DPS serialises a migration: lock the μ-shard, set the source ACL to read-only, copy to the destination, atomically update the location DB, delete from source, release the lock. For eventually consistent backends like Cassandra, Akkio uses timestamp-based ordering rather than ACL flips.
+
+![Akkio microshard placement: the client library records access patterns, the Data Placement Service scores regions by recency-weighted history × capacity, and migrations are serialised through a lock on the location database.](./diagrams/akkio-microshard-placement-light.svg "Akkio microshard placement and migration flow — every cross-region access is a hint that triggers asynchronous re-evaluation by the DPS.")
+![Akkio microshard placement: the client library records access patterns, the Data Placement Service scores regions by recency-weighted history × capacity, and migrations are serialised through a lock on the location database.](./diagrams/akkio-microshard-placement-dark.svg)
+
+**The canonical Cassandra + Akkio use case at Instagram — Connection-Info**
+
+The OSDI 2018 paper documents Instagram **Connection-Info** as the headline Cassandra deployment behind Akkio. Connection-Info stores per-user state (when and where each user was online, status, connection endpoints) and has roughly **30 billion μ-shards**. It runs on Cassandra with quorum reads and writes for strong consistency. The original deployment used 5× full replication across five US datacentres; once usage in a second continent grew, that no longer fit. Akkio enabled a 3× replication scheme with two replicas in the destination continent and one in the source — keeping a quorum within one continent and read/write latencies under 50 ms instead of the 100+ ms a cross-ocean quorum would impose. **Without Akkio, Instagram could not have expanded Connection-Info into the second continent at all.**
 
 **Architecture after Akkio integration:**
 
-| Region | Data Centers   | Data Scope     |
+| Region | Data centres   | Data scope     |
 | ------ | -------------- | -------------- |
-| US     | 3 data centers | US users' data |
-| EU     | 3 data centers | EU users' data |
+| US     | 3 data centres | US users' data |
+| EU     | 3 data centres | EU users' data |
 
-Each region maintained 20% capacity headroom for single-datacenter failover within the region.
+Each region maintained 20 % capacity headroom for single-datacentre failover within the region ([Xiao, LISA 2018](https://www.infoq.com/news/2018/11/instagram-across-continents/)).
 
-**Results:**
+**Aggregate results across Akkio-managed services:**
 
-| Metric                       | Improvement         |
-| ---------------------------- | ------------------- |
-| Latency                      | Up to 50% reduction |
-| Cross-datacenter traffic     | Up to 50% reduction |
-| Storage footprint            | Up to 40% reduction |
-| Instagram Direct P90 latency | 90 ms improvement   |
-| Instagram Direct P99 latency | 150 ms improvement  |
+| Metric                                   | Improvement         | Source            |
+| ---------------------------------------- | ------------------- | ----------------- |
+| Access latency                           | Up to 50 % reduction | OSDI 2018 abstract |
+| Cross-datacentre traffic                 | Up to 50 % reduction | OSDI 2018 abstract |
+| Storage footprint                        | Up to 40 % reduction | OSDI 2018 abstract |
+| Instagram Direct end-to-end p90 latency  | −90 ms              | OSDI 2018 §5.2.4   |
+| Instagram Direct end-to-end p95 latency  | −150 ms             | OSDI 2018 §5.2.4   |
+| Instagram Direct text message send rate  | +1.1 %              | OSDI 2018 §5.2.4   |
 
-The Social Hash partitioner routed requests to the correct Cassandra buckets based on user geography, with special handling for high-follower accounts that generated distributed access patterns across regions.
+> [!IMPORTANT]
+> The Direct numbers above describe **Iris**, the Facebook-internal queueing service that Instagram Direct uses (Iris persists to MySQL, not Cassandra). They illustrate Akkio's reach beyond Cassandra rather than the Cassandra read path itself. Cassandra-on-Akkio at Instagram is best characterised by Connection-Info: locality determines whether a quorum can stay on one continent.
+
+The Social Hash partitioner routed requests to the correct Cassandra buckets based on user geography, with special handling for high-follower accounts that generated distributed access patterns across regions. TAO, Facebook's social graph store, was modified for region-local masters but did **not** use Akkio: media objects are accessed globally, so locality-based μ-shard placement would have provided little benefit ([Xiao, LISA 2018](https://www.infoq.com/news/2018/11/instagram-across-continents/)).
 
 ## Outcome
 
@@ -420,20 +456,21 @@ The Social Hash partitioner routed requests to the correct Cassandra buckets bas
 | 2014                  | Cassandra scales to 60+ nodes; Cassandra Summit 2014 presentation             |
 | 2015                  | Multi-datacenter expansion within the US                                      |
 | 2016                  | 1,000+ nodes, Dikang Gu presents at Cassandra Summit 2016                     |
-| 2017-2018             | Rocksandra development (~1 year)                                              |
-| February 2018         | Rocksandra open-sourced                                                       |
-| October 2018          | Geographic partitioning with Akkio (LISA 2018 presentation)                   |
-| 2019                  | Cassandra as a Service inside Instagram (Dikang Gu, DataStax Accelerate 2019) |
+| 2016-2017             | Rocksandra development (~1 year); CASSANDRA-13474/13476 filed Apr 2017         |
+| 2017-2018             | Rocksandra open-sourced ([Instagram/cassandra `rocks_3.0`](https://github.com/Instagram/cassandra/tree/rocks_3.0)); F8 2018 talk in May |
+| October 2018          | Geographic partitioning with Akkio ([LISA 2018](https://www.infoq.com/news/2018/11/instagram-across-continents/), [OSDI 2018](https://www.usenix.org/system/files/osdi18-annamalai.pdf))         |
+| 2019                  | Cassandra as a Service inside Instagram ([Dikang Gu, DataStax Accelerate 2019](https://www.datastax.com/resources/video/datastax-accelerate-2019-solving-optimal-data-placement-instagrams-global-scale)) |
+| September 2023        | Instagram archives the `Instagram/cassandra` GitHub repo                       |
 
 ### Unexpected Benefits
 
-- **Operational simplicity at scale**: Cassandra's peer-to-peer architecture meant no master failovers, no ZooKeeper dependency, and straightforward capacity additions--critical for a team that grew from 3 to 300+ engineers.
+- **Operational simplicity at scale**: Cassandra's peer-to-peer architecture meant no master failovers, no ZooKeeper dependency, and straightforward capacity additions — critical for a team that grew dramatically from a handful of engineers in 2012 to hundreds inside Facebook over the next several years.
 - **Pluggable storage engine as a platform**: The storage engine API Instagram built for Rocksandra (CASSANDRA-13474) was proposed upstream to Apache Cassandra, potentially enabling other storage backends beyond RocksDB.
 - **Akkio enablement**: Cassandra's flexible replication model made it a natural fit for Akkio's microshard-based data placement, which was harder to apply to systems like TAO (Facebook's social graph store) with globally-accessed data.
 
 ### Remaining Limitations
 
-- **Rocksandra adoption**: The pluggable storage engine API was not merged into mainline Apache Cassandra. Instagram maintained a fork, which was eventually archived in 2023.
+- **Rocksandra adoption**: The pluggable storage engine API ([CASSANDRA-13474](https://issues.apache.org/jira/browse/CASSANDRA-13474)) was not merged into mainline Apache Cassandra — its status remains "Open" with no fix version, and Jeremiah Jordan's review feedback (2017) noted the API needs a second engine implementation to validate it. Instagram maintained a fork, which was [archived on GitHub on 28 September 2023](https://github.com/Instagram/cassandra).
 - **JVM overhead persists**: Cassandra's coordination layer (gossip, request handling) still runs on the JVM. Rocksandra only replaced the storage path.
 - **Eventual consistency trade-offs**: Workloads requiring strong consistency remained on PostgreSQL or TAO. Cassandra served use cases where eventual consistency was acceptable.
 
@@ -448,7 +485,7 @@ The Social Hash partitioner routed requests to the correct Cassandra buckets bas
 **How it applies elsewhere:**
 
 - Audit logs, analytics events, and activity streams rarely need sub-millisecond reads
-- The 75% cost savings Instagram achieved came from recognizing that write performance, not read speed, was the binding constraint
+- The ≈75 % cost saving Instagram reported came from recognising that write performance, not read speed, was the binding constraint ([Branson, 2013](https://www.slideshare.net/slideshow/c-summit-2013-cassandra-at-instagram-23756207/23756207))
 
 **Warning signs to watch for:**
 
@@ -532,7 +569,7 @@ If you want to explore this approach:
 
 ## Conclusion
 
-Instagram's Cassandra journey demonstrates a recurring pattern in infrastructure evolution: adopt technology for its strengths, discover its limits at scale, then engineer past those limits rather than replacing the system entirely. The 75% cost savings from migrating off Redis validated Cassandra. The GC latency problem at 1,000+ nodes led to Rocksandra rather than a database switch. Geographic expansion drove Akkio integration rather than a replication redesign.
+Instagram's Cassandra journey demonstrates a recurring pattern in infrastructure evolution: adopt technology for its strengths, discover its limits at scale, then engineer past those limits rather than replacing the system entirely. The ≈75 % cost saving from migrating off Redis validated Cassandra. The GC-latency wall at 1,000+ nodes led to Rocksandra rather than a database switch. Geographic expansion drove Akkio integration rather than a replication redesign.
 
 The transferable insight is not "use Cassandra." It is: match your storage cost model to your access patterns, expect JVM-based systems to hit GC walls at scale, and when you hit a wall, replace the problematic layer--not the entire stack.
 
@@ -559,27 +596,42 @@ The transferable insight is not "use Cassandra." It is: match your storage cost 
 
 ### Summary
 
-- Instagram migrated fraud detection and activity feed workloads from Redis to Cassandra in 2012, cutting infrastructure costs by 75% by moving from in-memory to disk-based storage for write-heavy, rarely-read data.
+- Instagram migrated fraud detection and activity-feed workloads from Redis to Cassandra in 2012, cutting infrastructure costs by ≈75 % by moving from in-memory to disk-based storage for write-heavy, rarely-read data.
 - The initial 12-node Cassandra 1.2 cluster on AWS grew to 1,000+ nodes on Facebook's infrastructure by 2016, handling millions of operations per second across feed, inbox, Direct messaging, and counter workloads.
-- JVM garbage collection became the dominant source of P99 latency at scale (25-60 ms). Instagram built Rocksandra, replacing Cassandra's Java storage engine with a C++-based RocksDB engine, reducing P99 reads to 20 ms and GC stalls from 2.5% to 0.3%.
-- Geographic data partitioning via Akkio eliminated cross-continent replication, reducing latency by up to 50% and storage by 40% by placing user data in the nearest regional data center cluster.
-- The pattern--adopt proven technology, discover scale-specific limits, engineer past them rather than replace the system--is a reusable approach for infrastructure evolution.
+- JVM garbage collection became the dominant source of P99 latency at scale (25–60 ms). Instagram built Rocksandra, replacing Cassandra's Java storage engine with a C++ RocksDB engine through a pluggable `StorageEngine` API. Typical P99 reads dropped to ~20 ms (≈3×), and GC stall rate fell from 2.5 % to 0.3 % (≈10×).
+- Geographic data partitioning via Akkio eliminated cross-continent replication for user-keyed Cassandra workloads (Connection-Info), reducing latency by up to 50 % and storage by up to 40 % by placing each user's μ-shard in the nearest regional cluster.
+- The pattern — adopt proven technology, discover scale-specific limits, engineer past them rather than replace the system — is a reusable approach for infrastructure evolution.
 
 ### References
 
-- [Cassandra at Instagram (Cassandra Summit 2013) -- Rick Branson](https://www.slideshare.net/slideshow/c-summit-2013-cassandra-at-instagram-23756207/23756207) - Initial 12-node deployment details
-- [Cassandra at Instagram (August 2013) -- Rick Branson](https://www.slideshare.net/rbranson/cassandra-at-instagram-aug-2013) - Updated cluster configuration and data models
-- [Cassandra at Instagram 2014 (Cassandra Summit 2014) -- Rick Branson](https://www.slideshare.net/planetcassandra/cassandra-summit-2014-cassandra-at-instagram-2014) - Scaling to 60+ nodes, JVM tuning lessons
-- [Cassandra at Instagram 2016 (Cassandra Summit 2016) -- Dikang Gu](https://www.slideshare.net/DataStax/cassandra-at-instagram-2016) - 1,000+ nodes, feed data model, counter service
-- [Open-sourcing a 10x reduction in Apache Cassandra tail latency -- Instagram Engineering](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589) - Rocksandra announcement and performance results
-- [CASSANDRA-13474: Pluggable Storage Engine API -- Apache JIRA](https://issues.apache.org/jira/browse/CASSANDRA-13474) - Upstream proposal for pluggable storage
-- [CASSANDRA-13476: RocksDB Storage Engine -- Apache JIRA](https://issues.apache.org/jira/browse/CASSANDRA-13476) - RocksDB engine implementation
-- [Instagram/cassandra (rocks_3.0 branch) -- GitHub](https://github.com/Instagram/cassandra/tree/rocks_3.0) - Open-source Rocksandra code
-- [Sharding the Shards: Managing Datastore Locality at Scale with Akkio -- USENIX OSDI 2018](https://www.usenix.org/system/files/osdi18-annamalai.pdf) - Akkio paper with production results
-- [Splitting Stateful Services across Continents at Instagram -- InfoQ (LISA 2018)](https://www.infoq.com/news/2018/11/instagram-across-continents/) - Geographic partitioning with Akkio
-- [Instagram: Making the Switch to Cassandra from Redis -- DataStax Blog / HN Discussion](https://news.ycombinator.com/item?id=5845107) - Context on Redis-to-Cassandra decision and Rick Branson's comments
-- [What Powers Instagram -- Instagram Engineering](https://instagram-engineering.com/what-powers-instagram-hundreds-of-instances-dozens-of-technologies-adf2e22da2ad) - Original infrastructure overview
-- [Sharding & IDs at Instagram -- Instagram Engineering](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c) - PostgreSQL sharding and ID generation
-- [Instagration Pt. 2: Scaling to Multiple Data Centers -- Instagram Engineering](https://instagram-engineering.com/instagration-pt-2-scaling-our-infrastructure-to-multiple-data-centers-5745cbad7834) - Multi-DC expansion
-- [Cassandra on RocksDB (OSCON 2018) -- Dikang Gu](https://conferences.oreilly.com/oscon/oscon-or-2018/public/schedule/detail/67020.html) - Technical deep-dive on Rocksandra architecture
-- [Solving Optimal Data Placement for Instagram's Global Scale (DataStax Accelerate 2019) -- Dikang Gu](https://www.datastax.com/resources/video/datastax-accelerate-2019-solving-optimal-data-placement-instagrams-global-scale) - Akkio integration details
+**Primary sources — Cassandra Summit and Instagram engineering**
+
+- [Cassandra at Instagram, Cassandra Summit 2013 — Rick Branson](https://www.slideshare.net/slideshow/c-summit-2013-cassandra-at-instagram-23756207/23756207) — initial 12-node hi1.4xlarge deployment, RF=3 / W=TWO / R=ONE, 75 % cost reduction.
+- [Cassandra at Instagram (August 2013) — Rick Branson](https://www.slideshare.net/rbranson/cassandra-at-instagram-aug-2013) — updated cluster configuration and data models.
+- [Cassandra at Instagram 2014, Cassandra Summit 2014 — Rick Branson](https://www.slideshare.net/planetcassandra/cassandra-summit-2014-cassandra-at-instagram-2014) — scaling to 60+ nodes; JVM tuning lessons including the JDK 1.7 Young GC double-collection bug.
+- [Cassandra at Instagram 2016, Cassandra Summit 2016 — Dikang Gu](https://www.slideshare.net/DataStax/cassandra-at-instagram-2016) — 1,000+ nodes, feed data model, proxy nodes, counter service.
+- [Open-sourcing a 10x reduction in Apache Cassandra tail latency — Instagram Engineering](https://instagram-engineering.com/open-sourcing-a-10x-reduction-in-apache-cassandra-tail-latency-d64f86b43589) — Rocksandra announcement, NDBench results, feature scope.
+- [What Powers Instagram — Instagram Engineering](https://instagram-engineering.com/what-powers-instagram-hundreds-of-instances-dozens-of-technologies-adf2e22da2ad) — original AWS stack: Django + Gunicorn, PostgreSQL, Redis, Memcached, Gearman, S3, CloudFront.
+- [Sharding & IDs at Instagram — Instagram Engineering](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c) — 64-bit ID layout (41 bits time, 13 bits shard, 10 bits sequence) and PL/pgSQL implementation.
+- [Instagration Pt. 2: Scaling to Multiple Data Centers — Instagram Engineering](https://instagram-engineering.com/instagration-pt-2-scaling-our-infrastructure-to-multiple-data-centers-5745cbad7834) — multi-DC expansion within the US.
+
+**Apache JIRA and Rocksandra source**
+
+- [CASSANDRA-13474 — Cassandra pluggable storage engine, Apache JIRA](https://issues.apache.org/jira/browse/CASSANDRA-13474) — umbrella ticket; status "Open" as of 2025; sub-tasks include CASSANDRA-13475 (engine design), CASSANDRA-14115/16/18 (streaming, repair, write-path refactors).
+- [CASSANDRA-13476 — RocksDB based storage engine, Apache JIRA](https://issues.apache.org/jira/browse/CASSANDRA-13476) — concrete RocksDB engine implementation.
+- [Instagram/cassandra (`rocks_3.0` branch) — GitHub](https://github.com/Instagram/cassandra/tree/rocks_3.0) — open-source Rocksandra code; archived 28 September 2023.
+- [Cassandra on RocksDB (OSCON 2018) — Dikang Gu](https://conferences.oreilly.com/oscon/oscon-or-2018/public/schedule/detail/67020.html) — technical deep-dive on Rocksandra architecture.
+- [Cassandra on RocksDB at Instagram (F8 2018) — Meta for Developers](https://developers.facebook.com/videos/f8-2018/cassandra-on-rocksdb-at-instagram/) — F8 talk; coincides with broader open-source rollout.
+- [Instagram Supercharges Cassandra with a Pluggable RocksDB Storage Engine — The New Stack](https://thenewstack.io/instagram-supercharges-cassandra-pluggable-rocksdb-storage-engine/) — interview with Francois Deliege and Dikang Gu on the storage engine API design.
+
+**Akkio and geographic partitioning**
+
+- [Sharding the Shards: Managing Datastore Locality at Scale with Akkio — USENIX OSDI 2018](https://www.usenix.org/system/files/osdi18-annamalai.pdf) — Akkio architecture, μ-shards, Connection-Info (§5.2.3) and Direct (§5.2.4) production results.
+- [Managing data store locality at scale with Akkio — Engineering at Meta](https://engineering.fb.com/2018/10/08/core-infra/akkio/) — DPS architecture, ZippyDB-backed metadata, capacity scoring.
+- [Splitting Stateful Services across Continents at Instagram — InfoQ (LISA 2018, Sherry Xiao)](https://www.infoq.com/news/2018/11/instagram-across-continents/) — 3 US + 3 EU layout, 20 % regional headroom, why TAO does not use Akkio.
+- [Solving Optimal Data Placement for Instagram's Global Scale, DataStax Accelerate 2019 — Dikang Gu](https://www.datastax.com/resources/video/datastax-accelerate-2019-solving-optimal-data-placement-instagrams-global-scale) — operational view of Akkio integration.
+
+**Context and corroboration**
+
+- [Instagram: Making the Switch to Cassandra from Redis — Hacker News discussion](https://news.ycombinator.com/item?id=5845107) — Rick Branson's contemporaneous comments on the Redis-to-Cassandra decision.
+- [Facebook to Buy Instagram (13 employees) for $1 Billion — KQED](https://www.kqed.org/news/61601/facebook-to-buy-instagram-for-1-billion) — acquisition date and team size.

@@ -6,7 +6,7 @@ description: >-
   platform-agnostic tokens, codemod-driven migrations, tree-shakeable distribution,
   usage analytics, and version compatibility strategies.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - react
   - design-systems
@@ -62,21 +62,41 @@ Make architectural decisions before any component development begins—changing 
 
 Design tokens encode design decisions as platform-agnostic data. For comprehensive coverage of token taxonomy, naming conventions, theming architecture, and governance, see [Design Tokens and Theming Architecture](../design-tokens-and-theming/README.md). This section focuses on implementation decisions specific to scaling.
 
-**Industry Standard: DTCG Specification (v2025.10)**
+**Industry Standard: DTCG Specification (2025.10)**
 
-The W3C Design Tokens Community Group (DTCG) specification reached its first stable version in October 2025. Over 20 organizations—including Adobe, Amazon, Google, Microsoft, Meta, Figma, Salesforce, and Shopify—contributed to this standardization effort.
+The W3C Design Tokens Community Group (DTCG) reached its [first stable version, 2025.10, on 28 October 2025](https://www.w3.org/community/design-tokens/2025/10/28/design-tokens-specification-reaches-first-stable-version/), published as a [Final Community Group Report](https://www.designtokens.org/TR/2025.10/format/). It is _not_ a W3C Recommendation, but it is now stable enough that subsequent updates will arrive as superseding specifications rather than churn inside this version. Over 20 organizations—including Adobe, Amazon, Google, Microsoft, Meta, Figma, Salesforce, and Shopify—contributed to it.
 
-**Why DTCG matters for implementation**: The specification standardizes the JSON format with `$value`, `$type`, and `$description` properties. Tools like Style Dictionary v4, Tokens Studio, and Terrazzo all support DTCG natively, enabling interoperability between design tools and development pipelines without custom transformation logic.
+**Why DTCG matters for implementation**: The specification standardizes the JSON format with `$value`, `$type`, and `$description` properties, plus modern color spaces (Oklch, Display P3) and richer relationships. Tools like [Style Dictionary v4](https://styledictionary.com/info/dtcg/), Tokens Studio, and [Terrazzo](https://terrazzo.app/) (formerly Cobalt UI) support DTCG natively, enabling interoperability between design tools and development pipelines without custom transformation logic.
+
+**The end-to-end theming pipeline**
+
+The pipeline that survives organizational scale has a single design source, a single interchange format, and a build engine per platform — not bespoke per-app conversions:
+
+![Theming pipeline from Figma variables to platform-specific outputs via the DTCG interchange format.](./diagrams/theming-pipeline-light.svg "Theming pipeline: Figma variables export to DTCG JSON, then Style Dictionary or Terrazzo emits CSS, JS, iOS, Android, and Tailwind targets.")
+![Theming pipeline from Figma variables to platform-specific outputs via the DTCG interchange format.](./diagrams/theming-pipeline-dark.svg)
+
+DTCG is the load-bearing edge — it lets the design source (Figma variables, Tokens Studio, hand-authored JSON) and the build engine (Style Dictionary, Terrazzo) evolve independently. Treat anything that doesn't read or write DTCG as a temporary adapter, not a long-lived dependency.
+
+**Choosing a build engine**
+
+| Engine                                                   | Best for                                                        | Trade-off                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **[Style Dictionary v4](https://styledictionary.com/)**  | Multi-platform pipelines (iOS, Android, web) with mature transforms | DTCG support landed in v4; full `2025.10` parity tracked for v5                                    |
+| **[Terrazzo](https://terrazzo.app/)**                    | DTCG-native projects; Tailwind preset emission; web-first stacks    | Smaller plugin ecosystem; no first-party iOS/Android targets yet — pair with Style Dictionary if you need both |
+
+For most multi-platform organizations, Style Dictionary remains the default; bring in Terrazzo for the web side when you want a build that's literally the spec rather than an adapter on top of it.
 
 **Token Transformation with Style Dictionary v4**
 
-[Style Dictionary v4](https://styledictionary.com/) is the industry-standard build system for design tokens. Key changes from v3:
+[Style Dictionary v4](https://styledictionary.com/) is the industry-standard build system for design tokens. The [v4 migration guide](https://styledictionary.com/versions/v4/migration/) lists the breaking changes; the ones that matter for a multi-platform pipeline:
 
-| Change           | v3 Behavior                             | v4 Behavior                                    | Why It Matters        |
-| ---------------- | --------------------------------------- | ---------------------------------------------- | --------------------- |
-| **Format**       | Custom `value`/`type` properties        | DTCG `$value`/`$type` support                  | Tool interoperability |
-| **CTI Coupling** | Hard-coded Category-Type-Item structure | Uses `token.type` property                     | Flexible naming       |
-| **Transforms**   | Limited chaining                        | Transitive transforms resolve reference chains | Complex aliases work  |
+| Change           | v3 Behavior                             | v4 Behavior                                                                                                                  | Why It Matters             |
+| ---------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| **Format**       | Custom `value`/`type` properties        | First-class DTCG `$value`/`$type` support                                                                                    | Tool interoperability      |
+| **CTI Coupling** | Hard-coded Category-Type-Item structure | Driven by `$type` instead                                                                                                    | Flexible naming            |
+| **Transforms**   | Limited chaining                        | [Transitive transforms](https://styledictionary.com/reference/hooks/transforms/#transitive-transforms) resolve alias chains  | Multi-hop semantic aliases |
+| **Module shape** | CommonJS, sync `extend()` API           | ESM rewrite, `new StyleDictionary(cfg)`, async `buildAllPlatforms()`                                                         | Browser-compatible builds  |
+| **Hooks**        | Loose registration on the constructor   | Grouped under `hooks.{transforms,formats,actions}`                                                                           | Strict typing, plugin DX   |
 
 ```javascript title="style-dictionary.config.mjs" collapse={1-2, 22-35}
 // Style Dictionary v4 configuration with DTCG support
@@ -124,7 +144,10 @@ export default {
 | **Semantics**  | Intent-based mappings                 | `color-action-primary: {color.blue.500}`    | Always (enables theming)         |
 | **Components** | Element-specific bindings             | `button-background: {color.action.primary}` | Only for multi-brand/white-label |
 
-**Design reasoning**: Most systems operate well with primitives and semantic tokens alone. Component tokens multiply maintenance overhead—a 200-token semantic layer can balloon to 2000+ with component tokens. Only introduce the third tier when multi-brand theming or white-labeling requires granular per-component customization.
+![Three-tier token architecture: primitive values feed semantic intent tokens, which optionally feed component-scoped bindings.](./diagrams/token-tier-architecture-light.svg "Three-tier token architecture: primitive values feed semantic intent tokens, which optionally feed component-scoped bindings.")
+![Three-tier token architecture: primitive values feed semantic intent tokens, which optionally feed component-scoped bindings.](./diagrams/token-tier-architecture-dark.svg)
+
+**Design reasoning**: Most systems operate well with primitives and semantic tokens alone. Component tokens multiply maintenance overhead—a 200-token semantic layer can balloon to 2000+ once every component variant gets its own bindings. Only introduce the third tier when multi-brand theming or white-labeling requires granular per-component customization.
 
 **Measuring Token Effectiveness**
 
@@ -146,17 +169,19 @@ React remains the dominant choice for design system component libraries, with Ty
 
 Building accessible components from scratch is expensive and error-prone. The pragmatic choice is standing on the shoulders of accessibility experts:
 
-| Library         | Approach                                    | Weekly Downloads | Best For                              |
-| --------------- | ------------------------------------------- | ---------------- | ------------------------------------- |
-| **Radix UI**    | Unstyled primitives + optional Radix Themes | 2M+              | Teams wanting maximum styling control |
-| **React Aria**  | Hooks + optional components                 | 260K+            | Complex ARIA patterns, i18n           |
-| **Headless UI** | Tailwind-focused components                 | 500K+            | Tailwind-native teams                 |
+| Library                                                                  | Approach                                          | Best For                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------- | --------------------------------------------------------- |
+| **[Radix UI](https://www.radix-ui.com/primitives)**                      | Unstyled primitives + optional Radix Themes       | Teams wanting maximum styling control                     |
+| **[React Aria](https://react-spectrum.adobe.com/react-aria/)**           | Hooks + opinionated components (`react-aria-components`) | Complex ARIA patterns, internationalization, RTL    |
+| **[Headless UI](https://headlessui.com/)**                               | Tailwind-aligned components                       | Tailwind-native teams that want a small primitive surface |
 
-**Design reasoning**: These libraries handle focus management, keyboard navigation, and ARIA attributes correctly. Package surfaces and higher-level wrappers change over time, so standardize on the accessibility contract you need and verify the current import guidance before locking tooling around a specific vendor package layout.
+All three are popular enough that adoption risk is low (Radix Primitives reports [130M+ monthly npm downloads](https://www.radix-ui.com/primitives) and React Aria/Headless UI both sit in the millions per week per their npm pages). The interesting axis is not download count but accessibility coverage and API shape.
+
+**Design reasoning**: These libraries handle focus management, keyboard navigation, and ARIA attributes correctly. Package surfaces and higher-level wrappers change over time (Radix has split into `radix-ui` plus the granular `@radix-ui/react-*` packages; React Aria added `react-aria-components` on top of the original hooks), so standardize on the accessibility contract you need and verify the current import guidance before locking tooling around a specific vendor package layout.
 
 **2. React Server Components Compatibility**
 
-RSC is production-ready in Next.js 15+. Design systems must consider the server/client boundary:
+RSC and the App Router became the default in [Next.js 15 (stable, October 2024)](https://nextjs.org/blog/next-15) and now ship on top of stable React 19. Design systems must consider the server/client boundary explicitly:
 
 ```tsx title="Client boundary for an interactive wrapper" collapse={1-4}
 // Stateful wrappers live behind an explicit client boundary.
@@ -174,7 +199,8 @@ export function InteractiveButton({ children, ...props }) {
 
 **Why RSC matters**: RSC-compatible design systems can reduce client bundle size materially in content-heavy applications, but the payoff depends on how much logic stays in server components versus interactive client boundaries. Treat bundle savings as an application-specific measurement problem, not a guaranteed percentage.
 
-> **2025+ Trend**: The shadcn/ui model—where consumers own the source code—is gaining traction because it provides maximum tree-shaking, minimal bundle size, and true RSC control. Consider offering both npm-distributed components and copy-paste primitives.
+> [!TIP]
+> **2025+ trend**: The [shadcn/ui](https://ui.shadcn.com/docs) model — a CLI copies component _source_ into your repo instead of installing a package — gives consumers maximum tree-shaking, minimal bundle size, and full control over the server/client split. The shadcn docs explicitly position it as a "code distribution platform, not a component library." Consider offering both npm-distributed components for stable primitives _and_ copy-paste recipes for higher-level patterns where consumers will want to fork.
 
 **3. Component API Design**
 
@@ -208,7 +234,7 @@ export function ConfirmDialog({ title, description, onConfirm, onCancel }) {
 
 #### Storybook 8+ for Documentation and Development
 
-Storybook 8 (released March 2024, with 8.2+ updates through 2025) is the standard development environment for design systems. Key features for implementation:
+[Storybook 8](https://storybook.js.org/blog/storybook-8/) (released March 2024, with 8.x updates through 2025) is the standard development environment for design systems. Key features for implementation:
 
 | Feature                | Benefit                                             | Configuration              |
 | ---------------------- | --------------------------------------------------- | -------------------------- |
@@ -260,6 +286,33 @@ Organize stories by function (Forms, Navigation, Feedback) rather than implement
 > - **Versioned deployments**: Every release (major, minor, patch) gets its own Storybook deployment
 > - **React-Live integration**: Editable code examples that users can modify and share—enabling live reproductions for support
 > - **Accessibility documentation**: Keyboard interactions, ARIA attributes, and screen reader behavior per component
+
+#### Monorepo Tooling and Package Topology
+
+Before talking bundle output, decide how the source repository is structured and what *shape* of package the consuming apps depend on. These two decisions interact: per-component packages don't pay off without monorepo task graph caching, and a single package over a large surface punishes consumers who only need one button.
+
+**Picking a monorepo orchestrator**
+
+| Tool                                                      | Best fit                                                                          | Caveats                                                                                              |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **[Turborepo](https://turborepo.com/)**                   | Frontend-heavy monorepos (≤ ~50 packages) that want minimal config and fast onboarding; remote caching via Vercel | Less opinionated about generators, lint boundaries, and release; expect to glue Changesets in yourself |
+| **[Nx](https://nx.dev/)**                                 | Larger JS/TS monorepos that need affected-graph CI, generators, ESLint module boundaries, and an integrated `nx release` flow | Heavier learning curve and more conventions; the ecosystem assumes Nx-shaped layouts |
+| **[Bazel](https://bazel.build/) / [Pants](https://www.pantsbuild.org/)** | Polyglot monorepos already standardized on Bazel/Pants for backend; reproducible, hermetic builds at very large scale | Bazel JS support is via `rules_js` and still less ergonomic than Nx/Turborepo; only justified when you already pay this tax for other languages |
+
+The non-obvious part: **remote caching is the win**, not the orchestrator brand. Without remote caching, CI re-runs every test for every package on every PR, and the design system becomes the slowest pipeline in the org. With remote cache, an unaffected `Button` package returns its previous result in seconds. Turborepo Remote Cache, Nx Cloud, and Bazel's Remote Cache API all do the same job; pick the one that integrates with your existing CI provider.
+
+**Picking a package topology**
+
+![Three package topologies — single package, subpath exports, and per-component packages — with their tree-shaking and release implications.](./diagrams/package-topology-light.svg "Three package topologies for distributing a design system: single package with subpath exports is the pragmatic default for most teams.")
+![Three package topologies — single package, subpath exports, and per-component packages — with their tree-shaking and release implications.](./diagrams/package-topology-dark.svg)
+
+| Topology                  | Consumer import                          | Release tooling                         | When it fits                                                                              |
+| ------------------------- | ---------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Single package**        | `import { Button } from '@company/ds'`   | One `package.json`, one version          | Small libraries (≲ 30 components) where every version bumps in lockstep is acceptable      |
+| **Single package + subpath exports** | `import { Button } from '@company/ds/button'` | One `package.json`, one version, narrower entry points | The pragmatic default — full tree-shaking even for consumers with naive bundlers, single SemVer line |
+| **Per-component packages** | `import { Button } from '@company/button'` | One `package.json` per component, independent versions, Changesets shines here | Very large libraries, multi-team contribution, and consumers that pin individual components for regulatory or perf reasons |
+
+Subpath exports are the sweet spot for most teams: you keep one version line (so Changesets and Storybook stay simple) but consumers only pay for what they import, and the public API surface is encoded in the `exports` map rather than in a build-time tree-shake heuristic. Reach for per-component packages only after you can justify the release-tooling tax — typically when you have 80+ components or independent contribution teams that want to ship at different cadences.
 
 #### Bundling and Package Distribution
 
@@ -321,7 +374,7 @@ Publish both ESM (`.mjs`) and CommonJS (`.cjs`) formats for maximum compatibilit
 
 For CSS, you have three viable approaches. **Bundled CSS** ships a single CSS file that consumers import; this is simple but prevents tree-shaking of unused styles. **CSS-in-JS** (styled-components, Emotion) bundles styles with components for automatic tree-shaking but adds runtime overhead. **CSS Modules with build-time extraction** (vanilla-extract, Linaria) provides tree-shaking without runtime cost but requires compatible build tooling in consuming apps.
 
-For most organizations, bundled CSS with manual layer organization (using CSS `@layer`) provides the best balance of simplicity and maintainability. Sophisticated teams with homogeneous build tooling can benefit from build-time CSS extraction.
+For most organizations, bundled CSS with explicit [CSS cascade layers](https://www.w3.org/TR/css-cascade-5/#layering) (`@layer reset, tokens, components, utilities`) provides the best balance of simplicity and maintainability — consumers can predictably override your styles by writing into a higher layer instead of fighting specificity. Sophisticated teams with homogeneous build tooling can graduate to build-time CSS extraction once layer ordering alone stops scaling.
 
 #### NPM Package Publishing
 
@@ -329,7 +382,7 @@ Publishing to npm (or a private registry) makes your design system a first-class
 
 **Versioning with Changesets**
 
-Changesets provides the workflow design systems need: documenting changes at PR time, batching changes into releases, and generating changelogs automatically. Unlike semantic-release which releases on every merge, Changesets allows batching changes until you're ready to cut a release—valuable when coordinating multiple component updates.
+[Changesets](https://github.com/changesets/changesets) provides the workflow design systems need: contributors describe each change at PR time as a small markdown file, the bot batches accumulated changesets into a "Version Packages" PR, and merging that PR bumps versions, regenerates changelogs, and publishes. Unlike `semantic-release` (which publishes on every merge to the release branch), Changesets lets you _hold_ changes until you're ready to cut a coordinated release — valuable when several related component updates should land as one minor version.
 
 ```bash
 # Developer runs this when making changes
@@ -347,7 +400,72 @@ For internal design systems, publish to a private npm registry (npm Enterprise, 
 
 **Dependency Management**
 
-Mark React and other framework dependencies as `peerDependencies` to avoid version conflicts and bundle duplication. Be explicit about version ranges—too loose allows incompatible versions, too strict creates unnecessary upgrade friction. Document the tested version matrix clearly.
+Mark React and other framework dependencies as [`peerDependencies`](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#peerdependencies) so they aren't installed twice and so the consuming app's React is the one that actually runs. Be explicit about version ranges — too loose allows incompatible majors, too strict creates upgrade friction for consumers. Document the tested version matrix clearly, and use [`peerDependenciesMeta.optional`](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#peerdependenciesmeta) for peers that aren't strictly required (e.g., `framer-motion` for an animated subset).
+
+### Build, Test, and Release Pipeline
+
+Treat the CI pipeline as part of the public contract. Consumers learn what your guarantees are by watching what your CI catches and what it lets through.
+
+![CI pipeline stages from PR open to publish: lint, unit/interaction, parallel quality gates (visual, a11y, bundle budget, build), and a Changesets-driven release.](./diagrams/ci-pipeline-stages-light.svg "CI pipeline stages: fast lint and unit feedback, then parallel quality gates, then a Changesets-driven release on main.")
+![CI pipeline stages from PR open to publish: lint, unit/interaction, parallel quality gates (visual, a11y, bundle budget, build), and a Changesets-driven release.](./diagrams/ci-pipeline-stages-dark.svg)
+
+**Pipeline shape that scales**
+
+- **Fast feedback first.** Lint, typecheck, and unit/interaction tests must finish in under two minutes for any reasonable design system. Slow first stages force contributors to context-switch and erode contribution rates.
+- **Quality gates run in parallel.** Visual regression, accessibility, bundle budgets, and the actual library build don't depend on each other; running them sequentially wastes wall-clock time the team already paid for in compute.
+- **Release is one path, not many.** Changesets bot opens a single "Version Packages" PR; merging it is the *only* way to publish. No "manual hotfix release" backdoor — those become the norm if you let them exist.
+- **Cache aggressively.** With Nx Cloud / Turborepo Remote Cache / Bazel remote cache, an unaffected package's tests should restore from cache in seconds. Without that, your CI cost grows linearly with package count.
+
+#### Visual Regression Testing
+
+[Storybook 8](https://storybook.js.org/blog/storybook-8/) introduced first-class visual testing via the `@chromatic-com/storybook` addon, and Playwright's `toHaveScreenshot` matured into a credible self-hosted alternative. The choice is now mostly about *who runs the renderer*, not whether visual testing is worth it.
+
+| Tool                                                                  | Baselines                          | Flake handling                                          | Best for                                                                          |
+| --------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **[Chromatic](https://www.chromatic.com/)**                           | Cloud, branch-aware, Git-merged    | Renders in a fixed cloud env; [TurboSnap](https://www.chromatic.com/docs/turbosnap/) skips unaffected stories | Storybook-driven design systems — the expected default                            |
+| **[Percy](https://percy.io/)**                                        | Cloud, branch-aware                | AI-assisted diff filtering for sub-pixel/anti-aliasing noise | Cross-browser/device matrices and full-page application flows                      |
+| **[Playwright `toHaveScreenshot`](https://playwright.dev/docs/test-snapshots)** | Local PNGs in the repo             | You own flake mitigation: `networkidle`, mask dynamic regions, freeze animations | Self-hosted budgets, tight pixel control, willingness to manage baselines as code |
+
+Chromatic's TurboSnap is the operational unlock at scale: it walks the Storybook dependency graph and only snapshots stories whose source (or token/style transitively) changed, which keeps snapshot bills bounded as the library grows. Disable it on `pull_request` event triggers — its docs explicitly warn that GitHub's `pull_request` events break baseline tracking; use `push` instead.
+
+#### Accessibility CI
+
+Automated accessibility tooling catches roughly 30–57% of WCAG issues — the structural ones — but never substitutes for keyboard-and-screen-reader testing. The realistic stack for a design system:
+
+| Layer                                                                                     | Catches                                                          | Doesn't catch                                                  |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| **[axe-core](https://github.com/dequelabs/axe-core)** in unit tests / [`@storybook/addon-a11y`](https://storybook.js.org/addons/@storybook/addon-a11y) | Color contrast, missing labels, ARIA misuse, role/structure errors per story | Logical tab order, focus traps, screen-reader narrative quality |
+| **[Pa11y CI](https://github.com/pa11y/pa11y-ci)**                                         | Same as axe-core but runs against deployed Storybook URLs in CI as a hard gate | Component-internal interaction states unless explicitly scripted |
+| **[Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci)**                        | Page-level a11y score, plus performance/SEO regressions on the docs site itself | Component-level granularity                                    |
+| **Manual screen reader pass per major release**                                            | Everything above misses                                          | —                                                              |
+
+The pragmatic default: wire the Storybook a11y addon to fail the build on `parameters.a11y.test = 'error'` for every component, and run Pa11y CI against the deployed Storybook URL on every main merge. Lighthouse CI on the documentation site itself is bonus value but rarely the catching layer.
+
+> [!IMPORTANT]
+> Automated checks measure the *floor*, not the ceiling. A component that passes axe-core can still be unusable with NVDA. Document the manual a11y review step in the major-release checklist and hold the line on it.
+
+#### Per-Component Performance Budgets
+
+A 2 KB regression in a Button that renders 30 times per page is not a 2 KB regression. Per-component budgets surface these decisions before they ship.
+
+The two-axis model:
+
+- **Size budget (build-time).** Per-component gzipped bundle size, enforced in CI by [`size-limit`](https://github.com/ai/size-limit) or [`bundlewatch`](https://bundlewatch.io/). Block the PR when it exceeds the budget; require an explicit "raise the budget" change with sign-off when the regression is intentional.
+- **Runtime budget (test-time).** Render time in a [React Profiler](https://react.dev/reference/react/Profiler) harness or interaction time in a Storybook play function. These catch costly re-renders, large initial mount work, or accidental layout thrash that bundle size won't see.
+
+```json title="size-limit.config.json"
+[
+  { "name": "Button",  "path": "dist/button/index.mjs",  "limit": "3 kB",  "ignore": ["react", "react-dom"] },
+  { "name": "Dialog",  "path": "dist/dialog/index.mjs",  "limit": "8 kB",  "ignore": ["react", "react-dom"] },
+  { "name": "Table",   "path": "dist/table/index.mjs",   "limit": "20 kB", "ignore": ["react", "react-dom"] },
+  { "name": "Full bundle", "path": "dist/index.mjs",     "limit": "60 kB", "ignore": ["react", "react-dom"] }
+]
+```
+
+Two design choices that pay off: (1) measure with peers ignored — otherwise you're charting React's bundle, not yours; (2) version-control the budgets next to the code, so raising a budget shows up as a diff in code review rather than a quiet config drift.
+
+> [!TIP]
+> A cheap way to catch *runtime* regressions without owning a benchmarking harness: instrument Storybook play functions with `performance.now()` around your most-used components and fail the build if any single interaction crosses a budget (e.g., 16 ms for a Button click handler chain). Not a substitute for real RUM, but it catches order-of-magnitude regressions before they reach an app.
 
 ### Migration Strategy
 
@@ -355,17 +473,20 @@ Migration strategy determines how existing applications adopt the design system.
 
 **Migration Approaches**
 
-The **Strangler Fig Pattern**, named by Martin Fowler after Australian strangler fig trees that gradually envelop their hosts, applies well to design system migration. New features are built with the design system while legacy UI remains functional. A facade layer presents a unified interface, routing to either legacy or new components based on feature flags or URL paths.
+The **Strangler Fig Pattern** was [coined by Martin Fowler in 2004](https://martinfowler.com/bliki/StranglerFigApplication.html) (originally "Strangler Application", later renamed to make the metaphor explicit) after the strangler figs Fowler saw on a [2001 trip to Queensland, Australia](https://martinfowler.com/bliki/OriginalStranglerFigApplication.html). Those vines germinate in the canopy of a host tree, gradually root to the ground, and eventually replace the host. Applied to UI migration: new features are built with the design system while legacy UI remains functional, and a facade layer presents a unified interface that routes to either legacy or new components based on feature flags or URL paths.
+
+![Strangler Fig migration: a facade routes traffic to either legacy or new design-system components, with the legacy surface shrinking over time.](./diagrams/strangler-fig-migration-light.svg "Strangler Fig migration: a facade routes traffic to either legacy or new design-system components, with the legacy surface shrinking over time.")
+![Strangler Fig migration: a facade routes traffic to either legacy or new design-system components, with the legacy surface shrinking over time.](./diagrams/strangler-fig-migration-dark.svg)
 
 | Aspect         | Consideration                                                                     |
 | -------------- | --------------------------------------------------------------------------------- |
 | **Mechanism**  | New features built with design system; facade routes between legacy and new       |
-| **Risk**       | Low—legacy remains functional throughout migration                                |
-| **Resources**  | Higher—requires running two systems simultaneously                                |
-| **Timeline**   | Long—large systems can take years to fully migrate                                |
-| **State sync** | Challenging—maintaining consistency between systems requires careful coordination |
+| **Risk**       | Low — legacy remains functional throughout migration                              |
+| **Resources**  | Higher — requires running two systems simultaneously                              |
+| **Timeline**   | Long — large systems can take years to fully migrate                              |
+| **State sync** | Challenging — maintaining consistency between systems requires careful coordination |
 
-The Strangler Fig pattern is inappropriate for small systems where wholesale replacement is simpler, when a facade layer isn't architecturally feasible, or when the team cannot commit to the extended timeline large migrations require.
+The Strangler Fig pattern is inappropriate for small systems where wholesale replacement is simpler, when a facade layer isn't architecturally feasible, or when the team cannot commit to the extended timeline large migrations require. Both [AWS](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/strangler-fig.html) and [Microsoft](https://learn.microsoft.com/en-us/azure/architecture/patterns/strangler-fig) document the same shape from a backend-modernization angle; the UI version differs mostly in that the facade is a router/feature-flag layer instead of an API gateway.
 
 **Greenfield First** starts adoption with new projects rather than migrating existing ones. This builds momentum and success stories with teams who are inherently more receptive—they're not being asked to change working code. Use these successes to justify and inform legacy migrations.
 
@@ -395,13 +516,13 @@ Each application bundles its own copy of design system assets:
 - `app-b.example.com/fonts/opensans.woff2` (450KB duplicate)
 - `checkout.example.com/fonts/opensans.woff2` (450KB duplicate)
 
-Users navigating between applications download the same fonts repeatedly because browser caching is origin-scoped.
+Users navigating between applications still re-download these assets because the modern HTTP cache is _partitioned_. Chrome [partitions the cache by a Network Isolation Key (top-level site + current frame site)](https://developer.chrome.com/blog/http-cache-partitioning) starting in Chrome 86, and Safari and Firefox apply similar [double-keyed caching](https://privacycg.github.io/storage-partitioning/) to defend against cross-site cache probing. Same-origin assets still share a cache entry within a single top-level site, but a font loaded from `app-a.example.com` no longer satisfies the request from `app-b.example.com` even when both reference an identical URL.
 
 **The Solution: Centralized Asset Hosting**
 
-Host shared assets on a common subdomain or CDN path that all applications reference:
+Host shared assets on a single subdomain or CDN path that every application references. With cache partitioning, you no longer get cross-site reuse "for free" by sharing a CDN — what you _do_ get is consistent versioning, a single point of cache-control configuration, and one canonical URL per asset that's easier to evict, audit, and CSP-allowlist:
 
-```
+```text
 https://assets.example.com/design-system/v3/
 ├── fonts/
 │   ├── opensans-regular.woff2
@@ -425,9 +546,9 @@ All applications import from this shared location:
 
 **Implementation Considerations**
 
-Configure aggressive caching headers (`Cache-Control: public, max-age=31536000, immutable`) for versioned asset paths. When the design system releases a new version, assets move to a new path (`/v4/`), while existing applications continue using `/v3/` until they upgrade. This prevents cache invalidation storms during rollouts while enabling gradual adoption.
+Configure aggressive caching headers (`Cache-Control: public, max-age=31536000, immutable`) on versioned asset paths. The [`immutable` directive is defined by RFC 8246](https://datatracker.ietf.org/doc/html/rfc8246) and tells browsers to skip revalidation entirely while the response is fresh, so a content-hashed URL never round-trips even on hard reload. When the design system cuts a new version, assets move to a new path (`/v4/`) while existing applications continue serving `/v3/` until they upgrade. This prevents cache invalidation storms during rollouts and lets adoption proceed at each app's own pace.
 
-Browsers do **not** accept `Access-Control-Allow-Origin: *.example.com`. Return a single explicit origin per request when you need CORS, or use `*` only for truly public assets that do not require credentials. For organizations with multiple top-level domains, consider a dedicated asset domain with an explicit allowlist or origin-reflection layer.
+Browsers do **not** accept `Access-Control-Allow-Origin: *.example.com` — the [Fetch standard](https://fetch.spec.whatwg.org/#http-access-control-allow-origin) requires either a single explicit origin or the literal `*`, with no glob/subdomain support. Return a single explicit origin per request when CORS is needed (and pair it with `Vary: Origin` so the cache stays correct), or use `*` only for truly public assets that don't carry credentials. For multi-TLD orgs, run a dedicated asset domain with an allowlist or origin-reflection layer rather than trying to coerce the spec.
 
 #### Version Mismatch Across Applications
 
@@ -461,9 +582,9 @@ Microfrontend architectures introduce unique design system challenges: multiple 
 
 **Module Federation (2025 State)**
 
-Module Federation has evolved beyond Webpack-only implementation. Vite plugins (`@module-federation/vite`, `@originjs/vite-plugin-federation`) and Native Federation (ESM + import maps) are now production options.
+Module Federation has evolved well beyond its Webpack roots. The [`@module-federation/vite`](https://module-federation.io/guide/build-plugins/plugins-vite) plugin is now the official Vite implementation maintained by the core team and is the safe default; the older [`@originjs/vite-plugin-federation`](https://github.com/originjs/vite-plugin-federation) remains popular but its maintainers have struggled to keep pace and TypeScript ergonomics suffer. For Angular shops, [Native Federation](https://github.com/angular-architects/module-federation-plugin/blob/main/libs/native-federation/README.md) ships the same mental model on top of standards — ESM modules and [Import Maps](https://html.spec.whatwg.org/multipage/webappapis.html#import-maps) — with no bundler-specific runtime.
 
-**Design reasoning**: Microfrontends solve organizational problems, not technical ones. They're worth the complexity when independent team deployment and release cycles are the primary constraint—typically organizations with 200+ engineers.
+**Design reasoning**: Microfrontends solve organizational problems, not technical ones. They're worth the complexity when independent team deployment and release cycles are the primary constraint — typically large engineering orgs where coordinating a single shared deployment becomes the bottleneck. Smaller teams almost always pay more in coordination overhead than they save in deployment independence.
 
 ```javascript title="Shell application with Module Federation" collapse={1-3}
 // webpack.config.js or vite.config.ts
@@ -712,7 +833,7 @@ export default function transformer(file: FileInfo, api: API, options: Options) 
 
 Package codemods alongside each major version release:
 
-```
+```text
 @company/design-system/
 ├── dist/           # Compiled components
 ├── codemods/
@@ -1044,6 +1165,37 @@ Design token versioning allows visual refresh without breaking changes—semanti
 
 Semantic versioning for all changes communicates the impact of updates—major versions signal breaking changes, minor versions indicate new features, patch versions contain bug fixes. Deprecation warnings and timelines (typically 6-12 months) provide adequate migration runway. Automated migration tools (codemods) reduce the cost of adopting new versions. Comprehensive testing across versions ensures changes don't break existing integrations.
 
+**Deprecation Policy with an Explicit Timeline**
+
+A deprecation policy that lives only in a docs page is a deprecation policy people ignore. The policy that scales has lifecycle stages, runtime warnings, codemods, and a calendar.
+
+![Component lifecycle stages from Stable through Deprecated and Sunset to Removed, with concrete signals at each stage.](./diagrams/deprecation-timeline-light.svg "Component deprecation timeline: stable, deprecated with codemod, sunset window with usage tracking, removed in next major.")
+![Component lifecycle stages from Stable through Deprecated and Sunset to Removed, with concrete signals at each stage.](./diagrams/deprecation-timeline-dark.svg)
+
+The shapes in the wild converge on three stages with explicit signals — see [Shopify Polaris's deprecation guidelines](https://github.com/Shopify/polaris-react/blob/main/documentation/Deprecation%20guidelines.md), [GitHub Primer's component status](https://primer.style/product/getting-started/component-status/), and the [USWDS component lifecycle](https://designsystem.digital.gov/components/lifecycle/). Synthesized:
+
+| Stage          | Code signal                                   | Docs signal                                  | Tooling signal                                      |
+| -------------- | --------------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
+| **Stable**     | None                                          | "Recommended" or unmarked                    | Listed in main components nav                       |
+| **Deprecated** | `@deprecated` JSDoc + dev-only `console.warn` | "Avoid" badge with a one-line replacement    | Codemod published the same release as the deprecation |
+| **Sunset**     | Same as deprecated; usage analytics watch     | Linked from a dedicated "Deprecated" page    | Outreach to teams with > 5% usage of the deprecated component |
+| **Removed**    | Source deleted                                | Moved to a "Removed in vX" archive           | Codemod still installable for late upgraders; Figma component renamed `[removed]` |
+
+Two non-negotiables: (1) ship the codemod *with* the deprecation, not later, or teams will defer the migration indefinitely; (2) make the sunset window concrete in versions, not vague "we'll get to it" prose. Polaris uses "deprecate now, remove in the next major"; USWDS uses an explicit five-stage lifecycle. Either works — the wrong policy is the one that lets a "deprecated" component live for three years.
+
+#### Component Discovery and Catalog Services
+
+At enterprise scale the design system isn't just an npm package — it's also a *finding* problem. Component discovery typically grows out of three sources of truth that must agree:
+
+1. **Storybook** is the live, interactive surface. Treat it as the canonical "what does it look like and how do I use it" tool.
+2. **The documentation site** (often Storybook Autodocs or a custom Next.js/Astro site that consumes the package) handles long-form guidance, design rationale, and accessibility notes.
+3. **The internal developer portal** — typically [Backstage](https://backstage.io/) — is where a developer who *doesn't yet know the design system exists* finds it. The realistic Backstage pattern is to register the design system as a `Component` of kind `library`, link to its Storybook in the entity page, and surface its TechDocs alongside the system's owning team.
+
+The integration pattern that works: keep Storybook as the source of truth, expose its URL on the Backstage entity, and use Backstage's catalog graph to show which apps actually consume the design system (mirroring data from the repository scanner described above). This lets a platform team answer "who depends on us at v3?" without asking each consuming team.
+
+> [!NOTE]
+> Backstage is *not* a design system documentation tool — it's a service catalog that links *to* one. Resist building a custom Backstage plugin to render components; it duplicates Storybook with worse fidelity. The accepted pattern is "embed Storybook, link to TechDocs, surface ownership and version."
+
 **Measuring Future-Readiness**
 
 **Technology Relevance** tracks framework usage across the organization; a design system tied to a framework nobody uses is obsolete. **Design Currency** assesses alignment with current design trends and accessibility standards. **Migration Success** measures the success rate of automated migrations; low rates indicate tooling gaps. **User Impact** evaluates how changes affect the end-user experience, ensuring evolution serves users rather than just developers.
@@ -1051,6 +1203,23 @@ Semantic versioning for all changes communicates the impact of updates—major v
 **Future-Proofing Timeline**
 
 Monitor technology trends continuously through industry news, conference talks, and community discussions. Plan for major changes 6-12 months in advance to allow adequate preparation. Communicate changes 3 months before implementation so teams can plan their migration work.
+
+## Failure Modes
+
+The patterns above describe what works. The patterns below describe what consistently destroys design systems even when individual decisions look correct in isolation.
+
+| Failure mode                       | What it looks like                                                                  | Why it happens                                                                 | How to detect early                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **The "frozen" system**            | Last release was eight months ago; consumers stop reporting bugs                    | No funded team; deprecation policy never invoked; codemod backlog grew unbounded | Track release cadence and codemod-shipped-with-deprecation rate as KPIs             |
+| **Detachment cascade**             | Override rate climbs above ~25% across the org; teams treat the system as a starter kit | API gaps the team didn't surface, or a tier-3 (component) token explosion that doesn't match consumer needs | Monitor override-rate-by-component in the analytics pipeline; investigate when a single component crosses 30% |
+| **Version cliff**                  | A major version sits below 50% adoption six months after release; bugs get filed against it indefinitely | Migration was manual; codemod shipped late or didn't cover real cases          | Per-version adoption dashboard; if v(N) < 50% by codemod release + 60 days, postmortem the codemod |
+| **CI as theater**                  | All gates green, prod ships visual regressions and a11y bugs anyway                  | Visual gate is on a stale baseline; a11y gate runs on default story state only; bundle budget set above current actual size | Periodically diff CI results against production telemetry (RUM, customer reports)   |
+| **The 80% override component**     | One team wraps the design-system Button in a styled wrapper everywhere               | Either an API gap or an org-mismatch (e.g., a brand-specific surface)         | Override hotspots dashboard; treat any single component-team pair > 50% override as a roadmap signal |
+| **Token-tier sprawl**              | The semantic layer balloons to 2,000+ tokens because every component variant got its own | Premature jump to component-tier tokens before multi-brand justified it       | Cap semantic tokens; require a written justification for each component-tier token   |
+| **Microfrontend version deadlock** | A design system upgrade blocks for months because one microfrontend won't bump      | Singleton dependency in Module Federation with no escape hatch; no compatibility-window policy | Enforce a "must be within N minor versions" policy; allow controlled duplication for high-risk MFEs |
+| **Documentation rot**              | Docs show APIs that no longer exist; examples don't compile                          | Documentation isn't built from the same source as the components                | Make the docs site a *consumer* of the published package, not a separate source     |
+
+The common thread: every one of these failures is *measurable*, but only if the analytics pipeline is in place from day one. The teams that survive are the ones that instrumented adoption, override rate, version distribution, and CI fidelity *before* they had a problem.
 
 ## Conclusion
 
@@ -1084,15 +1253,22 @@ Design system implementation succeeds when architecture anticipates change, dist
 | **Module Federation**     | Webpack/Vite feature enabling runtime sharing of JavaScript modules across separately deployed applications   |
 | **Changesets**            | Versioning tool for monorepos that tracks changes at PR time and automates version bumps and changelogs       |
 | **Detachment Rate**       | Percentage of component instances where teams override or disconnect from the design system version           |
+| **Subpath exports**       | `package.json` `exports` map that splits a single package into per-entry-point public APIs (`import 'pkg/button'`) |
+| **TurboSnap**             | Chromatic feature that walks the Storybook dependency graph and only snapshots stories whose source changed   |
+| **Remote cache**          | Shared task-graph cache (Nx Cloud, Turborepo Remote Cache, Bazel BES) that lets unaffected packages restore cached results |
+| **Backstage**             | Open-source internal developer portal used as a component-and-service catalog with TechDocs and ownership data |
 
 ### Summary
 
-- **Architecture**: Hybrid approach (platform-agnostic tokens + framework wrappers) survives technology shifts; RSC compatibility and headless primitives are table stakes for 2025+
-- **Token pipeline**: DTCG v2025.10 is the stable standard; Style Dictionary v4 provides first-class support with transitive transforms
-- **Component implementation**: Build on Radix/React Aria for accessibility; support both RSC-safe and interactive variants; export compound patterns with convenient presets
-- **Distribution**: Changesets for semantic versioning; ESM + CJS dual output; `preserveModules` for tree-shaking; shared CDN for cross-app caching
-- **Migration**: Strangler Fig for gradual adoption; codemods automate breaking changes; version compatibility windows create upgrade pressure
-- **Technical enablement**: Repository scanning reveals adoption patterns; usage analytics (component, prop, override frequency) drive prioritization; codemods reduce upgrade friction to near-zero
+- **Architecture**: Hybrid (platform-agnostic tokens + framework wrappers) survives technology shifts; RSC compatibility and headless primitives are table stakes for 2025+
+- **Token pipeline**: DTCG v2025.10 is the stable interchange format; Style Dictionary v4 is the multi-platform default, Terrazzo is the DTCG-native web alternative
+- **Monorepo**: Turborepo for small/frontend-only, Nx for larger JS/TS with affected-graph CI, Bazel/Pants only when polyglot scale already justifies it; remote caching is the actual win
+- **Package topology**: Single package + subpath exports is the pragmatic default; per-component packages only when contribution and release cadence diverge
+- **Component implementation**: Build on Radix / React Aria for accessibility; export compound patterns with convenient presets
+- **Distribution**: Changesets for semantic versioning, ESM + CJS dual output, `preserveModules` for tree-shaking, shared CDN for cross-app asset hosting
+- **CI gates**: Visual regression (Chromatic + TurboSnap or Playwright), accessibility (axe in Storybook + Pa11y CI on deployed Storybook), per-component bundle budgets (size-limit / bundlewatch), all running in parallel
+- **Lifecycle**: Deprecation requires the codemod to ship *with* the deprecation, an explicit sunset window in versions, and removal in the next major
+- **Operations**: Repository scanning + usage analytics (component, prop, override frequency) drive prioritization; component catalog lives in Backstage as a link to Storybook, not a duplicate
 
 ### References
 
@@ -1105,11 +1281,17 @@ Design system implementation succeeds when architecture anticipates change, dist
 **Tools and Libraries**
 
 - [Radix UI Primitives](https://www.radix-ui.com/) - Unstyled, accessible component primitives
-- [React Aria](https://react-spectrum.adobe.com/react-aria/) - Adobe's accessibility hooks library (40+ components)
-- [Storybook 8](https://storybook.js.org/) - Component development environment with visual testing
-- [Chromatic](https://www.chromatic.com/) - Visual regression testing with Git-based baselines
-- [jscodeshift](https://github.com/facebook/jscodeshift) - Facebook's codemod toolkit
+- [React Aria](https://react-spectrum.adobe.com/react-aria/) - Adobe's accessibility hooks and components
+- [Storybook 8](https://storybook.js.org/) - Component development environment with visual + a11y testing
+- [Chromatic](https://www.chromatic.com/) and [TurboSnap](https://www.chromatic.com/docs/turbosnap/) - Visual regression with dependency-graph snapshotting
+- [Playwright `toHaveScreenshot`](https://playwright.dev/docs/test-snapshots) - Self-hosted visual regression
+- [Terrazzo](https://terrazzo.app/) - DTCG-native token build tool (formerly Cobalt UI)
+- [jscodeshift](https://github.com/facebook/jscodeshift) - Codemod toolkit
 - [Changesets](https://github.com/changesets/changesets) - Monorepo versioning and changelog automation
+- [size-limit](https://github.com/ai/size-limit) and [bundlewatch](https://bundlewatch.io/) - Per-component bundle-size budgets in CI
+- [axe-core](https://github.com/dequelabs/axe-core), [Pa11y CI](https://github.com/pa11y/pa11y-ci), [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) - Accessibility automation layers
+- [Turborepo](https://turborepo.com/) and [Nx](https://nx.dev/) - JS/TS monorepo orchestration with remote caching
+- [Backstage](https://backstage.io/) - Internal developer portal for component discovery and ownership
 
 **Core Maintainer Content**
 
@@ -1120,6 +1302,12 @@ Design system implementation succeeds when architecture anticipates change, dist
 
 - [AWS Strangler Fig Pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/strangler-fig.html) - Implementation guidance
 - [Azure Strangler Fig Pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/strangler-fig) - Microsoft's architectural perspective
+
+**Lifecycle and Deprecation**
+
+- [Shopify Polaris deprecation guidelines](https://github.com/Shopify/polaris-react/blob/main/documentation/Deprecation%20guidelines.md) - In-code warnings + automated migrations + remove-in-major
+- [GitHub Primer component status](https://primer.style/product/getting-started/component-status/) - Experimental / Ready / Deprecated lifecycle
+- [USWDS component lifecycle](https://designsystem.digital.gov/components/lifecycle/) - Five-stage proposal-to-retired lifecycle
 
 **Enterprise Examples**
 

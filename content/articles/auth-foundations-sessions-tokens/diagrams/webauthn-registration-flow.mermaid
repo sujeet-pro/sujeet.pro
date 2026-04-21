@@ -1,0 +1,29 @@
+%% Diagram: WebAuthn registration and assertion (origin-bound passkey)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant B as Browser
+    participant A as Authenticator<br/>(Touch ID, YubiKey, ...)
+    participant RP as Relying Party<br/>(your server)
+
+    Note over U,RP: Registration (one-time per credential)
+    U->>RP: Begin signup
+    RP-->>B: PublicKeyCredentialCreationOptions<br/>{rpId, challenge, user, pubKeyCredParams}
+    B->>A: navigator.credentials.create()<br/>(rpId, challenge, origin)
+    A->>U: User verification (PIN / biometric)
+    U-->>A: Approve
+    A-->>B: AttestationResponse<br/>(public key, credentialId, signed challenge)
+    B-->>RP: Forward attestation
+    RP->>RP: Verify attestation, store {credentialId, public key}
+
+    Note over U,RP: Authentication (every login)
+    RP-->>B: PublicKeyCredentialRequestOptions<br/>{rpId, challenge, allowCredentials}
+    B->>A: navigator.credentials.get()<br/>(rpId, challenge, origin)
+    A->>A: Refuses if origin / rpId mismatch<br/>→ phishing-resistant
+    A->>U: User verification
+    U-->>A: Approve
+    A-->>B: AssertionResponse<br/>(signature over clientDataJSON + authenticatorData)
+    B-->>RP: Forward assertion
+    RP->>RP: Verify signature with stored public key
+    RP-->>B: Set session cookie / issue tokens

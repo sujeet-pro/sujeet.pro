@@ -1,0 +1,19 @@
+%% Diagram: Error handling decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START(["New code path<br/>that can fail"]) --> Q1{"Boundary with<br/>throwing API?<br/>(parse, fetch, library)"}
+
+    Q1 -->|Yes| BND["try / catch at the seam<br/>convert immediately to Result"]
+    Q1 -->|No| Q2{"Multiple fallible steps<br/>chained together?"}
+
+    Q2 -->|Yes| Q3{"Type safety + lint<br/>enforcement worth a dep?"}
+    Q2 -->|No| Q4{"Single call, no<br/>downstream chaining?"}
+
+    Q3 -->|Yes| RES["Result&lt;T, E&gt; (neverthrow)<br/>+ eslint-plugin-neverthrow"]
+    Q3 -->|No| TUPLE["[data, error] helper<br/>(scripts, prototypes)"]
+
+    Q4 -->|Yes| THROW["Let it throw to a<br/>top-level safety net"]
+    Q4 -->|No| RES
+
+    BND --> RES

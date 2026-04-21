@@ -1,14 +1,23 @@
-%% Diagram: Diagram 1
+%% Diagram: CDC approach decision tree
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    A[Need CDC] --> B{Log access available?}
-    B -->|Yes| C[Log-based CDC]
-    B -->|No| D{Can add triggers?}
-    D -->|Yes| E[Trigger-based CDC]
-    D -->|No| F{Hard deletes used?}
-    F -->|No| G[Polling-based CDC]
-    F -->|Yes| H[Requires application changes]
-    C --> I{Self-managed?}
-    I -->|Yes| J[Debezium]
-    I -->|No| K[AWS DMS / Fivetran]
+    Start([Need to propagate DB changes]) --> Q1{"DBA can grant<br/>logical replication slot /<br/>binlog reader?"}
+    Q1 -->|Yes| LB[Log-based CDC<br/>Debezium / DMS / native]
+    Q1 -->|No| Q2{"Can install<br/>AFTER triggers?"}
+    Q2 -->|Yes| TR[Trigger-based CDC<br/>shadow table + relay]
+    Q2 -->|No| Q3{"Hard deletes<br/>used on source?"}
+    Q3 -->|No| PL[Polling-based CDC<br/>SELECT WHERE updated_at &gt; hwm]
+    Q3 -->|Yes| AP[Application-level events<br/>or transactional outbox + log-based CDC]
+
+    LB --> Q4{"Self-managed Kafka?"}
+    Q4 -->|Yes| DZ[Debezium on Kafka Connect]
+    Q4 -->|No, AWS-native sinks| DMS[AWS DMS]
+    Q4 -->|No, SaaS, low ops| FT[Fivetran]
+
+    classDef preferred fill:#f4fcf4,stroke:#2f9e44,color:#1f5f2c
+    classDef caution fill:#fff8e6,stroke:#e67700,color:#704700
+    classDef bad fill:#fff5f5,stroke:#c92a2a,color:#7a1f1f
+    class LB,DZ,DMS,FT preferred
+    class TR,PL caution
+    class AP bad

@@ -1,0 +1,22 @@
+%% Diagram: Distributed lock overview — coordination + failure surface
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Coordination["Coordination"]
+        direction LR
+        C1[Client 1] -->|"Acquire"| L((Lock Service))
+        C2[Client 2] -->|"Acquire"| L
+        L -->|"Granted"| C1
+        L -->|"Denied / Wait"| C2
+        C1 -->|"Mutate under lock"| R[(Shared Resource)]
+    end
+
+    subgraph Failures["Failure modes that break naive locks"]
+        direction TB
+        F1["Network partition: client thinks it has the lock, server disagrees"]
+        F2["Clock drift: lease expires too early or too late"]
+        F3["Process pause: GC or page fault outlives the lease"]
+        F4["Split-brain: two clients believe they hold the same lock"]
+    end
+
+    R -.->|"Corrupted by"| F4

@@ -1,0 +1,18 @@
+%% Diagram: CSRF Attack Flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant User as User Browser
+    participant Attacker as attacker.com
+    participant Target as bank.com
+
+    User->>Target: Login (establishes session cookie)
+    Target-->>User: Set-Cookie session=abc123 SameSite=Lax
+
+    User->>Attacker: Visit malicious page
+    Attacker-->>User: HTML with hidden auto-submit form
+
+    Note over User: Top-level POST may attach<br/>session cookie under Lax-allowing-unsafe<br/>(cookie age <= 2 minutes)
+
+    User->>Target: POST /transfer (to=attacker, amount=10000)
+    Target-->>User: 200 OK (cookie validated, transfer recorded)

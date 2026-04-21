@@ -1,0 +1,39 @@
+%% Diagram: Payment lifecycle sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant API as Payment API
+    participant F as Fraud Engine
+    participant P as Processor
+    participant N as Card Network
+    participant I as Issuer
+    participant L as Ledger
+
+    C->>API: POST /payments (Idempotency-Key)
+    API->>API: Idempotency check + lock
+    API->>F: Score transaction
+    F-->>API: allow (risk 25)
+    API->>P: Create PaymentIntent
+    P->>N: Authorization request
+    N->>I: Verify funds + risk
+    I-->>N: Approved
+    N-->>P: Auth ok (auth code)
+    P-->>API: Authorized
+    API->>L: Record auth (DR AR / CR hold)
+    API-->>C: 201 authorized
+
+    Note over C,L: Later — capture (within network window)
+
+    C->>API: POST /payments/{id}/capture
+    API->>P: Capture
+    P->>N: Capture
+    N-->>P: Captured
+    P-->>API: Captured
+    API->>L: Record capture (DR hold / CR revenue)
+    API-->>C: 200 captured
+
+    Note over C,L: T+1 to T+3 — settlement
+
+    P-->>API: payout.paid webhook
+    API->>L: Settlement entry (cash, fees, AR)

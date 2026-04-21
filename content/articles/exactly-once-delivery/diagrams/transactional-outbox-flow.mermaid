@@ -1,0 +1,32 @@
+%% Diagram: Transactional outbox with polling and CDC relays
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    App["Application\n(business logic)"]
+
+    subgraph DB["Database (single ACID transaction)"]
+        direction TB
+        Orders[("orders")]
+        Outbox[("outbox\nevents")]
+    end
+
+    App -->|"BEGIN\nINSERT order\nINSERT outbox\nCOMMIT"| DB
+
+    subgraph Relay["Relay (at-least-once publisher)"]
+        direction TB
+        Poll["Polling publisher\n(SELECT WHERE published_at IS NULL)"]
+        CDC["CDC reader\n(Debezium / logical decoding)"]
+    end
+
+    Outbox -->|"polled"| Poll
+    Outbox -->|"WAL stream"| CDC
+
+    Poll --> Broker["Message broker\n(Kafka, RabbitMQ, ...)"]
+    CDC --> Broker
+
+    Broker --> Consumer["Idempotent consumer\n(skip duplicates by event_id)"]
+
+    classDef txNode fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef relayNode fill:#1F6FB2,stroke:#11507F,color:#ffffff
+    class Orders,Outbox txNode
+    class Poll,CDC relayNode

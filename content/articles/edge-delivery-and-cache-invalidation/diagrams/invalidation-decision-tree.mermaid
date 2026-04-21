@@ -1,0 +1,16 @@
+%% Diagram: Decision tree for picking an invalidation strategy by content type
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Start([Need to invalidate])
+    Start --> Q1{URL derived<br/>from content?}
+    Q1 -->|Yes| Versioned[Versioned URL<br/>1y immutable]
+    Q1 -->|No| Q2{Many entries<br/>per source?}
+
+    Q2 -->|No| Q3{Tolerate<br/>brief stale?}
+    Q3 -->|Yes| SWR[max-age + SWR]
+    Q3 -->|No| PathPurge[Path purge<br/>+ verify]
+
+    Q2 -->|Yes| Q4{Surrogate<br/>keys supported?}
+    Q4 -->|Yes| TagPurge[Tag-based purge]
+    Q4 -->|No| TagWorkaround[App tag→URL index<br/>then path purge]

@@ -1,0 +1,29 @@
+%% Diagram: Thundering Herd Against a Flapping Service
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Clients (N)
+    participant LB as Load Balancer
+    participant S as Service (capacity = K, K << N)
+
+    Note over S: t = 0\nservice crashes
+    C->>LB: requests
+    LB-->>C: connection refused / 5xx
+    Note over C: every client schedules\na retry at the SAME delay
+
+    Note over S: t = T1\nservice restarts
+    C->>LB: synchronised retry wave (N requests)
+    LB->>S: forward N >> K
+    Note over S: queue overflows,\nthreads exhaust, OOM
+    S--xLB: crash
+    LB-->>C: 5xx / timeout
+
+    Note over C: clients double the delay\n(still in lock-step)
+    C->>LB: another synchronised wave
+    LB->>S: same overload
+    S--xLB: crash again
+
+    Note over C, S: WITHOUT mitigations the loop runs forever.
+    Note over C: WITH jitter: each client waits\nUniform(0, delay) - smooth arrivals.
+    Note over C: WITH retry budget: client caps\nretries / requests <= 10 percent.
+    Note over LB: WITH circuit breaker: LB stops\nforwarding while service is down.

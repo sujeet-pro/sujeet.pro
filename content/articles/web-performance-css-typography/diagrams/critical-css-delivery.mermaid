@@ -1,0 +1,23 @@
+%% Diagram: Critical CSS delivery — first packet vs deferred sheet
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    REQ["HTML request<br/>RTT 1"] --> RESP["HTML response<br/>≤14KB initcwnd"]
+
+    RESP --> INL["Inline critical CSS<br/>in style tag"]
+    RESP --> PRE["Preload non-critical<br/>media print swap"]
+
+    INL --> CSSOM1["Build initial CSSOM<br/>no extra round-trip"]
+    CSSOM1 --> FCP["First paint<br/>FCP fires"]
+
+    PRE --> NCRIT["Non-critical CSS<br/>fetched in parallel"]
+    NCRIT --> SWAP["onload swap to<br/>media all"]
+    SWAP --> CSSOM2["Append to CSSOM"]
+    CSSOM2 --> RECALC["Style recalc<br/>full styles applied"]
+
+    FCP --> LCP["LCP element painted"]
+
+    classDef ok fill:#d1fae5,stroke:#059669,color:#064e3b
+    classDef warn fill:#fef3c7,stroke:#d97706,color:#7c2d12
+    class INL,FCP,LCP ok
+    class PRE,NCRIT,SWAP warn

@@ -1,0 +1,21 @@
+%% Diagram: Topological sort - Kahn's algorithm trace on a small DAG
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    A["compile-utils\nin-deg 0\nemit step 1"]:::s1
+    B["compile-core\nin-deg 1\nemit step 2"]:::s2
+    D["run-tests\nin-deg 1\nemit step 3"]:::s3
+    C["compile-app\nin-deg 2\nemit step 4"]:::s4
+    E["package\nin-deg 1 (later 0)\nemit step 5"]:::s5
+
+    A --> B
+    A --> D
+    B --> C
+    C --> E
+    D --> E
+
+    classDef s1 fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef s2 fill:#1F6E68,stroke:#155752,color:#fff
+    classDef s3 fill:#1F6E68,stroke:#155752,color:#fff
+    classDef s4 fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef s5 fill:#5A5A5A,stroke:#3D3D3D,color:#fff

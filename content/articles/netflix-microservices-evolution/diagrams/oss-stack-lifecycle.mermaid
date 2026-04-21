@@ -1,0 +1,37 @@
+%% Diagram: Lifecycle of the early Netflix OSS stack — built, retired, and what replaced it
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Built["2011–2015 — built (Java fat clients)"]
+        direction TB
+        E1["Eureka 1.x (2012)"]
+        R1["Ribbon (2013)"]
+        H1["Hystrix (2012)"]
+        A1["Archaius (2012)"]
+        Z1["Zuul 1 (2013)"]
+    end
+
+    subgraph Maint["2018–2020 — placed in maintenance"]
+        direction TB
+        E2["Eureka 2.0 cancelled;\n1.x in maintenance"]
+        R2["Ribbon in maintenance"]
+        H2["Hystrix in maintenance"]
+        A2["Archaius 1.x in maintenance"]
+        Z2["Zuul 2 (Netty, async)\nstill maintained"]
+    end
+
+    subgraph Replace["What Netflix and the community moved to"]
+        direction TB
+        E3["Envoy sidecar mesh\n+ on-demand cluster discovery"]
+        R3["gRPC name resolution\n+ Spring Cloud LoadBalancer"]
+        H3a["resilience4j\n(community)"]
+        H3b["Netflix concurrency-limits\n(adaptive, Vegas/Gradient2)"]
+        A3["Spring Cloud Config\n/ in-process config"]
+        Z3["Spinnaker pipelines\n+ Envoy front proxy"]
+    end
+
+    E1 --> E2 --> E3
+    R1 --> R2 --> R3
+    H1 --> H2 --> H3a
+    H2 --> H3b
+    A1 --> A2 --> A3
+    Z1 --> Z2 --> Z3

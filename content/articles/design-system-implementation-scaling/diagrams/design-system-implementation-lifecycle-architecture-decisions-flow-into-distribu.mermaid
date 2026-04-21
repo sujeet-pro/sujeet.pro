@@ -1,21 +1,32 @@
-%% Diagram: Design System Implementation Lifecycle Architecture Decisions Flow Into Distribu
+%% Diagram: Implementation lifecycle — decisions in each layer constrain what is possible in the next
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Architecture["Architecture Decisions"]
-        ARCH[Framework Strategy] --> TOKENS[Token Pipeline]
-        TOKENS --> COMPONENTS[Component Library]
+    subgraph Architecture["Architecture (decided once, expensive to revisit)"]
+        ARCH[Framework strategy]
+        TOKENS[Token pipeline]
+        COMP[Component primitives]
+        ARCH --> TOKENS --> COMP
     end
 
-    subgraph Distribution["Distribution & Migration"]
-        COMPONENTS --> BUNDLE[Bundling & Publishing]
-        BUNDLE --> MIGRATE[Migration Strategy]
+    subgraph Distribution["Distribution (continuously tuned)"]
+        BUNDLE[Bundling + exports]
+        REGISTRY[Registry + versioning]
+        ASSETS[Shared CDN assets]
+        BUNDLE --> REGISTRY
+        REGISTRY --> ASSETS
     end
 
-    subgraph Operations["Operational Excellence"]
-        MIGRATE --> ADOPTION[Adoption Enablement]
-        ADOPTION --> METRICS[Measurement & Feedback]
-        METRICS --> CODEMODS[Technical Enablement]
+    subgraph Operations["Operations (run as a product)"]
+        CI[CI gates: visual / a11y / perf]
+        ANALYTICS[Usage analytics]
+        DEPRECATION[Deprecation policy]
+        CODEMODS[Codemods]
+        CI --> ANALYTICS
+        ANALYTICS --> DEPRECATION
+        DEPRECATION --> CODEMODS
     end
 
-    CODEMODS -.->|"Continuous improvement"| Architecture
+    COMP --> BUNDLE
+    ASSETS --> CI
+    CODEMODS -.->|"signals next architecture iteration"| ARCH

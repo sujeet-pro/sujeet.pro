@@ -1,0 +1,17 @@
+%% Diagram: Dashboard layering — top-down from SLO down to logs, mirroring the on-call drill-down path
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    L1["Layer 1 — SLO + error budget\nIs the user-facing service meeting its SLO?\nMulti-window burn-rate panels."]
+    L2["Layer 2 — Four Golden Signals\nLatency p50/p95/p99 (success vs error split)\nTraffic, Errors, Saturation."]
+    L3["Layer 3 — RED per service\nRate, Errors, Duration histograms\none row per service or handler."]
+    L4["Layer 4 — USE per resource\nCPU, memory, disk, NIC, queue depth\nutilization, saturation, errors."]
+    L5["Layer 5 — Exemplars + traces\nclick a histogram bucket → trace\nHoneycomb-style heatmap +\nBubbleUp on high-cardinality fields."]
+    L6["Layer 6 — Structured logs\nfilter by trace_id, span_id\nfree-text or columnar query."]
+
+    L1 -- "burn rate ↑ → drill down" --> L2
+    L2 -- "anomalous signal → which service?" --> L3
+    L3 -- "RED dropped → resource bottleneck?" --> L4
+    L3 -- "outlier latency bucket?" --> L5
+    L5 -- "specific trace → log stream" --> L6
+    L4 -- "saturated host → trace from there" --> L5

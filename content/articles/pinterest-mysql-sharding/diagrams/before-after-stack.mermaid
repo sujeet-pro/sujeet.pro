@@ -1,0 +1,22 @@
+%% Diagram: Pinterest storage stack before vs. after the 2012 MySQL sharding migration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph BEFORE["Sept 2011 - 'Age of Experimentation'"]
+        direction TB
+        B1["MySQL<br/>5 sharded DBs + 9 read slaves<br/>(stable)"]
+        B2["Cassandra<br/>4 nodes<br/>(data corruption, 4 outages)"]
+        B3["Membase<br/>15 nodes / 3 clusters<br/>(unstable cluster mgmt)"]
+        B4["MongoDB<br/>3 clusters<br/>(operational complexity)"]
+        B5["Redis<br/>10 instances<br/>(stable)"]
+        B6["Memcache<br/>8 instances<br/>(stable)"]
+    end
+
+    subgraph AFTER["Jan 2012 - sharded MySQL"]
+        direction TB
+        A1["Sharded MySQL<br/>66 m1.xlarge masters<br/>+ 66 master-master peers"]
+        A2["Redis<br/>59 instances"]
+        A3["Memcache<br/>51 instances"]
+    end
+
+    BEFORE -->|"5 NoSQL systems removed<br/>3 -> 6 engineers, 4-5 month feature freeze"| AFTER

@@ -1,0 +1,11 @@
+%% Diagram: Queue-based per-resource serialization replaces locks
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    C1[Client 1] -->|"Op for R1"| Q1["Queue: R1"]
+    C2[Client 2] -->|"Op for R1"| Q1
+    C3[Client 3] -->|"Op for R2"| Q2["Queue: R2"]
+    Q1 --> W1[Worker 1]
+    Q2 --> W2[Worker 2]
+    W1 -->|"Sequential"| R1[(Resource 1)]
+    W2 -->|"Sequential"| R2[(Resource 2)]

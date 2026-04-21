@@ -1,0 +1,16 @@
+%% Diagram: Photo storage tiers — Haystack-style hot, f4-style warm, cold archive
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    UP["Client Upload"]
+    IP["Image Processor"]
+    HOT[("Hot tier\nHaystack-style append-only volumes\n3x replication\nBytes-in-RAM index")]
+    WARM[("Warm tier\nf4-style erasure-coded cells\nReed-Solomon (10,4)\nEffective replication ~2.1x")]
+    COLD[("Cold tier\nDeep archive\nXOR geo-replication\n>1 year, rare access")]
+    CDN["CDN edge\nServes 95%+ of reads"]
+
+    UP --> IP --> HOT
+    HOT -- "age > 7 days,\nlow access rate" --> WARM
+    WARM -- "age > 1 year,\nrare access" --> COLD
+    HOT --> CDN
+    WARM -. "cold tail re-fetch" .-> CDN

@@ -1,0 +1,30 @@
+%% Diagram: libuv event loop phases with microtask drain
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph Iter["One loop iteration"]
+    direction LR
+    timers["1. timers\nsetTimeout / setInterval"]
+    pending["2. pending callbacks\ndeferred I/O"]
+    idle["3. idle / prepare\nlibuv internal"]
+    poll["4. poll\nretrieve + run I/O"]
+    check["5. check\nsetImmediate"]
+    close["6. close callbacks\nsocket close, etc."]
+  end
+
+  drain["Between every phase:\n1. drain process.nextTick (recursively)\n2. drain Promise microtasks (recursively)"]
+
+  timers --> pending --> idle --> poll --> check --> close
+  close -.-> timers
+
+  timers -.-> drain
+  pending -.-> drain
+  idle -.-> drain
+  poll -.-> drain
+  check -.-> drain
+  close -.-> drain
+
+  classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef drainNode fill:#B43A3A,stroke:#8E2828,color:#ffffff
+  class timers,pending,idle,poll,check,close phase
+  class drain drainNode

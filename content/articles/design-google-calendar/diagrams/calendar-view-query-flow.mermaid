@@ -1,0 +1,28 @@
+%% Diagram: Calendar-view query flow with materialized window + dynamic expansion
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as API gateway
+    participant ES as Event service
+    participant RS as Recurrence service
+    participant DB as Postgres
+    participant Cache as Redis (view cache)
+
+    C->>API: GET /events?timeMin&timeMax&singleEvents=true
+    API->>ES: queryRange(start, end)
+    ES->>Cache: GET view:{calendar}:{range}
+    alt cache hit
+        Cache-->>ES: serialized instances
+    else cache miss
+        ES->>DB: SELECT singles in range
+        ES->>DB: SELECT event_instances in range
+        opt range extends past materialized window
+            ES->>RS: expand RRULE for masters in range
+            RS-->>ES: synthetic instances
+        end
+        ES->>ES: merge + apply exceptions
+        ES->>Cache: SETEX 5 min
+    end
+    ES-->>C: events + nextSyncToken

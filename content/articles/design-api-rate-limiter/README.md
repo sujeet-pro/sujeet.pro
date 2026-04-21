@@ -8,7 +8,7 @@ description: >-
   atomic counting, multi-tenant hierarchical quotas, and fail-open resilience.
   Covers sub-millisecond decision latency at 500K+ checks per second.
 publishedDate: 2026-02-09T00:00:00.000Z
-lastUpdatedOn: 2026-02-09T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
@@ -18,8 +18,8 @@ tags:
 
 A comprehensive system design for a distributed API rate limiting service covering algorithm selection, Redis-backed counting, multi-tenant quota management, rate limit header communication, and graceful degradation under failure. This design addresses sub-millisecond rate check latency at 500K+ decisions per second with configurable per-tenant policies and fail-open resilience.
 
-![High-level architecture: API Gateway consults the Rate Limit Service before forwarding requests. The decision engine checks counters in Redis, applies rules from configuration, and returns allow/deny with remaining quota. Backend services are shielded from overload.](./diagrams/high-level-architecture-api-gateway-consults-the-rate-limit-service-before-forwa-light.svg "High-level architecture: API Gateway consults the Rate Limit Service before forwarding requests. The decision engine checks counters in Redis, applies rules from configuration, and returns allow/deny with remaining quota. Backend services are shielded from overload.")
-![High-level architecture: API Gateway consults the Rate Limit Service before forwarding requests. The decision engine checks counters in Redis, applies rules from configuration, and returns allow/deny with remaining quota. Backend services are shielded from overload.](./diagrams/high-level-architecture-api-gateway-consults-the-rate-limit-service-before-forwa-dark.svg)
+![High-level architecture: the API gateway consults the rate-limit decision engine before forwarding to backend services; the engine reads counters from Redis and rules from a config store, while a quota manager handles tenant overrides and Prometheus collects metrics for the dashboard.](./diagrams/high-level-architecture-light.svg "High-level architecture: the API gateway consults the rate-limit decision engine before forwarding to backend services; the engine reads counters from Redis and rules from a config store, while a quota manager handles tenant overrides and Prometheus collects metrics for the dashboard.")
+![High-level architecture: the API gateway consults the rate-limit decision engine before forwarding to backend services; the engine reads counters from Redis and rules from a config store, while a quota manager handles tenant overrides and Prometheus collects metrics for the dashboard.](./diagrams/high-level-architecture-dark.svg)
 
 ## Abstract
 
@@ -29,7 +29,7 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 | Decision             | Choice                                                               | Rationale                                                                            |
 | -------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Algorithm            | Sliding window counter                                               | Best accuracy-to-memory ratio; Cloudflare measured 0.003% error across 400M requests |
+| Algorithm            | Sliding window counter                                               | Best accuracy-to-memory ratio; Cloudflare measured 0.003% wrong-decision rate across 400M requests from 270K sources |
 | Counting store       | Redis Cluster with Lua scripts                                       | Atomic operations, sub-ms latency, horizontal scaling via hash slots                 |
 | Rule storage         | YAML config with hot reload                                          | Declarative, version-controlled, no database dependency for rule evaluation          |
 | Multi-tenancy        | Hierarchical quotas (global → tenant → endpoint)                     | Prevents noisy neighbors while allowing per-tier customization                       |
@@ -121,8 +121,8 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Path A — local sidecar rate limiting: client traffic flows client → Envoy sidecar (with in-process token buckets) → application service, with no external counter store on the data path.](./diagrams/path-a-local-sidecar-light.svg "Path A — local sidecar rate limiting: client traffic flows client → Envoy sidecar (with in-process token buckets) → application service, with no external counter store on the data path.")
+![Path A — local sidecar rate limiting: client traffic flows client → Envoy sidecar (with in-process token buckets) → application service, with no external counter store on the data path.](./diagrams/path-a-local-sidecar-dark.svg)
 
 **Key characteristics:**
 
@@ -151,8 +151,8 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Path B — centralized rate-limit service: API gateway makes a gRPC `ShouldRateLimit` call to a dedicated rate-limit service, which checks counters in a Redis Cluster; allowed requests proceed to backend services.](./diagrams/path-b-centralized-light.svg "Path B — centralized rate-limit service: API gateway makes a gRPC `ShouldRateLimit` call to a dedicated rate-limit service, which checks counters in a Redis Cluster; allowed requests proceed to backend services.")
+![Path B — centralized rate-limit service: API gateway makes a gRPC `ShouldRateLimit` call to a dedicated rate-limit service, which checks counters in a Redis Cluster; allowed requests proceed to backend services.](./diagrams/path-b-centralized-dark.svg)
 
 **Key characteristics:**
 
@@ -181,8 +181,8 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Path C — hybrid local + global rate limiting: API gateway nodes maintain local counters for in-process decisions, periodically syncing aggregates to a Redis cluster that holds the global view.](./diagrams/path-c-hybrid-light.svg "Path C — hybrid local + global rate limiting: API gateway nodes maintain local counters for in-process decisions, periodically syncing aggregates to a Redis cluster that holds the global view.")
+![Path C — hybrid local + global rate limiting: API gateway nodes maintain local counters for in-process decisions, periodically syncing aggregates to a Redis cluster that holds the global view.](./diagrams/path-c-hybrid-dark.svg)
 
 **Key characteristics:**
 
@@ -199,7 +199,7 @@ A rate limiter maps request identifiers (user ID, API key, IP) to counters and e
 - ❌ Complex state management (merge conflicts, counter drift)
 - ❌ Two code paths to maintain and debug
 
-**Real-world example:** Cloudflare's rate limiting uses per-PoP (Point of Presence) memcache counters with a sliding window algorithm. Anycast routing ensures a single IP's requests reach the same PoP, avoiding cross-PoP synchronization.
+**Real-world example:** Cloudflare's rate limiting keeps the data path inside each PoP (Point of Presence). Counters live in [Twemcache (a memcached fork) fronted by Twemproxy](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/), and anycast routing usually sends a single source IP to the same PoP — so cross-PoP synchronization is unnecessary in steady state.
 
 ### Path Comparison
 
@@ -232,6 +232,9 @@ Before diving into the system design, a deep understanding of the available algo
 
 **Implementation trick:** No background refill process needed. On each request, compute elapsed time since last check and add `elapsed × r` tokens (capped at _b_). This is called a "lazy refill"—O(1) time, O(1) space per key.
 
+![Token bucket with lazy refill: each request computes the tokens earned since `last_refill`, allows the request and decrements when at least one token is available, and otherwise returns 429 with a `Retry-After` derived from the deficit and refill rate.](./diagrams/token-bucket-light.svg "Token bucket with lazy refill: each request computes tokens earned since `last_refill`, allows and decrements when at least one token is available, and otherwise returns 429 with a `Retry-After` derived from the deficit and refill rate.")
+![Token bucket with lazy refill: each request computes the tokens earned since `last_refill`, allows the request and decrements when at least one token is available, and otherwise returns 429 with a `Retry-After` derived from the deficit and refill rate.](./diagrams/token-bucket-dark.svg)
+
 **Parameters:**
 
 - `bucket_size` (b): Maximum burst size. A bucket of 100 allows 100 requests in a burst.
@@ -248,7 +251,7 @@ Before diving into the system design, a deep understanding of the available algo
 
 ### Leaky Bucket
 
-**How it works:** Conceptually a FIFO queue that processes requests at a fixed output rate. Incoming requests enter the queue; if full, they are rejected. Requests "leak" out at a constant rate. First proposed by Jonathan S. Turner in 1986, standardized in ITU-T Recommendation I.371 (1993) for ATM networks as the Generic Cell Rate Algorithm (GCRA).
+**How it works:** Conceptually a FIFO queue that processes requests at a fixed output rate. Incoming requests enter the queue; if full, they are rejected. Requests "leak" out at a constant rate. The metaphor was [introduced by Jonathan S. Turner in 1986](https://en.wikipedia.org/wiki/Generic_cell_rate_algorithm), and the construct was later standardized in [ITU-T Recommendation I.371](https://www.itu.int/rec/T-REC-I.371) (early 1990s) for ATM networks as the Generic Cell Rate Algorithm (GCRA).
 
 **Key distinction from token bucket:** The leaky bucket smooths output to a constant rate—it shapes traffic. The token bucket permits bursts up to bucket capacity—it polices traffic. In practice, many implementations conflate the two; the GCRA variant is mathematically equivalent to an inverted token bucket.
 
@@ -259,7 +262,7 @@ Before diving into the system design, a deep understanding of the available algo
 | Accuracy         | Exact                                            |
 | Burst behavior   | No bursts—output is constant rate                |
 
-**Who uses it:** NGINX (`limit_req` module uses leaky bucket), HAProxy.
+**Who uses it:** NGINX's [`ngx_http_limit_req_module`](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html) uses the leaky bucket; HAProxy uses a similar construct via stick-tables.
 
 ### Fixed Window Counter
 
@@ -299,16 +302,19 @@ $$
 
 This approximation smooths the boundary burst problem while maintaining O(1) memory.
 
-**Figma's variant (2017):** Instead of two large windows, use many small sub-windows (1/60th of the rate limit window). For an hourly limit, increment per-minute counters and sum the last 60. This reduces approximation error further.
+![Sliding window counter: weight the previous-window count by the fraction of the window still in scope, add the current-window count, compare to the limit, and only `INCR` the current-window key when the request is allowed.](./diagrams/sliding-window-counter-light.svg "Sliding window counter: weight the previous-window count by the fraction of the window still in scope, add the current-window count, compare to the limit, and only `INCR` the current-window key when the request is allowed.")
+![Sliding window counter: weight the previous-window count by the fraction of the window still in scope, add the current-window count, compare to the limit, and only `INCR` the current-window key when the request is allowed.](./diagrams/sliding-window-counter-dark.svg)
+
+**Figma's variant (2017):** Instead of two large windows, use many small sub-windows (1/60th of the rate limit window). For an hourly limit, increment per-minute counters and sum the last 60. [Figma's analysis](https://www.figma.com/blog/an-alternative-approach-to-rate-limiting/) shows this collapses memory from ~20 MB (sliding window log, 5M timestamps for 10K users × 500 req/day) to ~2.4 MB (60 sub-window counters per user) while staying accurate to the second.
 
 | Aspect           | Value                                                       |
 | ---------------- | ----------------------------------------------------------- |
 | Time complexity  | O(1) per request                                            |
 | Space complexity | O(1) per key (two counters) or O(k) for k sub-windows       |
-| Accuracy         | ~0.003% error (Cloudflare measurement across 400M requests) |
+| Accuracy         | ~0.003% wrong-decision rate; mean rate-vs-estimate gap ~6% (Cloudflare, 400M requests / 270K sources) |
 | Burst behavior   | Smoothed—no boundary doubling                               |
 
-**Why this algorithm:** The sliding window counter is the best trade-off for a distributed rate limiter. It eliminates the boundary burst problem of fixed windows, uses constant memory (unlike sliding window log), and Cloudflare's production measurement of 0.003% error across 400M requests validates its accuracy at scale.
+**Why this algorithm:** The sliding window counter is the best trade-off for a distributed rate limiter. It eliminates the boundary burst problem of fixed windows, uses constant memory (unlike sliding window log), and Cloudflare's [production measurement](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) — 0.003% wrong-decision rate across 400M requests from 270K sources, with an average gap of 6% between the approximation and the exact rate — validates that the approximation holds up under attack-grade traffic.
 
 ### Algorithm Comparison
 
@@ -326,23 +332,23 @@ This approximation smooths the boundary burst problem while maintaining O(1) mem
 
 **Data path** — clients → gateway → rate-limit service → Redis. Replica counts are collapsed for clarity:
 
-![Rate limiter data path — API consumers, load balancer, gateway nodes, rate-limit service, Redis cluster, and backend services](./diagrams/diagram-4-data-path-light.svg)
-![Rate limiter data path — API consumers, load balancer, gateway nodes, rate-limit service, Redis cluster, and backend services](./diagrams/diagram-4-data-path-dark.svg)
+![Rate-limiter data path: API consumers hit a load balancer, which fans out to gateway nodes; gateways issue gRPC `ShouldRateLimit` to the rate-limit service, which reads counters from a Redis Cluster (primary + replicas) and consults a YAML rule store; allowed requests are forwarded to backend services.](./diagrams/rate-limiter-data-path-light.svg "Rate-limiter data path: API consumers hit a load balancer, which fans out to gateway nodes; gateways issue gRPC `ShouldRateLimit` to the rate-limit service, which reads counters from a Redis Cluster (primary + replicas) and consults a YAML rule store; allowed requests are forwarded to backend services.")
+![Rate-limiter data path: API consumers hit a load balancer, which fans out to gateway nodes; gateways issue gRPC `ShouldRateLimit` to the rate-limit service, which reads counters from a Redis Cluster (primary + replicas) and consults a YAML rule store; allowed requests are forwarded to backend services.](./diagrams/rate-limiter-data-path-dark.svg)
 
 **Quota management + observability** — side concerns wired to the rate-limit service:
 
-![Rate limiter quota management and observability — Postgres-backed quota API, quota cache, Prometheus, Grafana, and AlertManager](./diagrams/diagram-4-quota-and-observability-light.svg)
-![Rate limiter quota management and observability — Postgres-backed quota API, quota cache, Prometheus, Grafana, and AlertManager](./diagrams/diagram-4-quota-and-observability-dark.svg)
+![Quota management and observability planes: a quota API persists tenant overrides to PostgreSQL, a quota cache hydrates the rate-limit service, and the service emits metrics to Prometheus that feed Grafana dashboards and AlertManager.](./diagrams/quota-and-observability-light.svg "Quota management and observability planes: a quota API persists tenant overrides to PostgreSQL, a quota cache hydrates the rate-limit service, and the service emits metrics to Prometheus that feed Grafana dashboards and AlertManager.")
+![Quota management and observability planes: a quota API persists tenant overrides to PostgreSQL, a quota cache hydrates the rate-limit service, and the service emits metrics to Prometheus that feed Grafana dashboards and AlertManager.](./diagrams/quota-and-observability-dark.svg)
 
 ### Request Flow
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Allowed-request flow: client → gateway → rate-limit service → Redis sliding-window check → ALLOW; gateway returns 200 plus `RateLimit` headers to the client.](./diagrams/request-flow-allowed-light.svg "Allowed-request flow: client → gateway → rate-limit service → Redis sliding-window check → ALLOW; gateway returns 200 plus `RateLimit` headers to the client.")
+![Allowed-request flow: client → gateway → rate-limit service → Redis sliding-window check → ALLOW; gateway returns 200 plus `RateLimit` headers to the client.](./diagrams/request-flow-allowed-dark.svg)
 
 **When rate limited:**
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Denied-request flow: client → gateway → rate-limit service → Redis Lua sliding-window check returns `{allowed: false, remaining: 0}`; gateway returns 429 Too Many Requests plus `Retry-After`.](./diagrams/request-flow-denied-light.svg "Denied-request flow: client → gateway → rate-limit service → Redis Lua sliding-window check returns `{allowed: false, remaining: 0}`; gateway returns 429 Too Many Requests plus `Retry-After`.")
+![Denied-request flow: client → gateway → rate-limit service → Redis Lua sliding-window check returns `{allowed: false, remaining: 0}`; gateway returns 429 Too Many Requests plus `Retry-After`.](./diagrams/request-flow-denied-dark.svg)
 
 ### Rate Limit Service (Decision Engine)
 
@@ -363,7 +369,7 @@ The core component. Stateless—all state lives in Redis and configuration.
 | Protocol        | gRPC (Envoy `rls.proto`)                            | Low overhead, schema-enforced, streaming support, ecosystem compatibility |
 | Statefulness    | Stateless (counters in Redis, rules in config)      | Horizontal scaling without coordination between instances                 |
 | Rule evaluation | All matching rules evaluated, most restrictive wins | Prevents circumventing a per-endpoint limit via a generous per-user limit |
-| Failure mode    | Fail-open (return ALLOW on any error)               | Stripe's approach: catch exceptions at all levels so errors fail open     |
+| Failure mode    | Fail-open (return ALLOW on any error)               | Stripe: ["catching exceptions at all levels so that any coding or operational errors would fail open"](https://stripe.com/blog/rate-limiters) |
 
 ### Rule Configuration
 
@@ -472,7 +478,7 @@ X-RateLimit-Remaining: 47
 X-RateLimit-Reset: 1706000060
 ```
 
-**IETF Standard (draft-ietf-httpapi-ratelimit-headers):**
+**IETF [draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers) (still an Internet-Draft as of `-10`, September 2025):**
 
 ```http
 RateLimit-Policy: "default";q=100;w=60, "writes";q=20;w=60
@@ -480,12 +486,13 @@ RateLimit: "writes";r=0;t=42
 Retry-After: 42
 ```
 
-The IETF `RateLimit` header uses Structured Fields (RFC 8941) with parameters:
+The fields use [Structured Fields for HTTP (RFC 9651)](https://datatracker.ietf.org/doc/html/rfc9651) — note that earlier prose often cited the older RFC 8941; both encode the same syntax. Parameter set per draft `-10`:
 
-- `q`: quota allocated (requests per window)
-- `w`: window size in seconds
-- `r`: remaining requests
-- `t`: seconds until reset
+- `RateLimit-Policy`: `q` (quota, required), `w` (window in seconds, optional), `qu` (quota unit, default `"request"`, optional), `pk` (partition key, optional)
+- `RateLimit`: `r` (remaining quota, required), `t` (seconds until reset, optional), `pk` (partition key, optional)
+
+> [!NOTE]
+> The draft has been through multiple revisions and is still an Internet-Draft (`-10` expired March 2026). The legacy `X-RateLimit-*` headers remain the de facto standard in the wild; ship both during transition. Per [RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3), `Retry-After` accepts either delta-seconds or an HTTP-date and must not point earlier than the `RateLimit` `t` value.
 
 **429 response (RFC 6585):**
 
@@ -694,6 +701,9 @@ return {1, remaining, reset_at}
 
 **Redis Cluster consideration:** Both `current_key` and `previous_key` must hash to the same slot. Use Redis hash tags: `{api_key=abc123}:1706000040` and `{api_key=abc123}:1706000000`. The `{...}` portion determines the hash slot, ensuring both keys land on the same shard.
 
+![Distributed counter coordination: every gateway in the fleet calls the same Lua script via `EVALSHA` against the centralized Redis Cluster; hash tags pin both window keys for a given API key to the same shard, so the atomic check-and-increment never crosses shards.](./diagrams/distributed-counter-sync-light.svg "Distributed counter coordination: every gateway in the fleet calls the same Lua script via `EVALSHA` against the centralized Redis Cluster; hash tags pin both window keys for a given API key to the same shard, so the atomic check-and-increment never crosses shards.")
+![Distributed counter coordination: every gateway in the fleet calls the same Lua script via `EVALSHA` against the centralized Redis Cluster; hash tags pin both window keys for a given API key to the same shard, so the atomic check-and-increment never crosses shards.](./diagrams/distributed-counter-sync-dark.svg)
+
 ### Token Bucket in Redis (Lua Script)
 
 For APIs requiring configurable burst allowance, a token bucket variant:
@@ -743,8 +753,8 @@ return {1, math.floor(tokens), 0}
 
 When a request arrives, multiple rules may match. Resolution follows a hierarchical evaluation:
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![Multi-tier quota resolution decision tree: each request is checked against the global aggregate, then the tenant tier, then per-endpoint, then concurrent request limits — failure at any tier short-circuits to a 429 deny.](./diagrams/multi-tier-quota-resolution-light.svg "Multi-tier quota resolution decision tree: each request is checked against the global aggregate, then the tenant tier, then per-endpoint, then concurrent request limits — failure at any tier short-circuits to a 429 deny.")
+![Multi-tier quota resolution decision tree: each request is checked against the global aggregate, then the tenant tier, then per-endpoint, then concurrent request limits — failure at any tier short-circuits to a 429 deny.](./diagrams/multi-tier-quota-resolution-dark.svg)
 
 **Rule precedence:** All matching rules are evaluated. The most restrictive (lowest remaining quota) determines the response. This prevents a user from bypassing a 20 req/min write limit by pointing to their 5000 req/min general limit.
 
@@ -756,7 +766,7 @@ When a request arrives, multiple rules may match. Resolution follows a hierarchi
 
 ### Concurrent Request Limiting
 
-Stripe's approach: in addition to rate-based limits, cap the number of simultaneously in-flight requests per API key. This catches pathological patterns (slow endpoints consuming all connection pool slots) that rate limiting alone misses.
+[Stripe's concurrent-requests limiter](https://stripe.com/blog/rate-limiters) caps each user at "20 API requests in progress at the same time", in addition to the per-second rate limit. This catches pathological patterns — slow endpoints holding connection-pool slots, retry storms during incidents — that a rate limit alone misses. Stripe reports it triggers an order of magnitude less than the request-rate limiter (~12K vs. millions of rejections in the month they wrote about it), but it solved persistent resource contention on their CPU-heavy endpoints.
 
 **Implementation:** Use a Redis sorted set where the score is the request start timestamp and the member is a unique request ID. On request start, `ZADD`. On request completion (or timeout), `ZREM`. Check the set cardinality against the concurrent limit.
 
@@ -791,10 +801,10 @@ The rate limiter is on the critical path of every API request. A Redis failure m
 
 **Strategy: Fail-open with circuit breaker**
 
-![Diagram](./diagrams/diagram-8-light.svg)
-![Diagram](./diagrams/diagram-8-dark.svg)
+![Circuit-breaker state machine for the rate-limit service: starts Closed (normal Redis-backed checks), trips to Open after a Redis-error threshold (allow-all), and probes via Half-Open after a cooldown — a successful probe returns to Closed, a failed probe returns to Open.](./diagrams/circuit-breaker-states-light.svg "Circuit-breaker state machine for the rate-limit service: starts Closed (normal Redis-backed checks), trips to Open after a Redis-error threshold (allow-all), and probes via Half-Open after a cooldown — a successful probe returns to Closed, a failed probe returns to Open.")
+![Circuit-breaker state machine for the rate-limit service: starts Closed (normal Redis-backed checks), trips to Open after a Redis-error threshold (allow-all), and probes via Half-Open after a cooldown — a successful probe returns to Closed, a failed probe returns to Open.](./diagrams/circuit-breaker-states-dark.svg)
 
-**Stripe's fail-open principle:** Catch exceptions at all levels so that any coding or operational errors fail open. Feature flags enable rapid disabling of individual limiters. Clear HTTP status codes distinguish rate limiting (429) from load shedding (503).
+**Stripe's fail-open principle:** [Catch exceptions at every level so coding or operational errors fail open](https://stripe.com/blog/rate-limiters). Feature flags enable rapid disabling of individual limiters. Clear HTTP status codes distinguish rate limiting (429) from load shedding (503).
 
 **Degradation hierarchy:**
 
@@ -949,46 +959,46 @@ async function fetchWithRateLimit(url: string, options?: RequestInit): Promise<R
 
 ### Production Deployment
 
-![Diagram](./diagrams/diagram-9-light.svg)
-![Diagram](./diagrams/diagram-9-dark.svg)
+![AWS production deployment: ALB in a public subnet fronts ECS Fargate tasks for the gateway, rate-limit service, and quota API in a private subnet; the rate-limit service talks to ElastiCache Redis (Multi-AZ), pulls config from S3, and emits metrics to Managed Prometheus + Grafana, while the quota API persists to RDS PostgreSQL.](./diagrams/aws-production-deployment-light.svg "AWS production deployment: ALB in a public subnet fronts ECS Fargate tasks for the gateway, rate-limit service, and quota API in a private subnet; the rate-limit service talks to ElastiCache Redis (Multi-AZ), pulls config from S3, and emits metrics to Managed Prometheus + Grafana, while the quota API persists to RDS PostgreSQL.")
+![AWS production deployment: ALB in a public subnet fronts ECS Fargate tasks for the gateway, rate-limit service, and quota API in a private subnet; the rate-limit service talks to ElastiCache Redis (Multi-AZ), pulls config from S3, and emits metrics to Managed Prometheus + Grafana, while the quota API persists to RDS PostgreSQL.](./diagrams/aws-production-deployment-dark.svg)
 
 ## Variations
 
 ### Load Shedding (Beyond Rate Limiting)
 
-Stripe operates four layers of traffic management, each progressively more aggressive:
+[Stripe operates four layers](https://stripe.com/blog/rate-limiters) of traffic management, each progressively more aggressive. The reported per-month rejection counts (from the original post) are useful as an order-of-magnitude calibration:
 
-1. **Request rate limiter** — Standard per-user rate limiting (token bucket). Handles millions of rejections monthly.
-2. **Concurrent request limiter** — Caps in-flight requests to 20 per user. Catches retry storms from slow endpoints.
-3. **Fleet usage load shedder** — Reserves capacity for critical operations (e.g., charge creation) by shedding non-critical traffic (e.g., listing charges) during system strain. Returns 503, not 429.
-4. **Worker utilization load shedder** — Last resort. When individual workers are overloaded, shed traffic by priority: test mode first, then GETs, then POSTs, then critical methods. Rarely triggered (~100 rejections/month).
+1. **Request rate limiter** — Standard per-user rate limiting (Stripe uses a Redis-backed token bucket). _Millions of rejections per month_, especially test-mode runaway scripts.
+2. **Concurrent request limiter** — Caps in-flight requests at 20 per user. Catches retry storms from slow endpoints. _~12,000 rejections per month._
+3. **Fleet usage load shedder** — Reserves capacity for critical operations (e.g., charge creation) by shedding non-critical traffic (e.g., listing charges) during system strain. Returns 503, not 429. Triggered for a "very small fraction" of requests in a typical month.
+4. **Worker utilization load shedder** — Last resort. When individual workers back up, shed by priority: test mode first, then GETs, then POSTs, then critical methods. _~100 rejections per month_, typically only during major incidents.
 
 The distinction matters: rate limiting (429) protects per-user fairness. Load shedding (503) protects system survival.
 
 ### Edge Rate Limiting (Cloudflare Model)
 
-Cloudflare's architecture avoids centralized coordination entirely:
+[Cloudflare's architecture](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) avoids centralized coordination entirely:
 
-- **Anycast routing** ensures a single IP's traffic reaches the same PoP consistently
-- **Per-PoP counters** using Twemproxy + memcache clusters within each PoP
-- **Sliding window counter** with asynchronous increments (counting doesn't block the request)
-- **Mitigation bit propagation:** Once a source exceeds the threshold, a flag is set. All servers in the PoP check this flag—no further counter queries needed during active mitigation.
+- **Anycast routing** usually sends a given source IP to the same PoP, so a per-PoP counter is effectively a per-source counter.
+- **Per-PoP counters** in Twemcache (a memcached fork) fronted by Twemproxy. Requests are hashed by source IP within the PoP, so all servers in a PoP read/write the same counter for that source.
+- **Sliding window counter** with asynchronous increments — counting doesn't block the request.
+- **Mitigation bit propagation:** once a source exceeds the threshold, a flag is set; servers in the PoP check this flag instead of issuing further counter queries during active mitigation.
 
-**Result:** 0.003% error rate across 400M requests, handling attacks up to 400K RPS per domain.
+**Result:** the per-PoP sliding window counter is reported to mis-decide on 0.003% of requests, with a mean rate-vs-estimate gap of 6%, measured across 400M requests from 270K distinct sources.
 
 ### GCRA (Generic Cell Rate Algorithm)
 
 A mathematically elegant alternative used by the `redis-cell` Redis module. Instead of tracking counters, GCRA tracks a single value: the TAT (Theoretical Arrival Time)—the earliest time the next request should arrive.
 
-**How it differs from token bucket:** Functionally equivalent, but stores only one value per key (TAT) instead of two (tokens + last_refill). The `redis-cell` module implements GCRA as a native Redis command (`CL.THROTTLE`) with atomic semantics, eliminating the need for Lua scripts.
+**How it differs from token bucket:** functionally equivalent, but stores only one value per key (TAT) instead of two (tokens + last_refill). The [`redis-cell`](https://github.com/brandur/redis-cell) module implements GCRA as a native Redis command (`CL.THROTTLE`) with atomic semantics, eliminating the need for Lua scripts.
 
-**Trade-off:** Requires installing a Redis module, which may not be available in managed Redis services (ElastiCache supports limited module sets).
+**Trade-off:** Requires installing a Redis module. Amazon ElastiCache does not include `redis-cell` in its supported-modules list, so deployments that need GCRA-as-a-command typically self-host Redis (or move to DragonflyDB, which [implemented `CL.THROTTLE` natively](https://www.dragonflydb.io/docs/command-reference/strings/cl.throttle)).
 
 ## Conclusion
 
 The rate limiter design centers on three decisions that cascade through the architecture:
 
-1. **Sliding window counter algorithm** provides the best accuracy-to-memory trade-off for distributed rate limiting. Cloudflare's production measurement (0.003% error across 400M requests) validates that the approximation is accurate enough for real-world enforcement, while using O(1) memory per key eliminates the scaling problem of exact approaches like sliding window log.
+1. **Sliding window counter algorithm** provides the best accuracy-to-memory trade-off for distributed rate limiting. Cloudflare's [production measurement](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) — 0.003% wrong-decision rate across 400M requests from 270K sources — validates the approximation at attack scale, and O(1) memory per key eliminates the scaling problem of exact approaches like the sliding window log.
 
 2. **Centralized Redis with Lua scripts** ensures globally consistent counts across all API gateway nodes without per-node coordination. The Lua script atomically reads the previous window's count, computes the weighted estimate, and conditionally increments—a sequence that cannot be expressed with Redis transactions alone. Hash tags ensure multi-key operations land on the same shard.
 
@@ -1033,7 +1043,7 @@ The rate limiter design centers on three decisions that cascade through the arch
 
 ### Summary
 
-- **Sliding window counter** is the optimal algorithm for distributed rate limiting: O(1) memory, ~99.997% accuracy (Cloudflare-validated), no boundary burst artifacts.
+- **Sliding window counter** is the default for distributed rate limiting: O(1) memory, ~0.003% wrong-decision rate (Cloudflare-validated across 400M requests), no boundary burst artifacts.
 - **Redis Cluster with Lua scripts** provides atomic check-and-increment without race conditions. Hash tags ensure multi-key operations are shard-local.
 - **Fail-open with circuit breaker** prevents rate limiter failures from cascading into API outages. Shadow mode enables safe rollout of new rules.
 - **Hierarchical rule evaluation** (global → tier → endpoint → concurrent) prevents circumventing narrow limits via broader ones.
@@ -1042,8 +1052,11 @@ The rate limiter design centers on three decisions that cascade through the arch
 
 ### References
 
-- [RFC 6585 — Additional HTTP Status Codes](https://datatracker.ietf.org/doc/html/rfc6585) — Defines 429 Too Many Requests; Section 4
-- [IETF draft-ietf-httpapi-ratelimit-headers](https://ietf-wg-httpapi.github.io/ratelimit-headers/draft-ietf-httpapi-ratelimit-headers.html) — Standardized `RateLimit` and `RateLimit-Policy` header fields
+- [RFC 6585 §4 — 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4) — Defines the 429 status code
+- [RFC 9110 §10.2.3 — Retry-After](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3) — Current normative definition of `Retry-After` (supersedes RFC 7231 §7.1.3)
+- [IETF draft-ietf-httpapi-ratelimit-headers-10](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers) — Standardized `RateLimit` and `RateLimit-Policy` header fields (Internet-Draft, expired March 2026)
+- [AWS API Gateway — Throttle requests for better throughput](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html) — Token bucket model; default account limits (10,000 RPS steady, 5,000 burst) and per-method/usage-plan/stage hierarchy
+- [Envoy — Rate limit service (RLS) proto v3](https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/ratelimit/v3/rls.proto) — `ShouldRateLimit` RPC, `RateLimitRequest`/`RateLimitResponse` schema
 - [ITU-T Recommendation I.371](https://www.itu.int/rec/T-REC-I.371) — GCRA specification for ATM traffic management (1993)
 - [Stripe — Scaling your API with rate limiters](https://stripe.com/blog/rate-limiters) — Four-layer approach: request rate, concurrent, fleet load shed, worker load shed
 - [Cloudflare — How we built rate limiting capable of scaling to millions of domains](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/) — Sliding window counter at edge, 0.003% error rate

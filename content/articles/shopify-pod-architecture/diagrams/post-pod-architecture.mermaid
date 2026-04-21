@@ -1,0 +1,20 @@
+%% Diagram: Post-pod architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    LB["nginx + OpenResty"] --> SH["Sorting Hat (Lua)"]
+    SH --> APP["Shared application workers"]
+
+    subgraph "Pod 1 (multi-tenant)"
+        MY1["MySQL"] --- RD1["Redis"] --- MC1["Memcached"] --- CR1["Cron"]
+    end
+    subgraph "Pod 2 (multi-tenant)"
+        MY2["MySQL"] --- RD2["Redis"] --- MC2["Memcached"] --- CR2["Cron"]
+    end
+    subgraph "Pod N (dedicated to one large merchant)"
+        MYN["MySQL"] --- RDN["Redis"] --- MCN["Memcached"] --- CRN["Cron"]
+    end
+
+    APP --> MY1
+    APP --> MY2
+    APP --> MYN

@@ -1,0 +1,13 @@
+%% Diagram: Yjs internal architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    APP["Application code"]
+    APP -->|"mutations"| ST["Shared types<br/>Y.Map / Y.Array / Y.Text"]
+    ST --> SS["Struct store<br/>blocks keyed by (clientId, clock)"]
+    SS --> GC["Block merging<br/>+ tombstone GC"]
+    GC --> ENC["Update encoder<br/>V2: run-length"]
+    ENC -->|"Uint8Array"| PROV["Provider<br/>y-websocket / y-webrtc /<br/>y-indexeddb / custom"]
+    PROV <--> NET[("Network or<br/>persistence")]
+    NET -->|"remote update"| DEC["Update decoder"]
+    DEC --> SS

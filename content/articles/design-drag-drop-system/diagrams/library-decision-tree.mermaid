@@ -1,0 +1,12 @@
+%% Diagram: Library Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TD
+    A[Need drag and drop] --> B{Cross-window drag<br/>or OS file drop?}
+    B -->|Yes| C[Need native HTML5 DnD]
+    C --> D[react-dnd<br/>or Pragmatic DnD<br/>or Sortable.js]
+    B -->|No| G{Accessibility critical<br/>WCAG 2.2 AA?}
+    G -->|Yes| H[React Aria DnD<br/>or dnd-kit<br/>or Pragmatic + a11y]
+    G -->|Nice to have| K{Framework?}
+    K -->|React| L[dnd-kit]
+    K -->|Vanilla / other| O[Sortable.js<br/>or Pragmatic]

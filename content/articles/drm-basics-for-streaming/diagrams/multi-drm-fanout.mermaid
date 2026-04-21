@@ -1,0 +1,24 @@
+%% Diagram: Multi-DRM packaging fan-out from one CMAF asset
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    SRC[Source mezzanine<br/>H.264 / HEVC / AV1] --> PKG["Packager (Shaka / Bento4)<br/>CMAF + cbcs encryption"]
+    KMS[Key service / CPIX<br/>content key + KID per track] --> PKG
+
+    PKG --> A[init.mp4<br/>moov + PSSH boxes]
+    PKG --> B[Media segments .m4s<br/>cbcs encrypted, common bytes]
+    PKG --> M1[manifest.mpd<br/>DASH]
+    PKG --> M2[master.m3u8<br/>HLS]
+
+    A -. Widevine PSSH .-> WV[Widevine license server<br/>Chrome / Android / CTV]
+    A -. PlayReady PSSH .-> PR[PlayReady license server<br/>Edge / Windows / Xbox / Smart TV]
+    M2 -. EXT-X-KEY skd:// .-> FP[FairPlay KSM<br/>Safari / iOS / macOS / tvOS]
+
+    classDef src fill:#e1d5e7,stroke:#9673a6,color:#000
+    classDef pkg fill:#fff2cc,stroke:#d6b656,color:#000
+    classDef out fill:#dae8fc,stroke:#6c8ebf,color:#000
+    classDef drm fill:#d5e8d4,stroke:#82b366,color:#000
+    class SRC,KMS src
+    class PKG pkg
+    class A,B,M1,M2 out
+    class WV,PR,FP drm

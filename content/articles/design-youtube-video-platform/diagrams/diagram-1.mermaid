@@ -1,9 +1,0 @@
-%% Diagram: Diagram 1
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    UPLOAD[Upload Complete] --> VALIDATE[Validate<br/>Format, Size, Duration]
-    VALIDATE --> EXTRACT[Extract Metadata<br/>Resolution, Codec, FPS]
-    EXTRACT --> THUMB[Generate Thumbnails<br/>Sprite Sheet + Preview]
-    THUMB --> SEGMENT[Segment Video<br/>GOP-aligned Chunks]
-    SEGMENT --> QUEUE[Queue Transcoding Jobs<br/>Per-chunk × Per-format]

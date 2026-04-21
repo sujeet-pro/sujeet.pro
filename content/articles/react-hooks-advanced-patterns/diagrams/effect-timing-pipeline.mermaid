@@ -1,0 +1,14 @@
+%% Diagram: Effect timing pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart LR
+    render["Render phase\n(function bodies run)"] --> commit["Commit phase\n(DOM mutated)"]
+    commit --> insertion["useInsertionEffect\nInject style sheets\nbefore any layout reads"]
+    insertion --> layout["useLayoutEffect\nSynchronous DOM measurement\nstate updates re-enter render"]
+    layout --> paint["Browser paint\n(pixels on screen)"]
+    paint --> effect["useEffect\nAsync; runs after paint\nschedule fetches, subs, logging"]
+
+    classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class render,commit,paint phase
+    classDef hook fill:#1F6E68,stroke:#155752,color:#ffffff
+    class insertion,layout,effect hook

@@ -1,0 +1,38 @@
+%% Diagram: Error Budget Policy Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["New change request<br/>or incident review"])
+    Q1{"Budget<br/>exhausted?<br/>(consumed > 100%)"}
+    Q2{"Single incident<br/>burned > 20%<br/>of budget?"}
+    Q3{"Recurring pattern<br/>across quarters?"}
+    Q4{"Cause<br/>external?<br/>(dependency outage)"}
+
+    HaltAll["HALT non-critical changes<br/>P0 / security / reliability only<br/>Notify product + leadership"]
+    PostMortem["Mandatory postmortem<br/>within 5 business days<br/>Action items with owners"]
+    Escalate["Escalate to quarterly planning<br/>P0 reliability investment<br/>Product + eng leadership review"]
+    Exempt["May exempt from freeze<br/>(still counts toward SLO)<br/>Document for stakeholders"]
+    Normal["Normal operation<br/>Ship features<br/>Continue deployments"]
+
+    Start --> Q1
+    Q1 -- yes --> Q4
+    Q1 -- no --> Q2
+    Q4 -- yes --> Exempt
+    Q4 -- no --> HaltAll
+    Q2 -- yes --> PostMortem
+    Q2 -- no --> Q3
+    Q3 -- yes --> Escalate
+    Q3 -- no --> Normal
+    PostMortem --> Q3
+
+    classDef start fill:#eef2ff,stroke:#4338ca,color:#312e81
+    classDef question fill:#fffbeb,stroke:#b45309,color:#78350f
+    classDef halt fill:#fef2f2,stroke:#b91c1c,color:#7f1d1d
+    classDef ok fill:#ecfdf5,stroke:#047857,color:#064e3b
+    classDef warn fill:#fff7ed,stroke:#c2410c,color:#7c2d12
+
+    class Start start
+    class Q1,Q2,Q3,Q4 question
+    class HaltAll,Exempt halt
+    class PostMortem,Escalate warn
+    class Normal ok

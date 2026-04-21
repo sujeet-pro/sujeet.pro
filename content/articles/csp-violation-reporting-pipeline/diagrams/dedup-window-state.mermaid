@@ -1,0 +1,10 @@
+%% Diagram: Deduplication window state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Unseen
+    Unseen --> Seen: first report (SET NX EX 600)
+    Seen --> Seen: duplicate within window (drop)
+    Seen --> Expired: TTL elapses (10 min)
+    Expired --> Seen: next report (SET NX EX 600)
+    Expired --> [*]: key swept

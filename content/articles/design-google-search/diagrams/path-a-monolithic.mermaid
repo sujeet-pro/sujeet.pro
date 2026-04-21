@@ -1,0 +1,13 @@
+%% Diagram: Path A — single-datacenter monolithic index
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Datacenter["Single datacenter"]
+        LB[Load balancer]
+        APP[Query servers]
+        INDEX[(Monolithic index)]
+        CRAWLER[Crawler]
+    end
+
+    Users --> LB --> APP --> INDEX
+    CRAWLER --> INDEX

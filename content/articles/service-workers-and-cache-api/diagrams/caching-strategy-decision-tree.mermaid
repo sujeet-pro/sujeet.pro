@@ -1,0 +1,16 @@
+%% Diagram: Caching Strategy Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Request entered fetch handler]) --> Mut{Mutating method<br/>POST/PUT/DELETE?}
+    Mut -->|yes| NetOnly[Network-only<br/>queue for Background Sync<br/>if a write may retry]
+    Mut -->|no| Vers{Versioned URL<br/>or immutable asset?}
+
+    Vers -->|yes| CacheFirst[Cache-first<br/>+ long max-age]
+    Vers -->|no| Stale{Slight staleness<br/>acceptable?}
+
+    Stale -->|yes| SWR[Stale-while-revalidate<br/>cache hit + background revalidate]
+    Stale -->|no| Fresh{Freshness critical?<br/>HTML / API / user data}
+
+    Fresh -->|yes| NetFirst[Network-first<br/>with timeout fallback to cache]
+    Fresh -->|no| CacheOnly[Cache-only<br/>precached offline shell]

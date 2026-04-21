@@ -1,0 +1,11 @@
+%% Diagram: Path C — content-addressable storage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENT["Client"] --> API["API server"]
+    API --> HASH["SHA-256 of content"]
+    HASH --> CHECK{"Hash already<br/>in object store?"}
+    CHECK -->|yes| REUSE["Reuse existing blob<br/>(refcount++)"]
+    CHECK -->|no| STORE["Write new blob"]
+    REUSE --> META[("PostgreSQL<br/>paste_id → content_hash")]
+    STORE --> META

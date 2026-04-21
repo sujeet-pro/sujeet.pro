@@ -1,0 +1,27 @@
+%% Diagram: ISR Replication Flow — producer write, follower fetch, leader ack
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant P as Producer
+    participant L as Leader (broker A)
+    participant F1 as Follower (broker B, in ISR)
+    participant F2 as Follower (broker C, in ISR)
+
+    P->>L: produce(key, value), acks=all
+    L->>L: append to local log at offset N
+    par Followers fetch
+        F1->>L: fetch(offset = N)
+        L-->>F1: records up to N
+        F1->>F1: append + fsync local log
+        F1->>L: fetch(offset = N+1) — implicit ack of N
+    and
+        F2->>L: fetch(offset = N)
+        L-->>F2: records up to N
+        F2->>F2: append + fsync local log
+        F2->>L: fetch(offset = N+1) — implicit ack of N
+    end
+    L->>L: advance high-watermark to N once all ISR replicate
+    L-->>P: ack (offset = N committed)
+
+    Note over L,F2: If a follower lags beyond replica.lag.time.max.ms,<br/>leader removes it from the ISR set.<br/>If the leader fails, controller elects a new leader<br/>from the surviving ISR — never from out-of-sync replicas<br/>(unless unclean.leader.election.enable = true).

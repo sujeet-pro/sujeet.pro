@@ -1,0 +1,35 @@
+%% Diagram: Surge Pricing Pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Inputs["Inputs (per H3 res-7 cell)"]
+        DEMAND[("Ride requests\nlast 5 min")]
+        SUPPLY[("Available drivers\n(Redis status sets)")]
+        FEAT[("Features\nweather · events · time")]
+    end
+
+    AGG["Stream aggregator\n(Flink / Samza)"]
+    RATIO["ratio = demand / supply"]
+    BASE["Base multiplier\npiecewise function"]
+    ML["ML adjustment\npredicted demand spike"]
+    SMOOTH["Temporal smoothing\nEMA + max delta"]
+    CAP["Cap at regulatory limit"]
+    CACHE[("Redis surge cache\nper cell, TTL")]
+    CONS["Consumers\nRide · Pricing · Driver app"]
+
+    DEMAND --> AGG
+    SUPPLY --> AGG
+    FEAT --> ML
+    AGG --> RATIO --> BASE
+    BASE --> SMOOTH
+    ML --> SMOOTH
+    SMOOTH --> CAP --> CACHE --> CONS
+
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef proc fill:#1F6E68,stroke:#155752,color:#fff
+    classDef ml fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef out fill:#2E5A88,stroke:#1F4870,color:#fff
+    class DEMAND,SUPPLY,FEAT,CACHE store
+    class AGG,RATIO,BASE,SMOOTH,CAP proc
+    class ML ml
+    class CONS out

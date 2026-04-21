@@ -6,7 +6,7 @@ description: >-
   producing pixels, covering display items, paint chunks, the stacking context
   algorithm, and the CompositeAfterPaint architecture shift in Chromium M94.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - browser
   - rendering
@@ -17,278 +17,271 @@ tags:
 
 # Critical Rendering Path: Paint Stage
 
-The Paint stage records drawing instructions into display lists—it does not produce pixels. Following [Prepaint](../crp-prepaint/README.md) (property tree construction and invalidation), Paint walks the layout tree and generates a sequence of low-level graphics commands stored in **Paint Artifacts**. These artifacts are later consumed by the [Rasterization](../crp-raster/README.md) stage, which executes them to produce actual pixels on the GPU.
+The Paint stage records drawing instructions into display lists — it does not produce pixels. Following [Prepaint](../crp-prepaint/README.md) (property tree construction and invalidation), Paint walks the layout tree and emits a sequence of low-level graphics commands packed into a **Paint Artifact**. That artifact then travels through [Commit](../crp-commit/README.md) into the compositor, where [Layerize](../crp-layerize/README.md) maps its paint chunks onto `cc::Layer` objects and [Rasterize](../crp-raster/README.md) finally turns the recorded commands into pixels.
 
-![The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.](./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa-light.svg "The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.")
-![The Paint stage within the RenderingNG pipeline (Chromium M94+): Paint produces a Paint Artifact containing display items and paint chunks. CompositeAfterPaint moved layerization after paint, eliminating circular dependencies.](./diagrams/the-paint-stage-within-the-renderingng-pipeline-chromium-m94-paint-produces-a-pa-dark.svg)
+![Paint sits between Prepaint and Commit on the main thread; chunks then travel to the compositor for layerization, rasterization, compositing, and draw.](./diagrams/paint-stage-pipeline-light.svg "Paint sits between Prepaint and Commit on the main thread; chunks then travel to the compositor for layerization, rasterization, compositing, and draw.")
+![Paint sits between Prepaint and Commit on the main thread; chunks then travel to the compositor for layerization, rasterization, compositing, and draw.](./diagrams/paint-stage-pipeline-dark.svg)
 
-## Abstract
+## Mental model
 
-Paint is a **recording** phase, not a drawing phase. The key mental model:
+Paint is a **recording** phase, not a drawing phase. The shape of the transformation is:
 
-```
+```text
 Fragment Tree + Property Trees → Paint → Paint Artifact (Display Items + Paint Chunks)
 ```
 
-**Core concepts:**
+Three concepts carry the rest of the article:
 
-- **Display Items**: Atomic drawing commands (e.g., `DrawRect`, `DrawTextBlob`) identified by a client pointer (which DOM element) and type. The `PaintController` caches previous display items for reuse.
-- **Paint Chunks**: Sequential display items grouped by identical **PropertyTreeState** (transform_id, clip_id, effect_id, scroll_id). Chunks are the unit of compositor layer assignment.
-- **Paint Order**: Governed by the CSS stacking context algorithm (CSS 2.1 Appendix E). Elements within a stacking context paint in a strict back-to-front order; different stacking contexts never interleave.
+- **Display items** are atomic drawing commands (e.g., `DrawingDisplayItem`, `ScrollbarDisplayItem`) identified by a client pointer (which `LayoutObject` produced them) and a type enum. The `PaintController` keys its cache on `(client, type)` to reuse them across frames.[^paint-readme]
+- **Paint chunks** are sequential runs of display items that share the same `PropertyTreeState` — the 4-tuple `(transform_id, clip_id, effect_id, scroll_id)` from [Prepaint](../crp-prepaint/README.md). Chunks are the unit of compositor layer assignment.[^renderingng-data]
+- **Paint order** follows the CSS stacking context algorithm in [CSS 2.1 Appendix E](https://www.w3.org/TR/CSS21/zindex.html). Stacking contexts are atomic — descendants of one context never interleave with descendants of another.
 
-**Why recording, not drawing?**
+> [!IMPORTANT]
+> Paint and raster are distinct stages on different threads. Paint runs on the main thread and emits Skia `PaintRecord` and `PaintOp` commands into display items — no pixels exist yet. Raster runs on compositor worker threads (or the GPU process) and replays those commands into bitmap tiles. The `core/paint` README is explicit: paint "translates the layout tree into a display list … this list is later replayed and rasterized into bitmaps".[^paint-readme]
 
-1. **Resolution independence**: Display lists rasterize at any scale without quality loss (HiDPI, pinch-zoom)
-2. **Off-main-thread rasterization**: Artifacts serialize to the compositor/GPU process without blocking JavaScript
-3. **Caching**: Unchanged display items are reused; only invalidated items are re-recorded
+Paint records instead of drawing for three structural reasons:
 
-**Architecture evolution (CompositeAfterPaint, M94+)**: Before M94, compositing decisions happened _before_ paint, creating circular dependencies. Now paint produces a clean artifact first, then layerization occurs—reducing 22,000 lines of code and improving scroll latency by 3.5%+ (99th percentile).
+1. **Resolution independence.** Display lists rasterize at any scale without quality loss (HiDPI, pinch-zoom, transformed layers).
+2. **Off-main-thread rasterization.** The artifact serializes to the compositor and GPU process without blocking JavaScript.
+3. **Caching.** Unchanged display items are reused; only invalidated items are re-recorded.
+
+The current architecture is **CompositeAfterPaint** (CAP), enabled in Chromium [M94](https://issues.chromium.org/40081744) and refined since. Compositing decisions now happen _after_ paint produces a clean artifact, eliminating the circular dependency that plagued the legacy compositor and removing roughly 22,000 lines of C++ along the way.[^slimming-paint]
 
 ---
 
-## Display Items and the Paint Artifact
+## Display items and the paint artifact
 
-Paint transforms the layout tree into a **Paint Artifact**—a data structure containing all information needed for rasterization.
+The paint artifact is the data structure Paint hands off to Commit. Everything downstream operates on it, so it is worth understanding its shape before chasing mechanism.
 
-### Display Item Types
+![A Paint Artifact is a flat run of display items partitioned into paint chunks; each chunk references a PropertyTreeState that downstream layerization uses to assign cc::Layers.](./diagrams/paint-artifact-structure-light.svg "A Paint Artifact is a flat run of display items partitioned into paint chunks; each chunk references a PropertyTreeState that downstream layerization uses to assign cc::Layers.")
+![A Paint Artifact is a flat run of display items partitioned into paint chunks; each chunk references a PropertyTreeState that downstream layerization uses to assign cc::Layers.](./diagrams/paint-artifact-structure-dark.svg)
 
-Display items are the atomic units of paint output. Each item represents a single drawing operation:
+### Display item types
 
-| Type                       | Description                    | Example Source                           |
-| :------------------------- | :----------------------------- | :--------------------------------------- |
-| `DrawingDisplayItem`       | Contains Skia paint operations | Background colors, borders, text, images |
-| `ForeignLayerDisplayItem`  | External content               | Plugins, iframes, `<video>` surfaces     |
-| `ScrollbarDisplayItem`     | Scrollbar rendering            | Overlay and classic scrollbars           |
-| `ScrollHitTestDisplayItem` | Hit-test regions for scrolling | Scroll containers                        |
+Display items are the atomic units of paint output. Each one is a small, immutable record describing a single drawing operation, attached to the `LayoutObject` that produced it.[^platform-paint]
 
-**Identity**: Each display item is identified by a **client pointer** (which `LayoutObject` generated it) and a **type enum** (background, foreground, outline, etc.). This identity enables the `PaintController` to match items across frames for caching.
+| Type                       | What it records                              | Typical source                               |
+| :------------------------- | :------------------------------------------- | :------------------------------------------- |
+| `DrawingDisplayItem`       | A `PaintRecord` of Skia paint operations     | Background colors, borders, text, images     |
+| `ForeignLayerDisplayItem`  | A pre-existing `cc::Layer` from outside Blink | Plugins, iframes, `<video>`, `<canvas>`     |
+| `ScrollbarDisplayItem`     | Scrollbar metadata + drawing                 | Overlay and classic scrollbars               |
+| `ScrollHitTestDisplayItem` | A placeholder for a scroll-hit-test layer    | Scroll containers (consumed by layerization) |
 
-### PaintController and Display Item Caching
+> [!NOTE]
+> A `ForeignLayerDisplayItem` always gets its own paint chunk and is never squashed with neighbors. Treat it as a hard boundary in the artifact.
 
-The `PaintController` holds the previous frame's paint result as a cache:
+### PaintController and display item caching
+
+The `PaintController` holds the previous frame's paint result as a cache and consults it as the current frame is recorded:
 
 > "If some painter would generate results same as those of the previous painting, we'll skip the painting and reuse the display items from cache."
-> — [Chromium Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md)
+> — [Chromium Blink Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md)
 
-**How caching works:**
+The flow is straightforward:
 
-1. Before painting, the `PaintController` receives the previous artifact
-2. During paint, each display item is compared against its cached predecessor by client and type
-3. If the item matches exactly (same client, same type, same content), the cached version is reused
-4. If different, the new item is recorded and the old one is invalidated
+1. Before painting, the `PaintController` is seeded with the previous artifact.
+2. During paint, each display item is matched against its cached predecessor by `(client, type)`.
+3. On a match, the cached item is reused verbatim.
+4. On a miss, the new item is recorded and the old one is dropped.
 
-**Subsequence caching** extends this to entire paint subtrees. If a `PaintLayer` hasn't changed, its entire subsequence of display items can be reused without re-walking the layout tree.
+**Subsequence caching** extends this to entire subtrees. When `PaintLayerPainter` decides a `PaintLayer` will produce identical output to the previous frame, a `SubsequenceRecorder` records the items as a named subsequence; on the next frame, `PaintController::UseCachedSubsequenceIfPossible()` copies the whole block back without re-walking the layout tree.[^paint-controller-h] Subsequence caching is what makes a static sidebar effectively free during scroll.
 
-### Paint Chunks
+### Paint chunks
 
-Paint chunks partition display items by their **PropertyTreeState**—the 4-tuple `(transform_id, clip_id, effect_id, scroll_id)` from [Prepaint](../crp-prepaint/README.md).
+Paint chunks partition the display item stream by `PropertyTreeState`. The state is a 4-tuple of property tree node ids:
 
-**Why chunks?** During layerization (after paint), the compositor needs to know which display items share the same visual effects. Items with different transform nodes can't be merged into the same compositor layer without visual artifacts. Chunks make this grouping explicit.
+```text
+PropertyTreeState = (transform_id, clip_id, effect_id, scroll_id)
+```
 
-**Chunk boundaries occur when:**
+Property tree ids come from [Prepaint](../crp-prepaint/README.md), which walks the layout tree once and assigns each `LayoutObject` to a node in each of the four trees. A new chunk starts whenever any of those four ids changes between consecutive display items.
 
-- PropertyTreeState changes (different transform, clip, effect, or scroll ancestor)
-- Display item type changes require isolation (e.g., foreign layers)
-- Hit-test regions need explicit marking
+Chunks exist because layerization, which runs after [Commit](../crp-commit/README.md), needs to know which display items can share a `cc::Layer` without changing visual output. Two items with different transform nodes cannot be merged into the same layer without breaking transforms; chunks make that constraint explicit at the data-structure level.
 
-**Real-world example**: A page with 1,000 display items might produce 50 paint chunks. Each chunk references a PropertyTreeState and a contiguous range of display items. The layerization stage maps chunks to `cc::Layer` objects based on compositing requirements.
+Additional chunk-boundary triggers:
+
+- A `ForeignLayerDisplayItem` (always its own chunk).
+- An explicit hit-test region that needs its own scrolled cc::Layer.
+- A pseudo-element (e.g., `::view-transition-*`) that participates in a different stacking context.
+
+A typical real page might emit a few thousand display items grouped into a few dozen chunks. Layerization later consolidates compatible chunks into a much smaller number of `cc::Layer` objects.
 
 ---
 
-## Paint Order and Stacking Contexts
+## Paint order and stacking contexts
 
-Paint order is not arbitrary—it follows the CSS stacking context algorithm specified in CSS 2.1 Appendix E. Incorrect paint order produces visual bugs where elements appear behind content they should overlap.
+Paint order is fully specified by [CSS 2.1 Appendix E](https://www.w3.org/TR/CSS21/zindex.html). Getting it wrong produces visual bugs where elements appear behind content they were supposed to overlap; understanding it makes `z-index` debugging mechanical instead of mystical.
 
-### The Stacking Context Algorithm
+![Within a stacking context the painter runs eight passes in order — backgrounds, negative z-index contexts, in-flow blocks, floats, in-flow inlines, z-index auto/0, positive z-index, then outlines.](./diagrams/stacking-context-paint-order-light.svg "Within a stacking context the painter runs eight passes in order — backgrounds, negative z-index contexts, in-flow blocks, floats, in-flow inlines, z-index auto/0, positive z-index, then outlines.")
+![Within a stacking context the painter runs eight passes in order — backgrounds, negative z-index contexts, in-flow blocks, floats, in-flow inlines, z-index auto/0, positive z-index, then outlines.](./diagrams/stacking-context-paint-order-dark.svg)
 
-For each stacking context, descendants paint in this order:
+### The stacking context algorithm
 
-1. **Stacking context background and borders**
-2. **Descendants with negative z-index** (most negative first)
-3. **In-flow, non-positioned, block-level descendants**
-4. **Non-positioned floats**
-5. **In-flow, inline-level descendants** (text, images, inline-blocks)
-6. **Positioned descendants with `z-index: auto` or `z-index: 0`**
-7. **Positioned descendants with positive z-index** (lowest first)
+For each stacking context, descendants paint in this order:[^css21-appendix-e]
 
-**Critical property**: Stacking contexts are **atomic**. No descendant of one stacking context can interleave with descendants of a sibling stacking context. This atomicity is why `z-index` on a child cannot escape its parent's stacking context.
+1. **Background and borders** of the element forming the context.
+2. **Child stacking contexts with negative z-index**, most negative first.
+3. **In-flow, non-positioned, block-level descendants**, in tree order.
+4. **Non-positioned floats.**
+5. **In-flow, non-positioned, inline-level descendants** (text, images, inline-blocks).
+6. **Positioned descendants and child stacking contexts with `z-index: auto` or `z-index: 0`**, in tree order.
+7. **Child stacking contexts with positive `z-index`**, lowest first.
+8. **Outlines** of the element and its descendants.
 
-### Stacking Context Creation
+The critical property is atomicity: no descendant of one stacking context can interleave with descendants of a sibling stacking context. This is exactly why a child's `z-index` cannot escape its parent's stacking context, no matter how large.
 
-Properties that create new stacking contexts include:
+### What creates a stacking context
 
-- `position` (relative/absolute/fixed/sticky) with `z-index` ≠ auto
-- `opacity` < 1
-- `transform`, `filter`, `perspective`, `clip-path`, `mask`
-- `isolation: isolate`
-- `mix-blend-mode` ≠ normal
-- `will-change` with transform/opacity/filter (in some browsers)
-- `contain: paint` or `contain: layout paint`
+The CSS 2.1 list is no longer complete. As of 2026 the practical list is:[^mdn-stacking-context]
 
-**Design rationale**: Each property creates a new compositing scope because it requires the subtree to be rendered as a unit before applying the effect. Opacity, for instance, must multiply against the combined alpha of all descendants—not each descendant individually.
+- The root element (`<html>`).
+- `position: absolute | relative` with `z-index` ≠ `auto`.
+- `position: fixed | sticky` (always).
+- A flex or grid item with `z-index` ≠ `auto`.
+- `opacity` < `1`.
+- `mix-blend-mode` ≠ `normal`.
+- `transform`, `scale`, `rotate`, `translate`, `perspective`, `filter`, `backdrop-filter`, `clip-path`, `mask` (and friends) ≠ `none`.
+- `isolation: isolate`.
+- `will-change` on a property whose used value would itself create a stacking context (e.g., `will-change: transform`).
+- `contain: paint`, `contain: layout`, `contain: strict`, `contain: content`.
+- `container-type: size | inline-size`.
+- An element in the [top layer](https://fullscreen.spec.whatwg.org/#top-layer) (fullscreen elements, popovers, dialog `showModal()`) and its `::backdrop`.
 
-### Paint Order Implementation in Blink
+The unifying principle: each property listed above forces the subtree to be composed as a single unit before the effect (opacity, blend, transform, containment, top-layer promotion) is applied. That requirement is what produces a stacking context; the `z-index` rules are an editorial convention layered on top.
 
-Blink implements paint order through **PaintLayerPainter** and **ObjectPainter** classes. The `PaintLayerPainter::Paint()` method walks layers in stacking order, recursively painting:
+### Implementation in Blink
 
-1. Negative z-index children
-2. The layer itself (backgrounds, non-positioned content, floats, inline content)
-3. Positive z-index children
+Blink implements paint order in `PaintLayerPainter` and `ObjectPainter`. `PaintLayerPainter::Paint()` walks layers in stacking order and recursively visits, in this order: negative z-index children, the layer itself (backgrounds, non-positioned content, floats, inline content), then positive z-index children.[^paint-readme]
 
-**Edge case**: CSS View Transitions can alter paint order dynamically by creating pseudo-elements that participate in the stacking context. Debugging paint order issues during transitions requires inspecting the view-transition pseudo-element tree.
+> [!CAUTION]
+> [CSS View Transitions](https://drafts.csswg.org/css-view-transitions-1/) introduce `::view-transition-*` pseudo-elements that participate in the stacking context. During a transition, snapshots of old and new content paint in an order that does not always match the live DOM order — explicit `z-index` on transitioning elements can paint unexpectedly relative to the transition pseudo-elements. When debugging transition glitches, inspect the view-transition pseudo-element tree first.
 
 ---
 
-## The CompositeAfterPaint Architecture
+## The CompositeAfterPaint architecture
 
-As of Chromium M94, paint happens **before** compositing decisions—a fundamental shift from the legacy architecture.
+CompositeAfterPaint (CAP) is the structural shift that defines current Blink rendering. As of [M94](https://issues.chromium.org/40081744), paint runs **before** any compositing decision is made.
 
-### Why CompositeAfterPaint?
+![Before M94 compositing tried to predict layers before paint, creating a circular dependency. CompositeAfterPaint runs paint first, then layerization examines the artifact.](./diagrams/composite-after-paint-architecture-light.svg "Before M94 compositing tried to predict layers before paint, creating a circular dependency. CompositeAfterPaint runs paint first, then layerization examines the artifact.")
+![Before M94 compositing tried to predict layers before paint, creating a circular dependency. CompositeAfterPaint runs paint first, then layerization examines the artifact.](./diagrams/composite-after-paint-architecture-dark.svg)
 
-**Before M94 (legacy)**:
+### Why the change
 
-```
-Style → Layout → Compositing → Paint
-```
+In the legacy pipeline, compositing had to guess which elements needed their own layers _before_ paint produced any output. That created a circular dependency:
 
-Compositing had to guess which elements needed layers _before_ knowing their paint output. This created circular dependencies:
+- Compositing needed to know paint order to decide which elements overlapped.
+- Paint order partially depended on which elements had been promoted to layers.
 
-- Compositing needed to know paint order (which elements overlap)
-- Paint order depended on compositing decisions (which elements had layers)
+The result was years of accreted heuristics, fragile invariants, and code that was hard to reason about. CompositeAfterPaint inverts the order:
 
-The result: fragile code, 22,000+ lines of heuristics, and difficulty reasoning about behavior.
-
-**After M94 (CompositeAfterPaint)**:
-
-```
-Style → Layout → Prepaint → Paint → Layerize → Rasterize
+```text
+Style → Layout → Prepaint → Paint → Commit → Layerize → Raster → Composite → Draw
 ```
 
-Paint produces a clean artifact independent of layer decisions. Layerization examines the artifact and assigns paint chunks to `cc::Layer` objects based on clear criteria.
+Paint produces a clean artifact, [Commit](../crp-commit/README.md) hands it to the compositor thread, and [Layerize](../crp-layerize/README.md) groups paint chunks into `cc::Layer` objects against an explicit set of compositing reasons.[^renderingng-arch]
 
-### Measurable Improvements
+### Measurable improvements
 
-The CompositeAfterPaint migration yielded:
+The CAP migration delivered:[^slimming-paint] [^blinkng]
 
 | Metric                         | Improvement         |
 | :----------------------------- | :------------------ |
-| Code removed                   | 22,000 lines of C++ |
+| Code removed                   | ~22,000 lines of C++ |
 | Chrome CPU usage               | -1.3% overall       |
-| 99th percentile scroll latency | -3.5%+              |
-| 99th percentile input delay    | -2.2%+              |
+| 99th percentile scroll latency | improved by 3.5%+   |
+| 99th percentile input delay    | improved by 2.2%+   |
 
-**Source**: [Chromium BlinkNG](https://developer.chrome.com/docs/chromium/blinkng)
+These are aggregate field metrics across Chrome's stable population, not microbenchmarks.
 
-### Paint Chunk → Compositor Layer Mapping
+### Paint chunk → compositor layer mapping
 
-After paint produces chunks, the layerization stage creates `cc::Layer` objects:
+After paint, layerization maps chunks to `cc::Layer` objects:
 
-1. Each paint chunk has a PropertyTreeState
-2. Chunks requiring different composite reasons (e.g., `will-change: transform`) get separate layers
-3. Adjacent chunks with compatible states may merge into a single layer
-4. Each layer receives a reference to its paint chunks' display items
+1. Each paint chunk carries its `PropertyTreeState`.
+2. Chunks with a direct compositing reason (`will-change: transform`, video, canvas, fixed-position with overflow, `position: sticky` in some configurations) are guaranteed their own layer.
+3. Adjacent chunks with compatible state may merge into one layer to keep layer count bounded.
+4. Each resulting layer references a contiguous range of paint chunks.
 
-This separation allows the compositor to optimize layer count independently of paint logic.
+The separation lets the compositor optimise layer count independently of paint logic — a property the legacy architecture could not provide.
 
 ---
 
-## Paint Invalidation
+## Paint invalidation
 
-Paint invalidation determines which display items need re-recording. While [Prepaint](../crp-prepaint/README.md) marks display item clients as dirty, the actual invalidation logic integrates with paint recording.
+Paint invalidation determines which display items must be re-recorded on the next frame. [Prepaint](../crp-prepaint/README.md) marks display item clients as dirty during its tree walk; the actual reuse-or-rerecord decision happens inside `PaintController` during paint.
 
-### Invalidation Granularity
+### Granularity
 
-Paint invalidation operates at two levels:
+| Level             | Triggered by                                                  | What happens                                                |
+| :---------------- | :------------------------------------------------------------ | :---------------------------------------------------------- |
+| Chunk-level       | `PropertyTreeState` change, display item order change         | The entire chunk's display items are re-recorded.           |
+| Display-item-level | Chunk matches; individual `(client, type)` differs            | Only the changed items are re-recorded; siblings are reused. |
 
-**Chunk-level invalidation:**
+### Raster invalidation
 
-- Triggered when PropertyTreeState changes
-- Triggered when display item order within a chunk changes
-- The entire chunk's display items are re-recorded
+After paint produces new display items, the compositor's raster invalidator computes which pixel regions must be re-rasterized:
 
-**Display-item-level invalidation:**
+| Invalidation type | Trigger                                  | Behaviour                                                |
+| :---------------- | :--------------------------------------- | :------------------------------------------------------- |
+| Full              | Layout change, `PropertyTreeState` change | Invalidates both the old and the new visual rect.        |
+| Incremental       | Geometry change only                     | Invalidates only the delta between old and new rects.    |
 
-- When chunks match (same order, same PropertyTreeState)
-- Individual items are compared by client and type
-- Only changed items are re-recorded
+A blinking cursor in a text field is the textbook example: only the cursor's `DrawingDisplayItem` is re-recorded, only its ~16 × 20 pixel rect is re-rasterized, and the surrounding text field's display items are reused unchanged. That is why typing does not repaint the page.
 
-### Raster Invalidation
+### Isolation boundaries (`contain: paint`)
 
-After paint produces new display items, the `RasterInvalidator` computes which pixel regions need re-rasterization:
-
-| Invalidation Type | Trigger                                 | Behavior                                             |
-| :---------------- | :-------------------------------------- | :--------------------------------------------------- |
-| Full              | Layout change, PropertyTreeState change | Invalidates old AND new visual rects                 |
-| Incremental       | Geometry change only                    | Invalidates only the delta between old and new rects |
-
-**Real-world example**: A blinking cursor in a text field:
-
-- Only the cursor's `DrawingDisplayItem` is re-recorded (display item invalidation)
-- Only the cursor's pixel rect is re-rasterized (~16×20 pixels)
-- The surrounding text field's display items are cached and reused
-
-This granular invalidation is why typing in a text field doesn't repaint the entire page.
-
-### Isolation Boundaries (`contain: paint`)
-
-`contain: paint` creates an **isolation boundary**—a barrier that limits invalidation propagation:
+`contain: paint` declares an isolation boundary that prevents paint effects inside the element from affecting anything outside it.[^css-contain]
 
 ```css
 .widget {
-  contain: paint; /* Isolation boundary */
+  contain: paint;
 }
 ```
 
-**Effects:**
+The CSS Containment specification defines four consequences for `contain: paint`:
 
-1. Descendants are clipped to the element's padding box
-2. A new stacking context is created
-3. Paint invalidation inside the boundary doesn't affect outside
-4. If the element is off-screen, paint is skipped entirely for the subtree
+1. Descendants are clipped to the element's padding edge.
+2. The box establishes a new stacking context.
+3. The box becomes a containing block for absolute and fixed-positioned descendants.
+4. The user agent may skip painting the contents entirely if the box is off-screen.
 
-**Performance impact**: On a page with 50 isolated widgets, invalidating one widget's contents triggers paint only for that widget. Without isolation, invalidation might propagate to sibling widgets or ancestors.
+In a widget grid with 50 isolated panels, invalidating one panel's contents triggers paint only for that panel — without `contain: paint`, invalidation can propagate to siblings or ancestors through transform/clip relationships.
 
 ---
 
-## Paint Performance Characteristics
+## Paint performance characteristics
 
-Not all CSS properties have equal paint cost. Understanding relative expense helps diagnose performance issues.
+Not all CSS properties paint at the same cost. The first question is _which stages a property change forces the engine to re-run_; only then does per-operation cost matter.
 
-### Expensive vs. Cheap Paint Operations
+![CSS property changes fall into three cost classes — full pipeline (layout-affecting), paint plus composite (paint-only), or compositor-only.](./diagrams/paint-properties-matrix-light.svg "CSS property changes fall into three cost classes: layout-affecting (width, top, font-size), paint-only (color, box-shadow, outline), and compositor-only (transform, opacity on a composited layer).")
+![CSS property changes fall into three cost classes — full pipeline (layout-affecting), paint plus composite (paint-only), or compositor-only.](./diagrams/paint-properties-matrix-dark.svg)
 
-**Expensive operations:**
+The matrix mirrors what `CSSPropertyEquality` and the style invalidation tables encode in Blink: each property carries the set of pipeline stages it dirties.[^webdev-compositor] `background-color` and `box-shadow` are paint-affecting because they only change the recorded drawing commands — geometry is already finalized in [Layout](../crp-layout/README.md) and [Prepaint](../crp-prepaint/README.md). `width` is layout-affecting because the geometry of every box (and therefore every chunk's visual rect) must be recomputed before paint can re-record.
 
-| Operation                      | Why Expensive                                      |
-| :----------------------------- | :------------------------------------------------- |
-| `box-shadow` with large blur   | Generates blur shader; no hardware fast-path       |
-| `border-radius` + `box-shadow` | Non-rectangular, can't use nine-patch optimization |
-| `filter: blur()`               | Per-pixel convolution                              |
-| `mix-blend-mode`               | Requires reading backdrop pixels                   |
-| Complex gradients              | Multiple color stops, radial patterns              |
-| `background-attachment: fixed` | Repainted every scroll frame                       |
+### Expensive paint operations
 
-**Cheap operations:**
+| Operation                      | Why expensive                                            |
+| :----------------------------- | :------------------------------------------------------- |
+| `box-shadow` with large blur   | Generates a blur shader; no hardware fast-path           |
+| `border-radius` + `box-shadow` | Non-rectangular; cannot use the nine-patch optimization  |
+| `filter: blur()`               | Per-pixel convolution                                    |
+| `mix-blend-mode`               | Requires reading backdrop pixels                         |
+| Complex gradients              | Multiple stops, radial patterns                          |
+| `background-attachment: fixed` | Repainted every scroll frame (see below)                |
 
-| Operation      | Why Cheap                    |
-| :------------- | :--------------------------- |
-| Solid colors   | Single fill operation        |
-| Simple borders | Rectangle primitives         |
-| `opacity`      | Compositor-only (no repaint) |
-| `transform`    | Compositor-only (no repaint) |
+### Cheap paint operations
 
-### Compositor-Only Properties
+| Operation      | Why cheap                                       |
+| :------------- | :---------------------------------------------- |
+| Solid colors   | Single fill primitive                           |
+| Simple borders | Rectangle primitives                            |
+| Plain text     | Cached glyph atlas lookups                      |
 
-Some visual changes skip paint entirely:
+### Compositor-only properties
 
-- `transform`: Updates PropertyTreeState transform node; no display item change
-- `opacity`: Updates PropertyTreeState effect node; no display item change
-
-These changes flow directly to the compositor thread, which applies them during compositing without main-thread involvement.
-
-**Failure mode**: If you animate `left` or `top` instead of `transform`, each frame triggers layout, prepaint, and paint—not just compositor updates. This causes jank when the main thread is busy.
+`transform` and `opacity` (and, in many configurations, `filter`) skip paint entirely when they animate on a layer that is already composited.[^webdev-compositor] The change updates the corresponding `PropertyTreeState` node directly during commit; no new display items are recorded.
 
 ```css
-/* ❌ Triggers full pipeline every frame */
 .animate-position {
   animation: move 1s;
 }
@@ -298,7 +291,6 @@ These changes flow directly to the compositor thread, which applies them during 
   }
 }
 
-/* ✅ Compositor-only, smooth even under main-thread load */
 .animate-transform {
   animation: slide 1s;
 }
@@ -309,99 +301,93 @@ These changes flow directly to the compositor thread, which applies them during 
 }
 ```
 
-### DevTools Paint Profiling
+The first animation triggers the full pipeline — layout, prepaint, paint — every frame. The second animation only nudges a transform node on the compositor thread, which is why it stays smooth even when the main thread is busy.
 
-Chrome DevTools provides paint debugging:
+### DevTools paint profiling
 
-1. **Performance panel**: Shows "Paint" timing in frame timeline
-2. **Rendering tab → Paint flashing**: Green overlays on repainted regions
-3. **Layers panel**: Shows compositor layers and their paint reasons
+Chrome DevTools surfaces three paint signals:
 
-**What to look for:**
+1. **Performance panel** — "Paint" entries in the frame timeline expose per-frame paint cost.
+2. **Rendering tab → Paint flashing** — green overlays on regions that repainted during a frame.
+3. **Layers panel** — composited layers and the explicit "compositing reasons" Blink used to promote them.
 
-- Large green flashes on scroll (indicates main-thread paint, not compositor-only)
-- Frequent paint events for static content (indicates invalidation bugs)
-- Paint times >10ms (blocks frame budget)
+Three patterns to look for:
+
+- Large green flashes on scroll → main-thread paint, not compositor-only.
+- Frequent paint events on static content → invalidation bug (often a CSS variable or class toggle on an ancestor).
+- Per-frame paint > 10 ms → blowing the 16.67 ms frame budget.
 
 ---
 
-## Edge Cases and Failure Modes
+## Edge cases and failure modes
 
-### Hit-Test Data Recording
+### Hit-test data recording
 
-Hit testing is performed in paint order. The paint system records hit-test information alongside visual data:
+Hit testing runs in paint order, and the paint system records hit-test information alongside visual data:
 
 > "Hit testing is done in paint-order, and to preserve this information the paint system is re-used to record hit test information when painting the background."
 > — [Chromium Compositor Hit Testing](https://www.chromium.org/developers/design-documents/compositor-hit-testing/)
 
-**Failure mode**: Non-rectangular opacity or filters can create "holes" in hit-test opaqueness. Clicks in these holes fall through to elements below, even if visually the element appears solid.
+Non-rectangular opacity, filters, or `clip-path` can produce regions where the painted alpha is below the hit-test threshold. Pointer events fall through these "holes" to elements below, even though the pixel still looks solid to a user. Debugging this usually means turning on _Layer borders_ + _Hit-test borders_ in the Rendering tab.
 
-### Stacking Context + View Transitions
+### `will-change` memory cost
 
-CSS View Transitions create pseudo-elements (`::view-transition-*`) that participate in stacking contexts. During a transition:
-
-- Old and new content render into separate snapshots
-- Pseudo-elements animate between states
-- Paint order of transition pseudo-elements can differ from final DOM order
-
-**Gotcha**: Elements with explicit `z-index` during transitions may paint in unexpected order relative to transition pseudo-elements.
-
-### `will-change` Memory Costs
-
-`will-change: transform` promotes elements to compositor layers, consuming GPU memory:
+`will-change: transform` promotes elements to compositor layers, and each layer occupies GPU memory roughly equal to `width × height × 4 bytes` (RGBA8) for its backing texture, ignoring tiling overhead.[^webdev-compositor]
 
 ```css
-/* ❌ 1000 list items = 1000 layers = memory exhaustion */
 .list-item {
   will-change: transform;
 }
 
-/* ✅ Promote only during animation */
 .list-item.animating {
   will-change: transform;
 }
 ```
 
-**Symptoms of overuse:**
+A 1920 × 1080 layer is ~8 MB. A hundred such layers are ~800 MB before tiling overhead. Symptoms of overuse:
 
-- Checkerboarding (white rectangles) during scroll
-- Browser sluggishness
-- GPU process crashes on memory-constrained devices
+- Checkerboarding (white rectangles) during scroll as the rasterizer falls behind.
+- Browser sluggishness from GPU memory pressure.
+- GPU process crashes on memory-constrained devices.
 
-Each layer consumes `width × height × 4 bytes` of GPU memory. A 1920×1080 layer costs ~8MB; 100 such layers consume 800MB.
+Promote on the `.animating` class (set when the animation starts, removed when it ends), not at rest.
 
-### `background-attachment: fixed` Performance
+### Image lazy-painting and decode-on-raster
 
-Fixed backgrounds repaint on every scroll frame because their position relative to content changes:
+Image painting is deferred in two distinct ways. `loading="lazy"` defers the network fetch until the image is near the viewport, but inside Blink there is a second, lower-level deferral: `DrawingDisplayItem` records a `cc::PaintImage` whose pixel decode is performed lazily by `cc::DecodingImageGenerator` on raster worker threads, not during paint.[^paint-image]
+
+Two consequences for performance work:
+
+- **Paint is cheap, raster can be expensive.** A first-paint of a large JPEG records one display item (microseconds) but may schedule tens of milliseconds of decode on a raster worker. The DevTools Performance panel shows this as a `Decode Image` task tied to the originating frame, not as paint cost.
+- **Out-of-viewport images may never paint at all.** When a paint chunk falls outside the recording bounds and the element has no compositing reason, Blink skips its display items entirely (a benefit of `contain: paint` and of off-screen iframes). The `LargestContentfulPaint` algorithm waits for the candidate's display item to actually be drawn, which is why above-the-fold images dominate LCP even when below-the-fold images decode later.
+
+The actionable rule: if `Decode Image` time dominates a slow frame, the fix is image format/size, not paint logic — the paint stage already did its part in microseconds.
+
+### `background-attachment: fixed`
+
+A fixed background repaints on every scroll frame because its position relative to scrolled content keeps changing.[^crbug-bgfixed]
 
 ```css
-/* ❌ Triggers paint every scroll frame */
 .hero {
   background-image: url(large-image.jpg);
   background-attachment: fixed;
 }
 ```
 
-This defeats the compositor's ability to scroll content without main-thread involvement.
-
-**Alternative**: Use `position: fixed` on a separate element with `transform: translateZ(0)` to achieve similar visual effect with compositor-only scrolling.
+This defeats compositor-thread scrolling. The standard fix is to render the background as a separate `position: fixed` element with `transform: translateZ(0)` to promote it to its own layer; the visual effect is identical and scrolling stays on the compositor thread.
 
 ---
 
-## Conclusion
+## Practical takeaways
 
-Paint is the recording phase that converts layout geometry into drawing commands. Understanding that paint produces **display items** and **paint chunks**—not pixels—clarifies its role in the rendering pipeline.
+Use this as the operating manual for paint cost on a real codebase:
 
-Key takeaways:
-
-1. **Paint records, rasterization draws**: Display lists enable caching, resolution independence, and off-main-thread execution
-2. **Stacking contexts govern paint order**: The CSS algorithm is deterministic; understanding it prevents z-index bugs
-3. **CompositeAfterPaint simplified the architecture**: Paint is now independent of layer decisions, reducing code and improving performance
-4. **Invalidation is granular**: Chunk-level and display-item-level caching minimize re-work
-5. **`contain: paint` creates isolation**: Boundaries limit invalidation scope and enable paint skipping for off-screen content
-6. **Compositor-only properties skip paint**: `transform` and `opacity` animations don't require re-recording
-
-For production optimization, prefer compositor-only animations, use `contain: paint` on independent UI components, and avoid expensive operations like large blur shadows on frequently-changing elements.
+1. **Paint records, rasterization draws.** The artifact is data; pixels happen later, on a different thread.
+2. **Stacking contexts are atomic.** When `z-index` "doesn't work", the answer is almost always that you crossed a stacking context boundary.
+3. **Compositor-only animations stay smooth under load.** Animate `transform` and `opacity`, not `top` / `left` / `width`.
+4. **`contain: paint` is cheap and high-leverage on widget-heavy pages.** It scopes invalidation and lets the browser skip off-screen subtrees.
+5. **Promote with `will-change` only while animating.** Layer count is a budget; treat it like one.
+6. **Use Paint flashing first when investigating regressions.** It tells you _what_ repaints; the Performance panel tells you _how long_.
 
 ---
 
@@ -409,46 +395,57 @@ For production optimization, prefer compositor-only animations, use `contain: pa
 
 ### Prerequisites
 
-- [Prepaint](../crp-prepaint/README.md): Property trees and paint invalidation marking
-- [Layout Stage](../crp-layout/README.md): Fragment tree construction
-- [CSS Stacking Context](https://www.w3.org/TR/CSS2/zindex.html): Understanding z-index and paint order
-- Familiarity with DevTools Performance panel
+- [CRP: Prepaint](../crp-prepaint/README.md) — property trees and paint invalidation marking.
+- [CRP: Layout](../crp-layout/README.md) — fragment tree construction.
+- [CSS 2.1: Appendix E — Stacking Contexts](https://www.w3.org/TR/CSS21/zindex.html) — paint order specification.
+- Familiarity with the Chrome DevTools Performance and Rendering panels.
+
+### Series navigation
+
+- Previous: [CRP: Prepaint](../crp-prepaint/README.md)
+- Next: [CRP: Commit](../crp-commit/README.md), then [CRP: Layerize](../crp-layerize/README.md), [CRP: Rasterize](../crp-raster/README.md), [CRP: Composite](../crp-composit/README.md), [CRP: Draw](../crp-draw/README.md).
 
 ### Terminology
 
 | Term                    | Definition                                                                                |
 | :---------------------- | :---------------------------------------------------------------------------------------- |
-| **Display Item**        | Atomic drawing command in a paint artifact (e.g., `DrawRect`, `DrawTextBlob`)             |
+| **Display Item**        | Atomic drawing command in a paint artifact (e.g., `DrawingDisplayItem`)                   |
 | **Paint Artifact**      | Output of paint stage: display items partitioned into paint chunks                        |
-| **Paint Chunk**         | Sequential display items sharing identical PropertyTreeState                              |
+| **Paint Chunk**         | Sequential display items sharing identical `PropertyTreeState`                            |
 | **PropertyTreeState**   | 4-tuple `(transform_id, clip_id, effect_id, scroll_id)` identifying visual effect context |
 | **PaintController**     | Component managing display item recording and caching                                     |
 | **Stacking Context**    | Isolated 3D rendering context for z-ordering; created by various CSS properties           |
 | **CompositeAfterPaint** | Chromium M94+ architecture where paint precedes layerization                              |
 | **Isolation Boundary**  | Barrier (e.g., `contain: paint`) limiting paint invalidation propagation                  |
 | **Raster Invalidation** | Determining which pixel regions need re-rasterization based on paint changes              |
-| **Skia**                | Open-source 2D graphics library executing display item commands                           |
-
-### Summary
-
-- Paint **records** drawing commands into display items; it does not produce pixels
-- **Paint Artifacts** contain display items partitioned into **Paint Chunks** by PropertyTreeState
-- **Stacking context rules** (CSS 2.1 Appendix E) govern paint order—contexts are atomic and never interleave
-- **CompositeAfterPaint** (M94+) moved layerization after paint, eliminating circular dependencies and improving scroll latency 3.5%+
-- **PaintController caching** reuses unchanged display items across frames
-- **`contain: paint`** creates isolation boundaries for scoped invalidation and off-screen paint skipping
-- **Compositor-only properties** (`transform`, `opacity`) bypass paint entirely
+| **Skia**                | Open-source 2D graphics library executing the recorded display item commands              |
 
 ### References
 
-- [CSS 2.1: Appendix E - Elaborate description of Stacking Contexts](https://www.w3.org/TR/CSS21/zindex.html) — Specification for paint order algorithm
-- [CSS Containment Module Level 2](https://www.w3.org/TR/css-contain-2/) — Specification for `contain: paint` behavior
-- [HTML Specification: Update the Rendering](https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering) — Where paint fits in the event loop
-- [Chromium Blink Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md) — Implementation details and caching semantics
-- [Chromium Platform Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/README.md) — Paint artifact and display item structures
-- [Chromium RenderingNG Architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture) — Pipeline overview and property tree integration
-- [Chromium BlinkNG](https://developer.chrome.com/docs/chromium/blinkng) — CompositeAfterPaint rationale and performance improvements
-- [Chromium Slimming Paint](https://www.chromium.org/blink/slimming-paint/) — Evolution from legacy paint to property tree-based architecture
-- [Chromium Compositor Hit Testing](https://www.chromium.org/developers/design-documents/compositor-hit-testing/) — Hit test data recording during paint
-- [web.dev: Simplify Paint Complexity](https://web.dev/articles/simplify-paint-complexity-and-reduce-paint-areas) — Practical optimization guidance
-- [Chrome DevTools: Analyze rendering performance](https://developer.chrome.com/docs/devtools/performance/) — Paint profiling tools
+- [CSS 2.1: Appendix E — Elaborate description of Stacking Contexts](https://www.w3.org/TR/CSS21/zindex.html)
+- [CSS Containment Module Level 1](https://www.w3.org/TR/css-contain-1/)
+- [HTML Specification: Update the Rendering](https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering)
+- [Chromium Blink Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md)
+- [Chromium Platform Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/README.md)
+- [Chromium RenderingNG Architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture)
+- [Chromium RenderingNG Data Structures](https://developer.chrome.com/docs/chromium/renderingng-data-structures)
+- [Chromium BlinkNG](https://developer.chrome.com/docs/chromium/blinkng)
+- [Chromium Slimming Paint](https://www.chromium.org/blink/slimming-paint/)
+- [Chromium Compositor Hit Testing](https://www.chromium.org/developers/design-documents/compositor-hit-testing/)
+- [MDN: Stacking context](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Stacking_context)
+- [web.dev: Stick to compositor-only properties and manage layer count](https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count)
+- [Chrome DevTools: Analyze rendering performance](https://developer.chrome.com/docs/devtools/performance/)
+
+[^paint-readme]: [Chromium Blink Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md) — display item caching semantics and `PaintLayerPainter` walk order.
+[^platform-paint]: [Chromium Platform Paint README](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/README.md) — display item types and paint artifact layout.
+[^renderingng-data]: [Key data structures in RenderingNG](https://developer.chrome.com/docs/chromium/renderingng-data-structures) — paint chunks, property tree state, layer assignment.
+[^renderingng-arch]: [Chromium RenderingNG Architecture](https://developer.chrome.com/docs/chromium/renderingng-architecture) — pipeline ordering and thread boundaries.
+[^paint-controller-h]: [paint_controller.h](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/paint_controller.h) — `SubsequenceMarkers`, `UseCachedSubsequenceIfPossible`.
+[^css21-appendix-e]: [CSS 2.1 Appendix E](https://www.w3.org/TR/CSS21/zindex.html) — normative paint order specification.
+[^mdn-stacking-context]: [MDN: Stacking context](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Stacking_context) — current list of triggers.
+[^css-contain]: [CSS Containment Module Level 1 — Paint Containment](https://www.w3.org/TR/css-contain-1/#containment-paint) — clipping, stacking context, off-screen skip.
+[^slimming-paint]: [Chromium Slimming Paint](https://www.chromium.org/blink/slimming-paint/) — 22,000 lines of C++ removed; CompositeAfterPaint background.
+[^blinkng]: [Chromium BlinkNG](https://developer.chrome.com/docs/chromium/blinkng) — CPU, scroll, and input-delay improvements.
+[^webdev-compositor]: [web.dev: Stick to compositor-only properties and manage layer count](https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count) — `transform` / `opacity` semantics and layer memory cost.
+[^crbug-bgfixed]: [Chromium issue 40263175 (originally crbug 523175)](https://issues.chromium.org/issues/40263175) — `background-attachment: fixed` causing constant repaint on scroll; see also [web.dev: Stick to compositor-only properties](https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count).
+[^paint-image]: [cc/paint/paint_image.h](https://chromium.googlesource.com/chromium/src/+/HEAD/cc/paint/paint_image.h) and [cc/paint/decoding_image_generator.h](https://chromium.googlesource.com/chromium/src/+/HEAD/cc/paint/decoding_image_generator.h) — `PaintImage` records a lazy decode that runs on raster worker threads, not during paint.

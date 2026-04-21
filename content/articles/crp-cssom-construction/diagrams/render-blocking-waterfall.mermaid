@@ -1,0 +1,22 @@
+%% Diagram: Render-blocking CSS waterfall vs preload media-swap
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    H["HTML document download"]
+    subgraph blocking["Blocking path (delays First Contentful Paint)"]
+        direction TB
+        L["link rel=stylesheet (default)"]
+        I1["@import reset.css"]
+        I2["@import components.css"]
+        L --> I1 --> I2
+    end
+    subgraph async["Non-blocking discovery"]
+        direction TB
+        M["link media=print, onload swap to all"]
+        P["link rel=preload as=style"]
+        B["link blocking=render (opt-in)"]
+    end
+    H --> L
+    H -.->|preload scanner discovers| async
+    blocking --> FCP[(First Contentful Paint)]
+    async -.->|applies after FCP| FCP

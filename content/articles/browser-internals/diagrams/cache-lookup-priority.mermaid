@@ -1,0 +1,22 @@
+%% Diagram: Browser cache lookup order for a subresource fetch
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Req["Renderer requests resource"] --> MemCache{"Blink memory cache hit?"}
+    MemCache -- yes --> ServeMem["Serve from renderer memory (sub-ms)"]
+    MemCache -- no --> Disk{"HTTP disk cache hit + fresh?"}
+    Disk -- yes --> ServeDisk["Serve from disk cache"]
+    Disk -- "stale (must revalidate)" --> Cond["Conditional GET (If-None-Match / If-Modified-Since)"]
+    Disk -- no --> Sock{"Keep-alive socket to origin?"}
+    Cond --> Sock
+    Sock -- yes --> Send["Send request on existing socket"]
+    Sock -- no --> DNS{"Host in DNS cache?"}
+    DNS -- yes --> Connect["TCP + TLS handshake"]
+    DNS -- no --> Resolve["Resolve via system / DoH resolver"]
+    Resolve --> Connect
+    Connect --> Send
+    Send --> Origin["Origin / CDN response"]
+
+    style ServeMem fill:#e8f5e8
+    style ServeDisk fill:#e8f5e8
+    style Origin fill:#fff3e0

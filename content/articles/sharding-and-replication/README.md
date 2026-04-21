@@ -4,11 +4,13 @@ linkTitle: 'Sharding & Replication'
 description: >-
   Two orthogonal axes of database scaling — sharding (hash, range, consistent hash, directory) for write throughput and replication (single-leader, multi-leader, leaderless) for availability — with production patterns from CockroachDB, Cassandra, DynamoDB, and Vitess.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - databases
   - storage
   - distributed-systems
+  - system-design
+  - reliability
 ---
 
 # Sharding and Replication
@@ -32,10 +34,10 @@ The mental model: **sharding solves capacity, replication solves availability**.
 
 Every combination is valid:
 
-- **CockroachDB** (v24.x): Range partitioning + Multi-Raft consensus—each 64MB range is an independent Raft group
-- **Cassandra/ScyllaDB**: Consistent hashing + leaderless replication—vnodes or tablets for load distribution
-- **DynamoDB**: Hash partitioning + quorum-based replication—partition key determines data placement
-- **Vitess** (powers Slack at 2.3M QPS): Directory-based sharding + MySQL single-leader replication
+- **CockroachDB** (v24.x): range partitioning + Multi-Raft consensus — each range (default `range_max_bytes` = 512 MiB) is an independent Raft group ([CockroachDB replication zone defaults](https://www.cockroachlabs.com/docs/stable/configure-replication-zones))
+- **Cassandra / ScyllaDB**: consistent hashing + leaderless replication — vnodes (Cassandra) or [tablets (ScyllaDB 2024.2+)](https://www.scylladb.com/2024/12/03/enterprise-tablets/) for load distribution
+- **DynamoDB**: hash partitioning + quorum-based replication — the partition key determines data placement ([DynamoDB SOSP 2007 paper](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf))
+- **Vitess** (powers Slack at 2.3M QPS): directory-based sharding + MySQL single-leader replication ([Slack Vitess engineering write-up](https://slack.engineering/scaling-datastores-at-slack-with-vitess/))
 
 The choice depends on access patterns, consistency requirements, and operational capacity.
 
@@ -84,15 +86,18 @@ Assign contiguous key ranges to each shard. Adjacent keys live on the same shard
 - ❌ Hot spots on recent data (time-series) or popular key ranges
 - ❌ Split point management adds operational complexity
 
-**Real-world**: CockroachDB (v24.x) defaults to range partitioning with automatic splitting at 64MB. Each range forms an independent Raft consensus group—a cluster can have hundreds of thousands of ranges. Google Spanner uses range-based directory partitioning with TrueTime for global consistency. HBase uses range partitioning by row key—Yahoo found hot regions caused 80% of their operational issues. Their solution: salted row keys (prefix with hash) for write-heavy tables, trading range scan efficiency for write distribution.
+**Real-world**: [CockroachDB](https://www.cockroachlabs.com/docs/stable/architecture/distribution-layer#range-splits) (v24.x) defaults to range partitioning with automatic splitting once a range hits `range_max_bytes` — **512 MiB by default since v20.1**, often misquoted as the older 64 MiB value. Each range forms an independent Raft consensus group, so a cluster can have hundreds of thousands of ranges. [Google Spanner](https://research.google/pubs/pub39966/) uses range-based directory partitioning with TrueTime for external consistency. HBase uses range partitioning by row key, and operators have repeatedly reported that hot regions on monotonically increasing keys (timestamps, sequential IDs) drive a disproportionate share of their incidents; the standard mitigation is a salted row key (hash prefix) for write-heavy tables, trading range-scan efficiency for write distribution.
 
-**TiDB** (v8.x) uses a similar approach: data divides into Regions (96MB limit) where each Region is a Raft group. Auto-split/merge happens transparently—applications see a single logical table.
+**TiDB / TiKV** uses the same shape: data divides into Regions, each one a Raft group. The default `region-split-size` was **96 MiB historically and is 256 MiB from v8.4.0 onward** ([TiDB region-size tuning guide](https://docs.pingcap.com/tidb/stable/tune-region-performance)). Auto-split and merge happen transparently — applications see a single logical table.
 
 ### Consistent Hashing
 
 Hash both keys and nodes onto a virtual ring. Keys route to the next node clockwise on the ring.
 
-**Mechanism**: Each node owns a portion of the hash ring. Adding a node only remaps keys between the new node and its clockwise neighbor—approximately `1/N` of all keys when scaling from `N` to `N+1` nodes.
+![Consistent hashing ring with virtual nodes — each physical node owns multiple tokens; keys map to the next clockwise vnode.](./diagrams/consistent-hashing-ring-light.svg "Consistent hashing ring with virtual nodes — each physical node owns multiple tokens; keys map to the next clockwise vnode.")
+![Consistent hashing ring with virtual nodes — each physical node owns multiple tokens; keys map to the next clockwise vnode.](./diagrams/consistent-hashing-ring-dark.svg)
+
+**Mechanism**: Each node owns a portion of the hash ring. Adding a node only remaps keys between the new node and its clockwise neighbor — approximately `1/N` of all keys when scaling from `N` to `N+1` nodes ([Karger et al., STOC 1997](https://dl.acm.org/doi/10.1145/258533.258660)).
 
 **Why it exists**: Standard hash partitioning (`hash % N`) remaps nearly all keys when N changes. Consistent hashing minimizes disruption during scaling.
 
@@ -102,7 +107,7 @@ Hash both keys and nodes onto a virtual ring. Keys route to the next node clockw
 - Faster rebalancing when nodes join/leave
 - Better utilization of heterogeneous hardware (more vnodes for beefier machines)
 
-Cassandra historically recommended 256 vnodes per node, later reduced to 16-32 for better performance. More vnodes reduce variance but increase metadata overhead and repair complexity.
+Cassandra historically shipped with `num_tokens: 256`. The 4.0 release [changed the default to 16](https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html) (per CASSANDRA-13701) because the high-token configuration amplified repair, streaming, and availability problems on large clusters. More vnodes reduce variance but increase metadata overhead and repair complexity.
 
 > **Note**: Martin Kleppmann observes that consistent hashing "doesn't work very well for databases" because resharding costs remain high even with minimal key movement—the data still needs to physically move. For availability, replication beats resharding.
 
@@ -116,7 +121,7 @@ Cassandra historically recommended 256 vnodes per node, later reduced to 16-32 f
 - ❌ Still scatter-gather for range queries
 - ❌ Vnodes increase metadata and routing table size
 
-**Real-world**: Amazon DynamoDB, Apache Cassandra, and Discord all use consistent hashing. Discord's Cassandra cluster scaled from 12 to 177 nodes over 5 years—consistent hashing kept migration overhead manageable. However, Discord ultimately migrated to ScyllaDB in 2023, citing Cassandra's GC pauses and hot partition issues. The migration moved **trillions of messages** in 9 days using a Rust-based migrator achieving **3.2 million records/second**.
+**Real-world**: Amazon DynamoDB, Apache Cassandra, and Discord all use consistent hashing. Discord's Cassandra cluster scaled from 12 to 177 nodes — consistent hashing kept migration overhead manageable. Discord ultimately migrated to ScyllaDB in 2023, citing Cassandra's JVM GC pauses and hot-partition pathologies; [Discord's own writeup](https://discord.com/blog/how-discord-stores-trillions-of-messages) reports a custom Rust-based migrator that moved **trillions of messages from a 177-node Cassandra cluster to a 72-node ScyllaDB cluster in ~9 days at peak ~3.2 million records/sec**.
 
 ### Directory-Based Sharding
 
@@ -142,7 +147,7 @@ A lookup service maps keys to shard locations. Maximum flexibility at the cost o
 
 Vitess (used by YouTube since 2011, Slack, Pinterest, Square) maintains a topology service that maps keyspace ranges to shards. Slack runs Vitess at **2.3 million QPS** (2M reads, 300K writes) with median latency of **2ms** and p99 of **11ms**. The directory is typically replicated (via etcd or ZooKeeper) and cached aggressively to mitigate the SPOF concern.
 
-**Pinterest's MySQL Sharding** uses a directory-based approach with IDs encoding shard location: 16-bit shard ID + 10-bit type ID + 36-bit local ID. Key principle: data never moves between shards once placed. This eliminates resharding complexity at the cost of inflexible data placement.
+**[Pinterest's MySQL sharding](https://medium.com/pinterest-engineering/sharding-pinterest-how-we-scaled-our-mysql-fleet-3f341e96ca6f)** encodes the shard location into the row's 64-bit primary key: 16 bits shard ID + 10 bits type ID + 36 bits local ID + 2 reserved bits, so any ID self-routes without a directory hop. The corresponding rule is brutal but cheap to operate: **data never moves between shards once placed**. This eliminates resharding complexity at the cost of inflexible data placement.
 
 ### Sharding Strategy Decision Matrix
 
@@ -221,7 +226,10 @@ Multiple nodes accept writes independently, then replicate to each other.
 
 Any node accepts reads and writes. Clients contact multiple nodes; quorum determines success.
 
-**Mechanism**: Client sends writes to W replicas and reads from R replicas. If `W + R > N` (total replicas), at least one node has the latest value. Quorum ensures overlap.
+![Quorum overlap with N=3, W=2, R=2 — at least one replica is in both quorums, so the read sees the latest write.](./diagrams/quorum-overlap-light.svg "Quorum overlap with N=3, W=2, R=2 — at least one replica is in both quorums, so the read sees the latest write.")
+![Quorum overlap with N=3, W=2, R=2 — at least one replica is in both quorums, so the read sees the latest write.](./diagrams/quorum-overlap-dark.svg)
+
+**Mechanism**: Client sends writes to W replicas and reads from R replicas. If `W + R > N` (total replicas), every read quorum intersects every write quorum on at least one replica — so a successful read always touches a node that holds the latest acknowledged write ([DDIA, ch. 5](https://dataintensive.net/)). Quorum ensures overlap, not freshness on every node.
 
 **Why it exists**: No leader means no single point of failure and no failover. Any node can serve any request.
 
@@ -272,6 +280,9 @@ Any node accepts reads and writes. Clients contact multiple nodes; quorum determ
 
 The replication timing determines durability and latency trade-offs.
 
+![Sync vs semi-sync vs async replication timing — when the leader acknowledges the client relative to follower replication.](./diagrams/replication-timing-light.svg "Sync vs semi-sync vs async replication timing — when the leader acknowledges the client relative to follower replication.")
+![Sync vs semi-sync vs async replication timing — when the leader acknowledges the client relative to follower replication.](./diagrams/replication-timing-dark.svg)
+
 ### Synchronous Replication
 
 Leader waits for follower acknowledgment before confirming write to client.
@@ -282,7 +293,7 @@ Leader waits for follower acknowledgment before confirming write to client.
 
 **When to use**: Financial transactions, audit logs, any data where loss is unacceptable.
 
-**Real-world**: Google Spanner uses synchronous Paxos replication—writes commit only after majority acknowledgment. The TrueTime API (atomic clocks + GPS) provides **<1ms clock uncertainty at p99**, enabling external consistency. Spanner's "commit wait" ensures transaction visibility only after the commit timestamp passes—but with tight TrueTime bounds, this typically requires no actual waiting.
+**Real-world**: Google Spanner uses synchronous Paxos replication — writes commit only after majority acknowledgment. The TrueTime API (atomic clocks + GPS) bounds clock uncertainty (`ε`) to **less than 10 ms in steady state, typically around 1–7 ms** depending on time-master polling and load ([Spanner OSDI 2012, §3](https://research.google/pubs/pub39966/)) — not the sub-millisecond figure that often gets repeated. Spanner's "commit wait" delays transaction visibility until the commit timestamp has passed; with tight TrueTime bounds, this wait is short but non-zero.
 
 ### Asynchronous Replication
 
@@ -422,39 +433,23 @@ Choosing sharding and replication strategies requires analyzing your specific re
 
 ### Decision Tree
 
-```
-Start: What's your primary bottleneck?
+![Sharding and replication decision tree, branching on bottleneck (writes / reads / geo / HA) and consistency requirement.](./diagrams/sharding-decision-tree-light.svg "Sharding and replication decision tree, branching on bottleneck (writes / reads / geo / HA) and consistency requirement.")
+![Sharding and replication decision tree, branching on bottleneck (writes / reads / geo / HA) and consistency requirement.](./diagrams/sharding-decision-tree-dark.svg)
 
-├── Write throughput / data volume
-│   └── Do you need strong consistency?
-│       ├── Yes → Range sharding + Raft consensus (CockroachDB, TiDB)
-│       └── No → Hash/consistent hash + leaderless (Cassandra, DynamoDB)
-│
-├── Read throughput
-│   └── Do you need strong consistency?
-│       ├── Yes → Single-leader + read replicas (read from leader)
-│       └── No → Leaderless with tunable quorum
-│
-├── Geographic distribution
-│   └── Can you accept eventual consistency?
-│       ├── Yes → Multi-leader with conflict resolution
-│       └── No → Single-leader per region + cross-region Paxos (Spanner)
-│
-└── High availability (no SPOF)
-    └── Leaderless replication (any quorum serves requests)
-```
+The tree is a starting point, not a verdict — most production systems sit at the intersection of two paths (e.g. range sharding + leaderless reads from a follower) and tune from there.
 
 ### Production Benchmarks
 
 Reference points from production systems (as of 2024):
 
-| System              | QPS            | Latency           | Scale                  | Architecture                   |
-| ------------------- | -------------- | ----------------- | ---------------------- | ------------------------------ |
-| Slack (Vitess)      | 2.3M peak      | 2ms p50, 11ms p99 | -                      | Directory + single-leader      |
-| Stripe DocDB        | 5M             | -                 | 2,000+ shards, PB data | Directory + custom replication |
-| Uber Docstore       | 40M+ reads/sec | -                 | Tens of PB             | Partitioned + Raft             |
-| Discord (ScyllaDB)  | -              | 15ms p99 read     | Trillions of messages  | Consistent hash + leaderless   |
-| Netflix (Cassandra) | Millions/sec   | -                 | PB data, 10K+ nodes    | Consistent hash + leaderless   |
+| System                     | QPS                              | Latency           | Scale                          | Architecture                   |
+| -------------------------- | -------------------------------- | ----------------- | ------------------------------ | ------------------------------ |
+| Slack (Vitess, 2020)       | 2.3M peak (2M reads, 300K writes)| 2 ms p50, 11 ms p99 | tens of PB                   | Directory + single-leader      |
+| Stripe DocDB (2024)        | 5M                               | n/a               | 2,000+ shards, 5,000+ collections, PB data | Directory + custom replication |
+| Uber Docstore (Aug 2024)   | 40M+ reads/sec via CacheFront    | n/a               | tens of PB                     | Partitioned + Raft + Redis cache |
+| Uber Docstore (Aug 2025)   | 150M+ reads/sec via CacheFront   | n/a               | tens of PB                     | Partitioned + Raft + Redis cache |
+| Discord (ScyllaDB, 2023)   | n/a                              | 15 ms p99 read    | trillions of messages, 72-node ScyllaDB cluster | Consistent hash + leaderless   |
+| Netflix (Cassandra)        | millions/sec                     | n/a               | PB data, 10K+ nodes            | Consistent hash + leaderless   |
 
 ## Resharding and Data Migration
 
@@ -469,7 +464,10 @@ As data grows, shards need to split. As traffic patterns change, shards need to 
 
 ### Stripe's Zero-Downtime Migration (DocDB)
 
-Stripe's DocDB (custom MongoDB-based system) serves **5 million QPS** across **2,000+ shards** and petabytes of data. Their Data Movement Platform enables zero-downtime migrations:
+Stripe's [DocDB](https://stripe.com/blog/how-stripes-document-databases-supported-99.999-uptime-with-zero-downtime-data-migrations) (a MongoDB-Community-based document store) serves over **5 million QPS** across **2,000+ shards** holding petabytes of data across 5,000+ collections. Their Data Movement Platform enables zero-downtime migrations:
+
+![Online resharding pipeline — register intent, bulk copy, CDC catch-up, brief cutover, verify, cleanup; CDC keeps the destination current throughout.](./diagrams/online-resharding-pipeline-light.svg "Online resharding pipeline — register intent, bulk copy, CDC catch-up, brief cutover, verify, cleanup; CDC keeps the destination current throughout.")
+![Online resharding pipeline — register intent, bulk copy, CDC catch-up, brief cutover, verify, cleanup; CDC keeps the destination current throughout.](./diagrams/online-resharding-pipeline-dark.svg)
 
 **Phase 1 - Setup**:
 
@@ -548,9 +546,9 @@ When a database has thousands of shards, each shard being an independent Raft gr
 
 Spanner uses leader-based Paxos with leases. Each tablet has its own Paxos state machine.
 
-**TrueTime integration**: GPS receivers + atomic clocks in each datacenter provide **<1ms clock uncertainty at p99**. This enables external consistency without excessive coordination latency.
+**TrueTime integration**: GPS receivers and atomic clocks in each datacenter let TrueTime expose `TT.now()` as an interval `[earliest, latest]` whose half-width `ε` is **typically a few milliseconds (1–7 ms in steady state, < 10 ms even during time-master polling)** — Spanner's external consistency depends on `ε` staying small, not on `ε` being sub-millisecond ([Spanner OSDI 2012, §3](https://research.google/pubs/pub39966/)).
 
-**Commit wait**: After committing, Spanner waits until the commit timestamp has passed before making the transaction visible. With tight TrueTime bounds, this wait is typically negligible.
+**Commit wait**: After committing, Spanner waits until `TT.after(commit_ts)` is true before making the transaction visible — proportional to `2ε`. With ε in the low single-digit milliseconds, this wait is small enough that throughput is dominated by Paxos round-trips, not by `commit_wait`.
 
 ## Failure Handling
 
@@ -709,7 +707,7 @@ Operating sharded, replicated systems requires comprehensive observability.
 
 **The fix**: Design applications to handle brief unavailability. Implement circuit breakers. Test failover regularly. Consider synchronous replication for zero data loss.
 
-**Example**: A team assumed their managed database "had failover." In production, failover took 25 seconds—their 30-second HTTP timeout caused cascading failures. Fix: shorter timeouts (5-10 seconds), circuit breakers, and regular failover testing in staging. AWS RDS Multi-AZ failover typically takes 60-120 seconds; plan for this.
+**Example**: A team assumed their managed database "had failover." In production, failover took 25 seconds — their 30-second HTTP timeout caused cascading failures. Fix: shorter timeouts (5–10 seconds), circuit breakers, and regular failover testing in staging. [AWS RDS Multi-AZ DB instance failover typically takes 60–120 seconds](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html); the newer [Multi-AZ DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts-failover.html) variant (2 readable standbys) is typically under 35 seconds — plan for whichever your config actually uses.
 
 ## Conclusion
 
@@ -797,10 +795,14 @@ There's no universal answer—only trade-offs that match your access patterns, c
 - [Slack: Scaling Datastores with Vitess](https://slack.engineering/scaling-datastores-at-slack-with-vitess/) - MySQL sharding at 2.3M QPS
 - [Stripe: Zero-Downtime Data Migrations](https://stripe.com/blog/how-stripes-document-databases-supported-99.999-uptime-with-zero-downtime-data-migrations) - DocDB migration methodology
 - [Pinterest: Sharding MySQL](https://medium.com/pinterest-engineering/sharding-pinterest-how-we-scaled-our-mysql-fleet-3f341e96ca6f) - ID-encoded shard placement
-- [Uber Docstore](https://www.uber.com/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache/) - 40M+ reads/sec with Raft
+- [Uber Docstore (40M reads/sec)](https://www.uber.com/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache/) - Original CacheFront write-up, August 2024
+- [Uber Docstore (150M reads/sec)](https://www.uber.com/blog/how-uber-serves-over-150-million-reads/) - CacheFront with stronger consistency, August 2025
 - [LinkedIn Espresso](https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store) - Hash-based partitioning at scale
 - [Netflix Key-Value Data Abstraction](https://netflixtechblog.com/introducing-netflixs-key-value-data-abstraction-layer-1ea8a0a11b30) - Cassandra-based data layer
 - [TiDB Architecture](https://www.pingcap.com/blog/building-a-large-scale-distributed-storage-system-based-on-raft/) - Multi-Raft implementation
+- [TiDB region-size tuning](https://docs.pingcap.com/tidb/stable/tune-region-performance) - Region split-size defaults (96 MiB historical, 256 MiB from v8.4.0)
+- [Cassandra 4.0 num_tokens default change](https://issues.apache.org/jira/browse/CASSANDRA-13701) - Why the vnode default dropped from 256 to 16
+- [AWS RDS Multi-AZ failover](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html) - Multi-AZ instance vs Multi-AZ DB cluster failover budgets
 
 **Books**
 

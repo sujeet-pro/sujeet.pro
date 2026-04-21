@@ -4,7 +4,7 @@ linkTitle: 'Real-Time Sync'
 description: >-
   Client-side architecture for real-time sync covering WebSocket, SSE, and long polling transports, connection resilience with exponential backoff, conflict resolution via OT and CRDTs, and state reconciliation patterns drawn from Figma, Notion, and Linear.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - system-design
@@ -45,14 +45,17 @@ Real-time sync violates the request-response model that HTTP assumes. Three cons
 
 ### Browser Constraints
 
-| Resource                         | Limit                | Impact                                                |
-| -------------------------------- | -------------------- | ----------------------------------------------------- |
-| WebSocket connections per domain | 6–30                 | Multiple tabs share quota; exhaustion causes failures |
-| SSE connections (HTTP/1.1)       | 6 per domain         | Shared across all tabs; HTTP/2 raises to ~100         |
-| Main thread budget               | 16ms/frame           | Long sync operations cause UI jank                    |
-| IndexedDB quota                  | 50% of disk (Chrome) | Large local caches can hit quota errors               |
+| Resource                              | Limit                                                  | Impact                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| WebSocket connections per profile     | ~255 in Chrome, ~200 in Firefox                        | Shared across all tabs and origins; the HTTP/1.1 6/origin cap does **not** apply to WebSocket sockets   |
+| SSE connections per origin (HTTP/1.1) | 6                                                      | Shared across all tabs; HTTP/2 multiplexes streams over a single TCP connection so the cap effectively disappears |
+| Main thread budget                    | 16 ms/frame                                            | Long sync operations cause UI jank                                                                       |
+| IndexedDB quota                       | Up to ~60% of disk per origin (Chrome), ~10% (Firefox) | Large local caches can hit `QuotaExceededError`                                                          |
 
-WebSocket connections prevent the browser's back/forward cache (bfcache) from storing the page. Close connections on `pagehide` to preserve navigation performance.
+The 6-per-origin connection cap that frustrates HTTP/1.1 polling does not apply to WebSocket — Chromium counts WebSocket sockets against a separate global pool ([source](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/net/socket/websocket_endpoint_lock_manager.cc)). Multiple tabs sharing the same origin are still capped, just much higher than naive readings of the WebSocket / `EventSource` specs imply.
+
+> [!NOTE]
+> WebSockets historically blocked the back/forward cache (bfcache). As of 2024 Chromium will [evict the page from bfcache and close the WebSocket on entry](https://chromestatus.com/feature/5068439115923456) instead of refusing to cache. Best practice is still to close connections explicitly on `pagehide` (`event.persisted === true`) and reopen on `pageshow`, so other tabs do not accumulate idle sockets and so reconnection logic owns the lifecycle.
 
 ### Device and Network Profiles
 
@@ -98,11 +101,11 @@ The server responds with `101 Switching Protocols`, and the connection upgrades 
 
 **Limitations:**
 
-- **No backpressure** — If the server sends faster than the client processes, messages buffer in memory until the browser crashes or discards data. Experimental WebSocketStream (Chrome 124+) adds backpressure support.
-- **No multiplexing** — Each logical channel requires a separate connection or application-level multiplexing.
-- **Connection limits** — Browsers cap WebSocket connections per domain (typically 6–30). Multiple tabs compete for this quota.
+- **No backpressure** — If the server sends faster than the client processes, messages buffer in memory until the browser crashes or discards data. The non-standard, Chromium-only [`WebSocketStream`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocketStream) (shipped to stable in Chrome 124) integrates with the Streams API to expose per-message backpressure; cross-browser, the only path to backpressure today is [WebTransport over HTTP/3](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API).
+- **No multiplexing** — Each logical channel requires a separate connection or application-level multiplexing. RFC 8441 lets WebSocket ride a single HTTP/2 stream, which sidesteps the per-origin TCP cost but does not provide multiplexing across logical channels.
+- **Connection limits** — A single origin can open dozens of WebSocket sockets in modern browsers, but they share a global per-profile pool (~255 in Chrome, ~200 in Firefox). Application-level fan-in (one socket multiplexed across components) is almost always the right design.
 
-**When to use:** Chat, collaborative editing, gaming, financial tickers—any scenario requiring low-latency bidirectional communication.
+**When to use:** Chat, collaborative editing, gaming, financial tickers — any scenario requiring low-latency bidirectional communication.
 
 ### Server-Sent Events (SSE)
 
@@ -136,11 +139,11 @@ retry: 3000
 
 **Limitations:**
 
-- Server-to-client only (client uses HTTP POST for uplink)
-- UTF-8 text only (no binary)
-- HTTP/1.1 limits to 6 connections per domain across all tabs
+- Server-to-client only — the client uses an ordinary `fetch`/`XMLHttpRequest` POST for uplink.
+- UTF-8 text only — no binary frames. Encode with base64 or switch to WebSocket / WebTransport if you need bytes.
+- Over HTTP/1.1 the 6-per-origin TCP cap applies; HTTP/2 multiplexes streams over one TCP connection so the cap effectively disappears.
 
-**When to use:** Live feeds, notifications, dashboards—scenarios where the server pushes and the client occasionally posts.
+**When to use:** Live feeds, notifications, dashboards — scenarios where the server pushes and the client occasionally posts.
 
 ### Long Polling
 
@@ -166,10 +169,24 @@ Long polling simulates push by having the client hold an open HTTP request until
 
 **When to use:** Fallback when WebSocket and SSE fail; infrequent updates where latency is acceptable.
 
+### WebTransport (Future-Forward)
+
+[WebTransport](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API) is the modern successor to WebSocket, layered on HTTP/3 (QUIC). It provides multiple unidirectional/bidirectional streams over a single connection, optional unreliable datagrams, and proper per-stream backpressure via the Streams API.
+
+| Property              | WebTransport                            |
+| --------------------- | --------------------------------------- |
+| Transport             | HTTP/3 (QUIC over UDP)                  |
+| Streams per session   | Many; reliable + unreliable             |
+| Backpressure          | Native (Streams API)                    |
+| Head-of-line blocking | None at transport (per-stream HOLB)     |
+| Browser availability  | Chromium stable; Firefox behind a flag  |
+
+For greenfield real-time apps that need binary, multiplexed, backpressured channels and can tolerate Chromium-leading availability, WebTransport is the strategically right choice. WebSocket remains the safe default for cross-browser parity.
+
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Decision tree for choosing between WebSocket, SSE, and long polling based on directionality, latency needs, and offline support.](./diagrams/transport-decision-tree-light.svg "Pick a transport by directionality, latency tolerance, and whether the client needs to upstream data.")
+![Decision tree for choosing between WebSocket, SSE, and long polling based on directionality, latency needs, and offline support.](./diagrams/transport-decision-tree-dark.svg)
 
 ## Connection Management
 
@@ -489,7 +506,10 @@ function handleMessage(msg: { id: string; payload: unknown }): void {
 
 ## Optimistic Updates
 
-Optimistic updates show changes immediately while the server processes asynchronously. If the server rejects, rollback to previous state.
+Optimistic updates show changes immediately while the server processes asynchronously. If the server rejects, rollback to previous state. The lifecycle has three branches: success (clear pending), validation failure (restore snapshot, surface error), and network failure (keep pending, retry with backoff).
+
+![Sequence diagram showing optimistic update flow: snapshot, apply locally, enqueue, send, then either ack-and-clear, restore-on-error, or keep-and-retry on network failure.](./diagrams/optimistic-update-rollback-light.svg "Optimistic update lifecycle: apply locally, enqueue with idempotency key, then resolve via ack, restore, or retry-with-backoff.")
+![Sequence diagram showing optimistic update flow: snapshot, apply locally, enqueue, send, then either ack-and-clear, restore-on-error, or keep-and-retry on network failure.](./diagrams/optimistic-update-rollback-dark.svg)
 
 ### Pattern Implementation
 
@@ -564,31 +584,40 @@ const mutation = useMutation({
 | Network partition  | User thinks action succeeded | Queue mutations; replay on reconnect           |
 | Race conditions    | Stale read before write      | Version vectors; conditional updates           |
 
-**React 19 useOptimistic:**
+**React 19 `useOptimistic`:**
 
-```typescript title="use-optimistic.tsx" collapse={1-4, 20-25}
-// React 19 built-in optimistic updates
-import { useOptimistic } from 'react';
+The hook signature is `useOptimistic(state, updateFn)` where `updateFn(currentState, optimisticValue)` returns the next optimistic state. The dispatch function must run inside an Action (`startTransition` or a form action); React automatically reverts to `state` once the transition settles ([React docs](https://react.dev/reference/react/useOptimistic)).
 
-function TodoItem({ todo }: { todo: Todo }) {
-  const [optimisticTodo, setOptimisticTodo] = useOptimistic(
+```typescript title="use-optimistic.tsx" collapse={1-4, 25-30}
+import { useOptimistic, startTransition } from 'react';
+
+function TodoItem({ todo, onUpdate }: { todo: Todo; onUpdate: (t: Todo) => Promise<void> }) {
+  const [optimisticTodo, applyOptimistic] = useOptimistic(
     todo,
-    (current, completed: boolean) => ({ ...current, completed })
+    (current, completed: boolean) => ({ ...current, completed }),
   );
 
-  async function toggle() {
-    setOptimisticTodo(!optimisticTodo.completed);
-    await updateTodo({ ...todo, completed: !todo.completed });
+  function toggle() {
+    const nextCompleted = !optimisticTodo.completed;
+    startTransition(async () => {
+      applyOptimistic(nextCompleted);
+      await onUpdate({ ...todo, completed: nextCompleted });
+    });
   }
 
+  const isPending = optimisticTodo.completed !== todo.completed;
+
   return (
-    <li style={{ opacity: optimisticTodo.completed !== todo.completed ? 0.5 : 1 }}>
+    <li style={{ opacity: isPending ? 0.5 : 1 }}>
       <input type="checkbox" checked={optimisticTodo.completed} onChange={toggle} />
       {todo.text}
     </li>
   );
 }
 ```
+
+> [!IMPORTANT]
+> `useOptimistic` only stays in its optimistic state for the lifetime of the surrounding transition. If you need the optimistic value to survive across renders independent of an async action, manage it with `useState` plus your own rollback path.
 
 ## Conflict Resolution
 
@@ -729,9 +758,9 @@ class OTClient {
 
 ### CRDTs (Conflict-Free Replicated Data Types)
 
-CRDTs are data structures mathematically guaranteed to converge. Operations commute—order doesn't matter.
+CRDTs are data structures whose merge operation is **commutative, associative, and idempotent**, so any two replicas that have seen the same set of operations — in any order, with arbitrary duplication — converge to the same state without coordination ([Shapiro et al., 2011](https://hal.inria.fr/inria-00609399v1/document)).
 
-**Used by:** Notion (offline pages), Linear (issue metadata), Figma (for specific features), Automerge, Yjs
+**Used by:** Notion (offline pages), Linear (issue descriptions via Yjs), Figma (loosely inspired, not strictly), [Automerge](https://automerge.org/), [Yjs](https://yjs.dev/).
 
 **Common CRDT types:**
 
@@ -779,11 +808,11 @@ class GCounter {
 }
 ```
 
-**Tombstone problem:** Deleted items leave tombstones (metadata indicating deletion) that accumulate forever. Mitigation:
+**Tombstone problem:** Deletes in many CRDTs leave a tombstone (metadata indicating "this id was removed") that must be retained until every replica has observed it. In long-lived offline scenarios tombstones can accumulate without bound. Mitigations:
 
-- Garbage collection with consensus (complex in peer-to-peer)
-- Time-based tombstone expiry (risks resurrection of deleted items)
-- Periodic state snapshots that exclude tombstones
+- Coordinated garbage collection — only safe to drop a tombstone once every replica has observed it (hard in peer-to-peer; tractable behind a central server).
+- Time-based expiry — simple, but a long-disconnected replica can resurrect deleted items.
+- Periodic snapshot compaction — periodically rebuild a snapshot that omits acknowledged tombstones, then ship the snapshot as the new baseline.
 
 **Design reasoning:** CRDTs trade memory for simplicity. No conflict resolution logic needed—the math guarantees convergence. This makes them ideal for offline-first apps where merge timing is unpredictable.
 
@@ -803,7 +832,10 @@ When client and server state diverge, reconciliation brings them back in sync wi
 
 ### Client-Side Prediction with Server Reconciliation
 
-Originally from game development, this pattern applies local changes immediately but treats server state as authoritative.
+Originally from game development ([Gambetta's series](https://www.gabrielgambetta.com/client-side-prediction-server-reconciliation.html) is the canonical reference), this pattern applies local changes immediately but treats server state as authoritative. When the server acknowledges input #N, the client resets to the server snapshot and replays inputs N+1, N+2, … on top.
+
+![Sequence diagram of client-side prediction and server reconciliation: pending input queue, server snapshot with lastAckedId, drop acknowledged inputs, replay remaining pending inputs.](./diagrams/client-prediction-server-reconciliation-light.svg "Client-side prediction with server reconciliation: server snapshot is authoritative; remaining pending inputs are replayed on top to keep responsiveness.")
+![Sequence diagram of client-side prediction and server reconciliation: pending input queue, server snapshot with lastAckedId, drop acknowledged inputs, replay remaining pending inputs.](./diagrams/client-prediction-server-reconciliation-dark.svg)
 
 ```typescript title="state-reconciliation.ts" collapse={1-10, 50-65}
 // State reconciliation with pending input replay
@@ -1043,48 +1075,47 @@ Phoenix Channels uses a CRDT-based presence system that automatically syncs acro
 
 **Architecture:**
 
-- Client/server with WebSocket
-- Multiplayer service is authoritative
-- File state held in-memory for speed
-- Checkpointing to DynamoDB every 30–60 seconds
-- Write-ahead log prevents data loss between checkpoints
+- Client/server with WebSocket; one centralized multiplayer service per file is the authority.
+- File state lives in memory on that service for speed; periodic checkpoints to durable storage capture full snapshots.
+- A persistent **journal** (transaction log) records every mutation between checkpoints, so a crash can replay forward from the last snapshot without losing accepted edits.
 
-**Conflict resolution:** Property-level LWW. Two simultaneous changes to different properties of the same object both succeed. Only same-property conflicts use timestamp comparison.
+**Conflict resolution:** Property-level LWW. Two simultaneous changes to different properties of the same object both succeed; only same-property conflicts compare timestamps. Figma describes the design as "inspired by CRDTs" rather than a true CRDT — the central server is the source of truth, which sidesteps the offline-merge cases CRDTs were invented to handle.
 
 **Why not OT?** Figma's data model is a tree of objects with properties, not linear text. OT is optimized for character-level text operations. Property-level LWW is simpler and sufficient.
 
-**Fractional indexing for ordered sequences:** Instead of integer indices, objects have arbitrary-precision fractional positions. Insert between A (0.3) and B (0.4) by assigning 0.35. No reindexing required.
+**Fractional indexing for ordered sequences:** Children in a tree are positioned by an arbitrary-precision fraction (encoded as a string) between their two neighbors. Inserting between A (`"a0"`) and B (`"a1"`) is just allocating a new fraction in between (`"a0V"`). No global reindexing required.
 
-**Source:** [Figma Engineering Blog](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)
+**Sources:** [How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/), [Realtime editing of ordered sequences](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/), and [Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/).
 
 ### Notion: Offline-First
 
-**Challenge:** Block-based architecture where pages reference blocks that reference other blocks. Opening a page requires all referenced blocks.
+**Challenge:** Block-based architecture where pages reference blocks that reference other blocks. Opening a page requires the full transitive closure of referenced blocks; a missing block means broken content.
 
 **Architecture:**
 
-- SQLite for local caching (pre-existed for performance)
-- CRDTs for conflict resolution on offline-marked pages
-- Each client tracks `lastDownloadedTimestamp` per offline page
-- On reconnect: compare with server's `lastUpdatedTime`, fetch only newer pages
+- SQLite is used as a persistent local store on native clients (and IndexedDB on the web), evolved from a best-effort cache into a durable backing store specifically for Offline Mode.
+- Pages explicitly marked **Available offline** are migrated to a CRDT-backed representation so concurrent edits merge automatically; non-text properties (e.g. database `select`) can still surface merge conflicts.
+- Each client tracks a `lastDownloadedTimestamp` per offline page; on reconnect it compares with the server's `lastUpdatedTime` and pulls only pages that have moved.
+- Local mutations queue in an `offline_action` table; the sync layer reconciles those actions with authoritative state when the client comes back online.
 
-**Design decision:** If a page might be missing data, Notion refuses to show it at all rather than showing partial content. Missing data is worse UX than "unavailable offline."
+**Design decision:** If a page might be missing transitively required data, Notion refuses to render it rather than show partial content. Missing data is worse UX than "unavailable offline."
 
-**Source:** [Notion Engineering Blog](https://www.notion.com/blog/how-we-made-notion-available-offline)
+**Source:** [How we made Notion available offline](https://www.notion.com/blog/how-we-made-notion-available-offline) and [The data model behind Notion's flexibility](https://www.notion.com/blog/data-model-behind-notion).
 
 ### Linear: Local-First Sync
 
 **Architecture:**
 
-- Loads all issues into memory/IndexedDB on startup
-- Search is instant (0ms)—just filtering a JavaScript array
-- Hybrid: OT for issue descriptions (text), CRDTs for metadata (status, assignee)
+- A normalized object graph lives in memory, modeled with [MobX](https://mobx.js.org/) for fine-grained reactivity, and is mirrored to IndexedDB as the local source of truth.
+- Mutations are wrapped in client transactions, persisted locally, then sent to the server. The server assigns a **total order** of transactions and broadcasts deltas — Linear is centralized, not peer-to-peer, and does not run Operational Transformation.
+- For most fields (status, assignee, priority, comments) the server's totally ordered LWW write is the resolution. Linear adopted **CRDTs (Yjs)** specifically for issue **descriptions** because that is the rich-text surface where two writers genuinely overlap on the same characters.
+- Search is instant because every issue in the workspace is already in JavaScript memory; the search box is a filter over an array, not an API call.
 
-**Why it works:** Issue trackers have bounded data per workspace (unlike documents). Full client-side data enables instant interactions.
+**Why it works:** Issue trackers have bounded data per workspace (unlike open-ended documents). Full client-side data plus a centralized total order enables instant interactions without paying the conceptual tax of full peer-to-peer CRDT.
 
 **Competitive advantage:** "Snappiness" is Linear's primary differentiator from Jira. Local-first makes every interaction feel instant.
 
-**Source:** [Linear Engineering Blog](https://linear.app/now/scaling-the-linear-sync-engine)
+**Sources:** [Scaling the Linear Sync Engine](https://linear.app/now/scaling-the-linear-sync-engine) (Linear) and the [reverse-engineered architecture write-up](https://github.com/wzhudev/reverse-linear-sync-engine) endorsed by Linear's CTO.
 
 ### Discord: Message Delivery at Scale
 
@@ -1092,20 +1123,20 @@ Phoenix Channels uses a CRDT-based presence system that automatically syncs acro
 
 **Architecture:**
 
-- Gateway infrastructure in Elixir (BEAM VM for concurrency)
-- Single Elixir process per guild (server) as central routing point
-- Separate process for each connected user's client
-- Storage evolution: MongoDB → Cassandra (2017) → ScyllaDB (2022)
+- Gateway infrastructure in Elixir on the BEAM VM, designed around lightweight processes and message passing.
+- A single GenServer per guild (server) acts as the central router for that guild; one session process per connected user receives the fan-out.
+- For very large guilds, intermediate **relay** processes split the fan-out tree, and the [Manifold](https://github.com/discord/manifold) library batches PIDs by remote node to keep cross-node message passing scalable.
+- Hot reference data (member rosters) lives in ETS so multiple processes can read without copying into the heap and without piling pressure on the GC.
+- Storage evolution: MongoDB → Cassandra (2017) → ScyllaDB (2022). The migration to ScyllaDB was paired with a Rust-based "data services" layer that does request coalescing and consistent-hash routing keyed by `channel_id`, shielding the database from hot partitions.
 
 **Message fanout:**
 
-1. User sends message
-2. Guild process receives it
-3. Guild process tracks all member sessions
-4. Fans out to all connected user client processes
-5. Client processes forward over WebSocket to devices
+1. User sends message.
+2. Guild process receives it and resolves the recipient set.
+3. Guild process (optionally via relays) hands off to every connected member's session process.
+4. Each session process forwards over its WebSocket to that device.
 
-**Source:** [Discord Engineering Blog](https://discord.com/blog/how-discord-stores-trillions-of-messages)
+**Sources:** [How Discord stores trillions of messages](https://discord.com/blog/how-discord-stores-trillions-of-messages) and [How Discord scaled Elixir to 5,000,000 concurrent users](https://discord.com/blog/how-discord-scaled-elixir-to-5-000-000-concurrent-users).
 
 ### Slack: Real-Time at Enterprise Scale
 
@@ -1164,11 +1195,13 @@ self.onmessage = (e) => {
 
 ### Memory Management
 
-| Browser | WebSocket buffer limit | IndexedDB quota |
-| ------- | ---------------------- | --------------- |
-| Chrome  | ~1GB before crash      | 50% of disk     |
-| Firefox | ~500MB                 | 50% of disk     |
-| Safari  | ~256MB                 | 1GB             |
+Browser-imposed quotas vary by vendor and shift between releases. Treat the numbers below as orders-of-magnitude — always probe at runtime via [`navigator.storage.estimate()`](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/estimate) before you trust a budget.
+
+| Browser | WebSocket send-buffer (`bufferedAmount`) practical ceiling | IndexedDB quota (per origin)             |
+| ------- | ---------------------------------------------------------- | ---------------------------------------- |
+| Chrome  | ~1 GB before tab eviction                                  | Up to ~60 % of disk; pool capped per origin |
+| Firefox | ~500 MB                                                    | ~10 % of disk per group                  |
+| Safari  | ~256 MB                                                    | ~1 GB before user prompt                 |
 
 **WebSocket backpressure (experimental):**
 
@@ -1418,10 +1451,11 @@ navigator.serviceWorker.ready.then((registration) => {
 
 Real-time sync client architecture balances three tensions: latency vs. consistency, offline support vs. conflict complexity, and simplicity vs. reliability. The right approach depends on your data model and user expectations:
 
-- **Property-level LWW** (Figma) for structured objects where concurrent edits to different properties should both succeed
-- **OT** (Google Docs) for text documents requiring strong consistency and intent preservation
-- **CRDTs** (Notion, Linear) for offline-first scenarios where eventual convergence is acceptable
-- **Full state sync** for simpler applications where complexity isn't justified
+- **Property-level LWW** (Figma) for structured objects where concurrent edits to different properties should both succeed.
+- **OT** (Google Docs) for text documents requiring strong consistency and intent preservation through a central server.
+- **CRDTs** (Notion offline pages, Linear issue descriptions, Yjs/Automerge) for surfaces where two writers can edit the same characters concurrently or while offline.
+- **Centralized total-order LWW** (Linear core, Slack messages) for everything else where a single coordinator can assign order cheaply.
+- **Full state sync** for simpler applications where complexity isn't justified.
 
 Connection management is non-negotiable: exponential backoff with jitter, heartbeats for health detection, and sequence-based recovery for message continuity. Optimistic updates with rollback provide the instant feedback users expect while maintaining server authority.
 

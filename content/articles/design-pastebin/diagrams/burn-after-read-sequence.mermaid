@@ -1,0 +1,20 @@
+%% Diagram: Burn-after-read with row lock
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant API as Read service
+    participant DB as PostgreSQL
+    participant S3 as Object storage
+
+    C->>API: GET /aB3kF9x
+    API->>DB: BEGIN
+    API->>DB: SELECT row FOR UPDATE
+    DB-->>API: burn_after_read=true, deleted_at=null
+    API->>DB: UPDATE read_count=1, deleted_at=NOW()
+    API->>S3: GET /pastes/aB3kF9x.zst
+    S3-->>API: compressed content
+    API->>DB: COMMIT
+    API->>S3: DELETE /pastes/aB3kF9x.zst (async)
+    API-->>C: 200 {content} (Cache-Control: no-store)
+    Note over API,DB: Concurrent readers see deleted_at != null<br/>and receive 410 Gone

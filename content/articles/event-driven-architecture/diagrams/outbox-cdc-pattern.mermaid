@@ -1,0 +1,19 @@
+sequenceDiagram
+  autonumber
+  participant App as Service
+  participant DB as Postgres
+  participant WAL as WAL / replication slot
+  participant Deb as Debezium connector
+  participant Reg as Schema Registry
+  participant K as Kafka
+  App->>DB: BEGIN
+  App->>DB: UPDATE orders SET status='PLACED'
+  App->>DB: INSERT INTO outbox (aggregate_id, event_type, payload, headers)
+  App->>DB: COMMIT
+  DB-->>WAL: append commit record
+  Deb->>WAL: stream logical replication events
+  Deb->>Reg: register / fetch schema for event_type
+  Reg-->>Deb: schema id
+  Deb->>K: publish (key=aggregate_id, headers, schema-id + payload)
+  K-->>Deb: ack at offset
+  Note over DB,K: Outbox row never re-read by polling. Cleanup is a separate TTL job.<br/>Order across aggregates is broker partition order.

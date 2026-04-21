@@ -4,7 +4,7 @@ linkTitle: 'Transactions & ACID'
 description: >-
   ACID properties from implementation to practice — covering WAL, MVCC, and locking for single-node transactions, isolation level semantics across major databases, distributed protocols (2PC, Spanner's TrueTime), and alternatives like sagas and the outbox pattern.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - databases
   - storage
@@ -13,10 +13,10 @@ tags:
 
 # Transactions and ACID Properties
 
-Database transactions provide the foundation for reliable data operations: atomicity ensures all-or-nothing execution, consistency maintains invariants, isolation controls concurrent access, and durability guarantees persistence. This article explores implementation mechanisms (WAL, MVCC, locking), isolation level semantics across major databases, distributed transaction protocols (2PC, 3PC, Spanner's TrueTime), and practical alternatives (sagas, outbox pattern) for systems where traditional transactions don't scale.
+Database transactions provide the foundation for reliable data operations: atomicity ensures all-or-nothing execution, consistency maintains invariants, isolation controls concurrent access, and durability guarantees persistence. This article walks through the implementation mechanisms (WAL, ARIES, MVCC, locking), the isolation-level semantics that the major engines actually deliver, the distributed protocols (2PC, 3PC, Spanner's TrueTime, Calvin), and the practical alternatives (sagas, outbox, idempotency keys) that take over when synchronous global transactions become too expensive.
 
-![Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure](./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co-light.svg "Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure")
-![Transaction implementations: single-node ACID via WAL and MVCC; distributed 2PC coordination; saga pattern for microservices with compensating transactions on failure](./diagrams/transaction-implementations-single-node-acid-via-wal-and-mvcc-distributed-2pc-co-dark.svg)
+![ACID and the three transaction-coordination regimes: single-node ACID, synchronous distributed transactions, and async alternatives](./diagrams/acid-overview-light.svg "ACID is delivered by three different regimes — single-node ACID via WAL and MVCC, synchronous coordinators (2PC, Spanner) for global atomicity, and async alternatives (sagas, outbox) when coordinators are too expensive.")
+![ACID and the three transaction-coordination regimes: single-node ACID, synchronous distributed transactions, and async alternatives](./diagrams/acid-overview-dark.svg)
 
 ## Abstract
 
@@ -79,12 +79,12 @@ interface LogRecord {
 // Recovery uses log to redo committed, undo uncommitted
 ```
 
-**PostgreSQL's WAL** (as of v17):
+**PostgreSQL's WAL** (as of [PostgreSQL 17](https://www.postgresql.org/docs/current/wal-internals.html)):
 
-- WAL segments are 16MB by default
-- `wal_level` controls what's logged: `minimal`, `replica`, or `logical`
-- `fsync = on` (default) ensures WAL durability
-- `synchronous_commit` controls when client sees commit acknowledgment
+- WAL segments are [16 MB by default](https://www.postgresql.org/docs/current/wal-internals.html); the size is fixed at `initdb` time and can be changed with `--wal-segsize` since 11.
+- [`wal_level`](https://www.postgresql.org/docs/current/runtime-config-wal.html) controls what is logged: `minimal`, `replica`, or `logical`.
+- [`fsync = on`](https://www.postgresql.org/docs/current/runtime-config-wal.html) (default) is the global durability switch; turning it off invites unrecoverable corruption on crash.
+- [`synchronous_commit`](https://www.postgresql.org/docs/current/wal-async-commit.html) controls whether the COMMIT acknowledgment waits for WAL flush. With `off`, the worst-case data-loss window is bounded at three times `wal_writer_delay` (default `200 ms`, so ~600 ms), and the database remains self-consistent.
 
 **Why WAL beats direct writes**:
 
@@ -220,11 +220,14 @@ SET synchronous_commit = on;
 
 -- Relaxed: don't wait for WAL to reach disk
 SET synchronous_commit = off;
--- Risk: lose recent commits on crash (up to ~3x wal_writer_delay)
--- No corruption risk—just uncommitted data loss
+-- Risk: lose recent commits on crash (up to 3 x wal_writer_delay,
+-- default 200 ms => ~600 ms window).
+-- No corruption risk — just uncommitted data loss.
 ```
 
-**PostgreSQL's fsync surprise (2018)**: Craig Ringer discovered that PostgreSQL assumed failed fsync calls could be retried. But Linux doesn't guarantee this—a failed fsync may have discarded the dirty page. PostgreSQL now treats fsync failures as fatal, requiring restart. This applies to all databases relying on fsync semantics.
+**PostgreSQL's fsync surprise (2018)**: in early 2018, Craig Ringer and PostgreSQL hackers found that the engine had been assuming failed `fsync()` calls could be safely retried. On Linux that assumption is wrong — after an I/O error the kernel can mark the dirty page clean, so a retried `fsync()` returns success while the data is gone.[^fsyncgate] Since PostgreSQL 11.2 (2019‑02), the default is to **PANIC** on `fsync()` failure (the new [`data_sync_retry`](https://www.postgresql.org/docs/current/runtime-config-error-handling.html) GUC defaults to `off`), forcing crash recovery from the WAL rather than trusting that any in-memory state is salvageable. The same assumption held in many other engines that buffer through the page cache.
+
+[^fsyncgate]: [LWN: PostgreSQL's fsync() surprise (2018)](https://lwn.net/Articles/752063/) and [PostgreSQL wiki: Fsync Errors](https://wiki.postgresql.org/wiki/Fsync_Errors).
 
 #### Group Commit Optimization
 
@@ -242,13 +245,14 @@ PostgreSQL's `commit_delay` and `commit_siblings` control grouping. Under high c
 
 #### Durability vs. Performance
 
-| Setting                   | Durability             | Performance        | Use Case         |
-| ------------------------- | ---------------------- | ------------------ | ---------------- |
-| fsync=on, sync_commit=on  | Full                   | Baseline           | Financial, audit |
-| fsync=on, sync_commit=off | WAL sync delay         | ~3x faster commits | Most OLTP        |
-| fsync=off                 | None (corruption risk) | Maximum            | Development only |
+| Setting                       | Durability                                | Performance                                                    | Use case                |
+| ----------------------------- | ----------------------------------------- | -------------------------------------------------------------- | ----------------------- |
+| `fsync=on`, `sync_commit=on`  | Full — committed = durable                | Baseline                                                       | Financial, audit, ledger |
+| `fsync=on`, `sync_commit=off` | Bounded loss (≤ 3× `wal_writer_delay`)    | Faster commits under high concurrency; magnitude workload-dependent | Most OLTP where ~hundreds-of-ms loss is tolerable |
+| `fsync=off`                   | None — corruption likely on crash         | Maximum                                                        | Throwaway / dev only    |
 
-**Real-world benchmark**: Disabling fsync shows ~58% TPS improvement in PostgreSQL benchmarks, but risks unrecoverable corruption. Disabling synchronous_commit shows ~3.5% improvement with only bounded data loss risk (no corruption).
+> [!CAUTION]
+> The two knobs are not symmetric. `synchronous_commit = off` trades a **bounded data-loss window** (≤ 3× `wal_writer_delay`) for noticeably faster commits — safe for most OLTP. `fsync = off` trades **unrecoverable on-disk corruption** for raw throughput — never appropriate for production. Benchmark deltas vary widely with storage media, group-commit pressure, and workload; treat published "X% faster" numbers as upper bounds, not budget.
 
 ## Isolation Level Implementations
 
@@ -295,7 +299,12 @@ PostgreSQL uses MVCC with full tuple versioning:
 | Repeatable Read | Transaction start | Sees all commits before BEGIN     |
 | Serializable    | Transaction start | Plus SSI conflict detection       |
 
-**PostgreSQL exceeds SQL standard**: Repeatable Read in PostgreSQL prevents phantom reads (standard only requires this at Serializable). PostgreSQL's Read Uncommitted behaves like Read Committed—it never allows dirty reads.
+![PostgreSQL MVCC tuple visibility across concurrent transactions at Read Committed and Repeatable Read](./diagrams/mvcc-visibility-light.svg "How xmin/xmax and snapshot timing turn 'when did your snapshot start?' into 'which row version do you see?' across Read Committed and Repeatable Read.")
+![PostgreSQL MVCC tuple visibility across concurrent transactions at Read Committed and Repeatable Read](./diagrams/mvcc-visibility-dark.svg)
+
+**PostgreSQL exceeds the SQL standard**: Repeatable Read in PostgreSQL prevents phantom reads (the SQL-92 standard only requires this at Serializable), and `READ UNCOMMITTED` is silently treated as `READ COMMITTED` — MVCC simply never exposes uncommitted data.[^pg-iso]
+
+[^pg-iso]: [PostgreSQL Documentation: 13.2. Transaction Isolation](https://www.postgresql.org/docs/current/transaction-iso.html) — "in PostgreSQL READ UNCOMMITTED is treated as READ COMMITTED" and "the Repeatable Read isolation level only allows … reads of data that were committed before the transaction began", which excludes phantoms.
 
 **Serializable Snapshot Isolation (SSI)**: PostgreSQL's Serializable level uses SSI, which tracks read/write dependencies to detect serialization anomalies. When a cycle is detected, one transaction is aborted:
 
@@ -402,15 +411,18 @@ Phase 2 - Commit (Decision):
    - Sends ROLLBACK to all participants
 ```
 
-**The blocking problem**: If the coordinator crashes after sending PREPARE but before sending COMMIT/ABORT, participants that voted YES are stuck. They hold locks, can't commit (no decision received), can't abort (might have been committed). They must wait for coordinator recovery.
+![Two-Phase Commit happy path with the coordinator-crash blocking failure mode](./diagrams/2pc-sequence-light.svg "2PC: PREPARE → vote → COMMIT. If the coordinator crashes between phase 1 and phase 2, YES-voters are stuck holding locks until it recovers — this is the canonical 'blocking' problem.")
+![Two-Phase Commit happy path with the coordinator-crash blocking failure mode](./diagrams/2pc-sequence-dark.svg)
 
-**Real-world impact**: 2PC is used in Java EE (JTA/XA), database-to-message-broker transactions, and cross-database joins. The blocking risk means participants can hold locks for minutes during coordinator failures.
+**The blocking problem**: if the coordinator crashes after sending PREPARE but before sending COMMIT/ABORT, participants that voted YES are stuck. They hold locks, can't commit (no decision received), can't abort (might have been committed). They must wait for coordinator recovery — Gray's original term for this is "blocking", and it is the defining weakness of 2PC.
 
-**Timeout behavior**: Participants typically abort if no decision arrives within timeout. But this can cause inconsistency if the coordinator did decide to commit and later delivers the COMMIT to other participants.
+**Real-world impact**: 2PC is used in Java EE (JTA/XA), database-to-message-broker transactions, and cross-database joins. The blocking risk means participants can hold locks for minutes during coordinator failures, which is why most modern microservice architectures avoid it.
+
+**Timeout behavior**: participants typically abort if no decision arrives within timeout. But this can cause inconsistency if the coordinator did decide to commit and later delivers the COMMIT to other participants.
 
 ### Three-Phase Commit (3PC)
 
-3PC attempts to solve 2PC's blocking by adding a pre-commit phase:
+[Skeen's 1981 "Nonblocking Commit Protocols"](https://web.eecs.umich.edu/~manosk/assets/papers/Ske81.pdf) proposed an extra "pre-commit" phase to avoid 2PC's blocking under site failures:
 
 **Protocol**:
 
@@ -428,15 +440,15 @@ Phase 3 - DoCommit:
 6. Participants commit
 ```
 
-**Why 3PC doesn't solve the fundamental problem**: 3PC assumes fail-stop (nodes crash, don't return wrong answers) and reliable failure detection. In real networks:
+**Why 3PC doesn't solve the fundamental problem**: Skeen's original protocol explicitly assumes a fail-stop model (nodes crash, don't return wrong answers) and a reliable network that does not partition. In real networks none of those assumptions hold:
 
-- Network partitions can make a live coordinator appear dead
-- Two partitions might elect different coordinators
-- Messages can be delayed beyond timeout, then arrive
+- Network partitions can make a live coordinator appear dead.
+- Two partitions might independently elect different coordinators and decide differently.
+- Messages can be delayed beyond timeout and then arrive.
 
-The original 3PC paper acknowledges: "The protocol is more complex than 2PC, and does not work with network partitions or asynchronous communication."
+The standard impossibility result — that no atomic-commit protocol is non-blocking in the presence of both site failures and network partitions — applies to 3PC as much as 2PC.
 
-**Practical result**: 3PC is rarely used in production. The added complexity doesn't eliminate blocking in realistic failure scenarios.
+**Practical result**: 3PC is rarely used in production. The added round-trip and complexity do not eliminate blocking in realistic failure scenarios, so most systems either accept 2PC's blocking risk or avoid synchronous distributed commit entirely.
 
 ### Google Spanner: TrueTime and External Consistency
 
@@ -444,11 +456,11 @@ Spanner achieves something remarkable: globally distributed, externally consiste
 
 **The insight**: If you can bound clock uncertainty, you can assign globally meaningful timestamps without coordination.
 
-**TrueTime API**:
+**TrueTime API** ([Corbett et al., OSDI 2012](https://research.google.com/archive/spanner-osdi2012.pdf)):
 
-- `TT.now()` returns an interval `[earliest, latest]` guaranteed to contain the true time
-- Clock uncertainty is typically < 7ms at p99 (using GPS + atomic clocks)
-- If two intervals don't overlap, the calls were definitely ordered in real time
+- `TT.now()` returns an interval `[earliest, latest]` guaranteed to contain the true wall-clock time.
+- The uncertainty bound ε is a sawtooth: in the original paper Google reports it varying between 1 and 7 ms over a 30-second poll interval (≈ 4 ms most of the time), with the implementation "generally less than 10 ms".
+- If two intervals don't overlap, the calls were definitely ordered in real time.
 
 **Spanner's commit protocol**:
 
@@ -459,9 +471,12 @@ Spanner achieves something remarkable: globally distributed, externally consiste
 
 **Why commit wait matters**: The wait ensures that any transaction starting "after" this one (in wall-clock time) will see this transaction's effects. Without commit wait, a transaction could commit at timestamp T, but a later transaction might get timestamp T-1 due to clock skew.
 
-**External consistency guarantee**: For any two transactions T1 and T2, if T1 commits before T2 starts, T2's timestamp > T1's timestamp. This is stronger than serializability—it respects real-time ordering.
+**External consistency guarantee**: for any two transactions T1 and T2, if T1 commits before T2 starts, T2's timestamp > T1's timestamp. This is stronger than serializability — it respects real-time ordering.
 
-**Trade-off accepted**: Commit latency includes commit wait (worst case 2× clock uncertainty ≈ 14ms). For most workloads with tight TrueTime bounds, this is negligible.
+![Spanner's commit wait converts TrueTime uncertainty into external consistency](./diagrams/spanner-commit-wait-light.svg "Spanner picks a commit timestamp s, then blocks until TT.now().earliest > s. The wait is paid in commit latency, but it guarantees that any later real-time transaction gets a timestamp > s.")
+![Spanner's commit wait converts TrueTime uncertainty into external consistency](./diagrams/spanner-commit-wait-dark.svg)
+
+**Trade-off accepted**: commit latency includes the commit wait (roughly 2 × ε on average — single-digit milliseconds with Google's clocks). For most workloads with tight TrueTime bounds, this is negligible compared to the WAN round trips a multi-region transaction already pays.
 
 ### Calvin: Deterministic Transaction Protocol
 
@@ -483,7 +498,9 @@ Calvin takes a radically different approach: avoid 2PC by making execution deter
 - Read set and write set must be known before execution
 - Not suitable for transactions that depend on external input mid-execution
 
-**Real-world**: FaunaDB (now discontinued as of 2025) was the only commercial database using Calvin. The protocol suits specific workloads but the interactive transaction limitation restricts general applicability.
+**Real-world**: FaunaDB shipped a Calvin-derived protocol[^fauna-jepsen] and was the most prominent commercial product to do so; the hosted service [shut down on 2025‑05‑30](https://www.infoworld.com/article/3853569/fauna-to-shut-down-faunadb-service-in-may.html). The protocol suits specific workloads, but the requirement that read- and write-sets be known up-front rules out interactive transactions and limits general applicability.
+
+[^fauna-jepsen]: [Jepsen analysis: FaunaDB 2.5.4](https://jepsen.io/analyses/faunadb-2.5.4) confirms the Calvin lineage.
 
 ## Alternatives to Distributed Transactions
 
@@ -513,6 +530,9 @@ A saga is a sequence of local transactions with compensating transactions for ro
 
 If step 3 fails (items out of stock), execute compensations in reverse: release payment hold, cancel order.
 
+![Orchestrated saga showing forward steps and reverse compensations on failure](./diagrams/saga-orchestration-light.svg "An orchestrated saga: each forward step has a compensating step. On failure, the orchestrator runs the compensations in reverse — semantic undo, not row-level rollback.")
+![Orchestrated saga showing forward steps and reverse compensations on failure](./diagrams/saga-orchestration-dark.svg)
+
 **Two coordination approaches**:
 
 **Choreography** (event-driven):
@@ -531,9 +551,12 @@ If step 3 fails (items out of stock), execute compensations in reverse: release 
 
 **Compensation design challenges**:
 
-1. **Idempotency**: Compensations may be retried; must be idempotent
-2. **Commutative operations**: Can't always "undo" (sent email, charged card)
-3. **Isolation**: No isolation between saga steps—concurrent sagas may interleave
+1. **Idempotency**: compensations may be retried; they must be safe to apply more than once.
+2. **Non-reversible side effects**: you can't un-send an email or un-charge a card; design semantic reversals (refund, "we cancelled order #X") instead of mechanical undo.
+3. **No isolation between steps**: concurrent sagas can observe each other's intermediate states. If that matters (inventory, reservations), add semantic locks (`status = PENDING`) or pessimistic reservations at the saga boundary.
+
+> [!WARNING]
+> Sagas trade isolation for availability. Two sagas mid-flight can see each other's half-applied state, so any invariant that crosses services needs an explicit reservation or a uniqueness check on the compensating path. Treat sagas as eventual-atomicity, not as drop-in 2PC replacements.
 
 **Real-world**: Uber, Netflix, Airbnb use saga patterns for cross-service transactions. Frameworks like Temporal, Axon, and Camunda provide saga orchestration.
 
@@ -561,8 +584,11 @@ Solves the dual-write problem: updating a database AND publishing an event must 
 
 **Implementation options**:
 
-- **Polling**: Background job queries outbox, publishes, marks complete
-- **Change Data Capture (CDC)**: Debezium captures outbox inserts, streams to Kafka
+- **Polling**: background job queries outbox, publishes, marks complete.
+- **Change Data Capture (CDC)**: Debezium tails the WAL/binlog, captures outbox inserts, streams to Kafka.
+
+![Transactional outbox: a single ACID transaction commits both the business row and the event, an async relay publishes](./diagrams/outbox-pattern-light.svg "Outbox pattern: the business write and the event payload commit in one local transaction. A separate poller or CDC stream publishes the event later, giving at-least-once delivery without 2PC.")
+![Transactional outbox: a single ACID transaction commits both the business row and the event, an async relay publishes](./diagrams/outbox-pattern-dark.svg)
 
 **Guarantees**:
 
@@ -611,7 +637,7 @@ Current State: Computed by replaying events (balance = 150)
 
 **Google Spanner**: Global financial systems, multi-region consistency requirements. Spanner's TrueTime investment (GPS, atomic clocks in every datacenter) is justified by the need for external consistency across continents.
 
-**CockroachDB**: Teams wanting Spanner-like guarantees without Google's hardware. Uses Hybrid Logical Clocks with NTP (100-250ms uncertainty vs. Spanner's 7ms), accepting occasional transaction restarts due to clock skew.
+**CockroachDB**: teams wanting Spanner-like guarantees without Google's hardware. Uses Hybrid Logical Clocks with NTP and a configurable [`max-offset`](https://www.cockroachlabs.com/blog/clock-management-cockroachdb/) (default 500 ms). Reads landing inside the uncertainty interval restart at a higher timestamp; nodes that drift past 80 % of `max-offset` shut themselves down to protect ACID. The trade is "no atomic clocks, but more transaction restarts and a wider uncertainty window than Spanner's single-digit-millisecond ε."
 
 ### When Companies Avoid Transactions
 
@@ -635,11 +661,11 @@ Idempotency-Key: "order-123-attempt-1"
 
 **Implementation**:
 
-1. Client generates unique idempotency key
-2. Server checks if key exists in Redis
-3. If exists: return cached result
-4. If new: process request, store result with key
-5. Keys expire after 24 hours
+1. Client generates a unique idempotency key per logical attempt.
+2. Server checks whether the key has been seen.
+3. If it has: return the cached result with the original status code.
+4. If it is new: process the request, store the result keyed by the idempotency key.
+5. Stripe [retains keys for at least 24 hours](https://docs.stripe.com/api/idempotent_requests), then prunes them; later retries with the same key are treated as new requests.
 
 **Why this works for payments**:
 
@@ -647,7 +673,7 @@ Idempotency-Key: "order-123-attempt-1"
 - No distributed transaction with Stripe's banking partners
 - Local ACID + idempotency achieves practical atomicity
 
-**Trade-off**: Requires client-side key management. The 24-hour expiry means very old retries might process twice.
+**Trade-off**: requires disciplined client-side key management. Once Stripe's retention window passes, a retry with the same key is no longer deduplicated — long retry queues need their own idempotency layer on top.
 
 ### Famous Transaction-Related Incidents
 

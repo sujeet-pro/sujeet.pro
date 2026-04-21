@@ -1,0 +1,37 @@
+%% Diagram: SLI Measurement Points
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    User(("User"))
+    RUM["Real User Monitoring<br/>(client-side beacons)"]
+    CDN["CDN / Edge"]
+    LB["Load Balancer"]
+    Svc["Service"]
+    DB[("Database")]
+
+    User -->|HTTPS| CDN
+    CDN -->|origin fetch| LB
+    LB -->|route| Svc
+    Svc -->|query| DB
+
+    User -.->|JS beacon| RUM
+
+    classDef user fill:#fffbeb,stroke:#b45309,color:#78350f
+    classDef edge fill:#ecfeff,stroke:#0e7490,color:#155e75
+    classDef svc fill:#eef2ff,stroke:#4338ca,color:#312e81
+    classDef data fill:#f5f3ff,stroke:#6d28d9,color:#4c1d95
+    classDef rum fill:#fef2f2,stroke:#b91c1c,color:#7f1d1d
+
+    class User user
+    class CDN,LB edge
+    class Svc svc
+    class DB data
+    class RUM rum
+
+    subgraph Captures["What each measurement point captures"]
+        direction TB
+        M1["RUM: full user path<br/>(network, render, JS errors)"]
+        M2["Edge SLI: at CDN<br/>(skips client + last mile)"]
+        M3["Service SLI: backend only<br/>(misses LB / network issues)"]
+        M4["Backend SLI: post-DB<br/>(partial view, hides upstream)"]
+    end

@@ -1,0 +1,25 @@
+%% Diagram: SSR/RSC hydration timeline and where mismatches happen
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Srv as Server (RSC + SSR)
+    participant Net as Network
+    participant Br as Browser
+    participant JS as Client JS bundle
+    participant LS as localStorage / cookies
+
+    Srv->>Net: HTML + RSC payload + dehydrated cache
+    Net->>Br: First byte (TTFB)
+    Br->>Br: Paint static HTML
+    Net->>JS: Hydration bundle arrives
+    JS->>Br: hydrateRoot(...)
+    Note over JS,Br: React renders client tree and<br/>compares to server HTML
+    alt Tree matches
+        JS->>Br: Attach event handlers (interactive)
+    else Mismatch (theme, locale, time, persisted store)
+        JS-->>Br: Console warning + client re-render
+        Note over JS,LS: Triggered by reading window.localStorage,<br/>Date.now(), navigator.language, etc.<br/>during render
+    end
+    Br->>LS: Read persisted UI state (post-hydration)
+    Br->>JS: TanStack Query: useSuspenseQuery reads warm cache

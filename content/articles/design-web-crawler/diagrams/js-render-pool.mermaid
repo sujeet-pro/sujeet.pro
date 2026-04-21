@@ -1,0 +1,38 @@
+%% Diagram: JavaScript rendering pool as a separate fault domain
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Cheap["Cheap HTML pipeline"]
+        HTMLFetch[HTTP fetcher pool<br/>~100 pages/sec/node]
+        Triage{Needs JS?<br/>noscript-only,<br/>low text/markup,<br/>SPA markers,<br/>per-host opt-in}
+    end
+
+    subgraph RenderQ["Render queue (separate topic)"]
+        RKafka[(Kafka render-jobs<br/>partition by host hash<br/>bounded depth)]
+        Backpressure[Hard concurrency cap<br/>+ render budget per host]
+    end
+
+    subgraph Pool["Headless browser pool (own ASG, often spot)"]
+        W1[Worker 1<br/>Chromium / Playwright]
+        W2[Worker 2]
+        W3[Worker 3]
+        WN[Worker N<br/>auto-scaled on queue depth]
+    end
+
+    subgraph Limits["Per-render limits"]
+        Timeout[Hard timeout<br/>~30 s page load]
+        NetCap[Block cross-origin<br/>third-party trackers]
+        MemCap[Restart browser<br/>after K renders]
+    end
+
+    subgraph Down["Downstream"]
+        Rendered[Rendered HTML<br/>+ post-load DOM snapshot]
+        Parser[Parser tier]
+    end
+
+    HTMLFetch --> Triage
+    Triage -->|no| Parser
+    Triage -->|yes| RKafka
+    RKafka --> Backpressure --> W1 & W2 & W3 & WN
+    W1 & W2 & W3 & WN --> Limits
+    Limits --> Rendered --> Parser

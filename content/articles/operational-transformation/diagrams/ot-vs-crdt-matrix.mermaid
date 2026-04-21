@@ -1,0 +1,42 @@
+%% Diagram: OT vs CRDT trade-off matrix on two axes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Axes["Axes: topology (server vs P2P) and offline window (short vs long)"]
+        direction LR
+        X["X axis: short offline window  →  long offline window"]
+        Y["Y axis: central server present  →  fully decentralised"]
+    end
+
+    subgraph Q1["Server + short offline"]
+        direction TB
+        Q1A["OT (Jupiter / Wave)"]
+        Q1B["Google Docs, Office 365, CKEditor 5, ShareDB, ot.js"]
+        Q1C["TP1 only; small op delta; mature rich-text"]
+    end
+
+    subgraph Q2["Server + long offline"]
+        direction TB
+        Q2A["OT struggles: buffer grows, diverge risk"]
+        Q2B["Pragmatic: CRDT with optional sync server"]
+        Q2C["Examples: Yjs y-websocket, Liveblocks Yjs"]
+    end
+
+    subgraph Q3["P2P + short offline"]
+        direction TB
+        Q3A["Either works in theory"]
+        Q3B["OT: TP2 hard (Randolph 2013); pick TTF/COT or accept extended signature"]
+        Q3C["CRDT usually simpler"]
+    end
+
+    subgraph Q4["P2P + long offline (local-first)"]
+        direction TB
+        Q4A["CRDT (Yjs, Automerge, RGA)"]
+        Q4B["Native multi-way merge; per-actor undo; tombstone GC needed"]
+        Q4C["OT not viable without extended signatures + server-like coordination"]
+    end
+
+    Axes --> Q1
+    Axes --> Q2
+    Axes --> Q3
+    Axes --> Q4

@@ -1,0 +1,27 @@
+%% Diagram: How a missing width/height (or aspect-ratio) creates CLS.
+%% Compares the two timelines: with a presentational hint the box is
+%% reserved at first layout; without it the box collapses to zero
+%% and content reflows when image bytes arrive.
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Layout as "Layout engine"
+    participant Net as "Network"
+    participant Paint as "Compositor"
+
+    Note over Layout,Paint: With width / height (or aspect-ratio)
+    Layout->>Layout: Parse <img width=800 height=600>
+    Layout->>Layout: Reserve box (auto 800/600)
+    Layout->>Paint: First paint with placeholder box
+    Net-->>Layout: Image bytes arrive
+    Layout->>Paint: Paint pixels into reserved box
+    Note right of Paint: CLS contribution: 0
+
+    Note over Layout,Paint: Without width / height
+    Layout->>Layout: Parse <img>
+    Layout->>Layout: Box collapses to 0 x 0
+    Layout->>Paint: First paint, no space reserved
+    Net-->>Layout: Image bytes arrive
+    Layout->>Layout: Reflow (push content down)
+    Layout->>Paint: Re-paint with shifted layout
+    Note right of Paint: CLS contribution: > 0

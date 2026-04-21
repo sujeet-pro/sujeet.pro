@@ -6,7 +6,7 @@ description: >-
   server-backed concerns, cache invalidation and optimistic updates, synchronization costs,
   and pragmatic tool-selection heuristics without framework debates.
 publishedDate: 2026-01-24
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - frontend
   - architecture
@@ -138,7 +138,12 @@ Even correct-looking code fails in predictable ways:
 
 ## Synchronization costs: what you pay when state is shared
 
-Every shared atom has a **coordination surface**: subscribers must rerun, serializers must merge, tests must fixture more global prelude. Common costs:
+Every shared atom has a **coordination surface**: subscribers must rerun, serializers must merge, tests must fixture more global prelude.
+
+![Flowchart: a single write API fans out to multiple readers and incurs synchronization costs—rerender fan-out, merge and conflict detection, growing test fixtures, and stampede risk after invalidation](./diagrams/coordination-costs-light.svg "Sharing state is never free; the cost is rerender fan-out, merge logic, larger test fixtures, and stampede risk on invalidation.")
+![Flowchart: a single write API fans out to multiple readers and incurs synchronization costs—rerender fan-out, merge and conflict detection, growing test fixtures, and stampede risk after invalidation](./diagrams/coordination-costs-dark.svg)
+
+Common costs:
 
 - **Broad subscriptions** where any global change rerenders large trees. Mitigations: selectors, partitioned contexts, fine-grained reactivity, or component-local caches with explicit lift points.
 - **Prop drilling vs implicit providers**: drilling is verbose but makes dataflow obvious; providers scale better but can hide **who writes**. Teams should enforce **lint or review rules** on provider placement rather than pretending one style is universally “cleaner.”

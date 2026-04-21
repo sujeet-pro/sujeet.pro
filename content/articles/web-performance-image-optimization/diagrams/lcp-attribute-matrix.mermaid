@@ -1,0 +1,24 @@
+%% Diagram: LCP vs Below-the-Fold Attribute Matrix
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph LCP["LCP candidate (above the fold)"]
+        direction TB
+        L1["loading=eager\n(default for non-lazy)"]
+        L2["fetchpriority=high\nbump in resource queue"]
+        L3["decoding=sync\natomic paint with text"]
+        L4["NEVER lazy\nbrowser can't predict LCP"]
+    end
+
+    subgraph BTF["Below-the-fold images"]
+        direction TB
+        B1["loading=lazy\ndefer until near viewport"]
+        B2["fetchpriority=auto\nlet browser schedule"]
+        B3["decoding=async\nkeep main thread free"]
+        B4["width + height set\nprevent CLS on pop-in"]
+    end
+
+    classDef hot fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef cold fill:#1F6E68,stroke:#155752,color:#ffffff
+    class L1,L2,L3,L4 hot
+    class B1,B2,B3,B4 cold

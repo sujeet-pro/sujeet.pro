@@ -1,0 +1,35 @@
+%% Diagram: Two-stage ranker — cheap retrieval narrows the candidate set, expensive learned models re-rank the survivors
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Q["Query"]
+
+    subgraph Stage1["Stage 1 — cheap retrieval (per shard)"]
+        direction TB
+        BM25["BM25 / TF-IDF\non posting lists"]
+        PR["PageRank +\nfreshness prior"]
+        WAND["WAND / MaxScore\ndynamic pruning"]
+        TOPK["Local top-K\n(K ≈ 10^3)"]
+        BM25 --> WAND
+        PR --> WAND
+        WAND --> TOPK
+    end
+
+    subgraph Stage2["Stage 2 — expensive re-rank (aggregator)"]
+        direction TB
+        MERGE["Merge per-shard top-K\n(K · N_shards candidates)"]
+        FEATS["Feature extraction\n(hundreds of signals)"]
+        BERT["BERT / MUM\ncross-encoder"]
+        LTR["Learning-to-rank\nfinal score"]
+        TOP10["Global top-10"]
+        MERGE --> FEATS --> BERT --> LTR --> TOP10
+    end
+
+    Q --> BM25
+    Q --> PR
+    TOPK --> MERGE
+
+    note["Cost grows ~10^3× per stage;\nbudget enforced top-down."]:::noteCls
+    Stage2 -.- note
+
+    classDef noteCls fill:#fffbe6,stroke:#d4a017,color:#665100

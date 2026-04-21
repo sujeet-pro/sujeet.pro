@@ -1,0 +1,40 @@
+%% Diagram: End-to-end request flow (waiting room -> admission -> reservation -> async order)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant CDN as CDN edge / waiting room
+    participant Q as Queue service (admission)
+    participant I as Inventory service (Redis Lua)
+    participant O as Order service (async)
+    participant P as Payment service
+
+    U->>CDN: GET /flash-sale (static HTML)
+    CDN-->>U: waiting-room page + queue cookie
+    U->>Q: POST /queue/join
+    Q-->>U: queue_ticket, position
+
+    loop Adaptive polling (1-5s; faster near front)
+        U->>Q: GET /queue/status/{ticket}
+        alt still waiting
+            Q-->>U: position, estimated_wait
+        else admitted
+            Q-->>U: checkout_token, expires_in 300s
+        end
+    end
+
+    U->>I: POST /checkout/start (checkout_token)
+    I->>I: Lua: validate token + reserve inventory (single-flight)
+    I-->>U: 201 reservation_id, reserved_until
+
+    U->>O: POST /orders (session_id, payment_method, idempotency_key)
+    O-->>U: 202 Accepted, order_id (durable)
+
+    Note over O,P: Worker drains the queue at backend pace
+    O->>P: charge (Idempotency-Key)
+    P-->>O: payment_intent succeeded
+    O->>I: confirm reservation (HDEL)
+    O-->>U: push / email: order confirmed
+
+    Note over I: TTL expiry returns abandoned stock to the pool.

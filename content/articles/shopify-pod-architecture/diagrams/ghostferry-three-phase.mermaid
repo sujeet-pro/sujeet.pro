@@ -1,0 +1,30 @@
+%% Diagram: Ghostferry three-phase shop migration
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant GF as Ghostferry
+    participant SRC as Source pod (MySQL)
+    participant DST as Target pod (MySQL)
+    participant SH as Sorting Hat
+    participant LK as Distributed write lock (Redis)
+
+    Note over GF,DST: Phase 1 — batch copy + binlog tail
+    par Batch copy
+        GF->>SRC: SELECT rows WHERE shop_id = X
+        GF->>DST: INSERT batched rows
+    and Binlog stream
+        GF->>SRC: Tail binary log, filter shop_id = X
+        GF->>DST: Apply matching events
+    end
+
+    Note over GF,LK: Phase 2 — cutover (writes paused)
+    GF->>LK: Acquire writer lock for shop X
+    GF->>SRC: Read final binlog coordinate
+    GF->>DST: Apply remaining events up to coordinate
+    GF->>GF: Verify row checksums
+
+    Note over SH,DST: Phase 3 — routing flip
+    GF->>SH: Update routing table to target pod
+    GF->>LK: Release writer lock
+    Note over DST: Writes resume against new pod (~2.5s avg downtime)

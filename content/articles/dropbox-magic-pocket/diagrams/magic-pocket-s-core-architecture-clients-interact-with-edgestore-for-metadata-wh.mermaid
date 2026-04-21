@@ -1,27 +1,36 @@
-%% Diagram: Magic Pocket S Core Architecture Clients Interact With Edgestore For Metadata Wh
+%% Diagram: Magic Pocket core architecture
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    subgraph "Client Layer"
-        C[Dropbox Client]
+    subgraph "Client / Metadata"
+        C["Dropbox Client"] --> ES["Edgestore<br/>(file -> block hashes)"]
     end
 
-    subgraph "Metadata Layer"
-        ES[Edgestore<br/>Metadata Store]
+    subgraph "Magic Pocket control plane"
+        FE["Frontends<br/>(stateless gateway)"]
+        BI["Block Index<br/>(sharded MySQL)<br/>hash -> cell, bucket, checksum"]
+        CZ["Cross-zone<br/>Replication daemon<br/>(async, ~1s)"]
+        FE --> BI
+        FE -- "enqueue PUT" --> CZ
     end
 
-    subgraph "Magic Pocket"
-        FE[Frontends] --> BI[Block Index<br/>Sharded MySQL]
-        FE --> |"PUT/GET"| OSD1[OSD Nodes<br/>Zone West]
-        FE --> |"PUT/GET"| OSD2[OSD Nodes<br/>Zone Central]
-        FE --> |"PUT/GET"| OSD3[OSD Nodes<br/>Zone East]
-        M[Master<br/>Coordinator] --> |"repair, GC"| OSD1
-        M --> OSD2
-        M --> OSD3
-        OSD1 <--> |"cross-zone<br/>replication"| OSD2
-        OSD2 <--> OSD3
-        OSD1 <--> OSD3
+    subgraph "Zone West (cell)"
+        M1["Master<br/>(soft-state coordinator)"]
+        RT1["Replication Table<br/>(cell-local MySQL)"]
+        OSD1["OSDs / Volume Managers"]
+        M1 -. "repair, GC" .-> OSD1
+        RT1 --- M1
+    end
+    subgraph "Zone Central (cell)"
+        OSD2["OSDs / Volume Managers"]
+    end
+    subgraph "Zone East (cell)"
+        OSD3["OSDs / Volume Managers"]
     end
 
-    C --> ES
     ES --> FE
+    FE -- "PUT/GET" --> OSD1
+    FE -- "PUT/GET" --> OSD2
+    FE -- "PUT/GET" --> OSD3
+    CZ -- "mirror PUT" --> OSD2
+    CZ -- "mirror PUT" --> OSD3

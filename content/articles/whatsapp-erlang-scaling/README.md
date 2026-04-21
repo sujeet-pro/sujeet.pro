@@ -2,31 +2,33 @@
 title: 'WhatsApp: 2 Million Connections Per Server with Erlang'
 linkTitle: 'WhatsApp + Erlang'
 description: >-
-  How WhatsApp achieved 2 million concurrent connections per server using Erlang/BEAM and FreeBSD, scaling to 1 billion users with fewer than 50 engineers by pushing vertical density, patching the VM, and replacing XMPP with a custom binary protocol.
+  How WhatsApp pushed Erlang/BEAM and FreeBSD to 2 million concurrent connections per server, served 465 million users with ~32 engineers, and patched the VM (timer wheels, GC throttling, pg2) to keep a small fleet ahead of growth — a case study in vertical density and runtime co-design.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
-  - data
-  - migrations
+  - distributed-systems
+  - system-design
+  - erlang
+  - outages
 ---
 
 # WhatsApp: 2 Million Connections Per Server with Erlang
 
-How WhatsApp scaled from zero to 1 billion users on Erlang/BEAM and FreeBSD — with fewer than 50 engineers, ~800 servers, and a custom protocol that compressed messages to 20 bytes — by pushing per-server density to limits most teams never attempt.
+How WhatsApp scaled to a billion users on Erlang/BEAM and FreeBSD with ~32 engineers, ~550 servers, and a custom binary protocol that shrank messages an order of magnitude — by pushing per-server density to limits most teams never attempt and patching the runtime when off-the-shelf primitives ran out.
 
-![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.](./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti-light.svg "WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.")
-![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime serving billions of users across Facebook data centers.](./diagrams/whatsapp-s-architecture-evolution-from-an-ejabberd-fork-to-a-custom-erlang-runti-dark.svg)
+![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime running in Facebook data centers.](./diagrams/architecture-evolution-light.svg "WhatsApp's architecture evolved in three phases: an ejabberd/FreeBSD foundation, a scaling phase dominated by BEAM patches and FunXMPP, and a post-acquisition era of Linux, end-to-end encryption, and the WARTS runtime fork.")
+![WhatsApp's architecture evolution from an ejabberd fork to a custom Erlang runtime running in Facebook data centers.](./diagrams/architecture-evolution-dark.svg)
 
 ## Abstract
 
 WhatsApp's architecture is a case study in radical simplicity at extreme scale. The mental model:
 
-- **One Erlang process per connection, one connection per user.** The BEAM VM's lightweight processes (~300 bytes each) and per-process garbage collection made 2 million concurrent connections per server viable on commodity hardware. This is the foundation everything else builds on.
+- **One Erlang process per connection, one connection per user.** The BEAM VM's lightweight processes — a few hundred words of initial heap, on the order of 1–3 KB for an idle process — and per-process garbage collection made 2 million concurrent connections per server viable on commodity hardware ([Erlang Efficiency Guide — Processes](https://www.erlang.org/doc/system/eff_guide_processes.html)). This is the foundation everything else builds on.
 - **Vertical density before horizontal sprawl.** WhatsApp pushed each server to 2+ million connections before adding servers. Operational complexity scales with node count, not core count — so fewer, larger machines reduce the surface area for failure.
-- **Custom everything where it matters.** ejabberd was rewritten. XMPP was replaced with FunXMPP (50-70% bandwidth reduction). The BEAM VM itself was patched (timer wheels, GC throttling, pg2 replacement). Standard components were kept only when they didn't bottleneck.
-- **Store-and-forward with aggressive deletion.** Messages are transient — deleted from servers after confirmed delivery. 98% cache hit rate; 50% of messages read within 60 seconds. The server is a router, not a database.
-- **Small team, high autonomy.** 32 engineers served 450 million users at acquisition. Individual teams of 1-3 engineers owned entire subsystems. Erlang's fault tolerance and OTP supervision reduced operational burden to the point where this ratio was sustainable.
+- **Custom everything where it matters.** ejabberd was rewritten. XMPP was replaced with FunXMPP (≈50–70% bandwidth reduction for typical text messages). The BEAM VM itself was patched (timer wheels, GC throttling, pg2 replacement). Standard components were kept only when they didn't bottleneck.
+- **Store-and-forward with aggressive deletion.** Messages are transient — deleted from servers after confirmed delivery. 98% offline-cache hit rate; 50% of messages read within 60 seconds ([Reed, Erlang Factory 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)). The server is a router, not a database.
+- **Small team, high autonomy.** ~32 engineers — of whom roughly 10 worked on the Erlang stack — served 465 million users at acquisition. Individual teams of 1–3 engineers owned entire subsystems. Erlang's fault tolerance and OTP supervision reduced operational burden to the point where this ratio was sustainable.
 
 ## Context
 
@@ -52,11 +54,13 @@ WhatsApp launched in 2009 as a status-broadcasting app, pivoting to messaging wi
 | Metric                 | Oct 2011 | Aug 2012 | Dec 2013 | Mar 2014 | Nov 2014 |
 | ---------------------- | -------- | -------- | -------- | -------- | -------- |
 | Monthly active users   | ~100M    | ~150M    | 400M     | 465M     | 600M+    |
-| Messages/day           | 1B       | 10B      | 18B      | ~40B     | 50B+     |
+| Messages/day (in+out)  | 1B       | 10B      | 18B      | ~50B     | 64B+     |
 | Total servers          | ~100     | ~200     | ~400     | ~550     | ~800     |
 | Total CPU cores        | —        | —        | —        | 11,000+  | —        |
-| Engineers              | ~20      | ~25      | ~30      | 32       | ~35      |
-| Concurrent connections | —        | —        | —        | 140M     | —        |
+| Engineers (total)      | ~20      | ~25      | ~30      | ~32      | ~35      |
+| Concurrent connections | —        | —        | —        | 147M     | —        |
+
+The Reed 2014 talk reports 19 billion inbound and 40 billion outbound messages per day at the acquisition snapshot — fan-out (group chats, multi-device delivery) is what drives the inbound/outbound asymmetry.
 
 ### Constraints
 
@@ -74,15 +78,15 @@ WhatsApp's co-founders chose Erlang indirectly — they chose ejabberd, an open-
 
 The choice proved prescient for reasons the team only fully appreciated later:
 
-1. **Lightweight processes**: Each BEAM process costs ~300 bytes of initial overhead. A million connections require ~300MB of process memory — leaving the remaining 99+ GB of RAM for application state, message buffers, and caching.
+1. **Lightweight processes**: A newly spawned BEAM process consumes ~338 words on a 64-bit emulator — roughly 2.7 KB, of which 233 words is the initial heap that doubles as the stack ([Erlang Efficiency Guide — Processes](https://www.erlang.org/doc/system/eff_guide_processes.html)). Two million idle processes therefore fit in ~5 GB, leaving the rest of a 100+ GB host for application state, mailboxes, ETS tables, and caches.
 
-2. **Per-process garbage collection**: Unlike JVM-based systems where GC pauses affect the entire runtime, BEAM collects garbage per-process. A single slow process doesn't stall two million others. This is the architectural property that made WhatsApp's per-server density possible.
+2. **Per-process garbage collection**: Unlike JVM-based systems where GC pauses affect the entire runtime, BEAM collects garbage per-process against a private heap ([Erlang Reference Manual — Memory](https://www.erlang.org/doc/apps/erts/erlangmemory.html)). A single slow process does not stall the millions around it — this is the architectural property that made WhatsApp's per-server density possible.
 
-3. **Preemptive scheduling**: BEAM's reduction-based scheduler preempts long-running processes after a fixed number of function calls (reductions). No single process can starve others — critical when one user sends a 10MB video while another sends a 1-byte acknowledgment.
+3. **Preemptive scheduling**: BEAM's reduction-based scheduler preempts long-running processes after a fixed number of function-call equivalents ([A brief BEAM primer](https://www.erlang.org/blog/a-brief-beam-primer/)). No single process can starve others — critical when one user is uploading a 10 MB video while another sends a 1-byte ack.
 
-4. **OTP supervision trees**: When a process crashes, its supervisor restarts it according to a defined strategy. WhatsApp relied on this for self-healing: individual connection handlers crash and restart without affecting other users.
+4. **OTP supervision trees**: When a process crashes, its supervisor restarts it according to a declared strategy ([OTP Supervision Principles](https://www.erlang.org/doc/system/sup_princ.html)). WhatsApp relied on this for self-healing: connection handlers can crash and restart without affecting other users.
 
-5. **Hot code loading**: Erlang supports loading new code modules without stopping the running system. WhatsApp used this for bug fixes and updates without downtime — essential for a 24/7 global service where "maintenance windows" don't exist.
+5. **Hot code loading**: Erlang supports loading new module versions while the system is running ([Code Loading](https://www.erlang.org/doc/system/code_loading.html)). WhatsApp used this for bug fixes and small updates without downtime — essential for a 24/7 global service where "maintenance windows" do not exist.
 
 Rick Reed, who joined WhatsApp in 2011 after 12 years building high-performance messaging systems in C++ at Yahoo, described his initial reaction: Erlang achieved scalability goals on single hosts that his Yahoo team "only dreamed about." Anton Lavrik, lead of WhatsApp's Erlang platform team, put it more directly: with C++, "developers have to implement half of Erlang by themselves" to achieve similar reliability.
 
@@ -125,15 +129,16 @@ WhatsApp published detailed server specifications when they achieved 2+ million 
 | **OS**     | FreeBSD 8.2-STABLE (64-bit)                    |
 | **Erlang** | R14B03, 24 SMP threads, kernel polling enabled |
 
-**Peak observed load:** 2,277,845 open sockets at 37.9% user CPU, 13.6% system CPU, 41.9% idle. 35 GB active memory with 27 GB free. The server had significant headroom remaining.
+**Peak observed load:** 2,277,845 open sockets at 37.9% user CPU, 13.6% system CPU, 41.9% idle. 35 GB active memory with 27 GB free ([WhatsApp Engineering — "1 million is so 2011"](https://blog.whatsapp.com/1-million-is-so-2011)). The server had significant headroom remaining.
 
 ### Why 2 Million Mattered
 
 WhatsApp's approach to scaling was deliberately vertical-first. Rick Reed described this as a consequence of a key insight: operational complexity scales with the number of nodes, not the number of cores per node. A cluster of 100 servers at 2 million connections each is operationally simpler than 1,000 servers at 200,000 each — fewer failure domains, fewer network partitions, fewer inter-node messages.
 
-The BEAM VM's SMP (Symmetric Multi-Processing) scalability made this viable. Doubling cores on a single machine nearly doubled throughput because BEAM schedulers map 1:1 to cores with minimal cross-scheduler contention. WhatsApp confirmed this with benchmark data showing near-linear scaling up to 24 cores.
+The BEAM VM's SMP scalability made this viable. Schedulers map 1:1 to cores with minimal cross-scheduler contention, so doubling cores on a single machine nearly doubles throughput. WhatsApp confirmed this with benchmark data showing near-linear scaling up to 24 cores.
 
-> **By 2014, WhatsApp reduced the target to ~1 million connections per server.** This was deliberate — users were sending more messages, using more features (photos, video, voice), and each connection consumed more resources. The team chose headroom over density.
+> [!NOTE]
+> By 2014, WhatsApp deliberately backed off to ~1 million connections per server. Users were sending more messages, exercising more features (photos, video, voice), and each connection cost more resources. The team chose headroom for traffic spikes over peak density ([Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)).
 
 ## BEAM VM Tuning and Custom Patches
 
@@ -159,9 +164,9 @@ WhatsApp didn't just use Erlang/OTP — they patched the runtime itself. Rick Re
 
 ### pg2 Replacement (The February 2014 Outage)
 
-**Problem**: In February 2014 — days after the Facebook acquisition announcement — a backend router dropped a VLAN, causing mass node disconnects and reconnects across the cluster. The `pg2` module (Erlang's process group module) entered a state with **n^3 messaging behavior** during the reconnection storm. Message queues went from zero to 4 million within seconds. The outage lasted 2 hours and 10 minutes.
+**Problem**: On 2014-02-22 — eight days after the Facebook acquisition announcement — a backend router dropped a VLAN, causing mass node disconnects and reconnects across the cluster ([TechCrunch — WhatsApp Down 210 Minutes](https://techcrunch.com/2014/02/22/whatsapp-is-down-facebooks-new-acquisition-confirms/)). The `pg2` module (Erlang's distributed process-group registry) entered a state with `n^3` messaging behavior during the reconnection storm: every node re-announced its group membership to every other node, and every announcement triggered another round. Mailboxes went from zero to 4 million in seconds; the outage lasted 210 minutes ([Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)).
 
-**Fix**: WhatsApp initially patched pg2 with denormalized group member lists, but eventually built an entirely new `pg` module from scratch. The new module was upstreamed to mainline Erlang/OTP, replacing pg2 entirely. This is one of the most significant contributions from WhatsApp back to the Erlang ecosystem.
+**Fix**: WhatsApp first patched `pg2` with denormalized group member lists. Longer term, a fully rewritten `pg` module — authored by WhatsApp engineer Maxim Fedorov — was contributed to mainline OTP and shipped in OTP 23 (June 2020) as the replacement for `pg2`, which was deprecated in OTP 23 and removed in OTP 24 ([OTP 23 Patch Notes](https://www.erlang.org/patches/otp-23.0); [Erlang Forums discussion](https://erlangforums.com/t/did-the-whatsapp-patches-mentioned-in-a-2014-conference-make-it-into-mainstream-erlang/958)). It is one of the more visible WhatsApp contributions back to the Erlang ecosystem.
 
 ### Mnesia Transaction Manager
 
@@ -173,27 +178,26 @@ WhatsApp didn't just use Erlang/OTP — they patched the runtime itself. Rick Re
 
 **Problem**: Erlang Term Storage (ETS) used `phash2` hashing that could produce collisions under WhatsApp's workload, and the main/name tables didn't scale well with thousands of ETS tables.
 
-**Fix**: Modified hash seeding to avoid phash2 collisions, and improved table management scaling. The hash salt patch was contributed upstream via pull request #2979.
+**Fix**: Modified hash seeding to avoid `phash2` collisions, and improved table management scaling. The hash-salt patch was contributed upstream via [erlang/otp#2979](https://github.com/erlang/otp/pull/2979).
 
 ### Scheduler Binding
 
-WhatsApp enabled scheduler binding to CPU cores via the `+stbt` flag, which pins each BEAM scheduler to a specific CPU core. Reed reported this reduced context switching by approximately 4x, providing a significant throughput improvement with a one-line configuration change.
+WhatsApp enabled scheduler-thread binding via the `+stbt` flag, which pins each BEAM scheduler to a specific CPU core ([erl runtime flags](https://www.erlang.org/doc/apps/erts/erl_cmd.html)). Reed reported this reduced context switching by roughly 4× — a meaningful throughput improvement from a one-line configuration change.
 
 ## The gen_industry Dispatch Pattern
 
 ### The Bottleneck
 
-Standard Erlang `gen_server` is single-threaded — one process handles all incoming messages sequentially. For high-throughput services processing millions of operations per second, a single dispatch process becomes a bottleneck.
+Standard Erlang `gen_server` is single-threaded — one process handles all incoming messages sequentially ([gen_server docs](https://www.erlang.org/doc/apps/stdlib/gen_server.html)). For services processing millions of operations per second from many nodes, that single mailbox becomes the limit. WhatsApp's response was a three-tier dispatch hierarchy.
 
-WhatsApp built a three-tier dispatch hierarchy:
+![gen_server scales to a worker pool with gen_factory, then to multiple parallel dispatchers with gen_industry as fan-in grows.](./diagrams/gen-industry-pattern-light.svg "gen_server (sequential) → gen_factory (worker pool with one dispatcher) → gen_industry (multiple dispatchers feeding many workers). The bottleneck moves from the handler to the dispatcher to neither, in that order.")
+![gen_server scales to a worker pool with gen_factory, then to multiple parallel dispatchers with gen_industry as fan-in grows.](./diagrams/gen-industry-pattern-dark.svg)
 
 ### gen_server → gen_factory → gen_industry
 
-1. **gen_server**: Standard OTP behavior. Single process, sequential dispatch. Works for low-throughput services.
-
-2. **gen_factory**: Custom behavior. A single dispatch process distributes work across multiple worker processes. Eliminates the processing bottleneck but the dispatch process itself can become saturated at high fan-in.
-
-3. **gen_industry**: Custom behavior with **multiple dispatch processes** feeding multiple workers. Parallelizes both ingestion and dispatch. At extreme fan-in from many nodes, this was necessary to prevent the dispatch layer from becoming the bottleneck.
+1. **gen_server**: Standard OTP behavior. Single process, sequential dispatch. Fine for low-throughput services.
+2. **gen_factory**: Custom behavior. A single dispatch process distributes work across a pool of worker processes. Eliminates the processing bottleneck, but the dispatcher can saturate at high fan-in — the inbound mailbox plus the locks around the worker selection turn into the new bottleneck.
+3. **gen_industry**: Custom behavior with **multiple dispatch processes** feeding multiple workers. Parallelizes both ingestion and dispatch. At very high cross-node fan-in this was needed to keep the dispatch layer from becoming the bottleneck ([Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)).
 
 ### Data Partitioning
 
@@ -210,19 +214,22 @@ This design serializes access to individual records without transactions — the
 
 ### Why Replace XMPP
 
-Standard XMPP is XML-based. A simple text message generates ~180 bytes of protocol overhead — XML open/close tags, namespace declarations, attributes. On 2G networks in developing markets, this overhead was unacceptable. WhatsApp needed a protocol optimized for resource-constrained mobile devices on slow, unreliable networks.
+Standard XMPP is XML-based ([RFC 6120](https://datatracker.ietf.org/doc/html/rfc6120)). A short text message carries hundreds of bytes of protocol overhead — XML open/close tags, namespace declarations, attributes — before the payload. WhatsApp's target was the opposite of that profile: feature phones over 2G in developing markets, where every byte cost battery and money. They needed a protocol where the wire form was close to the information form.
 
 ### How FunXMPP Works
 
-FunXMPP replaced XML structure with binary encoding:
+FunXMPP keeps the XMPP semantic model (stanzas, presence, JIDs) but replaces the XML serialization with a token-based binary encoding:
 
-1. **Token replacement**: Reserved XMPP words (message, from, body, etc.) are replaced by single bytes. For example, "message" becomes `0x59`, "@s.whatsapp.net" becomes `0x91`.
+![FunXMPP replaces XMPP's XML tag soup with single-byte tokens for known stanzas and string values, plus a length-prefixed item count instead of closing tags.](./diagrams/funxmpp-encoding-light.svg "FunXMPP replaces XMPP's XML tag soup with single-byte tokens for known stanzas and string values, plus a length-prefixed item count instead of closing tags. A typical short text message shrinks from ~180 to ~20 bytes.")
+![FunXMPP replaces XMPP's XML tag soup with single-byte tokens for known stanzas and string values, plus a length-prefixed item count instead of closing tags.](./diagrams/funxmpp-encoding-dark.svg)
 
-2. **Structural compression**: Instead of XML opening/closing tags, a single byte (e.g., `0xF8`) indicates a structure. The parser counts items rather than matching tag names.
+1. **Token replacement**: Reserved XMPP words (`message`, `from`, `body`, …) and common string values (e.g. JID suffixes like `@s.whatsapp.net`) are replaced by single bytes drawn from a shared client/server token table. New tokens require coordinated rollout, which is why the table evolves slowly.
+2. **Structural compression**: Instead of opening and closing XML tags, a single byte indicates the start of a structured element and a leading count tells the parser how many child items follow. The parser counts items rather than matching tag names.
+3. **Length-prefixed literals**: Unknown strings (user-generated text, JIDs not yet tokenized) are written as a length prefix followed by raw bytes — no quoting or escaping needed.
 
-3. **Result**: A typical message shrinks from ~180 bytes to ~20 bytes — a 50-70% bandwidth reduction.
+The reported result is a ≈50–70% reduction in bytes on the wire for typical short messages, dropping a stanza that would be ~180 bytes in XMPP to ~20 bytes in FunXMPP.[^funxmpp] This protocol efficiency was a direct contributor to WhatsApp's dominance in bandwidth-sensitive markets.
 
-This made WhatsApp usable on feature phones over 2G connections where every byte mattered. The protocol efficiency was a direct contributor to WhatsApp's dominance in developing markets.
+[^funxmpp]: The exact wire format is proprietary; concrete byte values reported in third-party reverse-engineering write-ups should be treated as version-specific. The token-table mechanism and the order-of-magnitude size reduction are consistent across WhatsApp Engineering's own descriptions of the protocol.
 
 ## Storage Architecture
 
@@ -269,15 +276,18 @@ WhatsApp worked around these with:
 
 ### Store-and-Forward Message Flow
 
-WhatsApp's message delivery follows a store-and-forward model optimized for speed:
+WhatsApp's message delivery follows a store-and-forward model optimized for the common case (recipient is online and reads quickly):
 
-1. **Recipient online, same cluster**: Direct Erlang process-to-process message delivery (sub-millisecond)
-2. **Recipient online, different cluster**: Inter-cluster forwarding via distribution connections (sub-second)
-3. **Recipient offline**: Message stored in Mnesia offline queue, replicated to backup node
-4. **Recipient reconnects**: Queued messages delivered in order
-5. **Delivery confirmed**: Message deleted from server
+![Three message-delivery paths: direct intra-cluster, inter-cluster via wandist, and offline via the Mnesia queue with replication and a 30-day TTL.](./diagrams/store-and-forward-flow-light.svg "Sender → routing layer → recipient. The Mnesia offline queue is only on the cold path; on the hot path, the message never leaves the chat servers. Acknowledgement deletes the message — the server is a router, not an archive.")
+![Three message-delivery paths: direct intra-cluster, inter-cluster via wandist, and offline via the Mnesia queue with replication and a 30-day TTL.](./diagrams/store-and-forward-flow-dark.svg)
 
-Messages are retained for up to 30 days if the recipient remains offline. Over 50% of messages are read within 60 seconds of storage, which explains the 98% cache hit rate — the working set is overwhelmingly recent messages.
+1. **Recipient online, same cluster**: Direct Erlang process-to-process message delivery (sub-millisecond).
+2. **Recipient online, different cluster**: Inter-cluster forwarding over WhatsApp's `wandist` mesh (sub-second).
+3. **Recipient offline**: Message stored in the Mnesia offline queue, replicated to the peer node in the island.
+4. **Recipient reconnects**: Queued messages delivered in order.
+5. **Delivery confirmed**: Message deleted from the server.
+
+Messages are retained for up to 30 days if the recipient stays offline. Over 50% of messages are read within 60 seconds of storage, which is why a write-back cache in front of the offline queue achieves a 98% hit rate — the working set is overwhelmingly recent messages, and the file system rarely needs to be touched on the hot delivery path ([Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)).
 
 ### Asynchronous Optimization
 
@@ -306,14 +316,14 @@ This separation means the messaging server never handles large binary payloads �
 
 ### Scale (Late 2014)
 
-| Metric                  | Daily Volume | Peak (New Year's Eve 2014) |
-| ----------------------- | ------------ | -------------------------- |
-| Photos                  | 600 million  | 2 billion                  |
-| Voice messages          | 200 million  | —                          |
-| Videos                  | 100 million  | 360 million                |
-| Peak outbound bandwidth | —            | 146 Gb/s                   |
+| Metric                  | Daily Volume | Peak                                |
+| ----------------------- | ------------ | ----------------------------------- |
+| Photos                  | 600 million  | 2 billion (New Year's Eve, 46k/s)   |
+| Voice messages          | 200 million  | —                                   |
+| Videos                  | 100 million  | 360 million (Christmas Eve)         |
+| Peak outbound bandwidth | —            | 146 Gb/s (Christmas Eve)            |
 
-By late 2014, WhatsApp operated approximately 350 dedicated multimedia (MMS) servers — nearly half the total server fleet — reflecting the growing dominance of media in messaging traffic.
+By late 2014, WhatsApp ran approximately 250 dedicated multimedia servers and 150 chat servers — a roughly 5:3 split between media and chat — reflecting how dominant photos and video had become in messaging traffic ([Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)).
 
 ## Multi-Cluster Architecture
 
@@ -341,32 +351,31 @@ This design meant a node failure affected only the users mapped to that island's
 
 After the Facebook acquisition, the architecture evolved significantly:
 
-- **Data center migration (2017-2019)**: 3-year migration from SoftLayer to Facebook-owned data centers. Presented at CodeBEAM SF 2019 by Igors Istocniks. Migration proceeded per phone number prefix (country code): make the prefix read-only, accelerate database replay repairs, move traffic, reconcile — under 5 minutes per prefix.
-- **OS migration**: FreeBSD to Linux (required by Facebook's container orchestration and monitoring infrastructure)
-- **Scale expansion**: Backend split into 40+ distinct clusters by function, scaled to 40,000+ Erlang nodes
-- **Over 1 billion concurrent connections** maintained across the expanded infrastructure
+- **Data center migration (2017–2019)**: A multi-year migration of 1.5 billion users from SoftLayer to Facebook-owned data centers, presented by Igors Istocniks at CodeBEAM SF 2019 ([slides PDF](https://codemesh.io/uploads/media/activity_slides/0001/01/f9539fb9fd3565db0de255bbbb0289ad5fe17414.pdf)). Migration ran per phone-number prefix: make the prefix read-only, accelerate database-replay repairs to flush queues, move traffic, then enable writes once persistent errors were reconciled — under 5 minutes per prefix.
+- **OS migration**: FreeBSD to Linux, driven by Facebook's container orchestration and monitoring infrastructure rather than a technical judgement against FreeBSD.
+- **Scale expansion**: Backend split into many clusters by function and scaled to tens of thousands of Erlang nodes serving billions of concurrent connections in aggregate.
 
 ### WARTS: WhatsApp's Runtime System
 
-Post-acquisition, WhatsApp formalized their custom Erlang/OTP fork as **WARTS (WhatsApp's Runtime System)**, open-sourced on GitHub. WARTS focuses on performance, security, and tooling enhancements for Linux, reflecting the post-migration environment.
+Post-acquisition, WhatsApp formalized their custom Erlang/OTP fork as **WARTS** (WhatsApp's Runtime System), now public at [github.com/WhatsApp/warts](https://github.com/WhatsApp/warts) under Apache-2.0. WARTS tracks upstream OTP and layers on performance, security, and tooling enhancements for Linux — including the `erldist_filter` NIF for filtering and logging the Erlang Distribution Protocol at very large cluster sizes ([Andrew Bennett, ElixirConf 2023](https://www.youtube.com/watch?v=VLO0ma-1uD4)).
 
 ## End-to-End Encryption and Multi-Device
 
 ### End-to-End Encryption (April 2016)
 
-WhatsApp integrated the Signal Protocol for end-to-end encryption across all message types — text, photos, video, voice messages, voice calls, and video calls. After this change, WhatsApp's servers could no longer read message content.
+WhatsApp completed Signal Protocol integration for end-to-end encryption across all message types — text, group chats, attachments, voice messages, voice calls, and video calls — on 2016-04-05 ([Signal blog: integration is now complete](https://signal.org/blog/whatsapp-complete/); partnership announced [2014-11-18](https://signal.org/blog/whatsapp/)). After this change, WhatsApp's servers could no longer read message content.
 
-The server architecture remained Erlang/BEAM-based. The encryption added computational overhead on the client side but did not fundamentally change the server's role as a message router and store-and-forward relay.
+The server architecture remained Erlang/BEAM-based. Encryption added computational overhead on the client side but did not change the server's role as a message router and store-and-forward relay.
 
 ### Multi-Device Support (July 2021)
 
-Multi-device support required architectural changes to the server:
+Multi-device support required architectural changes to the server ([Meta Engineering — Multi-Device for WhatsApp](https://engineering.fb.com/2021/07/14/security/whatsapp-multi-device/), 2021-07-14):
 
-- **Per-device identity keys**: Previously, each user had one identity key. Now each device gets its own.
-- **Client-fanout**: Messages are encrypted N times for N devices, with the sender performing the encryption
-- **Device mapping**: Server maintains an account-to-device-identity mapping
-- **History sync**: Encrypted message bundles transferred during device linking
-- **Voice/video calls**: Generate random 32-byte SRTP (Secure Real-time Transport Protocol) master secrets per device
+- **Per-device identity keys**: Previously, each user account had one identity key. Now each device gets its own.
+- **Client-fanout**: The sending client encrypts and transmits the message N times — once per recipient device — under a pairwise Signal session, instead of relying on server-side fan-out.
+- **Device mapping**: Server maintains an account-to-device-identity mapping so senders can resolve the recipient's device list.
+- **History sync**: When a companion device is linked, the primary device encrypts a bundle of recent messages and transfers them; the bundle key is delivered via an end-to-end encrypted message.
+- **Voice/video calls**: Each linked device gets a random 32-byte SRTP master secret, so calls remain end-to-end encrypted across the multi-device topology.
 
 ## Options Considered
 
@@ -445,48 +454,49 @@ WhatsApp deliberately avoided the microservices pattern:
 
 ### Metrics at Key Milestones
 
-| Metric                 | Early 2014 (Acquisition) | Late 2014 | 2016 | Current       |
-| ---------------------- | ------------------------ | --------- | ---- | ------------- |
-| Monthly active users   | 450M                     | 600M+     | 1B   | 3B+           |
-| Messages/day           | ~40B                     | 50B+      | —    | 100B+         |
-| Servers                | ~550                     | ~800      | —    | 40,000+ nodes |
-| Engineers              | 32                       | ~35       | ~50  | 1,000+        |
-| Concurrent connections | 140M                     | —         | —    | 1B+           |
-| Users per engineer     | 14M                      | 17M       | 20M  | —             |
+| Metric                 | Early 2014 (Acquisition) | Late 2014   | 2016 | Current             |
+| ---------------------- | ------------------------ | ----------- | ---- | ------------------- |
+| Monthly active users   | 465M                     | 600M+       | 1B   | 3B+                 |
+| Messages/day (in+out)  | ~50B                     | 64B+        | —    | 100B+               |
+| Servers                | ~550                     | ~800        | —    | tens of thousands of nodes |
+| Engineers (total)      | ~32                      | ~35         | ~50  | 1,000+              |
+| Concurrent connections | 147M                     | —           | —    | billions            |
+| Users per engineer     | ~15M                     | ~17M        | ~20M | —                   |
 
 ### Performance Numbers (2014)
 
-| Metric                            | Value       |
-| --------------------------------- | ----------- |
-| Peak logins/second                | 230,000     |
-| Peak inbound messages/second      | 342,000     |
-| Peak outbound messages/second     | 712,000     |
-| Erlang inter-node messages/second | 70+ million |
-| Connections per second            | 440,000     |
+| Metric                            | Value       | Source                                                                                                                                  |
+| --------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Peak logins/second                | 230,000     | [Reed 2014, via High Scalability](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/)            |
+| Peak inbound messages/second      | 342,000     | Reed 2014                                                                                                                                |
+| Peak outbound messages/second     | 712,000     | Reed 2014                                                                                                                                |
+| Erlang inter-node messages/second | 70+ million | Reed 2014                                                                                                                                |
+| Peak concurrent connections       | 147,000,000 | Reed 2014                                                                                                                                |
 
 ### Cost Efficiency
 
-Pre-acquisition, WhatsApp ran ~700 servers on SoftLayer at approximately $2 million/month. At 450 million MAU, this translates to approximately $0.004/user/month — orders of magnitude below competing platforms that required larger teams and more infrastructure.
+Pre-acquisition, WhatsApp ran ~700 servers on SoftLayer at an estimated ~$2 million/month. At 450M+ MAU, that works out to about $0.004 per user per month — orders of magnitude below competing platforms that required larger teams and richer infrastructure. Hosting cost is a tier-5 estimate from contemporary press; the headline ratio (millions of users per dollar of infra spend per month) is the conclusion that holds up regardless of the exact figure.
 
 ### Timeline
 
-| Date      | Event                                                      |
-| --------- | ---------------------------------------------------------- |
-| Feb 2009  | WhatsApp Inc. incorporated                                 |
-| Aug 2009  | WhatsApp 2.0 launched (messaging pivot)                    |
-| Jan 2011  | 1 million connections per server achieved                  |
-| Jan 2012  | 2+ million connections per server ("1 million is so 2011") |
-| Oct 2011  | 1 billion messages/day                                     |
-| Aug 2012  | 10 billion messages/day                                    |
-| Dec 2013  | 18 billion messages/day, 400M MAU                          |
-| Feb 2014  | Facebook acquisition ($19B); pg2 outage                    |
-| Mar 2014  | Rick Reed's "Billion with a B" talk; 465M MAU              |
-| Nov 2014  | 600M+ MAU, 800 servers                                     |
-| Feb 2016  | 1 billion MAU                                              |
-| Apr 2016  | End-to-end encryption (Signal Protocol)                    |
-| 2017-2019 | Data center migration (SoftLayer → Facebook DCs)           |
-| Jul 2021  | Multi-device support                                       |
-| 2024      | 3B+ MAU, 40,000+ Erlang nodes, 100B+ messages/day          |
+| Date      | Event                                                       |
+| --------- | ----------------------------------------------------------- |
+| Feb 2009  | WhatsApp Inc. incorporated                                  |
+| Aug 2009  | WhatsApp 2.0 launched (messaging pivot)                     |
+| Jan 2011  | 1 million connections per server achieved                   |
+| Oct 2011  | 1 billion messages/day                                      |
+| Jan 2012  | 2+ million connections per server ("1 million is so 2011")  |
+| Aug 2012  | 10 billion messages/day                                     |
+| Dec 2013  | 18 billion messages/day, 400M MAU                           |
+| 2014-02-19 | Facebook acquisition announced ($19B)                      |
+| 2014-02-22 | pg2 outage (210 minutes)                                   |
+| Mar 2014  | Rick Reed's "Billion with a B" talk (Erlang Factory SF)     |
+| Nov 2014  | 600M+ MAU, ~800 servers                                     |
+| Feb 2016  | 1 billion MAU                                               |
+| 2016-04-05 | End-to-end encryption rollout complete (Signal Protocol)   |
+| 2017-2019 | Data center migration from SoftLayer to Facebook DCs        |
+| 2021-07-14 | Multi-device support announced                             |
+| 2024+     | 3B+ MAU, tens of thousands of Erlang nodes, 100B+ msgs/day  |
 
 ## Lessons Learned
 
@@ -582,7 +592,7 @@ You might face similar challenges if:
 
 ## Conclusion
 
-WhatsApp's architecture is a study in what happens when a small team makes consistently correct bets on a runtime's fundamental properties. Erlang's per-process garbage collection, lightweight processes, and OTP supervision weren't just nice features — they were the architectural foundation that made 2 million connections per server, 450 million users with 32 engineers, and a $19 billion valuation possible.
+WhatsApp's architecture is a study in what happens when a small team makes consistently correct bets on a runtime's fundamental properties. Erlang's per-process garbage collection, lightweight processes, and OTP supervision weren't just nice features — they were the architectural foundation that made 2 million connections per server, 465 million users with ~32 engineers, and a $19 billion valuation possible.
 
 The counterintuitive lesson is that WhatsApp's architecture was simple. No microservices. No container orchestration (pre-acquisition). No complex caching layers. One Erlang process per user, Mnesia for metadata, delete-after-delivery for messages, and a custom binary protocol for bandwidth efficiency. The complexity lived in the BEAM VM patches and the operational discipline of a small team — not in the system's architecture.
 
@@ -619,25 +629,39 @@ For engineers building high-connection systems today, WhatsApp's story suggests 
 
 ### Summary
 
-- WhatsApp started from ejabberd (open-source XMPP/Erlang server) in 2009, spending years rewriting it into a custom messaging platform that served 450 million users with 32 engineers and ~550 servers at the time of Facebook's $19 billion acquisition
-- BEAM's per-process garbage collection (~300 bytes per process) enabled 2+ million concurrent TCP connections per server — operational complexity scales with node count, not core count, so fewer large servers was deliberately chosen over many small ones
-- WhatsApp patched the BEAM VM itself (timer wheels, GC throttling, distribution buffers, pg2 replacement, ETS hash improvements), with several patches upstreamed to mainline Erlang/OTP
-- FunXMPP replaced XML-based XMPP with a binary protocol achieving 50-70% bandwidth reduction, making WhatsApp viable on 2G feature phones in developing markets
+- WhatsApp started from ejabberd (open-source XMPP/Erlang server) in 2009 and spent years rewriting it into a custom messaging platform that served 465 million users with ~32 engineers and ~550 servers at the time of Facebook's $19 billion acquisition
+- BEAM's per-process garbage collection and small per-process memory footprint (~338 words / ~2.7 KB on 64-bit) enabled 2+ million concurrent TCP connections per server — operational complexity scales with node count, not core count, so fewer large servers was deliberately chosen over many small ones
+- WhatsApp patched the BEAM VM itself (timer wheels, GC throttling, distribution buffers, pg2 replacement, ETS hash improvements), with several patches upstreamed to mainline Erlang/OTP — including the new `pg` module that replaced `pg2` in OTP 23
+- FunXMPP replaced XML-based XMPP with a token-based binary protocol achieving ≈50–70% bandwidth reduction for typical messages, making WhatsApp viable on 2G feature phones in developing markets
 - Mnesia provided in-memory metadata storage (~2TB, 18 billion records, 98% cache hit rate) while messages were transient — deleted after delivery confirmation, with 50% read within 60 seconds
-- Post-acquisition, WhatsApp migrated from FreeBSD/SoftLayer to Linux/Facebook data centers (2017-2019), scaled to 40,000+ Erlang nodes and 1 billion+ concurrent connections, and formalized their runtime fork as WARTS (WhatsApp's Runtime System)
+- Post-acquisition, WhatsApp migrated from FreeBSD/SoftLayer to Linux/Facebook data centers (2017–2019), scaled to tens of thousands of Erlang nodes serving billions of concurrent connections in aggregate, and formalized their runtime fork as WARTS
 
 ### References
 
+#### Primary-source talks and posts
+
 - [WhatsApp Blog: "1 million is so 2011"](https://blog.whatsapp.com/1-million-is-so-2011) — WhatsApp Engineering, January 2012. Server specs and 2M connection milestone.
-- [Rick Reed: "That's 'Billion' with a 'B': Scaling to the Next Level at WhatsApp"](https://www.infoq.com/presentations/whatsapp-scalability/) — Erlang Factory SF 2014. BEAM patches, meta-clustering, data storage architecture.
-- [Rick Reed: "WhatsApp: Half a Billion Unsuspecting FreeBSD Users"](https://www.slideshare.net/iXsystems/rick-reed-600-m-unsuspecting-freebsd-users) — MeetBSD California 2014. FreeBSD infrastructure at 600M+ users.
-- [Eugene Fooksman Interview](https://pdincau.wordpress.com/2013/03/27/an-interview-with-eugene-fooksman-erlang/) — Paolo D'Incau, March 2013. Early architecture decisions and ejabberd origins.
-- [Anton Lavrik Interview: 20 Years of Open Source Erlang](https://www.erlang-solutions.com/blog/20-years-of-open-source-erlang-openerlang-interview-with-anton-lavrik-from-whatsapp/) — Erlang Solutions. Erlang vs alternatives, developer tooling at scale.
-- [How WhatsApp Grew to Nearly 500 Million Users, 11,000 Cores, and 70 Million Messages a Second](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/) — High Scalability, 2014. Detailed technical architecture summary from Reed's 2014 talk.
-- [The WhatsApp Architecture Facebook Bought for $19 Billion](https://highscalability.com/the-whatsapp-architecture-facebook-bought-for-19-billion/) — High Scalability, 2014. Architecture overview at acquisition.
-- [Igors Istocniks: "How WhatsApp Moved 1.5 Billion Users Across Data Centers"](https://codesync.global/media/how-whatsapp-oved-1-billion-users-across-data-centers/) — CodeBEAM SF 2019. Data center migration details.
-- [Meta Engineering: Introducing Multi-Device for WhatsApp](https://engineering.fb.com/2021/07/14/security/whatsapp-multi-device/) — Meta Engineering Blog, July 2021. Multi-device architecture.
-- [WhatsApp/WARTS on GitHub](https://github.com/WhatsApp/warts) — WhatsApp's Runtime System (custom Erlang/OTP fork).
-- [Erlang Forums: Did the WhatsApp Patches Make It Into Mainstream Erlang?](https://erlangforums.com/t/did-the-whatsapp-patches-mentioned-in-a-2014-conference-make-it-into-mainstream-erlang/958) — Community discussion on upstream contributions.
-- [Rick Reed: "Scaling to Millions of Simultaneous Connections"](http://www.erlang-factory.com/conference/SFBay2012/speakers/RickReed) — Erlang Factory SF 2012. Initial connection scaling work.
-- [Rick Reed: "JPGs and 3GPs and AMRs Oh My!"](https://www.erlang-factory.com/conference/SFBay2013/speakers/RickReed) — Erlang Factory SF 2013. Erlang-based multimedia system rebuild.
+- [Rick Reed: "That's 'Billion' with a 'B'"](https://www.infoq.com/presentations/whatsapp-scalability/) — Erlang Factory SF 2014. BEAM patches, meta-clustering, data storage. ([Slides PDF, GitHub mirror](https://github.com/reedr/reedr/blob/master/slides/efsf2014-whatsapp-scaling.pdf))
+- [Rick Reed: "Scaling to Millions of Simultaneous Connections"](https://www.erlang-factory.com/upload/presentations/558/efsf2012-whatsapp-scaling.pdf) — Erlang Factory SF 2012. Initial scaling work and BEAM contention.
+- [Igors Istocniks: "How WhatsApp Moved 1.5B Users Across Data Centers"](https://codemesh.io/uploads/media/activity_slides/0001/01/f9539fb9fd3565db0de255bbbb0289ad5fe17414.pdf) — CodeBEAM SF 2019.
+- [Meta Engineering: Introducing Multi-Device for WhatsApp](https://engineering.fb.com/2021/07/14/security/whatsapp-multi-device/) — 2021-07-14. Multi-device architecture.
+- [Andrew Bennett: "Erlang Dist Filtering and the WhatsApp Runtime System"](https://www.youtube.com/watch?v=VLO0ma-1uD4) — ElixirConf 2023. WARTS internals.
+- [Eugene Fooksman Interview](https://pdincau.wordpress.com/2013/03/27/an-interview-with-eugene-fooksman-erlang/) — Paolo D'Incau, March 2013. Early architecture and ejabberd origins.
+- [Anton Lavrik Interview: 20 Years of Open Source Erlang](https://www.erlang-solutions.com/blog/20-years-of-open-source-erlang-openerlang-interview-with-anton-lavrik-from-whatsapp/) — Erlang Solutions. Erlang vs alternatives.
+- [Signal: "WhatsApp's Signal Protocol integration is now complete"](https://signal.org/blog/whatsapp-complete/) — 2016-04-05.
+
+#### Standards and Erlang/OTP documentation
+
+- [Erlang Efficiency Guide — Processes](https://www.erlang.org/doc/system/eff_guide_processes.html)
+- [Erlang Memory](https://www.erlang.org/doc/apps/erts/erlangmemory.html)
+- [OTP Supervision Principles](https://www.erlang.org/doc/system/sup_princ.html)
+- [erl Runtime Flags](https://www.erlang.org/doc/apps/erts/erl_cmd.html) — `+stbt` and other scheduler flags
+- [OTP 23.0 Patch Notes](https://www.erlang.org/patches/otp-23.0) — `pg` introduced, `pg2` deprecated
+- [erlang/otp PR #2979](https://github.com/erlang/otp/pull/2979) — ETS hash-salt patch from WhatsApp
+
+#### Secondary references
+
+- [How WhatsApp Grew to Nearly 500 Million Users, 11,000 Cores, and 70 Million Messages a Second](https://highscalability.com/how-whatsapp-grew-to-nearly-500-million-users-11000-cores-an/) — High Scalability, 2014. Most-detailed publicly accessible summary of Reed's 2014 talk.
+- [The WhatsApp Architecture Facebook Bought for $19 Billion](https://highscalability.com/the-whatsapp-architecture-facebook-bought-for-19-billion/) — High Scalability, 2014.
+- [Erlang Forums: Did the WhatsApp Patches Make It Into Mainstream Erlang?](https://erlangforums.com/t/did-the-whatsapp-patches-mentioned-in-a-2014-conference-make-it-into-mainstream-erlang/958)
+- [WhatsApp/WARTS on GitHub](https://github.com/WhatsApp/warts) — WhatsApp's Erlang/OTP fork.

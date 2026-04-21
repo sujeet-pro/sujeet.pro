@@ -1,0 +1,20 @@
+%% Diagram: ResizeObserver Pipeline Timing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  start(["rendering opportunity"]) --> rs["recalc styles"] --> ul["update layout"] --> gather["gather active observations"]
+  gather --> any{"active?"}
+  any -- no --> paint["paint"]
+  any -- yes --> bcast["broadcast: callbacks run&#10;(layout-only edits ideal here)"]
+  bcast --> rs2["recalc + layout"] --> gather2["gather at deeper depth"]
+  gather2 --> any2{"more?"}
+  any2 -- yes --> bcast
+  any2 -- no --> err{"any skipped?"}
+  err -- yes --> loop["fire ErrorEvent:&#10;'ResizeObserver loop completed&#10;with undelivered notifications'"]
+  err -- no --> paint
+  loop --> paint
+
+  classDef cb fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+  class bcast cb
+  class loop warn

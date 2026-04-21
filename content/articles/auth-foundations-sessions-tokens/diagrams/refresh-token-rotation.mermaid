@@ -1,0 +1,27 @@
+%% Diagram: Refresh-token rotation with reuse detection (RFC 9700)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant AuthZ as Authorization Server
+    participant DB as Token family store
+    participant Attacker
+
+    Note over Client,DB: Normal rotation
+    Client->>AuthZ: POST /token (refresh_token=R1)
+    AuthZ->>DB: Lookup family for R1
+    DB-->>AuthZ: family=F, R1=active
+    AuthZ->>DB: Mark R1 used, issue R2 in F
+    AuthZ-->>Client: access=A2, refresh=R2
+
+    Note over Client,DB: Attacker also captures R1 (XSS, log leak, ...)
+    Client->>AuthZ: POST /token (refresh_token=R2)
+    AuthZ->>DB: R2 active, rotate to R3
+    AuthZ-->>Client: access=A3, refresh=R3
+
+    Note over Client,Attacker: Reuse detected — entire family revoked
+    Attacker->>AuthZ: POST /token (refresh_token=R1) [reused]
+    AuthZ->>DB: R1 already used → compromise of family F
+    AuthZ->>DB: Revoke F (R1, R2, R3, all access tokens)
+    AuthZ-->>Attacker: 401 invalid_grant
+    Note over Client: Next request 401 → re-authenticate

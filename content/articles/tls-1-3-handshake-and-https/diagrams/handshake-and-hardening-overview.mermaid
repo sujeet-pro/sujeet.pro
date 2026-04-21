@@ -1,0 +1,34 @@
+%% Diagram: TLS 1.3 handshake + key derivation + HTTPS hardening overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Handshake["TLS 1.3 full handshake (1-RTT)"]
+        direction TB
+        CH["ClientHello\n+ key_share\n+ supported_versions"]
+        SH["ServerHello\n+ key_share"]
+        EE_CERT_CV["EncryptedExtensions\n+ Certificate\n+ CertificateVerify"]
+        FIN["Server Finished\n+ Client Finished"]
+
+        CH --> SH --> EE_CERT_CV --> FIN
+    end
+
+    subgraph Keys["Key derivation (HKDF)"]
+        direction LR
+        ES["Early Secret"] --> HS["Handshake Secret\n(from ECDHE)"] --> MS["Master Secret"] --> ATS["Application\nTraffic Secrets"]
+    end
+
+    subgraph Hardening["HTTPS hardening stack"]
+        direction LR
+        HSTS["HSTS\n+ preload"]
+        CT["Certificate\nTransparency"]
+        OCSP["OCSP\nstapling"]
+        CAA["CAA + DNSSEC\n(2026-03)"]
+        SHORT["Short-lived\ncerts (ACME)"]
+    end
+
+    Handshake -->|"derives"| Keys
+    Keys -->|"depends on PKI"| Hardening
+
+    style Handshake fill:#e3f2fd
+    style Keys fill:#f3e5f5
+    style Hardening fill:#e8f5e9

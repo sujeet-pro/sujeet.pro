@@ -1,0 +1,31 @@
+%% Diagram: Form builder architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Builder["Authoring (build time)"]
+        Schema["Schema<br/>JSON Schema / Zod"]
+        UISchema["UI hints<br/>widget + layout"]
+        Logic["Logic rules<br/>conditions + jumps"]
+    end
+
+    subgraph Runtime["Runtime (in browser)"]
+        Registry["Component<br/>registry"]
+        Renderer["Schema<br/>renderer"]
+        State["Form state<br/>(uncontrolled + subscriptions)"]
+        Validator["Validation engine<br/>sync / async / cross-field"]
+    end
+
+    subgraph Storage["Persistence"]
+        Draft["Draft store<br/>IndexedDB"]
+        Submit["Submission API<br/>backend"]
+    end
+
+    Schema --> Renderer
+    UISchema --> Renderer
+    Logic --> Renderer
+    Registry --> Renderer
+    Renderer --> State
+    State --> Validator
+    Validator -->|errors| State
+    State --> Draft
+    State --> Submit

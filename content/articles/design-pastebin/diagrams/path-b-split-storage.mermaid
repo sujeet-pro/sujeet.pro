@@ -1,0 +1,8 @@
+%% Diagram: Path B — split storage (metadata DB + object storage)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENT["Client"] --> API["API server"]
+    API --> CACHE["Redis cache<br/>(hot deserialized pastes)"]
+    API --> META[("PostgreSQL<br/>metadata only")]
+    API --> S3["Object storage<br/>compressed paste bodies"]

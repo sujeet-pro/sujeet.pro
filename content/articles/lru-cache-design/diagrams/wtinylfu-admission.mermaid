@@ -1,0 +1,40 @@
+%% Diagram: Window TinyLFU - admission filter routing requests through window LRU and SLRU
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Req(["Request"])
+
+    subgraph Window["Window LRU (~1%)"]
+        W1["recent items<br/>burst absorber"]
+    end
+
+    subgraph Filter["TinyLFU admission filter"]
+        CMS["4-bit Count-Min Sketch<br/>frequency estimate"]
+        Compare{{"freq(candidate)<br/>>=<br/>freq(victim)?"}}
+    end
+
+    subgraph Main["Main SLRU (~99%)"]
+        direction TB
+        Prob["Probationary"]
+        Prot["Protected"]
+        Prob -->|"hit"| Prot
+        Prot -.->|"demoted on capacity"| Prob
+    end
+
+    Req -->|"new key"| W1
+    W1 -->|"evicted from window"| CMS
+    CMS --> Compare
+    Compare -->|"yes"| Prob
+    Compare -->|"no"| Drop(["rejected"])
+
+    Prob -.->|"evict tail"| Drop2(["dropped"])
+
+    classDef window fill:#8B5E15,stroke:#d6b656,stroke-width:2px,color:#ffffff
+    classDef filter fill:#5A4D8B,stroke:#9673a6,stroke-width:2px,color:#ffffff
+    classDef main fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+    classDef io fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+
+    class W1 window
+    class CMS,Compare filter
+    class Prob,Prot main
+    class Req,Drop,Drop2 io

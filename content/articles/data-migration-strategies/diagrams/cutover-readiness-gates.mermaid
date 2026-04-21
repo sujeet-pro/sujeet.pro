@@ -11,7 +11,7 @@ flowchart TB
     go[Bounded cutover]
     watch{Healthy?}
     done([Stabilize then decommission])
-    fail["Any NO -> remediate + restart\nthrottle · fix pipeline · fix semantics\nrehearse rollback · assign commander"]
+    fail["Any NO → remediate + restart<br/>throttle · fix pipeline · fix semantics<br/>rehearse rollback · assign commander"]
 
     start --> g1 -->|yes| g2 -->|yes| g3 -->|yes| g4 -->|yes| g5 -->|yes| go --> watch
     watch -->|yes| done

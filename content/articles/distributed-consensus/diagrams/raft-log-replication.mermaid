@@ -1,0 +1,37 @@
+%% Diagram: Raft log replication and the Log Matching consistency check
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph BEFORE["Before AppendEntries (term 4, leader L)"]
+        direction LR
+        BL["Leader L\nlog: [t1:x] [t1:y] [t2:z] [t4:w]\ncommitIndex = 3"]
+        BF1["Follower F1\nlog: [t1:x] [t1:y] [t2:z]\ncommitIndex = 3"]
+        BF2["Follower F2 (lagging)\nlog: [t1:x] [t1:y]\ncommitIndex = 2"]
+    end
+
+    subgraph CHECK["Log Matching consistency check"]
+        direction TB
+        Q1["Leader sends AppendEntries\nprevLogIndex = 3, prevLogTerm = 2,\nentries = [t4:w]"]
+        Q2{"Follower has entry at\nidx=3 with term=2?"}
+        Q3a["Yes -> append [t4:w], reply ack\n(F1 path)"]
+        Q3b["No -> reply false; leader\ndecrements nextIndex and retries\n(F2 path: walk back to idx=2)"]
+        Q1 --> Q2
+        Q2 -- yes --> Q3a
+        Q2 -- no --> Q3b
+    end
+
+    subgraph AFTER["After quorum ack"]
+        direction LR
+        AL["Leader L\ncommitIndex = 4 once 3/5 acked"]
+        AF1["F1 commits idx=4 on next heartbeat"]
+        AF2["F2 catches up via repeated AppendEntries\nuntil logs converge, then commits"]
+    end
+
+    BEFORE --> CHECK --> AFTER
+
+    classDef base fill:#94a3b8,stroke:#1e293b,color:#0f172a
+    classDef leader fill:#60a5fa,stroke:#1e3a8a,color:#0f172a
+    classDef decision fill:#fbbf24,stroke:#92400e,color:#451a03
+    class BL,AL leader
+    class BF1,BF2,AF1,AF2 base
+    class Q1,Q2,Q3a,Q3b decision

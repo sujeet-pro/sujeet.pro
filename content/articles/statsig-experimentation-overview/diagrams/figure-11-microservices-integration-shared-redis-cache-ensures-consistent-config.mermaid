@@ -1,31 +1,26 @@
-%% Diagram: Figure 11 Microservices Integration Shared Redis Cache Ensures Consistent Config
+%% Diagram: DataAdapter single-writer / many-reader topology
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    subgraph "Microservice A"
-        A1[Service A] --> A2[Statsig SDK A]
-        A2 --> A3[Redis Cache]
+flowchart LR
+    CDN[(Statsig CDN<br/>download_config_specs)]
+
+    subgraph Writer["Single writer (cron or dedicated service)"]
+        W[Writer SDK instance<br/>implements get + set]
     end
 
-    subgraph "Microservice B"
-        B1[Service B] --> B2[Statsig SDK B]
-        B2 --> A3
+    Store[(Shared store<br/>Redis / Edge Config / DB)]
+
+    subgraph Readers["Webserver fleet (read-only DataAdapter)"]
+        R1[Server SDK A<br/>set = no-op]
+        R2[Server SDK B<br/>set = no-op]
+        R3[Server SDK C<br/>set = no-op]
     end
 
-    subgraph "Microservice C"
-        C1[Service C] --> C2[Statsig SDK C]
-        C2 --> A3
-    end
+    CDN -- "poll every 30 to 60s" --> W
+    W -- "set(key, spec)" --> Store
+    Store -- "get(key)" --> R1
+    Store -- "get(key)" --> R2
+    Store -- "get(key)" --> R3
 
-    A3 --> D[Shared Configuration State]
-
-    subgraph "Load Balancer"
-        E[User Request] --> F[Route to Service]
-        F --> A1
-        F --> B1
-        F --> C1
-    end
-
-    style A3 fill:#e1f5fe
-    style D fill:#c8e6c9
-    style E fill:#fff3e0
+    Note1["Key format:<br/>statsig|{path}|{format}|{djb2(sdkKey)}"]
+    Store -.- Note1

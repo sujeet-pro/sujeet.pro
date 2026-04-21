@@ -1,0 +1,43 @@
+%% Diagram: Storage paradigms map
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph models["Data model"]
+        direction LR
+        REL["Relational\nTables + joins\nStrong schema"]
+        DOC["Document\nNested JSON/BSON\nFlexible schema"]
+        KV["Key-value\nOpaque value\nNo schema"]
+        WIDE["Wide-column\nSparse columns\nLSM trees"]
+        GRAPH["Graph\nNodes + edges\nIndex-free adjacency"]
+    end
+
+    subgraph consistency["Default consistency"]
+        ACID["ACID\nSerializable / strong\nSingle-node default"]
+        TUNABLE["Tunable\nPer-operation\nStrong or eventual"]
+        BASE["BASE\nEventual\nDistributed default"]
+    end
+
+    subgraph scale["Scale axis"]
+        VERT["Vertical\nSingle-node ceiling\nReplicas for reads"]
+        HORIZ["Horizontal\nSharded by key\nMulti-leader writes"]
+    end
+
+    REL --> ACID
+    DOC --> TUNABLE
+    KV --> TUNABLE
+    WIDE --> BASE
+    GRAPH --> ACID
+
+    ACID --> VERT
+    TUNABLE --> HORIZ
+    BASE --> HORIZ
+
+    classDef relational fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef nosql fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class REL,GRAPH relational
+    class DOC,KV,WIDE nosql
+    class ACID,TUNABLE,BASE storage
+    class VERT,HORIZ neutral

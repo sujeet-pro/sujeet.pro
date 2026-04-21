@@ -1,0 +1,23 @@
+%% Diagram: Dedup window vs retry timeout (SQS FIFO 5 min example)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Broker as Broker (5 min dedup window)
+    participant Consumer
+
+    Note over Client,Consumer: t = 0 — first send
+    Client->>Broker: send(msg, id=X)
+    Broker->>Broker: remember id=X (window starts)
+    Broker->>Consumer: deliver msg
+    Consumer-->>Broker: ack lost on the wire
+
+    Note over Client: Retry policy: backoff up to 10 min
+    Note over Broker: t = 5:01 — Broker forgets id=X
+
+    Note over Client,Consumer: t = 6:00 — client retries
+    Client->>Broker: send(msg, id=X)
+    Broker->>Broker: id=X is now "new"
+    Broker->>Consumer: deliver msg again
+    Note right of Consumer: Duplicate processing despite\n"exactly-once" guarantee

@@ -1,0 +1,36 @@
+%% Diagram: AWS reference architecture for cookie consent service
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TB
+    subgraph Edge["Edge Layer"]
+        CF[CloudFront<br/>700+ PoPs]
+        LambdaEdge[Lambda at Edge<br/>Regulation Detection]
+    end
+
+    subgraph Compute["Compute Layer"]
+        APIGW[API Gateway]
+        ECS[ECS Fargate<br/>Consent Service]
+        LambdaAsync[Lambda<br/>Async Processing]
+    end
+
+    subgraph Data["Data Layer"]
+        ElastiCache[(ElastiCache<br/>Redis Cluster)]
+        RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+        RDSReplica[(Read Replicas<br/>eu, ap-south)]
+        S3[(S3<br/>Audit + SDK)]
+    end
+
+    subgraph Monitoring["Observability"]
+        CW[CloudWatch]
+        XRay[X-Ray]
+    end
+
+    Users --> CF
+    CF --> LambdaEdge
+    CF --> APIGW
+    APIGW --> ECS
+    ECS --> ElastiCache
+    ECS --> RDS
+    ECS --> RDSReplica
+    ECS --> S3
+    LambdaAsync --> S3

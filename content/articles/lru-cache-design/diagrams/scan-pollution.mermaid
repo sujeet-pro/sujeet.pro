@@ -1,0 +1,41 @@
+%% Diagram: How a sequential scan poisons an LRU cache by displacing the working set
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Before["Before scan (warm cache)"]
+        direction TB
+        WS1["A (hit 95%)"]
+        WS2["B (hit 92%)"]
+        WS3["C (hit 88%)"]
+        WS4["D (hit 80%)"]
+        WS1 --- WS2 --- WS3 --- WS4
+    end
+
+    subgraph During["During scan (one-shot reads)"]
+        direction TB
+        SC1["row 1"]
+        SC2["row 2"]
+        SC3["..."]
+        SC4["row N"]
+        SC1 --- SC2 --- SC3 --- SC4
+    end
+
+    subgraph After["After scan (poisoned cache)"]
+        direction TB
+        AF1["row N-3"]
+        AF2["row N-2"]
+        AF3["row N-1"]
+        AF4["row N"]
+        AF1 --- AF2 --- AF3 --- AF4
+    end
+
+    Before -->|"scan reads M > capacity rows<br/>each read is a miss<br/>each miss evicts MRU tail"| During
+    During -->|"working set displaced<br/>hit rate collapses"| After
+
+    classDef hot fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+    classDef scan fill:#8B5E15,stroke:#d6b656,stroke-width:2px,color:#ffffff
+    classDef cold fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+
+    class WS1,WS2,WS3,WS4 hot
+    class SC1,SC2,SC3,SC4 scan
+    class AF1,AF2,AF3,AF4 cold

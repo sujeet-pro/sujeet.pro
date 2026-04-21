@@ -1,0 +1,19 @@
+%% Diagram: MUI X DataGrid structure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph MUI["MUI X DataGrid"]
+        GridRoot[GridRoot Container]
+        subgraph Columns["Column Structure"]
+            PinL[Left Pinned]
+            Main[Main Columns]
+            PinR[Right Pinned]
+        end
+        subgraph Virtual["Virtualization"]
+            RowVirt[Row Virtualization]
+            ColVirt[Column Virtualization]
+        end
+    end
+
+    GridRoot --> Columns
+    Columns --> Virtual

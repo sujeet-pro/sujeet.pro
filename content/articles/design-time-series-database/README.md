@@ -2,32 +2,36 @@
 title: Design a Time Series Database
 linkTitle: 'Time-Series DB'
 description: >-
-  Designing a time-series database for metrics and monitoring — LSM-based storage
-  engines, Gorilla compression achieving 12x ratios, cardinality management,
-  tiered retention, and distributed query execution over billions of datapoints.
+  Designing a time-series database for metrics and monitoring — LSM-style block
+  storage, Gorilla compression at ~1.37 bytes/sample, inverted-index label
+  lookup, cardinality control, tiered retention, and distributed query fanout.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
+  - databases
+  - storage
+  - distributed-systems
+  - reliability
 ---
 
 # Design a Time Series Database
 
-A comprehensive system design for a metrics and monitoring time-series database (TSDB) handling high-velocity writes, efficient compression, and long-term retention. This design addresses write throughput at millions of samples/second, sub-millisecond queries over billions of datapoints, cardinality management for dimensional data, and multi-tier storage for cost-effective retention.
+A system design for a metrics-and-monitoring time-series database (TSDB) that has to absorb millions of samples per second, answer dashboard queries in tens of milliseconds, keep months of history at affordable cost, and survive the cardinality explosions that come with modern dimensional telemetry. The design lands on an LSM-style block engine modeled after [Prometheus](https://prometheus.io/docs/prometheus/latest/storage/) and [InfluxDB's TSM engine](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/), with [Gorilla-style compression](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf) inside the chunks and a horizontally fanned query layer in the spirit of [M3](https://m3db.io/) and [Cortex](https://cortexmetrics.io/docs/architecture/).
 
-![High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.](./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf-light.svg "High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.")
-![High-level architecture: Metrics flow through collectors to a write-ahead log, buffer in memory, then compact to disk. Queries traverse an inverted index to locate compressed blocks. Lifecycle services handle downsampling and retention.](./diagrams/high-level-architecture-metrics-flow-through-collectors-to-a-write-ahead-log-buf-dark.svg)
+![TSDB architecture overview: agents push to a stateless distributor, ingesters write a WAL and a memtable, a compaction service merges blocks into TSM/index files, the query engine fans out across the index and chunks, and the lifecycle service handles downsampling, retention, and migration to object storage.](./diagrams/architecture-overview-light.svg "End-to-end TSDB: ingest, write path, storage engine, query path, and lifecycle.")
+![TSDB architecture overview: agents push to a stateless distributor, ingesters write a WAL and a memtable, a compaction service merges blocks into TSM/index files, the query engine fans out across the index and chunks, and the lifecycle service handles downsampling, retention, and migration to object storage.](./diagrams/architecture-overview-dark.svg)
 
 ## Abstract
 
-Time-series databases optimize for **append-only workloads** with **time-ordered reads**. The fundamental insight: metrics arrive in near-monotonic timestamp order and are queried by time range—exploiting this pattern enables compression ratios of 10-12x and query performance orders of magnitude better than general-purpose databases.
+Time-series databases optimize for an **append-only workload with time-ordered reads**. Samples arrive in near-monotonic timestamp order, are written once, and are read back as range scans grouped by labels. Exploiting that pattern is what unlocks ~10x compression and the order-of-magnitude query gap over general-purpose engines.
 
-The storage engine uses a **Log-Structured Merge Tree (LSM)** variant. Writes append to a Write-Ahead Log (WAL), buffer in memory, then flush to immutable sorted blocks. Time-based partitioning (typically 2-hour blocks) enables efficient range queries—scanning only relevant blocks instead of the entire dataset.
+The storage engine is an **LSM-style block store**. Writes hit a Write-Ahead Log (WAL) for durability, accumulate in an in-memory head, then flush to immutable, time-partitioned blocks. Prometheus crystallized the canonical layout: 2-hour blocks, 128 MB WAL segments, and background compaction up to 31 days or 10% of retention, whichever is smaller[^prom-storage].
 
-**Compression** is the critical differentiator. Facebook's Gorilla algorithm achieves 12x compression (16 bytes → 1.37 bytes per sample) using delta-of-delta for timestamps and XOR encoding for values. 96% of timestamps compress to a single bit when samples arrive at regular intervals.
+**Compression** lives inside the chunks. Facebook's [Gorilla algorithm](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf) uses delta-of-delta encoding for timestamps and XOR-encoded floats for values; on Facebook's production workload it averaged **~1.37 bytes/sample, a ~12x reduction** over a naive 16-byte (timestamp + double) layout, with **~96% of timestamp delta-of-deltas collapsing to a single bit** because samples arrive at regular scrape intervals.
 
-**Cardinality** (unique combinations of metric name + tags) is the primary scaling constraint. A metric like `http_requests{method, status, endpoint}` explodes to millions of series with high-cardinality labels. The inverted index must efficiently map tag combinations to series IDs without consuming unbounded memory.
+**Cardinality** — the number of unique `(metric name, label set)` series — is the primary scaling constraint. A single metric like `http_requests{method, status, route}` can explode into millions of series when a label is unbounded (request id, raw URL, user id). The inverted index has to map label terms to series IDs efficiently while staying inside a known memory budget, and the system has to refuse cardinality bombs at the door rather than silently OOM the head block.
 
 ## Requirements
 
@@ -41,10 +45,10 @@ The storage engine uses a **Log-Structured Merge Tree (LSM)** variant. Writes ap
 | Aggregations (sum, avg, max, p99) | Core     | Full         |
 | Downsampling and rollups          | Core     | Full         |
 | Retention policies                | Core     | Full         |
+| Distributed queries               | Core     | Full         |
+| Cardinality management            | Core     | Full         |
 | Alerting integration              | High     | Overview     |
 | Multi-tenancy                     | High     | Overview     |
-| Distributed queries               | High     | Full         |
-| Cardinality management            | High     | Full         |
 | Exemplar storage (traces)         | Medium   | Brief        |
 | Anomaly detection                 | Low      | Out of scope |
 
@@ -53,134 +57,120 @@ The storage engine uses a **Log-Structured Merge Tree (LSM)** variant. Writes ap
 | Requirement              | Target                            | Rationale                                          |
 | ------------------------ | --------------------------------- | -------------------------------------------------- |
 | Write throughput         | 1M+ samples/sec per node          | Modern infrastructure generates massive telemetry  |
-| Read latency (hot data)  | p99 < 100ms                       | Dashboard refresh and alerting requirements        |
-| Read latency (cold data) | p99 < 5s                          | Historical analysis acceptable with higher latency |
+| Read latency (hot data)  | p99 < 100 ms                      | Dashboard refresh and alerting requirements        |
+| Read latency (cold data) | p99 < 5 s                         | Historical analysis is acceptable with more delay  |
 | Storage efficiency       | < 2 bytes/sample compressed       | Cost-effective retention of years of data          |
-| Availability             | 99.9%                             | Monitoring systems must be highly available        |
-| Data durability          | 99.999%                           | Metrics are valuable for incident investigation    |
+| Availability             | 99.9%                             | Monitoring must survive partial production outages |
+| Data durability          | 99.999%                           | Metrics are forensic evidence after incidents      |
 | Retention                | Raw: 15 days, Aggregated: 2 years | Balance granularity vs. storage cost               |
 
 ### Scale Estimation
 
-**Metric Sources:**
+**Metric Sources**
 
 - Hosts: 100K servers, containers, and VMs
-- Metrics per host: 500 metrics (CPU, memory, disk, network, application)
+- Metrics per host: 500 (CPU, memory, disk, network, application)
 - Collection interval: 10 seconds
 
-**Traffic:**
+**Traffic**
 
-- Samples/second: 100K hosts × 500 metrics / 10s = 5M samples/sec
-- Daily samples: 5M × 86,400 = 432B samples/day
-- Peak multiplier: 2x during deployments → 10M samples/sec burst
+- Samples/sec: $100\text{K} \times 500 / 10 = 5\text{M sample/s}$
+- Daily samples: $5\text{M} \times 86\,400 \approx 4.32 \times 10^{11}$ per day
+- Peak multiplier: 2x during deployments → ~10M samples/sec burst
 
-**Storage (before compression):**
+**Storage (raw)**
 
-- Sample size: 16 bytes (8-byte timestamp + 8-byte value)
-- Daily raw: 432B × 16 bytes = 6.9TB/day
-- With Gorilla compression (12x): 6.9TB / 12 = 575GB/day
-- 15-day retention: ~8.6TB
-- 2-year downsampled (1-minute aggregates): ~2TB
+- Sample size: 16 bytes (8-byte timestamp + 8-byte double)
+- Daily raw: $4.32 \times 10^{11} \times 16 \approx 6.9$ TB/day
+- With Gorilla-class compression (~12x): ~575 GB/day
+- 15-day raw retention: ~8.6 TB
+- 2-year 1-minute downsampled rollup: ~2 TB
 
-**Cardinality:**
+**Cardinality**
 
-- Unique series (metric + tags): 50M active series
-- Series per host average: 500
-- High-cardinality metrics (by request_id): Must be blocked or aggregated
+- Active series (metric + tags): ~50M
+- Series per host (avg): ~500
+- High-cardinality labels (per-request id, per-user id, raw URL): must be blocked or pre-aggregated
 
 ## Design Paths
 
-### Path A: In-Memory with Disk Spillover (Gorilla/Atlas)
+### Path A: In-memory with disk spillover (Gorilla / Atlas style)
 
-**Best when:**
-
-- Recent data is most valuable (last few hours)
-- Predictable memory budget
-- Sub-millisecond query latency required
+**Best when:** the most valuable data is the last few hours, the memory budget is bounded, and you need sub-millisecond reads on hot data. This is what Facebook described in the original [Gorilla paper](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf), and similar in spirit to [Netflix Atlas](https://netflixtechblog.com/introducing-atlas-netflixs-primary-telemetry-platform-bd31f4d8ed9a).
 
 **Architecture:**
 
-- All active series in memory with ring buffers
-- Fixed memory allocation per series
-- Disk used only for overflow and persistence
+- All active series in memory, each backed by a fixed-size ring buffer
+- Disk used only for overflow and crash recovery
+- Cold tier handed off to a separate system
 
 **Trade-offs:**
 
-- ✅ Sub-millisecond query latency for recent data
-- ✅ Simple query path (no disk I/O for hot queries)
-- ✅ Predictable memory usage
-- ❌ Limited retention (hours to days)
-- ❌ Memory cost scales linearly with cardinality
-- ❌ Cold queries require separate system
+- Sub-millisecond query latency for recent windows
+- Predictable memory usage per series
+- Limited retention (typically hours to a couple of days)
+- Memory cost scales linearly with cardinality
+- Cold queries require a second stack
 
-**Real-world example:** Netflix Atlas uses in-memory storage with rolling windows for real-time operational dashboards. Facebook Gorilla keeps 26 hours in memory with ~2GB per 700K series.
+**Real-world example:** Gorilla holds the most recent **26 hours** in memory at Facebook[^gorilla-paper]. Atlas keeps a rolling window for live operational dashboards.
 
-### Path B: LSM-Based with Tiered Storage (Prometheus/InfluxDB)
+### Path B: LSM-style with tiered storage (Prometheus / InfluxDB)
 
-**Best when:**
-
-- Long retention required (weeks to months)
-- Mixed hot/cold query patterns
-- Storage cost is a concern
+**Best when:** retention has to stretch from weeks to months, queries hit a mix of hot and cold ranges, and storage cost matters.
 
 **Architecture:**
 
 - Write-ahead log for durability
-- In-memory buffer (2-hour blocks)
-- Background compaction to disk blocks
-- Object storage for cold tier
+- In-memory head block with a 2-hour window
+- Background compaction to immutable, time-partitioned blocks
+- Object storage for cold blocks
 
 **Trade-offs:**
 
-- ✅ Cost-effective long retention
-- ✅ Excellent compression (12x+)
-- ✅ Handles variable cardinality
-- ❌ Higher query latency for cold data
-- ❌ Compaction CPU overhead
-- ❌ Write amplification during compaction
+- Cost-effective long retention
+- Strong compression (Gorilla-class chunks reach ~1.37 bytes/sample[^gorilla-paper])
+- Handles variable cardinality within a known budget
+- Cold-tier query latency is higher
+- Background compaction adds CPU and write amplification
 
-**Real-world example:** Prometheus TSDB uses 2-hour blocks, achieving 1-2 bytes/sample. InfluxDB's TSM engine follows similar principles with 7-day shards.
+**Real-world example:** Prometheus uses 2-hour head blocks and compacts upward to 31 days[^prom-storage]. InfluxDB's TSM engine groups data into shards with a default 7-day duration[^influx-tsm].
 
-### Path C: Distributed LSM with Global Index (M3/Cortex)
+### Path C: Distributed LSM with global index (M3 / Cortex / Mimir)
 
-**Best when:**
-
-- Scale beyond single node
-- Multi-tenant SaaS offering
-- Global query federation required
+**Best when:** a single node cannot keep up, you need multi-tenant isolation, or queries need to federate across regions.
 
 **Architecture:**
 
-- Distributed hash ring for series assignment
-- Per-tenant isolated storage
-- Query fanout with aggregation
+- Distributors hash by series ID onto a ring of stateful ingesters
+- Per-tenant isolated WAL, head, and index
+- Query frontends fan out, then merge and aggregate
 - Centralized or per-tenant indexing
 
 **Trade-offs:**
 
-- ✅ Horizontal scalability (1B+ samples/sec)
-- ✅ Multi-tenant isolation
-- ✅ Geographic distribution possible
-- ❌ Operational complexity
-- ❌ Network overhead for distributed queries
-- ❌ Consistency challenges during rebalancing
+- Horizontal scale into the billions of samples/sec
+- Multi-tenant isolation
+- Geographic distribution becomes feasible
+- Operational complexity (rings, replication, rebalancing)
+- Network overhead per query
+- Consistency surprises during scale-up / scale-down
 
-**Real-world example:** Uber M3 ingests 1B+ datapoints/sec across their fleet. Cortex provides multi-tenant Prometheus-compatible storage.
+**Real-world example:** Uber's [M3](https://m3db.io/) is documented as ingesting **over a billion datapoints per second** in production, with internal Uber posts citing ~8.5B datapoints/sec at the query layer in 2018[^uber-billion]. [Cortex](https://cortexmetrics.io/docs/architecture/) and its successor [Grafana Mimir](https://grafana.com/oss/mimir/) provide multi-tenant, Prometheus-compatible storage along the same lines.
 
 ### Path Comparison
 
-| Factor                 | Path A (In-Memory)   | Path B (LSM)              | Path C (Distributed) |
-| ---------------------- | -------------------- | ------------------------- | -------------------- |
-| Query latency (hot)    | Sub-ms               | 10-100ms                  | 50-500ms             |
-| Retention              | Hours                | Weeks-Months              | Years                |
-| Storage efficiency     | Low (in-memory)      | High (12x compression)    | High                 |
-| Cardinality limit      | Memory-bound         | Disk-bound                | Configurable         |
-| Operational complexity | Low                  | Medium                    | High                 |
-| Best for               | Real-time dashboards | Single-cluster monitoring | Multi-tenant SaaS    |
+| Factor                 | Path A (In-Memory)        | Path B (LSM)              | Path C (Distributed) |
+| ---------------------- | ------------------------- | ------------------------- | -------------------- |
+| Query latency (hot)    | Sub-ms                    | 10-100 ms                 | 50-500 ms            |
+| Retention              | Hours                     | Weeks-Months              | Years                |
+| Storage efficiency     | Compressed in RAM (~1.37 bytes/sample) | Same compression on disk + tiering | Same plus per-tenant tiers |
+| Cardinality limit      | RAM-bound                 | Disk + index-bound        | Per-tenant configurable |
+| Operational complexity | Low                       | Medium                    | High                 |
+| Best for               | Real-time dashboards      | Single-cluster monitoring | Multi-tenant SaaS    |
 
 ### This Article's Focus
 
-This article implements **Path B (LSM-Based)** as the core, with distributed extensions from Path C. This matches most production deployments (Prometheus, InfluxDB, VictoriaMetrics) and provides a foundation for understanding both single-node and distributed architectures.
+The rest of this article implements **Path B (LSM-style)** as the core, with the distributor / query-fanout extensions from Path C. That matches the shape of most production deployments today (Prometheus, InfluxDB, VictoriaMetrics, Mimir) and gives a foundation for both single-node and distributed reasoning.
 
 ## High-Level Design
 
@@ -190,60 +180,60 @@ This article implements **Path B (LSM-Based)** as the core, with distributed ext
 
 Receives metrics from agents and routes to storage nodes:
 
-- Parse and validate metric format (Prometheus exposition, InfluxDB line protocol, OpenTelemetry)
-- Extract metric name, tags, timestamp, value
-- Hash series ID (metric + sorted tags) for consistent routing
-- Forward to appropriate storage node(s)
-- Handle backpressure via load shedding
+- Parse and validate the wire format ([Prometheus remote-write](https://prometheus.io/docs/specs/remote_write_spec/), [InfluxDB line protocol](https://docs.influxdata.com/influxdb/v1/write_protocols/line_protocol_tutorial/), [OpenTelemetry OTLP](https://opentelemetry.io/docs/specs/otlp/))
+- Extract metric name, labels, timestamp, value
+- Hash the canonical series ID (metric name + sorted labels) for consistent routing
+- Forward to one or more replica ingesters
+- Apply backpressure via load shedding
 
 #### Storage Engine (Ingester)
 
-Manages the write path and local storage:
+Owns the local write path and durable state:
 
-- Append to Write-Ahead Log (WAL) for durability
-- Buffer samples in memory (memtable per series)
-- Maintain in-memory index for active series
-- Flush to immutable blocks every 2 hours
-- Trigger compaction for block merging
+- Append every batch to the Write-Ahead Log (WAL) before acknowledging
+- Buffer samples in an in-memory head per series
+- Maintain an in-memory inverted index for active series
+- Flush head to immutable blocks every 2 hours
+- Trigger compaction to merge small blocks into larger ones
 
 #### Compaction Service
 
-Background process optimizing storage:
+Background process that keeps the on-disk shape sane:
 
 - Merge small blocks into larger ones
-- Apply compression algorithms
-- Remove deleted/expired data
-- Rebuild indexes for merged blocks
-- Enforce retention by deleting old blocks
+- Re-encode chunks with the chosen compression
+- Drop deleted or expired data
+- Rebuild indexes for the merged block
+- Enforce retention by deleting blocks past the cutoff
 
 #### Query Engine
 
-Executes queries across storage tiers:
+Executes queries across hot and cold tiers:
 
-- Parse query language (PromQL, InfluxQL, SQL)
-- Plan execution (which blocks to scan)
-- Fetch data from index → blocks
-- Decompress and aggregate
-- Return results with metadata
+- Parse the query language ([PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/), InfluxQL, SQL)
+- Plan execution: which blocks must be scanned given the time range
+- Resolve label selectors via the inverted index
+- Fetch and decompress chunks, then aggregate
+- Return results with metadata (resolution, source blocks, exemplars)
 
 #### Lifecycle Manager
 
-Handles data retention and downsampling:
+Owns retention and downsampling:
 
-- Enforce time-based retention policies
-- Trigger downsampling jobs (raw → 1-minute → 1-hour aggregates)
-- Manage tiered storage migration (hot → warm → cold)
-- Track storage usage per tenant
+- Enforce per-tenant time-based retention
+- Run downsampling jobs (raw → 1-minute → 1-hour aggregates)
+- Move blocks across tiers (hot → warm → cold)
+- Track storage usage per tenant for quota and billing
 
 ### Data Flow: Write Path
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Write path sequence: agent posts a batch to a distributor, which validates and hashes the series, then routes to one or more ingesters; each ingester appends to its WAL, acknowledges, then buffers in the memtable; after the head window, the memtable flushes to a compressed, indexed block.](./diagrams/write-path-sequence-light.svg "Write path: distributor fan-out, WAL append, memtable buffer, periodic block flush.")
+![Write path sequence: agent posts a batch to a distributor, which validates and hashes the series, then routes to one or more ingesters; each ingester appends to its WAL, acknowledges, then buffers in the memtable; after the head window, the memtable flushes to a compressed, indexed block.](./diagrams/write-path-sequence-dark.svg)
 
 ### Data Flow: Query Path
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Query path sequence: client sends a range query, the query engine checks a query cache, then resolves matching series via the inverted index, fetches compressed chunks, decompresses and aggregates, and stores the result in the cache before responding.](./diagrams/query-path-sequence-light.svg "Query path: cache lookup, label-to-series resolution, chunk fetch, and aggregation.")
+![Query path sequence: client sends a range query, the query engine checks a query cache, then resolves matching series via the inverted index, fetches compressed chunks, decompresses and aggregates, and stores the result in the cache before responding.](./diagrams/query-path-sequence-dark.svg)
 
 ## API Design
 
@@ -251,10 +241,10 @@ Handles data retention and downsampling:
 
 **Endpoint:** `POST /api/v1/write`
 
-Accepts metrics in Prometheus remote-write format (protobuf) or line protocol:
+Accepts metrics in [Prometheus remote-write](https://prometheus.io/docs/specs/remote_write_spec/) (Snappy-compressed protobuf) or InfluxDB line protocol:
 
 ```text
-# Prometheus exposition format
+# Prometheus exposition format (text)
 http_requests_total{method="GET",status="200"} 1234 1704067200000
 http_requests_total{method="POST",status="500"} 5 1704067200000
 cpu_usage{host="server-1",core="0"} 0.75 1704067200000
@@ -285,19 +275,19 @@ message Sample {
 
 **Response:**
 
-- `204 No Content`: Success
-- `400 Bad Request`: Invalid format, missing required labels
-- `429 Too Many Requests`: Rate limited (backpressure)
-- `503 Service Unavailable`: Ingester overloaded
+- `204 No Content`: success
+- `400 Bad Request`: invalid format, missing required labels
+- `429 Too Many Requests`: rate-limited (backpressure)
+- `503 Service Unavailable`: ingester overloaded
 
 **Design Decision: Push vs. Pull**
 
-Prometheus uses a pull model (scraping targets), while most TSDBs accept push. For a general-purpose TSDB:
+Prometheus famously uses a [pull / scrape model](https://prometheus.io/docs/introduction/faq/#why-do-you-pull-rather-than-push), while most TSDBs accept push. For a general-purpose TSDB:
 
-- **Push** (chosen): Simpler client integration, works behind firewalls, scales with stateless distributors
-- **Pull**: Better for service discovery, guarantees scrape intervals, but requires connectivity to all targets
+- **Push** (chosen here): simpler client integration, traverses firewalls naturally, scales with stateless distributors.
+- **Pull**: better for service discovery, guarantees scrape intervals, but requires bidirectional connectivity to every target.
 
-Remote-write enables hybrid: Prometheus scrapes locally, pushes to central TSDB.
+Remote-write enables a hybrid: a local Prometheus scrapes nearby targets and pushes to a central, multi-tenant TSDB.
 
 ### Query Endpoint
 
@@ -344,7 +334,7 @@ GET /api/v1/query_range?query=rate(http_requests_total{status="500"}[5m])&start=
 }
 ```
 
-**Rate Limits:** 100 queries/min per tenant, 10 concurrent queries
+**Rate Limits:** 100 queries/min per tenant, 10 concurrent queries.
 
 ### Label Endpoints
 
@@ -352,7 +342,7 @@ GET /api/v1/query_range?query=rate(http_requests_total{status="500"}[5m])&start=
 
 **Get label values:** `GET /api/v1/label/{label_name}/values`
 
-These endpoints query the inverted index and are essential for building dashboards with dynamic dropdowns.
+These query the inverted index and are essential for dashboard tools that build dynamic dropdowns.
 
 ### Series Metadata
 
@@ -370,7 +360,7 @@ Used for cardinality analysis and debugging high-cardinality labels.
 
 ### Sample Format
 
-**Primary data unit:** A sample is a (timestamp, value) pair for a specific series.
+**Primary unit:** a sample is a `(timestamp, value)` pair attached to a specific series.
 
 ```typescript
 interface Sample {
@@ -391,11 +381,11 @@ interface Series {
 
 **Design Decision: Label Ordering**
 
-Labels are sorted alphabetically before hashing. This ensures the same series always hashes to the same ID regardless of label order in the write request.
+Labels are sorted alphabetically before hashing. This ensures the same logical series always hashes to the same ID regardless of label order in the write request — critical for both deduplication on the distributor and consistent routing across replicas.
 
 ### Block Format
 
-**Block structure (2-hour time window):**
+A block stores a contiguous, immutable time window (2 hours by default in Prometheus[^prom-storage]):
 
 ```
 block-<ulid>/
@@ -405,7 +395,7 @@ block-<ulid>/
 │   ├── 000001          # Compressed chunk file
 │   ├── 000002
 │   └── ...
-└── tombstones          # Deleted series markers
+└── tombstones          # Deleted-series markers
 ```
 
 **meta.json:**
@@ -430,7 +420,7 @@ block-<ulid>/
 
 ### Index Structure
 
-**Inverted index mapping:**
+The on-disk index is an [inverted index](https://github.com/prometheus/prometheus/blob/main/tsdb/docs/format/index.md) keyed by `(label name, label value)`:
 
 ```
 Label → Series IDs
@@ -457,9 +447,11 @@ http_requests{method="GET",status="500"}
 4. Fetch chunks for series 7, 9
 ```
 
+Posting lists are sorted by series ID, so intersecting two of them is a linear merge in $O(n + m)$. The query planner picks the smallest list first to keep intermediate results tight.
+
 ### Schema Design (SQL Representation)
 
-For understanding, here's how the data model maps to relational concepts:
+This is **not** the on-disk format — TSDBs do not store samples in a relational table. The SQL below is a reference model only, useful for reasoning about cardinality and indexing:
 
 ```sql collapse={1-5, 35-40}
 -- Series registry (the inverted index in memory/disk)
@@ -472,7 +464,7 @@ CREATE TABLE series (
 
 CREATE INDEX idx_series_labels ON series USING GIN (labels);
 
--- Samples (conceptual - stored in compressed chunks, not SQL)
+-- Samples (conceptual — stored in compressed chunks, not SQL)
 CREATE TABLE samples (
     series_id BIGINT NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,
@@ -498,19 +490,19 @@ CREATE INDEX idx_blocks_time ON blocks(min_time, max_time);
 
 | Data Type        | Storage                 | Rationale                             |
 | ---------------- | ----------------------- | ------------------------------------- |
-| Active samples   | Memory (memtable)       | Sub-ms writes, recent data hottest    |
-| WAL              | Local SSD (sequential)  | Durability, sequential writes         |
-| Hot blocks       | Local SSD (random read) | Frequent queries, compression         |
-| Warm blocks      | Networked SSD           | Less frequent access, cost efficiency |
-| Cold blocks      | Object storage (S3)     | Long retention, lowest cost           |
+| Active samples   | Memory (memtable)       | Sub-ms writes; recent data is hottest |
+| WAL              | Local SSD (sequential)  | Durability; sequential write pattern  |
+| Hot blocks       | Local SSD (random read) | Frequent queries; benefit from cache  |
+| Warm blocks      | Networked SSD           | Less frequent access; cost efficiency |
+| Cold blocks      | Object storage (S3/GCS) | Long retention at lowest $/GB         |
 | Inverted index   | Memory + SSD            | Fast label lookups, memory-mapped     |
-| Downsampled data | Separate retention tier | Query without scanning raw data       |
+| Downsampled data | Separate retention tier | Skip raw scan for long ranges         |
 
 ## Low-Level Design
 
 ### Compression: Gorilla Algorithm
 
-The compression algorithm is the core of TSDB efficiency. Facebook's Gorilla paper (VLDB 2015) introduced delta-of-delta for timestamps and XOR for values.
+Compression is the core of TSDB efficiency. Facebook's [Gorilla paper (VLDB 2015)](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf) introduced delta-of-delta for timestamps and XOR for values, and reported ~1.37 bytes/sample on production traffic — roughly a 12x reduction over the naive `(int64, double)` layout[^gorilla-paper]. The same scheme (or a close variant) is what Prometheus, InfluxDB TSM, M3, and VictoriaMetrics use inside their chunks.
 
 #### Timestamp Compression (Delta-of-Delta)
 
@@ -522,7 +514,7 @@ Samples typically arrive at regular intervals (e.g., every 10 seconds). Instead 
 // Deltas:     [  -,   10,   10,   10,   10]
 // Delta-of-delta: [-, -, 0, 0, 0]
 
-// Encoding rules:
+// Encoding rules (Gorilla paper, Section 4.1.1):
 // - If delta-of-delta = 0: write '0' (1 bit)
 // - If fits in [-63, 64]: write '10' + 7 bits
 // - If fits in [-255, 256]: write '110' + 9 bits
@@ -539,7 +531,7 @@ function encodeTimestamps(timestamps: number[]): BitStream {
 
   // Second timestamp: delta from first
   let prevDelta = timestamps[1] - timestamps[0]
-  stream.writeBits(prevDelta, 14) // Assuming max delta fits in 14 bits
+  stream.writeBits(prevDelta, 14)
 
   // Remaining: delta-of-delta
   for (let i = 2; i < timestamps.length; i++) {
@@ -547,10 +539,10 @@ function encodeTimestamps(timestamps: number[]): BitStream {
     const deltaOfDelta = delta - prevDelta
 
     if (deltaOfDelta === 0) {
-      stream.writeBit(0) // 1 bit for regular intervals
+      stream.writeBit(0)
     } else if (deltaOfDelta >= -63 && deltaOfDelta <= 64) {
       stream.writeBits(0b10, 2)
-      stream.writeBits(deltaOfDelta + 63, 7) // Offset to positive
+      stream.writeBits(deltaOfDelta + 63, 7)
     } else if (deltaOfDelta >= -255 && deltaOfDelta <= 256) {
       stream.writeBits(0b110, 3)
       stream.writeBits(deltaOfDelta + 255, 9)
@@ -567,25 +559,24 @@ function encodeTimestamps(timestamps: number[]): BitStream {
 
   return stream
 }
-
-// Result: 96% of timestamps compress to 1 bit
-// Average: 1.04 bits per timestamp (vs 64 bits uncompressed)
 ```
+
+On Facebook's workload, **~96% of timestamps land on the single-bit branch** because scrapers fire on a fixed cadence[^gorilla-paper].
 
 #### Value Compression (XOR Encoding)
 
-Consecutive metric values often share many bits (e.g., CPU at 0.75 then 0.76):
+Consecutive metric values usually share most of their bits (e.g., CPU at 0.75 then 0.76):
 
 ```typescript collapse={1-10, 50-60}
 // XOR encoding for IEEE 754 doubles
 // Values: [0.75, 0.76, 0.76, 0.77]
 // XOR with previous: [0.75, XOR(0.75,0.76), XOR(0.76,0.76), XOR(0.76,0.77)]
 
-// The XOR of similar floats has many leading and trailing zeros
-// We encode: (leading zeros count, significant bits count, significant bits)
+// The XOR of similar floats has many leading and trailing zeros.
+// We encode (leading-zeros count, significant-bit count, significant bits).
 
 interface XORState {
-  prevValue: bigint // Previous value as 64-bit integer
+  prevValue: bigint
   prevLeadingZeros: number
   prevTrailingZeros: number
 }
@@ -593,7 +584,6 @@ interface XORState {
 function encodeValues(values: number[]): BitStream {
   const stream = new BitStream()
 
-  // First value: stored as-is (64 bits)
   const firstBits = floatToBits(values[0])
   stream.writeBits(firstBits, 64)
 
@@ -608,25 +598,24 @@ function encodeValues(values: number[]): BitStream {
     const xor = currentBits ^ state.prevValue
 
     if (xor === 0n) {
-      // Identical value: write '0' (1 bit)
       stream.writeBit(0)
     } else {
-      stream.writeBit(1) // Values differ
+      stream.writeBit(1)
 
       const leadingZeros = countLeadingZeros(xor)
       const trailingZeros = countTrailingZeros(xor)
       const significantBits = 64 - leadingZeros - trailingZeros
 
       if (leadingZeros >= state.prevLeadingZeros && trailingZeros >= state.prevTrailingZeros) {
-        // Fits in previous window: write '0' + significant bits
+        // Fits the previous window: control '0' + significant bits
         stream.writeBit(0)
         const shift = 64 - state.prevLeadingZeros - significantBits
         stream.writeBits(xor >> BigInt(shift), significantBits)
       } else {
-        // New window: write '1' + leading zeros + length + bits
+        // New window: control '1' + leading zeros + length + bits
         stream.writeBit(1)
         stream.writeBits(leadingZeros, 5)
-        stream.writeBits(significantBits - 1, 6) // -1 because min is 1
+        stream.writeBits(significantBits - 1, 6)
         stream.writeBits(xor >> BigInt(trailingZeros), significantBits)
 
         state.prevLeadingZeros = leadingZeros
@@ -639,23 +628,22 @@ function encodeValues(values: number[]): BitStream {
 
   return stream
 }
-
-// Result:
-// - 51% of values compress to 1 bit (identical to previous)
-// - 30% compress to ~27 bits (control '10' path)
-// - 19% compress to ~37 bits (control '11' path)
-// Average: 1.33 bytes per value (vs 8 bytes uncompressed)
 ```
 
-**Combined compression ratio:**
+Gorilla's measured value bucket distribution[^gorilla-paper]:
 
-- Timestamp: 1.04 bits (0.13 bytes)
-- Value: 10.6 bits (1.33 bytes)
-- **Total: 1.46 bytes/sample** (vs 16 bytes raw = **11x compression**)
+- ~51% of values: 1 bit (XOR is zero — value unchanged)
+- ~30% of values: ~26.6 bits (control `'10'` path — XOR fits the previous leading/trailing-zero window)
+- ~19% of values: ~36.9 bits (control `'11'` path — new window, 13 bits of overhead)
+
+> [!NOTE]
+> The exact bucket percentages depend on workload (Facebook's production gauges and counters). Workloads with noisier doubles compress less; integer-valued counters compress better.
+
+**Combined compression:** Facebook's published average across both timestamps and values is **~1.37 bytes/sample**, versus 16 bytes raw — roughly a 12x reduction[^gorilla-paper]. Plan for a less rosy ratio in your own workload until you measure: ratios of 6-10x are common in practice once you mix in churning gauge values, irregular scrape intervals, and per-chunk overhead.
 
 ### Write-Ahead Log
 
-The WAL ensures durability before acknowledging writes:
+The WAL guarantees durability before acknowledging a write. Prometheus, for example, stores its WAL in **128 MB segments** and keeps a minimum of three around so it can replay at least the head window after a crash[^prom-storage]:
 
 ```typescript collapse={1-10, 45-55}
 // WAL segment structure
@@ -681,21 +669,17 @@ class WriteAheadLog {
   private readonly minSegmentsKept = 3
 
   async append(records: WALRecord[]): Promise<void> {
-    // Batch encode records
     const encoded = this.encodeRecords(records)
 
-    // Check if current segment is full
     if (this.currentSegment.size + encoded.length > this.maxSegmentSize) {
       await this.rotateSegment()
     }
 
-    // Sync write to disk (critical for durability)
     await this.currentSegment.write(encoded)
     await this.currentSegment.sync() // fsync
   }
 
   async truncate(checkpointSegmentId: number): Promise<void> {
-    // Remove segments before checkpoint, keeping minimum
     const toRemove = this.segments.filter(
       (s) => s.id < checkpointSegmentId && this.segments.length - 1 >= this.minSegmentsKept,
     )
@@ -707,7 +691,6 @@ class WriteAheadLog {
   }
 
   async replay(): Promise<WALRecord[]> {
-    // On startup, replay all records from WAL
     const records: WALRecord[] = []
     for (const segment of this.segments) {
       const segmentRecords = await this.readSegment(segment)
@@ -718,25 +701,23 @@ class WriteAheadLog {
 }
 ```
 
+> [!IMPORTANT]
+> WAL replay is the longest single phase of cold-start recovery. Prometheus added optional [WAL compression](https://prometheus.io/docs/prometheus/latest/feature_flags/#wal-compression) (default since v2.20) to keep replay time bounded. Plan capacity for WAL size based on the head window, not just steady-state ingestion.
+
 ### In-Memory Index (Series Registry)
 
 The in-memory index maps labels to series IDs for fast query planning:
 
 ```typescript collapse={1-10, 55-65}
-// Inverted index for label lookups
-// Uses posting lists (sorted arrays of series IDs)
+// Inverted index for label lookups.
+// Posting lists are sorted, deduplicated arrays of series IDs.
 
 type SeriesID = number
-type PostingList = SeriesID[] // Sorted, deduplicated
+type PostingList = SeriesID[]
 
 class InMemoryIndex {
-  // Label name → label value → posting list
   private postings: Map<string, Map<string, PostingList>> = new Map()
-
-  // Series ID → labels
   private seriesLabels: Map<SeriesID, Map<string, string>> = new Map()
-
-  // Labels hash → Series ID (for deduplication)
   private hashToSeries: Map<bigint, SeriesID> = new Map()
 
   private nextSeriesID: SeriesID = 1
@@ -749,12 +730,10 @@ class InMemoryIndex {
       return existing
     }
 
-    // Create new series
     const id = this.nextSeriesID++
     this.hashToSeries.set(hash, id)
     this.seriesLabels.set(id, labels)
 
-    // Update posting lists
     for (const [name, value] of labels) {
       if (!this.postings.has(name)) {
         this.postings.set(name, new Map())
@@ -769,22 +748,19 @@ class InMemoryIndex {
     return id
   }
 
-  // Query: find series matching label matchers
   query(matchers: LabelMatcher[]): SeriesID[] {
     if (matchers.length === 0) {
       return Array.from(this.seriesLabels.keys())
     }
 
-    // Start with smallest posting list (most selective)
+    // Start with the smallest posting list (most selective)
     const sorted = [...matchers].sort((a, b) => this.getPostingListSize(a) - this.getPostingListSize(b))
 
     let result = this.getPostingList(sorted[0])
 
-    // Intersect with remaining matchers
     for (let i = 1; i < sorted.length; i++) {
       const other = this.getPostingList(sorted[i])
       result = this.intersect(result, other)
-
       if (result.length === 0) break // Early exit
     }
 
@@ -792,7 +768,7 @@ class InMemoryIndex {
   }
 
   private intersect(a: PostingList, b: PostingList): PostingList {
-    // Sorted merge intersection: O(n + m)
+    // Sorted-merge intersection: O(n + m)
     const result: SeriesID[] = []
     let i = 0,
       j = 0
@@ -816,17 +792,17 @@ class InMemoryIndex {
 
 ### Block Compaction
 
-Compaction merges small blocks into larger ones, improving query efficiency:
+Compaction merges small blocks into larger ones, lowering per-block overhead and improving query efficiency. Prometheus caps the result at **31 days or 10% of the configured retention, whichever is smaller**[^prom-storage]:
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Compaction levels: four 2-hour level-0 blocks merge into one 8-hour level-1 block, which then merges with peers into a 24-hour or longer level-2 block, capped at 31 days or 10% of retention.](./diagrams/compaction-levels-light.svg "Compaction merges small blocks into larger ones, capped to keep block deletion granular.")
+![Compaction levels: four 2-hour level-0 blocks merge into one 8-hour level-1 block, which then merges with peers into a 24-hour or longer level-2 block, capped at 31 days or 10% of retention.](./diagrams/compaction-levels-dark.svg)
 
 ```typescript collapse={1-10, 50-60}
 // Compaction strategy
 // - Level 0: 2-hour blocks (from memtable flush)
 // - Level 1: 8-hour blocks (4 level-0 merged)
 // - Level 2: 24-hour blocks
-// - Max block size: 31 days OR 10% of retention
+// - Max block size: 31 days OR 10% of retention (whichever is smaller)
 
 interface CompactionPlan {
   sources: Block[]
@@ -839,12 +815,9 @@ class Compactor {
 
   async planCompaction(blocks: Block[]): Promise<CompactionPlan[]> {
     const plans: CompactionPlan[] = []
-
-    // Group blocks by level
     const byLevel = this.groupByLevel(blocks)
 
     for (const [level, levelBlocks] of byLevel) {
-      // Find adjacent blocks that can be merged
       const sorted = levelBlocks.sort((a, b) => a.minTime - b.minTime)
 
       for (let i = 0; i < sorted.length - 1; i++) {
@@ -855,11 +828,9 @@ class Compactor {
           candidates.push(sorted[j])
           j++
 
-          // Check if merged duration exceeds max
           const duration = candidates[j - 1].maxTime - candidates[0].minTime
           if (duration > this.maxBlockDuration) break
 
-          // Typical: merge 4 blocks at a time
           if (candidates.length >= 4) break
         }
 
@@ -869,7 +840,7 @@ class Compactor {
             targetLevel: level + 1,
             estimatedSize: candidates.reduce((sum, b) => sum + b.size, 0) * 0.9,
           })
-          i = j - 1 // Skip merged blocks
+          i = j - 1
         }
       }
     }
@@ -878,31 +849,28 @@ class Compactor {
   }
 
   async compact(plan: CompactionPlan): Promise<Block> {
-    // 1. Open iterators for all source blocks
     const iterators = plan.sources.map((b) => b.createIterator())
-
-    // 2. Merge-sort by (seriesID, timestamp)
     const mergedSamples = this.mergeSortIterators(iterators)
-
-    // 3. Write to new block with fresh compression
     const newBlock = await this.writeBlock(mergedSamples, plan.targetLevel)
 
-    // 4. Update block references atomically
     await this.swapBlocks(plan.sources, newBlock)
-
-    // 5. Delete source blocks
     for (const source of plan.sources) {
       await source.delete()
     }
-
     return newBlock
   }
 }
 ```
 
-### Downsampling
+> [!CAUTION]
+> Capping the largest block size matters operationally: deletes happen at block granularity. A 90-day mega-block wastes disk on a 7-day delete request, so the 10%-of-retention cap is not arbitrary.
 
-Downsampling creates aggregated views for long-term queries:
+### Downsampling and Retention Tiers
+
+Long-range queries cannot afford to scan years of raw 10-second samples. Downsampling pre-computes lower-resolution rollups and routes queries to the right tier:
+
+![Retention lifecycle: raw 10-second samples on hot tier (15 days) downsample into 1-minute aggregates on warm tier (90 days) and 1-hour aggregates on cold tier (2 years); each tier discards data past its retention window.](./diagrams/retention-lifecycle-light.svg "Raw, 1-minute, and 1-hour tiers with retention windows and downsampling transitions.")
+![Retention lifecycle: raw 10-second samples on hot tier (15 days) downsample into 1-minute aggregates on warm tier (90 days) and 1-hour aggregates on cold tier (2 years); each tier discards data past its retention window.](./diagrams/retention-lifecycle-dark.svg)
 
 ```typescript collapse={1-10, 45-55}
 // Downsampling tiers
@@ -911,10 +879,10 @@ Downsampling creates aggregated views for long-term queries:
 // - 1-hour: min/max/sum/count/avg, 2 years
 
 interface DownsampleConfig {
-  sourceResolution: string // "raw", "1m", "1h"
+  sourceResolution: string
   targetResolution: string
-  aggregations: string[] // ["min", "max", "sum", "count"]
-  retention: number // milliseconds
+  aggregations: string[]
+  retention: number
 }
 
 interface DownsampledSample {
@@ -957,30 +925,22 @@ class Downsampler {
   }
 }
 
-// Query routing: select appropriate resolution based on query range
+// Query routing: pick the cheapest resolution that still answers the question.
 function selectResolution(queryRange: number): string {
-  if (queryRange <= 24 * 60 * 60 * 1000) {
-    // ≤ 1 day
-    return "raw"
-  } else if (queryRange <= 30 * 24 * 60 * 60 * 1000) {
-    // ≤ 30 days
-    return "1m"
-  } else {
-    return "1h"
-  }
+  if (queryRange <= 24 * 60 * 60 * 1000) return "raw"            // ≤ 1 day
+  if (queryRange <= 30 * 24 * 60 * 60 * 1000) return "1m"        // ≤ 30 days
+  return "1h"
 }
 ```
 
 ### Cardinality Management
 
-High cardinality is the primary operational challenge in TSDBs:
+High cardinality is the single most common operational fire in production TSDBs. Each unique `(metric name, label set)` combination is a series with its own posting-list entry and its own in-memory state; an unbounded label like `request_id` can multiply series by orders of magnitude in minutes.
 
 ```typescript collapse={1-8, 40-50}
-// Cardinality tracking and enforcement
-
 interface CardinalityLimits {
-  maxSeriesPerMetric: number // e.g., 100,000
-  maxTotalSeries: number // e.g., 10,000,000
+  maxSeriesPerMetric: number       // e.g., 100,000
+  maxTotalSeries: number           // e.g., 10,000,000
   maxLabelValueCardinality: number // e.g., 10,000 per label name
 }
 
@@ -992,7 +952,6 @@ class CardinalityTracker {
   checkLimits(labels: Map<string, string>, limits: CardinalityLimits): CardinalityError | null {
     const metricName = labels.get("__name__")!
 
-    // Check per-metric cardinality
     const metricSeries = this.seriesPerMetric.get(metricName)?.size ?? 0
     if (metricSeries >= limits.maxSeriesPerMetric) {
       return {
@@ -1003,7 +962,6 @@ class CardinalityTracker {
       }
     }
 
-    // Check per-label cardinality (detect high-cardinality labels)
     for (const [name, value] of labels) {
       const labelValues = this.seriesPerLabel.get(name)
       if (labelValues && labelValues.size >= limits.maxLabelValueCardinality) {
@@ -1016,7 +974,6 @@ class CardinalityTracker {
       }
     }
 
-    // Check total cardinality
     if (this.totalSeries >= limits.maxTotalSeries) {
       return {
         type: "total_cardinality_exceeded",
@@ -1028,41 +985,36 @@ class CardinalityTracker {
     return null
   }
 
-  // Identify high-cardinality labels for alerting
+  // Surface labels that are blowing up cardinality so operators can act.
   getHighCardinalityLabels(threshold: number): { label: string; cardinality: number }[] {
     const results: { label: string; cardinality: number }[] = []
-
     for (const [label, values] of this.seriesPerLabel) {
       if (values.size > threshold) {
         results.push({ label, cardinality: values.size })
       }
     }
-
     return results.sort((a, b) => b.cardinality - a.cardinality)
   }
 }
-
-// Common high-cardinality antipatterns to detect:
-// - request_id, trace_id, user_id as labels (use exemplars instead)
-// - IP addresses, URLs with query strings
-// - Timestamps or UUIDs in labels
 ```
+
+> [!WARNING]
+> Common high-cardinality antipatterns: `request_id`, `trace_id`, `user_id`, raw URLs with query strings, IP addresses, UUIDs, free-form error messages. Move these to **exemplars** or **logs/traces** (e.g., [Prometheus exemplars](https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage)) instead of raising them as labels. Reject offending series at the distributor — silent dropping is harder to debug than a clear `429`.
 
 ## Frontend Considerations
 
 ### Dashboard Query Optimization
 
-**Problem:** A dashboard with 20 panels, each querying 1 week of data at 1-minute resolution, generates 20 × 10,080 = 201,600 datapoints.
+A dashboard with 20 panels, each pulling 1 week of data at 1-minute resolution, generates $20 \times 10\,080 = 201\,600$ datapoints — most of which the browser cannot meaningfully render anyway.
 
-**Solutions:**
+Working levers:
 
-1. **Step size alignment**: Query at dashboard refresh rate, not max resolution
-2. **Parallel queries**: Fetch all panels concurrently
-3. **Query caching**: Cache results for identical queries
-4. **Streaming updates**: WebSocket for live data, HTTP for historical
+1. **Step alignment** — query at the dashboard refresh resolution, not the storage resolution.
+2. **Parallel queries** — fan out panel fetches concurrently.
+3. **Query caching** — cache identical queries server-side and CDN-side.
+4. **Streaming updates** — WebSocket / SSE for live tails, HTTP for historical scrolls.
 
 ```typescript collapse={1-5, 30-40}
-// Dashboard query batching
 interface DashboardQuery {
   panelId: string
   expr: string
@@ -1071,17 +1023,15 @@ interface DashboardQuery {
 }
 
 async function fetchDashboard(queries: DashboardQuery[]): Promise<Map<string, QueryResult>> {
-  // Group queries by time range (likely the same for most panels)
+  // Group queries by time range (panels typically share one range)
   const byRange = groupBy(queries, (q) => `${q.range.start}-${q.range.end}`)
 
   const results = new Map<string, QueryResult>()
 
-  // Fetch each range group in parallel
   await Promise.all(
-    Object.entries(byRange).map(async ([rangeKey, rangeQueries]) => {
-      // Batch multiple expressions if backend supports it
+    Object.entries(byRange).map(async ([, rangeQueries]) => {
+      // Batch multiple expressions if the backend supports it
       const batchResult = await fetchBatch(rangeQueries)
-
       for (const [panelId, result] of batchResult) {
         results.set(panelId, result)
       }
@@ -1094,48 +1044,48 @@ async function fetchDashboard(queries: DashboardQuery[]): Promise<Map<string, Qu
 
 ### Time Range Selection
 
-**UX considerations:**
+UX considerations:
 
-- Relative ranges ("Last 1 hour", "Last 7 days") for monitoring
+- Relative ranges (`Last 1 hour`, `Last 7 days`) for monitoring
 - Absolute ranges for incident investigation
-- Auto-refresh intervals matching query range
-- Timezone handling (display in user's local time)
+- Auto-refresh interval matching the query range
+- Timezone displayed in the user's local time, queried in UTC
 
 ### Graph Rendering
 
-**Performance patterns:**
+Performance patterns:
 
-- Downsample client-side for display (canvas can't render 10K points)
-- Use WebGL for high-density graphs (Grafana uses uPlot)
-- Lazy load panels as they scroll into view
-- Debounce zoom/pan operations
+- Downsample on the client for display — a `<canvas>` cannot meaningfully render 10K points per panel
+- Use [uPlot](https://github.com/leeoniya/uPlot) or WebGL for high-density graphs (Grafana ships uPlot for many panel types)
+- Lazy-load panels as they scroll into view
+- Debounce zoom and pan operations
 
 ## Infrastructure Design
 
 ### Cloud-Agnostic Concepts
 
-| Component          | Requirement               | Options                               |
-| ------------------ | ------------------------- | ------------------------------------- |
-| **Ingest/Query**   | Stateless, auto-scaling   | Kubernetes Deployment, ECS Service    |
-| **Storage Engine** | Stateful, local SSD       | StatefulSet with local volumes        |
-| **Block Storage**  | High IOPS, low latency    | Local NVMe, EBS gp3, Persistent Disks |
-| **Object Storage** | Cold tier, cheap, durable | S3, GCS, MinIO                        |
-| **Coordination**   | Leader election, config   | etcd, Consul, ZooKeeper               |
+| Component        | Requirement                | Options                               |
+| ---------------- | -------------------------- | ------------------------------------- |
+| Ingest / Query   | Stateless, auto-scaling    | Kubernetes Deployment, ECS Service    |
+| Storage Engine   | Stateful, local SSD        | StatefulSet with local volumes        |
+| Block Storage    | High IOPS, low latency     | Local NVMe, EBS gp3, Persistent Disks |
+| Object Storage   | Cold tier, cheap, durable  | S3, GCS, MinIO                        |
+| Coordination     | Leader election, config    | etcd, Consul, ZooKeeper               |
 
 ### AWS Reference Architecture
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![AWS reference architecture: an NLB fronts a stateless distributor pool, which fans out to a StatefulSet of ingester pods on EC2 with local NVMe; query-engine pods read from ingesters, S3, and an ElastiCache Redis query cache.](./diagrams/aws-reference-architecture-light.svg "AWS deployment: NLB, stateless distributors and queriers, stateful ingesters on local NVMe, S3 cold tier.")
+![AWS reference architecture: an NLB fronts a stateless distributor pool, which fans out to a StatefulSet of ingester pods on EC2 with local NVMe; query-engine pods read from ingesters, S3, and an ElastiCache Redis query cache.](./diagrams/aws-reference-architecture-dark.svg)
 
-| Component     | AWS Service        | Configuration                           |
-| ------------- | ------------------ | --------------------------------------- |
-| Load Balancer | NLB                | TCP passthrough, cross-AZ               |
-| Distributors  | EKS (Fargate)      | 3-10 pods, 2 vCPU / 4GB each            |
-| Ingesters     | EKS (EC2)          | i3.xlarge (NVMe), 3+ nodes, StatefulSet |
-| Query Engines | EKS (Fargate)      | 2-10 pods, 4 vCPU / 8GB each            |
-| Cold Storage  | S3 Standard-IA     | Lifecycle to Glacier after 90 days      |
-| Query Cache   | ElastiCache Redis  | cache.r6g.large, cluster mode           |
-| Coordination  | Managed etcd (EKS) | Built into EKS control plane            |
+| Component     | AWS Service        | Configuration                            |
+| ------------- | ------------------ | ---------------------------------------- |
+| Load Balancer | NLB                | TCP passthrough, cross-AZ                |
+| Distributors  | EKS (Fargate)      | 3-10 pods, 2 vCPU / 4 GB each            |
+| Ingesters     | EKS (EC2)          | i3/i4i.xlarge (NVMe), 3+ nodes, StatefulSet |
+| Query Engines | EKS (Fargate)      | 2-10 pods, 4 vCPU / 8 GB each            |
+| Cold Storage  | S3 Standard-IA     | Lifecycle to Glacier after 90 days       |
+| Query Cache   | ElastiCache Redis  | cache.r6g.large, cluster mode            |
+| Coordination  | EKS control plane  | Built-in etcd                            |
 
 ### Self-Hosted Alternatives
 
@@ -1149,78 +1099,83 @@ async function fetchDashboard(queries: DashboardQuery[]): Promise<Map<string, Qu
 
 **Replication strategy for ingesters:**
 
-- Write to N ingesters (N=3 typical)
-- Query reads from any replica
-- Consistency: eventual (samples may appear with delay)
-- Durability: WAL replicated, blocks uploaded to S3
+- Distributor writes to N ingesters (N=3 typical)
+- Query engine reads from any one replica, dedupes
+- Consistency: eventual — recently-written samples may lag a replica
+- Durability: WAL replicated, blocks uploaded to object storage
 
 **Failure scenarios:**
 
-1. **Ingester failure**: WAL replayed on replacement, recent samples recovered from peers
-2. **Query engine failure**: Stateless, load balancer routes to healthy instances
-3. **S3 unavailable**: Query hot data from ingesters, fail cold queries gracefully
+1. **Ingester crash** — WAL is replayed on the replacement; recent samples can be back-filled from peers.
+2. **Query engine crash** — stateless, the load balancer routes to the next healthy instance.
+3. **Object storage unavailable** — serve hot data from ingesters, fail cold queries gracefully with a clear error.
+4. **Distributor partition** — drop samples for the partitioned tenant rather than blocking the cluster; alert on increased `429`/`503` rate.
 
 ## Conclusion
 
-This design prioritizes **write efficiency** (LSM + WAL), **storage efficiency** (Gorilla compression), and **query performance** (inverted index + time partitioning). The architecture scales from a single node (Prometheus-style) to a distributed cluster (Cortex/M3-style).
+The design prioritizes **write efficiency** (LSM head + WAL), **storage efficiency** (Gorilla-class chunks), and **query performance** (inverted index + time partitioning). The same shape scales from a single Prometheus node up to a distributed Cortex/Mimir/M3 cluster.
 
 Key architectural decisions:
 
-1. **LSM-based storage with 2-hour blocks**: Balances write amplification against query efficiency. Compaction merges blocks up to 31 days.
+1. **LSM-style storage with 2-hour blocks** — balances write amplification against query efficiency. Compaction merges blocks up to the smaller of 31 days or 10% of retention[^prom-storage].
+2. **Gorilla compression (delta-of-delta + XOR)** — averages ~1.37 bytes/sample on Facebook's workload, with ~96% of timestamps collapsing to 1 bit at regular scrape intervals[^gorilla-paper].
+3. **Inverted index with posting-list intersection** — label queries are linear merges over sorted posting lists; memory-mapped to handle large cardinalities.
+4. **Tiered retention with downsampling** — raw 15 days → 1-minute 90 days → 1-hour 2 years. Queries auto-select the cheapest resolution that still answers the question.
+5. **Cardinality limits as a first-class feature** — per-metric, per-label, and total-series budgets prevent the head block from OOMing on a single bad label.
 
-2. **Gorilla compression (delta-of-delta + XOR)**: Achieves 11x compression (1.46 bytes/sample). 96% of timestamps compress to 1 bit with regular intervals.
+**Limitations and future directions:**
 
-3. **Inverted index with posting list intersection**: Label queries use sorted posting lists for O(n+m) intersection. Memory-mapped for large cardinalities.
-
-4. **Tiered retention with downsampling**: Raw data (15 days) → 1-minute aggregates (90 days) → 1-hour aggregates (2 years). Queries auto-select appropriate resolution.
-
-5. **Cardinality limits as first-class feature**: Per-metric, per-label, and total series limits prevent unbounded memory growth.
-
-**Limitations and future improvements:**
-
-- **Cross-series queries**: Aggregations across many series are expensive. Pre-computed recording rules help.
-- **Exemplars and traces**: Linking metrics to traces requires additional storage (not covered in depth).
-- **Multi-tenancy isolation**: Resource limits, query prioritization, and billing require additional infrastructure.
+- **Cross-series queries** — aggregations over many series remain expensive; pre-computed [recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) and continuous aggregates help.
+- **Exemplars and traces** — linking a metric sample to a trace is increasingly table stakes; budget for exemplar storage and ingestion.
+- **Multi-tenancy** — proper isolation requires per-tenant rate limiting, query queueing, and chargeback metering.
 
 ## Appendix
 
 ### Prerequisites
 
-- Distributed systems fundamentals (consistency, availability, partitioning)
-- Database internals (LSM trees, B-trees, write-ahead logs)
+- Distributed-systems fundamentals (consistency, availability, partitioning)
+- Database internals ([LSM trees](https://en.wikipedia.org/wiki/Log-structured_merge-tree), B-trees, write-ahead logs)
 - Data compression concepts
-- Basic familiarity with metrics and monitoring
+- Familiarity with metrics and monitoring
 
 ### Terminology
 
-- **Sample**: A (timestamp, value) pair for a specific series
-- **Series**: A unique metric identified by its name and label set
-- **Cardinality**: The number of unique series (metric name + tag combinations)
-- **TSDB**: Time Series Database—optimized for time-indexed, append-only data
-- **LSM Tree**: Log-Structured Merge Tree—storage structure using sorted runs and compaction
-- **WAL**: Write-Ahead Log—sequential log for durability before in-memory commit
-- **Gorilla**: Facebook's compression algorithm for time-series (VLDB 2015)
-- **PromQL**: Prometheus Query Language—functional query language for metrics
-- **Posting List**: Sorted list of series IDs matching a label value
+- **Sample** — a `(timestamp, value)` pair for a specific series.
+- **Series** — a unique metric identified by its name and label set.
+- **Cardinality** — the number of unique series.
+- **TSDB** — Time Series Database, optimized for time-indexed, append-only data.
+- **LSM Tree** — Log-Structured Merge Tree, a storage structure using sorted runs and background compaction.
+- **WAL** — Write-Ahead Log, a sequential log used for durability before in-memory commit.
+- **Gorilla** — Facebook's compression algorithm for time-series ([VLDB 2015](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf)).
+- **PromQL** — Prometheus Query Language, a functional query language for metrics.
+- **Posting list** — sorted list of series IDs matching a label value.
 
 ### Summary
 
-- TSDBs exploit **append-only, time-ordered** access patterns for 10x+ compression and fast range queries
-- **Gorilla compression** (delta-of-delta + XOR) achieves 1.46 bytes/sample, with 96% of timestamps compressing to 1 bit
-- **LSM storage with 2-hour blocks** balances write throughput against query efficiency; compaction merges up to 31-day blocks
-- **Inverted index** maps labels to series IDs; posting list intersection enables efficient label queries
-- **Cardinality management** is critical—high-cardinality labels (request_id, user_id) must be blocked or aggregated
-- **Tiered retention** with downsampling (raw → 1m → 1h) enables cost-effective multi-year storage
-- Scale to 1M+ samples/sec per node with proper tuning; distributed architectures (M3, Cortex) reach 1B+ samples/sec
+- TSDBs exploit **append-only, time-ordered** access for ~10x compression and fast range queries.
+- **Gorilla** averages ~1.37 bytes/sample with ~96% of timestamps compressing to 1 bit on regular scrape intervals[^gorilla-paper].
+- **LSM-style storage with 2-hour blocks** balances write throughput against query efficiency; compaction caps at 31 days or 10% of retention[^prom-storage].
+- **Inverted index** maps labels to series IDs; sorted posting-list intersection drives label queries.
+- **Cardinality management** is critical — high-cardinality labels (request_id, user_id) must be blocked or aggregated.
+- **Tiered retention** with downsampling (raw → 1m → 1h) keeps multi-year storage affordable.
+- A single node can handle 1M+ samples/sec with proper tuning; distributed designs (M3, Mimir, Cortex) reach 1B+[^uber-billion].
 
 ### References
 
-- [Gorilla: A Fast, Scalable, In-Memory Time Series Database](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf) - Facebook VLDB 2015 paper on compression
-- [Prometheus TSDB Documentation](https://prometheus.io/docs/prometheus/latest/storage/) - Block format, WAL, compaction
-- [InfluxDB Storage Engine (TSM)](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/) - TSM and TSI architecture
-- [M3: Uber's Open Source, Large-scale Metrics Platform](https://eng.uber.com/m3/) - Distributed TSDB at scale
-- [Cortex Architecture](https://cortexmetrics.io/docs/architecture/) - Multi-tenant Prometheus
-- [TimescaleDB: SQL for Time-Series](https://docs.timescale.com/use-timescale/latest/hypertables/) - Hypertables and continuous aggregates
-- [VictoriaMetrics vs Prometheus](https://docs.victoriametrics.com/faq/#what-is-the-difference-between-victoriametrics-and-prometheus) - Performance comparison
-- [QuestDB Architecture](https://questdb.com/docs/concept/storage-model/) - Column-oriented TSDB
-- [PromQL Documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) - Query language reference
+- [Gorilla: A Fast, Scalable, In-Memory Time Series Database](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf) — Facebook, VLDB 2015. Compression algorithm and 26-hour in-memory architecture.
+- [Prometheus storage documentation](https://prometheus.io/docs/prometheus/latest/storage/) — block format, WAL, compaction, retention.
+- [Prometheus TSDB index format](https://github.com/prometheus/prometheus/blob/main/tsdb/docs/format/index.md) — on-disk index spec.
+- [InfluxDB Storage Engine (TSM)](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/) — TSM and TSI architecture.
+- [M3: Uber's Open Source, Large-scale Metrics Platform](https://www.uber.com/blog/m3/) — distributed TSDB at scale.
+- [The Billion Data Point Challenge](https://www.uber.com/blog/billion-data-point-challenge/) — Uber engineering on M3 query scale.
+- [Cortex Architecture](https://cortexmetrics.io/docs/architecture/) — multi-tenant, Prometheus-compatible storage.
+- [Grafana Mimir](https://grafana.com/oss/mimir/) — Cortex's spiritual successor; horizontally scalable Prometheus.
+- [VictoriaMetrics vs Prometheus](https://docs.victoriametrics.com/faq/#what-is-the-difference-between-victoriametrics-and-prometheus) — performance and architecture comparison.
+- [TimescaleDB hypertables](https://docs.timescale.com/use-timescale/latest/hypertables/) — relational TSDB with hypertables and continuous aggregates.
+- [QuestDB storage model](https://questdb.com/docs/concept/storage-model/) — column-oriented TSDB.
+- [PromQL documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) — query language reference.
+
+[^gorilla-paper]: Pelkonen et al., [Gorilla: A Fast, Scalable, In-Memory Time Series Database](https://www.vldb.org/pvldb/vol8/p1816-teller.pdf), VLDB 2015. Reports ~1.37 bytes/sample after delta-of-delta + XOR compression, ~96% of timestamps as a single bit, and a 26-hour in-memory window in production at Facebook.
+[^prom-storage]: Prometheus project, [Storage documentation](https://prometheus.io/docs/prometheus/latest/storage/). Defines 2-hour head blocks, 128 MB WAL segments, and the "31 days or 10% of retention, whichever is smaller" compaction cap.
+[^influx-tsm]: InfluxData, [InfluxDB v1 Storage Engine documentation](https://docs.influxdata.com/influxdb/v1/concepts/storage_engine/). Default shard group duration is 7 days for retention policies without an explicit override.
+[^uber-billion]: Uber Engineering, [The Billion Data Point Challenge](https://www.uber.com/blog/billion-data-point-challenge/). Reports an internal M3 query engine handling ~8.5 billion data points per second as of 2018.

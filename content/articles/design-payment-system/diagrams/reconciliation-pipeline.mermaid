@@ -1,0 +1,34 @@
+%% Diagram: Daily reconciliation pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Sources["Data sources"]
+        LEDGER[("Internal double-entry ledger")]
+        PSP["Processor settlement reports (Stripe / Adyen)"]
+        BANK["Bank payout statements"]
+    end
+
+    subgraph Process["Reconciliation"]
+        FETCH["Fetch settlement files"]
+        NORM["Parse + normalize to canonical schema"]
+        MATCH["Three-way match by external_id"]
+        DIFF["Compute amount + fee deltas"]
+    end
+
+    subgraph Output["Output"]
+        MATCHED["Matched transactions"]
+        BREAKS["Breaks (missing / mismatched / duplicated)"]
+        ALERTS["Alerts to finance / on-call"]
+        EXCEPTIONS[("Exception ledger")]
+    end
+
+    LEDGER --> FETCH
+    PSP --> FETCH
+    BANK --> FETCH
+    FETCH --> NORM
+    NORM --> MATCH
+    MATCH --> DIFF
+    DIFF --> MATCHED
+    DIFF --> BREAKS
+    BREAKS --> ALERTS
+    BREAKS --> EXCEPTIONS

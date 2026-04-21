@@ -1,1293 +1,420 @@
 ---
-title: 'Authentication Foundations: Sessions, Tokens, and Trust'
-linkTitle: 'Auth Foundations'
+title: "Authentication Foundations: Sessions, Tokens, and Trust"
+linkTitle: "Auth Foundations"
 description: >-
-  Sessions vs. JWTs, password hashing with Argon2id, OAuth 2.0 flows, WebAuthn, and RBAC vs. ABAC
-  — the core authentication and authorization trade-offs with Node.js implementation patterns.
+  Sessions vs. JWTs, password hashing with Argon2id, refresh-token rotation, WebAuthn passkeys,
+  and RBAC vs. ABAC — the core authentication and authorization trade-offs a senior engineer
+  needs to design a real system.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - security
-  - authentication
   - web-security
+  - authentication
 ---
 
 # Authentication Foundations: Sessions, Tokens, and Trust
 
-An in-depth technical analysis of AAA frameworks for expert practitioners, exploring modern authentication mechanisms, authorization models, access control paradigms, and their implementation patterns with Node.js examples.
+Authentication is mostly a series of trade-offs you cannot postpone: server-side session vs. self-contained token, password vs. passkey, RBAC vs. ABAC, immediate revocation vs. horizontal scale. This article gives a senior engineer the smallest mental model that lets you make those calls deliberately, the current 2026 source-of-truth parameters for the cryptographic and protocol pieces, and pointers to the deeper sibling articles in the Web Security & Authentication series — [OAuth & OIDC Flow Guide](../oauth-oidc-flow-guide/README.md), [CSRF and CORS Defense](../csrf-and-cors-defense/README.md), [Web App Security Architecture](../web-app-security-architecture/README.md), and the [OWASP Top 10 Guide](../owasp-top-10-guide/README.md) — that cover the broader threat model.
 
-![AAA (Authentication, Authorization, Accounting) framework with authentication methods and authorization models](./diagrams/aaa-authentication-authorization-accounting-framework-with-authentication-method-light.svg "AAA (Authentication, Authorization, Accounting) framework with authentication methods and authorization models")
-![AAA (Authentication, Authorization, Accounting) framework with authentication methods and authorization models](./diagrams/aaa-authentication-authorization-accounting-framework-with-authentication-method-dark.svg)
+![AAA framework — Authentication, Authorization, Accounting](./diagrams/aaa-framework-light.svg "AAA framework: identity flows into permission decisions, which flow into the audit trail; signals from the audit trail tighten future authentication.")
+![AAA framework — Authentication, Authorization, Accounting](./diagrams/aaa-framework-dark.svg)
 
-## Abstract
+## Mental model
 
-**Mental model**: Authentication establishes _who you are_; authorization determines _what you can do_; accounting records _what you did_. The core tension in auth systems is **security vs. usability vs. operational complexity**—every design choice trades between these.
+Three orthogonal questions, asked in order on every protected request:
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+1. **Authentication (AuthN)** — who is the calling principal? Verified via a credential the caller proves they hold (password + factor, possession of a private key, a previously issued session/token).
+2. **Authorization (AuthZ)** — what is that principal allowed to do on this resource right now? Decided by a policy that consumes identity claims, resource attributes, and environment.
+3. **Accounting** — what did the principal actually do? An immutable audit trail that feeds anomaly detection, incident response, and compliance.
 
-### Core Design Trade-offs
+Two invariants worth holding in your head before you read further:
 
-| Decision           | Option A                 | Option B                | When to Choose A                         |
-| ------------------ | ------------------------ | ----------------------- | ---------------------------------------- |
-| **State**          | Sessions (server stores) | Tokens (self-contained) | Need immediate revocation, single domain |
-| **Credential**     | Password + MFA           | Passwordless (WebAuthn) | Legacy systems, recovery requirements    |
-| **Authorization**  | RBAC (role-based)        | ABAC (attribute-based)  | Permission model is relatively static    |
-| **Token lifetime** | Short (5-15 min)         | Long (1+ hour)          | High-security APIs, sensitive operations |
-| **Storage**        | HttpOnly cookies         | Memory + refresh token  | Traditional web apps without CORS needs  |
+- **Sessions vs. tokens is an architectural choice, not a security ranking.** Either can be secure; they fail in different ways and scale through different mechanisms.
+- **Bearer tokens (JWT, OAuth access tokens, opaque session IDs) cannot be truly revoked without infrastructure.** You either accept short lifetimes, run a revocation list, or sender-constrain the token to a key the client holds ([RFC 9700, §4.13–4.14](https://datatracker.ietf.org/doc/html/rfc9700#section-4.13)).
 
-### Key Invariants
+Common terms used throughout, defined exactly once:
 
-- **Tokens cannot be truly revoked** without infrastructure (blocklist or short expiry + refresh rotation)
-- **Sessions scale vertically**; tokens scale horizontally
-- **Passwords are phishable**; WebAuthn is origin-bound and phishing-resistant
-- **RBAC is simple but rigid**; ABAC is flexible but operationally complex
+| Term | Definition |
+| :--- | :--- |
+| **Principal** | The authenticated subject — typically a user, but can be a service account or device. |
+| **Credential** | What the principal presents to prove identity (password, private key, passkey, prior session). |
+| **Bearer token** | A token whose holder is treated as the principal (e.g., JWT, opaque session ID). Lose it, lose the account. |
+| **Sender-constrained token** | A token cryptographically bound to a key the client proves possession of (DPoP, mTLS). Stealing the token alone is useless. |
+| **Relying Party (RP)** | The application performing the authentication decision. Borrowed from WebAuthn / OIDC vocabulary. |
+| **Authorization Server (AS)** | The component that issues access/refresh tokens (your own service, or Auth0 / Okta / Cognito / Entra ID). |
 
-## Core Concepts and Definitions
+## Sessions vs. tokens
 
-### Authentication vs Authorization vs Access Control
+Server-side sessions and self-contained tokens both move bytes between client and server on every request; what differs is **where the trust state lives** and **what the server has to do to evaluate it**.
 
-**Authentication** is the process of verifying the identity of a user, device, or system to ensure they are who they claim to be. It answers the question "Who are you?" and involves validating credentials such as passwords, biometric data, or cryptographic tokens.
+![Session cookie vs JWT bearer flow](./diagrams/session-vs-jwt-flow-light.svg "Session cookie flow vs. JWT bearer flow: sessions hit a shared store on every request, JWTs verify a signature with cached JWKS.")
+![Session cookie vs JWT bearer flow](./diagrams/session-vs-jwt-flow-dark.svg)
 
-**Authorization** determines what an authenticated entity is permitted to access or what actions they can perform within a system. It answers the question "What are you allowed to do?" and occurs after successful authentication.
+### How each one actually works
 
-**Access Control** encompasses the broader framework that combines authentication and authorization policies to enforce security decisions. It includes the mechanisms, policies, and technologies used to manage and control access to resources.
+**Session cookies.** The server generates a high-entropy opaque ID, persists `{sid → {userId, roles, expiresAt}}` in a session store (Redis, Postgres, Memcached), and sets the ID in a cookie scoped to the application's origin. Each request carries the cookie; the server reads the store, applies an idle-timeout check, and rolls the expiry. Logout deletes the row, killing every device using that session. Cookies are managed by the browser and are subject to the [`SameSite`, `Secure`, `HttpOnly`, and `Partitioned` attributes](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis-22) — see [`csrf-and-cors-defense`](../csrf-and-cors-defense/README.md) for the cross-site attack surface.
 
-### The AAA Framework
+**JWT (or any self-contained token).** The authorization server signs a JSON payload containing the user's identity claims and an expiry. Anyone who holds the issuer's verification key (symmetric secret or, more commonly, a public key fetched from a JWKS endpoint) can validate the token without I/O. The token is opaque to the client but readable to anyone who base64-decodes it; never put secrets in JWT claims ([RFC 7519, §10.1](https://datatracker.ietf.org/doc/html/rfc7519#section-10.1)).
 
-The AAA framework extends beyond basic authentication and authorization:
+### Trade-off matrix
 
-- **Authentication**: Identity verification
-- **Authorization**: Permission enforcement
-- **Accounting/Auditing**: Activity logging and monitoring
+| Aspect | Server session | Self-contained token (JWT) |
+| :--- | :--- | :--- |
+| State lives on | Server (shared store) | Client (the token itself) |
+| Per-request cost | Network round-trip to session store | Signature verification (cheap once JWKS is cached) |
+| Revocation | Immediate — delete the row | Wait for expiry, run a denylist, or rotate signing keys |
+| Cross-domain | Cookie scoping is awkward; needs care with `SameSite=None; Secure; Partitioned` | Native — `Authorization: Bearer …` works anywhere CORS does |
+| Mobile / native clients | Awkward (no cookie jar without a webview) | Native — bearer header in any HTTP client |
+| Token size on the wire | ~30–60 bytes (opaque ID) | ~500 bytes – several KB (claims + signature) |
+| Compromise blast radius | Attacker holds session ID until logout | Attacker holds full claims until token expires |
+| Session store dependency | Hard requirement; outage = global logout | None for verification (issuer outage only blocks new logins) |
+| Multi-region scale | Needs replicated store or sticky routing | Stateless verification at every edge |
 
-This framework ensures comprehensive security coverage from initial identity verification through ongoing activity monitoring.
+### When to pick what
 
----
+Choose **server sessions** when:
 
-## Session vs Token Architecture
+- You can tolerate the session-store dependency (it's almost always a single point of failure for auth — design accordingly).
+- You need **immediate, reliable revocation** — banking, healthcare, internal admin tools.
+- The frontend and backend share an origin and `SameSite=Lax` does the CSRF heavy lifting for you.
+- You want to be able to introspect a live session ("kill all sessions for user X", "show me all devices logged in as Y").
 
-The fundamental architectural decision in authentication is whether to store session state server-side or encode it in client-held tokens.
+Choose **self-contained tokens** when:
 
-### Design Rationale
+- You're crossing origins or boundaries between independently deployed services (typical SPA/microservices/mobile).
+- Per-request session-store latency is unacceptable (high-fan-out APIs, edge functions).
+- You can live with revocation being eventual, and you're prepared to run refresh-token rotation (below).
 
-**Sessions** emerged from traditional server-rendered applications where the server controlled the entire request lifecycle. The server maintains a session store (in-memory, Redis, database), generates an opaque session ID, and sets it in a cookie. Each request includes the cookie; the server looks up associated state.
+The de facto pattern for modern web SPAs is the **hybrid**: a short-lived JWT access token kept in JavaScript memory, plus a refresh token in an `HttpOnly; Secure; SameSite=Strict` cookie. Memory storage means XSS cannot exfiltrate the access token from disk; `HttpOnly` keeps the refresh token completely out of JavaScript's reach. Backed by refresh-token rotation, this gives you JWT scalability with most of the revocation properties of a session.
 
-**Tokens** (particularly JWTs) emerged with the rise of SPAs (Single-Page Applications), mobile apps, and microservices. The token contains all necessary claims (user ID, roles, expiration), cryptographically signed by the issuer. Validation requires only the public key—no database lookup.
+> [!WARNING]
+> "Just store the JWT in `localStorage`" is a recurring footgun. Any XSS on your origin lifts every token from `localStorage` — there is no equivalent of `HttpOnly` for it. Treat `localStorage` as world-readable from your own origin.
 
-### Trade-off Matrix
+### Refresh-token rotation, the right way
 
-| Aspect                     | Sessions                      | Tokens                                   |
-| -------------------------- | ----------------------------- | ---------------------------------------- |
-| **State location**         | Server                        | Client                                   |
-| **Revocation**             | Immediate (delete session)    | Difficult (wait for expiry or blocklist) |
-| **Scalability**            | Requires shared session store | Stateless, scales horizontally           |
-| **Cross-domain**           | Cookie scope limitations      | CORS-friendly (Bearer header)            |
-| **Token size**             | Small (opaque ID)             | Large (encoded claims)                   |
-| **Security on compromise** | Attacker needs session ID     | Attacker has all claims until expiry     |
-| **Database dependency**    | Every request                 | None for validation                      |
+Long-lived refresh tokens are the single biggest revocation gap in JWT-based auth. [RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700#section-4.14) (the OAuth 2.0 Security Best Current Practice, January 2025) requires that refresh tokens for public clients are either **sender-constrained** (DPoP from [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449), or mutual-TLS from [RFC 8705](https://datatracker.ietf.org/doc/html/rfc8705)) **or rotated on every use with reuse detection**.
 
-### When to Choose Sessions
+The rotation pattern, with a "token family" tracked server-side:
 
-1. **Immediate revocation required**: Logout must instantly invalidate access (financial, healthcare)
-2. **Single-domain application**: No CORS complexity
-3. **Sensitive data**: Minimize client-side exposure of claims
-4. **Existing infrastructure**: Session stores already in place
+![Refresh-token rotation with reuse detection](./diagrams/refresh-token-rotation-light.svg "Refresh-token rotation: each refresh issues a new refresh token; presenting an already-used refresh token revokes the entire family — the canonical reuse-detection signal from RFC 9700 §4.14.2.")
+![Refresh-token rotation with reuse detection](./diagrams/refresh-token-rotation-dark.svg)
 
-### When to Choose Tokens
+The non-obvious part is **reuse detection**. The legitimate client only ever holds the latest refresh token; if the previous one is presented, you have observed a clone. The correct response is to revoke every token in the family — including currently valid access tokens — and force re-authentication. Auth0, Okta, Descope, and most modern auth services implement exactly this.[^rt-rotation]
 
-1. **Microservices**: Services validate tokens independently without coordination
-2. **Mobile apps**: No cookie support; tokens in secure storage (Keychain/Keystore)
-3. **Third-party API access**: OAuth flows with external consumers
-4. **Horizontal scaling**: No shared session store required
+[^rt-rotation]: [Auth0 — Refresh Token Rotation](https://auth0.com/docs/secure/tokens/refresh-tokens/refresh-token-rotation) and [Descope — Refresh token rotation](https://www.descope.com/blog/post/refresh-token-rotation) both implement the family-revocation semantics from [RFC 9700 §4.14.2](https://datatracker.ietf.org/doc/html/rfc9700#section-4.14.2).
 
-### Hybrid Approach (Recommended for Web SPAs)
+> [!IMPORTANT]
+> Race conditions are the failure mode you actually hit in production. If two parallel requests both refresh with the same token (mobile background sync, double-clicks, retry storms), naive rotation flags the second one as reuse and logs the user out. Either serialize per-token-family with a short distributed lock, or implement a small grace window (e.g. accept the previous token for ~30 s if the new one was issued from the same IP/device fingerprint).
 
-Modern best practice combines both:
+## Credentials
 
-- **Access token**: Short-lived (5-15 min), stored in memory (React state/context)
-- **Refresh token**: Long-lived, stored in HttpOnly Secure SameSite=Strict cookie
+### Password storage
 
-Memory storage protects against XSS (no JavaScript access to tokens on disk); HttpOnly cookies protect refresh tokens from script access while enabling silent renewal.
+If you must accept passwords, the storage choice is settled. The current [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) ranks algorithms in this order, with these minimum parameters:
 
----
+| Algorithm | Minimum parameters | Use when |
+| :--- | :--- | :--- |
+| **Argon2id** | `m = 19 MiB, t = 2, p = 1` (or `m = 46 MiB, t = 1, p = 1`; `m = 12 MiB, t = 3, p = 1`; `m = 9 MiB, t = 4, p = 1`; `m = 7 MiB, t = 5, p = 1`) | Default for any new system. Memory-hardness is the only practical defence against modern GPU and ASIC cracking. |
+| **scrypt** | `N = 2^17 (128 MiB), r = 8, p = 1` | Argon2 unavailable in your runtime. |
+| **bcrypt** | Cost factor ≥ 10; **enforce 72-byte input limit**. | Legacy systems; FIPS not required. |
+| **PBKDF2-HMAC-SHA256** | 600,000 iterations | FIPS-140 compliance is mandatory. |
 
-## Authentication Mechanisms
+The tuning rule is **target 200–500 ms per hash on the production hardware that does login traffic**, then re-tune annually as hardware improves. Below 100 ms is too cheap; above ~1 s and authentication latency starts to dominate user perception and you have effectively built a self-DoS amplifier on `/login`.
 
-### Password-Based Authentication
+```ts title="password.ts"
+import argon2 from "argon2"
 
-Traditional username/password authentication remains prevalent despite inherent vulnerabilities. Modern implementations require secure password storage using memory-hard hashing functions.
+const ARGON2_OPTIONS = {
+  type: argon2.argon2id,
+  memoryCost: 19 * 1024,
+  timeCost: 2,
+  parallelism: 1,
+} as const
 
-#### Password Hashing: Argon2id vs Bcrypt
-
-**Argon2id** (winner of the 2015 Password Hashing Competition) is the current OWASP recommendation for new systems. It resists both GPU attacks (via memory hardness) and side-channel attacks (via the "id" variant combining Argon2i and Argon2d).
-
-> **Prior to 2015:** Bcrypt was the recommended standard. Systems using bcrypt remain secure but should plan migration to Argon2id for new implementations.
-
-**OWASP recommended parameters (as of 2025):**
-
-| Algorithm                  | Configuration                              | Target                            |
-| -------------------------- | ------------------------------------------ | --------------------------------- |
-| **Argon2id**               | 19 MiB memory, 2 iterations, parallelism 1 | Primary recommendation            |
-| **Argon2id (high memory)** | 46 MiB memory, 1 iteration, parallelism 1  | When resources allow              |
-| **Bcrypt**                 | Cost factor 10+ (12 recommended)           | Legacy systems, FIPS not required |
-| **PBKDF2-HMAC-SHA256**     | 600,000+ iterations                        | FIPS-140 compliance required      |
-
-**Tuning principle**: Hash computation should take under 1 second to avoid DoS vulnerabilities from repeated auth attempts.
-
-```javascript title="password-manager.js" collapse={1-2, 26-33}
-const bcrypt = require("bcrypt")
-
-class PasswordManager {
-  constructor() {
-    this.saltRounds = 12 // OWASP minimum as of 2025; adjust based on hardware
-  }
-
-  async hashPassword(plainPassword) {
-    try {
-      const salt = await bcrypt.genSalt(this.saltRounds)
-      const hashedPassword = await bcrypt.hash(plainPassword, salt)
-      return hashedPassword
-    } catch (error) {
-      throw new Error("Password hashing failed")
-    }
-  }
-
-  async verifyPassword(plainPassword, hashedPassword) {
-    try {
-      return await bcrypt.compare(plainPassword, hashedPassword)
-    } catch (error) {
-      throw new Error("Password verification failed")
-    }
-  }
+export async function hashPassword(plain: string): Promise<string> {
+  return argon2.hash(plain, ARGON2_OPTIONS)
 }
 
-// Usage example
-const passwordManager = new PasswordManager()
-
-// During registration
-const hashedPassword = await passwordManager.hashPassword("userPassword123")
-
-// During login
-const isValid = await passwordManager.verifyPassword("userPassword123", hashedPassword)
-```
-
-**Bcrypt limitation**: Maximum 72 bytes input. For longer passwords, pre-hash with HMAC-SHA384 and Base64 encode before bcrypt.
-
-### Multi-Factor Authentication (MFA)
-
-MFA implementations leverage multiple authentication factors categorized into:
-
-1. **Something You Know** (Knowledge): Passwords, PINs, security questions
-2. **Something You Have** (Possession): Hardware tokens, mobile devices, smart cards
-3. **Something You Are** (Inherence): Biometric traits like fingerprints, facial recognition
-
-#### Time-based One-Time Password (TOTP) Implementation
-
-TOTP generates time-based codes using a shared secret and current timestamp. The `window` parameter allows for clock drift between client and server ([RFC 6238](https://datatracker.ietf.org/doc/html/rfc6238)).
-
-```javascript title="totp-manager.js" collapse={1-3, 33-58}
-const speakeasy = require("speakeasy")
-const QRCode = require("qrcode")
-
-class TOTPManager {
-  generateSecret(userEmail, serviceName) {
-    return speakeasy.generateSecret({
-      name: userEmail,
-      issuer: serviceName,
-      length: 32,
-    })
+export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
+  const ok = await argon2.verify(hash, plain)
+  if (ok && argon2.needsRehash(hash, ARGON2_OPTIONS)) {
+    // Lazy migration after a parameter bump: re-hash in the same login request
+    // and write the new digest back to the database.
   }
-
-  async generateQRCode(secret) {
-    const otpauthURL = speakeasy.otpauthURL({
-      secret: secret.ascii,
-      label: secret.name,
-      issuer: secret.issuer,
-      algorithm: "sha1",
-    })
-
-    return await QRCode.toDataURL(otpauthURL)
-  }
-
-  verifyTOTP(token, secret) {
-    return speakeasy.totp.verify({
-      secret: secret,
-      encoding: "ascii",
-      token: token,
-      window: 2, // Allow 2-step tolerance for clock drift
-    })
-  }
-}
-
-// Usage in Express middleware
-const totpManager = new TOTPManager()
-
-app.post("/enable-mfa", async (req, res) => {
-  const { userId } = req.body
-  const secret = totpManager.generateSecret(req.user.email, "YourServiceName")
-
-  // Store secret in database associated with user
-  await User.updateOne({ _id: userId }, { totpSecret: secret.base32, mfaEnabled: false })
-
-  const qrCode = await totpManager.generateQRCode(secret)
-  res.json({ qrCode, secret: secret.base32 })
-})
-
-app.post("/verify-mfa", async (req, res) => {
-  const { token } = req.body
-  const user = await User.findById(req.user.id)
-
-  const verified = totpManager.verifyTOTP(token, user.totpSecret)
-
-  if (verified) {
-    await User.updateOne({ _id: req.user.id }, { mfaEnabled: true })
-    res.json({ success: true })
-  } else {
-    res.status(400).json({ error: "Invalid token" })
-  }
-})
-```
-
-### WebAuthn and Passkeys
-
-WebAuthn (Web Authentication API) uses asymmetric cryptography—the private key never leaves the authenticator, and credentials are origin-bound, making them phishing-resistant.
-
-> **WebAuthn Level 3 (W3C Candidate Recommendation, January 2026)** adds credential backup state signaling, cross-origin authentication, supplemental public keys, and client capability discovery.
-
-#### Passkey Syncing (Multi-Device Credentials)
-
-Traditional WebAuthn credentials were bound to a single device. **Passkeys** (synced credentials) enable cross-device availability:
-
-| Provider      | Sync Scope                               | Mechanism                               |
-| ------------- | ---------------------------------------- | --------------------------------------- |
-| **Apple**     | Apple devices only                       | iCloud Keychain (E2E encrypted)         |
-| **Google**    | Android, Chrome (all platforms), iOS 17+ | Google Password Manager (E2E encrypted) |
-| **Microsoft** | Windows, Android                         | Microsoft account                       |
-
-**Critical limitation**: Apple and Google do not sync passkeys between their ecosystems. Google currently offers the broadest cross-platform sync (Android + Apple + Windows via Chrome).
-
-**Design rationale for origin binding**: The credential's `rpId` (Relying Party ID) is bound to the origin. If a user is phished to `evil-bank.com`, the credential registered for `bank.com` cannot be used—the authenticator refuses to sign a challenge for a different origin.
-
-```javascript title="webauthn-manager.js" collapse={1-2, 35-52}
-// Client-side WebAuthn registration
-class WebAuthnManager {
-  async registerCredential(userInfo) {
-    try {
-      // Get challenge from server
-      const challengeResponse = await fetch("/webauthn/register/begin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: userInfo.username }),
-      })
-
-      const challenge = await challengeResponse.json()
-
-      // Create credential - origin-bound, preventing phishing attacks
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge: new Uint8Array(challenge.challenge),
-          rp: { name: "Your Service" },
-          user: {
-            id: new TextEncoder().encode(userInfo.username),
-            name: userInfo.username,
-            displayName: userInfo.displayName,
-          },
-          pubKeyCredParams: [{ alg: -7, type: "public-key" }], // ES256
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "required",
-          },
-        },
-      })
-
-      return credential
-    } catch (error) {
-      console.error("WebAuthn registration failed:", error)
-      throw error
-    }
-  }
-
-  // Send credential to server for storage
-  async completeRegistration(credential) {
-    const registrationResponse = await fetch("/webauthn/register/finish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: credential.id,
-        rawId: Array.from(new Uint8Array(credential.rawId)),
-        response: {
-          clientDataJSON: Array.from(new Uint8Array(credential.response.clientDataJSON)),
-          attestationObject: Array.from(new Uint8Array(credential.response.attestationObject)),
-        },
-      }),
-    })
-    return await registrationResponse.json()
-  }
+  return ok
 }
 ```
 
----
+A few non-obvious notes:
 
-## Authorization Models and Frameworks
+- **bcrypt's 72-byte input limit is a real footgun.** If you let users paste a passphrase, every byte after the 72nd is silently ignored — and worse, two different long passphrases that share a 72-byte prefix collide. The OWASP-recommended workaround is to pre-hash with HMAC-SHA-256 and Base64-encode before bcrypt, keeping the result under 72 bytes.[^bcrypt-72]
+- **Stop enforcing composition rules.** [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html) (Digital Identity Guidelines: Authentication and Authenticator Management, July 2025) explicitly bans mandatory composition rules and arbitrary periodic rotation, formalising guidance that has been in the document since the 2017 SP 800-63B Rev. 3. Enforce a long minimum (the new floor is **15 characters** when the password is the sole authenticator), screen against a [breached-password](https://haveibeenpwned.com/Passwords) corpus, and otherwise let users choose.
+- **"Pepper" if you can.** A server-side secret prepended to the password before hashing protects you against database-only compromise (the attacker has the digests but not the pepper). Trade-off: rotating the pepper means a forced password reset across the user base, so tie it to the same secret-rotation cadence as your signing keys.
 
-### Role-Based Access Control (RBAC)
+[^bcrypt-72]: [OWASP Password Storage Cheat Sheet — bcrypt](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#bcrypt) describes the 72-byte truncation and the HMAC-SHA-256 + Base64 pre-hash workaround.
 
-RBAC assigns permissions to roles rather than individual users, simplifying permission management in large organizations.
+### Multi-factor authentication
 
-**Design rationale**: RBAC emerged from the observation that permission requirements correlate with job functions, not individuals. By mapping users → roles → permissions, administration scales with organizational structure rather than user count ([NIST RBAC Model](https://csrc.nist.gov/projects/role-based-access-control)).
+A *factor* is meant to come from a different category than the others: knowledge (password), possession (a device or hardware key), or inherence (biometric). Two passwords are not two factors.
 
-**When RBAC works well**:
+The practical hierarchy from worst to best, as of 2026:
 
-- Permission model maps to organizational hierarchy
-- Roles are relatively stable
-- Audit requirements focus on role membership
+| Factor | Phishing-resistant? | SIM-swap-resistant? | Notes |
+| :--- | :---: | :---: | :--- |
+| SMS OTP | No | **No** | Documented account-takeover vector via SIM-swap and SS7 interception. Acceptable only as a last-resort fallback. |
+| Email OTP / magic link | No | n/a | Inherits the security of the email account. |
+| TOTP ([RFC 6238](https://datatracker.ietf.org/doc/html/rfc6238)) | No (phishable) | Yes | Shared secret in user's authenticator app; 30-second window; `window=±1` for clock drift is the conventional setting. |
+| Push notification (out-of-band) | Partially | Yes | Vulnerable to "MFA fatigue" / push-bombing attacks unless you require number-matching. |
+| **WebAuthn / passkey** | **Yes — origin-bound** | Yes | Phishing-resistant by construction; see below. |
+| Hardware security key (FIDO2 device-bound) | **Yes** | Yes | Strongest assurance; the AAL3 option in [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html). |
 
-**When RBAC struggles**:
+If you only ship one factor beyond a password, ship a passkey.
 
-- Dynamic permissions based on resource attributes (e.g., "own documents only")
-- Context-dependent access (time of day, location)
-- Fine-grained permissions that would require role explosion
+### WebAuthn and passkeys
 
-```javascript title="rbac-manager.js" collapse={1-6, 56-77}
-class RBACManager {
-  constructor() {
-    this.roles = new Map()
-    this.userRoles = new Map()
-    this.permissions = new Map()
-  }
+[WebAuthn](https://www.w3.org/TR/webauthn-3/) is a public-key credential protocol standardised by the W3C and FIDO Alliance. The authenticator (Touch ID, Windows Hello, a YubiKey, an Android secure enclave) holds the private key; the relying party stores only the public key. The authenticator signs an origin-bound challenge — and that origin binding is the entire reason passkeys defeat phishing.
 
-  defineRole(roleName, permissions = []) {
-    this.roles.set(roleName, new Set(permissions))
-    return this
-  }
+![WebAuthn registration and assertion](./diagrams/webauthn-registration-flow-light.svg "WebAuthn registration and assertion: rpId binds the credential to the origin, so an authenticator refuses to sign for a phishing site even if the user is fully fooled.")
+![WebAuthn registration and assertion](./diagrams/webauthn-registration-flow-dark.svg)
 
-  assignRoleToUser(userId, roleName) {
-    if (!this.userRoles.has(userId)) {
-      this.userRoles.set(userId, new Set())
-    }
-    this.userRoles.get(userId).add(roleName)
-    return this
-  }
+The mechanism: when the browser calls `navigator.credentials.create()` or `.get()`, it includes the *current top-level origin* in the `clientDataJSON` blob the authenticator signs. The authenticator additionally checks that the call's `rpId` is the registered Relying Party. A credential registered for `bank.com` cannot be exercised on `bank.com.evil.example` — the authenticator simply refuses.[^webauthn-origin] No amount of social engineering changes that.
 
-  getUserPermissions(userId) {
-    const userRoles = this.userRoles.get(userId) || new Set()
-    const permissions = new Set()
+[^webauthn-origin]: [WebAuthn Level 3, §5.1.3 (Create) and §5.1.4 (Get)](https://www.w3.org/TR/webauthn-3/#sctn-createCredential) describe the rpId / origin checks the authenticator performs before signing.
 
-    for (const role of userRoles) {
-      const rolePermissions = this.roles.get(role) || new Set()
-      for (const permission of rolePermissions) {
-        permissions.add(permission)
-      }
-    }
+**Status as of 2026-Q2:**
 
-    return permissions
-  }
+- [WebAuthn Level 3 is a W3C Candidate Recommendation Snapshot](https://www.w3.org/TR/webauthn-3/), published 2026-01-13. New in L3: client capability discovery, supplemental public keys, cross-origin authentication via `<iframe>` with explicit RP opt-in, and explicit signaling for credential backup state.
+- **Synced passkeys** (Apple iCloud Keychain, Google Password Manager, Microsoft account, plus third-party managers like 1Password and Bitwarden) roam credentials across the user's devices in a single ecosystem; the credential is the same key material everywhere.
+- **Cross-ecosystem portability** (e.g. Apple → Google) is not yet generally available. The [FIDO Alliance Credential Exchange Format (CXF)](https://fidoalliance.org/specifications-credential-exchange-specifications/) — Proposed Standard, August 2025 — defines *what* gets moved; the Credential Exchange Protocol (CXP), still in working draft, defines *how*. Apple's iOS/macOS 26 ships a same-device CXF-based transfer flow; full cross-provider exchange is an in-progress story for late 2026.[^cxf]
 
-  hasPermission(userId, requiredPermission) {
-    const userPermissions = this.getUserPermissions(userId)
-    return userPermissions.has(requiredPermission)
-  }
+[^cxf]: [FIDO Alliance — Credential Exchange Specifications](https://fidoalliance.org/specifications-credential-exchange-specifications/); see also the [1Password explainer on CXF/CXP](https://www.1password.community/blog/developer-blog/portability-without-compromise-1password-helps-author-a-new-standard-for-secure-/163208) for a current implementer's view of the gap between same-device export and cross-platform sync.
 
-  middleware(requiredPermission) {
-    return (req, res, next) => {
-      const userId = req.user?.id
+> [!TIP]
+> When you launch passkeys, design for the *recovery* path before you design the *enrolment* path. A user who loses their only passkey and only device needs a route back into their account that does not silently degrade your assurance to "what's in their email". Common patterns: enforce two passkeys at enrolment (one platform, one cross-platform), allow a passkey-protected recovery code, or require a video-verified IDV step for high-value accounts.
 
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" })
-      }
+## JWT mechanics and security
 
-      if (!this.hasPermission(userId, requiredPermission)) {
-        return res.status(403).json({ error: "Insufficient permissions" })
-      }
+If you're using JWTs, the failure modes you have to design against are nearly all in the verification path.
 
-      next()
-    }
-  }
-}
+### Anatomy
 
-// Usage example
-const rbac = new RBACManager()
+A JWT is three base64url-encoded segments joined with dots: `header.payload.signature`. The header declares the algorithm (`alg`) and key id (`kid`); the payload carries the claims; the signature covers `header.payload`.
 
-// Define roles and permissions
-rbac
-  .defineRole("admin", ["user:create", "user:read", "user:update", "user:delete"])
-  .defineRole("moderator", ["user:read", "user:update"])
-  .defineRole("user", ["user:read"])
+The standard registered claims you should always set and always verify:
 
-// Assign roles to users
-rbac.assignRoleToUser("user123", "admin").assignRoleToUser("user456", "moderator")
+| Claim | Purpose |
+| :--- | :--- |
+| `iss` | Issuer. The audience must check this matches the expected AS. |
+| `sub` | Subject — the principal's stable identifier (NOT email). |
+| `aud` | Audience — the resource server(s) this token is for. Wrong `aud` = reject. |
+| `exp` | Expiry (epoch seconds). Past `exp` = reject. |
+| `nbf` | Not-before (optional). |
+| `iat` | Issued-at, useful for max-age policy. |
+| `jti` | Unique token ID, used for replay-protection and denylists. |
 
-// Use in Express routes
-app.get("/admin/users", rbac.middleware("user:read"), (req, res) => {
-  // Handle admin user listing
+### Algorithm selection
+
+Pick the algorithm based on whether the verifier can hold the signing secret.
+
+| Algorithm | Type | When to use |
+| :--- | :--- | :--- |
+| **EdDSA (Ed25519)** | Asymmetric | First choice for new systems. ~30× faster signing than RSA-2048; small (32-byte) public keys.[^eddsa-perf] |
+| **ES256** (ECDSA P-256) | Asymmetric | Mature; supported everywhere; the default in OpenID Connect. |
+| **RS256** (RSA-2048+) | Asymmetric | Slow signing, very fast verification (`e=65537`); useful when verifiers are many and signers are few. |
+| **HS256** (HMAC-SHA-256) | Symmetric | Only when the issuer and the verifier are the same trust boundary. Sharing an HMAC secret across services is the classic key-sprawl mistake. |
+
+[^eddsa-perf]: Practitioner benchmarks on commodity hardware put Ed25519 signing roughly 30× faster than RSA-2048 signing, with RSA verification still measurably faster than Ed25519 verification ([asecuritysite.com OpenSSL benchmark](https://asecuritysite.com/openssl/openssl3_b2)).
+
+### The four JWT footguns you must defend against
+
+1. **`alg: none`.** [RFC 7519 §6.1](https://datatracker.ietf.org/doc/html/rfc7519#section-6.1) defines an "unsecured" JWT with no signature. Some libraries accept it by default. Strip the signature, set `alg` to `none`, and a vulnerable verifier passes the token. **Defence:** never verify with the algorithm taken from the token's header — pin the algorithm in the call.
+2. **Algorithm confusion (RS256 → HS256).** A library that accepts both asymmetric and symmetric algorithms can be tricked into using the *public* key as if it were an HMAC secret. Since the public key is, by design, public (often via JWKS), the attacker forges valid HMAC signatures.[^jwt-confusion] **Defence:** explicit allowlist of expected algorithms in `jwt.verify(token, key, { algorithms: ["EdDSA"] })`.
+3. **`kid` injection.** The `kid` header tells the verifier which key to look up. If the verifier reads `kid` as a filesystem path or SQL fragment, you have a path-traversal / SQL-injection bug feeding into your trust root. **Defence:** treat `kid` as an opaque string keyed into a map populated from your trusted JWKS; never as a file path.
+4. **Missing `aud` / `iss` checks.** A token issued by your IdP for service A is happily accepted by service B if B does not check `aud`. **Defence:** every verifier validates `iss`, `aud`, and `exp` *every time*, in addition to the signature.
+
+[^jwt-confusion]: [PortSwigger Web Security Academy — JWT algorithm confusion attacks](https://portswigger.net/web-security/jwt/algorithm-confusion) walks through a working RS256 → HS256 forgery against a public-key endpoint.
+
+```ts title="jwt-verify.ts"
+import jwt, { type JwtPayload } from "jsonwebtoken"
+import { JwksClient } from "jwks-rsa"
+
+const jwks = new JwksClient({
+  jwksUri: process.env.JWKS_URI!,
+  cache: true,
+  rateLimit: true,
 })
 
-app.delete("/admin/users/:id", rbac.middleware("user:delete"), (req, res) => {
-  // Handle user deletion
-})
-```
+const ALLOWED_ALGS = ["EdDSA"] as const
 
-### Attribute-Based Access Control (ABAC)
-
-ABAC provides fine-grained access control using attributes of users, resources, and environmental factors.
-
-**Design rationale**: ABAC addresses RBAC's rigidity by evaluating policies against dynamic attributes at decision time. Instead of pre-assigning permissions, ABAC asks: "Given these subject attributes, resource attributes, action, and environment, should this request be permitted?" ([NIST ABAC Guide SP 800-162](https://csrc.nist.gov/publications/detail/sp/800-162/final)).
-
-**Attribute categories**:
-
-- **Subject**: User ID, role, department, clearance level, group membership
-- **Resource**: Type, owner, classification, sensitivity
-- **Action**: Read, write, delete, approve
-- **Environment**: Time, location, device trust, network
-
-```javascript title="abac-engine.js" collapse={1-4, 42-66, 72-97}
-class ABACPolicyEngine {
-  constructor() {
-    this.policies = []
-  }
-
-  addPolicy(policy) {
-    this.policies.push(policy)
-    return this
-  }
-
-  evaluate(subject, resource, action, environment = {}) {
-    for (const policy of this.policies) {
-      const result = this.evaluatePolicy(policy, subject, resource, action, environment)
-      if (result === "PERMIT") return true
-      if (result === "DENY") return false
-    }
-    return false // Default deny - fail closed
-  }
-
-  evaluatePolicy(policy, subject, resource, action, environment) {
-    try {
-      const context = {
-        subject,
-        resource,
-        action,
-        environment,
-        time: new Date(),
-        hasAttribute: (obj, attr) => obj && obj[attr] !== undefined,
-        inRange: (value, min, max) => value >= min && value <= max,
-      }
-
-      return policy.condition(context) ? policy.effect : "NOT_APPLICABLE"
-    } catch (error) {
-      console.error("Policy evaluation error:", error)
-      return "DENY" // Fail closed on error
-    }
-  }
-
-  // ... middleware implementation
-}
-
-  middleware() {
-    return (req, res, next) => {
-      const subject = {
-        id: req.user?.id,
-        role: req.user?.role,
-        department: req.user?.department,
-        clearanceLevel: req.user?.clearanceLevel,
-      }
-
-      const resource = {
-        type: req.route?.path,
-        owner: req.params?.userId,
-        classification: req.body?.classification,
-      }
-
-      const action = req.method.toLowerCase()
-
-      const environment = {
-        ipAddress: req.ip,
-        time: new Date(),
-        userAgent: req.get("User-Agent"),
-      }
-
-      if (this.evaluate(subject, resource, action, environment)) {
-        next()
-      } else {
-        res.status(403).json({ error: "Access denied by policy" })
-      }
-    }
-  }
-
-// Usage example - policy definitions
-const abac = new ABACPolicyEngine()
-
-abac.addPolicy({
-  name: "AdminFullAccess",
-  condition: ({ subject }) => subject.role === "admin",
-  effect: "PERMIT",
-})
-
-abac.addPolicy({
-  name: "UserSelfAccess",
-  condition: ({ subject, resource, action }) =>
-    subject.role === "user" && resource.owner === subject.id && ["get", "put"].includes(action),
-  effect: "PERMIT",
-})
-
-abac.addPolicy({
-  name: "WorkingHoursOnly",
-  condition: ({ environment }) => {
-    const hour = environment.time.getHours()
-    return hour >= 9 && hour <= 17
-  },
-  effect: "DENY",
-})
-
-app.use("/api/sensitive", abac.middleware())
-```
-
----
-
-## Formal Access Control Models
-
-These models provide mathematical foundations for reasoning about security properties. While rarely implemented directly, they inform the design of practical systems.
-
-### Bell-LaPadula Model (Confidentiality)
-
-**Design rationale**: Developed in 1973 for the US Department of Defense to prevent information leakage from higher classification levels to lower ones. Optimizes for _confidentiality_ at the expense of integrity.
-
-**Core rules**:
-
-- **No Read Up (Simple Security)**: A subject cannot read data at a higher classification level
-- **No Write Down (Star Property)**: A subject cannot write data to a lower classification level
-
-**Why "no write down"**: Prevents a high-clearance user from copying classified data to an unclassified location. Also prevents Trojan horses from leaking data by writing to lower levels.
-
-**Limitation**: Ignores integrity. A low-clearance user can write to a high-classification document, potentially corrupting it.
-
-### Biba Integrity Model
-
-**Design rationale**: Developed in 1977 as the "dual" of Bell-LaPadula, optimizing for _integrity_ instead of confidentiality. Prevents corruption of high-integrity data by lower-integrity sources.
-
-**Core rules** (inverted from Bell-LaPadula):
-
-- **No Read Down**: A subject cannot read data at a lower integrity level (prevents contamination)
-- **No Write Up**: A subject cannot write data to a higher integrity level (prevents corruption)
-
-**Why this matters**: A financial system shouldn't allow unverified external data to modify audited records. A privileged process shouldn't read from untrusted sources.
-
-### Clark-Wilson Model (Commercial Integrity)
-
-**Design rationale**: Developed in 1987 for commercial environments where integrity is paramount but formal clearance levels don't exist. Focuses on well-formed transactions and separation of duties.
-
-**Core concepts**:
-
-- **Constrained Data Items (CDIs)**: Data that must maintain integrity
-- **Transformation Procedures (TPs)**: The only way to modify CDIs
-- **Integrity Verification Procedures (IVPs)**: Validate CDI integrity
-- **Separation of Duties**: No single user can certify and execute a TP
-
-**Example**: In an accounting system, a journal entry (CDI) can only be created by the "create entry" procedure (TP), which requires different users for creation and approval (separation of duties).
-
----
-
-## Modern Authentication Protocols
-
-### JSON Web Tokens (JWT)
-
-JWT provides a compact, URL-safe means of representing claims between parties.
-
-**Design rationale**: JWTs emerged from the need to pass authenticated state between services without shared session storage. The token is self-contained—all claims are inside—and cryptographically signed to prevent tampering ([RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519)).
-
-**Critical limitation**: JWTs cannot be revoked after issuance without additional infrastructure. If an access token is stolen, it remains valid until expiration.
-
-#### Token Lifetime Recommendations (2025)
-
-| Token Type                       | Lifetime  | Rationale                                       |
-| -------------------------------- | --------- | ----------------------------------------------- |
-| **Access token (high security)** | 5-15 min  | Minimize exposure window for stolen tokens      |
-| **Access token (general)**       | 15-30 min | Balance security with UX (fewer refresh cycles) |
-| **Refresh token**                | 1-7 days  | User experience; rotate on each use             |
-| **ID token (OIDC)**              | 1 hour    | Per OIDC spec; used only at authentication time |
-
-#### Algorithm Selection
-
-| Algorithm | Type               | Recommendation                                          |
-| --------- | ------------------ | ------------------------------------------------------- |
-| **EdDSA** | Asymmetric         | First choice for new systems (62x faster than RSA-2048) |
-| **ES256** | Asymmetric (ECDSA) | Good balance; widely supported                          |
-| **RS256** | Asymmetric (RSA)   | Legacy compatibility; larger keys                       |
-| **HS256** | Symmetric          | Avoid in distributed systems (shared secret)            |
-
-**Security rule**: Always verify the `alg` header against an allowlist. The infamous `alg: none` attack exploits servers that accept any algorithm.
-
-```javascript title="jwt-manager.js" collapse={1-3, 15-51, 68-88, 92-130}
-const jwt = require("jsonwebtoken")
-const crypto = require("crypto")
-
-class JWTManager {
-  constructor(options = {}) {
-    this.accessTokenSecret = options.accessTokenSecret || process.env.JWT_ACCESS_SECRET
-    this.refreshTokenSecret = options.refreshTokenSecret || process.env.JWT_REFRESH_SECRET
-    this.accessTokenExpiry = options.accessTokenExpiry || "15m" // Short-lived
-    this.refreshTokenExpiry = options.refreshTokenExpiry || "7d"
-    this.issuer = options.issuer || "your-service"
-    this.audience = options.audience || "your-app"
-  }
-
-  // Token generation with jti for revocation tracking
-  generateTokenPair(payload) {
-    const jti = crypto.randomUUID()
-    const now = Math.floor(Date.now() / 1000)
-
-    const accessToken = jwt.sign(
+export async function verifyAccessToken(token: string): Promise<JwtPayload> {
+  return new Promise((resolve, reject) => {
+    jwt.verify(
+      token,
+      (header, cb) => {
+        jwks
+          .getSigningKey(header.kid)
+          .then((key) => cb(null, key.getPublicKey()))
+          .catch(cb)
+      },
       {
-        ...payload,
-        type: "access",
-        jti,
-        iat: now,
-        iss: this.issuer,
-        aud: this.audience,
+        algorithms: ALLOWED_ALGS,
+        issuer: process.env.JWT_ISSUER,
+        audience: process.env.JWT_AUDIENCE,
       },
-      this.accessTokenSecret,
-      {
-        expiresIn: this.accessTokenExpiry,
-        algorithm: "HS256",
-      },
+      (err, decoded) => (err ? reject(err) : resolve(decoded as JwtPayload)),
     )
-
-    const refreshToken = jwt.sign(
-      {
-        userId: payload.userId,
-        type: "refresh",
-        jti,
-        iat: now,
-        iss: this.issuer,
-        aud: this.audience,
-      },
-      this.refreshTokenSecret,
-      {
-        expiresIn: this.refreshTokenExpiry,
-        algorithm: "HS256",
-      },
-    )
-
-    return { accessToken, refreshToken, jti }
-  }
-
-  verifyAccessToken(token) {
-    try {
-      const decoded = jwt.verify(token, this.accessTokenSecret, {
-        issuer: this.issuer,
-        audience: this.audience,
-        algorithms: ["HS256"], // Explicitly allowlist algorithm
-      })
-
-      if (decoded.type !== "access") {
-        throw new Error("Invalid token type")
-      }
-
-      return decoded
-    } catch (error) {
-      throw new Error("Invalid access token")
-    }
-  }
-
-  middleware() {
-    return (req, res, next) => {
-      const authHeader = req.headers.authorization
-
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "No token provided" })
-      }
-
-      const token = authHeader.substring(7)
-
-      try {
-        const decoded = this.verifyAccessToken(token)
-        req.user = decoded
-        next()
-      } catch (error) {
-        return res.status(401).json({ error: "Invalid token" })
-      }
-    }
-  }
+  })
 }
-
-// Refresh token rotation - issue new refresh token on each use
-const jwtManager = new JWTManager()
-
-app.post("/auth/refresh", async (req, res) => {
-  const { refreshToken } = req.body
-
-  if (!refreshToken) {
-    return res.status(401).json({ error: "Refresh token required" })
-  }
-
-  try {
-    const decoded = jwtManager.verifyRefreshToken(refreshToken)
-
-    // Check revocation - detect token reuse attacks
-    const isRevoked = await checkTokenRevocation(decoded.jti)
-    if (isRevoked) {
-      return res.status(401).json({ error: "Token revoked" })
-    }
-
-    const user = await User.findById(decoded.userId)
-    if (!user) {
-      return res.status(401).json({ error: "User not found" })
-    }
-
-    const { accessToken, refreshToken: newRefreshToken } = jwtManager.generateTokenPair({
-      userId: user._id,
-      email: user.email,
-      role: user.role,
-    })
-
-    // Revoke old refresh token - rotation prevents reuse
-    await revokeToken(decoded.jti)
-
-    res.json({
-      accessToken,
-      refreshToken: newRefreshToken,
-    })
-  } catch (error) {
-    res.status(401).json({ error: "Invalid refresh token" })
-  }
-})
 ```
 
-### OAuth 2.0 and OAuth 2.1
+### Revoking JWTs
 
-OAuth 2.0 provides an authorization framework enabling third-party applications to obtain limited access to user accounts without exposing credentials.
+Strictly, you cannot. The token is a signed self-describing claim; once it's out, anyone can verify it until `exp`. The four production patterns:
 
-> **OAuth 2.1 (IETF Draft 14, as of October 2025)** consolidates OAuth 2.0 and its security extensions (PKCE, removal of implicit flow). While not yet finalized, its requirements are widely adopted.
+- **Short access-token TTL + refresh rotation.** The cheapest, most common pattern. 5–15 min for sensitive APIs, 15–30 min for general use. Compromise window equals the access-token TTL.
+- **Denylist by `jti`.** A per-`jti` "revoked until exp" entry in Redis or a Bloom filter at the API gateway. Cheap if the denylist is small; turns into a hot path if you revoke aggressively.
+- **Sender-constrained tokens (DPoP / mTLS).** The token is bound to a client-held key. Stealing the token alone is useless because the verifier requires a fresh proof-of-possession on each request ([RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449), [RFC 8705](https://datatracker.ietf.org/doc/html/rfc8705)).
+- **Key rotation as panic button.** Rotate the signing key and invalidate the JWKS entry to revoke *every* token in one action. Useful for "we have been breached, log everyone out" — destructive, so reserve it for incidents.
 
-**Key OAuth 2.1 changes from OAuth 2.0**:
+## Authorization: RBAC, ABAC, and ReBAC
 
-| Change                                   | Rationale                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------ |
-| **Implicit flow removed**                | Tokens in URL fragments are exposed in browser history, referrer headers |
-| **Resource owner password flow removed** | Users should never share passwords with third-party apps                 |
-| **PKCE required for all clients**        | Prevents authorization code interception, even for confidential clients  |
-| **Strict redirect URI matching**         | Prevents open redirect attacks                                           |
-| **Refresh token rotation recommended**   | Detects token theft                                                      |
+Once authentication has produced an identity, authorization decides *what they can do*. The three families you will hit in real systems:
 
-```javascript title="oauth2-provider.js" collapse={1-4, 17-18, 63-78}
-const express = require("express")
-const crypto = require("crypto")
-const axios = require("axios")
+### RBAC — Role-Based Access Control
 
-class OAuth2Provider {
-  constructor(options) {
-    this.clientId = options.clientId
-    this.clientSecret = options.clientSecret
-    this.redirectUri = options.redirectUri
-    this.authorizationEndpoint = options.authorizationEndpoint
-    this.tokenEndpoint = options.tokenEndpoint
-    this.userInfoEndpoint = options.userInfoEndpoint
-    this.scope = options.scope || "openid profile email"
-  }
+Permissions attach to roles; users are assigned roles. The model is formalised in [NIST INCITS 359 (RBAC)](https://csrc.nist.gov/projects/role-based-access-control). It works because most real-world permission requirements track *job function*, not individual users.
 
-  // Generate auth URL with PKCE and CSRF protection
-  generateAuthorizationUrl() {
-    const state = crypto.randomBytes(16).toString("hex")
-    const nonce = crypto.randomBytes(16).toString("hex")
+RBAC's failure mode is **role explosion**. The moment a permission depends on the resource ("only your own documents") or context ("only during business hours"), pure RBAC starts spawning roles like `editor-team-A-monday-thru-friday-9-to-5`. When you find yourself doing that, you've outgrown RBAC.
 
-    // PKCE: Generate code verifier and challenge
-    const codeVerifier = crypto.randomBytes(32).toString("base64url")
-    const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
+```ts title="rbac.ts" mark={20-22}
+type Permission = `${string}:${"create" | "read" | "update" | "delete"}`
 
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: this.clientId,
-      redirect_uri: this.redirectUri,
-      scope: this.scope,
-      state, // CSRF protection
-      nonce, // Replay protection (OIDC)
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    })
+const rolePermissions = new Map<string, Set<Permission>>([
+  ["admin", new Set(["user:create", "user:read", "user:update", "user:delete"])],
+  ["editor", new Set(["user:read", "user:update"])],
+  ["viewer", new Set(["user:read"])],
+])
 
-    return {
-      url: `${this.authorizationEndpoint}?${params}`,
-      state,
-      nonce,
-      codeVerifier, // Store server-side for token exchange
-    }
-  }
-
-  async exchangeCodeForTokens(code, state, savedState, codeVerifier) {
-    // Verify state to prevent CSRF
-    if (state !== savedState) {
-      throw new Error("Invalid state parameter")
-    }
-
-    try {
-      const response = await axios.post(
-        this.tokenEndpoint,
-        new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          code,
-          redirect_uri: this.redirectUri,
-          code_verifier: codeVerifier, // PKCE
-        }),
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        },
-      )
-
-      return response.data
-    } catch (error) {
-      throw new Error("Token exchange failed")
-    }
-  }
+export function userHasPermission(roles: string[], permission: Permission): boolean {
+  return roles.some((r) => rolePermissions.get(r)?.has(permission) ?? false)
 }
 
-// Express routes for OAuth flow
-const oauth2 = new OAuth2Provider({
-  clientId: process.env.OAUTH_CLIENT_ID,
-  clientSecret: process.env.OAUTH_CLIENT_SECRET,
-  redirectUri: process.env.OAUTH_REDIRECT_URI,
-  authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-  tokenEndpoint: "https://oauth2.googleapis.com/token",
-  userInfoEndpoint: "https://www.googleapis.com/oauth2/v2/userinfo",
-})
-
-app.get("/auth/oauth/login", (req, res) => {
-  const { url, state, nonce, codeVerifier } = oauth2.generateAuthorizationUrl()
-  req.session.oauthState = state
-  req.session.oauthNonce = nonce
-  req.session.codeVerifier = codeVerifier // Store for PKCE
-  res.redirect(url)
-})
-```
-
----
-
-## Implementation Patterns with Node.js
-
-### Comprehensive Authentication Middleware
-
-Passport.js supports multiple authentication strategies. The JWT strategy validates tokens on each request, while the Local strategy handles username/password login.
-
-```javascript title="auth-manager.js" collapse={1-5, 16-42, 68-76}
-const passport = require("passport")
-const LocalStrategy = require("passport-local").Strategy
-const JwtStrategy = require("passport-jwt").Strategy
-const ExtractJwt = require("passport-jwt").ExtractJwt
-
-class AuthenticationManager {
-  constructor(options = {}) {
-    this.jwtManager = options.jwtManager
-    this.rbacManager = options.rbacManager
-    this.setupStrategies()
-  }
-
-  setupStrategies() {
-    // Local Strategy - username/password authentication
-    passport.use(
-      new LocalStrategy(
-        {
-          usernameField: "email",
-          passwordField: "password",
-        },
-        async (email, password, done) => {
-          try {
-            const user = await User.findOne({ email }).select("+password")
-            if (!user) {
-              return done(null, false, { message: "Invalid credentials" })
-            }
-
-            const isValid = await user.comparePassword(password)
-            if (!isValid) {
-              return done(null, false, { message: "Invalid credentials" })
-            }
-
-            return done(null, user)
-          } catch (error) {
-            return done(error)
-          }
-        },
-      ),
-    )
-
-    // JWT Strategy - token-based authentication
-    passport.use(
-      new JwtStrategy(
-        {
-          jwtFromRequest: ExtractJwt.fromExtractors([
-            ExtractJwt.fromAuthHeaderAsBearerToken(),
-            ExtractJwt.fromBodyField("token"),
-            this.extractFromCookie,
-          ]),
-          secretOrKey: process.env.JWT_ACCESS_SECRET,
-          issuer: "your-service",
-          audience: "your-app",
-          algorithms: ["HS256"], // Explicitly allowlist
-        },
-        async (payload, done) => {
-          try {
-            const user = await User.findById(payload.userId)
-            if (user) {
-              return done(null, user)
-            }
-            return done(null, false)
-          } catch (error) {
-            return done(error, false)
-          }
-        },
-      ),
-    )
-  }
-
-  extractFromCookie(req) {
-    return req.cookies?.accessToken || null
-  }
-
-  requireAuth(strategy = "jwt") {
-    return passport.authenticate(strategy, { session: false })
-  }
-
-  requirePermission(permission) {
-    return [
-      this.requireAuth(),
-      (req, res, next) => {
-        if (this.rbacManager.hasPermission(req.user.id, permission)) {
-          next()
-        } else {
-          res.status(403).json({ error: "Insufficient permissions" })
-        }
-      },
-    ]
+export function requirePermission(permission: Permission) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "unauthenticated" })
+    if (!userHasPermission(req.user.roles, permission)) {
+      return res.status(403).json({ error: "forbidden" })
+    }
+    next()
   }
 }
 ```
 
-### API Security Middleware Stack
-
-Defense in depth requires multiple security layers. Helmet sets security headers, CORS restricts cross-origin requests, and input sanitization prevents injection attacks.
-
-```javascript title="security-middleware.js" collapse={1-4, 43-77}
-const helmet = require("helmet")
-const cors = require("cors")
-const compression = require("compression")
-
-class SecurityMiddleware {
-  static getStack(options = {}) {
-    return [
-      // Security headers via Helmet
-      helmet({
-        contentSecurityPolicy: {
-          directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https:"],
-          },
-        },
-        hsts: {
-          maxAge: 31536000, // 1 year
-          includeSubDomains: true,
-          preload: true,
-        },
-      }),
-
-      // CORS - restrict allowed origins
-      cors({
-        origin: options.allowedOrigins || ["http://localhost:3000"],
-        credentials: true,
-        optionsSuccessStatus: 200,
-      }),
-
-      compression(),
-
-      // Request size limits - prevent DoS
-      express.json({ limit: options.jsonLimit || "10mb" }),
-      express.urlencoded({
-        extended: false,
-        limit: options.urlEncodedLimit || "10mb",
-      }),
-
-      this.xssProtection(),
-    ]
-  }
-
-  static xssProtection() {
-    return (req, res, next) => {
-      const xss = require("xss")
-
-      if (req.body && typeof req.body === "object") {
-        req.body = this.sanitizeObject(req.body, xss)
-      }
-
-      if (req.query && typeof req.query === "object") {
-        req.query = this.sanitizeObject(req.query, xss)
-      }
-
-      next()
-    }
-  }
-
-  static sanitizeObject(obj, xss) {
-    const sanitized = {}
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string") {
-        sanitized[key] = xss(value)
-      } else if (typeof value === "object" && value !== null) {
-        sanitized[key] = this.sanitizeObject(value, xss)
-      } else {
-        sanitized[key] = value
-      }
-    }
-    return sanitized
-  }
-}
-```
-
----
-
-## Security Best Practices
-
-### Password Security
-
-1. **Use Memory-Hard Hashing**: Argon2id (primary) or bcrypt (legacy) with appropriate cost factors
-2. **Enforce Reasonable Password Policies**: Minimum 12 characters; check against breach databases (Have I Been Pwned API); avoid composition rules (uppercase/symbols) which reduce entropy through predictable patterns
-3. **Rate Limiting**: Exponential backoff on failed attempts; temporary lockout (5-30 min) after 5-10 failures
-4. **Secure Recovery**: Time-limited tokens; don't reveal whether email exists
-
-### Token Security
-
-1. **Short-lived Access Tokens**: 5-30 minutes depending on sensitivity
-2. **Refresh Token Rotation**: Issue new refresh token on each use; detect reuse attacks
-3. **Secure Storage**: HttpOnly cookies for web; Keychain (iOS) / Keystore (Android) for mobile; never localStorage
-4. **Algorithm Allowlist**: Verify `alg` header; reject `none`; prefer asymmetric (EdDSA, ES256) for distributed systems
-
-### Transport Security
-
-1. **TLS Everywhere**: Minimum TLS 1.2; prefer TLS 1.3 for 1-RTT handshakes
-2. **HSTS**: `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
-3. **Certificate Pinning**: For mobile apps accessing known backends
-4. **Perfect Forward Secrecy**: ECDHE cipher suites
-
-### Input Validation and Sanitization
-
-Schema validation at the API boundary prevents malformed data from reaching business logic.
-
-```javascript title="validation-middleware.js" collapse={1-2, 27-47}
-const joi = require("joi")
-
-class ValidationMiddleware {
-  static validate(schema, property = "body") {
-    return (req, res, next) => {
-      const { error, value } = schema.validate(req[property])
-
-      if (error) {
-        const details = error.details.map((detail) => ({
-          field: detail.path.join("."),
-          message: detail.message,
-        }))
-
-        return res.status(400).json({
-          error: "Validation failed",
-          details,
-        })
-      }
-
-      req[property] = value
-      next()
-    }
-  }
-}
-
-// Schema definitions
-const schemas = {
-  login: joi.object({
-    email: joi.string().email().required(),
-    password: joi.string().min(8).required(),
-    rememberMe: joi.boolean().optional(),
-  }),
-
-  register: joi.object({
-    email: joi.string().email().required(),
-    password: joi
-      .string()
-      .min(12) // NIST recommends 8+; 12+ for sensitive systems
-      .required(),
-    confirmPassword: joi.ref("password"),
-    name: joi.string().min(2).max(50).required(),
-  }),
-}
-
-// Apply validation
-app.post("/auth/login", ValidationMiddleware.validate(schemas.login), authController.login)
-```
-
----
-
-## Emerging Paradigms and Zero Trust
-
-### Zero Trust Architecture Principles
-
-Zero Trust emerged from the recognition that perimeter-based security fails when attackers breach the network boundary—or when the boundary doesn't exist (remote work, cloud). The core principle: **never trust, always verify** ([NIST SP 800-207](https://csrc.nist.gov/publications/detail/sp/800-207/final)).
-
-1. **Verify Explicitly**: Authenticate and authorize every request using all available signals (identity, device, location, behavior)
-2. **Least Privilege Access**: Minimum required permissions; just-in-time access
-3. **Assume Breach**: Design for compromise; limit blast radius; log everything
-4. **Continuous Verification**: Don't trust based on previous authentication alone
-
-### Zero Trust Implementation
-
-```javascript title="zero-trust-gateway.js" collapse={1-7, 44-73}
-class ZeroTrustGateway {
-  constructor(options = {}) {
-    this.riskEngine = options.riskEngine
-    this.policyEngine = options.policyEngine
-    this.contextAnalyzer = options.contextAnalyzer
-  }
-
-  async evaluateRequest(req, res, next) {
-    try {
-      const context = await this.contextAnalyzer.analyze(req)
-      const riskScore = await this.riskEngine.calculate(context)
-      const policyDecision = await this.policyEngine.evaluate(context, riskScore)
-
-      switch (policyDecision.action) {
-        case "allow":
-          req.zeroTrust = { riskScore, context }
-          next()
-          break
-
-        case "challenge":
-          // Step-up authentication required
-          this.requireAdditionalAuth(req, res, policyDecision)
-          break
-
-        case "deny":
-          res.status(403).json({
-            error: "Access denied",
-            reason: policyDecision.reason,
-          })
-          break
-
-        default:
-          res.status(500).json({ error: "Policy evaluation failed" })
-      }
-    } catch (error) {
-      console.error("Zero Trust evaluation error:", error)
-      res.status(500).json({ error: "Security evaluation failed" })
-    }
-  }
-}
-
-// Risk scoring based on multiple signals
-class RiskEngine {
-  async calculate(context) {
-    let riskScore = 0
-
-    // Location anomaly
-    if (context.geolocation?.isUnusualLocation) {
-      riskScore += 30
-    }
-
-    // Unrecognized device
-    if (!context.device?.isRecognized) {
-      riskScore += 25
-    }
-
-    // Behavioral anomaly (unusual access patterns)
-    if (context.behavior?.isAnomalous) {
-      riskScore += 35
-    }
-
-    // Network risk (TOR, VPN, known bad IP)
-    if (context.network?.isSuspicious) {
-      riskScore += 40
-    }
-
-    return Math.min(riskScore, 100)
-  }
-}
-```
-
----
-
-## Conclusion
-
-### Key Takeaways
-
-1. **Session vs Token is an architectural decision**: Sessions for immediate revocation and single-domain; tokens for stateless scalability and cross-domain
-2. **Defense in Depth**: Layer multiple mechanisms—MFA, short token lifetimes, refresh rotation, anomaly detection
-3. **Phishing-resistant auth**: WebAuthn/passkeys are origin-bound; passwords are inherently phishable
-4. **RBAC vs ABAC**: Start with RBAC; migrate to ABAC when role explosion occurs or dynamic policies are needed
-5. **Zero Trust**: Continuous verification; assume breach; minimize blast radius
-
-### Implementation Priorities
-
-1. **Foundation**: Argon2id/bcrypt (12+ rounds), HTTPS everywhere, proper session/token management
-2. **MFA**: Require for privileged accounts; prefer phishing-resistant methods (WebAuthn)
-3. **Protocols**: OAuth 2.1 patterns (PKCE always); OIDC for identity
-4. **Token Security**: Short access tokens (5-15 min), refresh rotation, HttpOnly cookies
-5. **Audit**: Log all auth events; detect anomalies; regular security assessments
-
-## Appendix
-
-### Prerequisites
-
-- HTTP fundamentals (cookies, headers, CORS)
-- Cryptographic basics (symmetric vs asymmetric encryption, hashing)
-- Node.js/Express middleware patterns
-
-### Terminology
-
-| Term         | Definition                                                                                                     |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| **AAA**      | Authentication, Authorization, Accounting—security framework triad                                             |
-| **ABAC**     | Attribute-Based Access Control—dynamic authorization using subject/resource/environment attributes             |
-| **JWT**      | JSON Web Token—self-contained, signed token format ([RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519)) |
-| **MFA**      | Multi-Factor Authentication—requiring 2+ authentication factors                                                |
-| **OIDC**     | OpenID Connect—identity layer built on OAuth 2.0                                                               |
-| **PKCE**     | Proof Key for Code Exchange—OAuth extension preventing authorization code interception                         |
-| **RBAC**     | Role-Based Access Control—permissions assigned to roles, not users                                             |
-| **TOTP**     | Time-based One-Time Password—algorithm generating codes from shared secret + time                              |
-| **WebAuthn** | Web Authentication API—W3C standard for passwordless authentication using public key cryptography              |
-
-### Summary
-
-- Sessions store state server-side (immediate revocation, scaling requires shared store); tokens are self-contained (stateless, revocation requires infrastructure)
-- Argon2id is the current OWASP recommendation for password hashing; bcrypt remains acceptable for existing systems
-- WebAuthn/passkeys are phishing-resistant due to origin binding; passkey sync varies by provider ecosystem
-- RBAC maps permissions to roles; ABAC evaluates policies against dynamic attributes
-- OAuth 2.1 requires PKCE for all clients and removes implicit/password flows
-- JWT access tokens should be short-lived (5-30 min); refresh tokens should rotate on each use
-- Zero Trust assumes breach and verifies every request using multiple signals
-
-### References
-
-**Specifications:**
-
-- [RFC 6238: TOTP](https://datatracker.ietf.org/doc/html/rfc6238) - Time-Based One-Time Password Algorithm
-- [RFC 6749: OAuth 2.0](https://datatracker.ietf.org/doc/html/rfc6749) - Authorization Framework
-- [RFC 7519: JWT](https://datatracker.ietf.org/doc/html/rfc7519) - JSON Web Token specification
-- [RFC 7636: PKCE](https://datatracker.ietf.org/doc/html/rfc7636) - Proof Key for Code Exchange
-- [OAuth 2.1 Draft](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-14) - IETF Draft 14 (October 2025)
-- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) - Identity layer on OAuth 2.0
-- [WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/) - W3C Web Authentication API (Candidate Recommendation, January 2026)
-
-**NIST Publications:**
-
-- [NIST SP 800-63-3: Digital Identity Guidelines](https://pages.nist.gov/800-63-3/) - Authentication assurance levels
-- [NIST SP 800-162: ABAC Guide](https://csrc.nist.gov/publications/detail/sp/800-162/final) - Attribute-Based Access Control
-- [NIST SP 800-207: Zero Trust Architecture](https://csrc.nist.gov/publications/detail/sp/800-207/final) - Zero Trust framework
-- [NIST RBAC Model](https://csrc.nist.gov/projects/role-based-access-control) - Role-Based Access Control
-
-**OWASP Guidelines:**
-
-- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) - Hashing recommendations
-- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) - Security best practices
-- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) - Access control guidelines
-
-**Implementation Resources:**
-
-- [Google Passkeys Documentation](https://developers.google.com/identity/passkeys) - Cross-platform passkey implementation
-- [Auth0 Token Best Practices](https://auth0.com/docs/secure/tokens/token-best-practices) - JWT implementation guidance
+### ABAC — Attribute-Based Access Control
+
+Decisions are computed from attributes of `subject`, `resource`, `action`, and `environment`. The reference is [NIST SP 800-162](https://csrc.nist.gov/publications/detail/sp/800-162/final). ABAC handles the contextual cases RBAC chokes on ("a doctor can read a chart only if assigned to that patient and they are on shift"), at the cost of a real policy engine you have to author, version, and reason about.
+
+The standard production options:
+
+- **OPA / Rego.** Open Policy Agent runs as a sidecar or library; policies are decoupled from application code. Best when many services share the same policy.
+- **AWS Cedar / Amazon Verified Permissions.** Cedar is a typed, formally analysable policy language; Verified Permissions is the managed evaluator. Strong if you're already on AWS.
+- **In-process policy code.** Fine for small surface areas; sets up a future refactor into a real engine.
+
+> [!CAUTION]
+> Always default-deny. ABAC engines are designed so an exception during evaluation, an unmatched policy, or a missing attribute resolves to **deny**, never to *permit*. If a policy returns `undefined`, that is not "allow" — that is a bug.
+
+### ReBAC — Relationship-Based Access Control
+
+When permissions are graph-shaped — "you can read a document if you are in any group that has been granted access, transitively" — RBAC and ABAC both struggle. The dominant ReBAC implementations ([SpiceDB](https://authzed.com/), [OpenFGA](https://openfga.dev/), Google's internal Zanzibar) model authorization as a relationship graph and answer "can `user:alice` perform `read` on `document:42`?" by traversing it. Useful for collaboration products (Drive, Notion, Figma) where the permission *is* the relationship.
+
+### Choosing
+
+| You have… | Start with |
+| :--- | :--- |
+| A small, mostly static set of roles tied to job function | RBAC |
+| Contextual rules on top of roles ("own documents only", "business hours") | RBAC + a small ABAC overlay |
+| Genuinely graph-shaped permissions (sharing, teams, transitive grants) | ReBAC |
+| A regulated environment with explicit policy governance | ABAC with OPA / Cedar |
+
+The pragmatic path is *RBAC first, ABAC where it actually pays for itself, ReBAC only if your domain is genuinely a permission graph*. Migrating from RBAC to ABAC later is straightforward; ripping a misapplied ReBAC out of a product that didn't need it is not.
+
+## Cookie security primer
+
+If you ship sessions or refresh tokens via cookies, the attribute set is doing the heavy lifting. The current 2026 defaults:
+
+| Attribute | Setting | Why |
+| :--- | :--- | :--- |
+| `HttpOnly` | always on for auth cookies | Cookie is invisible to JavaScript — XSS can't read it. |
+| `Secure` | always on | Cookie only sent over TLS. Required for `SameSite=None` and for `Partitioned`. |
+| `SameSite` | `Lax` (default), `Strict` for high-value actions, `None` only when cross-site is required | The browser default since Chrome 80 (Feb 2020) is `Lax`; explicit `Strict` blocks cross-site `GET` too.[^samesite] |
+| `Domain` / `Path` | scope as narrowly as possible | Domain widening is a one-way upgrade you'll regret. |
+| `Partitioned` | when cookie is set in a third-party context (embedded widgets, OAuth pop-ups) | [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/Privacy_sandbox/Partitioned_cookies) double-keys the cookie by top-level site, allowing legitimate third-party state without enabling cross-site tracking. Required as third-party cookies are phased out. |
+| `__Host-` prefix | for cookies that should be locked to a single origin | Forces `Secure`, no `Domain`, `Path=/`. The browser refuses to set the cookie if any of those are violated. |
+
+[^samesite]: [PortSwigger — Bypassing SameSite cookie restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions) covers default behaviour and the standard bypasses. The attribute itself is normatively defined in [`draft-ietf-httpbis-rfc6265bis-22`](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis-22), currently in the RFC Editor queue (December 2025) as the successor to RFC 6265.
+
+The deeper CSRF / CORS story — how `SameSite` interacts with `OPTIONS` preflights, when you still need a CSRF token, the `Origin`-header strategy — lives in [`csrf-and-cors-defense`](../csrf-and-cors-defense/README.md).
+
+## Operational guardrails
+
+Authentication is one of the few subsystems where the failure mode is "user account silently taken over weeks ago." Treat the operational pieces as load-bearing.
+
+- **Rate-limit `/login`, `/refresh`, `/reset` per identity *and* per IP.** Per-identity catches credential-stuffing against a single user; per-IP catches a botnet hitting many users. Exponential back-off plus a temporary lockout after ~5–10 failures is standard. Always return a constant-time *and* constant-shape response — never reveal whether the email exists.
+- **Detect anomalies in real time.** Impossible-travel (login from two countries inside a token's TTL), new-device sign-in, MFA-fatigue patterns (lots of denied push prompts), and refresh-token reuse should each trigger an account-level signal that can step-up authentication or alert security ops.
+- **Audit every auth event with an immutable, queryable trail.** Login success/failure, token issue/refresh/revoke, MFA enrolment changes, password change, recovery flow — log them with `userId`, `sessionId`, `jti`, IP, user-agent, and a stable correlation id. The audit log is what you'll wish you had when you're the one writing the breach disclosure.
+- **Plan the incident response *before* the incident.** The runbooks you need: revoke a single user's tokens, rotate a signing key (and what breaks when you do), purge a session-store partition, force MFA re-enrolment across a tenant.
+- **Recovery is the auth surface.** A passkey-protected account whose recovery is "click a link in your email" inherits the security of email. Recovery flows must equal the assurance of the strongest enrolment factor — that usually means a second passkey, a recovery code locked at registration, or a verified-identity step.
+- **Re-tune your hashing cost annually.** Hardware moves; what was 250 ms on 2023 hardware may be 80 ms today. Use `argon2.needsRehash()` (or the bcrypt/scrypt equivalent) on every successful login and lazily migrate to current parameters.
+
+## Where this fits in the rest of the series
+
+This article deliberately stops short of OAuth/OIDC mechanics, the full CSRF/CORS attack surface, and the broader application threat model. Continue with:
+
+- [`oauth-oidc-flow-guide`](../oauth-oidc-flow-guide/README.md) — Authorization Code with PKCE, OIDC discovery, ID-token vs access-token semantics.
+- [`csrf-and-cors-defense`](../csrf-and-cors-defense/README.md) — `SameSite`, CSRF tokens, the `Origin` header, CORS preflights.
+- [`web-app-security-architecture`](../web-app-security-architecture/README.md) — CSP, security headers, threat-modelling the front end.
+- [`csp-violation-reporting-pipeline`](../csp-violation-reporting-pipeline/README.md) — operationalising CSP at scale.
+- [`owasp-top-10-guide`](../owasp-top-10-guide/README.md) — the broader risk catalogue this article assumes you'll layer on top.
+
+A note on **Zero Trust**: ["never trust, always verify"](https://csrc.nist.gov/publications/detail/sp/800-207/final) ([NIST SP 800-207](https://csrc.nist.gov/publications/detail/sp/800-207/final)) is an architectural posture for the whole network and identity plane, not an authentication primitive. The pieces in this article — short-lived tokens, sender-constraining, continuous verification via reuse detection and anomaly signals, default-deny ABAC — are how you implement Zero Trust at the application layer. The framework deserves its own deep dive elsewhere.
+
+## References
+
+**Specifications and standards**
+
+- [`draft-ietf-httpbis-rfc6265bis-22`](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis-22) — current cookie semantics including `SameSite`, `Secure`, `HttpOnly`, `Partitioned` (RFC Editor queue, Dec 2025).
+- [RFC 6238](https://datatracker.ietf.org/doc/html/rfc6238) — TOTP.
+- [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) — OAuth 2.0 Authorization Framework.
+- [RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750) — Bearer Token Usage.
+- [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519) — JSON Web Token.
+- [RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636) — OAuth PKCE.
+- [RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252) — OAuth 2.0 for Native Apps.
+- [RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628) — OAuth 2.0 Device Authorization Grant.
+- [RFC 8705](https://datatracker.ietf.org/doc/html/rfc8705) — Mutual-TLS sender-constrained tokens.
+- [RFC 9068](https://datatracker.ietf.org/doc/html/rfc9068) — JWT profile for OAuth 2.0 access tokens.
+- [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449) — DPoP.
+- [RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700) — OAuth 2.0 Security BCP (January 2025).
+- [`draft-ietf-oauth-v2-1-15`](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-15) — OAuth 2.1 (Working Group document, March 2026; not yet submitted to the IESG).
+- [WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/) — W3C Candidate Recommendation Snapshot, 2026-01-13.
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html).
+
+**NIST**
+
+- [SP 800-63-4 / 800-63B-4](https://pages.nist.gov/800-63-4/) — Digital Identity Guidelines, authentication assurance levels (final, July 2025; supersedes SP 800-63-3).
+- [SP 800-162](https://csrc.nist.gov/publications/detail/sp/800-162/final) — ABAC.
+- [SP 800-207](https://csrc.nist.gov/publications/detail/sp/800-207/final) — Zero Trust Architecture.
+- [INCITS 359 — RBAC](https://csrc.nist.gov/projects/role-based-access-control).
+
+**OWASP**
+
+- [Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+- [Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html).
+- [Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html).
+
+**Practitioner references**
+
+- [Auth0 — Refresh Token Rotation](https://auth0.com/docs/secure/tokens/refresh-tokens/refresh-token-rotation).
+- [PortSwigger Web Security Academy — JWT attacks](https://portswigger.net/web-security/jwt).
+- [FIDO Alliance — Credential Exchange Specifications](https://fidoalliance.org/specifications-credential-exchange-specifications/).
+- [MDN — Partitioned cookies (CHIPS)](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/Privacy_sandbox/Partitioned_cookies).

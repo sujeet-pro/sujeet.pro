@@ -1,0 +1,16 @@
+%% Diagram: Authorization code interception attack (no PKCE)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant User
+    participant LegitApp as Legitimate App
+    participant MalApp as Malicious App
+    participant AuthZ as Authorization Server
+
+    User->>LegitApp: 1. Start login
+    LegitApp->>AuthZ: 2. Authorization request
+    AuthZ->>User: 3. Authenticate
+    Note over AuthZ,MalApp: Without PKCE, code returns via redirect
+    AuthZ-->>MalApp: 4. Malicious app intercepts code<br/>(same custom URI scheme)
+    MalApp->>AuthZ: 5. Exchange code for tokens
+    AuthZ->>MalApp: 6. Tokens issued to attacker!

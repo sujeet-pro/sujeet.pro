@@ -1,0 +1,18 @@
+%% Diagram: Colossus / Tectonic-style distributed metadata architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph MetadataService["Metadata service"]
+        CURATOR["Curators\n(stateless control plane)"]
+        BTABLE[("BigTable / Spanner\n(metadata store)")]
+    end
+
+    subgraph StorageService["Storage service"]
+        CUSTODIAN["Custodians\n(background: GC, balance, RAID)"]
+        DSERVER["D servers\n(disks behind RPC)"]
+    end
+
+    Client -->|"Metadata RPC"| CURATOR
+    CURATOR --> BTABLE
+    Client -->|"Data RPC"| DSERVER
+    CUSTODIAN --> DSERVER

@@ -1,0 +1,15 @@
+%% Diagram: OCSP stapling inside the TLS handshake
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant S as Server
+    participant CA as CA OCSP Responder
+    participant C as Client
+
+    S->>CA: OCSP request (periodic, hours)
+    CA->>S: Signed OCSP response (typ. 7-day validity)
+
+    Note over S,C: Subsequent TLS handshakes
+    C->>S: ClientHello + status_request
+    S->>C: Certificate + CertificateStatus (stapled OCSP)
+    C->>C: Validate stapled response (soft-fail in browsers)

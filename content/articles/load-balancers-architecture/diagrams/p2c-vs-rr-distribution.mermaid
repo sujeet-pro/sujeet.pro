@@ -1,0 +1,31 @@
+%% Diagram: P2C vs Round Robin — load distribution under variable request cost
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph RR["Round Robin (oblivious to load)"]
+        direction TB
+        RR_LB["LB picks the next backend<br/>in sequence regardless of state"]
+        RR_B1["Backend 1<br/>inflight: 8 ███████░"]
+        RR_B2["Backend 2<br/>inflight: 9 ████████"]
+        RR_B3["Backend 3 (slow)<br/>inflight: 27 ████████████<br/>queue grows monotonically"]
+        RR_B4["Backend 4<br/>inflight: 8 ███████░"]
+        RR_LB --> RR_B1
+        RR_LB --> RR_B2
+        RR_LB --> RR_B3
+        RR_LB --> RR_B4
+        RR_NOTE["Max load (n balls, n bins):<br/>≈ ln n / ln ln n"]
+    end
+
+    subgraph P2C["Power of Two Choices (load-aware)"]
+        direction TB
+        P2C_LB["LB samples 2 random backends<br/>routes to the one with<br/>fewer in-flight requests"]
+        P2C_B1["Backend 1<br/>inflight: 9 ████████"]
+        P2C_B2["Backend 2<br/>inflight: 9 ████████"]
+        P2C_B3["Backend 3 (slow)<br/>inflight: 13 █████████░<br/>traffic falls off slow node"]
+        P2C_B4["Backend 4<br/>inflight: 9 ████████"]
+        P2C_LB --> P2C_B1
+        P2C_LB --> P2C_B2
+        P2C_LB --> P2C_B3
+        P2C_LB --> P2C_B4
+        P2C_NOTE["Max load (n balls, n bins):<br/>≈ ln ln n / ln 2 + O(1)<br/>(exponentially better)"]
+    end

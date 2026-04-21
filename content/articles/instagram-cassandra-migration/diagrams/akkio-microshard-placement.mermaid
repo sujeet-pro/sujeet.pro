@@ -1,0 +1,34 @@
+%% Diagram: Akkio microshard access tracking, placement scoring, and migration
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant App as Application client
+    participant AC as Akkio client
+    participant Loc as Location DB
+    participant Acc as Access counter DB
+    participant DPS as Data placement service
+    participant Src as Source data centre
+    participant Dst as Target data centre
+
+    App->>AC: read/write μ-shard X
+    AC->>Loc: lookup placement(X)
+    Loc-->>AC: placement P (DC list)
+    AC->>Src: forward request to local replica in P
+    AC->>Acc: async record access(X, region)
+
+    Note over AC,DPS: Cross-region access detected
+    AC-->>DPS: hint: μ-shard X is suboptimally placed
+
+    DPS->>Acc: read 3-day access history(X)
+    DPS->>DPS: score regions by recency × capacity
+    alt new placement P' wins
+        DPS->>Loc: acquire migration lock(X)
+        DPS->>Src: set source ACL = read-only
+        DPS->>Dst: copy μ-shard X
+        DPS->>Loc: atomically update placement → P'
+        DPS->>Src: delete μ-shard X
+        DPS->>Loc: release lock
+    else current placement still optimal
+        DPS-->>AC: no-op
+    end

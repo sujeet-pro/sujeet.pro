@@ -1,0 +1,32 @@
+%% Diagram: Score-range partitioning of a leaderboard across Redis nodes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Leaderboard service"]
+
+    subgraph Router["Routing layer (score -> shard)"]
+        R0["score 0..999 -> shard_0"]
+        R1["score 1000..9999 -> shard_1"]
+        R2["score 10K..99K -> shard_2"]
+        R3["score >= 100K -> shard_3"]
+    end
+
+    subgraph Shards["Redis shards"]
+        S0["shard_0<br/>casual tail<br/>cold reads"]
+        S1["shard_1<br/>active mid"]
+        S2["shard_2<br/>competitive"]
+        S3["shard_3<br/>top players<br/>hot reads"]
+    end
+
+    Client --> Router
+    R0 --> S0
+    R1 --> S1
+    R2 --> S2
+    R3 --> S3
+
+    Q1["Top-N query<br/>reads only S3"] -. served by .-> S3
+    Q2["Neighbor query<br/>stays in 1 shard"] -. served by .-> S2
+    Q3["Global rank<br/>sum ZCARD of higher shards<br/>+ ZREVRANK in own"] -. needs .-> Shards
+
+    style Shards fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
+    style Router fill:#fef3c7,stroke:#b45309,color:#7c2d12

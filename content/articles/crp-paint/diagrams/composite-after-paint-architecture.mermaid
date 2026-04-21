@@ -1,0 +1,25 @@
+%% Diagram: Legacy vs CompositeAfterPaint Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Legacy["Legacy (pre-M94)"]
+        direction TB
+        L1[Style] --> L2[Layout]
+        L2 --> L3[Compositing<br/>guess which elements need layers]
+        L3 -.circular.-> L4[Paint<br/>per layer]
+        L4 -.circular.-> L3
+    end
+
+    subgraph CAP["CompositeAfterPaint (M94+)"]
+        direction TB
+        C1[Style] --> C2[Layout]
+        C2 --> C3[Prepaint<br/>property trees]
+        C3 --> C4[Paint<br/>single artifact]
+        C4 --> C5[Commit]
+        C5 --> C6[Layerize<br/>chunks to cc::Layers]
+    end
+
+    style L3 fill:#ffebee,stroke:#c62828
+    style L4 fill:#ffebee,stroke:#c62828
+    style C4 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style C6 fill:#e8f5e9,stroke:#2e7d32

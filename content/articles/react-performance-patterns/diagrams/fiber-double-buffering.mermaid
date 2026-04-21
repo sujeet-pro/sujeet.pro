@@ -1,0 +1,23 @@
+%% Diagram: Fiber double-buffering — current vs work-in-progress trees
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    cur["Current tree (on screen)"]
+    wip["Work-in-progress tree\nbuilt incrementally\nin the render phase"]
+    sched["Scheduler may pause,\nresume, or discard WIP\nwhile higher-priority work runs"]
+    swap["Commit: pointer swap\nWIP becomes the new current"]
+    dom["DOM mutations + layout effects\nrun synchronously"]
+
+    cur -. "alternate pointer" .-> wip
+    wip --> sched
+    sched --> wip
+    sched --> swap
+    swap --> dom
+    dom -. "next update reuses\nold current as new WIP" .-> cur
+
+    classDef store fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef commit fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    class cur,wip store
+    class sched phase
+    class swap,dom commit

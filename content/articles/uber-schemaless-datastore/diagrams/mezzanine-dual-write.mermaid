@@ -1,0 +1,22 @@
+%% Diagram: Mezzanine dual-write migration
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    App["Backend services"] --> Lib["lib/tripstore<br/>abstraction"]
+
+    subgraph Phase1["Phase 1 — backfill + mirror"]
+        Lib -->|"primary R/W"| PG1[("PostgreSQL")]
+        Lib -->|"mirror writes"| SL1[("Schemaless")]
+        Backfill["Backfill job"] --> SL1
+    end
+
+    subgraph Phase2["Phase 2 — shadow read + validate"]
+        Lib2["lib/tripstore"] -->|"primary read"| PG2[("PostgreSQL")]
+        Lib2 -->|"shadow read<br/>(probabilistic %)"| SL2[("Schemaless")]
+        Compare{"Diff results"} --> Report["Discrepancy report"]
+    end
+
+    subgraph Phase3["Phase 3 — flip + decommission"]
+        Lib3["lib/tripstore"] -->|"primary R/W"| SL3[("Schemaless")]
+        Lib3 -.->|"PG kept hot for rollback"| PG3[("PostgreSQL")]
+    end

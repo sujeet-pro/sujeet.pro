@@ -1,0 +1,36 @@
+%% Diagram: Sharding strategies comparison
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph hash["Hash-based"]
+        H_KEY["key=user_42"] --> H_FN["hash(key) mod N"]
+        H_FN --> H_S1["Shard 0"]
+        H_FN --> H_S2["Shard 1"]
+        H_FN --> H_S3["Shard 2"]
+        H_NOTE["Even distribution\nRange scans scatter"]
+    end
+
+    subgraph range["Range-based"]
+        R_KEY["key=user_42"] --> R_LU["Range routing"]
+        R_LU --> R_S1["a..g"]
+        R_LU --> R_S2["h..p"]
+        R_LU --> R_S3["q..z"]
+        R_NOTE["Range scans local\nHot ranges throttle"]
+    end
+
+    subgraph chash["Consistent hashing"]
+        C_KEY["key=user_42"] --> C_FN["hash(key) maps\nto ring position"]
+        C_FN --> C_RING["Token ring\nVirtual nodes"]
+        C_RING --> C_S1["Node A"]
+        C_RING --> C_S2["Node B"]
+        C_RING --> C_S3["Node C"]
+        C_NOTE["Minimal reshuffle on grow\nSkew without vnodes"]
+    end
+
+    classDef route fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef shard fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef note fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class H_KEY,R_KEY,C_KEY,H_FN,R_LU,C_FN,C_RING route
+    class H_S1,H_S2,H_S3,R_S1,R_S2,R_S3,C_S1,C_S2,C_S3 shard
+    class H_NOTE,R_NOTE,C_NOTE note

@@ -1,0 +1,32 @@
+%% Diagram: Sale-day timeline (T0 = sale opens)
+%% Type: gantt
+%%{init: {'htmlLabels': false}}%%
+gantt
+    title Sale-day operational timeline (T0 = sale opens)
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Pre-sale (T-60 to T-1)
+    Pre-warm CDN with waiting-room HTML        :pre1, 09:00, 30m
+    Deploy WAF rules + bot baselines           :pre2, 09:00, 30m
+    Open pre-sale waiting room                 :pre3, 09:30, 30m
+    Mint tokens / load inventory into shards   :pre4, 09:45, 15m
+
+    section Sale open (T0)
+    Randomise pre-sale arrivals                :crit, t0a, 09:59, 1m
+    Sale opens (admission gate engaged)        :milestone, t0b, 10:00, 0m
+
+    section Peak (T0 to T+5)
+    Edge absorbs polling spike                 :p1, 10:00, 5m
+    Token-gated admission to checkout          :p2, 10:00, 5m
+    Atomic Redis decrement on hot SKUs         :p3, 10:00, 5m
+    Inventory depletion (typical)              :milestone, p4, 10:05, 0m
+
+    section Drain (T+5 to T+30)
+    Outstanding reservations expire / restock  :d1, 10:05, 25m
+    Async order workers drain queue            :d2, 10:00, 30m
+    DLQ inspection + manual replays            :d3, 10:15, 15m
+
+    section Post-sale (T+30+)
+    Sale closed, waiting room shut down        :milestone, post1, 10:30, 0m
+    Capture metrics + postmortem snapshot      :post2, 10:30, 30m

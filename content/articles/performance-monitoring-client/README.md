@@ -6,76 +6,74 @@ description: >-
   Performance APIs, and Real User Monitoring — including sampling strategies,
   attribution debugging, and reliable beacon transmission.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
-  - system-design
+  - performance
+  - web-vitals
+  - web-apis
   - architecture
 ---
 
 # Client Performance Monitoring
 
-Measuring frontend performance in production requires capturing real user experience data—not just synthetic benchmarks. Lab tools like Lighthouse measure performance under controlled conditions, but users experience your application on varied devices, networks, and contexts. Real User Monitoring (RUM) bridges this gap by collecting performance metrics from actual browser sessions, enabling data-driven optimization where it matters most: in the field.
+Frontend performance only matters in production. Lab tools like [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview) measure performance under one synthetic device and one synthetic network; users hit your app from a mid-tier Android on a flaky 4G with a third-party tag manager loaded into the same main thread. Real User Monitoring (RUM) closes that gap by capturing per-session performance signals from the browsers of actual users, then aggregating them into the percentile-based metrics that engineering and SEO actually pay attention to. This article is a working reference for building or evaluating that pipeline: which metrics, captured how, transmitted with what guarantees, and attributed in a way that makes them actionable.
 
-![RUM architecture: browser APIs capture metrics, beacons transmit reliably on page unload, backend pipelines aggregate and surface insights.](./diagrams/rum-architecture-browser-apis-capture-metrics-beacons-transmit-reliably-on-page--light.svg "RUM architecture: browser APIs capture metrics, beacons transmit reliably on page unload, backend pipelines aggregate and surface insights.")
-![RUM architecture: browser APIs capture metrics, beacons transmit reliably on page unload, backend pipelines aggregate and surface insights.](./diagrams/rum-architecture-browser-apis-capture-metrics-beacons-transmit-reliably-on-page--dark.svg)
+![High-level RUM architecture: Performance APIs in the browser feed a sampled, batched collector, beacons cross to an ingest endpoint, a stream backs aggregation, and dashboards/alerts consume percentile rollups.](./diagrams/rum-architecture-light.svg "RUM architecture: browser Performance APIs feed a sampled, batched collector that beacons to an ingest endpoint backed by a stream, then by percentile aggregation, dashboards, and alerts.")
+![High-level RUM architecture: Performance APIs in the browser feed a sampled, batched collector, beacons cross to an ingest endpoint, a stream backs aggregation, and dashboards/alerts consume percentile rollups.](./diagrams/rum-architecture-dark.svg)
 
-## Abstract
+## Mental model
 
-Client performance monitoring centers on three measurement categories:
+Three layers, four hard problems.
 
-1. **Core Web Vitals**: Google's standardized metrics—LCP (Largest Contentful Paint), INP (Interaction to Next Paint, replaced FID in March 2024), and CLS (Cumulative Layout Shift). These measure loading, interactivity, and visual stability respectively, evaluated at the 75th percentile.
+**Layers**
 
-2. **Performance APIs**: Browser-native interfaces (PerformanceObserver, Navigation Timing, Resource Timing, Event Timing) that expose timing data with sub-millisecond precision. The `web-vitals` library abstracts edge cases these raw APIs miss.
+1. **Browser Performance APIs** — [`PerformanceObserver`](https://www.w3.org/TR/performance-timeline/), [Navigation Timing](https://www.w3.org/TR/navigation-timing-2/), [Resource Timing](https://www.w3.org/TR/resource-timing-2/), [Event Timing](https://www.w3.org/TR/event-timing/), [Element Timing](https://wicg.github.io/element-timing/), [Long Animation Frames](https://w3c.github.io/long-animation-frames/), and [User Timing](https://www.w3.org/TR/user-timing-3/) — expose timing data with sub-millisecond resolution. The [`web-vitals`](https://github.com/GoogleChrome/web-vitals) library wraps these and patches the well-known edge cases.
+2. **Transport** — [`navigator.sendBeacon()`](https://www.w3.org/TR/beacon/) and [`fetch` with `keepalive`](https://fetch.spec.whatwg.org/#fetch-method) survive page unload, so terminal-state metrics like CLS and INP actually reach the server. The right hook is [`visibilitychange`](https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event), with `pagehide` as the bfcache-safe fallback.
+3. **Backend rollup** — sampled per-session events stream through ingest, get aggregated per route at p75 / p98, and feed dashboards and alerts.
 
-3. **Data transmission**: `navigator.sendBeacon()` and `fetch` with `keepalive` enable reliable transmission during page unload—critical because metrics like CLS and INP finalize only when the user leaves.
+**Hard problems**
 
-Key architectural decisions:
-
-- **Sampling strategy**: 100% capture for errors, 1-10% for performance metrics to control costs
-- **Attribution data**: Include element selectors and interaction targets to make metrics actionable
-- **Session windowing**: CLS uses session windows (max 5s, 1s gap); INP reports the worst interaction minus outliers
-
-The distinction between lab and field data is fundamental: lab tools provide reproducible debugging; field data reveals what users actually experience.
+- **Sampling** — RUM is high-cardinality. Capturing 100% is rarely worth the bill; sample stable per-session so you can still slice by route or release.
+- **Attribution** — `LCP = 3.2s` is unactionable. Capture the element selector, resource URL, and the long animation frames around it.
+- **Lifecycle** — INP and CLS only finalize when the page is hidden or torn down. Anything that prevents [bfcache](https://web.dev/articles/bfcache) (`unload`, `beforeunload`) silently drops both your data and the user's back-button latency.
+- **Lab vs field divergence** — synthetic and field always disagree, and field is the source of truth for [Core Web Vitals scoring](https://web.dev/articles/defining-core-web-vitals-thresholds).
 
 ## Core Web Vitals
 
+[Core Web Vitals](https://web.dev/articles/vitals) are Google's three load / interactivity / stability metrics. All three are evaluated at the **75th percentile** of page visits — a page is "Good" only when at least 75% of visits clear the Good threshold[^cwv-thresholds].
+
 ### LCP (Largest Contentful Paint)
 
-LCP measures perceived load speed by tracking when the largest visible content element renders. Per the web.dev specification, qualifying elements include:
+LCP measures perceived load speed by tracking when the largest visible content element renders. Per the [LCP spec](https://w3c.github.io/largest-contentful-paint/), qualifying elements are:
 
-- `<img>` elements (first frame for animated images)
-- `<image>` elements within `<svg>`
-- `<video>` elements (poster image or first displayed frame)
-- Elements with CSS `background-image` via `url()`
-- Block-level elements containing text nodes
+- `<img>` and `<image>` inside `<svg>` (first frame for animated images)
+- `<video>` (poster image, or first painted frame)
+- elements with a CSS `background-image` set via `url()`
+- block-level elements containing text nodes
 
-**Size calculation rules:**
+**Sizing rules:**
 
-- Only the visible portion within the viewport counts
-- For resized images, the smaller of visible size or intrinsic size is used
-- Margins, padding, and borders are excluded
-- Low-entropy placeholders and fully transparent elements are filtered out
+- Only the visible portion within the viewport counts.
+- For resized images, the smaller of intrinsic and rendered size wins (so blowing up a small image doesn't game LCP).
+- Margins, padding, and borders are excluded.
+- Low-entropy placeholders and fully transparent elements are filtered out.
 
-**When LCP stops reporting:**
+**When LCP stops reporting.** The browser stops dispatching new LCP candidates as soon as the user interacts (tap, scroll, keypress), because user interaction usually changes what's onscreen. LCP therefore captures the initial loading experience only; ongoing rendering is INP's job[^lcp-stop].
 
-The browser stops dispatching LCP entries when the user interacts (tap, scroll, keypress) because interaction typically changes the visible content. This means LCP captures the initial loading experience, not ongoing rendering.
-
-```typescript title="lcp-measurement.ts" collapse={1-3,20-30}
-// Using the raw Performance API
+```typescript title="lcp-measurement.ts"
 new PerformanceObserver((entryList) => {
   const entries = entryList.getEntries()
-  // The last entry is the current LCP candidate
   const lastEntry = entries[entries.length - 1] as LargestContentfulPaint
 
   console.log("LCP:", lastEntry.startTime)
   console.log("Element:", lastEntry.element)
   console.log("Size:", lastEntry.size)
-  console.log("URL:", lastEntry.url) // For images
+  console.log("URL:", lastEntry.url) // populated for image LCPs
 }).observe({ type: "largest-contentful-paint", buffered: true })
 ```
 
-**Thresholds:**
+**Thresholds[^lcp]:**
 
 | Rating            | Value     |
 | ----------------- | --------- |
@@ -85,51 +83,39 @@ new PerformanceObserver((entryList) => {
 
 ### INP (Interaction to Next Paint)
 
-INP replaced FID (First Input Delay) as a Core Web Vital in March 2024. The key difference: FID measured only the first interaction's input delay; INP measures the worst interaction latency across the entire page lifecycle.
+[INP](https://web.dev/articles/inp) replaced [FID](https://web.dev/articles/fid) as the responsiveness Core Web Vital on **March 12, 2024**[^inp-launch]. FID measured only the *input delay* of the *first* interaction; INP measures the **worst end-to-end interaction latency** across the whole page lifecycle. Chrome usage data shows roughly 90% of a user's time on a page is spent *after* it loads, so first-input-only metrics miss most of the responsiveness story[^inp-90].
 
-**Why INP is more comprehensive:**
+![INP latency phases: input delay (main-thread busy before the handler runs), processing time (event handlers), and presentation delay (style, layout, paint) until the next frame is painted.](./diagrams/inp-phases-light.svg "INP latency = input delay + processing time + presentation delay, measured from user input to the next paint.")
+![INP latency phases: input delay, processing time, and presentation delay until the next frame is painted.](./diagrams/inp-phases-dark.svg)
 
-Chrome usage data shows 90% of user time on a page occurs after initial load. FID captured only first impressions; INP captures the full responsiveness experience.
+**Three phases of an interaction:**
 
-**Three phases of interaction latency:**
+1. **Input Delay** — time from the input event until your event handlers actually start (main thread blocked by something else).
+2. **Processing Time** — total time spent in your handlers for that interaction.
+3. **Presentation Delay** — time from the last handler returning until the next frame is painted (recalc style, layout, paint, compositor).
 
-```
-User Input → [Input Delay] → [Processing Time] → [Presentation Delay] → Next Frame
+**Tracked interactions:** mouse clicks, touchscreen taps, and keyboard presses (physical and on-screen keyboards both). Scroll, hover, and zoom are *excluded* — they don't run synchronous handlers in the same way[^inp-interactions].
 
-1. Input Delay: Time before event handlers execute (main thread blocked)
-2. Processing Time: Time spent executing all event handlers
-3. Presentation Delay: Time from handler completion to next frame paint
-```
+**Final value calculation.** INP reports a single number per page lifecycle:
 
-**Tracked interactions:**
+- Pages with **fewer than 50 interactions** report the worst single interaction latency.
+- Pages with **≥ 50 interactions** ignore the highest interaction for every additional 50 interactions, which is effectively the **98th percentile** of interaction latencies[^inp-outliers]. This stops a single anomalous interaction from skewing the metric on a long-lived SPA.
 
-- Mouse clicks
-- Touchscreen taps
-- Keyboard presses (physical and on-screen)
-
-**Excluded:** Scrolling, hovering, zooming (these don't trigger event handlers in the same way).
-
-**Final value calculation:**
-
-INP reports the worst interaction latency, with one outlier ignored per 50 interactions. This prevents a single anomalous interaction from skewing the metric while still capturing genuinely slow interactions.
-
-```typescript title="inp-measurement.ts" collapse={1-3}
-// Using web-vitals library (recommended)
+```typescript title="inp-measurement.ts"
 import { onINP } from "web-vitals/attribution"
 
 onINP((metric) => {
   console.log("INP:", metric.value)
   console.log("Rating:", metric.rating)
 
-  // Attribution data for debugging
   const { eventTarget, eventType, loadState } = metric.attribution
   console.log("Element:", eventTarget)
   console.log("Event:", eventType)
-  console.log("Load state:", loadState) // 'loading', 'dom-interactive', 'dom-content-loaded', 'complete'
+  console.log("Load state:", loadState) // 'loading' | 'dom-interactive' | 'dom-content-loaded' | 'complete'
 })
 ```
 
-**Thresholds:**
+**Thresholds[^inp]:**
 
 | Rating            | Value         |
 | ----------------- | ------------- |
@@ -139,57 +125,47 @@ onINP((metric) => {
 
 ### CLS (Cumulative Layout Shift)
 
-CLS measures visual stability—how much visible content unexpectedly shifts during the page lifecycle. Unexpected shifts frustrate users, cause misclicks, and degrade perceived quality.
+[CLS](https://web.dev/articles/cls) measures visual stability — how much visible content unexpectedly shifts during the page lifecycle. Unexpected shifts misalign tap targets, lose reading position, and corrupt clicks.
 
-**Layout shift score formula:**
+**Layout shift score per shift:**
 
-```
-Layout Shift Score = Impact Fraction × Distance Fraction
-```
+$$\text{layout shift score} = \text{impact fraction} \times \text{distance fraction}$$
 
-- **Impact Fraction**: Combined visible area of shifted elements (before and after positions) as a fraction of viewport area
-- **Distance Fraction**: Greatest distance any element moved, divided by viewport's largest dimension
+- **Impact fraction** — combined visible area of shifted elements (union of before and after positions) as a fraction of viewport area.
+- **Distance fraction** — greatest distance any single element moved, divided by the viewport's larger dimension.
 
-**Session windowing:**
+**Session windowing.** CLS does *not* sum every shift across the page lifetime. Shifts are bucketed into **session windows** with a maximum 1-second gap between consecutive shifts and a hard 5-second cap on window duration. The reported CLS value is the **maximum** of all session-window scores, not their sum[^cls-windowing]. This is the change introduced in 2021 to stop long-lived SPAs from accumulating artificially large CLS values[^cls-evolving].
 
-CLS doesn't sum all shifts. It groups shifts into "session windows" with these constraints:
+![CLS session windows: shifts within 1s of each other join the same window, the window caps at 5s, and the reported CLS is the max session window score.](./diagrams/cls-session-windows-light.svg "CLS = max(session window scores). A gap of ≥ 1s closes a window; a window can be at most 5s long.")
+![CLS session windows: shifts within 1s of each other join the same window, the window caps at 5s, and the reported CLS is the max of all window scores.](./diagrams/cls-session-windows-dark.svg)
 
-- Maximum 1 second gap between shifts within a window
-- Maximum 5 second window duration
+**Expected vs unexpected.** Shifts that occur within 500ms of user interaction (click, tap, keypress) carry the `hadRecentInput` flag and are excluded from CLS. Animations done with `transform: translate()` or `transform: scale()` don't count either, because transforms don't change element box geometry[^cls-windowing].
 
-CLS reports the highest-scoring session window, not the total. This prevents long-lived SPAs (Single Page Applications) from accumulating artificially high scores.
-
-**Expected vs. unexpected shifts:**
-
-Shifts within 500ms of user interaction (click, tap, keypress) are considered expected and excluded via the `hadRecentInput` flag. Animations using `transform: translate()` or `transform: scale()` don't trigger layout shifts because they don't affect element geometry.
-
-```typescript title="cls-measurement.ts" collapse={1-3,25-35}
-// Raw API approach (simplified)
+```typescript title="cls-measurement.ts"
 let clsValue = 0
-let clsEntries: LayoutShift[] = []
+const clsEntries: LayoutShift[] = []
 
 new PerformanceObserver((entryList) => {
   for (const entry of entryList.getEntries() as LayoutShift[]) {
-    // Only count unexpected shifts
     if (!entry.hadRecentInput) {
       clsValue += entry.value
       clsEntries.push(entry)
     }
   }
 }).observe({ type: "layout-shift", buffered: true })
-
-// Note: This simplified version doesn't implement session windowing
-// Use web-vitals library for correct CLS calculation
 ```
+
+> [!WARNING]
+> The snippet above naively sums every shift — it does not implement the 1s-gap / 5s-cap session windowing. Always use the `web-vitals` library in production; the raw API is for understanding and debugging only.
 
 **Common causes:**
 
-- Images without dimensions (`width`/`height` attributes)
-- Ads, embeds, iframes that resize
-- Dynamically injected content
-- Web fonts causing FOIT/FOUT (Flash of Invisible/Unstyled Text)
+- Images or `<video>` without `width` / `height` attributes (or `aspect-ratio` CSS).
+- Ads, embeds, or iframes that resize after load.
+- Dynamically injected content above existing content.
+- Web fonts causing FOIT / FOUT (use `font-display: optional` or `size-adjust`).
 
-**Thresholds:**
+**Thresholds[^cls]:**
 
 | Rating            | Value      |
 | ----------------- | ---------- |
@@ -197,21 +173,19 @@ new PerformanceObserver((entryList) => {
 | Needs Improvement | 0.1 – 0.25 |
 | Poor              | > 0.25     |
 
-### The 75th Percentile Standard
+### The 75th-percentile standard
 
-All Core Web Vitals are evaluated at the 75th percentile of page loads. A page passes if 75% or more of visits meet the "Good" threshold. This approach:
-
-- Accounts for real-world variance in devices and networks
-- Balances between median (too lenient) and 95th percentile (too sensitive to outliers)
-- Provides a consistent benchmark across sites
+All three metrics are evaluated at the 75th percentile of page loads in the field. A page passes if at least 75% of visits clear the Good threshold. Google chose p75 deliberately — the median is too lenient (half the users still get a poor experience), p95 is too sensitive to genuine outliers (one extreme device shifts the score), and p75 is a defensible balance across devices, networks, and locales[^cwv-thresholds].
 
 ## Performance APIs
 
+The metrics above are only the framing. To capture them — and to measure things `web-vitals` doesn't measure for you — go straight to the underlying APIs.
+
 ### PerformanceObserver
 
-PerformanceObserver is the modern interface for accessing performance timeline entries. Unlike `performance.getEntries()`, it provides asynchronous notification as entries are recorded.
+[`PerformanceObserver`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver) is the supported way to read the [Performance Timeline](https://www.w3.org/TR/performance-timeline/). Unlike `performance.getEntries()`, it delivers entries asynchronously as they're recorded.
 
-```typescript title="performance-observer-pattern.ts" collapse={1-5}
+```typescript title="performance-observer-pattern.ts"
 interface PerformanceMetricCallback {
   (entries: PerformanceEntryList): void
 }
@@ -221,7 +195,6 @@ function observePerformance(
   callback: PerformanceMetricCallback,
   options: { buffered?: boolean } = {},
 ): () => void {
-  // Check if entry type is supported
   if (!PerformanceObserver.supportedEntryTypes.includes(entryType)) {
     console.warn(`Entry type "${entryType}" not supported`)
     return () => {}
@@ -239,67 +212,52 @@ function observePerformance(
   return () => observer.disconnect()
 }
 
-// Usage
 const disconnect = observePerformance("largest-contentful-paint", (entries) => {
   const lcp = entries[entries.length - 1]
   console.log("LCP:", lcp.startTime)
 })
 ```
 
-**The `buffered` flag:**
+**The `buffered` flag.** With `buffered: true`, the observer receives entries that were recorded *before* `observe()` was called — essential for metrics like LCP, FCP, and TTFB that often fire before your monitoring code is parsed and executed[^perf-timeline]. Each entry type has its own buffer cap; once exceeded, new entries fall off the buffer.
 
-When `buffered: true`, the observer receives entries recorded before `observe()` was called. This is critical for metrics like LCP and FCP that often fire before your monitoring code loads. Each entry type has buffer limits—when full, new entries aren't buffered.
+**Supported entry types (2026):**
 
-**Supported entry types (2024):**
+| Entry type                 | Interface                           | Purpose                          |
+| -------------------------- | ----------------------------------- | -------------------------------- |
+| `navigation`               | `PerformanceNavigationTiming`       | Page load timing                 |
+| `resource`                 | `PerformanceResourceTiming`         | Resource fetch timing            |
+| `paint`                    | `PerformancePaintTiming`            | FP, FCP                          |
+| `largest-contentful-paint` | `LargestContentfulPaint`            | LCP                              |
+| `layout-shift`             | `LayoutShift`                       | CLS                              |
+| `event`                    | `PerformanceEventTiming`            | Per-interaction timing (INP)     |
+| `first-input`              | `PerformanceEventTiming`            | First input delay (legacy FID)   |
+| `longtask`                 | `PerformanceLongTaskTiming`         | Tasks > 50ms (no script attrib.) |
+| `long-animation-frame`     | `PerformanceLongAnimationFrameTiming` | LoAF (script-level attribution)  |
+| `mark`                     | `PerformanceMark`                   | Custom marks                     |
+| `measure`                  | `PerformanceMeasure`                | Custom measures                  |
+| `element`                  | `PerformanceElementTiming`          | Specific element render timing   |
 
-| Entry Type                 | Interface                           | Purpose                  |
-| -------------------------- | ----------------------------------- | ------------------------ |
-| `navigation`               | PerformanceNavigationTiming         | Page load timing         |
-| `resource`                 | PerformanceResourceTiming           | Resource fetch timing    |
-| `paint`                    | PerformancePaintTiming              | FP, FCP                  |
-| `largest-contentful-paint` | LargestContentfulPaint              | LCP                      |
-| `layout-shift`             | LayoutShift                         | CLS                      |
-| `event`                    | PerformanceEventTiming              | Interaction timing (INP) |
-| `first-input`              | PerformanceEventTiming              | First input delay        |
-| `longtask`                 | PerformanceLongTaskTiming           | Tasks > 50ms             |
-| `long-animation-frame`     | PerformanceLongAnimationFrameTiming | LoAF (replaces longtask) |
-| `mark`                     | PerformanceMark                     | Custom marks             |
-| `measure`                  | PerformanceMeasure                  | Custom measures          |
-| `element`                  | PerformanceElementTiming            | Specific element timing  |
+> [!NOTE]
+> [Long Animation Frames](https://developer.chrome.com/docs/web-platform/long-animation-frames) does **not** replace [Long Tasks](https://w3c.github.io/longtasks/). They coexist; LoAF adds script-level attribution and frame-level lifecycle data that Long Tasks lacks. The Chrome team has stated there are no plans to deprecate the Long Tasks API[^loaf].
 
 ### Navigation Timing
 
-Navigation Timing provides detailed timing for the document load process.
+[Navigation Timing Level 2](https://www.w3.org/TR/navigation-timing-2/) exposes the document-load pipeline as a single `PerformanceNavigationTiming` entry.
 
-```typescript title="navigation-timing.ts" collapse={1-3,30-45}
+```typescript title="navigation-timing.ts"
 function getNavigationMetrics(): Record<string, number> {
   const [nav] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[]
-
   if (!nav) return {}
 
   return {
-    // DNS
     dnsLookup: nav.domainLookupEnd - nav.domainLookupStart,
-
-    // TCP connection
     tcpConnect: nav.connectEnd - nav.connectStart,
-
-    // TLS handshake (if HTTPS)
     tlsHandshake: nav.secureConnectionStart > 0 ? nav.connectEnd - nav.secureConnectionStart : 0,
-
-    // Time to First Byte
     ttfb: nav.responseStart - nav.requestStart,
-
-    // Download time
     downloadTime: nav.responseEnd - nav.responseStart,
-
-    // DOM processing
-    domProcessing: nav.domContentLoadedEventEnd - nav.responseEnd,
-
-    // Total page load
+    domInteractive: nav.domInteractive - nav.responseEnd,
+    domComplete: nav.domComplete - nav.responseEnd,
     pageLoad: nav.loadEventEnd - nav.startTime,
-
-    // Transfer size
     transferSize: nav.transferSize,
     encodedBodySize: nav.encodedBodySize,
     decodedBodySize: nav.decodedBodySize,
@@ -309,27 +267,30 @@ function getNavigationMetrics(): Record<string, number> {
 
 **Key timing points:**
 
-```
-navigationStart
-    → redirectStart/End
+```text
+startTime (= 0)
+    → redirectStart / redirectEnd
     → fetchStart
-    → domainLookupStart/End (DNS)
-    → connectStart/End (TCP)
-    → secureConnectionStart (TLS)
+    → domainLookupStart / domainLookupEnd     (DNS)
+    → connectStart / connectEnd               (TCP)
+    → secureConnectionStart                   (TLS)
     → requestStart
-    → responseStart (TTFB)
+    → responseStart                           (TTFB)
     → responseEnd
     → domInteractive
-    → domContentLoadedEventStart/End
+    → domContentLoadedEventStart / End
     → domComplete
-    → loadEventStart/End
+    → loadEventStart / loadEventEnd
 ```
+
+> [!NOTE]
+> The legacy `PerformanceTiming.navigationStart` is gone in `PerformanceNavigationTiming` — use `startTime` (always 0 for the navigation entry) or `fetchStart` as your origin, depending on whether you want to include redirect time.
 
 ### Resource Timing
 
-Resource Timing exposes network timing for fetched resources (scripts, stylesheets, images, XHR/fetch requests).
+[Resource Timing Level 2](https://www.w3.org/TR/resource-timing-2/) exposes per-resource network timing for everything the document fetches (scripts, stylesheets, images, fonts, XHR/fetch requests).
 
-```typescript title="resource-timing.ts" collapse={1-5,35-50}
+```typescript title="resource-timing.ts"
 interface ResourceMetrics {
   name: string
   initiatorType: string
@@ -353,7 +314,6 @@ function getSlowResources(threshold = 1000): ResourceMetrics[] {
     .sort((a, b) => b.duration - a.duration)
 }
 
-// Monitor resources as they load
 new PerformanceObserver((list) => {
   for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
     if (entry.duration > 2000) {
@@ -363,73 +323,58 @@ new PerformanceObserver((list) => {
 }).observe({ type: "resource", buffered: true })
 ```
 
-**Cross-origin timing:**
-
-By default, cross-origin resources expose only `startTime`, `duration`, and `responseEnd` with other timing values zeroed for privacy. The `Timing-Allow-Origin` header enables full timing:
+**Cross-origin timing.** By default, cross-origin resources expose only `startTime`, `duration`, and `responseEnd`; everything else is zeroed for [privacy reasons](https://www.w3.org/TR/resource-timing-2/#sec-cross-origin-resources). The origin serving the resource opts in by sending the `Timing-Allow-Origin` response header:
 
 ```http
 Timing-Allow-Origin: *
 Timing-Allow-Origin: https://example.com
 ```
 
+This single header is the most common reason third-party metrics show up as a featureless black box in your dashboards.
+
 ### Long Animation Frames (LoAF)
 
-Long Animation Frames API replaces Long Tasks API with better attribution. A "long animation frame" is one where rendering work exceeds 50ms, blocking smooth 60fps rendering.
+[Long Animation Frames](https://developer.chrome.com/docs/web-platform/long-animation-frames) (Chromium 123+) reports any animation frame whose total work — script, style, layout, paint — exceeds **50ms**, the threshold that breaks smooth ~60fps rendering[^loaf-spec]. Same threshold as Long Tasks, but with full per-script attribution and frame-level lifecycle data.
 
-```typescript title="loaf-monitoring.ts" collapse={1-3}
-// Detect long animation frames with attribution
+```typescript title="loaf-monitoring.ts"
 new PerformanceObserver((list) => {
   for (const entry of list.getEntries() as PerformanceLongAnimationFrameTiming[]) {
     console.log("Long frame:", entry.duration, "ms")
 
-    // Scripts that contributed to the long frame
     for (const script of entry.scripts) {
       console.log("  Script:", script.sourceURL)
       console.log("  Function:", script.sourceFunctionName)
       console.log("  Duration:", script.duration, "ms")
-      console.log("  Invoker:", script.invoker) // 'user-callback', 'event-listener', etc.
+      console.log("  Invoker:", script.invoker) // 'user-callback' | 'event-listener' | …
     }
   }
 }).observe({ type: "long-animation-frame", buffered: true })
 ```
 
-**Why LoAF over Long Tasks:**
+**Why pair LoAF with INP.** Long Tasks tells you a 200ms task happened — it doesn't tell you which script or which event. LoAF gives you `scripts[]` with source URL, function name, duration, and invoker, so you can correlate a poor INP attribution against the actual code that ran in the same frame[^loaf].
 
-Long Tasks only reported that a task exceeded 50ms. LoAF provides:
+### User Timing (custom metrics)
 
-- Which scripts contributed and their individual durations
-- Source URLs and function names
-- Invoker type (event listener, user callback, etc.)
-- Better correlation with INP issues
+[User Timing Level 3](https://www.w3.org/TR/user-timing-3/) lets you mark and measure application-specific points and intervals.
 
-### User Timing (Custom Metrics)
-
-User Timing API enables custom performance marks and measures for application-specific metrics.
-
-```typescript title="user-timing.ts" collapse={1-3,35-45}
-// Mark a point in time
+```typescript title="user-timing.ts"
 performance.mark("feature-start")
 
 // ... feature code executes ...
 
 performance.mark("feature-end")
-
-// Measure between marks
 performance.measure("feature-duration", "feature-start", "feature-end")
 
-// Measure from navigation start
 performance.measure("time-to-feature", {
-  start: 0, // navigationStart
+  start: 0,
   end: "feature-start",
 })
 
-// Retrieve measures
 const measures = performance.getEntriesByType("measure")
 for (const measure of measures) {
   console.log(`${measure.name}: ${measure.duration}ms`)
 }
 
-// Include custom data (Performance API Level 3)
 performance.mark("api-call-complete", {
   detail: {
     endpoint: "/api/users",
@@ -439,22 +384,26 @@ performance.mark("api-call-complete", {
 })
 ```
 
+The `detail` payload (User Timing Level 3) is the cleanest way to enrich a custom mark without smuggling data through the name string.
+
 **Real-world custom metrics:**
 
-| Metric                      | What It Measures                         |
+| Metric                      | What it measures                         |
 | --------------------------- | ---------------------------------------- |
 | Time to Interactive Feature | When a specific feature becomes usable   |
 | Search Results Render       | Time from query to results display       |
 | Checkout Flow Duration      | Time through purchase funnel             |
 | API Response Time           | Backend latency as experienced by client |
 
-## Data Collection Architecture
+## Data collection architecture
 
-### Beacon Transmission
+Capturing metrics is the easy half. The hard half is getting them off the page reliably and aggregating them without going broke.
 
-`navigator.sendBeacon()` is designed for reliable analytics transmission during page unload. Unlike XHR/fetch, it's queued by the browser and sent even after the page closes.
+### Beacon transmission
 
-```typescript title="beacon-transmission.ts" collapse={1-5,45-60}
+[`navigator.sendBeacon()`](https://www.w3.org/TR/beacon/) was designed for exactly this — analytics payloads that need to survive page unload. The browser queues the request and sends it even if the page navigates or closes, without blocking the next page load.
+
+```typescript title="beacon-transmission.ts" collapse={45-60}
 interface PerformancePayload {
   url: string
   sessionId: string
@@ -482,7 +431,6 @@ class MetricsCollector {
       attribution,
     })
 
-    // Flush if buffer is full
     if (this.buffer.length >= this.maxBufferSize) {
       this.flush()
     }
@@ -494,10 +442,8 @@ class MetricsCollector {
     const payload = JSON.stringify(this.buffer)
     this.buffer = []
 
-    // Try sendBeacon first
     const sent = navigator.sendBeacon(this.endpoint, payload)
 
-    // Fallback to fetch with keepalive
     if (!sent) {
       fetch(this.endpoint, {
         method: "POST",
@@ -505,20 +451,18 @@ class MetricsCollector {
         keepalive: true,
         headers: { "Content-Type": "application/json" },
       }).catch(() => {
-        // Silently fail - analytics shouldn't break the page
+        // analytics shouldn't break the page
       })
     }
   }
 
   private setupUnloadHandler(): void {
-    // visibilitychange is more reliable than unload/beforeunload
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         this.flush()
       }
     })
 
-    // Fallback for browsers that don't fire visibilitychange
     window.addEventListener("pagehide", () => this.flush())
   }
 
@@ -533,21 +477,30 @@ class MetricsCollector {
 }
 ```
 
-**Why `visibilitychange` over `unload`:**
+**Why `visibilitychange` over `unload`.**
 
-- `unload` doesn't fire reliably on mobile when switching apps
-- `unload` and `beforeunload` prevent bfcache (back/forward cache) in many browsers
-- `visibilitychange` fires when the page is hidden, backgrounded, or navigated away
+- `unload` doesn't fire reliably on mobile when the OS background-kills the tab.
+- `unload` and `beforeunload` **disqualify the page from [bfcache](https://web.dev/articles/bfcache)** in every modern engine, costing instant back-navigation and dropping your back-button UX[^bfcache-unload]. Chromium is actively deprecating `unload`[^chromium-unload].
+- `visibilitychange` fires consistently when the tab is hidden, backgrounded, or navigated away — that is the actual moment the user "left".
 
-**Payload size limits:**
+The full lifecycle (and the analytics hook for each transition) looks like this:
 
-`sendBeacon()` typically has a 64KB limit. For large payloads, batch and compress, or use `fetch` with `keepalive` which has similar guarantees but more flexibility.
+![Page lifecycle showing Active, Passive, Hidden, Frozen (bfcache), and Terminated states with visibilitychange/pagehide/pageshow transitions, and a note that unload/beforeunload prevent bfcache.](./diagrams/page-lifecycle-bfcache-light.svg "Page lifecycle and the analytics hooks at each state transition. Avoid `unload` / `beforeunload` — they prevent bfcache.")
+![Page lifecycle showing Active, Passive, Hidden, Frozen (bfcache), and Terminated states with visibilitychange/pagehide/pageshow transitions.](./diagrams/page-lifecycle-bfcache-dark.svg)
 
-### Sampling Strategies
+> [!IMPORTANT]
+> When a page is restored from bfcache, the `pageshow` event fires with `event.persisted === true` *without* a fresh `load`. Reset your per-page metric state on that branch (or `web-vitals` will silently mis-attribute the next interaction to the previous page view)[^bfcache].
 
-RUM generates substantial data volume. Sampling reduces costs while maintaining statistical validity.
+**Payload size limits.** The Beacon API spec deliberately doesn't pin a number, but the underlying [Fetch spec](https://fetch.spec.whatwg.org/#http-network-or-cache-fetch) caps the **sum of all in-flight `keepalive` request bodies** for an origin at **64 KiB**. Chromium and WebKit enforce this strictly; Firefox historically did not but is converging. Once the budget is exhausted, `sendBeacon()` returns `false` and a `fetch({ keepalive: true })` request resolves to a network error[^sendbeacon-limit][^huli-sendbeacon]. Always check the return value and have a fallback.
 
-```typescript title="sampling-strategy.ts" collapse={1-5,40-55}
+> [!TIP]
+> Chromium 135+ ships [`fetchLater()`](https://developer.chrome.com/blog/fetch-later) — an API designed to schedule a request to be sent during page unload, with a longer in-flight window than `keepalive`. Treat it as an *optional* future-proofing layer behind a feature detect, not a `sendBeacon` replacement.
+
+### Sampling strategies
+
+RUM produces one event stream per session, plus per-resource and per-interaction streams on top. Capturing 100% of that on a high-traffic site is rarely worth the storage and ingestion cost. Sample stably so each session is either fully captured or fully dropped — random per-event sampling shreds your ability to do session-level joins later.
+
+```typescript title="sampling-strategy.ts" collapse={40-55}
 type SamplingDecision = "always" | "sampled" | "never"
 
 interface SamplingConfig {
@@ -562,19 +515,16 @@ class Sampler {
 
   constructor(config: SamplingConfig) {
     this.config = config
-
     if (config.sessionBased) {
       this.sessionDecision = this.makeDecision(config.performanceRate)
     }
   }
 
   shouldSample(type: "performance" | "error"): boolean {
-    // Always capture errors
     if (type === "error") {
       return this.makeDecision(this.config.errorRate)
     }
 
-    // Use session decision if configured
     if (this.config.sessionBased && this.sessionDecision !== null) {
       return this.sessionDecision
     }
@@ -587,11 +537,10 @@ class Sampler {
   }
 }
 
-// Usage
 const sampler = new Sampler({
   performanceRate: 0.1, // 10% of sessions
   errorRate: 1.0, // 100% of errors
-  sessionBased: true, // Consistent within session
+  sessionBased: true,
 })
 
 if (sampler.shouldSample("performance")) {
@@ -603,22 +552,25 @@ if (sampler.shouldSample("performance")) {
 
 | Approach                   | Pros                                        | Cons                                 |
 | -------------------------- | ------------------------------------------- | ------------------------------------ |
-| Head-based (session start) | Consistent within session, simpler analysis | May miss rare interactions           |
-| Tail-based (after event)   | Can prioritize errors/slow requests         | More complex, higher initial capture |
-| Rate-based (percentage)    | Simple, predictable volume                  | May split sessions                   |
-| Adaptive (dynamic rate)    | Handles traffic spikes                      | Complex to implement correctly       |
+| Head-based (session start) | Stable per session, simple analysis         | May miss rare interactions           |
+| Tail-based (after event)   | Can prioritize errors / slow requests       | More complex, higher initial capture |
+| Rate-based (per event)     | Predictable volume                          | Splits sessions, blocks joins        |
+| Adaptive (dynamic rate)    | Handles traffic spikes                      | Hard to implement correctly          |
 
 **Typical rates:**
 
-- Errors: 100% (always capture)
-- Performance metrics: 1-10% depending on traffic
-- Session replay: 0.1-1% (high data volume)
+- Errors — 100% (always capture)
+- Performance metrics — 1–10% session-sampled, depending on traffic
+- Session replay — 0.1–1% (heaviest payloads)
 
-### Attribution for Debugging
+> [!NOTE]
+> For consistent slicing across releases or experiments, derive the sampling decision from a **stable hash** of the session ID rather than a fresh `Math.random()` call per page. That way the same user lands in the same bucket across multiple navigations.
 
-Raw metric values (LCP = 3.2s) are insufficient for debugging. Attribution data identifies what caused the value.
+### Attribution for debugging
 
-```typescript title="attribution-collection.ts" collapse={1-5}
+`LCP = 3.2s` is an alert, not a fix. Attribution data identifies the element, resource, and timing breakdown that produced the value, so the dashboard line you're staring at is actionable.
+
+```typescript title="attribution-collection.ts"
 import { onLCP, onINP, onCLS } from "web-vitals/attribution"
 
 function collectWithAttribution(): void {
@@ -675,17 +627,15 @@ function collectWithAttribution(): void {
 }
 ```
 
-**Attribution bundle size trade-off:**
+**Bundle size.** The standard `web-vitals` build is ~2 KB brotli; the attribution build adds ~1.5 KB on top. The 1.5 KB pays for itself the first time you have to chase down a regression — without attribution, you're guessing[^web-vitals-readme].
 
-The standard `web-vitals` build is ~2KB (brotli). The attribution build is ~3.5KB. The extra 1.5KB provides debugging data that makes metrics actionable—worth it for production monitoring.
+## Error tracking
 
-## Error Tracking
+### Capturing JavaScript errors
 
-### Capturing JavaScript Errors
+Comprehensive error tracking needs three handlers — synchronous errors, unhandled rejections, and resource-load failures — because no single event covers all of them.
 
-Comprehensive error tracking requires multiple handlers for different error types.
-
-```typescript title="error-tracking.ts" collapse={1-8,70-90}
+```typescript title="error-tracking.ts" collapse={70-90}
 interface ErrorReport {
   type: "runtime" | "resource" | "promise" | "network"
   message: string
@@ -708,7 +658,6 @@ class ErrorTracker {
   }
 
   private setupHandlers(): void {
-    // Runtime errors (synchronous)
     window.onerror = (message, source, line, column, error) => {
       this.report({
         type: "runtime",
@@ -718,10 +667,9 @@ class ErrorTracker {
         line: line ?? undefined,
         column: column ?? undefined,
       })
-      return false // Don't suppress default handling
+      return false // don't suppress default handling
     }
 
-    // Unhandled promise rejections
     window.addEventListener("unhandledrejection", (event) => {
       this.report({
         type: "promise",
@@ -730,11 +678,9 @@ class ErrorTracker {
       })
     })
 
-    // Resource loading errors (images, scripts, stylesheets)
     window.addEventListener(
       "error",
       (event) => {
-        // Only handle resource errors, not runtime errors
         if (event.target !== window && event.target instanceof HTMLElement) {
           const target = event.target as HTMLImageElement | HTMLScriptElement | HTMLLinkElement
           this.report({
@@ -744,8 +690,8 @@ class ErrorTracker {
           })
         }
       },
-      true,
-    ) // Capture phase to catch resource errors
+      true, // capture phase — resource errors don't bubble
+    )
   }
 
   private report(error: Omit<ErrorReport, "timestamp" | "url" | "userAgent">): void {
@@ -757,8 +703,6 @@ class ErrorTracker {
     }
 
     this.buffer.push(fullError)
-
-    // Send immediately for errors (don't batch)
     this.flush()
   }
 
@@ -773,11 +717,11 @@ class ErrorTracker {
 }
 ```
 
-### Stack Trace Parsing
+### Stack-trace parsing
 
-Production JavaScript is minified, making raw stack traces unreadable. Source maps restore original file/line information.
+Production JavaScript is minified, so raw stack traces are useless on their own. [Source maps](https://developer.chrome.com/blog/devtools-source-maps) restore original file/line information server-side.
 
-```typescript title="stack-parsing.ts" collapse={1-5,45-60}
+```typescript title="stack-parsing.ts" collapse={45-60}
 interface ParsedFrame {
   function: string
   file: string
@@ -791,12 +735,11 @@ function parseStackTrace(stack: string): ParsedFrame[] {
   const lines = stack.split("\n")
   const frames: ParsedFrame[] = []
 
-  // Common stack trace formats
   const chromeRegex = /at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/
   const firefoxRegex = /(.*)@(.+?):(\d+):(\d+)/
 
   for (const line of lines) {
-    let match = chromeRegex.exec(line) || firefoxRegex.exec(line)
+    const match = chromeRegex.exec(line) || firefoxRegex.exec(line)
 
     if (match) {
       frames.push({
@@ -810,30 +753,27 @@ function parseStackTrace(stack: string): ParsedFrame[] {
 
   return frames
 }
-
-// Server-side: Use source-map library to resolve original locations
-// Libraries like Sentry, Datadog do this automatically
 ```
 
-### Error Grouping
+Server-side, use the [`source-map`](https://www.npmjs.com/package/source-map) library (or any vendor SDK — Sentry, Datadog, Bugsnag all do this for you) to resolve `bundle.min.js:1:32417` to `src/feature/x.tsx:42:12`.
 
-Without grouping, each error instance creates a separate alert. Grouping consolidates identical errors.
+### Error grouping
 
-```typescript title="error-grouping.ts" collapse={1-3}
+Without grouping, every error instance creates a separate alert. Fingerprinting consolidates identical errors into a single issue.
+
+```typescript title="error-grouping.ts"
 function generateErrorFingerprint(error: ErrorReport): string {
-  // Group by: type + message pattern + top stack frame
   const parts = [error.type, normalizeMessage(error.message), error.stack ? getTopFrame(error.stack) : "no-stack"]
 
   return hashString(parts.join("|"))
 }
 
 function normalizeMessage(message: string): string {
-  // Remove dynamic values that would create unique fingerprints
   return message
-    .replace(/\d+/g, "<N>") // Numbers
-    .replace(/'[^']+'/g, "'<S>'") // Single-quoted strings
-    .replace(/"[^"]+"/g, '"<S>"') // Double-quoted strings
-    .replace(/\b[a-f0-9]{8,}\b/gi, "<ID>") // Hex IDs
+    .replace(/\d+/g, "<N>") // numbers
+    .replace(/'[^']+'/g, "'<S>'") // single-quoted strings
+    .replace(/"[^"]+"/g, '"<S>"') // double-quoted strings
+    .replace(/\b[a-f0-9]{8,}\b/gi, "<ID>") // hex IDs
 }
 
 function getTopFrame(stack: string): string {
@@ -841,12 +781,10 @@ function getTopFrame(stack: string): string {
   if (frames.length === 0) return "unknown"
 
   const top = frames[0]
-  // Use file and line, not column (column varies with minification)
-  return `${top.file}:${top.line}`
+  return `${top.file}:${top.line}` // exclude column — varies with minification
 }
 
 function hashString(str: string): string {
-  // Simple hash for fingerprinting
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     hash = (hash << 5) - hash + str.charCodeAt(i)
@@ -856,64 +794,64 @@ function hashString(str: string): string {
 }
 ```
 
-## Lab vs. Field Data
+## Lab vs field data
 
-### Fundamental Differences
+### Fundamental differences
 
-| Aspect          | Lab (Synthetic)                       | Field (RUM)                     |
+| Aspect          | Lab (synthetic)                       | Field (RUM)                     |
 | --------------- | ------------------------------------- | ------------------------------- |
 | Environment     | Controlled (specific device, network) | Variable (real user conditions) |
 | Reproducibility | High                                  | Low                             |
 | Metrics         | All measurable                        | User-experienced only           |
 | Use case        | Development, CI/CD gates              | Production monitoring           |
-| Data volume     | One measurement                       | Aggregated from many            |
-| Attribution     | Full stack traces                     | Limited (privacy, performance)  |
+| Data volume     | One measurement                       | Aggregated across many sessions |
+| Attribution     | Full stack traces, traces             | Limited (privacy, performance)  |
 
-### When to Use Each
+### When to use each
 
-**Lab data (Lighthouse, WebPageTest):**
+**Lab data ([Lighthouse](https://developer.chrome.com/docs/lighthouse/overview), [WebPageTest](https://www.webpagetest.org/), [DebugBear](https://www.debugbear.com/)):**
 
-- Pre-deployment validation
-- Regression testing in CI
-- Debugging specific issues
-- Comparing configurations
+- Pre-deployment validation.
+- Regression testing in CI (assert on specific Lighthouse scores or budget files).
+- Debugging specific issues against a stable baseline.
+- Comparing configurations (CDN settings, image formats, hydration strategies).
 
-**Field data (RUM):**
+**Field data (your RUM, plus [CrUX](https://developer.chrome.com/docs/crux) for industry context):**
 
-- Understanding real user experience
-- Identifying issues lab doesn't catch
-- Monitoring production performance
-- Correlating performance with business metrics
+- Understanding real user experience.
+- Identifying issues lab doesn't catch (third-party scripts, real device variability, browser engine quirks).
+- Monitoring production performance per-route, per-release.
+- Correlating performance with business metrics (conversion, bounce, retention).
 
-### The Gap Between Them
+### The gap
 
-Lab measurements often differ from field measurements because:
+Lab and field measurements regularly disagree by significant margins because:
 
-1. **Device diversity**: Lab uses consistent hardware; users have varied devices
-2. **Network conditions**: Lab uses throttled but stable connections; real networks are unpredictable
-3. **User behavior**: Lab follows scripted paths; users interact unpredictably
-4. **Third-party content**: Ads, widgets, and embeds behave differently in production
-5. **Cache state**: Lab often tests cold cache; users may have warm caches
+1. **Device diversity** — lab uses one consistent device profile; users span a 10× CPU range.
+2. **Network conditions** — lab throttles to a stable profile; real networks burst, drop, and reconnect.
+3. **User behavior** — lab follows a scripted path; users interact unpredictably and trigger latent code paths.
+4. **Third-party content** — ads, widgets, and embeds load and behave differently in production traffic patterns.
+5. **Cache state** — lab usually tests cold; users often arrive warm.
 
-As web.dev states: "lab measurement is not a substitute for field measurement."
+[As web.dev puts it](https://web.dev/articles/lab-and-field-data-differences): "lab measurement is not a substitute for field measurement." Both tools answer different questions; ship both into your workflow.
 
-## The web-vitals Library
+## The web-vitals library
 
-Google's `web-vitals` library is the recommended approach for measuring Core Web Vitals. It handles edge cases that raw Performance APIs miss.
+Google's [`web-vitals`](https://github.com/GoogleChrome/web-vitals) library is the de-facto reference implementation for Core Web Vitals in the browser. It wraps the raw APIs and patches the long tail of edge cases that homegrown collectors typically get wrong.
 
-### Why Use It Over Raw APIs
+### Why use it over raw APIs
 
 The library handles:
 
-- Background tab detection (metrics shouldn't include time page was hidden)
-- bfcache (back/forward cache) restoration (resets metrics appropriately)
-- Iframe considerations
-- Prerendered page handling
-- Mobile-specific timing issues
+- **Background-tab detection** — metrics shouldn't include time the page was hidden.
+- **bfcache restoration** — resets per-page metric state on `pageshow` with `persisted: true`.
+- **Iframe and prerender** considerations.
+- **Mobile-specific timing quirks** — particularly around input timing.
+- **Final-value semantics** — INP and CLS only finalize on the right lifecycle event.
 
-### Basic Usage
+### Basic usage
 
-```typescript title="web-vitals-setup.ts" collapse={1-5}
+```typescript title="web-vitals-setup.ts"
 import { onCLS, onINP, onLCP, onFCP, onTTFB } from "web-vitals"
 
 function sendToAnalytics(metric: { name: string; value: number; delta: number; id: string; rating: string }): void {
@@ -926,11 +864,9 @@ function sendToAnalytics(metric: { name: string; value: number; delta: number; i
     page: location.pathname,
   })
 
-  // Use sendBeacon for reliable delivery
   navigator.sendBeacon("/api/analytics", body)
 }
 
-// Register handlers - call each only once per page
 onCLS(sendToAnalytics)
 onINP(sendToAnalytics)
 onLCP(sendToAnalytics)
@@ -938,12 +874,11 @@ onFCP(sendToAnalytics)
 onTTFB(sendToAnalytics)
 ```
 
-### Attribution Build
+### Attribution build
 
-```typescript title="web-vitals-attribution.ts" collapse={1-3}
+```typescript title="web-vitals-attribution.ts"
 import { onLCP, onINP, onCLS } from "web-vitals/attribution"
 
-// LCP attribution
 onLCP((metric) => {
   console.log("LCP value:", metric.value)
   console.log("LCP element:", metric.attribution.element)
@@ -953,7 +888,6 @@ onLCP((metric) => {
   console.log("Element render delay:", metric.attribution.elementRenderDelay)
 })
 
-// INP attribution
 onINP((metric) => {
   console.log("INP value:", metric.value)
   console.log("Event type:", metric.attribution.eventType)
@@ -962,7 +896,6 @@ onINP((metric) => {
   console.log("Long frames:", metric.attribution.longAnimationFrameEntries)
 })
 
-// CLS attribution
 onCLS((metric) => {
   console.log("CLS value:", metric.value)
   console.log("Largest shift target:", metric.attribution.largestShiftTarget)
@@ -971,126 +904,107 @@ onCLS((metric) => {
 })
 ```
 
-### Key API Details
+### Key API details
 
-**The `delta` property:**
+**The `delta` property.** Metrics like CLS update multiple times as new shifts are observed. `delta` is the change since the last report; for analytics platforms that don't support metric updates, sum the deltas client-side or server-side.
 
-Metrics like CLS can update multiple times as new layout shifts occur. The `delta` property contains only the change since the last report. For analytics platforms that don't support metric updates, sum the deltas.
+**The `id` property.** Stable identifier for this metric instance — use it to deduplicate or aggregate multiple reports for the same page view (CLS in particular).
 
-**The `id` property:**
+**Single call per page.** Call each metric function exactly once per page load. Multiple calls create multiple `PerformanceObserver` instances and produce duplicate, conflicting reports.
 
-A unique identifier for the metric instance. Use this to aggregate multiple reports for the same page view (e.g., when CLS updates).
-
-**Single call rule:**
-
-Call each metric function only once per page load. Multiple calls create multiple PerformanceObserver instances, wasting memory and causing duplicate reports.
-
-## Real-World Implementations
+## Real-world implementations
 
 ### Sentry Performance
 
-**Architecture:**
-
-- JavaScript SDK instruments fetch/XHR, framework components
-- Traces capture transaction spans from browser to backend
-- Web Vitals automatically captured via `web-vitals` library integration
-
-**Key features:**
-
-- Automatic performance instrumentation for React, Vue, Angular
-- Distributed tracing connecting frontend spans to backend
-- Release tracking for performance regression detection
+- JavaScript SDK instruments `fetch`, XHR, framework components.
+- Distributed tracing connects browser spans to backend spans via `traceparent`.
+- Web Vitals captured automatically via the `web-vitals` library.
+- Release tracking flags performance regressions across deploys.
+- Heavy on per-error attribution (source maps, breadcrumbs).
 
 ### Datadog RUM
 
-**Architecture:**
-
-- Lightweight SDK (~30KB) loaded asynchronously
-- Session-based collection with configurable sampling
-- Automatic Core Web Vitals, resource timing, long tasks
-
-**Key features:**
-
-- Replay integration for debugging sessions
-- Synthetic monitoring comparison
-- Custom actions and timing
+- Lightweight SDK loaded asynchronously.
+- Session-based collection with configurable sampling.
+- Automatic Core Web Vitals, resource timing, long tasks.
+- Session Replay overlay for debugging individual sessions.
+- Joins to Datadog APM traces by `trace_id`.
 
 ### Vercel Speed Insights
 
-**Architecture:**
+- Minimal script injection in Next.js builds.
+- Sends to Vercel's analytics backend.
+- Core Web Vitals with Next.js-specific route attribution.
+- Per-route breakdown and per-deploy comparison.
 
-- Minimal script injection in Next.js builds
-- Real user data collected to Vercel's analytics backend
-- Core Web Vitals with Next.js-specific attribution
+### Self-hosted (SpeedCurve, Calibre, Grafana Faro, OSS stack)
 
-**Key features:**
+- Time-series storage for high-cardinality metrics (ClickHouse, TimescaleDB, M3, Druid).
+- Aggregation pipelines for percentile rollups (Flink, Materialize, in-DB rollups).
+- Visualization via Grafana, Superset, or vendor-specific dashboards.
+- The honest reason teams build this themselves is data-residency, billing predictability, or wanting unfettered access to raw events.
 
-- Route-level performance breakdown
-- Comparison across deployments
-- Integration with Vercel's deployment workflow
+## Operational takeaways
 
-### Open-Source: SpeedCurve, Calibre
-
-**Self-hosted considerations:**
-
-- Data storage for high-cardinality metrics (ClickHouse, TimescaleDB)
-- Aggregation pipelines for percentile calculation
-- Visualization (Grafana dashboards)
-
-## Conclusion
-
-Client performance monitoring requires three interconnected systems:
-
-1. **Metrics collection**: Core Web Vitals (LCP, INP, CLS) via the `web-vitals` library, supplemented by Navigation Timing, Resource Timing, and custom User Timing marks.
-
-2. **Reliable transmission**: `navigator.sendBeacon()` on `visibilitychange` ensures data reaches your servers even during page unload. Batch secondary metrics; send errors immediately.
-
-3. **Actionable analysis**: Raw numbers (LCP = 3.2s) aren't useful without attribution (LCP element = hero image, resource load delay = 1.8s). Capture debugging data to make metrics actionable.
-
-The gap between lab and field data is fundamental. Lighthouse tells you what's possible; RUM tells you what users actually experience. Both are necessary for comprehensive performance management.
+1. **Use the `web-vitals` library** for the three Core Web Vitals. The raw APIs are for understanding and for custom metrics; for CWVs, the edge-case surface is too large to reimplement.
+2. **Beacon on `visibilitychange`, fall back to `pagehide`.** Never use `unload` or `beforeunload` — they break bfcache and drop your data.
+3. **Sample stably per session.** Random per-event sampling shreds your ability to do session-level joins; hash the session ID.
+4. **Always capture attribution.** A 1.5 KB bundle delta pays for itself the first time you have to debug a regression.
+5. **Treat lab and field as different tools.** Lab gates regressions in CI; field tells you what users experience. Both are necessary.
 
 ## Appendix
 
 ### Prerequisites
 
-- Browser Performance APIs (PerformanceObserver, timing interfaces)
-- HTTP basics (request/response timing, headers)
-- JavaScript event handling
+- Browser Performance APIs (`PerformanceObserver`, timing interfaces).
+- HTTP basics (request/response timing, headers).
+- JavaScript event handling and the page lifecycle.
 
 ### Terminology
 
 | Term | Definition                                                                      |
 | ---- | ------------------------------------------------------------------------------- |
-| RUM  | Real User Monitoring—collecting performance data from actual user sessions      |
-| CrUX | Chrome User Experience Report—Google's public dataset of field performance data |
-| TTFB | Time to First Byte—time until first byte of response received                   |
-| FCP  | First Contentful Paint—time until first content renders                         |
-| LCP  | Largest Contentful Paint—time until largest visible content renders             |
-| INP  | Interaction to Next Paint—worst interaction latency (replaced FID)              |
-| CLS  | Cumulative Layout Shift—measure of visual stability                             |
-| LoAF | Long Animation Frame—frame taking >50ms, blocking smooth rendering              |
+| RUM  | Real User Monitoring — collecting performance data from actual user sessions    |
+| CrUX | Chrome User Experience Report — Google's public dataset of field performance    |
+| TTFB | Time to First Byte — time until first byte of response received                 |
+| FCP  | First Contentful Paint — time until first content renders                       |
+| LCP  | Largest Contentful Paint — time until largest visible content renders           |
+| INP  | Interaction to Next Paint — worst interaction latency (replaced FID)            |
+| CLS  | Cumulative Layout Shift — measure of visual stability                           |
+| LoAF | Long Animation Frame — frame taking >50ms, blocking smooth rendering            |
+| bfcache | Back/forward cache — instant restore of a previous page from memory          |
 
-### Summary
+### Quick reference
 
-- Core Web Vitals (LCP, INP, CLS) are evaluated at the 75th percentile with "Good" thresholds of 2.5s, 200ms, and 0.1 respectively
-- INP replaced FID in March 2024, measuring all interactions rather than just the first
-- PerformanceObserver with `buffered: true` captures metrics recorded before your code loads
-- `navigator.sendBeacon()` on `visibilitychange` is the most reliable transmission pattern
-- The `web-vitals` library handles edge cases (background tabs, bfcache) that raw APIs miss
-- Attribution data transforms numbers into actionable debugging information
-- Lab data (Lighthouse) and field data (RUM) serve different purposes—both are necessary
+| Want to capture                       | Use                                                          |
+| ------------------------------------- | ------------------------------------------------------------ |
+| LCP, INP, CLS, FCP, TTFB              | `web-vitals` library (attribution build for production)      |
+| Page-load timing breakdown            | `PerformanceNavigationTiming`                                |
+| Per-resource fetch timing             | `PerformanceResourceTiming` (+ `Timing-Allow-Origin` header) |
+| Custom feature timing                 | `performance.mark` / `performance.measure`                   |
+| Long-running scripts blocking a frame | `PerformanceLongAnimationFrameTiming`                        |
+| Specific element render timing        | `PerformanceElementTiming`                                   |
+| JS errors                             | `window.onerror` + `unhandledrejection` + capture-phase `error` |
 
-### References
+## References and footnotes
 
-- [web.dev - Web Vitals](https://web.dev/articles/vitals) - Core Web Vitals overview and guidance
-- [web.dev - LCP](https://web.dev/articles/lcp) - Largest Contentful Paint specification
-- [web.dev - INP](https://web.dev/articles/inp) - Interaction to Next Paint specification
-- [web.dev - CLS](https://web.dev/articles/cls) - Cumulative Layout Shift specification
-- [W3C Performance Timeline](https://www.w3.org/TR/performance-timeline/) - PerformanceObserver specification
-- [W3C Navigation Timing Level 2](https://www.w3.org/TR/navigation-timing-2/) - Navigation timing specification
-- [W3C Resource Timing](https://www.w3.org/TR/resource-timing-2/) - Resource timing specification
-- [MDN - PerformanceObserver](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver) - API documentation
-- [MDN - navigator.sendBeacon](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/sendBeacon) - Beacon API documentation
-- [GoogleChrome/web-vitals](https://github.com/GoogleChrome/web-vitals) - Official web-vitals library
-- [web.dev - Custom Metrics](https://web.dev/articles/custom-metrics) - User Timing and custom measurement
-- [web.dev - Long Animation Frames](https://web.dev/articles/long-animation-frames) - LoAF API documentation
+[^cwv-thresholds]: [How the Core Web Vitals metrics thresholds were defined](https://web.dev/articles/defining-core-web-vitals-thresholds) — web.dev.
+[^lcp]: [Largest Contentful Paint (LCP)](https://web.dev/articles/lcp) — web.dev. Spec: [W3C Largest Contentful Paint](https://w3c.github.io/largest-contentful-paint/).
+[^lcp-stop]: [LCP — When LCP stops](https://web.dev/articles/lcp#when_is_lcp_reported) — web.dev.
+[^inp]: [Interaction to Next Paint (INP)](https://web.dev/articles/inp) — web.dev.
+[^inp-launch]: [Interaction to Next Paint becomes a Core Web Vital on March 12](https://web.dev/blog/inp-cwv-march-12) — web.dev.
+[^inp-90]: ["Chrome usage data shows that 90% of a user's time on a page is spent *after* it loads."](https://web.dev/articles/inp) — web.dev.
+[^inp-interactions]: [INP — What's not measured by INP?](https://web.dev/articles/inp#whats-not-measured-by-inp) — web.dev.
+[^inp-outliers]: [INP — How is INP calculated?](https://web.dev/articles/inp#how-is-inp-calculated) — web.dev.
+[^cls]: [Cumulative Layout Shift (CLS)](https://web.dev/articles/cls) — web.dev.
+[^cls-windowing]: [CLS — What is a session window?](https://web.dev/articles/cls#what_is_a_session_window) — web.dev.
+[^cls-evolving]: [Evolving the CLS metric](https://web.dev/blog/evolving-cls) — web.dev. Background on the move from cumulative-sum to max-session-window.
+[^perf-timeline]: [Performance Timeline Level 2 — `buffered` flag](https://www.w3.org/TR/performance-timeline/#dom-performanceobserverinit-buffered) — W3C.
+[^loaf]: [Long Animation Frames API](https://developer.chrome.com/docs/web-platform/long-animation-frames) — Chrome for Developers (covers the LoAF / Long Tasks coexistence).
+[^loaf-spec]: [Long Animation Frames API — spec](https://w3c.github.io/long-animation-frames/) — W3C.
+[^bfcache]: [Back/forward cache](https://web.dev/articles/bfcache) — web.dev.
+[^bfcache-unload]: [`Navigator.sendBeacon()` — Sending analytics at the end of a session](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/sendBeacon#sending_analytics_at_the_end_of_a_session) — MDN.
+[^chromium-unload]: [Deprecating the `unload` event](https://developer.chrome.com/docs/web-platform/deprecating-unload) — Chrome for Developers.
+[^sendbeacon-limit]: [Fetch standard — `keepalive` and the 64 KiB in-flight ceiling](https://fetch.spec.whatwg.org/#http-network-or-cache-fetch) — WHATWG.
+[^huli-sendbeacon]: [The 64 KiB limitation of `navigator.sendBeacon` and its implementation](https://blog.huli.tw/2025/01/06/en/navigator-sendbeacon-64kib-and-source-code/) — engineering deep dive cross-validating browser source.
+[^web-vitals-readme]: [`GoogleChrome/web-vitals` — README, "Bundle size"](https://github.com/GoogleChrome/web-vitals#bundle-size).

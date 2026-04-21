@@ -1,0 +1,26 @@
+%% Diagram: Count-based vs time-based sliding windows
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph count["Count-based window (size=10)"]
+        direction TB
+        c_arr["last 10 outcomes\n[ x v v x v x x v x x ]"]
+        c_eval["6 failures / 10 calls = 60%\nthreshold 50% -> TRIP"]
+        c_note["Risk under low traffic:\nold failures keep voting\nfor minutes / hours"]
+        c_arr --> c_eval --> c_note
+    end
+
+    subgraph time["Time-based window (10 s, 1 s buckets)"]
+        direction TB
+        t_buckets["t-9 t-8 t-7 t-6 t-5 t-4 t-3 t-2 t-1 t-0\n  6   8   9   7   8   9   8   9   8   8   <- total\n  3   5   6   4   5   6   5   6   5   5   <- failed"]
+        t_eval["aggregate: 50 fail / 80 calls = 62.5%\nthreshold 50% -> TRIP"]
+        t_note["Memory O(window seconds);\nold buckets fall off the\nedge automatically"]
+        t_buckets --> t_eval --> t_note
+    end
+
+    classDef ok fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class c_arr,t_buckets neutral
+    class c_eval,t_eval bad
+    class c_note,t_note ok

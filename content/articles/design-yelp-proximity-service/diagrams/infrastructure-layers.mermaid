@@ -1,0 +1,41 @@
+%% Diagram: Per-region infrastructure layers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge tier"]
+        CDN["CDN (static + photo cache)"]
+        WAF["WAF + DDoS shield"]
+    end
+
+    subgraph LB["Routing tier"]
+        GLB["Global LB (latency-based)"]
+        RLB["Regional LB"]
+    end
+
+    subgraph Compute["Compute tier (per region)"]
+        API["API + Search + Review pods (autoscaled)"]
+        Workers["Async Workers (spot)"]
+        ML["ML Inference (spam, ranking)"]
+    end
+
+    subgraph Data["Data tier (per region)"]
+        PG[("PostgreSQL: primary + read replicas")]
+        ES[("Elasticsearch: 256 routed shards")]
+        Redis[("Redis cluster: cache + rate limit")]
+    end
+
+    subgraph Async["Async / batch tier"]
+        Kafka[["Kafka topics: events, photos, moderation"]]
+        S3[("Object storage (photos, derived images)")]
+        DW[("Analytics warehouse")]
+    end
+
+    CDN --> WAF --> GLB --> RLB --> API
+    API --> PG
+    API --> ES
+    API --> Redis
+    API --> Kafka
+    Kafka --> Workers --> ES
+    Workers --> S3
+    Workers --> ML
+    Workers --> DW

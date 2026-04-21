@@ -1,0 +1,39 @@
+%% Diagram: Distributed Logging Pipeline Overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Sources["Services + Agents"]
+        direction TB
+        App1[Service A] --> Agent1[Agent]
+        App2[Service B] --> Agent2[Agent]
+        App3[Service C] --> Agent3[Agent]
+    end
+
+    Queue[("Buffer\nKafka / Kinesis")]
+    Proc["Stream Processor\nParse, Enrich, Route"]
+
+    subgraph Tiers["Storage Tiers"]
+        direction LR
+        Hot[("Hot\nNVMe")] --> Warm[("Warm\nSSD/HDD")] --> Cold[("Cold\nObject Store")]
+    end
+
+    Index["Index +\nSearch API"]
+    UI[Visualization]
+
+    Agent1 & Agent2 & Agent3 --> Queue
+    Queue --> Proc --> Hot
+    Hot & Warm --> Index --> UI
+
+    classDef source fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef agent fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef queue fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef proc fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef query fill:#2E5A88,stroke:#1F4870,color:#ffffff
+
+    class App1,App2,App3 source
+    class Agent1,Agent2,Agent3 agent
+    class Queue queue
+    class Proc proc
+    class Hot,Warm,Cold store
+    class Index,UI query

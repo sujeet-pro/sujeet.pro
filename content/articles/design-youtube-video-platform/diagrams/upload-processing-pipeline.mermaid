@@ -1,0 +1,12 @@
+%% Diagram: Upload-side processing pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    UPLOAD[Upload complete] --> VALIDATE[Validate<br/>format, size, duration]
+    VALIDATE --> EXTRACT[Probe metadata<br/>resolution, codec, FPS, audio tracks]
+    EXTRACT --> THUMB[Generate thumbnails<br/>frames + sprite sheet]
+    EXTRACT --> SEGMENT[Segment + GOP align<br/>2-4s chunks at IDR boundaries]
+    SEGMENT --> ANALYZE[Per-shot analysis<br/>scene change, complexity]
+    ANALYZE --> QUEUE[Fan out transcode jobs<br/>chunks x codecs x rungs]
+    THUMB --> READY[Mark video discoverable]
+    QUEUE --> READY

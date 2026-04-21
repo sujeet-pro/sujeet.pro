@@ -1,0 +1,27 @@
+%% Diagram: Async error propagation
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Call as Caller
+    participant AF as async fn
+    participant P as Promise<br/>state machine
+    participant MT as Microtask<br/>queue
+    participant Top as Top-level<br/>handler
+
+    Call->>AF: call (returns Promise)
+    AF->>AF: await fetch(...)
+    Note over AF: throw inside try?
+    alt try / catch present
+        AF->>AF: catch (e)
+        AF-->>Call: resolved / rethrown
+    else awaited but no try
+        AF->>P: reject(reason)
+        P->>MT: schedule reaction
+        MT->>Call: throw at await site
+    else Promise dropped (no await, no .catch)
+        AF->>P: reject(reason)
+        P->>MT: schedule HostPromiseRejectionTracker
+        MT->>Top: 'unhandledrejection' / 'unhandledRejection'
+        Note over Top: Node 15+: process exits<br/>Browser: console error
+    end

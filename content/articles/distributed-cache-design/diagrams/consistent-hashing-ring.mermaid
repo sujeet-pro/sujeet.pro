@@ -1,0 +1,28 @@
+%% Diagram: Consistent hashing ring with virtual nodes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph ring["Hash ring (0 .. 2^32 - 1)"]
+        direction TB
+        A_v1["A_v1\n@ pos 12,000"]
+        B_v1["B_v1\n@ pos 47,000"]
+        C_v1["C_v1\n@ pos 89,000"]
+        A_v2["A_v2\n@ pos 134,000"]
+        B_v2["B_v2\n@ pos 178,000"]
+        C_v2["C_v2\n@ pos 211,000"]
+        A_v1 --> B_v1 --> C_v1 --> A_v2 --> B_v2 --> C_v2 --> A_v1
+    end
+
+    K1["key 'user:42'\nhash = 50,000"] -->|"walk clockwise"| C_v1
+    C_v1 -->|"owns key"| NodeC["Cache node C"]
+
+    add["Add node D\n(8 virtual nodes)"] -.->|"Only keys whose\nclockwise neighbor\nbecomes a D_vN remap"| ring
+
+    classDef vnode fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef key fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef change fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef physical fill:#1F6E68,stroke:#155752,color:#ffffff
+    class A_v1,B_v1,C_v1,A_v2,B_v2,C_v2 vnode
+    class K1 key
+    class add change
+    class NodeC physical

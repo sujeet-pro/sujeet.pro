@@ -1,0 +1,32 @@
+%% Diagram: Pre-compression build → S3 → edge negotiation flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart TB
+    raw["Bundled asset\nmain.js"]
+    br["Brotli Q11\nmain.js.br"]
+    gz["Gzip -9\nmain.js.gz"]
+    s3["S3 keys with\nContent-Encoding metadata"]
+    viewer["Viewer request\nAccept-Encoding: br, gzip"]
+    fn{"Edge function picks\nbr > gzip > identity"}
+    cache["Edge cache\nkey includes Accept-Encoding"]
+    client["Browser\ndecompresses transparently"]
+
+    raw --> br
+    raw --> gz
+    raw --> s3
+    br --> s3
+    gz --> s3
+    viewer --> fn
+    fn --> cache
+    cache -->|miss| s3
+    s3 --> cache
+    cache --> client
+
+    classDef primaryC fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storageC fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef neutralC fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef accentC fill:#1F6E68,stroke:#155752,color:#ffffff
+    class raw,br,gz neutralC
+    class s3 storageC
+    class viewer,cache,client primaryC
+    class fn accentC

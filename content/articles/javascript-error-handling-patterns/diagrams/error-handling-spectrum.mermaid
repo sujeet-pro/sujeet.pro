@@ -1,0 +1,15 @@
+%% Diagram: Error handling spectrum
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph IMP["Implicit (control flow)"]
+        TRY["try / catch / throw<br/>• catch is unknown<br/>• non-local jump<br/>• ~10-100x slower<br/>  on the throw path"]
+    end
+
+    subgraph EXP["Explicit (data)"]
+        TUPLE["[data, error] tuple<br/>• visible at call site<br/>• 4 representable states<br/>• verbose chaining"]
+        RESULT["Result&lt;T, E&gt; monad<br/>• exactly 2 states<br/>• .map / .andThen<br/>• railway short-circuit"]
+    end
+
+    TRY ==>|"wrap at boundary"| TUPLE
+    TUPLE ==>|"add type safety"| RESULT

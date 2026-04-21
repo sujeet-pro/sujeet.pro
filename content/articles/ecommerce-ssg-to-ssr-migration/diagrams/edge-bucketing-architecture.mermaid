@@ -1,0 +1,31 @@
+%% Diagram: edge-bucketing-architecture
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant CFV as Viewer Req<br/>(CloudFront Function)
+    participant Cache as CF Cache<br/>(key includes cookie)
+    participant LE as Origin Req<br/>(Lambda@Edge)
+    participant SSG as SSG (S3)
+    participant SSR as SSR (Origin)
+    participant CFR as Viewer Resp<br/>(CloudFront Function)
+
+    U->>CFV: GET /pdp/123 + cookies
+    CFV->>CFV: read or assign bucket
+    CFV->>Cache: forward + x-platform-bucket
+    alt cache hit for bucket
+        Cache-->>CFR: cached response
+    else cache miss
+        Cache->>LE: forward
+        alt bucket = ssr
+            LE->>SSR: route to SSR origin
+            SSR-->>Cache: rendered HTML
+        else bucket = ssg
+            LE->>SSG: route to S3
+            SSG-->>Cache: static HTML
+        end
+        Cache-->>CFR: response
+    end
+    CFR->>CFR: persist bucket cookie
+    CFR-->>U: response + Set-Cookie

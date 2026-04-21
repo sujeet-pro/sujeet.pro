@@ -1,0 +1,35 @@
+%% Diagram: LiveGraph 100x Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Client["Browser Clients"]
+        Q["Subscribed view<br/>(GraphQL-like)"]
+    end
+
+    subgraph Edge["Edge Service (Go)"]
+        E1["Expand view → subqueries"]
+        E2["Subscribe to cache shards"]
+        E3["Reconstruct result"]
+    end
+
+    subgraph Cache["Read-through Cache"]
+        CK["Sharded by query hash<br/>+ Cuckoo filter for invalidations"]
+    end
+
+    subgraph Inv["Invalidator (stateless)"]
+        I1["Tail Postgres WAL<br/>via Kafka"]
+        I2["Map mutations →<br/>affected cache shards"]
+    end
+
+    PG["PostgreSQL<br/>(files, teams, comments,<br/>permissions)"]
+    K["Kafka<br/>(replication stream)"]
+
+    Q -->|subscribe| E1
+    E1 --> CK
+    E2 -.->|invalidation| E1
+    E3 --> Q
+    CK <--> PG
+    PG -->|WAL| K
+    K --> I1
+    I1 --> I2
+    I2 -->|invalidate shard| CK

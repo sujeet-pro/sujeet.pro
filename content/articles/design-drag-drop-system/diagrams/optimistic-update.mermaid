@@ -1,0 +1,28 @@
+%% Diagram: optimistic update with server reconciliation
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as UI / store
+    participant API as Server
+    participant DB as Source of truth
+
+    User->>UI: drop (drag commit)
+    UI->>UI: snapshot prevState
+    UI->>UI: apply optimistic reorder
+    UI-->>User: render new order
+
+    UI->>API: PATCH /items {newOrder}
+    API->>DB: persist + validate
+    alt success
+        DB-->>API: ok (canonical pos)
+        API-->>UI: 200 + canonical order
+        UI->>UI: reconcile (replace optimistic<br/>state with server response)
+    else conflict / 4xx / 5xx / network
+        API-->>UI: error or timeout
+        UI->>UI: rollback to prevState
+        UI-->>User: toast "Failed to save"
+    end
+
+    Note over UI,API: Conflict resolution = server wins.<br/>Concurrent edits land via WS broadcast.

@@ -1,0 +1,24 @@
+%% Diagram: Schema-evolution migration for breaking changes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Need a breaking change:<br/>rename / drop / type change]) --> S1
+    S1["1. Add new column (nullable, default)<br/>BACKWARD-compatible DDL"] --> S2
+    S2["2. Deploy producers writing<br/>both old and new columns"]
+    S2 --> S3["3. Backfill new column from<br/>old column in chunks"]
+    S3 --> S4["4. Deploy consumers reading<br/>new column (Schema Registry: BACKWARD)"]
+    S4 --> S5["5. Verify zero readers of old column<br/>(audit logs, query plans)"]
+    S5 --> S6["6. Stop writing old column"]
+    S6 --> S7["7. Drop old column<br/>BACKWARD-incompatible DDL"]
+    S7 --> Done([Migration complete])
+
+    subgraph Validation [Per-step gate]
+        V1[CDC stream healthy?]
+        V2[Schema Registry compatible?]
+        V3[Consumers caught up?]
+    end
+
+    S1 -.-> V2
+    S4 -.-> V2
+    S5 -.-> V3
+    S7 -.-> V1

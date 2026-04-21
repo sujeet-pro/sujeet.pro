@@ -1,0 +1,47 @@
+%% Diagram: Public image request flow (CDN → Redis → DB → Transform)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Cl as Client
+    participant CDN
+    participant GW as Gateway
+    participant R as Redis
+    participant DB as Registry
+    participant T as Transform
+    participant S as Storage
+
+    Cl->>CDN: GET /img w_800
+    alt CDN Hit
+        CDN-->>Cl: 200 (<50ms)
+    else CDN Miss
+        CDN->>GW: forward
+        GW->>GW: parse URL
+        alt Redis Hit
+            GW->>R: lookup
+            R-->>GW: meta
+            GW->>S: fetch derived
+            S-->>GW: bytes
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<200ms)
+        else In DB
+            GW->>DB: query
+            DB-->>GW: key
+            GW->>S: fetch derived
+            S-->>GW: bytes
+            GW->>R: cache
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<300ms)
+        else First Transform
+            GW->>DB: meta
+            DB-->>GW: info
+            GW->>S: fetch orig
+            S-->>GW: bytes
+            GW->>T: process
+            T-->>GW: bytes
+            GW->>S: store
+            GW->>DB: save meta
+            GW->>R: cache
+            GW-->>CDN: 200
+            CDN-->>Cl: 200 (<800ms)
+        end
+    end

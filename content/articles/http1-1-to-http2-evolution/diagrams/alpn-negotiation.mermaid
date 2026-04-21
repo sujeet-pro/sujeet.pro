@@ -1,0 +1,23 @@
+%% Diagram: ALPN Negotiation for HTTP/2
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Client->>Server: TCP SYN
+    Server->>Client: TCP SYN-ACK
+    Client->>Server: TCP ACK
+
+    Note over Client,Server: TLS handshake begins
+
+    Client->>Server: ClientHello<br/>application_layer_protocol_negotiation: ["h2", "http/1.1"]
+    Server->>Client: ServerHello<br/>application_layer_protocol_negotiation: "h2"
+
+    Note over Client,Server: TLS handshake completes (1-RTT in TLS 1.3)
+
+    Client->>Server: HTTP/2 connection preface (24-octet PRI string)
+    Client->>Server: SETTINGS frame
+    Server->>Client: SETTINGS frame
+
+    Note over Client,Server: HTTP/2 application data flows on streams 1, 3, 5, ...

@@ -1,0 +1,46 @@
+%% Diagram: API gateway as the enforcement point for cross-cutting concerns
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Clients["Clients"]
+        Web[Web App]
+        Mobile[Mobile App]
+        Partner[Partner API]
+    end
+
+    subgraph Edge["Edge Layer"]
+        DNS[DNS / GeoDNS]
+        LB[L4 Load Balancer]
+    end
+
+    subgraph Gateway["API Gateway"]
+        Auth[Auth & JWT Validation]
+        RL[Rate Limiting]
+        Route[Request Routing]
+        Transform[Transformation]
+        Cache[Response Cache]
+    end
+
+    subgraph Services["Backend Services"]
+        S1[User Service]
+        S2[Order Service]
+        S3[Payment Service]
+    end
+
+    subgraph Observability["Control Plane"]
+        Logs[Logging]
+        Metrics[Metrics]
+        Traces[Distributed Tracing]
+        Config[Config Store]
+    end
+
+    Web & Mobile & Partner --> DNS
+    DNS --> LB
+    LB --> Auth
+    Auth --> RL
+    RL --> Route
+    Route --> Transform
+    Transform --> Cache
+    Cache --> S1 & S2 & S3
+    Gateway -.-> Logs & Metrics & Traces
+    Config -.-> Gateway

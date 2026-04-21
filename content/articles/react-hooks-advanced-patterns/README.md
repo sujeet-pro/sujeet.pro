@@ -4,7 +4,7 @@ linkTitle: 'React Hooks: Advanced'
 description: >-
   Deep dive into React's specialized hooks — useTransition, useDeferredValue, useLayoutEffect, useSyncExternalStore, useInsertionEffect, useId, and the React 19 use API — explaining the specific architectural problems each one solves.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - react
   - design-systems
@@ -14,10 +14,10 @@ tags:
 
 # React Hooks Advanced Patterns: Specialized Hooks and Composition
 
-Advanced hook APIs, performance patterns, and composition techniques for concurrent React applications. Covers `useId`, `use`, `useLayoutEffect`, `useSyncExternalStore`, `useInsertionEffect`, `useDeferredValue`, and `useTransition`—hooks that solve specific problems the core hooks cannot.
+Advanced hook APIs, performance patterns, and composition techniques for concurrent React applications. Covers `useId`, `use`, `useLayoutEffect`, `useSyncExternalStore`, `useInsertionEffect`, `useDeferredValue`, and `useTransition` — hooks that solve specific problems the [core hooks](../react-hooks-fundamentals/README.md) cannot.
 
-![Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.](./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op-light.svg "Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.")
-![Specialized hooks grouped by the problem domain they address. Concurrent hooks optimize UI responsiveness; effect timing hooks control when code runs relative to browser paint; external integration hooks connect React to non-React state.](./diagrams/specialized-hooks-grouped-by-the-problem-domain-they-address-concurrent-hooks-op-dark.svg)
+![Specialized hooks grouped by the architectural problem each solves: concurrent rendering responsiveness, effect timing relative to paint, external store integration, and SSR-safe identifiers.](./diagrams/specialized-hooks-overview-light.svg "Specialized hooks grouped by the architectural problem each solves: concurrent rendering responsiveness, effect timing relative to paint, external store integration, and SSR-safe identifiers.")
+![Specialized hooks grouped by the architectural problem each solves: concurrent rendering responsiveness, effect timing relative to paint, external store integration, and SSR-safe identifiers.](./diagrams/specialized-hooks-overview-dark.svg)
 
 ## Abstract
 
@@ -72,7 +72,7 @@ function TabContainer() {
 3. If the user clicks elsewhere, React abandons the old render and starts fresh
 4. `isPending` is `true` until all transition work completes
 
-**React 19 async support**: Transitions can contain `await`:
+**React 19 async support**: `startTransition` accepts an async function (a React 19 *Action*); `isPending` stays `true` for the entire async run instead of resetting at the first `await`.[^react-19]
 
 ```tsx title="useTransition-async.tsx" collapse={1-2}
 // React 19+: async transitions
@@ -85,7 +85,9 @@ function SubmitButton({ onSubmit }: { onSubmit: () => Promise<void> }) {
       onClick={() => {
         startTransition(async () => {
           await onSubmit()
-          // State updates after await need another startTransition (current limitation)
+          // State updates after await currently need another startTransition
+          // to be marked as a transition (React loses the transition context
+          // across the await boundary). See react.dev/reference/react/startTransition.
         })
       }}
     >
@@ -147,9 +149,12 @@ function SearchPage({ items }: { items: Item[] }) {
 2. React renders with deferredQuery = "a" (fast, uses cached filter result)
 3. React starts background render with deferredQuery = "ab"
 4. If user types "abc" before background completes, React abandons that render and starts fresh
-5. When background render commits, both values match—`isStale` becomes `false`
+5. When background render commits, both values match — `isStale` becomes `false`
 
-**React 19 `initialValue` parameter**:
+![Sequence showing how useDeferredValue performs an urgent render with the stale value, schedules a background render with the new value, and abandons the background render if a newer urgent update arrives.](./diagrams/usedeferredvalue-two-phase-light.svg "useDeferredValue's two-phase render: each user keystroke commits an urgent render with the stale deferred value, then schedules a background render that React can abandon if a newer keystroke lands first.")
+![Sequence showing how useDeferredValue performs an urgent render with the stale value, schedules a background render with the new value, and abandons the background render if a newer urgent update arrives.](./diagrams/usedeferredvalue-two-phase-dark.svg)
+
+**React 19 `initialValue` parameter**: a second argument lets you set the value for the first render so the initial frame can render with the cheap "stale" value too.[^deferred-initial]
 
 ```tsx title="useDeferredValue-initial.tsx"
 // React 19: provide initial value for first render
@@ -185,11 +190,13 @@ Without `initialValue`, the first render uses the actual value (no deferral poss
 
 ## Effect Timing Hooks
 
-The three effect hooks run at different times relative to browser paint:
+The three effect hooks run at distinct points in the commit phase. [`useInsertionEffect`](https://react.dev/reference/react/useInsertionEffect) is intended to fire before any layout effects so that style sheets are in the DOM before measurement; [`useLayoutEffect`](https://react.dev/reference/react/useLayoutEffect) runs synchronously after DOM mutation but before the browser paints; [`useEffect`](https://react.dev/reference/react/useEffect) runs after paint.
 
-```
-Component renders → DOM updated → useInsertionEffect → useLayoutEffect → Browser paints → useEffect
-```
+![Effect timing pipeline showing render, commit, useInsertionEffect, useLayoutEffect, browser paint, and useEffect in order.](./diagrams/effect-timing-pipeline-light.svg "Effect timing pipeline: useInsertionEffect injects styles, useLayoutEffect measures and re-renders before paint, useEffect runs asynchronously after paint.")
+![Effect timing pipeline showing render, commit, useInsertionEffect, useLayoutEffect, browser paint, and useEffect in order.](./diagrams/effect-timing-pipeline-dark.svg)
+
+> [!NOTE]
+> `useEffect` is *usually* deferred until after paint, but the React scheduler will flush effects synchronously before paint when a `useLayoutEffect`-driven state update sits in front of them, to keep frames consistent.[^effect-timing] Treat the diagram above as the steady-state contract, not an absolute guarantee.
 
 ### useLayoutEffect: Synchronous DOM Measurement
 
@@ -325,7 +332,10 @@ function getServerSnapshot() {
 }
 ```
 
-**The tearing problem**: In concurrent mode, a render can pause. If an external store changes while paused, some components see the old value, others see the new value. `useSyncExternalStore` detects this and forces a synchronous re-render.
+**The tearing problem**: In concurrent mode, a render can pause. If an external store changes while paused, some components see the old value, others see the new value. `useSyncExternalStore` runs a pre-commit consistency check by re-reading `getSnapshot`; if the snapshot moved during the render, React restarts that work synchronously so every component commits against the same version.[^tearing]
+
+![Sequence showing two components reading different store snapshots during a paused concurrent render, the consistency check detecting the change, and React restarting the render synchronously so both components commit against the same version.](./diagrams/usesyncexternalstore-tearing-light.svg "How useSyncExternalStore prevents tearing: a mid-render store mutation is caught by the pre-commit consistency check, and React falls back to a synchronous re-render so all components see the same snapshot.")
+![Sequence showing two components reading different store snapshots during a paused concurrent render, the consistency check detecting the change, and React restarting the render synchronously so both components commit against the same version.](./diagrams/usesyncexternalstore-tearing-dark.svg)
 
 **API contract**:
 
@@ -389,7 +399,7 @@ function Component({ userId }) {
 
 **Problem it solves**: Consuming promises required custom hooks or libraries that integrate with Suspense. Reading context conditionally was impossible with `useContext`.
 
-**Design rationale (React 19)**: A single API that reads resources during render. Unlike other hooks, `use` can be called conditionally—it doesn't follow the "top-level only" rule.
+**Design rationale (React 19)**: A single API that reads resources during render. Unlike other hooks, `use` can be called inside `if` statements and loops — the official reference is explicit that this is the only hook exempt from the top-level rule.[^use-conditional]
 
 ```tsx title="use-promise.tsx" collapse={1-3, 14-22}
 import { use, Suspense } from "react"
@@ -476,7 +486,7 @@ const user = use(safePromise) // Never rejects
 
 **Problem it solves**: Generating IDs with `Math.random()` or incrementing counters produces different values on server vs. client, causing hydration mismatches.
 
-**Design rationale**: Generate IDs from the component's position in the tree ("parent path"). Same tree position = same ID, regardless of whether it's server or client.
+**Design rationale**: React derives the ID from the component's position in the React tree (in practice, a "parent path" walked through the Fiber that React maintains).[^useid-internal] Same tree position on server and client → same ID, so the markup hydrates without mismatch.
 
 ```tsx title="useId-accessibility.tsx" collapse={1-2}
 import { useId } from "react"
@@ -641,5 +651,18 @@ The decision tree: use core hooks by default. Reach for specialized hooks when y
 - [React Documentation: useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore) - External store subscription
 - [React Documentation: use](https://react.dev/reference/react/use) - Promise and context consumption (React 19)
 - [React Documentation: useId](https://react.dev/reference/react/useId) - Stable ID generation
+- [React Documentation: startTransition](https://react.dev/reference/react/startTransition) - Standalone transition API and async caveats
 - [React 18 Release: Concurrent Features](https://react.dev/blog/2022/03/29/react-v18) - Concurrent rendering introduction
-- [React 19 Release](https://react.dev/blog/2024/04/25/react-19) - New hooks and async transitions
+- [React 19 Release](https://react.dev/blog/2024/12/05/react-19) - Actions, async transitions, and the `use` hook
+
+[^effect-timing]: Yang, "When do `useEffect()` callbacks get run? Before paint or after paint?" — [jser.dev, 2023](https://jser.dev/2023-08-09-effects-run-paint/). The post traces React fiber's commit phase and shows the cases where `useEffect` is flushed before paint.
+
+[^tearing]: React WG, ["useMutableSource → useSyncExternalStore"](https://github.com/reactwg/react-18/discussions/86). The original RFC discussion that introduced the consistency check semantics now used by `useSyncExternalStore`.
+
+[^react-19]: React team, ["React v19" release notes](https://react.dev/blog/2024/12/05/react-19) (December 2024) — the *Actions* section documents async `startTransition` and the new lifetime of `isPending`.
+
+[^deferred-initial]: React docs, [`useDeferredValue` reference](https://react.dev/reference/react/useDeferredValue) — see the "Indicating that the content is stale" and `initialValue` parameter sections.
+
+[^use-conditional]: React docs, [`use` reference](https://react.dev/reference/react/use) — "Unlike all other React Hooks, `use` can be called within loops and conditional statements like `if`."
+
+[^useid-internal]: Yang, ["How does useId() work internally in React?"](https://jser.dev/2023-04-25-how-does-useid-work/) — walkthrough of the Fiber `mountId` function showing that the generated identifier is built from the component's path through the tree. The official reference (tier-2) only guarantees stability across server and client, so treat the "tree position" framing as an implementation detail rather than a public contract.

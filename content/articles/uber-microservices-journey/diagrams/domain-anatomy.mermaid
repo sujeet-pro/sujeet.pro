@@ -1,0 +1,28 @@
+%% Diagram: Anatomy of a single DOMA domain
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    UP[Upstream consumers]
+
+    subgraph domain["Domain (e.g. Payments)"]
+        direction TB
+        GW[Gateway:<br/>RPC + events + queries]
+        EXT[Extension points<br/>logic + data]
+        subgraph internal["Internal services"]
+            direction LR
+            S1[Service A]
+            S2[Service B]
+            S3[Service C]
+        end
+        DB[(Domain data store)]
+        GW --> EXT
+        EXT --> internal
+        S1 --> DB
+        S2 --> DB
+        S3 --> DB
+    end
+
+    DOWN[Downstream domain gateways]
+
+    UP -->|single entry point| GW
+    domain --> DOWN

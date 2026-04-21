@@ -4,11 +4,13 @@ linkTitle: 'Twitter Timeline'
 description: >-
   Twitter's timeline architecture across three eras — fanout-on-write with Redis, the multi-service ML recommendation pipeline (SimClusters, MaskNet), and X's Grok-based Phoenix/Thunder system — tracing the trade-offs between read latency, ranking quality, and system complexity.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - architecture
   - system-design
+  - distributed-systems
+  - recommendation-systems
 ---
 
 # Twitter/X: Timeline Architecture and the Recommendation Algorithm
@@ -68,7 +70,7 @@ Three inflection points drove architectural transformations:
 
 ### The Architecture
 
-The canonical description comes from Raffi Krikorian's "Timelines at Scale" presentation at QCon (April 2013). The core insight: shift computation from read time to write time.
+The canonical description comes from Raffi Krikorian's "Timelines at Scale" presentation at QCon (April 2013).[^krikorian-2013] The core insight: shift computation from read time to write time.
 
 ![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-light.svg "Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.")
 ![Fanout-on-write: the write path does all the work (fanning tweet IDs to every follower's Redis list), so reads are simple key lookups.](./diagrams/fanout-on-write-the-write-path-does-all-the-work-fanning-tweet-ids-to-every-foll-dark.svg)
@@ -88,7 +90,7 @@ The canonical description comes from Raffi Krikorian's "Timelines at Scale" pres
 3. Tweet IDs are hydrated with full content from the tweet store.
 4. Rendered timeline is returned.
 
-**Why this design**: The read:write ratio at Twitter was approximately **500:1**. Spending extra work on the write path (which happens once) to make reads nearly free (which happens 500x more) was an enormous net win. At 300,000 timeline reads/sec, computing timelines on-the-fly would have been prohibitively expensive.
+**Why this design**: At ~150M MAU, Twitter served roughly **300,000 timeline reads/sec against ~6,000 tweet writes/sec** — a ~50:1 read-to-write ratio in the steady state, and far higher when measured against home-timeline _deliveries_ (each write fanned out to thousands of recipients).[^krikorian-2013] Spending extra work on the write path (which happens once per author) to make reads nearly free (which happens for every follower's every refresh) was a net win. At 300K reads/sec, computing timelines on-the-fly by querying every followed account at read time would have been prohibitively expensive.
 
 ### Scale Numbers (2012-2013)
 
@@ -188,7 +190,7 @@ The underlying candidate sources:
 
 **GraphJet** (paper: VLDB 2016) maintained an in-memory bipartite user-tweet interaction graph. It used SALSA (Stochastic Approach for Link-Structure Analysis) random walks to find tweets that similar users engaged with. Each server ingested up to 1 million graph edges per second, held approximately 1 billion edges in under 30 GB of RAM, and computed up to 500 recommendations per second. GraphJet powered approximately 15% of "For You" tweets, generating the "X liked" out-of-network recommendations.
 
-**TwHIN** (Twitter Heterogeneous Information Network, paper: KDD 2022) learned dense 200-dimensional embeddings via TransE-style knowledge graph methods across 10^9 nodes and 10^11 edges, modeling user-user follows, user-tweet favorites, and user-ad clicks. Embeddings served dual purposes: candidate retrieval via similarity search and input features for the heavy ranker.
+**TwHIN** (Twitter Heterogeneous Information Network, [paper: KDD 2022](https://arxiv.org/abs/2202.05387)) learned low-dimensional dense embeddings via TransE-style knowledge graph methods across more than 10^9 nodes and 10^11 edges, modeling user-user follows, user-tweet favorites, and user-ad clicks. Production configurations were typically a few hundred dimensions per entity. Embeddings served dual purposes: candidate retrieval via similarity search and input features for the heavy ranker.
 
 ### Stage 2: Ranking
 
@@ -198,7 +200,7 @@ Candidates passed through a two-stage ranking funnel:
 
 **Heavy Ranker**: A ~48 million parameter neural network using the **parallel MaskNet** architecture (Wang et al., 2021). MaskNet's core innovation is the instance-guided mask module, which performs element-wise products on feature embeddings and feed-forward layers, guided by the input instance.
 
-The heavy ranker consumed approximately **6,000 features** organized into groups:
+The heavy ranker consumed thousands of features (approximately **6,000** in published configurations) organized into groups:
 
 | Feature Group                    | What It Captures                                                   | Time Window                          |
 | -------------------------------- | ------------------------------------------------------------------ | ------------------------------------ |
@@ -257,7 +259,7 @@ Home Mixer integrated advertisements, "Who to Follow" modules, conversation prom
 
 ### The Architectural Reset
 
-On January 20, 2026, X open-sourced a fundamentally new recommendation algorithm at **[xai-org/x-algorithm](https://github.com/xai-org/x-algorithm)** -- the repository gained 1,600 GitHub stars within 6 hours.
+On January 20, 2026, X open-sourced a fundamentally new recommendation algorithm at **[xai-org/x-algorithm](https://github.com/xai-org/x-algorithm)** -- the repository [gained traction quickly](https://x.com/XEng/status/2013471689087086804), with the [Phoenix component README](https://github.com/xai-org/x-algorithm/blob/main/phoenix/README.md) confirming that "the transformer implementation is ported from the Grok-1 open-source release."
 
 The new system eliminates all hand-engineered features and most heuristics from the 2023 system, replacing them with a single transformer architecture adapted from xAI's Grok-1.
 
@@ -289,6 +291,9 @@ The model predicts probabilities for 15 signals (up from 10 in the 2023 system):
 Specific weight values were not disclosed in this release.
 
 ### 7-Stage Pipeline
+
+![Phoenix/Thunder seven-stage pipeline: query hydration, dual-source candidate sourcing (Thunder for in-network, Phoenix retrieval for out-of-network), parallel hydration, pre-scoring filtering, transformer scoring, selection, and post-selection filtering.](./diagrams/phoenix-thunder-pipeline-light.svg "Phoenix/Thunder seven-stage pipeline: Thunder serves in-network sub-ms; Phoenix retrieval handles out-of-network; the Grok-1 transformer scores candidates against 15 engagement signals.")
+![Phoenix/Thunder seven-stage pipeline: query hydration, dual-source candidate sourcing (Thunder for in-network, Phoenix retrieval for out-of-network), parallel hydration, pre-scoring filtering, transformer scoring, selection, and post-selection filtering.](./diagrams/phoenix-thunder-pipeline-dark.svg)
 
 1. **Query hydration**: Load user engagement history.
 2. **Candidate sourcing**: In-network from Thunder + out-of-network from Phoenix retrieval.
@@ -433,3 +438,5 @@ The open-sourced codebases (`twitter/the-algorithm`, `twitter/the-algorithm-ml`,
 - [twitter/the-algorithm - GitHub](https://github.com/twitter/the-algorithm) - Open-sourced recommendation algorithm (2023)
 - [twitter/the-algorithm-ml - GitHub](https://github.com/twitter/the-algorithm-ml) - ML model training code (2023)
 - [xai-org/x-algorithm - GitHub](https://github.com/xai-org/x-algorithm) - Grok-based recommendation algorithm (2026)
+
+[^krikorian-2013]: Raffi Krikorian, "Timelines at Scale," QCon SF 2013 ([InfoQ recording](https://www.infoq.com/presentations/Twitter-Timeline-Scalability/)). Cross-referenced with the [High Scalability summary](https://highscalability.com/the-architecture-twitter-uses-to-deal-with-150m-active-users/) of the same talk for the 300K reads/sec, ~6K writes/sec, and 800-entry Redis cap figures.

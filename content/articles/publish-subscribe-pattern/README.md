@@ -6,16 +6,22 @@ description: >-
   decoupling dimensions, error isolation, async dispatch, topic-based routing,
   and when the Observer pattern is a better fit.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - javascript
+  - typescript
+  - nodejs
   - patterns
+  - architecture
   - programming
 ---
 
 # Publish-Subscribe Pattern in JavaScript
 
 Architectural principles, implementation trade-offs, and production patterns for event-driven systems. Covers the three decoupling dimensions, subscriber ordering guarantees, error isolation strategies, and when Pub/Sub is the wrong choice.
+
+> [!NOTE]
+> This article is the **in-process JavaScript** view of the pattern — building, embedding, and operating an event bus inside a single Node.js or browser runtime. For the **distributed messaging** view (Kafka, RabbitMQ, Redis Streams, delivery semantics, partitioning), see [Queues and Pub/Sub: Decoupling and Backpressure](../queues-and-pubsub/README.md). For the **work-queue** view (concurrency caps, retries, DLQs with `p-queue`, `fastq`, and BullMQ), see [Async Queue Pattern in JavaScript](../async-queue-pattern/README.md).
 
 ![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-light.svg "Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers")
 ![Pub/Sub architecture: publishers emit to a broker that dispatches to all registered subscribers](./diagrams/pub-sub-architecture-publishers-emit-to-a-broker-that-dispatches-to-all-register-dark.svg)
@@ -268,6 +274,9 @@ function UserStatus({ userId }: { userId: string }) {
 
 ## Subscriber Ordering and Error Handling
 
+![Sync vs async publish dispatch in an in-process pub/sub broker, with per-subscriber error isolation](./diagrams/publish-dispatch-sequence-light.svg "Synchronous publish iterates the subscriber Map in registration order, isolates throws with try/catch, and continues; async publish awaits Promise.allSettled so all callbacks finish before the publisher resumes.")
+![Sync vs async publish dispatch in an in-process pub/sub broker, with per-subscriber error isolation](./diagrams/publish-dispatch-sequence-dark.svg)
+
 ### Execution Order Guarantees
 
 **Are subscribers called in registration order?** It depends on the implementation.
@@ -310,16 +319,37 @@ pubsub.subscribe("data", async (data) => {
 })
 ```
 
+3. **For Node's built-in `EventEmitter`, enable [`captureRejections`](https://nodejs.org/api/events.html#capture-rejections-of-promises).** Node ≥ 13.4 ships an opt-in mode that auto-installs `.then(undefined, handler)` on the promise an async listener returns and forwards the rejection to the emitter's `'error'` event (or `Symbol.for('nodejs.rejection')` if defined). It is opt-in because changing the default would break existing emitters whose handlers rely on rejections silently bubbling out.
+
+```ts title="capture-rejections.ts"
+import { EventEmitter } from "node:events"
+
+const ee = new EventEmitter({ captureRejections: true })
+
+ee.on("data", async () => {
+  throw new Error("kaboom") // Now routed to 'error' below, not unhandled
+})
+ee.on("error", (err) => console.error("[ee]", err))
+```
+
+Do **not** use an `async` function for the `'error'` listener itself — Node deliberately leaves that path uncaught to avoid infinite error loops.
+
 ## Advanced Capabilities
 
 ### Hierarchical Topics and Wildcard Subscriptions
 
 Topic naming convention: `domain.entity.action` (e.g., `user.profile.updated`, `cart.item.added`).
 
-Wildcard types (MQTT convention):
+> [!IMPORTANT]
+> Wildcard syntax differs across protocols. The example below follows the [AMQP 0-9-1 topic exchange convention](https://www.rabbitmq.com/tutorials/tutorial-five-python) (`.` separator, `*` for one word, `#` for zero or more). [MQTT 5.0 §4.7](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901241) is different: `/` separator, `+` for a single level, `#` for multi-level (must be the trailing token). [NATS](https://docs.nats.io/nats-concepts/subjects#wildcards) uses `*` for one token and `>` for the rest. Pick one convention per system and document it; do not mix.
 
-- `*` — matches exactly one segment: `user.*.login` matches `user.123.login`
-- `#` — matches zero or more segments (must be last): `user.#` matches `user`, `user.123`, `user.123.login`
+| Protocol                     | Separator | Single-level | Multi-level | Multi-level placement |
+| ---------------------------- | --------- | ------------ | ----------- | --------------------- |
+| AMQP 0-9-1 (RabbitMQ topics) | `.`       | `*`          | `#`         | Anywhere              |
+| MQTT 5.0                     | `/`       | `+`          | `#`         | Trailing token only   |
+| NATS                         | `.`       | `*`          | `>`         | Trailing token only   |
+
+A minimal AMQP-style matcher in JavaScript:
 
 ```ts title="wildcard-matching.ts" collapse={1-3}
 // Matches subscription patterns like "user.*.login" or "user.#"
@@ -352,7 +382,10 @@ For high-throughput systems, consider message queues (RabbitMQ, Redis Streams) w
 
 ## When NOT to Use Pub/Sub (Antipatterns)
 
-Understanding when to avoid pub/sub is as important as knowing when to use it.
+Understanding when to avoid pub/sub is as important as knowing when to use it. The two-question filter:
+
+![Decision tree for selecting Pub/Sub vs Observer vs RPC vs Message Queue](./diagrams/pattern-decision-tree-light.svg "Two questions select the pattern: do you need a response (RPC), and is there a single known recipient (Observer). Only fan-out without reply belongs in pub/sub; once you also need durability or cross-process scale, escalate to a queue or distributed broker.")
+![Decision tree for selecting Pub/Sub vs Observer vs RPC vs Message Queue](./diagrams/pattern-decision-tree-dark.svg)
 
 ### 1. Forcing Commands into Pub/Sub
 
@@ -420,7 +453,7 @@ For production, prefer battle-tested libraries unless you need custom semantics.
 | Library                                                         | Size   | Wildcards        | TypeScript | API                        | Maintained       |
 | --------------------------------------------------------------- | ------ | ---------------- | ---------- | -------------------------- | ---------------- |
 | [mitt](https://github.com/developit/mitt)                       | 200B   | `*` (all events) | Yes        | `on()`, `off()`, `emit()`  | Yes (11k+ stars) |
-| [nanoevents](https://github.com/ai/nanoevents)                  | 107B   | No               | Yes        | Returns unbind from `on()` | Yes              |
+| [nanoevents](https://github.com/ai/nanoevents)                  | ~108B  | No               | Yes        | Returns unbind from `on()` | Yes              |
 | [EventEmitter3](https://github.com/primus/eventemitter3)        | 1.5KB  | No               | Yes        | Node.js-compatible         | Yes              |
 | [EventEmitter2](https://github.com/EventEmitter2/EventEmitter2) | Larger | Yes (`*`, `**`)  | Yes        | Extended EE API            | Yes              |
 
@@ -498,7 +531,7 @@ Implementation is straightforward: `Map<string, Set<Function>>`, return unsubscr
 - Isolate subscriber errors with per-callback try/catch
 - Use `Promise.allSettled` for async publish to avoid short-circuiting
 - Avoid for request-response, single recipients, or when delivery guarantees matter
-- Libraries: mitt (200B), nanoevents (107B) for minimal footprint
+- Libraries: mitt (~200 B), nanoevents (~108 B) for minimal footprint
 
 ### References
 

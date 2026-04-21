@@ -1,0 +1,15 @@
+%% Diagram: Broadcast Ordering Hierarchy
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    TOTAL["Total order\nAll nodes deliver\nin same order\nPaxos / Raft"]
+    CAUSAL["Causal order\nA→B at any node\n⇒ A delivered first\nVector clocks"]
+    FIFO["FIFO order\nPer-sender only\nSequence numbers"]
+    RELIABLE["Reliable\nDelivery only\nNo ordering"]
+
+    TOTAL --> CAUSAL --> FIFO --> RELIABLE
+
+    classDef strong fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef weak fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class TOTAL,CAUSAL strong
+    class FIFO,RELIABLE weak

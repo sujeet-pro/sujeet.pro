@@ -1,0 +1,39 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TB
+    subgraph Edge["Edge"]
+        CF[CloudFront]
+        WAF[AWS WAF]
+    end
+
+    subgraph Compute["Compute"]
+        APIGW[API Gateway]
+        Lambda[Lambda - queue + checkout APIs]
+        ECS[ECS Fargate - order workers]
+    end
+
+    subgraph Data["Data"]
+        ElastiCache[(ElastiCache Redis - inventory + tokens)]
+        DDB[(DynamoDB - queue state)]
+        RDS[(RDS PostgreSQL - orders)]
+        SQS[SQS FIFO - order queue]
+    end
+
+    subgraph Monitoring["Observability"]
+        CW[CloudWatch]
+        XRay[X-Ray]
+    end
+
+    Users --> CF
+    CF --> WAF
+    WAF --> APIGW
+    APIGW --> Lambda
+    Lambda --> ElastiCache
+    Lambda --> DDB
+    Lambda --> SQS
+    SQS --> ECS
+    ECS --> ElastiCache
+    ECS --> RDS
+    Lambda --> CW
+    ECS --> XRay

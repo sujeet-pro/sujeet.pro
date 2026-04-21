@@ -1,0 +1,20 @@
+%% Diagram: FairPlay SPC/CKC key exchange
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application
+    participant FPS as FairPlay framework (OS)
+    participant SE as Secure Enclave
+    participant KSM as Key Security Module (License server)
+
+    App->>FPS: load HLS playlist with EXT-X-KEY skd://content-id
+    FPS->>SE: derive session key, build SPC
+    SE-->>FPS: SPC blob (device id + content id + nonce, encrypted to Apple)
+    FPS-->>App: SPC
+    App->>KSM: POST SPC (+ user entitlement)
+    KSM->>KSM: validate SPC, lookup content key, apply policy
+    KSM-->>App: CKC (content key wrapped to session)
+    App->>FPS: provide CKC
+    FPS->>SE: unwrap CKC, install content key
+    SE-->>FPS: key bound to hardware path
+    FPS-->>App: playback proceeds

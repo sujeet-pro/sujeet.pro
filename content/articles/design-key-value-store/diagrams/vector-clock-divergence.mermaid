@@ -1,0 +1,29 @@
+%% Diagram: Vector Clock Divergence - Two Concurrent Writes Produce Sibling Versions
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Client A
+    participant N1 as Node 1 (coord)
+    participant N2 as Node 2 (coord)
+    participant B as Client B
+
+    A->>N1: put(k, v0)
+    N1-->>A: ok, vc=[(N1,1)]
+    Note over N1,N2: vc=[(N1,1)] replicates
+
+    par concurrent reads, both see vc=[(N1,1)]
+        A->>N1: get(k) -> (v0, [(N1,1)])
+        B->>N2: get(k) -> (v0, [(N1,1)])
+    end
+
+    par concurrent writes
+        A->>N1: put(k, v1, ctx=[(N1,1)])
+        N1-->>A: ok, vc=[(N1,2)]
+    and
+        B->>N2: put(k, v2, ctx=[(N1,1)])
+        N2-->>B: ok, vc=[(N1,1),(N2,1)]
+    end
+
+    Note over N1,N2: Replicas now hold two versions
+    Note over N1,N2: vc1=[(N1,2)] vs vc2=[(N1,1),(N2,1)]
+    Note over N1,N2: Neither dominates -> SIBLINGS, surface to reader for merge

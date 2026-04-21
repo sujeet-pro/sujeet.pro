@@ -1,0 +1,26 @@
+%% Diagram: Theme Swap Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Root["html[data-theme]"]
+
+    subgraph Light["data-theme = light"]
+        LS["color-action-primary<br/>= color-blue-500"]
+        LP["#2563eb"]
+    end
+
+    subgraph Dark["data-theme = dark"]
+        DS["color-action-primary<br/>= color-blue-400"]
+        DP["#60a5fa"]
+    end
+
+    subgraph Component["Button component (theme-agnostic)"]
+        BTN["background:<br/>var(--color-action-primary)"]
+    end
+
+    Root -. selects .-> Light
+    Root -. selects .-> Dark
+    LS --> LP
+    DS --> DP
+    LP --> BTN
+    DP --> BTN

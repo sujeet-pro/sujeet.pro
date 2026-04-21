@@ -1,0 +1,25 @@
+%% Diagram: Kafka evolution from first commit to KRaft-only
+%% Type: timeline
+%%{init: {'htmlLabels': false}}%%
+timeline
+    title Kafka design evolution at and beyond LinkedIn
+    2010 : First Kafka code at LinkedIn
+         : ZooKeeper for coordination + offsets
+    2011 : Open-sourced (Jan)
+         : NetDB paper (Jun)
+         : 1B msg/day at LinkedIn (Jul)
+    2013 : Apache Top-Level Project (Oct 2012)
+         : 0.8 - leader/follower replication (Dec)
+         : "The Log" essay
+    2014 : 2M writes/sec benchmark
+         : Confluent founded (Sep)
+         : I Heart Logs (book)
+    2015 : 0.9 - offsets move to __consumer_offsets
+         : New Java consumer
+    2017 : 0.11 - idempotent producer + transactions
+         : Exactly-once semantics
+    2019 : LinkedIn at 7T msg/day
+         : Brooklin open-sourced (CDC + mirroring)
+    2022 : 3.3 - KRaft marked production-ready (KIP-833)
+    2024 : 3.9 - tiered storage GA (KIP-405)
+    2025 : 4.0 - ZooKeeper removed, KRaft only

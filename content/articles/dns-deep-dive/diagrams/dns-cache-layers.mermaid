@@ -1,0 +1,24 @@
+%% Diagram: DNS cache layers and effective TTL on a change
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Client[Client device]
+        Browser["Browser cache\n(Chrome: fixed 60s,\nFirefox: TTL with 60s floor)"]
+        OS["OS stub / system resolver\n(honors TTL on most platforms)"]
+    end
+
+    subgraph Network[Network]
+        Recursive["Recursive resolver\n(ISP / public — TTL-bound,\nmay floor short TTLs)"]
+    end
+
+    subgraph Origin[Authoritative]
+        Authoritative["Authoritative nameserver\n(source of truth, no caching)"]
+    end
+
+    Browser --> OS --> Recursive --> Authoritative
+
+    Note["Effective failover delay =\nTTL + recursive ceilings + browser/OS layers"]:::note
+    Recursive -.-> Note
+    Browser -.-> Note
+
+    classDef note fill:#fff3b0,stroke:#b08900,color:#3c2f00

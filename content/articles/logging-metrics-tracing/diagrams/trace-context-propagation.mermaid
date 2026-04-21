@@ -1,0 +1,29 @@
+%% Diagram: W3C Trace Context propagation across three services
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Gateway as Edge / Gateway
+    participant Orders as Orders service
+    participant Payments as Payments service
+    participant Backend as Trace backend
+
+    Client->>Gateway: HTTP POST /checkout
+    Note over Gateway: Generate root span<br/>traceparent: 00-{trace}-{spanA}-01
+    Gateway->>Orders: HTTP call + traceparent + tracestate
+    Note over Orders: Extract context, start child span<br/>parent = spanA, new spanB
+    Orders->>Payments: HTTP call + traceparent (spanB) + baggage
+    Note over Payments: Child span spanC<br/>read baggage user.tier=premium
+    Payments-->>Orders: 200 OK
+    Orders-->>Gateway: 200 OK
+    Gateway-->>Client: 200 OK
+
+    par Async export
+        Gateway->>Backend: Export spanA
+    and
+        Orders->>Backend: Export spanB
+    and
+        Payments->>Backend: Export spanC
+    end
+    Note over Backend: Reassemble DAG by trace-id<br/>(spans arrive out of order)

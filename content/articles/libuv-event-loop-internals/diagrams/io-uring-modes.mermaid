@@ -1,0 +1,14 @@
+%% Diagram: io_uring control modes in libuv (v1.50.0+)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+graph TD
+    Start["Loop init on Linux 5.13+"] --> Epoll["Epoll batching via io_uring<br/>ALWAYS ON since v1.50.0<br/>(env var and loop flag have no effect)"]
+
+    Start --> FlagCheck{"uv_loop_configure with<br/>UV_LOOP_ENABLE_IO_URING_SQPOLL?"}
+    FlagCheck -->|"no"| FilePool["File I/O via worker thread pool<br/>(default behaviour)"]
+    FlagCheck -->|"yes"| EnvCheck{"UV_USE_IO_URING<br/>set to a positive value?"}
+
+    EnvCheck -->|"no / unset / 0"| FilePool
+    EnvCheck -->|"yes (=1)"| SqpollOn["File I/O via io_uring SQPOLL<br/>dedicated kernel polling thread"]
+
+    SqpollOn -.->|"CVE-2024-22017<br/>setuid does not affect<br/>pre-init io_uring"| Warn["Operational footgun"]

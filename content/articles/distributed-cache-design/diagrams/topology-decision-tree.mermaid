@@ -1,0 +1,27 @@
+%% Diagram: Cache topology decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    start["Need a cache?"] -->|Yes| size{"Working set\nsize?"}
+    size -->|"< 1 GB"| q_share{"Multiple\napps share?"}
+    size -->|"1-100 GB"| q_ha{"Need HA\nor sharding?"}
+    size -->|"> 100 GB"| cluster["Distributed cluster\n(Redis Cluster, mcrouter)"]
+
+    q_share -->|No| embedded["Embedded L1\n(Caffeine, LRU)"]
+    q_share -->|Yes| q_ha
+
+    q_ha -->|"HA only"| sentinel["Sentinel + primary"]
+    q_ha -->|"Sharding"| cluster
+    q_ha -->|"Neither"| single["Single Redis /\nMemcached"]
+
+    embedded --> hybrid["Add L2 for\ncross-instance reads"]
+    sentinel --> hybrid
+    single --> hybrid
+    cluster --> hybrid
+
+    classDef decision fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef option fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef terminal fill:#1F6E68,stroke:#155752,color:#ffffff
+    class start,size,q_share,q_ha decision
+    class embedded,sentinel,single,cluster option
+    class hybrid terminal

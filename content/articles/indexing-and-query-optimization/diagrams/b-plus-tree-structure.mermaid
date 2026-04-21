@@ -1,0 +1,40 @@
+%% Diagram: B+ tree structure (Lehman & Yao right-link variant used by Postgres)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Root["Root (internal page)<br/>keys: 50 | 200"]
+    I1["Internal page<br/>keys: 10 | 30"]
+    I2["Internal page<br/>keys: 80 | 150"]
+    I3["Internal page<br/>keys: 250 | 400"]
+
+    L1["Leaf<br/>(1..9) → ctid"]
+    L2["Leaf<br/>(10..29) → ctid"]
+    L3["Leaf<br/>(30..49) → ctid"]
+    L4["Leaf<br/>(50..79) → ctid"]
+    L5["Leaf<br/>(80..149) → ctid"]
+    L6["Leaf<br/>(150..199) → ctid"]
+    L7["Leaf<br/>(200..249) → ctid"]
+    L8["Leaf<br/>(250..399) → ctid"]
+    L9["Leaf<br/>(400..) → ctid"]
+
+    Root --> I1
+    Root --> I2
+    Root --> I3
+    I1 --> L1
+    I1 --> L2
+    I1 --> L3
+    I2 --> L4
+    I2 --> L5
+    I2 --> L6
+    I3 --> L7
+    I3 --> L8
+    I3 --> L9
+
+    L1 -. sibling link .-> L2
+    L2 -. sibling link .-> L3
+    L3 -. sibling link .-> L4
+    L4 -. sibling link .-> L5
+    L5 -. sibling link .-> L6
+    L6 -. sibling link .-> L7
+    L7 -. sibling link .-> L8
+    L8 -. sibling link .-> L9

@@ -1,22 +1,29 @@
-%% Diagram: Fiber Enables Interruptible Work Lanes Determine Priority Execution Models Deter
+%% Diagram: Architecture Layers
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
     subgraph Foundation["Foundation Layer"]
-        Fiber["Fiber<br/>Virtual call stack"]
+        Fiber["Fiber\nVirtual call stack"]
     end
 
     subgraph Scheduling["Priority Layer"]
-        Lanes["Lanes<br/>31-bit priority bitmask"]
+        Lanes["Lanes\n31-bit priority bitmask"]
+    end
+
+    subgraph Concurrency["Concurrency Primitives"]
+        Suspense["Suspense\nasync render boundary"]
+        Transitions["Transitions\nstartTransition / useDeferredValue"]
     end
 
     subgraph Execution["Execution Models"]
         CSR["CSR"]
-        SSR["SSR/Streaming"]
+        SSR["SSR / Streaming"]
         RSC["RSC"]
     end
 
     Fiber --> Lanes
-    Lanes --> CSR
-    Lanes --> SSR
-    Lanes --> RSC
+    Lanes --> Suspense
+    Lanes --> Transitions
+    Suspense --> CSR
+    Suspense --> SSR
+    Suspense --> RSC

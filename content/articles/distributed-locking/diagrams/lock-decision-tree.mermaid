@@ -1,0 +1,16 @@
+%% Diagram: Lock implementation decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Need a distributed lock] --> B{Correctness critical?}
+    B -->|"No: efficiency only"| C{Fault tolerance needed?}
+    B -->|"Yes: data corruption risk"| D{Resource can validate fencing token?}
+    C -->|"No"| E["Redis single-node (SET NX PX)"]
+    C -->|"Yes"| F["Redlock — 5 nodes"]
+    D -->|"No"| X["Stop — fencing-capable resource is required;<br/>otherwise no lock is correct"]
+    D -->|"Yes"| Y{Existing infra?}
+    Y -->|"ZooKeeper / Kafka stack"| G["ZooKeeper + zxid fencing"]
+    Y -->|"Kubernetes / etcd"| H["etcd + revision fencing"]
+    Y -->|"Consul (service mesh)"| I["Consul session + LockIndex fencing"]
+    Y -->|"Postgres only, single DB"| J["pg_advisory_xact_lock + version column"]
+    Y -->|"Greenfield"| G

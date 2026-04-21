@@ -1,0 +1,22 @@
+%% Diagram: XState fetch machine — idle/loading/success/failure transitions
+%% Type: state diagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> idle
+    idle --> loading: FETCH(id)
+    loading --> success: onDone (assign data)
+    loading --> failure: onError (assign error)
+    success --> loading: FETCH(id) refetch
+    failure --> loading: RETRY
+
+    note right of loading
+        Invokes fromPromise(fetchUser).
+        Only one in-flight invocation
+        per machine instance.
+    end note
+
+    note right of success
+        Impossible state combos like
+        loading and error and data
+        cannot be reached.
+    end note

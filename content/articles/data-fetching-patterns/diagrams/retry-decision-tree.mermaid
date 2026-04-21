@@ -1,0 +1,24 @@
+%% Diagram: Retry decision tree by HTTP status
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    START(["Request failed"]) --> CLASS{Classify}
+    CLASS -->|"Network / timeout"| RETRYTX
+    CLASS -->|"408 / 425 / 5xx"| RETRYTX["Backoff + jitter"]
+    CLASS -->|"429"| RESPECT["Honour Retry-After"]
+    CLASS -->|"4xx"| FAIL["Surface error\nno retry"]
+    RETRYTX --> ATTEMPTS{Attempts < N?}
+    RESPECT --> ATTEMPTS
+    ATTEMPTS -->|Yes| WAIT["Wait\nmin(base*2^i, cap)"] --> SEND["Resend with\nIdempotency-Key"] --> DONE(["Settled"])
+    ATTEMPTS -->|No| FAIL --> DONE
+
+    classDef start fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class START,DONE start
+    class RETRYTX,SEND,WAIT ok
+    class RESPECT warn
+    class FAIL bad
+    class CLASS,ATTEMPTS neutral

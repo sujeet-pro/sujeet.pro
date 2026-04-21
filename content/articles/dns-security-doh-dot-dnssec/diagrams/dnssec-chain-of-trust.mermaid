@@ -1,0 +1,27 @@
+%% Diagram: DNSSEC chain of trust — root anchor down to a signed RRset
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant V as Validating Resolver
+    participant R as Root (.)
+    participant T as TLD (com)
+    participant Z as Zone (example.com)
+
+    Note over V: Pre-configured trust anchor:\nroot KSK public key (RFC 5011)
+    V->>R: DNSKEY .
+    R-->>V: root DNSKEY + RRSIG (signed by root KSK)
+    V->>V: Verify root DNSKEY against trust anchor
+    V->>R: DS com.
+    R-->>V: DS com. + RRSIG (signed by root ZSK)
+    V->>T: DNSKEY com.
+    T-->>V: com DNSKEY + RRSIG (signed by com KSK)
+    V->>V: Verify com KSK hash matches root's DS for com
+    V->>T: DS example.com.
+    T-->>V: DS example.com + RRSIG (signed by com ZSK)
+    V->>Z: DNSKEY example.com.
+    Z-->>V: example.com DNSKEY + RRSIG (signed by zone KSK)
+    V->>V: Verify zone KSK hash matches com's DS
+    V->>Z: A example.com
+    Z-->>V: A RRset + RRSIG (signed by zone ZSK)
+    V->>V: Verify A RRset signature with zone ZSK
+    Note over V: Chain validated — set AD flag.\nAny break → SERVFAIL + EDE 6 (Bogus)

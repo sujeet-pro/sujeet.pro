@@ -1,0 +1,29 @@
+%% Diagram: Browser storage APIs and the unified quota model
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Browser Storage APIs"
+        direction LR
+        LS["localStorage\nSync KV · ~5 MiB"]
+        SS["sessionStorage\nSync KV · Tab-scoped"]
+        IDB["IndexedDB\nAsync structured store"]
+        CACHE["Cache API\nRequest/Response pairs"]
+        OPFS["OPFS\nSync FS in workers"]
+    end
+
+    subgraph "Storage Standard"
+        QUOTA["Quota Manager\nPer-origin budget"]
+        BUCKET["Storage Buckets\nbest-effort vs persistent"]
+    end
+
+    IDB --> QUOTA
+    CACHE --> QUOTA
+    OPFS --> QUOTA
+    LS -.->|"separate ~5 MiB limit"| QUOTA
+    SS -.->|"separate ~5 MiB limit"| QUOTA
+    QUOTA --> BUCKET
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef secondary fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class IDB primary
+    class QUOTA secondary

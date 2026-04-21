@@ -1,783 +1,494 @@
 ---
-title: 'Micro-Frontends Architecture: Composition, Isolation, and Delivery'
-linkTitle: 'Micro-Frontends'
+title: "Micro-Frontends Architecture: Composition, Isolation, and Delivery"
+linkTitle: "Micro-Frontends"
 description: >-
-  Break monolithic frontends into independently deployable pieces using
-  client-side, server-side, and edge-side composition — with integration
-  techniques like Module Federation, Web Components, and iframes.
+  When micro-frontends pay off, how composition and isolation actually work
+  at runtime — Module Federation, Web Components, edge fragments — and the
+  failure modes you have to plan for before splitting your frontend.
 publishedDate: 2026-01-24T00:00:00.000Z
-lastUpdatedOn: 2026-01-24T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
   - architecture
   - patterns
+  - system-design
+  - cicd
 ---
 
 # Micro-Frontends Architecture: Composition, Isolation, and Delivery
 
-Learn how to scale frontend development with microfrontends, enabling team autonomy, independent deployments, and domain-driven boundaries for large-scale applications.
+Micro-frontends extend the microservice idea to the browser: independently built and deployed UI units that compose into one product. The pattern was named in the [ThoughtWorks Tech Radar in late 2016](https://www.thoughtworks.com/radar/techniques/micro-frontends) and crystallised by [Cam Jackson's June 2019 piece on martinfowler.com](https://martinfowler.com/articles/micro-frontends.html) and [Michael Geers' micro-frontends.org](https://micro-frontends.org/) (started March 2017). This article is for a senior engineer choosing whether to split a frontend, and if so, where to draw the seams. The thesis: micro-frontends are an organisational decision first; the technical pattern only earns its complexity when several teams need independent release cadence over one product surface, and even then the cheapest viable split — often a modular monolith with strong package boundaries — beats a "distributed monolith" disguised as MFEs.
 
-## TLDR
+## When micro-frontends actually earn their cost
 
-**Microfrontends** break large frontend applications into smaller, independent pieces that can be developed, deployed, and scaled separately.
+> [!IMPORTANT]
+> A modular monolith with disciplined ownership covers ~80% of "we should do micro-frontends" conversations. Reach for the real pattern when org reality forces it, not the other way around.
 
-### Key Benefits
+Pick micro-frontends only when most of the following hold:
 
-- **Team Autonomy**: Each team owns their microfrontend end-to-end
-- **Technology Freedom**: Teams can choose different frameworks (React, Vue, Angular, Svelte)
-- **Independent Deployments**: Deploy without coordinating with other teams
-- **Domain-Driven Design**: Organized around business domains, not technical layers
+- **3+ teams** each need their own release cadence on the same product surface, and feature work is currently bottlenecked on a shared release train.
+- **Stable domain seams.** The split lines come from the product, not from the framework. If the seam moves every quarter, the integration tax dominates.
+- **CI/CD maturity.** You already have contract testing, canary, and observability. Without these, micro-frontends just multiply outages.
+- **Long-lived surface.** The cost of building shells, registries, and shared infra only amortises over years.
 
-### Composition Strategies
+The opposite signals are equally clear. A single team, an unstable domain model, missing canary infrastructure, or a need for tight cross-feature interactions are all reasons to keep one app and invest in module boundaries first.
 
-- **Client-Side**: Browser assembly using Module Federation, Web Components, iframes
-- **Server-Side**: Server assembly using SSR frameworks, Server-Side Includes
-- **Edge-Side**: CDN assembly using Cloudflare Workers, ESI, Lambda@Edge
+![Frontend monolith versus micro-frontend composition with the team and runtime boundaries that separate them](./diagrams/monolith-vs-mfe-light.svg "Monoliths share a runtime, build, and release train; micro-frontends trade that uniformity for team-scoped autonomy at the cost of an integration layer.")
+![Frontend monolith versus micro-frontend composition with the team and runtime boundaries that separate them](./diagrams/monolith-vs-mfe-dark.svg)
 
-### Integration Techniques
+## Mental model: a stack of three boundaries
 
-- **Iframes**: Maximum isolation, complex communication via postMessage
-- **Web Components**: Framework-agnostic, encapsulated UI widgets
-- **Module Federation**: Dynamic code sharing, dependency optimization
-- **Custom Events**: Simple publish-subscribe communication
+Every concrete micro-frontend setup is a choice across three independent boundaries. Confusing them is the most common source of design churn.
 
-### Deployment & State Management
+| Boundary | Question | Typical answers |
+| --- | --- | --- |
+| **Decomposition** | What is a unit? | Page, route segment, or in-page widget |
+| **Composition** | Where are units assembled? | Build time, server, edge, or browser |
+| **Integration** | How do units share runtime? | Iframes, Web Components, Module Federation, ESM imports |
 
-- **Independent CI/CD pipelines** for each microfrontend
-- **Local state first** - each microfrontend manages its own state
-- **URL-based state** for sharing ephemeral data
-- **Custom events** for cross-microfrontend communication
+A "page-per-team, edge-composed, Web-Components integration" stack and a "widget-per-team, browser-composed, Module Federation integration" stack are both valid micro-frontend architectures with very different trade-off profiles. Pick one boundary at a time.
 
-### When to Choose
+### Build-time integration is the obvious wrong answer
 
-- **Client-Side**: High interactivity, complex state sharing, SPA requirements
-- **Edge-Side**: Global performance, low latency, high availability needs
-- **Server-Side**: SEO-critical, initial load performance priority
-- **Iframes**: Legacy integration, security sandboxing requirements
+The cheapest-looking technique — and the one most teams reach for first — is to publish each MFE as an npm package and `npm install` them into a container application that builds a single bundle. Cam Jackson's original article calls this out as the first approach to evaluate and the first to reject for the same reasons that ship a [distributed monolith](https://martinfowler.com/articles/micro-frontends.html#Build-timeIntegration): every MFE change forces a container re-release, the integration bug surface is identical to a modular monolith, and "independent deployment" becomes a CI talking point rather than reality. Use build-time linking only as a stepping stone (e.g., a shared design system shipped from one repo to many) — never as the integration seam between teams.
 
-### Challenges
+## Where assembly happens at run time
 
-- **Cross-cutting concerns**: State management, routing, user experience
-- **Performance overhead**: Multiple JavaScript bundles, network requests
-- **Complexity**: Requires mature CI/CD, automation, and tooling
-- **Team coordination**: Shared dependencies, versioning, integration testing
+The location of assembly drives almost every other property — caching, latency, isolation, SEO, and team ergonomics. Once you have ruled out build-time integration, the live choice is between three run-time composition tiers.
 
-## Core Principles of Microfrontend Architecture
+![Build-time integration alongside the three run-time composition strategies — client, server, and edge](./diagrams/composition-strategies-light.svg "Build-time integration collapses to a coordinated release train; the three run-time tiers — client, origin, and edge — each fix the cache shape, SEO story, and how teams share runtime.")
+![Build-time integration alongside the three run-time composition strategies — client, server, and edge](./diagrams/composition-strategies-dark.svg)
 
-A successful microfrontend implementation is built on a foundation of core principles that ensure scalability and team independence.
+| Strategy | Assembly point | Dominant techniques | When it fits |
+| --- | --- | --- | --- |
+| **Client-side** | Browser | [Module Federation](https://module-federation.io/), [Native Federation](https://www.angulararchitects.io/blog/announcing-native-federation-1-0/), [Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components), [single-spa](https://single-spa.js.org/), iframes | SPA-like products with rich shared interactivity and authenticated state |
+| **Server-side** | Origin | SSR frameworks ([Next.js](https://nextjs.org/), [Nuxt](https://nuxt.com/)), [Tailor](https://github.com/zalando/tailor), [Podium](https://podium-lib.io/) | SEO-critical, cacheable surfaces where you want HTML out of the door fast |
+| **Edge-side** | CDN PoP | [Cloudflare Workers + HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/), [ESI 1.0](https://www.w3.org/TR/esi-lang/), [Web Fragments](https://web-fragments.dev/) | Global audience, per-fragment caching, incremental migration of legacy apps |
 
-### Technology Agnosticism
+You will often combine two — for example, edge composition for the public, cacheable shell and client-side composition for the authenticated dashboard inside it. What you almost never want is to mix all three for a single page, because each layer adds its own debug surface.
 
-Each team should have the freedom to choose the technology stack best suited for their specific domain, without being constrained by the choices of other teams. Custom Elements are often used to create a neutral interface between these potentially disparate stacks.
+## Integration techniques in depth
 
-### Isolate Team Code
+### Iframes — strongest isolation, weakest UX
 
-To prevent the tight coupling that plagues monoliths, microfrontends should not share a runtime. Each should be built as an independent, self-contained application, avoiding reliance on shared state or global variables.
+The iframe is the only browser primitive with a hard boundary on JavaScript, CSS, storage partitions (since [third-party storage partitioning](https://developer.mozilla.org/en-US/docs/Web/Privacy/State_Partitioning)), and origin. That isolation is exactly why they are still the right answer for embedding **untrusted** content (third-party widgets) or wrapping a legacy app you cannot otherwise touch. Communication is `postMessage`-only, and you pay a real cost in layout (no shared scrollbars, no shared focus model, accessibility tools have to walk the frame tree).
 
-### Independent Deployments
-
-A cornerstone of the architecture is the ability for each team to deploy their microfrontend independently. This decouples release cycles, accelerates feature delivery, and empowers teams with true ownership.
-
-### Domain-Driven Boundaries
-
-Microfrontends should be modeled around business domains, not technical layers. This ensures that teams are focused on delivering business value and that the boundaries between components are logical and clear.
-
-![Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve](./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl-light.svg "Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve")
-![Monolithic frontend architecture showing the tight coupling and coordinated deployments that microfrontends aim to solve](./diagrams/monolithic-frontend-architecture-showing-the-tight-coupling-and-coordinated-depl-dark.svg)
-
-![Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy](./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec-light.svg "Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy")
-![Microfrontend architecture showing independent deployments, domain boundaries, technology freedom, and team autonomy](./diagrams/microfrontend-architecture-showing-independent-deployments-domain-boundaries-tec-dark.svg)
-
-## The Composition Conundrum: Where to Assemble the Puzzle?
-
-The method by which independent microfrontends are stitched together into a cohesive user experience is known as composition. The location of this assembly process is a primary architectural decision, leading to three distinct models.
-
-| Composition Strategy | Primary Location   | Key Technologies                                           | Ideal Use Case                                                                                                                                        |
-| -------------------- | ------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Client-Side**      | User's Browser     | Module Federation, iframes, Web Components, single-spa     | Highly interactive, complex Single-Page Applications (SPAs) where teams are familiar with the frontend ecosystem                                      |
-| **Server-Side**      | Origin Server      | Server-Side Includes (SSI), SSR Frameworks (e.g., Next.js) | SEO-critical applications where initial load performance is paramount and state-sharing complexity is high                                            |
-| **Edge-Side**        | CDN / Edge Network | ESI, Cloudflare Workers, AWS Lambda@Edge                   | Applications with global audiences that require high availability, low latency, and the ability to offload scalability challenges to the CDN provider |
-
-![Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends](./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro-light.svg "Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends")
-![Three composition strategies showing client-side, server-side, and edge-side approaches for assembling microfrontends](./diagrams/three-composition-strategies-showing-client-side-server-side-and-edge-side-appro-dark.svg)
-
-## A Deep Dive into Integration Techniques
-
-The choice of composition model dictates the available integration techniques, each with its own set of trade-offs regarding performance, isolation, and developer experience.
-
-### Client-Side Integration
-
-In this model, an application shell is loaded in the browser, which then dynamically fetches and renders the various microfrontends.
-
-#### Iframes: The Classic Approach
-
-Iframes offer the strongest possible isolation in terms of styling and JavaScript execution. This makes them an excellent choice for integrating legacy applications or third-party content where trust is low. However, they introduce complexity in communication (requiring `postMessage` APIs) and can create a disjointed user experience.
-
-```html collapse={1-20}
-<!-- Example: Iframe-based microfrontend integration -->
-<div class="app-shell">
-  <header>
-    <h1>E-commerce Platform</h1>
-  </header>
-
-  <main>
-    <!-- Product catalog microfrontend -->
-    <iframe
-      src="https://catalog.microfrontend.com"
-      id="catalog-frame"
-      style="width: 100%; height: 600px; border: none;"
-    >
-    </iframe>
-
-    <!-- Shopping cart microfrontend -->
-    <iframe src="https://cart.microfrontend.com" id="cart-frame" style="width: 300px; height: 400px; border: none;">
-    </iframe>
-  </main>
-</div>
-
-<script>
-  // Communication between iframes using postMessage
-  document.getElementById("catalog-frame").contentWindow.postMessage(
-    {
-      type: "ADD_TO_CART",
-      productId: "12345",
-    },
-    "https://catalog.microfrontend.com",
-  )
-
+```html title="iframe-shell.html"
+<main class="app-shell">
+  <iframe
+    src="https://catalog.example.com/embed"
+    title="Product catalog"
+    referrerpolicy="strict-origin-when-cross-origin"
+    sandbox="allow-scripts allow-forms allow-same-origin"
+    loading="lazy"
+  ></iframe>
+</main>
+<script type="module">
   window.addEventListener("message", (event) => {
-    if (event.origin !== "https://cart.microfrontend.com") return
-
-    if (event.data.type === "CART_UPDATED") {
-      console.log("Cart updated:", event.data.cart)
+    if (event.origin !== "https://catalog.example.com") return
+    if (event.data?.type === "ADD_TO_CART") {
+      // bridge into the host app
     }
   })
 </script>
 ```
 
-#### Web Components: Framework-Agnostic Integration
+Use iframes when you need a sandbox; do not use them when the only complaint is "we can't agree on a CSS reset." The accessibility, focus management, and routing penalties are real and survive every workaround.
 
-By using a combination of Custom Elements and the Shadow DOM, Web Components provide a standards-based, framework-agnostic way to create encapsulated UI widgets. They serve as a neutral interface, allowing a React-based shell to seamlessly host a component built in Vue or Angular.
+### Web Components — the framework-neutral interface
 
-```javascript title="product-card.js" collapse={1-9, 14-36}
-// Example: Custom Element for a product card microfrontend
+Custom Elements and Shadow DOM are W3C/WHATWG standards designed to encapsulate styles and behaviour while behaving like a regular DOM element. They are the natural neutral interface between teams that have already chosen different frameworks.
+
+```javascript title="product-card.js"
 class ProductCard extends HTMLElement {
+  static formAssociated = true
+
   constructor() {
     super()
-    this.attachShadow({ mode: "open" })
+    this.internals = this.attachInternals()
+    this.attachShadow({ mode: "open", delegatesFocus: true })
   }
 
   connectedCallback() {
-    this.render()
-  }
-
-  render() {
+    const title = this.getAttribute("title") ?? ""
+    const price = this.getAttribute("price") ?? ""
     this.shadowRoot.innerHTML = `
       <style>
-        .product-card {
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          padding: 16px;
-          margin: 8px;
-          max-width: 300px;
-        }
-        .product-title {
-          font-size: 18px;
-          font-weight: bold;
-          margin-bottom: 8px;
-        }
-        .product-price {
-          color: #e44d26;
-          font-size: 20px;
-          font-weight: bold;
-        }
-        .add-to-cart-btn {
-          background: #007bff;
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 4px;
-          cursor: pointer;
-        }
+        :host { display: block; }
+        button { font: inherit; }
       </style>
-
-      <div class="product-card">
-        <div class="product-title">${this.getAttribute("title")}</div>
-        <div class="product-price">$${this.getAttribute("price")}</div>
-        <button class="add-to-cart-btn" onclick="this.addToCart()">
-          Add to Cart
-        </button>
-      </div>
+      <article>
+        <h3>${title}</h3>
+        <p>$${price}</p>
+        <button type="button">Add to cart</button>
+      </article>
     `
-  }
-
-  // Key pattern: Custom events enable framework-agnostic communication
-  addToCart() {
-    this.dispatchEvent(
-      new CustomEvent("addToCart", {
-        detail: {
-          productId: this.getAttribute("product-id"),
-          title: this.getAttribute("title"),
-          price: this.getAttribute("price"),
-        },
-        bubbles: true,
-      }),
-    )
+    this.shadowRoot.querySelector("button").addEventListener("click", () => {
+      this.dispatchEvent(
+        new CustomEvent("add-to-cart", {
+          detail: { productId: this.getAttribute("product-id") },
+          bubbles: true,
+          composed: true, // crosses the shadow boundary
+        }),
+      )
+    })
   }
 }
 
 customElements.define("product-card", ProductCard)
 ```
 
-#### Webpack Module Federation: Revolutionary Code Sharing
+Three things bite teams that adopt this naively, and all three have well-documented mitigations:
 
-A revolutionary feature in Webpack 5+, Module Federation allows a JavaScript application to dynamically load code from a completely separate build at runtime. It enables true code sharing between independent applications.
+- **Events do not cross shadow boundaries by default.** Set `composed: true` on `CustomEvent` or the event will be retargeted at the host and never reach React/Vue listeners outside the component.
+- **ARIA cannot reference IDs across shadow roots.** `aria-labelledby` and `aria-describedby` are scoped to the same root, which breaks the standard "label outside, control inside" pattern. Nolan Lawson's [shadow DOM and accessibility writeup](https://nolanlawson.com/2022/11/28/shadow-dom-and-accessibility-the-trouble-with-aria/) catalogues the live bug. Use [`ElementInternals.ariaLabel`](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals#instance_properties_relating_to_aria) or duplicate the label inside the shadow root.
+- **Focus and forms need explicit opt-in.** `attachShadow({ delegatesFocus: true })` forwards focus from the host to the first focusable child. `static formAssociated = true` plus [`ElementInternals.setFormValue`](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals/setFormValue) is what enrols a custom element in native form submission and validation.
 
-**How it works:** A host application consumes code from a remote application. The remote exposes specific modules (like components or functions) via a `remoteEntry.js` file. Crucially, both can define shared dependencies (e.g., React), allowing the host and remote to negotiate and use a single version, preventing the library from being downloaded multiple times.
+If your app already lives in a single framework, native components in that framework usually beat Web Components on ergonomics. The pattern earns its complexity when teams genuinely use different frameworks or when you ship a third-party widget that has to drop into anyone's stack.
 
-```javascript title="webpack.config.js (Host)" collapse={1-4}
-// Host application webpack.config.js
-const ModuleFederationPlugin = require("webpack/lib/container/ModuleFederationPlugin")
+### Module Federation — runtime code sharing for SPAs
+
+[Module Federation](https://webpack.js.org/concepts/module-federation/) shipped in Webpack 5 (2020). A **host** declares **remotes** that expose modules through a `remoteEntry.js` container, and both sides declare a **shared** scope so common dependencies (React, Vue, the design system) load exactly once at runtime.
+
+```javascript title="webpack.config.js (host)"
+const { ModuleFederationPlugin } = require("webpack").container
 
 module.exports = {
+  output: { uniqueName: "shell" },
   plugins: [
     new ModuleFederationPlugin({
-      name: "host",
+      name: "shell",
       remotes: {
-        // Remote entry points - each microfrontend exposes its modules via remoteEntry.js
-        productCatalog: "productCatalog@http://localhost:3001/remoteEntry.js",
-        shoppingCart: "shoppingCart@http://localhost:3002/remoteEntry.js",
+        catalog: "catalog@https://cdn.example.com/catalog/remoteEntry.js",
+        cart: "cart@https://cdn.example.com/cart/remoteEntry.js",
       },
       shared: {
-        // singleton: true ensures only one React instance across all microfrontends
-        react: { singleton: true, requiredVersion: "^18.0.0" },
-        "react-dom": { singleton: true, requiredVersion: "^18.0.0" },
+        react: { singleton: true, requiredVersion: "^18.2.0" },
+        "react-dom": { singleton: true, requiredVersion: "^18.2.0" },
       },
     }),
   ],
 }
 ```
 
-```javascript title="webpack.config.js (Remote)" collapse={1-4}
-// Remote application webpack.config.js
-const ModuleFederationPlugin = require("webpack/lib/container/ModuleFederationPlugin")
+```javascript title="webpack.config.js (catalog remote)"
+const { ModuleFederationPlugin } = require("webpack").container
 
 module.exports = {
+  output: { uniqueName: "catalog" },
   plugins: [
     new ModuleFederationPlugin({
-      name: "productCatalog",
+      name: "catalog",
       filename: "remoteEntry.js",
-      exposes: {
-        // Components exposed to consuming applications
-        "./ProductList": "./src/components/ProductList",
-        "./ProductCard": "./src/components/ProductCard",
-      },
+      exposes: { "./ProductList": "./src/ProductList" },
       shared: {
-        react: { singleton: true, requiredVersion: "^18.0.0" },
-        "react-dom": { singleton: true, requiredVersion: "^18.0.0" },
+        react: { singleton: true, requiredVersion: "^18.2.0" },
+        "react-dom": { singleton: true, requiredVersion: "^18.2.0" },
       },
     }),
   ],
 }
 ```
 
-```javascript title="App.jsx (Host)"
-// Host application consuming remote components
-import React, { Suspense } from "react"
+```jsx title="App.jsx (host)"
+import React, { Suspense, lazy } from "react"
+const ProductList = lazy(() => import("catalog/ProductList"))
 
-// Dynamic imports load remote microfrontends at runtime
-const ProductList = React.lazy(() => import("productCatalog/ProductList"))
-const ShoppingCart = React.lazy(() => import("shoppingCart/ShoppingCart"))
-
-function App() {
+export default function App() {
   return (
-    <div className="app">
-      <Suspense fallback={<div>Loading products...</div>}>
-        <ProductList />
-      </Suspense>
-      <Suspense fallback={<div>Loading cart...</div>}>
-        <ShoppingCart />
-      </Suspense>
-    </div>
+    <Suspense fallback={<p>Loading…</p>}>
+      <ProductList />
+    </Suspense>
   )
 }
 ```
 
-**Use Case:** This is the dominant technique for building complex, interactive SPAs that feel like a single, cohesive application. It excels at optimizing bundle sizes through dependency sharing and enables rich, integrated state management. The trade-off is tighter coupling at the JavaScript level, requiring teams to coordinate on shared dependency versions.
+The runtime contract is the part teams under-invest in.
 
-### Edge-Side Integration
+![Module Federation runtime — host loads remote container, both negotiate shared singletons through a shared scope](./diagrams/module-federation-runtime-light.svg "When `singleton: true` is set, the higher satisfying semver wins; mismatches log a warning unless `strictVersion` is also set.")
+![Module Federation runtime — host loads remote container, both negotiate shared singletons through a shared scope](./diagrams/module-federation-runtime-dark.svg)
 
-This hybrid model moves the assembly logic from the origin server to the CDN layer, physically closer to the end-user.
+The official [`shared` configuration reference](https://module-federation.io/configure/shared) is non-negotiable reading: `singleton: true` enforces one instance, `requiredVersion` drives semver compatibility, and `strictVersion: true` upgrades version mismatches from a console warning to a runtime error. Without `singleton`, you can quietly ship two copies of React and break every hook that relies on module-scoped context.
 
-#### Edge Side Includes (ESI): Legacy XML-Based Assembly
+> [!WARNING]
+> Hooks, React Context, Redux, and i18n libraries all silently break when two copies of their module load. Always mark the framework, the design system runtime, and any context-bearing library as `singleton: true`. Anything stateless (e.g. lodash) can stay non-singleton to allow per-MFE versioning.
 
-A legacy XML-based markup language, ESI allows an edge proxy to stitch a page together from fragments with different caching policies. An `<esi:include>` tag in the HTML instructs the ESI processor to fetch and inject content from another URL.
+[**Module Federation 2.0**](https://github.com/module-federation/core/discussions/2397) (`@module-federation/enhanced`) is the current production target. It [decouples the runtime from the bundler](https://www.infoq.com/news/2026/04/module-federation-2-stable/), publishes an `mf-manifest.json` for deployment tracking, ships a [Chrome DevTools extension](https://module-federation.io/guide/debug/chrome-devtool) for dependency-graph inspection, and adds dynamic TypeScript type hints for remote modules. [Rspack](https://rspack.rs/guide/features/module-federation) ships built-in support for v1.5; v2.0 lands via the Rsbuild plugin. If you are starting today, target the v2.0 runtime regardless of bundler.
 
-```html
-<!-- Example: ESI-based page assembly -->
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>E-commerce Platform</title>
-    <link rel="stylesheet" href="/styles/main.css" />
-  </head>
-  <body>
-    <header>
-      <esi:include src="https://header.microfrontend.com" />
-    </header>
+[**Native Federation**](https://www.angulararchitects.io/blog/announcing-native-federation-1-0/), introduced by Manfred Steyer, is the bundler-agnostic cousin: same mental model, but the wire format is plain ECMAScript Modules orchestrated by [import maps](https://html.spec.whatwg.org/multipage/webappapis.html#import-maps). It ships first-class for Angular's esbuild-based `ApplicationBuilder` and works with Vite. Use it when you want the federation pattern without coupling production to Webpack-family tooling.
 
-    <main>
-      <div class="product-catalog">
-        <esi:include src="https://catalog.microfrontend.com/products" />
-      </div>
+### Import maps and single-spa — the standards-based path
 
-      <aside class="shopping-cart">
-        <esi:include src="https://cart.microfrontend.com" />
-      </aside>
-    </main>
+Import maps have been a [WHATWG HTML specification](https://html.spec.whatwg.org/multipage/webappapis.html#import-maps) feature shipping in [all major browsers since 2023](https://web.dev/blog/import-maps-in-all-modern-browsers) (Chrome 89, Safari 16.4, Firefox 108). They map bare specifiers to URLs, which is enough to load and version micro-frontends without any bundler runtime.
 
-    <footer>
-      <esi:include src="https://footer.microfrontend.com" />
-    </footer>
-  </body>
-</html>
-```
-
-While effective for caching, ESI is limited by its declarative nature and inconsistent vendor support.
-
-#### Programmable Edge: Modern JavaScript-Based Assembly
-
-The modern successor to ESI, programmable edge environments provide a full JavaScript runtime on the CDN. Using APIs like Cloudflare's `HTMLRewriter`, a worker can stream an application shell, identify placeholder elements, and stream microfrontend content directly into them from different origins.
-
-```javascript title="worker.js" collapse={1-5}
-// Example: Cloudflare Worker for edge-side composition
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url)
-
-    // Fetch the application shell from origin
-    const shellResponse = await fetch("https://shell.microfrontend.com" + url.pathname)
-
-    // Fetch microfrontend fragments in parallel
-    const [headerHtml, catalogHtml, cartHtml] = await Promise.all([
-      fetch("https://header.microfrontend.com").then((r) => r.text()),
-      fetch("https://catalog.microfrontend.com/products").then((r) => r.text()),
-      fetch("https://cart.microfrontend.com").then((r) => r.text()),
-    ])
-
-    // Use HTMLRewriter to inject microfrontend content into placeholders
-    return new HTMLRewriter()
-      .on('[data-microfrontend="header"]', {
-        element(el) {
-          el.replace(headerHtml, { html: true })
-        },
-      })
-      .on('[data-microfrontend="catalog"]', {
-        element(el) {
-          el.replace(catalogHtml, { html: true })
-        },
-      })
-      .on('[data-microfrontend="cart"]', {
-        element(el) {
-          el.replace(cartHtml, { html: true })
-        },
-      })
-      .transform(shellResponse)
-  },
-}
-```
-
-This approach offers the performance benefits of server-side rendering with the scalability of a global CDN. A powerful pattern called "Fragment Piercing" even allows for the incremental modernization of legacy client-side apps by server-rendering new microfrontends at the edge and "piercing" them into the existing application's DOM.
-
-## Deployment Strategies: From Code to Production
-
-A core tenet of microfrontends is independent deployability, which necessitates a robust and automated CI/CD strategy.
-
-### Independent Pipelines
-
-Each microfrontend must have its own dedicated CI/CD pipeline, allowing its owning team to build, test, and deploy without coordinating with others. This is fundamental to achieving team autonomy.
-
-![Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others](./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy-light.svg "Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others")
-![Independent deployment pipelines showing how each team can build, test, and deploy their microfrontend without coordinating with others](./diagrams/independent-deployment-pipelines-showing-how-each-team-can-build-test-and-deploy-dark.svg)
-
-### Repository Strategy
-
-Teams often face a choice between a single monorepo or multiple repositories (polyrepo). A monorepo can simplify dependency management and ensure consistency, but it can also reduce team autonomy and create tight coupling if not managed carefully.
-
-```yaml title=".github/workflows/deploy-catalog.yml" collapse={1-6, 14-36}
-# Example: GitHub Actions workflow for independent deployment
-name: Deploy Product Catalog Microfrontend
-
-on:
-  push:
-    branches: [main]
-    paths:
-      # Key pattern: Only trigger when this specific microfrontend changes
-      - "microfrontends/product-catalog/**"
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: "microfrontends/product-catalog/package-lock.json"
-
-      - name: Install dependencies
-        run: |
-          cd microfrontends/product-catalog
-          npm ci
-
-      - name: Run tests
-        run: |
-          cd microfrontends/product-catalog
-          npm test
-
-      - name: Build application
-        run: |
-          cd microfrontends/product-catalog
-          npm run build
-
-      # Independent deployment - no coordination with other teams
-      - name: Deploy to staging
-        run: npm run deploy:staging
-        working-directory: microfrontends/product-catalog
-
-      - name: Run integration tests
-        run: npm run test:integration
-
-      - name: Deploy to production
-        if: success()
-        run: npm run deploy:production
-        working-directory: microfrontends/product-catalog
-```
-
-### Automation and Tooling
-
-A mature automation culture is non-negotiable.
-
-**Selective Builds:** CI/CD systems should be intelligent enough to identify and build only the components that have changed, avoiding unnecessary full-application rebuilds.
-
-**Versioning:** Shared dependencies and components must be strictly versioned to prevent conflicts and allow teams to adopt updates at their own pace.
-
-**Infrastructure:** Container orchestration platforms like Kubernetes are often used to manage and scale the various services that constitute the microfrontend ecosystem.
-
-## Navigating Cross-Cutting Concerns
-
-While decomposition solves many problems, it introduces new challenges, particularly around state, routing, and user experience.
-
-### State Management and Communication
-
-Managing state is one of the most complex aspects of a microfrontend architecture. The primary goal is to maintain isolation and avoid re-introducing the tight coupling the architecture was meant to solve.
-
-#### Local State First
-
-The default and most resilient pattern is for each microfrontend to manage its own state independently.
-
-```javascript title="ProductCatalog.jsx" collapse={1-3, 11-24}
-// Example: Local state management in a React microfrontend
-import React, { useState, useEffect } from "react"
-
-function ProductCatalog() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({})
-
-  useEffect(() => {
-    fetchProducts(filters)
-  }, [filters])
-
-  const fetchProducts = async (filters) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/products?${new URLSearchParams(filters)}`)
-      const data = await response.json()
-      setProducts(data)
-    } catch (error) {
-      console.error("Failed to fetch products:", error)
-    } finally {
-      setLoading(false)
+```html title="index.html (root config)"
+<script type="importmap">
+  {
+    "imports": {
+      "@app/catalog": "https://cdn.example.com/catalog/v3.4.0/index.js",
+      "@app/cart": "https://cdn.example.com/cart/v1.9.2/index.js",
+      "react": "https://esm.sh/react@18.3.1",
+      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
     }
   }
-
-  // Key pattern: Sync local state to URL for shareability
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters)
-    window.history.replaceState(null, "", `?${new URLSearchParams(newFilters)}`)
-  }
-
-  return (
-    <div className="product-catalog">
-      <FilterPanel filters={filters} onFilterChange={handleFilterChange} />
-      {loading ? <div>Loading...</div> : <ProductGrid products={products} />}
-    </div>
-  )
-}
+</script>
 ```
 
-#### URL-Based State
+[single-spa](https://single-spa.js.org/) is the most common orchestrator on top of this. A root config registers each MFE with an `activeWhen` route predicate and a loader; single-spa drives a `bootstrap → mount → unmount` lifecycle (each phase returns a Promise) on every route change. The optional `unload` only fires when you explicitly call [`unloadApplication`](https://single-spa.js.org/docs/api/#unloadapplication) — it resets the registered MFE to `NOT_LOADED` so the next mount re-runs `bootstrap`. Treat it as a hot-reload primitive, not as part of the steady-state route flow.
 
-For ephemeral state that needs to be shared across fragments (e.g., search filters), the URL is the ideal, stateless medium.
-
-```javascript title="url-state-manager.js" collapse={1-6, 27-36}
-// Example: URL-based state management
-class URLStateManager {
-  constructor() {
-    this.listeners = new Set()
-    window.addEventListener("popstate", this.handlePopState.bind(this))
-  }
-
-  // Key pattern: URL as the source of truth for cross-microfrontend state
-  setState(key, value) {
-    const url = new URL(window.location)
-    if (value === null || value === undefined) {
-      url.searchParams.delete(key)
-    } else {
-      url.searchParams.set(key, JSON.stringify(value))
-    }
-    window.history.pushState(null, "", url)
-    this.notifyListeners()
-  }
-
-  getState(key) {
-    const url = new URL(window.location)
-    const value = url.searchParams.get(key)
-    return value ? JSON.parse(value) : null
-  }
-
-  subscribe(listener) {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
-
-  notifyListeners() {
-    this.listeners.forEach((listener) => listener())
-  }
-
-  handlePopState() {
-    this.notifyListeners()
-  }
-}
-
-// Usage across microfrontends - any microfrontend can read/write
-const stateManager = new URLStateManager()
-stateManager.setState("category", "electronics")
-const category = stateManager.getState("category")
-```
-
-#### Custom Events
-
-For client-side communication after composition, native browser events provide a simple and effective publish-subscribe mechanism, allowing fragments to communicate without direct knowledge of one another.
-
-```javascript title="event-bus.js" collapse={1-26}
-// Example: Event-based communication between microfrontends
-class MicrofrontendEventBus {
-  constructor() {
-    this.events = {}
-  }
-
-  on(event, callback) {
-    if (!this.events[event]) {
-      this.events[event] = []
-    }
-    this.events[event].push(callback)
-  }
-
-  emit(event, data) {
-    if (this.events[event]) {
-      this.events[event].forEach((callback) => callback(data))
-    }
-  }
-
-  off(event, callback) {
-    if (this.events[event]) {
-      this.events[event] = this.events[event].filter((cb) => cb !== callback)
-    }
-  }
-}
-
-window.microfrontendEvents = new MicrofrontendEventBus()
-
-// Key pattern: Loose coupling via pub-sub
-// Product catalog emits events (doesn't know who listens)
-function addToCart(product) {
-  window.microfrontendEvents.emit("addToCart", {
-    productId: product.id,
-    name: product.name,
-    price: product.price,
-    quantity: 1,
-  })
-}
-
-// Shopping cart subscribes (doesn't know who publishes)
-window.microfrontendEvents.on("addToCart", (productData) => {
-  updateCart(productData)
-})
-```
-
-#### Shared Global Store (Use with Caution)
-
-For truly global state like user authentication, a shared store (e.g., Redux) can be used. However, this should be a last resort, as it introduces a strong dependency between fragments and the shared module, reducing modularity.
-
-```javascript title="shared-store.js" collapse={1-4, 8-16, 19-32}
-// Example: Shared Redux store (use sparingly - reduces modularity)
-import { createStore, combineReducers } from "redux"
-
-// Shared user state - authentication is a valid use case for shared state
-const userReducer = (state = null, action) => {
-  switch (action.type) {
-    case "SET_USER":
-      return action.payload
-    case "LOGOUT":
-      return null
-    default:
-      return state
-  }
-}
-
-// Shared cart state - consider URL-based or event-based alternatives first
-const cartReducer = (state = [], action) => {
-  switch (action.type) {
-    case "ADD_TO_CART":
-      const existingItem = state.find((item) => item.id === action.payload.id)
-      if (existingItem) {
-        return state.map((item) => (item.id === action.payload.id ? { ...item, quantity: item.quantity + 1 } : item))
-      }
-      return [...state, { ...action.payload, quantity: 1 }]
-    case "REMOVE_FROM_CART":
-      return state.filter((item) => item.id !== action.payload)
-    default:
-      return state
-  }
-}
-
-const rootReducer = combineReducers({ user: userReducer, cart: cartReducer })
-
-// Warning: All microfrontends now depend on this store version
-window.sharedStore = createStore(rootReducer)
-```
-
-### Routing
-
-Routing logic is intrinsically tied to the composition model.
-
-#### Client-Side Routing
-
-In architectures using an application shell (common with Module Federation or single-spa), a global router within the shell manages navigation between different microfrontends, while each microfrontend can handle its own internal, nested routes.
-
-```javascript title="root-config.js" collapse={16-32}
-// Example: Client-side routing with single-spa
+```javascript title="root-config.js"
 import { registerApplication, start } from "single-spa"
 
-// Key pattern: Route-based microfrontend mounting
-// Each microfrontend mounts/unmounts based on URL patterns
 registerApplication({
-  name: "product-catalog",
-  app: () => import("./product-catalog"),
-  activeWhen: ["/products", "/"],
-  customProps: { domElement: document.getElementById("product-catalog-container") },
+  name: "@app/catalog",
+  app: () => import("@app/catalog"),
+  activeWhen: ["/catalog", "/"],
 })
 
 registerApplication({
-  name: "shopping-cart",
-  app: () => import("./shopping-cart"),
+  name: "@app/cart",
+  app: () => import("@app/cart"),
   activeWhen: ["/cart"],
-  customProps: { domElement: document.getElementById("shopping-cart-container") },
-})
-
-registerApplication({
-  name: "user-profile",
-  app: () => import("./user-profile"),
-  activeWhen: ["/profile"],
-  customProps: { domElement: document.getElementById("user-profile-container") },
 })
 
 start()
 ```
 
-#### Server/Edge-Side Routing
+The [single-spa recommended setup](https://single-spa.js.org/docs/recommended-setup/) pairs import maps with [`import-map-overrides`](https://github.com/single-spa/import-map-overrides) so engineers can point a single MFE specifier at a local dev server while the rest of the app continues to load production builds. That workflow alone justifies the import-map approach for many teams.
 
-In server or edge-composed systems, routing is typically handled by the webserver or edge worker. Each URL corresponds to a page that is assembled from a specific set of fragments, simplifying the client-side logic at the cost of a full network round trip for each navigation.
+The split versus Module Federation is real:
 
-```javascript title="pages/products/[category].js" collapse={13-24}
-// Example: Server-side routing with Next.js
-export default function ProductCategory({ products, category }) {
-  return (
-    <div className="product-category-page">
-      <h1>{category} Products</h1>
-      {/* Microfrontend components composed server-side */}
-      <ProductCatalog products={products} />
-      <ShoppingCart />
-    </div>
-  )
-}
+| Concern | Module Federation 2.0 | Import maps + single-spa |
+| --- | --- | --- |
+| Browser support | Any (bundler ships runtime) | All evergreen browsers natively; older needs SystemJS / `es-module-shims` |
+| Shared deps | Negotiated via `shared` scope, semver, singleton | Whatever you put in the import map (no negotiation) |
+| Build output | Container manifest + chunks | Plain ESM modules |
+| Type safety across boundary | First-class via `mf-manifest.json` | Manual or build-time codegen |
+| Runtime debug tools | Dedicated Chrome DevTools panel | Browser DevTools sources / network |
 
-// Key pattern: Data fetched at request time, page assembled server-side
-export async function getServerSideProps({ params }) {
-  const { category } = params
-  const products = await fetchProductsByCategory(category)
-  return { props: { products, category } }
+Use Module Federation when you need versioned, negotiated sharing of stateful libraries. Use import maps + single-spa when standards-only delivery and a thinner runtime are worth giving up automatic version negotiation.
+
+### Edge composition with Cloudflare Workers and HTMLRewriter
+
+[Cloudflare's `HTMLRewriter`](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/) is a streaming HTML parser based on Cloudflare's `lol-html`. It walks the document chunk by chunk and lets handlers transform elements as they pass — without ever buffering the full document — which is what makes it appropriate for assembling pages at the edge without sacrificing TTFB.
+
+```javascript title="worker.js"
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url)
+    const shell = await fetch(`${env.SHELL_ORIGIN}${url.pathname}`, request)
+
+    const fetchFragment = (origin) =>
+      fetch(`${origin}${url.pathname}`, { headers: request.headers })
+
+    return new HTMLRewriter()
+      .on('fragment[name="header"]', {
+        async element(el) {
+          el.replace(await fetchFragment(env.HEADER_ORIGIN), { html: true })
+        },
+      })
+      .on('fragment[name="catalog"]', {
+        async element(el) {
+          el.replace(await fetchFragment(env.CATALOG_ORIGIN), { html: true })
+        },
+      })
+      .transform(shell)
+  },
 }
 ```
 
-## Choosing Your Path: A Use-Case Driven Analysis
+Two operational details matter for production:
 
-The "best" microfrontend approach is context-dependent. The decision should be driven by application requirements, team structure, and performance goals.
+- **Streaming replace.** Since the [January 2025 update](https://developers.cloudflare.com/changelog/post/2025-01-31-html-rewriter-streaming/), `replace`, `append`, and `prepend` accept a `Response` or `ReadableStream`. This lets you stream a fragment directly into the parent document instead of buffering it — preserving the TTFB you bought by composing at the edge.
+- **Failure handling.** If a handler throws, parsing halts immediately, the transformed body errors, and any partial response is truncated. There is no retry at this layer. Wrap fragment fetches in `try/catch` and fall back to either a placeholder element or the cached previous version of the fragment.
 
-### Choose Client-Side Composition (e.g., Module Federation) when:
+The CSS-selector dialect supports most useful patterns (`E F`, `E > F`, attribute selectors) but [omits some pseudo-selectors](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/#bring-your-own-base-uri) like `:last-child`. Plan placeholder element shapes accordingly.
 
-- Your application is a highly interactive, complex SPA that needs to feel like a single, seamless product
-- Multiple fragments need to share complex state
-- Optimizing the total JavaScript payload via dependency sharing is a key concern
-- Teams are familiar with the frontend ecosystem and can coordinate on shared dependencies
+[**ESI 1.0**](https://www.w3.org/TR/esi-lang/) is the older, declarative cousin — submitted to the W3C as a Note in August 2001 by Akamai, Oracle, and others, and never promoted to a formal Recommendation. It still works on [Akamai](https://techdocs.akamai.com/property-mgr/docs/esi-edge-side-includes), [Fastly via VCL](https://www.fastly.com/blog/using-esi-part-1-simple-edge-side-include), and [Varnish](https://varnish-cache.org/), but vendor support diverges in subtle ways. Reach for ESI when you are already on a CDN that supports it well and the assembly is a static include shape; reach for HTMLRewriter or Web Fragments when you need conditional logic, parallel fetches, or streaming.
 
-### Choose Edge-Side Composition when:
+### Fragment piercing — incrementally migrating a legacy SPA
 
-- Your primary goals are global low latency, high availability, and superior initial load performance
-- You're building e-commerce sites, news portals, or any application serving a geographically diverse audience
-- Offloading scalability to a CDN is a strategic advantage
-- You need to incrementally modernize legacy applications
+Cloudflare's [fragment piercing](https://blog.cloudflare.com/fragment-piercing/) pattern is the most useful new addition to the micro-frontend toolkit since Module Federation. The mechanism: render new fragments at the **top of the DOM** so they are interactive at first paint; once the legacy SPA hydrates, **pierce** the fragment by moving its DOM node into a `<piercing-fragment-outlet>` element inside the legacy shell. Layout, focus, form state, and text selection are preserved during the move.
 
-### Choose Server-Side Composition when:
+![Fragment piercing — fragment is interactive at first paint, then moved into the legacy shell after hydration](./diagrams/fragment-piercing-flow-light.svg "Fragment piercing lets you ship a new MFE inside a legacy SPA without rewriting the shell or paying a hydration tax on the new code path.")
+![Fragment piercing — fragment is interactive at first paint, then moved into the legacy shell after hydration](./diagrams/fragment-piercing-flow-dark.svg)
 
-- SEO and initial page load time are the absolute highest priorities
-- You're building content-heavy sites with less dynamic interactivity
-- Delivering a fully-formed HTML document to web crawlers is critical
-- State-sharing complexity is high and you want to avoid client-side coordination
+The open-source materialisation is [Web Fragments](https://web-fragments.dev/), maintained by Cloudflare's developer experience team and used to ship the production Cloudflare dashboard. It runs on Workers, Cloudflare Pages, Netlify, Vercel, or plain Node.js. If you are migrating a large client-rendered legacy app, this is the path with the lowest blast radius.
 
-### Choose Iframes when:
+## Independent deployment in practice
 
-- You need to integrate a legacy application into a modern shell
-- You're embedding untrusted third-party content
-- The unparalleled security sandboxing of iframes is required
-- You need complete isolation between different parts of the application
+"Independent deployment" is the hardest property to actually achieve, and the one most commonly faked. It means each MFE has its own pipeline that can ship to production without coordinating with peer teams, **and** the integration layer can survive any one MFE being broken.
 
-![Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements](./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on-light.svg "Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements")
-![Decision tree for choosing the right microfrontend composition strategy based on primary goals and requirements](./diagrams/decision-tree-for-choosing-the-right-microfrontend-composition-strategy-based-on-dark.svg)
+![Independent CI/CD pipelines per micro-frontend with a shared registry pattern](./diagrams/independent-pipelines-light.svg "Each team owns its own pipeline; releases land in a shared manifest or registry that the shell or edge composer reads at request time.")
+![Independent CI/CD pipelines per micro-frontend with a shared registry pattern](./diagrams/independent-pipelines-dark.svg)
 
-## Conclusion
+What this requires beyond "team has a CI job":
 
-Microfrontends enable scalable frontend development but introduce complexity that must be justified by organizational needs. The architecture works best when:
+- **A registry that is the source of truth.** An import map, an `mf-manifest.json`, or a database row keyed by environment. The shell reads it at request time. Promotion is updating the registry, not redeploying the shell.
+- **Contract tests at the boundary.** Schema and event contracts are negotiated; consumer-driven contracts (e.g. [Pact](https://pact.io/)) catch breaking changes before promotion. Visual diffing on the seam (e.g. [Chromatic](https://www.chromatic.com/), Percy) catches the rest.
+- **Canary at the registry layer.** Promote 1%, then 5%, then 100% of traffic to the new version by writing two registry entries and using a header or cookie to pick. This is dramatically cheaper than canarying the whole shell.
+- **Per-MFE error isolation.** Catch boot and runtime errors per MFE and render a fallback. A crashed cart MFE must never blank the entire dashboard.
+- **Per-fragment performance budget.** Each MFE owns a JS payload, [LCP](https://web.dev/articles/lcp), and [INP](https://web.dev/articles/inp) budget enforced in CI; the shell composes a global budget on top. Without per-fragment budgets, the page payload drifts upward by whichever team merged last.
 
-- **Multiple teams** need to deploy independently without coordination
-- **Technology diversity** is required across different parts of the application
-- **Domain boundaries** are clear and stable
+```javascript title="error-boundary.tsx"
+class MfeErrorBoundary extends React.Component {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error, info) {
+    telemetry.recordMfeFailure(this.props.name, error, info)
+  }
+  render() {
+    if (this.state.failed) return <FallbackTile name={this.props.name} />
+    return this.props.children
+  }
+}
+```
 
-The composition strategy should match your constraints: client-side for SPAs with complex state sharing, edge-side for global performance requirements, server-side for SEO-critical applications.
+### Repository strategy: monorepo or polyrepo
 
-Microfrontends are fundamentally an organizational decision. The technical implementation follows from how teams are structured, how releases are managed, and what trade-offs are acceptable. Start with the simplest approach that enables independent deployment, then add complexity only when needed.
+Both work. The choice usually mirrors how the org actually builds software, not what is best in theory.
+
+| Property | Monorepo (Nx, Turborepo, Bazel) | Polyrepo |
+| --- | --- | --- |
+| Atomic cross-cutting changes | Easy | Each repo, separately |
+| Shared lint / tsconfig / DX tooling | Trivial | Duplicated or templated |
+| Build cache and selective build | First-class with the right tool | Per-repo only |
+| True team independence | Soft — root tooling is shared | Hard — each repo is sovereign |
+| Onboarding new team | Need to teach the monorepo tools | Their own repo, their rules |
+
+In an MFE world, the monorepo argument is strongest when you can keep selective builds honest (Nx affected, Turborepo filters) — otherwise every PR triggers every pipeline and "independent deployment" is theatre.
+
+## State, routing, and other cross-cutting concerns
+
+The hardest design work in micro-frontends is keeping the seams from leaking back into a coupling problem.
+
+### State management — local first, then URL, then events
+
+Adopt a hierarchy and resist the urge to skip up the chain:
+
+1. **Local state per MFE.** Each MFE owns its model and its server cache (TanStack Query, RTK Query, Apollo). This is the boring answer and the right one for ~80% of state.
+2. **URL as cross-MFE state.** Search filters, selected tab, modal-open flags. The URL is the only state primitive that is shareable, bookmarkable, and free of dependency on a runtime store.
+3. **Custom events for ephemeral coupling.** "Item added to cart" is a fact that happened; the cart MFE listens, the toast MFE listens. Use `CustomEvent` with `composed: true` so events cross shadow boundaries.
+4. **Shared store as a last resort.** Authentication, feature flags, and the design system theme are fair game. Treat the store contract as a long-lived API: version it, evolve it additively, never breaking-change it.
+
+```javascript title="event-bus.js"
+const bus = new EventTarget()
+export const emit = (type, detail) =>
+  bus.dispatchEvent(new CustomEvent(type, { detail }))
+export const on = (type, handler) => {
+  const listener = (e) => handler(e.detail)
+  bus.addEventListener(type, listener)
+  return () => bus.removeEventListener(type, listener)
+}
+```
+
+![Communication hierarchy across MFEs — local state, then URL, then events, shared store as last resort](./diagrams/communication-topology-light.svg "Resist the shared store. Local state covers ~80% of cases; URL and events cover most of the rest; the shared store is a last resort that ages into a coupling problem.")
+![Communication hierarchy across MFEs — local state, then URL, then events, shared store as last resort](./diagrams/communication-topology-dark.svg)
+
+### Routing — global shell, local detail
+
+Two patterns dominate, and they correspond to the composition strategy:
+
+- **Client-composed apps** use a global router in the shell that mounts/unmounts MFEs based on top-level routes; each MFE owns its nested routes. single-spa's `activeWhen` is the canonical implementation.
+- **Server- or edge-composed apps** rely on the server/edge to map URL → fragment set; the shell almost has no router at all. Each navigation is a network round-trip, but each fragment is independently cacheable.
+
+The footgun in client composition is back-button correctness. When MFEs each call `history.pushState`, you can end up with a history stack that no single MFE knows how to interpret. Standardise on either an event-based "navigate to URL" intent that the shell owns, or single-spa's [reroute](https://single-spa.js.org/docs/api/#triggerappchange) flow.
+
+### Shared design system, auth, and telemetry
+
+These three are the cross-cutting concerns that, if you do not solve them, will reinstate the very monolith the split was meant to escape.
+
+- **Design system.** Ship as Web Components, a `singleton: true` runtime in MF, or a versioned static asset on a CDN that everyone consumes. The smell to avoid is each MFE bundling its own copy of `@design-system/*` at different versions — a 250 KB problem multiplied by N.
+- **Auth.** A shell-owned auth boundary that fetches the session once and exposes it via a shared store, custom event, or response header. MFEs treat auth as read-only state.
+- **Telemetry.** Standardise on one tracing format (W3C [traceparent](https://www.w3.org/TR/trace-context/)) and one error reporting target. Tag every event with `mfe_name` and `mfe_version` so you can attribute regressions.
+
+### CSS isolation — pick one strategy and enforce it
+
+CSS bleed across MFEs is the most common "small" bug that ages into a major rewrite. Pick one of these and codify it in the integration contract:
+
+| Strategy | Mechanism | Cost |
+| --- | --- | --- |
+| **Shadow DOM** | Hard browser-enforced boundary inside Web Components | Strongest isolation; constraints around ARIA / forms / global theming variables (use CSS custom properties to bridge) |
+| **CSS Modules / scoped names** | Build-time hashing (CSS Modules, vanilla-extract, Linaria, CSS-in-JS) | Cheap, framework-agnostic at the source; relies on every MFE actually using it |
+| **Class-name namespace prefixes** | Convention (`.cart-*`, `.catalog-*`) enforced by lint | Lowest tooling cost; one missing prefix and the bleed is back |
+| **iframes** | Cross-document boundary | Total isolation; loses shared scrollbars, focus, and fluid layout |
+
+The design system sits above all of these — its CSS lives in one bundle, exposed via a shared singleton or a published static asset, and consumed by every MFE. A `singleton: true` design-system runtime under Module Federation is the practical default; for standards-based stacks, a versioned import-map entry that pins the design-system stylesheet works equivalently.
+
+## Adjacent patterns: when you do not actually need MFEs
+
+Several patterns capture the organisational and performance wins MFEs were meant to deliver, often at a fraction of the integration cost. Evaluate them before committing.
+
+| Pattern | Captures | Trade-off |
+| --- | --- | --- |
+| **Modular monolith** with strict package boundaries | Code ownership, selective build via Nx / Turborepo affected | One repo, one runtime, one release train |
+| **React Server Components** ([RSC, Stage 3 in React 19](https://react.dev/reference/rsc/server-components)) | Per-route server rendering, near-zero client JS for non-interactive surfaces, server-only data access | Single deployable; team independence still comes from package boundaries, not runtime split |
+| **Islands architecture** ([Astro Islands](https://docs.astro.build/en/concepts/islands/), [Astro Server Islands](https://docs.astro.build/en/guides/server-islands/), [Qwik resumability](https://qwik.dev/docs/concepts/resumable/)) | Per-component JS budget, per-island hydration timing, content-first delivery | Strong perf story, but assumes one app and one team for the orchestration layer |
+| **Multi-zone routing** ([Next.js Multi-Zones](https://nextjs.org/docs/app/guides/multi-zones)) | Each zone deploys independently behind a single domain via path rewrites | Coarse-grained — the unit is a whole app, not a fragment; cross-zone navigation is a hard reload |
+
+In most cases a modular monolith plus RSC or islands closes the perf and ownership gaps without a registry, a shell, or a federation runtime. Reach for true MFEs only when the org argument — multiple teams, independent release cadence, stable seams — survives that comparison.
+
+## Choosing the strategy
+
+![Composition strategy decision tree starting from the dominant constraint](./diagrams/composition-decision-tree-light.svg "Start from the binding constraint — single team, isolation, SEO, global cacheability, or shared interactivity — and let it pick the strategy.")
+![Composition strategy decision tree starting from the dominant constraint](./diagrams/composition-decision-tree-dark.svg)
+
+The decision rarely flows top-down from a clean blank slate. More often it works backwards from a constraint:
+
+- **One team, one product.** Modular monolith. Skip MFEs.
+- **Need to embed untrusted content or a legacy app you cannot touch.** Iframes or sandboxed Web Components.
+- **SEO and TTFB are top priority, content is largely cacheable, audience is global.** Edge composition (Workers + HTMLRewriter, or Web Fragments).
+- **SEO and TTFB are top priority, but content is personalised.** Server composition (SSR with [Tailor](https://github.com/zalando/tailor) / [Podium](https://podium-lib.io/) for fragments).
+- **SPA-like product, multiple teams, heavy shared interactivity, authenticated users.** Client composition (Module Federation 2.0, Native Federation, or import maps + single-spa).
+- **Migrating a legacy CSR app one surface at a time.** Fragment piercing with Web Fragments.
+
+## Failure modes and anti-patterns
+
+The pattern collects failure modes the way microservices did a decade ago. The [arXiv catalogue of micro-frontend anti-patterns](https://arxiv.org/html/2411.19472v1) (Castelli et al., 2024) and [Luca Mezzalira's "Dark Side of Micro-Frontends" talk](https://gitnation.com/contents/building-micro-frontends) cover the field; the ones that come up most in production are:
+
+> [!CAUTION]
+> The biggest risk is shipping a **distributed monolith**: you pay every cost of micro-frontends and get none of the autonomy. Every cross-cutting change still requires every team to redeploy in lockstep, only now also across N pipelines instead of one.
+
+- **Distributed monolith.** Releases coordinate across MFEs anyway. Cause: leaky shared types, shared runtime state, or coupled features. Fix: redraw seams along stable product boundaries; make the integration layer a real API.
+- **Mega frontend.** One MFE balloons into "everything except auth." Cause: easiest place to add the next feature. Fix: enforce size and ownership budgets in CI; split when an MFE has more than one team.
+- **Knot frontend.** N×N cross-MFE messaging. Cause: skipping URL/event hierarchy and reaching for a shared store. Fix: re-route ephemeral coupling through events, persistent coupling through the URL.
+- **Golden hammer.** Every project is now a micro-frontend, including the marketing site. Cause: org-level momentum. Fix: a written checklist (the criteria at the top of this article) gating new MFE projects.
+- **Dependency multiplication.** Production payload is dominated by duplicate copies of React, the design system, and a logging client. Cause: not marking shared deps as singletons or not externalising them in import maps. Fix: enforce a singleton list in CI; report duplicate copies via the [MF Chrome DevTools extension](https://module-federation.io/guide/debug/chrome-devtool) or a bundle analyzer.
+- **No CI/CD.** Independent deployment is aspirational; in practice everything ships from a Friday release branch. The catalogue calls this out as one of the most damaging anti-patterns; the fix is the boring one — invest in pipelines before the split, not after.
+
+## Production lessons worth borrowing
+
+A handful of teams have published deep retrospectives. They are worth reading in full:
+
+- **[DAZN's micro-frontend infrastructure](https://medium.com/dazn-tech/how-dazn-manages-micro-frontend-infrastructure-f045d7c634c2)** built a custom `Bootstrap` loader with route-based vertical slicing and uses chaos testing (`chaos-squirrel`) to validate isolation. Their headline conclusion: the hard problem is not technical; it is communication overhead and dependency management between distributed teams.
+- **[Zalando from Mosaic to Interface Framework](https://engineering.zalando.com/posts/2021/03/micro-frontends-part1.html).** Zalando pioneered server-side composition with [Tailor](https://github.com/zalando/tailor), then moved away from fragment-based architecture toward a unified React/TypeScript/GraphQL platform when fragmented tech stacks led to inconsistent UX and high onboarding friction. The retrospective is one of the most honest documents in the space.
+- **[Cloudflare's fragment piercing](https://blog.cloudflare.com/fragment-piercing/)** lets you incrementally migrate a legacy CSR shell without a Big Bang rewrite, and is now in production for the Cloudflare dashboard.
+
+The common thread: the technical pattern works; the failure mode is always organisational drift — UX consistency, performance budgets, design system ownership, and contract discipline.
+
+## Closing heuristics
+
+- Default to a **modular monolith with strict package boundaries**. Promote to micro-frontends only when org reality forces it.
+- Pick **one composition layer** as primary. Mixing all three on a page is a debugging tax forever.
+- Treat **shared dependencies, the design system, auth, and telemetry as platform investments**, not per-team work. They are the only way the split stays autonomous.
+- Invest in **the integration layer before the split**: contract tests, a registry, canary at the registry, per-MFE error boundaries, end-to-end observability tagged by `mfe_name`/`mfe_version`.
+- Keep a **written exit criterion**: if N MFEs collapse back into 1, what is the threshold? Without it, every team will resist re-merging long after the split has stopped paying for itself.
 
 ## References
 
-- [Micro Frontends](https://micro-frontends.org/) - Techniques, strategies and recipes for building a modern web app with multiple teams
-- [Martin Fowler - Micro Frontends](https://martinfowler.com/articles/micro-frontends.html) - Defining the approach and patterns
-- [Webpack Module Federation](https://webpack.js.org/concepts/module-federation/) - Official documentation for Module Federation
-- [single-spa Framework](https://single-spa.js.org/) - A javascript framework for front-end microservices
-- [Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components) - MDN documentation on Web Components standards
-- [Cloudflare Workers](https://developers.cloudflare.com/workers/) - Edge computing platform for serverless functions
+- [Cam Jackson — Micro Frontends (martinfowler.com, 2019-06-19)](https://martinfowler.com/articles/micro-frontends.html)
+- [Michael Geers — micro-frontends.org](https://micro-frontends.org/) and the book [_Micro Frontends in Action_](https://www.manning.com/books/micro-frontends-in-action) (Manning, 2020)
+- [Module Federation documentation](https://module-federation.io/) and [Module Federation 2.0 release notes](https://github.com/module-federation/core/discussions/2397)
+- [Webpack Module Federation reference](https://webpack.js.org/concepts/module-federation/) and [Rspack Module Federation guide](https://rspack.rs/guide/features/module-federation)
+- [Manfred Steyer — Native Federation 1.0](https://www.angulararchitects.io/blog/announcing-native-federation-1-0/) and the [Angular blog post on Native Federation](https://blog.angular.dev/micro-frontends-with-angular-and-native-federation-7623cfc5f413)
+- [single-spa documentation](https://single-spa.js.org/) — [recommended setup](https://single-spa.js.org/docs/recommended-setup/), [registerApplication API](https://single-spa.js.org/docs/api/), [building applications](https://single-spa.js.org/docs/building-applications/)
+- [WHATWG HTML — Import maps](https://html.spec.whatwg.org/multipage/webappapis.html#import-maps) and [web.dev — Import maps in all modern browsers (2023)](https://web.dev/blog/import-maps-in-all-modern-browsers)
+- [Cloudflare HTMLRewriter docs](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/) and the [streaming replace changelog (2025-01-31)](https://developers.cloudflare.com/changelog/post/2025-01-31-html-rewriter-streaming/)
+- [W3C ESI Language Specification 1.0 Note (2001-08-04)](https://www.w3.org/TR/esi-lang/)
+- [Cloudflare — Incremental adoption of micro-frontends with Cloudflare Workers (fragment piercing)](https://blog.cloudflare.com/fragment-piercing/) and [Web Fragments project](https://web-fragments.dev/)
+- [Castelli et al. — A Catalog of Micro Frontends Anti-patterns (arXiv 2024)](https://arxiv.org/html/2411.19472v1)
+- [DAZN Engineering — How DAZN manages micro-frontend infrastructure](https://medium.com/dazn-tech/how-dazn-manages-micro-frontend-infrastructure-f045d7c634c2)
+- [Zalando Engineering — Micro Frontends: from Fragments to Renderers](https://engineering.zalando.com/posts/2021/03/micro-frontends-part1.html) and [Tailor (GitHub)](https://github.com/zalando/tailor)
+- [Nolan Lawson — Shadow DOM and accessibility: the trouble with ARIA](https://nolanlawson.com/2022/11/28/shadow-dom-and-accessibility-the-trouble-with-aria/)
+- [MDN — Web components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components), [`ElementInternals`](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals), [`attachShadow({ delegatesFocus })`](https://developer.mozilla.org/en-US/docs/Web/API/Element/attachShadow)
+- Adjacent patterns: [React Server Components reference](https://react.dev/reference/rsc/server-components), [Astro Islands](https://docs.astro.build/en/concepts/islands/) and [Server Islands](https://docs.astro.build/en/guides/server-islands/), [Qwik resumability](https://qwik.dev/docs/concepts/resumable/), [Next.js Multi-Zones](https://nextjs.org/docs/app/guides/multi-zones)

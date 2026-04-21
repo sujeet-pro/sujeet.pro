@@ -1,0 +1,51 @@
+%% Diagram: AWS Multi-Region Reference Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    R53["Route 53\nlatency-based"]
+    CF["CloudFront"]
+
+    subgraph Region1["US-West (active)"]
+        direction TB
+        ALB1["ALB"]
+        EKS1["EKS\nCore"]
+        WS1["ECS\nWebSocket"]
+        Sage1["SageMaker\nDeepETA"]
+        Redis1[("Redis\nLocation")]
+        MSK1{{"MSK Kafka"}}
+        Cas1[("Keyspaces\nDriver state")]
+        RDS1[("Aurora PG\nPayments")]
+    end
+
+    subgraph Region2["US-East (active)"]
+        direction TB
+        ALB2["ALB"]
+        EKS2["EKS"]
+        MSK2{{"MSK Kafka"}}
+        Redis2[("Redis")]
+    end
+
+    R53 --> ALB1
+    R53 --> ALB2
+    CF -.-> ALB1
+    ALB1 --> EKS1
+    ALB1 --> WS1
+    EKS1 --> Redis1
+    EKS1 --> Cas1
+    EKS1 --> RDS1
+    EKS1 --> Sage1
+    WS1 --> MSK1
+    MSK1 -.->|uReplicator| MSK2
+    Cas1 -.->|multi-DC| Region2
+    RDS1 -.->|read replica| Region2
+
+    classDef edge fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef svc fill:#1F6E68,stroke:#155752,color:#fff
+    classDef ml fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+    classDef store fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef bus fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    class CF,R53,ALB1,ALB2 edge
+    class EKS1,EKS2,WS1 svc
+    class Sage1 ml
+    class Redis1,Redis2,Cas1,RDS1 store
+    class MSK1,MSK2 bus

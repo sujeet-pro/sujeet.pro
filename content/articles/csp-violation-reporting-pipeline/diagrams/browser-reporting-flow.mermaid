@@ -1,0 +1,22 @@
+%% Diagram: Browser-side violation reporting paths
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Page as Page<br/>(CSP enforced)
+    participant Doc as Document<br/>(securitypolicyviolation event)
+    participant UA as User-Agent<br/>Reporting Queue
+    participant Legacy as Legacy endpoint<br/>(report-uri)
+    participant Modern as Modern endpoint<br/>(Reporting-Endpoints)
+
+    Note over Page: A directive is violated<br/>(blocked-uri, inline, eval, ...)
+    Page->>Doc: fire SecurityPolicyViolationEvent
+    Note over Doc: In-page handler can<br/>capture, sample, log
+    alt report-to directive present (Chromium)
+        Page->>UA: queue report (type=csp-violation)
+        UA-->>Modern: POST application/reports+json<br/>credentials: same-origin<br/>(may batch)
+        Modern-->>UA: 2xx OK / 410 Remove Endpoint
+    else report-uri only (Firefox, Safari)
+        Page-->>Legacy: POST application/csp-report<br/>(deprecated body, one report per POST)
+    end
+    Note over UA,Modern: Out-of-band, best-effort,<br/>retried by the user agent

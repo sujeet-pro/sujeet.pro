@@ -1,0 +1,22 @@
+%% Diagram: CORS Preflight + Actual Request
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Page as app.example.com (page)
+    participant UA as Browser
+    participant API as api.example.com (server)
+
+    Page->>UA: fetch('/data', { method:'POST',<br/>headers:{'Content-Type':'application/json',<br/>'X-CSRF-Token':'...'} })
+    Note over UA: Non-simple request<br/>(custom header + JSON body)
+
+    alt No cached preflight
+        UA->>API: OPTIONS /data<br/>Origin: https://app.example.com<br/>Access-Control-Request-Method: POST<br/>Access-Control-Request-Headers: content-type, x-csrf-token
+        API-->>UA: 204 No Content<br/>Access-Control-Allow-Origin: https://app.example.com<br/>Access-Control-Allow-Methods: POST<br/>Access-Control-Allow-Headers: content-type, x-csrf-token<br/>Access-Control-Allow-Credentials: true<br/>Access-Control-Max-Age: 7200<br/>Vary: Origin
+        Note over UA: Cache preflight result for<br/>(origin, URL, credentials mode)
+    else Preflight cached and unexpired
+        Note over UA: Skip OPTIONS
+    end
+
+    UA->>API: POST /data<br/>Origin: https://app.example.com<br/>Cookie: __Host-session=...<br/>X-CSRF-Token: ...
+    API-->>UA: 200 OK<br/>Access-Control-Allow-Origin: https://app.example.com<br/>Access-Control-Allow-Credentials: true<br/>Vary: Origin
+    UA-->>Page: response readable to JS

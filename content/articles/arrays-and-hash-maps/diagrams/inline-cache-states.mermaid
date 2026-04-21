@@ -1,0 +1,18 @@
+%% Diagram: Inline cache state progression on a single property load
+%% Type: stateDiagram-v2
+stateDiagram-v2
+    direction LR
+    [*] --> Uninitialized: first call
+    Uninitialized --> Monomorphic: 1 shape seen<br/>direct memory load
+    Monomorphic --> Polymorphic: 2-4 shapes<br/>small lookup table
+    Polymorphic --> Megamorphic: 5+ shapes<br/>fall back to runtime lookup
+    Megamorphic --> [*]: stays megamorphic<br/>(IC frozen for the site)
+
+    note right of Monomorphic
+        Fastest path:
+        load at cached offset
+    end note
+    note right of Megamorphic
+        Slow path:
+        no caching, full property lookup
+    end note

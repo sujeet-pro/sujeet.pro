@@ -1,0 +1,23 @@
+%% Diagram: Git identity resolution for personal vs work repos
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    BASE["Base ~/.gitconfig\npersonal email +\npersonal SSH signing key"] --> Q1{"Repo path under ~/work/\nor remote URL matches\nwork org pattern?"}
+
+    Q1 -- yes --> WORK["work.gitconfig overlay\nemail + signing key\n+ default branch master"]
+    Q1 -- no --> PERSONAL["Personal identity\nstays applied"]
+
+    WORK --> HOST{"Push host\nin remote URL"}
+    PERSONAL --> HOST
+
+    HOST -- "github.com" --> KEY1["~/.ssh/id_ed25519_personal"]
+    HOST -- "bitbucket.org" --> KEY2["~/.ssh/id_ed25519_work"]
+
+    classDef base fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef work fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef personal fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class BASE base
+    class WORK,KEY2 work
+    class PERSONAL,KEY1 personal
+    class Q1,HOST decision

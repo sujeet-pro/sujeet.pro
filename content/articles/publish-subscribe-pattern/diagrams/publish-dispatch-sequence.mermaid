@@ -1,0 +1,22 @@
+%% Diagram: Sync vs async publish dispatch in an in-process pub/sub broker
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Pub as Publisher
+    participant Bus as Event Bus
+    participant A as Sub A<br/>(sync)
+    participant B as Sub B<br/>(async)
+    participant C as Sub C<br/>(throws)
+
+    Pub->>Bus: publish(topic, data)
+    Note over Bus: lookup topic →<br/>ordered Map
+    Bus->>A: cb(data)
+    A-->>Bus: void
+    Bus->>B: cb(data) → Promise
+    Bus->>C: cb(data)
+    C--xBus: throws
+    Note over Bus: per-cb try/catch -<br/>log + continue
+    B-->>Bus: resolves later
+    Bus-->>Pub: returns true
+
+    Note over Pub,Bus: publishAsync awaits<br/>Promise.allSettled

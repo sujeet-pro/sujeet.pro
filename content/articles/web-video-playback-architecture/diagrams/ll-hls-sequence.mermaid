@@ -1,0 +1,23 @@
+%% Diagram: LL-HLS — partial segments, blocking playlist reload, preload hints
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant Enc as Encoder / Packager
+    participant Origin as Origin
+    participant CDN as CDN Edge
+    participant Player as Player
+
+    Player->>CDN: GET /playlist.m3u8?_HLS_msn=100&_HLS_part=3
+    CDN->>Origin: forward (cache miss)
+    Note over Origin: hold connection (blocking)
+    Enc->>Origin: publish part 3 (~200-1000 ms)
+    Origin-->>CDN: 200 + updated playlist (incl. PRELOAD-HINT for part 4)
+    CDN-->>Player: playlist + part URIs
+    Player->>CDN: GET segment100_part3.m4s
+    CDN-->>Player: chunked transfer (parallel with encode)
+    Player->>CDN: GET segment100_part4.m4s (preload-hint)
+    Note over CDN,Origin: server holds part 4 until ready
+    Enc->>Origin: publish part 4
+    Origin-->>CDN: chunked bytes
+    CDN-->>Player: chunked bytes (~part-target latency)
+    Note over Player: Buffer ~1-2 s safety -> total ≈ 2-4 s glass-to-glass

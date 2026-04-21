@@ -1,0 +1,27 @@
+%% Diagram: CMAF unified packaging vs legacy dual-stack
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Legacy["Legacy: dual storage"]
+        direction TB
+        SRC1[Mezzanine] --> TS["Package<br/>MPEG-TS .ts"]
+        SRC1 --> MP4["Package<br/>fMP4 .mp4"]
+        TS --> M3U["HLS playlist<br/>(.m3u8)"]
+        MP4 --> MPD["DASH MPD<br/>(.mpd)"]
+        M3U --> Apple1[Apple devices]
+        MPD --> Other1[Other devices]
+    end
+
+    subgraph CMAF["CMAF: shared media segments"]
+        direction TB
+        SRC2[Mezzanine] --> CSEG["Package once<br/>CMAF (fMP4) segments"]
+        CSEG --> M3U2["HLS playlist<br/>(.m3u8)"]
+        CSEG --> MPD2["DASH MPD<br/>(.mpd)"]
+        M3U2 --> Apple2[Apple devices]
+        MPD2 --> Other2[Other devices]
+    end
+
+    classDef legacy fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef shared fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class TS,MP4,M3U,MPD legacy
+    class CSEG,M3U2,MPD2 shared

@@ -1,0 +1,46 @@
+%% Diagram: AWS reference architecture for the calendar system
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["Edge"]
+        R53["Route 53"]
+        CF["CloudFront CDN"]
+    end
+
+    subgraph Compute["Compute (VPC)"]
+        ALB["ALB"]
+        subgraph ECS["ECS / Fargate"]
+            API["API service"]
+            Sync["Sync service"]
+            Workers["Workers<br/>(Fargate Spot)"]
+        end
+    end
+
+    subgraph Data["Data layer (private subnets)"]
+        RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+        RDSRead[(Read replicas)]
+        Redis[(ElastiCache<br/>Redis cluster)]
+        OS[(OpenSearch)]
+        S3[(S3<br/>attachments)]
+    end
+
+    subgraph Async["Async"]
+        SQS["SQS / MSK"]
+        EB["EventBridge<br/>(cron)"]
+        Lambda["Lambda<br/>push notifications"]
+    end
+
+    R53 --> CF --> ALB
+    ALB --> API
+    ALB --> Sync
+    API --> RDS
+    API --> RDSRead
+    API --> Redis
+    API --> OS
+    API --> S3
+    API --> SQS
+    Workers --> SQS
+    Workers --> RDS
+    Workers --> Redis
+    EB --> Lambda
+    Lambda --> SQS

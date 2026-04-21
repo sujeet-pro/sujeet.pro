@@ -1,0 +1,34 @@
+%% Diagram: Sharded WebSocket Gateway Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph EDGE["Edge tier"]
+        GEO["GeoDNS"]
+        L4["L4 LB\nTLS termination"]
+    end
+
+    subgraph RING["Consistent-hash ring (by user_id)"]
+        GW1["Gateway pod 1\nin-mem conn map"]
+        GW2["Gateway pod 2\nin-mem conn map"]
+        GW3["Gateway pod N\nin-mem conn map"]
+    end
+
+    subgraph STATE["Shared state"]
+        RMAP[("Redis\nuser:conn:* set\nconn:* hash")]
+        RPUB[("Redis pub/sub\ncross-gateway routing")]
+    end
+
+    Client["Client\nWebSocket + resume token"] --> GEO --> L4
+    L4 -->|"sticky by JWT sub"| GW1
+    L4 -->|"sticky by JWT sub"| GW2
+    L4 -->|"sticky by JWT sub"| GW3
+
+    GW1 <--> RMAP
+    GW2 <--> RMAP
+    GW3 <--> RMAP
+
+    GW1 <--> RPUB
+    GW2 <--> RPUB
+    GW3 <--> RPUB
+
+    GW1 -.->|"drain signal\nbefore deploy"| Client

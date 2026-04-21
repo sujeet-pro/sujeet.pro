@@ -1,0 +1,23 @@
+%% Diagram: CLS session window grouping
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph w1["Window 1 — score 0.12"]
+        direction LR
+        a["Shift A 0.05"]:::shift --> b["Shift B 0.04"]:::shift --> c["Shift C 0.03"]:::shift
+    end
+
+    gap["Gap >= 1s closes window"]:::neutral
+
+    subgraph w2["Window 2 (5s cap) — score 0.08"]
+        direction LR
+        d["Shift D 0.06"]:::shift --> e["Shift E 0.02"]:::shift
+    end
+
+    cls["CLS reported = max(0.12, 0.08) = 0.12"]:::accent
+
+    w1 --> gap --> w2 --> cls
+
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef shift fill:#1F6E68,stroke:#155752,color:#fff

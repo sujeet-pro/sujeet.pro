@@ -1,0 +1,23 @@
+%% Diagram: useDeferredValue two-phase render
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant User
+    participant Input as "Input (urgent)"
+    participant React as "React scheduler"
+    participant List as "Filtered list (deferred)"
+
+    User->>Input: Type "ab"
+    Input->>React: setQuery("ab") - urgent
+    React->>Input: Render with query="ab"
+    React->>List: Render with deferredQuery="a" (stale)
+    Note over List: Fast: reuses cached result
+    React-->>React: Schedule background render with deferredQuery="ab"
+    User->>Input: Type "abc" before background commits
+    Input->>React: setQuery("abc") - urgent
+    React->>React: Abandon stale background render
+    React->>Input: Render with query="abc"
+    React->>List: Render with deferredQuery="a" (still stale)
+    React-->>React: Schedule background render with deferredQuery="abc"
+    React->>List: Background commit with deferredQuery="abc"
+    Note over List: query == deferredQuery, isStale=false

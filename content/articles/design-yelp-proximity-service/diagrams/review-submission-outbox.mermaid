@@ -1,0 +1,32 @@
+%% Diagram: Review submission with transactional outbox
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant User
+    participant API as Review API
+    participant PG as PostgreSQL
+    participant Outbox as Outbox table
+    participant Relay as Outbox relay (CDC / poller)
+    participant Mod as Moderation worker
+    participant ES as Elasticsearch
+    participant Cache as Redis
+
+    User->>API: POST /reviews { rating, text }
+    Note over API,PG: Single ACID transaction
+    API->>PG: INSERT review (status=pending)
+    API->>PG: UPDATE business aggregates
+    API->>Outbox: INSERT ReviewCreated event
+    PG-->>API: COMMIT
+    API-->>User: 201 Created (read-your-writes: visible to author)
+
+    Relay->>Outbox: poll / tail WAL
+    Relay->>Mod: ReviewCreated (Kafka)
+    Mod->>Mod: spam + toxicity scoring
+    alt auto-approve
+        Mod->>API: PATCH status=approved
+        API->>PG: UPDATE review + aggregates
+        API->>ES: index/update business doc
+        API->>Cache: invalidate geohash entries
+    else manual review
+        Mod->>API: PATCH status=manual_review
+    end

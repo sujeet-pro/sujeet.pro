@@ -1,13 +1,17 @@
-%% Diagram: Figure 3a Server Sdk Architecture Downloads Full Config And Evaluates Locally
+%% Diagram: Server SDK lifecycle - download full config, evaluate locally
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    A1[Initialize] --> A2[Download Full Config Spec]
-    A2 --> A3[Store in Memory]
-    A3 --> A4[Local Evaluation]
-    A4 --> A5[Sub-1ms Response]
+flowchart TB
+    Init["new Statsig(secretKey, options)<br/>await statsig.initialize()"]
+    CDN[(api.statsigcdn.com<br/>/v1/download_config_specs)]
+    Spec["In-memory config spec<br/>(gates, configs, layers, id_lists)"]
+    Poller["Background poller<br/>rulesetsSyncIntervalMs=10000 default"]
+    Eval["checkGate / getExperiment / getDynamicConfig<br/>SHA-256(salt+unitID) % 10000<br/>target: sub-1ms"]
 
-    A1 -.->|Secret Key| A2
+    Init -- "GET with secret key" --> CDN
+    CDN -- "JSON spec" --> Spec
+    Spec --> Eval
+    Poller -- "company_lcut delta poll" --> CDN
+    CDN -. "atomic swap" .-> Spec
 
-    style A1 fill:#fff3e0
-    style A5 fill:#c8e6c9
+    Caller["Application code"] --> Eval

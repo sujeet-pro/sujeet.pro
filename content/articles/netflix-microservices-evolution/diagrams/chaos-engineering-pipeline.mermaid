@@ -1,0 +1,12 @@
+%% Diagram: Chaos engineering at Netflix — from Chaos Monkey to a continuous experimentation pipeline
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    A["2010–2011\nChaos Monkey\nrandom instance kill\nin business hours"]
+    B["Jul 2011\nSimian Army\nLatency / Conformity /\nDoctor / Janitor / Security"]
+    C["2012–2014\nChaos Gorilla (AZ)\nChaos Kong (Region)"]
+    D["Oct 2014\nFIT — Failure Injection\nrequest-level via Zuul"]
+    E["Sep 2015\nPrinciples of Chaos\n(Basiri, Hochstein, Rosenthal)"]
+    F["Jul 2017\nChAP — Chaos\nAutomation Platform\ncanary-style experiments"]
+    G["2020s\ncontinuous resilience\nexperiments on prod traffic"]
+
+    A --> B --> C --> D --> E --> F --> G

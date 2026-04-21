@@ -1,0 +1,29 @@
+%% Diagram: Trie nodes carry pre-computed top-K so the query is pure traversal
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Root["root<br/>topK: the, to, you, ..."]
+    P["p<br/>topK: programming, progress, ..."]
+    PR["pr<br/>topK: programming, progress, ..."]
+    PRO["pro<br/>topK: programming, progress, project, ..."]
+    PROG["prog<br/>topK: programming, progress, ..."]
+    PROGR["progr<br/>topK: programming, progressive, ..."]
+    Q["q<br/>topK: queen, query, ..."]
+    OTHER["...other roots..."]
+
+    Root --> P
+    Root --> Q
+    Root --> OTHER
+    P --> PR
+    PR --> PRO
+    PRO --> PROG
+    PROG --> PROGR
+
+    classDef hit fill:#1f6feb,stroke:#0a3a85,color:#ffffff
+    class PROG hit
+
+    Result["Query: prog<br/>O(p) traversal, return PROG.topK directly"]
+    PROG -.-> Result
+
+    classDef result fill:#fef3c7,stroke:#b45309,color:#1f2937,font-style:italic
+    class Result result

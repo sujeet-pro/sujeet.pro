@@ -1,0 +1,27 @@
+%% Diagram: LayerizeGroup per-chunk decision flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["PaintChunk to place"]) --> Foreign{"Foreign content?<br/>(composited video,<br/>WebGL/2D canvas, plugin,<br/>OOPIF surface)"}
+    Foreign -- yes --> NewLayer["New cc::Layer<br/>(no merge)"]
+    Foreign -- no --> DCR{"PropertyTreeState carries a<br/>direct compositing reason?<br/>(will-change, 3D xform,<br/>compositor animation,<br/>backdrop-filter, sticky, ...)"}
+    DCR -- yes --> NewLayer
+    DCR -- no --> Search["Search backwards for the latest<br/>PendingLayer with a compatible<br/>PropertyTreeState"]
+    Search --> Found{"Compatible PendingLayer<br/>found?"}
+    Found -- no --> NewLayer
+    Found -- yes --> Overlap{"Overlaps any intervening<br/>incompatible PendingLayer?"}
+    Overlap -- yes --> NewLayer
+    Overlap -- no --> Sparsity{"Combined bounds within<br/>kMergeSparsityAreaTolerance?"}
+    Sparsity -- no --> NewLayer
+    Sparsity -- yes --> Merge["Merge into PendingLayer<br/>(flatten differing nodes via<br/>paired display items)"]
+
+    Merge --> Done(["Continue with next chunk"])
+    NewLayer --> Done
+
+    style NewLayer fill:#ffe0b2,stroke:#e65100,stroke-width:2px
+    style Merge fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px
+    style Foreign fill:#fff9c4,stroke:#f9a825
+    style DCR fill:#fff9c4,stroke:#f9a825
+    style Found fill:#fff9c4,stroke:#f9a825
+    style Overlap fill:#fff9c4,stroke:#f9a825
+    style Sparsity fill:#fff9c4,stroke:#f9a825

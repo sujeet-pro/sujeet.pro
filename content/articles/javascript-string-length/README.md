@@ -6,25 +6,26 @@ description: >-
   covering UTF-16 surrogate pairs, Unicode code points vs. grapheme clusters,
   and using Intl.Segmenter for correct character counting and truncation.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - javascript
-  - patterns
   - programming
+  - unicode
+  - web-platform
 ---
 
 # JavaScript String Length: Graphemes, UTF-16, and Unicode
 
 JavaScript's `string.length` returns UTF-16 code units—a 1995 design decision that predates Unicode's expansion beyond 65,536 characters. This causes `'👨‍👩‍👧‍👦'.length` to return 11 instead of 1, breaking character counting, truncation, and cursor positioning for any text containing emoji, combining marks, or supplementary plane characters. Understanding the three abstraction layers—grapheme clusters, code points, and code units—is essential for correct Unicode handling.
 
-![Image with different non-text icons](./assets/cover.jpg)
+![Cover art collaging emoji, alphabets, ideographs, and combining marks to evoke the multi-script reality JavaScript strings sit inside](./assets/cover.jpg)
 
-![Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-light.svg "Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)")
-![Text exists at multiple abstraction layers: grapheme clusters (what users see), code points (Unicode characters), and code units (what JavaScript counts)](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-dark.svg)
+![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-light.svg "Counting '👨‍👩‍👧‍👦' at each layer: 1 grapheme cluster, 7 Unicode code points, 11 UTF-16 code units. string.length operates at the lowest layer.")
+![Three abstraction layers of a JavaScript string — grapheme cluster, Unicode code points, and UTF-16 code units — counted on the family emoji](./diagrams/text-exists-at-multiple-abstraction-layers-grapheme-clusters-what-users-see-code-dark.svg)
 
-## Abstract
+## Mental Model: Three Layers of Text
 
-Text exists at three abstraction layers, and JavaScript operates at the wrong one for user-facing operations:
+Text exists at three abstraction layers, and JavaScript's `length` operates at the wrong one for any user-facing operation:
 
 | Layer                 | What It Represents          | JavaScript API              | `'👨‍👩‍👧‍👦'` |
 | --------------------- | --------------------------- | --------------------------- | ------ |
@@ -34,13 +35,16 @@ Text exists at three abstraction layers, and JavaScript operates at the wrong on
 
 **The design constraint**: JavaScript adopted Java's UCS-2 encoding in 1995 when Unicode fit in 16 bits. When Unicode expanded (UTF-16, 1996), JavaScript preserved backward compatibility by exposing surrogate pairs as separate characters rather than breaking existing code.
 
-**The solution**: Use `Intl.Segmenter` (Baseline April 2024) for grapheme-aware operations. For code point operations, use spread `[...str]` or the `u` regex flag. Reserve `string.length` for byte-level operations only.
+**The solution**: Use [`Intl.Segmenter`](https://web.dev/blog/intl-segmenter) (Baseline since 16 April 2024) for grapheme-aware operations. For code point operations, use spread `[...str]` or the `u` regex flag. Reserve `string.length` for code-unit / wire-format work.
 
 **Critical gotchas**:
 
 - `string.slice(0, n)` can corrupt emoji by splitting surrogate pairs
 - `split('')` breaks supplementary plane characters into invalid halves
-- ES2024 added `isWellFormed()` and `toWellFormed()` to detect and fix lone surrogates
+- ES2024 added [`isWellFormed()` and `toWellFormed()`](https://github.com/tc39/proposal-is-usv-string) to detect and fix lone surrogates
+
+![Decision tree mapping a string-length, truncation, or iteration question to the correct JavaScript API — Intl.Segmenter, code-point iteration, TextEncoder, or string.length](./diagrams/api-selection-decision-tree-light.svg "Pick the API by what you actually need to count: user-perceived characters → Intl.Segmenter; Unicode code points → spread / for…of / /u / /v; UTF-8 bytes → TextEncoder; legacy UTF-16 indexing → string.length.")
+![Decision tree mapping a string-length, truncation, or iteration question to the correct JavaScript API — Intl.Segmenter, code-point iteration, TextEncoder, or string.length](./diagrams/api-selection-decision-tree-dark.svg)
 
 ## The Problem: What You See vs. What You Get
 
@@ -92,6 +96,9 @@ for (const { segment, index } of segmenter.segment("👨‍👩‍👧‍👦�
 
 The `granularity` option supports `"grapheme"` (default), `"word"`, and `"sentence"`. Word segmentation is particularly valuable for languages like Thai, Japanese, and Chinese that don't use whitespace between words.
 
+> [!TIP]
+> Constructing an `Intl.Segmenter` is the expensive step — it has to load locale data and build internal segmentation tables. Create the instance once at module scope and reuse it; do not allocate one per call inside a hot loop. The same advice applies to all `Intl.*` formatters and collators.
+
 ## Why UTF-16? The Historical Constraints
 
 ### The UCS-2 Era (1991-1996)
@@ -123,7 +130,7 @@ invalid.isWellFormed() // false (ES2024)
 
 ### The 17 Unicode Planes
 
-Unicode allocates 1,114,112 code points across 17 planes. Only planes 0-3 and 14-16 are currently assigned:
+Unicode allocates 1,114,112 code points across 17 planes (U+0000 to U+10FFFF) per the [Unicode FAQ on UTF-8/16/32 & BOM](https://www.unicode.org/faq/utf_bom.html). Only planes 0-3 and 14-16 are currently assigned:
 
 | Plane | Range            | Name                                   | JavaScript Implications            |
 | ----- | ---------------- | -------------------------------------- | ---------------------------------- |
@@ -135,7 +142,10 @@ Unicode allocates 1,114,112 code points across 17 planes. Only planes 0-3 and 14
 
 ### Surrogate Pair Encoding
 
-Supplementary characters (U+10000+) are encoded using a mathematical transformation that maps them to surrogate pairs:
+Supplementary characters (U+10000+) are encoded using a deterministic bit-shuffle that maps them to a `(high, low)` pair drawn from the reserved surrogate ranges. The transform is fully reversible — engines decode pairs back to a code point on the fly when you call `codePointAt`:
+
+![How a supplementary code point splits into a UTF-16 high/low surrogate pair and back](./diagrams/surrogate-pair-encoding-light.svg "UTF-16 surrogate-pair encoding: subtract 0x10000, split the 20 remaining bits across the D800–DBFF and DC00–DFFF ranges.")
+![How a supplementary code point splits into a UTF-16 high/low surrogate pair and back](./diagrams/surrogate-pair-encoding-dark.svg)
 
 ```typescript
 // Encoding algorithm for code point → surrogate pair
@@ -266,6 +276,8 @@ The `u` flag (ES6) enables code point matching and Unicode property escapes:
 /^\p{RGI_Emoji}$/v.test("👨‍👩‍👧‍👦") // true - matches full ZWJ sequence
 ```
 
+The [`/v` flag](https://github.com/tc39/proposal-regexp-v-flag) (Stage 4 in May 2023, shipped in ES2024) is a strict superset of `/u` that adds set notation, nested character classes, and ["properties of strings"](https://v8.dev/features/regexp-v-flag) like `\p{RGI_Emoji}` — the only built-in way to match a full Recommended-for-General-Interchange emoji ZWJ sequence with a regex.
+
 ### String Normalization
 
 Unicode allows multiple representations of the same visual character. Normalize before comparison:
@@ -303,7 +315,7 @@ INSERT INTO users VALUES ('Hello 💩'); -- Error or truncation
 CREATE TABLE users (name VARCHAR(255) CHARACTER SET utf8mb4);
 ```
 
-As of MySQL 8.0, `utf8` is deprecated and `utf8mb4` is the default. PostgreSQL's `UTF8` encoding has always supported the full Unicode range.
+As of MySQL 8.0, [`utf8` is a deprecated alias for `utf8mb3`](https://dev.mysql.com/doc/refman/8.4/en/charset-unicode-utf8mb3.html) and `utf8mb4` is the default character set. PostgreSQL's `UTF8` encoding has always supported the full Unicode range.
 
 ### API Design
 
@@ -408,6 +420,8 @@ function safeBuffer(text: string): Buffer {
 const buf = Buffer.alloc(text.length) // Only 8 bytes
 buf.write(text) // Truncation risk
 ```
+
+In the browser, the equivalent is `new TextEncoder().encode(s).byteLength`. Both APIs compute UTF-8 byte length; neither tracks code units or graphemes.
 
 ### Combining Characters and Length
 

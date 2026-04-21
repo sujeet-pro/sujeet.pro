@@ -6,7 +6,7 @@ description: >-
   multi-tier storage with content deduplication, expiration strategies, and abuse
   prevention — all at sub-100ms read latency.
 publishedDate: 2026-02-09T00:00:00.000Z
-lastUpdatedOn: 2026-02-09T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
   - interview-prep
@@ -16,8 +16,8 @@ tags:
 
 A comprehensive system design for a text-sharing service like Pastebin covering URL generation strategies, content storage at scale, expiration policies, syntax highlighting, access control, and abuse prevention. This design addresses sub-100ms paste retrieval at 10:1 read-to-write ratio with content deduplication and multi-tier storage tiering.
 
-![High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.](./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv-light.svg "High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.")
-![High-level architecture: CDN caches immutable paste content at the edge, core services handle creation and retrieval, object storage holds paste bodies separately from metadata for independent scaling.](./diagrams/high-level-architecture-cdn-caches-immutable-paste-content-at-the-edge-core-serv-dark.svg)
+![High-level architecture](./diagrams/high-level-architecture-light.svg "Pastebin at a glance: a CDN absorbs immutable read traffic at the edge, the application tier splits write and read paths around a key-generation service and content scanner, an async tier runs syntax highlighting and expiration sweeps, and the storage tier separates Redis hot cache, PostgreSQL metadata, and object-stored paste bodies so each can scale independently.")
+![High-level architecture](./diagrams/high-level-architecture-dark.svg)
 
 ## Abstract
 
@@ -76,7 +76,7 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 | Throughput (writes) | 500 RPS                     | Write-light workload                                  |
 | Max paste size      | 512 KB (free), 10 MB (paid) | Prevents abuse while supporting real use cases        |
 | Data durability     | 99.999999999% (11 nines)    | S3-grade durability for paste content                 |
-| Paste URL length    | 7-8 characters              | Short enough for sharing, large enough keyspace       |
+| Paste URL length    | 7 characters (Pastebin.com uses 8) | Short enough to share verbally, large enough keyspace |
 
 ### Scale Estimation
 
@@ -119,8 +119,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Path A — monolithic storage](./diagrams/path-a-monolithic-light.svg "Path A: paste content lives inline as a TEXT column next to its metadata. One system to operate, but the database absorbs blob bloat as the corpus grows.")
+![Path A — monolithic storage](./diagrams/path-a-monolithic-dark.svg)
 
 **Key characteristics:**
 
@@ -151,8 +151,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![Path B — split storage](./diagrams/path-b-split-storage-light.svg "Path B: PostgreSQL holds queryable metadata; object storage holds compressed paste bodies; Redis fronts hot reads. Each tier scales on its own pricing and throughput curve.")
+![Path B — split storage](./diagrams/path-b-split-storage-dark.svg)
 
 **Key characteristics:**
 
@@ -163,7 +163,7 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Trade-offs:**
 
-- ✅ S3 storage cost is ~$0.023/GB vs. ~$0.115/GB for RDS (5x cheaper)
+- ✅ S3 Standard sits at roughly [$0.023/GB-month](https://aws.amazon.com/s3/pricing/) versus ~$0.115/GB-month for RDS gp3 storage — about 5× cheaper before tiering
 - ✅ S3 scales to exabytes without provisioning
 - ✅ Database stays lean—fast metadata queries, small backups
 - ✅ CDN can serve S3 objects directly for raw content
@@ -183,8 +183,8 @@ A paste service maps short unique URLs to text blobs—conceptually simple, but 
 
 **Architecture:**
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Path C — content-addressable storage](./diagrams/path-c-content-addressable-light.svg "Path C: blobs are keyed by the SHA-256 of their content, not by paste_id. Identical pastes share storage automatically; deletion needs reference counting.")
+![Path C — content-addressable storage](./diagrams/path-c-content-addressable-dark.svg)
 
 **Key characteristics:**
 
@@ -227,11 +227,11 @@ This article focuses on **Path B (Split Storage)** with optional content-address
 
 ### Component Overview
 
-![Pastebin (write path)](./diagrams/diagram-4-write-light.svg)
-![Pastebin (write path)](./diagrams/diagram-4-write-dark.svg)
+![Component overview — write path](./diagrams/component-overview-write-light.svg "Write path: edge → API gateway (rate limit, auth, route) → Paste Write Service. The write service pulls a key from the local KGS batch, runs the content scanner, persists to storage, and enqueues syntax-highlight work to keep response latency off the heavy CPU path.")
+![Component overview — write path](./diagrams/component-overview-write-dark.svg)
 
-![Pastebin (read & lifecycle)](./diagrams/diagram-4-read-light.svg)
-![Pastebin (read & lifecycle)](./diagrams/diagram-4-read-dark.svg)
+![Component overview — read and lifecycle path](./diagrams/component-overview-read-light.svg "Read and lifecycle path: the CDN absorbs immutable paste content; the Read Service falls through Redis → PostgreSQL → object storage on miss. The expiration sweeper and abuse detection run on the same storage tier without blocking the hot path.")
+![Component overview — read and lifecycle path](./diagrams/component-overview-read-dark.svg)
 
 ### Paste Write Service
 
@@ -239,8 +239,8 @@ Accepts text content, compresses it, stores it in S3, and persists metadata.
 
 **Write flow:**
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+![Paste creation sequence](./diagrams/write-flow-sequence-light.svg "Paste creation sequence: validate → pull key from KGS local batch → compress and hash → upload body to S3 → insert metadata row → enqueue highlight job → respond. The S3 write happens before the database row, so a database failure leaves an orphaned blob (cheap to clean up) instead of dangling metadata.")
+![Paste creation sequence](./diagrams/write-flow-sequence-dark.svg)
 
 **Design decisions:**
 
@@ -257,14 +257,28 @@ The hot path. Retrieves paste content via multi-tier cache.
 
 **Read flow:**
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Paste read sequence with multi-tier cache](./diagrams/read-flow-sequence-light.svg "Read sequence: CDN edge → Redis hot cache → PostgreSQL metadata → object-stored body. Expiration is enforced on the metadata read, so a CDN miss followed by an expired-row check still returns 410 Gone before any object-store fetch.")
+![Paste read sequence with multi-tier cache](./diagrams/read-flow-sequence-dark.svg)
+
+**Cache tier latency budget:**
+
+| Tier | Typical p50 | Hit rate (target) | What it stores |
+| :--- | ---: | ---: | :--- |
+| CDN edge | ~5 ms | 95% (viral pastes) | Rendered HTML and raw bodies, keyed by full URL |
+| Redis cluster | ~1 ms | 80% of CDN misses | Decompressed content + metadata for the recent working set |
+| PostgreSQL | ~5 ms | 100% of Redis misses | Authoritative metadata; gates expiry, visibility, password |
+| Object storage | ~30 ms | cold | Compressed canonical body; only fetched on Redis miss |
+
+A read that misses every tier costs ~40 ms before render — well inside the 100 ms p99 budget. A viral paste pinned at the CDN never touches origin.
+
+![Multi-tier cache hierarchy for paste reads](./diagrams/multi-tier-cache-light.svg "Multi-tier cache for reads: each tier absorbs a different traffic class. The CDN absorbs viral spikes on a single hot paste, Redis absorbs the recently-popular working set, PostgreSQL holds metadata for liveness and visibility checks, and object storage is the cold tier of last resort.")
+![Multi-tier cache hierarchy for paste reads](./diagrams/multi-tier-cache-dark.svg)
 
 **Critical optimizations:**
 
-- **Immutable content = aggressive caching.** Paste content never changes after creation. CDN can cache with long TTLs; cache invalidation only needed on deletion or expiration.
+- **Immutable content = aggressive caching.** Paste content never changes after creation, so a paste's representation can be served with `Cache-Control: public, max-age=86400, immutable` — a directive defined in [RFC 8246](https://datatracker.ietf.org/doc/html/rfc8246) that lets browsers and CDNs skip revalidation entirely. Invalidation only matters on deletion or expiration.
 - **Burn-after-read bypasses all caches.** These pastes are served directly from origin with `Cache-Control: no-store` and atomically deleted after the first read.
-- **Bloom filter on Redis** prevents cache stampede for non-existent paste IDs (404s don't hit the database).
+- **Bloom filter on Redis** (via the RedisBloom module or an in-process filter shared by sticky-routed shards) absorbs lookups for non-existent paste IDs so 404 floods never hit PostgreSQL.
 
 ### Key Generation Service (KGS)
 
@@ -296,26 +310,40 @@ Handles time-based paste expiration and burn-after-read.
 
 **Hybrid expiration strategy:**
 
-1. **Lazy check on read:** Every read checks `expires_at` before serving content. Expired pastes return `410 Gone`. This guarantees readers never see expired content.
-2. **Active sweep:** A background cron job runs every hour, querying `SELECT id FROM pastes WHERE expires_at < NOW() AND deleted_at IS NULL LIMIT 10000`. Deletes S3 objects and marks metadata as deleted in batches.
+1. **Lazy check on read:** Every read checks `expires_at` before serving content. Expired pastes return `410 Gone`. This guarantees readers never see expired content even when the sweep is behind.
+2. **Active sweep:** A background cron job runs every hour, batching expired ids and reclaiming the underlying object-store bytes.
+
+![Active expiration sweep sequence](./diagrams/expiration-sweep-light.svg "Active sweep: each cycle pulls a 10k-row batch of expired pastes, deletes the object-store body and any pre-rendered HTML, invalidates the Redis entry, and finally soft-deletes the metadata row. The lazy read check still returns 410 for anything that expires between cycles.")
+![Active expiration sweep sequence](./diagrams/expiration-sweep-dark.svg)
+
+The S3 deletes happen before the metadata `deleted_at` update so a sweep crash leaves a soft-live row pointing at a missing object — which the read path can detect (404 from S3) and convert to `410 Gone`. The reverse ordering would briefly orphan paid storage with no metadata pointer to find it again.
 
 **Burn-after-read implementation:**
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+![Burn-after-read sequence with row lock](./diagrams/burn-after-read-sequence-light.svg "Burn-after-read: a single transaction acquires a row-level lock, marks the paste deleted, fetches the body, and only then commits. A second concurrent reader blocks on the lock; when it acquires, it sees deleted_at is set and receives 410 Gone.")
+![Burn-after-read sequence with row lock](./diagrams/burn-after-read-sequence-dark.svg)
 
-**Race condition handling:** The `SELECT ... FOR UPDATE` acquires a row-level lock. If two concurrent readers hit the same burn-after-read paste, only the first gets the content; the second sees `deleted_at IS NOT NULL` and receives `410 Gone`. This is the correct behavior—exactly one reader sees the content.
+**Race condition handling:** The `SELECT ... FOR UPDATE` acquires a row-level lock per [PostgreSQL's locking semantics](https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE). If two concurrent readers hit the same burn-after-read paste, only the first gets the content; the second blocks until the first commits, then sees `deleted_at IS NOT NULL` and receives [`410 Gone`](https://datatracker.ietf.org/doc/html/rfc9110#name-410-gone). This is the correct behavior — exactly one reader sees the content.
 
 ### Content Scanner
 
-Asynchronous scanning for malware signatures, credential dumps, and PII (Personally Identifiable Information) patterns.
+Asynchronous scanning for malware signatures, credential dumps, CSAM hashes, and PII (Personally Identifiable Information) patterns. Public paste services attract three distinct abuse classes that deserve different responses:
+
+| Class | Detector | Response |
+| :--- | :--- | :--- |
+| Known illegal content (CSAM) | PhotoDNA-style perceptual hashes via [NCMEC hash list](https://www.missingkids.org/) for any image attachment; SHA-256 against a private hash list for known text dumps | Hard-block on write, NCMEC report, retain hash for repeat offender detection |
+| Credential and key leaks | Regex / detect-secrets style scanners ([trufflehog](https://github.com/trufflesecurity/trufflehog) patterns) | Quarantine, notify the leaking domain owner, optional auto-rotate for verified secrets |
+| Spam / phishing / malware droppers | Reputation feeds + URL classifiers + ML on payload entropy | Throttle issuer, soft-delete after manual review |
 
 **Scanning pipeline:**
 
 1. On paste creation, content hash is checked against a known-bad-content blocklist
-2. Regex patterns detect credential dumps (email:password patterns), API keys, and private keys
-3. Flagged pastes are quarantined—visible only to the creator until manual review
-4. Confirmed malicious content is deleted and the creator's account is flagged
+2. Regex / secret-pattern scanners detect credential dumps (email:password patterns), API keys, and private keys
+3. Flagged pastes are quarantined — visible only to the creator until manual review
+4. Confirmed malicious content is deleted, the creator's account is flagged, and (for CSAM) reported to NCMEC
+
+> [!IMPORTANT]
+> Burn-after-read and password-protected pastes deliberately defeat scraping and after-the-fact moderation; both shipped on Pastebin.com in 2020 and were [criticized by the security community](https://www.zdnet.com/article/pastebin-adds-burn-after-read-and-password-protected-pastes-to-the-dismay-of-the-infosec-community/) for the same reason. Treat these features as policy choices, not pure UX features — they shift the moderation burden onto write-time scanning because read-time scrapers cannot recover.
 
 **Rate limiting tiers:**
 
@@ -499,7 +527,7 @@ CREATE INDEX idx_pastes_content_hash
 
 ### S3 Object Layout
 
-```
+```text
 s3://paste-content/
 ├── pastes/
 │   ├── aB3kF9x.zst          # Compressed paste content
@@ -510,7 +538,7 @@ s3://paste-content/
     └── ...
 ```
 
-**Object naming:** Using paste_id as the S3 key. The random distribution of Base62 IDs avoids S3 hot-partition issues (S3 partitions by key prefix, and random prefixes distribute evenly).
+**Object naming:** Using paste_id as the S3 key. Since 2018, S3 [auto-scales partitions per prefix to 3,500 PUTs and 5,500 GETs per second](https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html), so randomized prefixes are no longer required for performance. They still help in two ways: a sustained spike under a single logical prefix can hit `503 SlowDown` while S3 splits the partition, and the high-cardinality random prefix that KGS already produces lets the workload exceed a single-prefix budget without operator intervention.
 
 ### Database Selection Matrix
 
@@ -553,15 +581,15 @@ The KGS is the critical component that decouples ID generation from the write pa
 
 - Hash(content + salt), take first 7 Base62 characters
 - Pros: Content-derived (same content = same hash if desired), no coordinator
-- Cons: Birthday problem—at ~1.4M pastes, collision probability for 7-char Base62 exceeds 0.01%. Collision handling adds write-path latency
+- Cons: Birthday problem. With $N = 62^7 \approx 3.52 \times 10^{12}$ buckets, the approximation $p \approx n^2 / (2N)$ gives a 1% collision probability around 265 K pastes and a 50% collision probability around 2.2 M pastes — well inside Pastebin-scale traffic. Collisions then need write-path retry logic.
 - Best when: Deduplication is the primary goal
 
 **Option 3: Snowflake ID + Base62**
 
-- 64-bit Snowflake (timestamp + node + sequence), Base62-encoded
-- Pros: Time-ordered, no coordination, 4M IDs/second/node
-- Cons: 11-character Base62 output (longer URLs), leaks creation timestamp
-- Best when: Time-ordering is valuable, longer URLs acceptable
+- [Twitter Snowflake](https://en.wikipedia.org/wiki/Snowflake_ID) packs a 41-bit millisecond timestamp + 10-bit machine id + 12-bit sequence into 64 bits (1 sign bit unused), giving up to 4,096 ids per worker per millisecond
+- Pros: Time-ordered, no central coordinator, ~4M ids/second per worker
+- Cons: 64 bits encoded in Base62 needs 11 characters (`⌈64 / log₂(62)⌉`), so URLs are longer than the 7-char target; the embedded timestamp also leaks creation time and worker assignment
+- Best when: Time-ordering is valuable for downstream analytics or chronological iteration, and slightly longer URLs are acceptable
 
 **Option 4: Pre-generated Key Service (KGS)**
 
@@ -576,8 +604,8 @@ The KGS is the critical component that decouples ID generation from the write pa
 
 #### KGS Implementation Details
 
-![Diagram](./diagrams/diagram-8-light.svg)
-![Diagram](./diagrams/diagram-8-dark.svg)
+![KGS pool and batch allocation](./diagrams/kgs-key-pool-light.svg "KGS pool: an offline generator tops up the available pool with random Base62 strings; app servers atomically claim batches of 1,000 keys via FOR UPDATE SKIP LOCKED so concurrent claims never block each other; on graceful shutdown, unused keys return to the pool.")
+![KGS pool and batch allocation](./diagrams/kgs-key-pool-dark.svg)
 
 **Batch allocation query (PostgreSQL):**
 
@@ -617,13 +645,15 @@ RETURNING key;
 
 #### Compression Benchmarks on Text Content
 
-| Algorithm        | Ratio (5 KB text) | Compress speed | Decompress speed | Notes                            |
-| ---------------- | ----------------- | -------------- | ---------------- | -------------------------------- |
-| gzip (level 6)   | 65% reduction     | 150 MB/s       | 400 MB/s         | Universal support                |
-| zstd (level 3)   | 67% reduction     | 500 MB/s       | 1,700 MB/s       | Best balance for dynamic content |
-| Brotli (level 4) | 70% reduction     | 80 MB/s        | 400 MB/s         | Best ratio, but slow compression |
+Order-of-magnitude figures, drawn from [Facebook's published Silesia-corpus benchmarks for zstd](https://github.com/facebook/zstd#benchmarks); exact numbers depend on the workload and CPU but the relative shape is stable.
 
-**Why zstd over Brotli:** Write latency matters for paste creation. zstd at level 3 compresses 6x faster than Brotli at level 4 with only 3% less compression. For a write-path operation, this trade-off strongly favors zstd.
+| Algorithm        | Ratio (general text) | Compress speed | Decompress speed | Notes                            |
+| ---------------- | -------------------- | -------------- | ---------------- | -------------------------------- |
+| gzip (level 6)   | ~65% reduction       | ~150 MB/s      | ~400 MB/s        | Universal support                |
+| zstd (level 3)   | ~67% reduction       | ~510 MB/s      | ~1,550 MB/s      | Best balance for dynamic content |
+| Brotli (level 4) | ~70% reduction       | ~80 MB/s       | ~400 MB/s        | Best ratio, slow compression     |
+
+**Why zstd over Brotli:** Write latency matters for paste creation. zstd at level 3 compresses roughly 6× faster than Brotli at level 4 for only a couple of percentage points less compression, and zstd's decompression speed stays near 1.5 GB/s across levels — Brotli's does not. For a write-path operation that reads the same text back many times, this trade-off strongly favors zstd. zstd also has [first-class dictionary support](https://github.com/facebook/zstd#the-case-for-small-data-compression) for repetitive payloads, useful if the paste corpus skews toward log dumps or stack traces.
 
 ### Syntax Highlighting
 
@@ -640,9 +670,11 @@ Syntax highlighting is CPU-intensive for large pastes. Running it synchronously 
 5. Stores rendered HTML to `s3://paste-content/highlighted/{paste_id}.html`
 6. Updates metadata: `highlighted_at = NOW()`
 
-**First-read before highlighting completes:** If a user reads a paste before highlighting finishes, the read service returns raw content with client-side highlighting as a fallback (using a JavaScript library like Highlight.js or Shiki). Once the server-rendered HTML is available, subsequent reads serve it directly.
+**First-read before highlighting completes:** If a user reads a paste before highlighting finishes, the read service returns raw content with client-side highlighting as a fallback. The library choice matters here: [Highlight.js](https://highlightjs.org/) and [Prism](https://prismjs.com/) are small (~12–16 KB gzipped), have automatic language detection, and run cheaply in the browser; [Shiki](https://shiki.style/) ships VS Code's exact TextMate grammars via Oniguruma (WebAssembly) and produces strictly more accurate output but is heavier and best run server-side at write-finalization time.[^shiki-cmp] The split most paste services land on: Shiki (or Pygments / Chroma) on the worker for the canonical HTML, Highlight.js on the page as the bridge until that HTML lands.
 
-**Language detection:** If the user doesn't specify a language, the worker attempts detection using file extension heuristics, shebang lines, and statistical classifiers (similar to GitHub's Linguist). Fallback: plain text.
+[^shiki-cmp]: See the [Shiki documentation](https://shiki.style/guide/) for the TextMate grammar engine and the [chsm.dev side-by-side benchmark](https://chsm.dev/blog/2025/01/08/comparing-web-code-highlighters) of Shiki, Prism, and Highlight.js on a fixed corpus.
+
+**Language detection:** If the user doesn't specify a language, the worker attempts detection using file extension heuristics, shebang lines, and statistical classifiers (similar to GitHub's [Linguist](https://github.com/github-linguist/linguist)). Fallback: plain text.
 
 ## Frontend Considerations
 
@@ -852,8 +884,8 @@ Storage cost is negligible. The dominant cost is compute (API servers) and Redis
 
 ### Production Deployment
 
-![Diagram](./diagrams/diagram-9-light.svg)
-![Diagram](./diagrams/diagram-9-dark.svg)
+![AWS reference deployment](./diagrams/aws-deployment-light.svg "AWS reference deployment: CloudFront fronts both the API (via ALB) and the public S3 bucket for raw content; ECS Fargate runs API and read services in private subnets; RDS PostgreSQL Multi-AZ holds metadata; ElastiCache Redis cluster fronts hot reads; SQS queues highlight jobs to Spot-priced workers; Lambda runs the hourly expiration sweep.")
+![AWS reference deployment](./diagrams/aws-deployment-dark.svg)
 
 ## Variations
 
@@ -861,11 +893,14 @@ Storage cost is negligible. The dominant cost is compute (API servers) and Redis
 
 For maximum privacy, client-side encryption ensures the server never sees plaintext:
 
-1. Browser generates a random 256-bit AES-GCM (Advanced Encryption Standard, Galois/Counter Mode) key
+1. Browser generates a random 256-bit AES-GCM (Advanced Encryption Standard, Galois/Counter Mode) key via the [WebCrypto API](https://www.w3.org/TR/WebCryptoAPI/)
 2. Content is compressed (zlib), then encrypted client-side
 3. Encrypted blob is sent to the server
-4. Decryption key is placed in the URL fragment (`#key=...`), which browsers never send to the server
+4. Decryption key is placed in the URL fragment (`#key=...`), and per [RFC 3986 §3.5](https://datatracker.ietf.org/doc/html/rfc3986#section-3.5) the fragment is a client-side identifier — browsers strip it from the request line before sending to the server
 5. On read, the browser fetches the encrypted blob and decrypts locally
+
+![End-to-end encryption flow](./diagrams/e2e-encryption-flow-light.svg "End-to-end encryption flow: WebCrypto generates an AES-256-GCM key in the writer's browser, the ciphertext is uploaded to the server, and the key lives only in the URL fragment after #. Both writer and reader perform encryption and decryption locally; the server never sees plaintext.")
+![End-to-end encryption flow](./diagrams/e2e-encryption-flow-dark.svg)
 
 **Trade-offs:**
 
@@ -875,16 +910,17 @@ For maximum privacy, client-side encryption ensures the server never sees plaint
 - ❌ URL is much longer (paste_id + encryption key)
 - ❌ Key loss = permanent content loss
 
-PrivateBin implements this model with AES-256-GCM encryption, PBKDF2-HMAC-SHA256 key derivation (100K iterations), and Base58-encoded keys in the URL fragment.
+[PrivateBin](https://github.com/PrivateBin/PrivateBin) implements this model with AES-256-GCM encryption and PBKDF2-HMAC-SHA256 key derivation when a password is provided; the iteration count and salt are stored per-paste in the metadata so the browser can derive the same key on read. The [v1.3 release](https://privatebin.info/news/v1.3-release.html) raised the default iteration count to 100,000 and switched cryptographic primitives to the WebCrypto API. The randomly generated content key is Base58-encoded into the URL fragment so the server never receives it. [0bin](https://github.com/Tygs/0bin) uses the same fragment-key trick as a deliberate liability shield: because the server cannot read pastes, the operator is harder to compel to moderate them.
 
 ### Multi-File Pastes (GitHub Gists Model)
 
 GitHub Gists extend the paste concept by backing each gist with a full Git repository:
 
-- Each gist is a bare Git repo on disk
+- Each gist is a bare Git repo on disk, addressable through the standard [Gists REST API](https://docs.github.com/en/rest/gists/gists)
 - Supports multiple files, full revision history, forking, and cloning
 - URLs use hexadecimal IDs (Git-style)
 - Discovery layer (starring, search) is a separate relational service
+- [Anonymous gist creation was removed in March 2018](https://github.blog/news-insights/product-news/deprecation-notice-removing-anonymous-gist-creation/) precisely because abuse — spam and malware staging — was concentrating in unattributed pastes; a useful data point when deciding whether to allow anonymous writes at all
 
 **Trade-off:** Dramatically more storage and compute per paste (Git object overhead), but enables collaboration workflows that simple paste services cannot.
 

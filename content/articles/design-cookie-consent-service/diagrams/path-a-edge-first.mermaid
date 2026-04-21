@@ -1,0 +1,19 @@
+%% Diagram: Path A — edge-first consent architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["CDN Edge (global PoPs)"]
+        SDK[Consent SDK]
+        Cache[Edge Cache<br/>Consent Status]
+    end
+
+    subgraph Origin["Origin (Regional)"]
+        API[Consent API]
+        DB[(Database)]
+    end
+
+    Browser --> SDK
+    SDK --> |Check cache| Cache
+    Cache --> |Miss| API
+    API --> DB
+    SDK --> |Update| API

@@ -1,0 +1,22 @@
+%% Diagram: Consensus-backed lock with single elected leader serving lock state
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Cluster["Consensus cluster (Raft / Zab / Paxos)"]
+        direction TB
+        L["Leader replica"]
+        F1["Follower"]
+        F2["Follower"]
+        F3["Follower"]
+        F4["Follower"]
+        L <-->|"Replicate log"| F1
+        L <-->|"Replicate log"| F2
+        L <-->|"Replicate log"| F3
+        L <-->|"Replicate log"| F4
+    end
+
+    C1[Client 1] -->|"Acquire (committed via quorum)"| L
+    C2[Client 2] -->|"Acquire (rejected — held)"| L
+    L -->|"Grant + monotonic token (zxid / revision / generation)"| C1
+    C1 -->|"Op + token"| R[(Storage / external service)]
+    R -->|"Validate token >= last seen"| R

@@ -1,0 +1,38 @@
+%% Diagram: Resumable upload state machine for a pending file revision
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Detected: filesystem watcher fires<br/>or scan picks up change
+
+    Detected --> Chunked: split into 4 MiB blocks
+    Chunked --> Hashed: SHA-256 each block
+    Hashed --> Committing: send blocklist to metadata
+    Committing --> Uploading: server returns missing hashes
+    Committing --> Committed: 200 OK, no missing blocks (full dedup hit)
+    Uploading --> Recommitting: all PutBlocks acked
+    Recommitting --> Committed: SFJ row appended, JID assigned
+    Committed --> [*]
+
+    Detected --> Detected: file changed again<br/>(coalesce, restart from chunked)
+
+    Chunked --> Hashed
+    Hashed --> Hashed: re-hash on partial read
+
+    Uploading --> Uploading: per-block retry on 5xx / network error<br/>(idempotent PutBlock)
+    Uploading --> Hashed: server says hash mismatch<br/>(client-side memory corruption)
+
+    Committing --> Hashed: cursor stale / namespace moved<br/>re-resolve and retry
+    Recommitting --> Uploading: server reports new missing block<br/>(GC race or recent purge)
+
+    state Crashes <<fork>>
+    Detected --> Crashes
+    Chunked --> Crashes
+    Hashed --> Crashes
+    Uploading --> Crashes
+    Committing --> Crashes
+    Recommitting --> Crashes
+
+    Crashes --> Resume: restart, read on-disk state +<br/>SQLite cursor
+    Resume --> Chunked: only file path persisted
+    Resume --> Uploading: blocklist persisted, some PutBlocks done
+    Resume --> Recommitting: blocklist + all PutBlocks done

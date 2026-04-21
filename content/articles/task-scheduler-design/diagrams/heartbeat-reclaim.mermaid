@@ -1,0 +1,16 @@
+%% Diagram: Heartbeat + reclaim of a stalled worker
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant W as Worker
+    participant DB as Tasks table
+    participant J as Janitor / scheduler
+    W->>DB: claim row 42 (status=running, last_heartbeat=t0)
+    loop every 2-3 s while task running
+        W->>DB: UPDATE tasks SET last_heartbeat=now() WHERE id=42
+    end
+    Note over W: Worker process crashes
+    J->>DB: SELECT id WHERE status='running' AND last_heartbeat older than 30s
+    DB-->>J: row 42
+    J->>DB: UPDATE tasks SET status='pending', attempts=attempts+1, picked_by=NULL WHERE id=42
+    Note over J,DB: Time-to-detect = interval × missed-beat threshold. Make detection window longer than worst-case GC pause to avoid false reclaims.

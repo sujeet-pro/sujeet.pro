@@ -1,0 +1,15 @@
+%% Diagram: Chunked Parallel Encoding (fan-out / fan-in)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    SRC[Source Video] --> SPLIT[Split at GOP boundaries<br/>ffmpeg -f segment]
+    SPLIT --> C1[Chunk 1]
+    SPLIT --> C2[Chunk 2]
+    SPLIT --> CN[Chunk N]
+    C1 --> W1[Worker 1<br/>encode]
+    C2 --> W2[Worker 2<br/>encode]
+    CN --> WN[Worker N<br/>encode]
+    W1 --> CONCAT[Concatenate<br/>ffmpeg -f concat]
+    W2 --> CONCAT
+    WN --> CONCAT
+    CONCAT --> OUT[Final encoded output]

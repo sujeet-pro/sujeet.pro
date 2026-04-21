@@ -1,0 +1,14 @@
+%% Diagram: Where Node.js work executes — kernel polling vs libuv thread pool
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  JS[JavaScript callsite] --> K{What kind of work?}
+  K -->|kernel-async| NB
+  K -->|blocking| TP
+  K -->|cross-thread| WT
+  NB["Non-blocking syscalls\nepoll / kqueue / event ports / IOCP\n• network sockets\n• dns.resolve*"]
+  TP["libuv thread pool\ndefault 4, max 1024 (UV_THREADPOOL_SIZE)\n• fs.* (except fs.watch)\n• dns.lookup / dns.lookupService\n• async crypto (pbkdf2, scrypt, randomBytes, ...)\n• async zlib (gzip, deflate, ...)\n• native uv_queue_work"]
+  WT["Worker thread\n(separate event loop)\n• Worker.postMessage\n• Atomics.wait / SharedArrayBuffer"]
+  NB --> POLL["poll phase wakes;\nrun callback on event-loop thread"]
+  TP --> POLL
+  WT --> MSG["message arrives via uv_async\non event-loop thread"]

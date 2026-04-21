@@ -2,11 +2,12 @@
 title: 'Critical Rendering Path: Prepaint'
 linkTitle: 'CRP: Prepaint'
 description: >-
-  How the Prepaint stage builds the four property trees (transform, clip,
-  effect, scroll) and computes paint invalidations, enabling O(affected-nodes)
-  compositor updates that power off-main-thread scrolling and animations.
+  How Chromium's Prepaint stage walks the LayoutObject tree to build the four
+  property trees (transform, clip, effect, scroll) and compute paint
+  invalidations — the foundation that makes compositor-driven scrolling and
+  animations O(affected nodes) instead of O(layers).
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - browser
   - rendering
@@ -17,223 +18,195 @@ tags:
 
 # Critical Rendering Path: Prepaint
 
-Prepaint is a RenderingNG pipeline stage that performs an in-order traversal of the **LayoutObject tree** to build **Property Trees** and compute paint invalidations. It decouples visual effect state (transforms, clips, filters, scroll offsets) from the paint and compositing stages, enabling compositor-driven animations and off-main-thread scrolling.
+Prepaint is the [RenderingNG](https://developer.chrome.com/docs/chromium/renderingng) pipeline stage that performs an in-order traversal of Blink's **LayoutObject tree** to build four **property trees** and compute **paint invalidations**[^paint-readme]. It is the architectural seam between layout geometry and visual rendering: it factors visual effect state (transforms, clips, filters, scroll offsets) out of the layer tree so the compositor can update an element's on-screen position by mutating a single property tree node — without re-walking layout or paint.
 
-![PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.](./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a-light.svg "PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.")
-![PrePaintTreeWalk traverses the LayoutObject tree, producing four property trees and paint invalidation decisions. Each element receives a PropertyTreeState—a 4-tuple of node references.](./diagrams/prepainttreewalk-traverses-the-layoutobject-tree-producing-four-property-trees-a-dark.svg)
+![Prepaint takes the LayoutObject tree, walks it in order, and emits four property trees plus a list of dirty display item clients consumed by the Paint stage.](./diagrams/prepaint-overview-light.svg "Prepaint takes the LayoutObject tree, walks it in order, and emits four property trees plus a list of dirty display item clients consumed by the Paint stage.")
+![Prepaint takes the LayoutObject tree, walks it in order, and emits four property trees plus a list of dirty display item clients consumed by the Paint stage.](./diagrams/prepaint-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-Prepaint bridges layout geometry and visual rendering through two independent operations:
+Prepaint does two independent jobs in one tree walk[^paint-readme]:
 
-1. **Property Tree Construction**: Builds four sparse trees (transform, clip, effect, scroll) where each node represents a CSS property that creates a new coordinate space or visual effect. Elements store a `PropertyTreeState`—a 4-tuple `(transform_id, clip_id, effect_id, scroll_id)` pointing to their nearest ancestor nodes in each tree.
+1. **Build property trees.** `PaintPropertyTreeBuilder` constructs four sparse trees — transform, clip, effect, scroll — where each node represents a CSS property that creates a new coordinate space, clip region, or visual effect. Every `FragmentData` ends up holding a `PropertyTreeState`: a 4-tuple `(transform, clip, effect, scroll)` of pointers to its nearest ancestor nodes in each tree[^renderingng-data].
+2. **Compute paint invalidation.** `PaintInvalidator` compares each visited object's current visual state against the cached state, marking any `DisplayItemClient` that needs to be re-recorded by the Paint stage[^paint-readme].
 
-2. **Paint Invalidation**: Determines which display items need re-recording by comparing the current visual state against cached paint artifacts.
+The [Layout](../crp-layout/README.md) stage already produced a `LayoutObject` tree and an immutable Fragment Tree of resolved geometry. The [Paint](../crp-paint/README.md) stage cannot start until property trees exist (because every paint chunk is grouped by `PropertyTreeState`) and until it knows which display items are stale. Prepaint sits in that gap.
 
-**Why this matters**: Traditional layer trees required O(layers) traversal to compute any element's final visual state (matrix multiplication through ancestors). Property trees reduce compositor updates to O(affected nodes)—the compositor can apply a different transform matrix by updating a single node, without re-walking layout or paint. This is the architectural foundation for 60fps scrolling and compositor-driven animations even when JavaScript blocks the main thread.
+| Stage         | Reads                                                | Writes                                       | Does **not** do                                         |
+| :------------ | :--------------------------------------------------- | :------------------------------------------- | :------------------------------------------------------ |
+| Layout        | `LayoutObject` tree, computed style                  | Fragment Tree (immutable geometry)           | No property trees, no display items.                    |
+| **Prepaint**  | `LayoutObject` tree, Fragment Tree, dirty bits       | Property trees, dirty `DisplayItemClient`s   | **No geometry** computation, **no display-item** recording, **no paint chunks**. |
+| Paint         | `LayoutObject` tree, property trees, dirty clients   | Display item list, paint chunks (grouped by `PropertyTreeState`) | No layerization decisions.                              |
 
----
+> [!IMPORTANT]
+> Prepaint walks the **LayoutObject** tree, not the Fragment Tree. Property tree topology depends on DOM containment relationships, not on the physical fragment positions produced by Layout. The Fragment Tree is read for geometry; the structural walk follows `LayoutObject` parent/child[^paint-readme].
 
-## The Problem: O(layers) Compositing Updates
+## Why this matters: from O(layers) to O(affected nodes)
 
-In pre-RenderingNG Chromium (before M94), visual properties were baked into a monolithic **Layer Tree**. Each composited layer stored its own transform matrix, clip rect, and effect values. Computing the final visual state of any element required multiplying matrices through all ancestor layers—an O(layers) operation.
+In pre-RenderingNG Chromium, visual properties were baked into a monolithic **Layer Tree**: each composited layer stored its own transform matrix, clip rect, and effect values. Computing the on-screen state of any element required multiplying matrices through every ancestor layer — an O(layers) operation on every commit.
 
-**Concrete impact**: A page with 500 composited layers animating a single element's `transform` would trigger a full layer tree walk on every frame. At 60fps, this meant 30,000 matrix multiplications per second just to update one element. Complex web apps experienced frame drops (jank) whenever the main thread was busy, because scrolling and animations competed for the same layer tree traversal.
+The **Slimming Paint** project (2015–2021) incrementally replaced that model with the four property trees, in five named milestones[^slimming-paint]:
 
-### The Slimming Paint Solution
+| Phase                      | Chromium | Change                                                               |
+| -------------------------- | -------- | -------------------------------------------------------------------- |
+| SlimmingPaintV1            | M45      | Paint via display items                                              |
+| SlimmingPaintInvalidation  | M58      | Paint invalidation rewrite; **property trees first introduced** in Blink |
+| SlimmingPaintV1.75         | M67      | Paint chunks; property trees drive painting; raster invalidation     |
+| BlinkGenPropertyTrees      | M75      | Final property trees generated in Blink, sent to `cc` as a layer list |
+| CompositeAfterPaint        | M94      | Compositing decisions moved **after** paint                          |
 
-The **Slimming Paint** project (spanning M45–M94) incrementally decoupled visual properties from the layer hierarchy:
+The aggregate result, per the Chromium project page[^slimming-paint]:
 
-| Phase                     | Chromium | Change                                          |
-| ------------------------- | -------- | ----------------------------------------------- |
-| SlimmingPaintV1           | M45      | Paint using display items                       |
-| SlimmingPaintInvalidation | M58      | Property trees introduced in Blink              |
-| SlimmingPaintV175         | M67      | Paint chunks with property tree references      |
-| BlinkGenPropertyTrees     | M75      | Final property trees generated in Blink, not cc |
-| CompositeAfterPaint       | M94      | Compositing decisions moved after paint         |
+- **22,000 lines** of C++ removed.
+- **−1.3%** total Chrome CPU usage.
+- **+3.5%** improvement to **99th percentile** scroll-update latency.
+- **+2.2%** improvement to **95th percentile** input delay.
 
-**Result**: Property trees reduced compositor updates from O(layers) to O(affected nodes). Total Chrome CPU usage dropped 1.3%, with 3.5%+ improvement to 99th percentile scroll latency.
+These numbers compound across every Chromium-based browser. Prepaint is what makes them possible: by the time the compositor needs to scroll, animate, or hit-test, the only thing it has to mutate is a property tree node, not a slab of layer state.
 
----
+## Property tree architecture
 
-## Property Tree Architecture
+`PaintPropertyTreeBuilder` constructs four trees during the walk. Each tree is **sparse** — most elements share their parent's nodes. A new node is created only when CSS forces one (a transform, an `overflow` clip, an opacity below 1, a scrollable container, etc.).
 
-During Prepaint, the `PaintPropertyTreeBuilder` constructs four sparse trees. Each node represents a CSS property that changes coordinate space or visual effect for its descendants.
+The tree topology mostly mirrors the DOM, but each tree has its own scoping rules. The split into four trees exists because scrolling and visual effects do not have the same containment semantics: `position: fixed`/`absolute` descendants escape ancestor scrollers but still inherit ancestor visual effects, so scroll containment cannot share a topology with effect containment[^renderingng-data].
 
-### Transform Tree
+![A small DOM produces four sparse property trees; each LayoutObject's PropertyTreeState picks one node from each.](./diagrams/property-tree-shape-light.svg "A small DOM produces four sparse property trees; each LayoutObject's PropertyTreeState picks one node from each.")
+![A small DOM produces four sparse property trees; each LayoutObject's PropertyTreeState picks one node from each.](./diagrams/property-tree-shape-dark.svg)
 
-Stores 4×4 transformation matrices for translations, rotations, scales, and perspective. Each node contains:
+### Transform tree
 
-- **Transformation matrix**: The local transform (e.g., `rotate(45deg)` → rotation matrix)
-- **Transform origin**: The point around which transformations apply (default: `50% 50%`)
-- **Flattens inherited transform**: Whether 3D context is preserved or flattened to 2D
-- **Rendering context ID**: Groups elements sharing a 3D rendering context
+Stores the 4×4 transformation matrices that move and reshape coordinate spaces. A node is created for any non-`none` `transform`, `translate`, `rotate`, `scale`, `perspective`, scroll offset, or fixed-position adjustment. Each node records the local transform matrix, transform origin, whether the inherited transform is flattened to 2D or preserved in 3D, and which 3D rendering context it joins[^renderingng-data].
 
-**Design rationale**: Separating transforms into a dedicated tree enables the compositor to update an element's position by swapping a single matrix node. The compositor multiplies matrices lazily—only when drawing—rather than eagerly during main-thread traversal.
+Separating transforms into a dedicated tree is what makes off-main-thread compositor updates cheap: the compositor mutates a single node and re-multiplies lazily at draw time, instead of eagerly rebuilding inherited matrices on the main thread.
 
-**Edge case**: `transform` creates a containing block for `position: fixed` descendants. A `fixed` element inside a transformed parent scrolls with that parent, not the viewport. This surprises developers who expect `fixed` to always be viewport-relative.
+> [!WARNING]
+> A non-`none` `transform` (including `transform: translateZ(0)`) creates a **containing block for `position: fixed` and `position: absolute` descendants**[^containing-block]. A `fixed` element nested inside a transformed ancestor is positioned relative to that ancestor, not the viewport. The same is true of `perspective`, `filter`, `backdrop-filter`, `contain: layout|paint|strict|content`, `container-type` ≠ `normal`, `content-visibility: auto`, and any `will-change` value that would itself create one[^containing-block].
 
 ```css
-.modal-container {
-  transform: translateZ(0); /* Promotes to layer */
+.transformed-parent {
+  transform: translateZ(0); /* any transform, even identity */
 }
 
-.modal {
-  position: fixed; /* Now relative to .modal-container, not viewport! */
+.supposedly-fixed {
+  position: fixed; /* positioned relative to .transformed-parent, not the viewport */
   top: 0;
   left: 0;
 }
 ```
 
-### Clip Tree
+### Clip tree
 
-Defines visible boundaries using float rectangles with optional rounded corners or clip paths. Each node specifies:
+Represents **overflow clips** — axis-aligned rectangles, optionally with rounded corners[^renderingng-data]. New nodes are created by `overflow: hidden|scroll|auto|clip` and by border-radius rounding on a clipping container.
 
-- **Clip rectangle**: The clipping boundary in local coordinates
-- **Rounded corners**: Border-radius values for soft clips
-- **Clip path**: Arbitrary SVG path or CSS shape
+Keeping clip nodes separate from transform nodes lets the compositor change a scroll offset (a transform mutation) without recomputing the clip rect that defines the visible viewport of the scroller.
 
-**Design rationale**: Separating clips from transforms allows the compositor to update scroll offsets independently. A scroll container's clip rect stays constant while only the scroll offset (in the transform tree) changes—no clip recalculation needed.
+> [!NOTE]
+> `clip-path` does **not** live in the clip tree. Because `clip-path` can be an arbitrary path or shape (not an axis-aligned rect with rounded corners), it is represented as a node in the **effect tree**, alongside masks and filters[^renderingng-data].
 
-**CSS `overflow: clip` vs `hidden`**: Both clip content, but `hidden` allows programmatic scrolling (`scrollTo()`) while `clip` forbids all scrolling. Critically, `clip` doesn't establish a new formatting context, unlike `hidden`. Use `clip` when you need clipping without the side effects of BFC (Block Formatting Context) creation.
+> [!TIP]
+> `overflow: clip` and `overflow: hidden` both clip painted content to the box, but they differ in two important ways. `hidden` allows programmatic scrolling (`element.scrollTo(...)`) and establishes a Block Formatting Context; `clip` forbids all scrolling and does **not** establish a BFC[^css-overflow-3]. Reach for `clip` when you need clipping without the side effects of BFC creation.
 
-### Effect Tree
+### Effect tree
 
-Manages compositing operations: opacity, filters, blend modes, and masks. Each node contains:
+Represents every visual effect that is not a transform and not a simple overflow clip: `opacity`, CSS `filter`, `backdrop-filter`, blend modes, masks, and `clip-path`[^renderingng-data]. Each node carries the alpha, filter list, blend mode, and an optional mask reference.
 
-- **Opacity**: The alpha multiplier (0.0–1.0)
-- **Filter**: CSS filter functions (`blur()`, `brightness()`, etc.)
-- **Blend mode**: How colors combine with backdrop (`multiply`, `screen`, etc.)
-- **Mask reference**: Optional clip node constraining effect output
+The effect tree is what enables transparency groups: an `opacity < 1` requires that the entire descendant subtree be composited together before the alpha is applied, so the compositor needs an explicit "begin/end transparency group" boundary. Without a dedicated effect tree, the compositor could not distinguish "apply opacity to this subtree" from "apply opacity to each element individually."
 
-**Design rationale**: Effects like `opacity < 1` create transparency groups—all descendants must be composited together before applying the opacity to the group. Without a dedicated effect tree, the compositor couldn't distinguish "apply opacity to this subtree" from "apply opacity to each element individually."
+> [!NOTE]
+> Per CSS Filter Effects 1, the rendering order inside the effect tree is fixed: **filter → clipping → masking → opacity**[^filter-effects]. Custom rendering pipelines that reorder these get the visual wrong; Blink does it for you.
 
-**Edge case**: `filter` and `opacity` create stacking contexts and containing blocks for fixed/absolute descendants (same as `transform`). A `filter: blur(0)` with no visual effect still triggers these side effects.
+> [!CAUTION]
+> `filter` and `backdrop-filter` create both a stacking context **and** a containing block for fixed/absolute descendants[^containing-block]. `opacity` creates a stacking context but **does not** create a containing block. Keep this asymmetry in mind when debugging "my fixed tooltip suddenly anchors to the wrong element."
 
-**Rendering order** (per CSS Filter Effects spec): filters apply first, then clipping, then masking, then opacity. Getting this wrong produces incorrect visual output when elements combine multiple effects.
+### Scroll tree
 
-### Scroll Tree
+Encodes scrollable regions, their offsets, and how scrolls chain together. Each node records which axes scroll, the container size vs. content size (which determines scrollbar presence), and the parent in the scroll-chain hierarchy[^renderingng-data].
 
-Encodes scrollable regions, their offsets, and scroll chaining relationships:
+Crucially, the scroll **offset** is not stored directly in the scroll node — it lives in a paired transform-tree node[^renderingng-data]. That indirection is the unification trick: the compositor's general-purpose transform pipeline applies scroll position the same way it applies any other 2D translation, which is what makes off-main-thread scrolling work even while the main thread is blocked.
 
-- **Scrollable directions**: Which axes allow scrolling (horizontal, vertical, both)
-- **Scroll offset**: Current scroll position (linked to a transform node)
-- **Container size vs content size**: Determines scrollbar presence
-- **Scroll parent**: Establishes scroll bubbling chain
+## PropertyTreeState: the per-element 4-tuple
 
-**Design rationale**: The scroll tree enables **off-main-thread scrolling**. The compositor has all metadata needed to update scroll offsets and transform visible content without main-thread involvement. When JavaScript blocks the main thread for 100ms, scrolling remains smooth because the compositor handles it independently.
-
-**Implementation detail**: Scroll offsets are stored as 2D translations in transform nodes, not directly in scroll nodes. This allows the compositor's transform pipeline to handle scroll position identically to other transforms.
-
----
-
-## PropertyTreeState: The Per-Element 4-Tuple
-
-After Prepaint, every element stores a `PropertyTreeState`—a 4-tuple of node IDs:
+After Prepaint, every `FragmentData` carries a `PropertyTreeState`:
 
 ```
-PropertyTreeState = (transform_id, clip_id, effect_id, scroll_id)
+PropertyTreeState = (transform_node, clip_node, effect_node, scroll_node)
 ```
 
-This tuple points to the nearest ancestor nodes in each tree that affect the element. To compute an element's final visual state, the compositor walks from each node to the root, accumulating transforms/clips/effects. Because property trees are sparse (most elements don't create new nodes), these walks are short.
+Each entry points at the nearest ancestor node in the corresponding tree[^renderingng-data]. Because the trees are sparse, most elements share their parent's tuple — a deeply nested `<span>` with no visual properties of its own simply inherits its block parent's `PropertyTreeState`. Only elements whose CSS forces a node (transform, clip-path, opacity, filter, scroll, etc.) get a new entry in any tree.
 
-**Example**: A deeply nested `<span>` with no CSS visual properties shares its parent's PropertyTreeState. Only elements with `transform`, `clip-path`, `opacity`, `filter`, `overflow: scroll`, etc., create new tree nodes.
+Multi-column and paginated layouts complicate this slightly: a single `LayoutObject` can have multiple `FragmentData` instances (one per column), and each fragment gets its own `PropertyTreeState`[^paint-readme].
 
-## PrePaintTreeWalk: The LayoutObject Traversal
+This tuple is also what the [Paint](../crp-paint/README.md) stage uses to group display items into **paint chunks** — the unit at which the compositor decides what becomes a `cc::Layer`[^paint-readme].
 
-The `PrePaintTreeWalk` class performs an **in-order traversal** of the LayoutObject tree, beginning from the root `FrameView` and crossing iframe boundaries. This ordering matters: it enables efficient computation of DOM-order relationships like parent containing blocks.
+## PrePaintTreeWalk
 
-**Correction**: Prepaint traverses the **LayoutObject tree** (created during Style Recalc), not the Fragment Tree. The Fragment Tree provides geometry data, but the traversal follows LayoutObject hierarchy because property tree relationships depend on DOM structure, not physical fragment positions.
+`PrePaintTreeWalk` performs an **in-order, depth-first** traversal starting at the root `FrameView` and crossing iframe boundaries. The in-order ordering matters because property tree relationships depend on DOM ancestry — specifically, on the parent containing block — and that information is cheapest to compute as you descend[^paint-readme].
 
-### Traversal Steps
+For each visited `LayoutObject`:
 
-For each LayoutObject visited:
+1. **Dirty bit gate.** If `NeedsPaintPropertyUpdate`, `SubtreeNeedsPaintPropertyUpdate`, or `DescendantNeedsPaintPropertyUpdate` is unset, the subtree is skipped entirely[^paint-readme].
+2. **Property tree update.** `PaintPropertyTreeBuilder` creates or refreshes the nodes that this object owns. New nodes are created only when CSS demands them (e.g. `transform`, `clip-path`, `opacity < 1`, `overflow: scroll`).
+3. **FragmentData population.** Each fragment receives an `ObjectPaintProperties` pointing at its newly resolved property tree nodes. Multi-column layouts produce multiple fragments per object[^paint-readme].
+4. **Paint invalidation.** `PaintInvalidator` compares current vs. cached visual state and marks any stale `DisplayItemClient`[^paint-readme].
 
-1. **Dirty bit check**: If `NeedsPaintPropertyUpdate`, `SubtreeNeedsPaintPropertyUpdate`, or `DescendantNeedsPaintPropertyUpdate` is set, process this node. Otherwise, skip the subtree (major optimization).
+### Dirty bits
 
-2. **Property tree building**: `PaintPropertyTreeBuilder` creates or updates nodes in the four trees based on the element's computed styles. New nodes are created only when CSS properties require them (e.g., `transform`, `clip-path`, `opacity < 1`, `overflow: scroll`).
+Three flags on `LayoutObject` control how much of the tree the walk has to touch[^paint-readme]:
 
-3. **FragmentData population**: Each LayoutObject's `FragmentData` receives an `ObjectPaintProperties` object pointing to its property tree nodes. Multi-column layouts create multiple FragmentData per LayoutObject.
+| Flag                                 | Scope              | Meaning                                |
+| ------------------------------------ | ------------------ | -------------------------------------- |
+| `NeedsPaintPropertyUpdate`           | Single node        | This node's properties changed         |
+| `SubtreeNeedsPaintPropertyUpdate`    | Whole subtree      | Force-update all descendants           |
+| `DescendantNeedsPaintPropertyUpdate` | Bookkeeping        | Some descendant somewhere needs update |
 
-4. **Paint invalidation**: `PaintInvalidator` compares current visual state against cached paint artifacts, marking display item clients that need re-recording.
+On a 10,000-element page where one element's background colour changed, Prepaint only visits the dirty path from the root down to that element — the rest of the subtree is gated out by these flags. Topology-changing updates are more expensive: when a transform is **added or removed**, Prepaint sets `SubtreeNeedsPaintPropertyUpdate`, walks every descendant, and reparents their transform tuple to the new node[^paint-readme]. The same is true for any property that introduces or removes a property-tree node — opacity crossing 1.0, `overflow` changing to/from `visible`, `clip-path` toggling, etc. This is exactly what `contain: paint` mitigates (next subsection).
 
-### The Dirty Bit System
+### Isolation boundaries
 
-Prepaint uses three dirty flags to minimize traversal:
+`contain: paint` establishes an **isolation boundary** in all three of the transform/clip/effect trees by inserting alias nodes that act as descendant roots[^paint-readme]. The walk treats the boundary as a wall: changes outside the boundary cannot reparent nodes inside it, so a `SubtreeNeedsPaintPropertyUpdate` flag from above the boundary stops at the boundary. Large widget subtrees can be effectively excluded from most cross-document mutations this way.
 
-| Flag                                 | Scope              | Meaning                        |
-| ------------------------------------ | ------------------ | ------------------------------ |
-| `NeedsPaintPropertyUpdate`           | Single node        | This node's properties changed |
-| `SubtreeNeedsPaintPropertyUpdate`    | Direct descendants | Children need property updates |
-| `DescendantNeedsPaintPropertyUpdate` | Deep descendants   | Some descendant needs update   |
+The example below (adapted from the Blink paint README[^paint-readme]) walks a tree where element 3 gets a new `transform` and element 5 carries `contain: paint`:
 
-**Optimization**: Unchanged subtrees are skipped entirely. On a page with 10,000 elements where only one element's `transform` changed, Prepaint visits only the dirty path from root to that element, not all 10,000 nodes.
+![Walking a LayoutObject tree where element 3 gains a transform: dirty bits propagate to descendants, but the contain:paint isolation boundary at element 5 stops the forced subtree walk.](./diagrams/dirty-bit-walk-light.svg "Walking a LayoutObject tree where element 3 gains a transform: dirty bits propagate to descendants, but the contain:paint isolation boundary at element 5 stops the forced subtree walk.")
+![Walking a LayoutObject tree where element 3 gains a transform: dirty bits propagate to descendants, but the contain:paint isolation boundary at element 5 stops the forced subtree walk.](./diagrams/dirty-bit-walk-dark.svg)
 
-### Quick Update Path
+### Quick update path
 
-Transform and opacity changes can bypass full PrePaintTreeWalk via a "quick update" optimization:
+For a small but very common class of style changes — pure `transform` or `opacity` mutations with no layout consequences — Prepaint skips the full property tree builder entirely. During `PaintLayer::StyleDidChange`, qualifying changes are added to a pending list; later, in `PrePaintTreeWalk::WalkTree`, those updates are applied directly to the existing nodes without re-running the builder[^paint-readme].
 
-1. During `PaintLayer::StyleDidChange`, the system checks if an update qualifies
-2. Qualifying updates are added to a pending list
-3. Updates execute directly in `PrePaintTreeWalk::WalkTree`, skipping full traversal
+![Style changes that affect only transform or opacity (and don't touch layout) take a pending-list shortcut and skip the full tree walk; everything else falls back to the full PrePaintTreeWalk.](./diagrams/quick-update-path-light.svg "Style changes that affect only transform or opacity (and don't touch layout) take a pending-list shortcut and skip the full tree walk; everything else falls back to the full PrePaintTreeWalk.")
+![Style changes that affect only transform or opacity (and don't touch layout) take a pending-list shortcut and skip the full tree walk; everything else falls back to the full PrePaintTreeWalk.](./diagrams/quick-update-path-dark.svg)
 
-**Qualification criteria**: The change affects only `transform` or `opacity`, with no layout implications. This enables smooth CSS animations without main-thread overhead.
+The shortcut is one half of why CSS animations on `transform` and `opacity` are smooth even on a busy main thread; the other half is that those same two properties are exactly the ones the compositor can mutate on its own thread (covered below).
 
----
+## Paint invalidation
 
-## Paint Invalidation
+The second output of Prepaint is the set of dirty display item clients that the [Paint](../crp-paint/README.md) stage will re-record. `PaintInvalidator` compares, for each visited `LayoutObject`, the current vs. cached versions of[^paint-readme]:
 
-The second output of Prepaint is **paint invalidation decisions**—determining which display items need re-recording during the Paint stage.
+- computed style,
+- geometry (paint offset, visual rect),
+- property tree state.
 
-### How Invalidation Works
+Where they differ, the corresponding `DisplayItemClient` is marked dirty. Paint only re-records dirty items; everything else is reused from the `PaintController`'s cache.
 
-`PaintInvalidator` traverses subtrees marked with invalidation flags, comparing:
+Invalidation operates at two granularities[^paint-readme]:
 
-- Current computed styles vs. cached styles
-- Current geometry vs. cached geometry
-- Current property tree state vs. cached state
+1. **Paint chunk level.** A paint chunk groups consecutive display items that share a `PropertyTreeState`. If chunks no longer match in order, or the property tree state changed, the entire chunk is invalidated.
+2. **Display item level.** When chunks still match in order and property trees are unchanged, individual display items are compared so background-only or text-only changes invalidate just the affected item.
 
-When differences are detected, the corresponding `DisplayItemClient` is marked dirty. The Paint stage then re-records only dirty items.
+A practical illustration: changing only an element's `background-color` invalidates a single display item and reuses the rest of its chunk. Changing only its `transform` invalidates the chunk's property tree state but typically allows the chunk's display items themselves to be reused (the chunk simply moves under a different transform node).
 
-### Invalidation Levels
+![Paint invalidation flow: state diff drives chunk-level vs display-item-level invalidation, falling back to cache reuse otherwise.](./diagrams/paint-invalidation-walk-light.svg "Paint invalidation flow: state diff drives chunk-level vs display-item-level invalidation, falling back to cache reuse otherwise.")
+![Paint invalidation flow: state diff drives chunk-level vs display-item-level invalidation, falling back to cache reuse otherwise.](./diagrams/paint-invalidation-walk-dark.svg)
 
-Paint invalidation operates at two granularities:
+## Compositor-driven animations: bypassing the main thread
 
-1. **Paint chunk level**: Matches each paint chunk against previous artifact by ID. If chunks don't match in order, or property trees changed, the entire chunk is invalidated.
+The architectural payoff of property trees is that animations affecting only `transform` or `opacity` can run **entirely on the compositor thread**, skipping layout, prepaint, and paint per frame[^web-animations]. The compositor's `AnimationHost` produces output values from `AnimationCurve`s and writes them directly into property tree nodes; the new transform/opacity is applied at draw time[^how-cc].
 
-2. **Display item level**: When chunks match in order and property trees are unchanged, individual display items are compared for targeted invalidation.
-
-**Real-world example**: Changing an element's `background-color` invalidates only that element's background display item. Changing its `transform` invalidates the paint chunk but potentially allows display item reuse if the chunk simply moves.
-
-### Isolation Boundaries
-
-`contain: paint` establishes an **isolation boundary**—a barrier preventing descendants from being affected by ancestors' property tree changes.
+Why only `transform` and `opacity`? Because they cannot affect layout geometry or paint order. Anything else (`width`, `left`, `top`, `margin`, …) requires re-running layout — and therefore the full main-thread pipeline — every frame.
 
 ```css
-.isolated-widget {
-  contain: paint; /* Creates isolation boundary */
-}
-```
-
-Descendants of an isolation boundary use it as their property tree root. Changes outside the boundary don't trigger invalidation inside it, enabling large subtrees to be skipped during Prepaint.
-
----
-
-## Compositor-Driven Animations: Bypassing Prepaint
-
-Animations affecting only `transform` or `opacity` can run entirely on the compositor thread, skipping the main thread pipeline (layout, prepaint, paint):
-
-1. The animation system (`AnimationHost` in cc/) maintains active `Animations` on the compositor thread
-2. Each animation generates output values via `AnimationCurves`
-3. Output values update property tree nodes directly
-4. The compositor applies updated transforms/opacity during compositing
-
-**Why only transform and opacity?**: These properties don't affect layout geometry or paint order. The compositor has everything needed (property tree nodes, rasterized tiles) to apply the change without main-thread involvement.
-
-**Failure mode**: If an animation affects layout-dependent properties (e.g., `width`, `left`), it falls back to main-thread animation, running through the full pipeline each frame. This causes jank when the main thread is busy.
-
-```css
-/* ✅ Compositor-driven: smooth even when main thread is blocked */
+/* Compositor-driven: stays smooth even when the main thread is blocked */
 .smooth {
   animation: slide 1s;
 }
@@ -243,92 +216,43 @@ Animations affecting only `transform` or `opacity` can run entirely on the compo
   }
 }
 
-/* ❌ Main-thread: will jank if main thread is busy */
+/* Main-thread animation: janks whenever the main thread is busy */
 .janky {
   animation: slide-left 1s;
 }
 @keyframes slide-left {
   to {
     left: 100px;
-  } /* Layout property, forces main thread */
-}
-```
-
----
-
-## Real-World Example: Smooth Scrolling Under Load
-
-Consider a news site with infinite scroll, heavy JavaScript analytics, and complex DOM:
-
-```javascript
-// Analytics script blocking main thread for 50ms every second
-setInterval(() => {
-  const start = performance.now()
-  while (performance.now() - start < 50) {
-    // Simulate heavy computation
   }
-}, 1000)
-```
-
-**Without property trees (pre-M94)**: During the 50ms block, scrolling freezes. The compositor can't update scroll position because it requires main-thread layer tree traversal.
-
-**With property trees**: The scroll tree contains all metadata the compositor needs. During the 50ms block:
-
-1. User scrolls via touchpad/mouse
-2. Compositor receives scroll events directly
-3. Compositor updates scroll offset in the scroll tree's transform node
-4. Compositor redraws with new scroll position
-5. Main thread catches up later, but user sees smooth scrolling
-
-This is why modern browsers achieve responsive scrolling even on pages with expensive JavaScript.
-
----
-
-## Edge Cases and Gotchas
-
-### Fixed Positioning Inside Transforms
-
-A `position: fixed` element inside a transformed ancestor is positioned relative to that ancestor, not the viewport:
-
-```css
-.transformed-parent {
-  transform: translateZ(0); /* Any transform, even identity-like */
-}
-
-.supposedly-fixed {
-  position: fixed;
-  top: 0;
-  /* Positioned relative to .transformed-parent! */
 }
 ```
 
-This behavior stems from the CSS Transforms spec: transforms create a containing block for fixed descendants. The same applies to `filter`, `perspective`, and `backdrop-filter`.
+> [!TIP]
+> The same restriction applies to scrolling. Off-main-thread scrolling works because the scroll tree gives the compositor everything it needs (scroll bounds, chaining, overflow direction) to update the scroller's transform node without consulting the main thread. The moment a page registers a non-passive `wheel`/`touchmove` handler, the compositor must wait for the main thread before scrolling — which reintroduces jank.
 
-### `will-change` Memory Cost
+## Edge cases worth internalising
 
-`will-change: transform` promotes an element to its own composited layer, consuming GPU memory. Each layer requires:
+### `will-change` is not free
 
-- Texture memory for the rasterized content
-- Property tree nodes
-- Compositor bookkeeping
-
-**Failure mode**: Applying `will-change: transform` to hundreds of elements causes GPU memory exhaustion. Symptoms include checkerboarding (white tiles during scroll) and browser sluggishness.
+`will-change: transform` (or any other compositor-promoting property) tells the engine to allocate a separate composited layer up-front, including texture memory and bookkeeping. Applying it to many elements simultaneously exhausts GPU memory and produces checkerboarding (white tiles during scroll)[^will-change].
 
 ```css
-/* ❌ Memory explosion */
+/* Memory explosion — promotes every list item to its own layer */
 .list-item {
-  will-change: transform; /* 1000 items = 1000 layers */
+  will-change: transform;
 }
 
-/* ✅ Promote only during animation */
+/* Promote only while actually animating */
 .list-item.animating {
   will-change: transform;
 }
 ```
 
-### `contain: paint` Breaks Overflow
+The general rule: add `will-change` immediately before an animation begins, remove it as soon as the animation ends.
 
-`contain: paint` clips content to the element's bounds and prevents `position: fixed` descendants from escaping:
+### `contain: paint` confines `position: fixed`
+
+`contain: paint` clips painted content to the box and prevents `position: fixed` descendants from escaping[^containing-block]:
 
 ```css
 .container {
@@ -336,102 +260,75 @@ This behavior stems from the CSS Transforms spec: transforms create a containing
 }
 
 .tooltip {
-  position: fixed; /* Won't escape .container! */
+  position: fixed; /* still positioned relative to .container */
 }
 ```
 
-This is intentional (it creates an isolation boundary), but surprises developers expecting fixed elements to always escape their containers.
+This is exactly the isolation-boundary behaviour described earlier — useful for widget isolation, surprising for "why won't my modal escape?".
 
-### Filter Effects Order
+### `filter: blur(0)` still has side effects
 
-Filters, clips, masks, and opacity apply in a specific order (per CSS Filter Effects spec):
+A no-op `filter` value still creates a stacking context, a containing block, and an effect-tree node. Using `filter: blur(0)` as a "force GPU" trick has stopped helping years ago and now actively costs compositing memory and changes positioning semantics[^containing-block].
 
-1. **Filter** functions execute first
-2. **Clipping** restricts the visible region
-3. **Masking** applies luminance/alpha mask
-4. **Opacity** multiplies the final result
+## Performance debugging
 
-Getting this wrong in custom rendering produces incorrect output. Browser Prepaint handles this automatically, but understanding the order helps debug visual anomalies.
+In Chrome DevTools' Performance panel, Prepaint shows up as **Pre-paint** (older traces still call it "Update Layer Tree"). What to look for:
 
----
+- **Long pre-paint slices (>5 ms)** — usually a deep dirty subtree, often caused by mutating a high-up element's `transform` or by toggling `contain` on/off.
+- **Repeated pre-paint every frame** — typically a `requestAnimationFrame` callback writing layout-affecting properties.
 
-## Performance Debugging
+Practical levers:
 
-### Identifying Prepaint Bottlenecks
+- Apply `contain: layout paint` (or `contain: strict` / `content`) on widget roots. It both bounds dirty-bit propagation and creates an isolation boundary[^paint-readme].
+- Batch transform/opacity mutations inside `requestAnimationFrame`; the quick-update path applies once per frame instead of once per write.
+- Avoid layout-triggering animation properties (`width`, `height`, `top`, `left`, `margin`). Use `transform: translate()` and `opacity` instead.
+- Use the **Layers** panel in DevTools to inspect composited layers and their reasons; excessive layers usually means too aggressive `will-change` use.
 
-In Chrome DevTools, the Performance panel shows Prepaint as "Pre-Paint" or "Update Layer Tree" (legacy name). Look for:
+## Practical takeaways
 
-- **Long Prepaint times** (>5ms): Usually indicates deep dirty subtrees or many property tree changes
-- **Frequent Prepaint**: Rapid style changes triggering repeated walks
-
-### Reducing Prepaint Cost
-
-1. **Use `contain: layout paint`**: Limits dirty bit propagation to contained subtrees
-2. **Minimize property tree changes**: Batch transform/opacity updates within `requestAnimationFrame`
-3. **Avoid layout-triggering properties in animations**: `width`, `height`, `margin` force full pipeline, while `transform` allows quick update path
-
-### DevTools Layers Panel
-
-The Layers panel shows composited layers and their reasons. Each layer has property tree references. Excessive layers indicate potential memory issues from over-promotion.
-
----
-
-## Conclusion
-
-Prepaint is the architectural linchpin enabling modern web performance. By extracting visual properties into four specialized trees and computing paint invalidation separately from layout, it achieves two critical goals:
-
-1. **Compositor independence**: Transform and opacity animations bypass the main thread entirely
-2. **Targeted invalidation**: Only changed display items are re-recorded
-
-The property tree model transformed browser rendering from O(layers) updates to O(affected nodes), making smooth 60fps+ scrolling and animations possible even on pages with complex JavaScript. Understanding Prepaint helps diagnose rendering performance issues and design CSS that works with the architecture rather than against it.
-
----
+- Prepaint is the bridge from layout geometry to paint and compositing. It is structural (build property trees) and bookkeeping (compute paint invalidation) at the same time, in one walk.
+- The four trees exist because scrolling and visual effects have different containment rules. Knowing which property goes in which tree predicts which compositor optimisations apply.
+- The dirty-bit system plus isolation boundaries is what keeps Prepaint cheap on real-world pages. `contain: paint` is your strongest lever for isolating widget subtrees.
+- The quick-update path makes `transform` and `opacity` the only animation properties that consistently stay on the compositor thread. Design animations around that.
+- Off-main-thread scrolling is a property of the scroll tree, not magic. Non-passive wheel/touch handlers throw it away.
 
 ## Appendix
 
 ### Prerequisites
 
-- [Rendering Pipeline Overview](../crp-rendering-pipeline-overview/README.md): Understanding of the full pipeline from HTML to pixels
-- [Layout Stage](../crp-layout/README.md): How the Fragment Tree and LayoutObject Tree are constructed
-- [Style Recalculation](../crp-style-recalculation/README.md): How computed styles and the LayoutObject Tree are produced
-- Familiarity with CSS visual effects: `transform`, `opacity`, `filter`, `overflow`
+- [Critical Rendering Path: Overview](../crp-rendering-pipeline-overview/README.md) — the full RenderingNG pipeline from HTML to pixels.
+- [Critical Rendering Path: Style Recalculation](../crp-style-recalculation/README.md) — how the LayoutObject tree and computed styles are produced.
+- [Critical Rendering Path: Layout](../crp-layout/README.md) — how the Fragment Tree is built.
+- Familiarity with CSS visual effects: `transform`, `opacity`, `filter`, `overflow`, `contain`.
+
+### Next in the series
+
+- [Critical Rendering Path: Paint](../crp-paint/README.md) — display-item recording and paint chunks (the consumer of Prepaint's outputs).
+- [Critical Rendering Path: Composit](../crp-composit/README.md) — how `cc` mutates the property trees off the main thread to scroll and animate.
 
 ### Terminology
 
-| Term                         | Definition                                                                                                             |
-| :--------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| **Property Tree**            | Sparse tree structure storing visual effect state (transform/clip/effect/scroll) independently of the DOM hierarchy    |
-| **PropertyTreeState**        | A 4-tuple `(transform_id, clip_id, effect_id, scroll_id)` identifying an element's position in all four property trees |
-| **LayoutObject Tree**        | Mutable tree created during Style Recalc, representing elements that generate boxes; Prepaint traverses this tree      |
-| **Fragment Tree**            | Immutable tree of `PhysicalFragment` objects with resolved geometry; output of Layout, read by Prepaint                |
-| **PrePaintTreeWalk**         | The Chromium class performing in-order LayoutObject traversal to build property trees                                  |
-| **PaintPropertyTreeBuilder** | Component creating/updating property tree nodes during Prepaint                                                        |
-| **PaintInvalidator**         | Component determining which display items need re-recording                                                            |
-| **Isolation Boundary**       | A barrier (e.g., `contain: paint`) preventing property tree changes from propagating into a subtree                    |
-| **Compositor Thread**        | Browser thread handling compositing, scrolling, and visual-effect animations without main-thread involvement           |
-| **Slimming Paint**           | Multi-year Chromium project (M45–M94) that introduced property trees and decoupled compositing from paint              |
+| Term                         | Definition                                                                                                                       |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| **Property Tree**            | One of four sparse trees (transform, clip, effect, scroll) storing visual-effect or scroll state independently of the DOM.       |
+| **PropertyTreeState**        | A 4-tuple `(transform, clip, effect, scroll)` of pointers identifying a fragment's nearest ancestor node in each property tree.  |
+| **LayoutObject Tree**        | Mutable Blink tree of objects that generate boxes; the structural backbone of the Prepaint walk.                                 |
+| **Fragment Tree**            | Immutable LayoutNG tree of `PhysicalFragment`s with resolved geometry; the geometry source consulted during paint invalidation.  |
+| **PrePaintTreeWalk**         | The Blink class that performs the in-order LayoutObject walk during Prepaint.                                                    |
+| **PaintPropertyTreeBuilder** | The component that creates and updates property tree nodes.                                                                      |
+| **PaintInvalidator**         | The component that decides which `DisplayItemClient`s need re-recording.                                                         |
+| **Isolation Boundary**       | An alias node (created by `contain: paint`) that acts as a property-tree root for a subtree, blocking ancestor-driven walks.     |
+| **Slimming Paint**           | The 2015–2021 Chromium project that introduced property trees and decoupled compositing from paint.                              |
+| **Compositor Thread**        | The browser thread (`cc`) that handles compositing, scrolling, and transform/opacity animations without main-thread involvement. |
 
-### Summary
+### Footnotes
 
-- Prepaint traverses the **LayoutObject tree** (not Fragment Tree) to build four **Property Trees**: transform, clip, effect, and scroll
-- Each element receives a **PropertyTreeState**—a 4-tuple pointing to its nearest ancestor nodes in each tree
-- Property trees reduced compositor updates from O(layers) to O(affected nodes), enabling smooth animations
-- **Paint invalidation** determines which display items need re-recording, enabling targeted repaints
-- **Dirty bits** (`NeedsPaintPropertyUpdate`, etc.) allow Prepaint to skip unchanged subtrees
-- **Quick update path** handles transform/opacity changes without full tree traversal
-- Compositor-driven animations (transform, opacity) bypass Prepaint entirely, running on the compositor thread
-- `contain: paint` creates **isolation boundaries** that limit invalidation scope
-
-### References
-
-- **W3C CSS Transforms Level 1**: [Specification](https://www.w3.org/TR/css-transforms-1/) — Defines transform property semantics and containing block behavior
-- **W3C CSS Overflow Level 3**: [Specification](https://www.w3.org/TR/css-overflow-3/) — Defines overflow clipping and scroll behavior
-- **W3C CSS Filter Effects Level 1**: [Specification](https://www.w3.org/TR/filter-effects-1/) — Defines filter functions and their rendering order
-- **W3C CSS Masking Level 1**: [Specification](https://www.w3.org/TR/css-masking-1/) — Defines clipping paths and masking
-- **W3C CSSOM View Module**: [Specification](https://drafts.csswg.org/cssom-view/) — Defines scrolling APIs and behavior
-- **Chromium Blink Paint README**: [Source Documentation](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md) — Detailed Prepaint implementation
-- **Chromium RenderingNG Architecture**: [Design Document](https://developer.chrome.com/docs/chromium/renderingng-architecture) — Pipeline overview and property trees
-- **Chromium RenderingNG Data Structures**: [Design Document](https://developer.chrome.com/docs/chromium/renderingng-data-structures) — Property tree implementation details
-- **Chromium BlinkNG**: [Design Document](https://developer.chrome.com/docs/chromium/blinkng) — Containment principles and geometry centralization
-- **Chromium Slimming Paint**: [Project Overview](https://www.chromium.org/blink/slimming-paint/) — Evolution timeline and performance improvements
-- **Chromium How cc Works**: [Technical Document](https://chromium.googlesource.com/chromium/src/+/master/docs/how_cc_works.md) — Compositor internals and property tree usage
+[^paint-readme]: Blink rendering team. [`third_party/blink/renderer/core/paint/README.md`](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/paint/README.md). The authoritative source on PrePaintTreeWalk, paint property trees, isolation boundaries, the dirty-bit system, and the quick-update path.
+[^renderingng-data]: Chris Harrelson and Stefan Zager. [Key data structures in RenderingNG](https://developer.chrome.com/docs/chromium/renderingng-data-structures). Chrome for Developers. Defines the four property trees, the PropertyTreeState 4-tuple, the scope of each tree, and why scrolling uses a separate tree from visual effects.
+[^slimming-paint]: Chromium project. [Slimming Paint (a.k.a. Redesigning Painting and Compositing)](https://www.chromium.org/blink/slimming-paint/). The phase table (V1 → CompositeAfterPaint), the 22,000-line code reduction, and the −1.3% CPU / +3.5% scroll-update / +2.2% input-delay numbers come from this page.
+[^containing-block]: MDN Web Docs. [Layout and the containing block](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Display/Containing_block). Lists every property that establishes a containing block for fixed and absolute descendants — including `transform`, `perspective`, `filter`, `backdrop-filter`, `contain`, `container-type`, `content-visibility: auto`, and qualifying `will-change` values. Note that `opacity` is **not** on this list.
+[^css-overflow-3]: W3C. [CSS Overflow Module Level 3 — `overflow`](https://www.w3.org/TR/css-overflow-3/#overflow-control). Specifies the difference between `overflow: hidden` and `overflow: clip`, including BFC establishment and programmatic-scroll behaviour.
+[^filter-effects]: W3C. [Filter Effects Module Level 1 — Compositing model](https://www.w3.org/TR/filter-effects-1/). Defines the rendering order: filter, then clipping, then masking, then opacity.
+[^web-animations]: web.dev. [Animations and performance](https://web.dev/articles/animations-and-performance). Why `transform` and `opacity` are the compositor-friendly animation properties.
+[^how-cc]: Chromium project. [How `cc` Works](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/how_cc_works.md). Compositor architecture, including how property trees flow from Blink to `cc` and how the `AnimationHost` mutates them.
+[^will-change]: MDN Web Docs. [`will-change`](https://developer.mozilla.org/en-US/docs/Web/CSS/will-change). Memory and compositing trade-offs of advance compositor promotion.

@@ -1,0 +1,25 @@
+%% Diagram: Commit synchronization
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant MT as Main Thread<br/>(ProxyMain)
+    participant CT as Compositor Thread<br/>(ProxyImpl)
+    participant PT as Pending Tree
+    participant AT as Active Tree
+
+    Note over MT: Paint complete<br/>(property trees + paint records ready)
+    MT->>CT: NotifyReadyToCommit (forwards mutex)
+    activate MT
+    Note over MT: Blocked on mutex
+    activate CT
+    CT->>PT: Push layer properties,<br/>property trees, paint records<br/>(by layer id)
+    CT-->>MT: Release mutex
+    deactivate MT
+    Note over MT: Free for frame N+1<br/>(style, layout, paint)
+
+    Note over CT: Schedule raster
+    CT->>PT: Raster required tiles
+    Note over PT: Required tiles ready
+    CT->>AT: Activate (pending → active)
+    deactivate CT
+    Note over AT: Ready for ScheduledActionDraw

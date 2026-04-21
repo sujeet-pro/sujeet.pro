@@ -1,0 +1,26 @@
+%% Diagram: Font swap with metric overrides — eliminating font-induced CLS
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant B as Browser
+    participant N as Network
+    participant L as Layout
+
+    Note over B: Without metric overrides
+    U->>B: Navigate
+    B->>L: Render with Arial fallback
+    L-->>U: Visible text (Arial metrics)
+    B->>N: Fetch web font
+    N-->>B: Inter.woff2 arrives
+    B->>L: Reflow with Inter metrics
+    L-->>U: Layout shift! (CLS spike)
+
+    Note over B: With size-adjust + ascent-override
+    U->>B: Navigate
+    B->>L: Render Arial sized to match Inter
+    L-->>U: Visible text (Inter dimensions)
+    B->>N: Fetch web font
+    N-->>B: Inter.woff2 arrives
+    B->>L: Swap glyphs, identical metrics
+    L-->>U: No layout shift (CLS = 0)

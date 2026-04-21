@@ -1,0 +1,15 @@
+%% Diagram: Paint Stage Pipeline Position
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Main["Main Thread"]
+        direction LR
+        Layout[Layout] --> Prepaint[Prepaint] --> Paint[Paint] --> Commit[Commit]
+    end
+    subgraph GPU["Compositor / GPU Process"]
+        direction LR
+        Layerize[Layerize] --> Raster[Rasterize] --> Composite[Composite] --> Draw[Draw]
+    end
+    Commit --> Layerize
+
+    style Paint fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px

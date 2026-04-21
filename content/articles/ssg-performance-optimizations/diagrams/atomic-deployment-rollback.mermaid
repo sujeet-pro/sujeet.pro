@@ -1,0 +1,23 @@
+%% Diagram: Atomic deployment and rollback via versioned S3 prefix
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CI as CI/CD pipeline
+    participant S3 as S3 bucket
+    participant CF as CloudFront distribution
+    participant U as User
+
+    Note over CI,CF: Forward deploy
+    CI->>S3: PutObject build_002/*
+    CI->>CF: UpdateDistribution origin path → /build_002
+    CF-->>CI: ETag (InProgress)
+    CI->>CF: CreateInvalidation /*
+    CF-->>CI: InProgress
+    Note over CF: 60–120 s propagation across POPs
+
+    Note over CI,CF: Rollback — no rebuild
+    CI->>CF: UpdateDistribution origin path → /build_001
+    CI->>CF: CreateInvalidation /*
+    CF-->>CI: InProgress
+    U->>CF: GET /
+    CF-->>U: build_001 from edge cache

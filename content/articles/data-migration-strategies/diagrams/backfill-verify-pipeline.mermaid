@@ -1,0 +1,39 @@
+%% Diagram: Backfill And Verify Pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  SCHED[Scheduler<br/>partition plan + rate budget]
+  subgraph WORK["Worker pool · idempotent"]
+    W1[Lease partition<br/>shard, tenant, key range]
+    W2[Read batch by stable cursor<br/>id, updated_at, LSN]
+    W3[Transform to target schema<br/>versioned payload]
+    W4[Upsert target<br/>natural key + source_lsn]
+    W5[Commit checkpoint<br/>only after target commit]
+    W1 --> W2 --> W3 --> W4 --> W5
+    W5 -->|next batch| W2
+  end
+
+  subgraph VER["Verifier"]
+    V1[Sample diff<br/>field-level, post-projection]
+    V2[Aggregate diff<br/>counts, sums, hashes]
+    V3{Within drift<br/>budget?}
+  end
+
+  SRC[(Source of truth)]
+  TGT[(Target store)]
+  Q[(Quarantine + repair queue)]
+  THR[Throttle signal<br/>replica lag, p99, IOPS]
+
+  SCHED --> WORK
+  SRC --> W2
+  W4 --> TGT
+  TGT --> V1
+  SRC --> V1
+  TGT --> V2
+  SRC --> V2
+  V1 --> V3
+  V2 --> V3
+  V3 -->|no| Q
+  V3 -->|yes| SCHED
+  Q -->|repair events| W2
+  THR -.->|backpressure| SCHED

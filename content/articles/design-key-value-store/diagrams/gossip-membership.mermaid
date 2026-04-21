@@ -1,0 +1,20 @@
+%% Diagram: Gossip Membership - 3-Phase Exchange + Phi Accrual Convict Path
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Node A (initiator)
+    participant B as Node B (random peer)
+    participant C as Node C (3rd party)
+
+    Note over A: every ~1s: pick random live peer
+    A->>B: SYN(digest of known endpoints + versions)
+    B-->>A: ACK(diff: entries B has newer + digest of what B wants)
+    A->>B: ACK2(entries A has newer)
+
+    Note over A,B: each merges by max(version) per (endpoint, app-state-key)<br/>O(log N) rounds to fully propagate
+
+    Note over A: per-peer phi accrual:<br/>track inter-heartbeat distribution
+    Note over A: phi(t) = -log10(1 - F(t - t_last))
+    A-->>A: if phi(C) > 8 -> mark C suspect/convicted
+    A->>B: gossip "C is DOWN, gen=g, version=v"
+    B-->>A: merged; if newer, B propagates further

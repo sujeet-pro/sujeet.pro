@@ -1,0 +1,20 @@
+%% Diagram: Resumable upload state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Selected
+    Selected --> Validated: magic-byte + size ok
+    Validated --> Created: POST -> 201 Location
+    Created --> Uploading: PATCH first chunk
+    Uploading --> Uploading: PATCH ok / 204\n+ Upload-Offset
+    Uploading --> Resyncing: network err / 409
+    Resyncing --> Uploading: HEAD -> server offset\nbackoff + jitter
+    Uploading --> ChecksumRetry: 460 mismatch
+    ChecksumRetry --> Uploading: re-send same chunk
+    Uploading --> Paused: user / page hidden
+    Paused --> Resyncing: resume on visibility
+    Uploading --> Expired: Upload-Expires elapsed
+    Uploading --> Completed: offset == length
+    Expired --> [*]
+    Completed --> Finalizing: server commit
+    Finalizing --> [*]

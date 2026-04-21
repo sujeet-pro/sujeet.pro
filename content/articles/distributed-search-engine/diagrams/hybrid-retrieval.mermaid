@@ -1,0 +1,31 @@
+%% Diagram: Hybrid retrieval — BM25 + dense vector ANN, fused with RRF, then re-ranked
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Q["User query"]
+
+    subgraph LEX["Lexical lane"]
+        ANALYZE["Analyzer\n(tokenize, lower, stem)"]
+        BM25["Inverted index\nBM25 scoring"]
+        LEXK["Top-K_lex\n(doc_id, bm25_score)"]
+        ANALYZE --> BM25 --> LEXK
+    end
+
+    subgraph SEM["Semantic lane"]
+        ENC["Query encoder\n(two-tower, e.g. DPR)"]
+        ANN["ANN index\nHNSW / IVF-PQ / ScaNN"]
+        VECK["Top-K_vec\n(doc_id, similarity)"]
+        ENC --> ANN --> VECK
+    end
+
+    Q --> ANALYZE
+    Q --> ENC
+
+    FUSE["Fusion\nRRF: score(d) = Σ 1 / (k + rank_i(d))"]
+    LEXK --> FUSE
+    VECK --> FUSE
+
+    RERANK["Cross-encoder re-ranker\n(LambdaMART / BERT)"]
+    FINAL["Final top-N to user"]
+
+    FUSE -->|candidate set| RERANK --> FINAL

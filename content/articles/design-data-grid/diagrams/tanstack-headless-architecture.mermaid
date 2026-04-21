@@ -1,0 +1,24 @@
+%% Diagram: TanStack Table headless architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Core["@tanstack/table-core"]
+        State[Table State]
+        RowModel[Row Models]
+        Features[Features API]
+    end
+
+    subgraph Adapter["Framework Adapter"]
+        React["@tanstack/react-table"]
+        Vue["@tanstack/vue-table"]
+        Solid["@tanstack/solid-table"]
+    end
+
+    subgraph Your["Your Code"]
+        UI[Custom UI Components]
+        Styles[Your Styles]
+        Virtual[Virtualization Layer]
+    end
+
+    Core --> Adapter
+    Adapter --> Your

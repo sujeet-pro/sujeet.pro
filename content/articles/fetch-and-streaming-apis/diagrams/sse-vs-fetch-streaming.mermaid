@@ -1,0 +1,21 @@
+%% Diagram: Server-Sent Events vs streaming fetch - decision matrix
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Server pushes data to browser"]) --> Q1{"Need POST,<br/>custom headers,<br/>or auth tokens?"}
+    Q1 -->|"Yes"| Fetch["Streaming fetch + ReadableStream"]
+    Q1 -->|"No"| Q2{"Need automatic<br/>reconnect with<br/>Last-Event-ID?"}
+    Q2 -->|"Yes"| SSE["EventSource (SSE)"]
+    Q2 -->|"No"| Q3{"Long-lived<br/>connection<br/>over HTTP/1.1?"}
+    Q3 -->|"Yes - and clients open<br/>many tabs"| Fetch
+    Q3 -->|"No - HTTP/2+"| SSE
+
+    SSE --> SSEpros["GET only<br/>text/event-stream<br/>Auto-reconnect with retry: ms<br/>Last-Event-ID header on resume<br/>UTF-8 only<br/>Cookies for auth"]
+    Fetch --> Fpros["Any method, any headers<br/>Binary or text<br/>Manual reconnect required<br/>Manual framing parser<br/>Per-tab connection budget<br/>Cancel via AbortSignal"]
+
+    classDef sseBox fill:#7c3aed,stroke:#5b21b6,color:#ffffff
+    classDef fetchBox fill:#1e40af,stroke:#1e3a8a,color:#ffffff
+    classDef qBox fill:#374151,stroke:#1f2937,color:#ffffff
+    class SSE,SSEpros sseBox
+    class Fetch,Fpros fetchBox
+    class Q1,Q2,Q3 qBox

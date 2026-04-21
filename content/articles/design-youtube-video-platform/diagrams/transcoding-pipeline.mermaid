@@ -1,0 +1,31 @@
+%% Diagram: Transcoding pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Input
+        RAW[Raw video] --> DEMUX[Demuxer]
+        DEMUX --> VIDEO[Video stream]
+        DEMUX --> AUDIO[Audio streams]
+        DEMUX --> SUB[Subtitles / closed captions]
+    end
+
+    subgraph Analysis
+        VIDEO --> SCENE[Scene + shot detection]
+        SCENE --> COMPLEX[Complexity analysis<br/>per-shot bitrate target]
+    end
+
+    subgraph Encoding["Video encoding (chunk x codec x rung)"]
+        COMPLEX --> CODECS["Codecs<br/>H.264 / VP9 / AV1 / HEVC"]
+        CODECS --> RES["Resolution ladder<br/>2160p / 1440p / 1080p<br/>720p / 480p / 360p / 240p / 144p"]
+    end
+
+    subgraph Audio
+        AUDIO --> AUDCODECS["AAC-LC / Opus"]
+    end
+
+    subgraph Packaging
+        RES --> PKG[CMAF packager<br/>shared fMP4 segments]
+        AUDCODECS --> PKG
+        PKG --> HLS[HLS .m3u8 playlists]
+        PKG --> DASH[DASH .mpd manifests]
+    end

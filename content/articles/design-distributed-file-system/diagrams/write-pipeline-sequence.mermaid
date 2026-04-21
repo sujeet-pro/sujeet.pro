@@ -1,0 +1,29 @@
+%% Diagram: GFS-style write — separate data pipeline from control flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant Master
+    participant Primary as Primary CS
+    participant Sec1 as Secondary CS1
+    participant Sec2 as Secondary CS2
+
+    Client->>Master: 1. Open / AddChunk(file)
+    Master->>Master: Pick replicas (rack-aware)
+    Master->>Master: Grant lease to primary
+    Master-->>Client: ChunkInfo{primary, secondaries, version}
+
+    Note over Client,Sec2: Data flow — pipelined nearest-first
+    Client->>Primary: 2. Push data (closest replica)
+    Primary->>Sec1: 2a. Forward bytes
+    Sec1->>Sec2: 2b. Forward bytes
+    Note over Primary,Sec2: All replicas buffer in LRU memory
+
+    Note over Client,Sec2: Control flow — primary serializes
+    Client->>Primary: 3. WriteChunk(offset)
+    Primary->>Primary: Apply locally
+    Primary->>Sec1: 4. Write at offset
+    Primary->>Sec2: 4. Write at offset
+    Sec1-->>Primary: 5. Ack
+    Sec2-->>Primary: 5. Ack
+    Primary-->>Client: 6. Success (or partial failure)

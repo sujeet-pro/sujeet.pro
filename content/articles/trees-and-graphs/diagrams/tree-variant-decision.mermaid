@@ -1,0 +1,21 @@
+%% Diagram: Tree variant decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start(("Pick a tree")):::terminal
+    start --> q1{"String keys with\nshared prefixes?"}
+
+    q1 -- "Yes" --> trie["Trie / Radix\nO(L) prefix"]:::primary
+    q1 -- "No"  --> q2{"Working set\nfits in RAM?"}
+
+    q2 -- "No" --> btree["B+ tree\n(disk / SSD)"]:::storage
+    q2 -- "Yes" --> q3{"Workload mix"}
+
+    q3 -- "Read-heavy" --> avl["AVL\nstricter balance"]:::secondary
+    q3 -- "Write-heavy\nor mixed" --> rb["Red-Black\nfewer rotations"]:::secondary
+    q3 -- "Range scans /\nordered iter" --> btreeMem["B+ tree (RAM)\nor skip list"]:::storage
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef terminal fill:#5A5A5A,stroke:#3D3D3D,color:#fff

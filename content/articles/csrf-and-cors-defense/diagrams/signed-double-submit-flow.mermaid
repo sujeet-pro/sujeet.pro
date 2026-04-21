@@ -1,0 +1,22 @@
+%% Diagram: Signed Double-Submit CSRF Token Flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Browser
+    participant Server
+
+    Note over Server: secret = HMAC key (server-only)
+    Browser->>Server: GET /app (authenticated session)
+    Note over Server: rand = randomBytes(16)<br/>token = HMAC(secret, sessionID + rand) + "." + rand
+    Server-->>Browser: 200 OK<br/>Set-Cookie __Host-csrf=token Secure HttpOnly SameSite=Strict Path=/<br/>HTML embeds same token in form or meta tag
+
+    Note over Browser: User submits the form, or JS reads token<br/>from meta and sets X-CSRF-Token header
+
+    Browser->>Server: POST /transfer<br/>Cookie __Host-csrf=token<br/>X-CSRF-Token token<br/>Body ...
+
+    Note over Server: 1. cookie == header (constant-time compare)<br/>2. split header into hmac and rand<br/>3. recompute HMAC(secret, sessionID + rand)<br/>4. constant-time compare with submitted hmac
+    alt Both checks pass
+        Server-->>Browser: 200 OK
+    else Mismatch or tamper
+        Server-->>Browser: 403 Forbidden + log security event
+    end

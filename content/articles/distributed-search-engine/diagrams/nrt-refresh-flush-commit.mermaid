@@ -1,0 +1,29 @@
+%% Diagram: NRT refresh / flush / commit timeline
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant P as Primary Shard
+    participant M as In-memory Buffer
+    participant TL as Translog
+    participant FC as Filesystem Cache
+    participant D as Disk
+
+    C->>P: Index doc
+    P->>M: Append to buffer
+    P->>TL: Append op (durable on fsync)
+    P-->>C: ack
+
+    Note over P,FC: Refresh (every 1s while index is active)
+    P->>FC: Flush buffer as new searchable segment
+    Note right of FC: Documents now visible to search
+
+    Note over P,D: Flush (translog > 512MB or 30 min)
+    P->>D: fsync segments to disk
+    P->>TL: Truncate translog
+    Note right of D: Durable Lucene commit
+
+    Note over P,D: Crash recovery
+    P->>D: Reopen committed segments
+    P->>TL: Replay un-fsync'd ops

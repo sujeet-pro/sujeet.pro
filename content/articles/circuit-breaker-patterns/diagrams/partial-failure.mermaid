@@ -1,0 +1,25 @@
+%% Diagram: Why circuit breakers struggle with sharded systems
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    client["Client\nglobal failure rate ~33%"]
+    router[Router]
+
+    subgraph Service["Sharded service"]
+        direction LR
+        shard_a["Shard A-H\nOVERLOADED\n100% errors"]
+        shard_b["Shard I-R\nhealthy"]
+        shard_c["Shard S-Z\nhealthy"]
+    end
+
+    client --> router
+    router --> shard_a
+    router --> shard_b
+    router --> shard_c
+
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef good fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class shard_a bad
+    class shard_b,shard_c good
+    class client,router neutral

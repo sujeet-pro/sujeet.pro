@@ -1,0 +1,29 @@
+%% Diagram: Audio chunked streaming over HTTP range requests
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Player as Player (client)
+    participant CDN as Audio CDN (Akamai / CloudFront)
+    participant Origin as GCS audio origin
+
+    Note over Player: User taps Play
+    Player->>CDN: GET /track/{id}/q160.ogg<br/>Range: bytes=0-524287 (512 KB)
+    CDN-->>Player: 206 Partial Content (chunk #1)
+    Note over Player: First audio frame decoded → playback starts (sub-second TTFB)
+
+    loop While buffer < high watermark (~30 s)
+        Player->>CDN: Range: bytes=N-N+524287
+        CDN-->>Player: 206 Partial Content
+    end
+
+    Note over Player: Current track ~90% complete
+    Player->>CDN: GET /track/{next_id}/q160.ogg<br/>Range: bytes=0-524287 (prefetch)
+    CDN-->>Player: 206 Partial Content (next track head)
+
+    Note over Player,CDN: TCP/BBR keeps send rate near measured bandwidth<br/>so packet loss does not collapse throughput
+
+    alt Cache miss at edge
+        CDN->>Origin: GET object (signed)
+        Origin-->>CDN: bytes
+    end

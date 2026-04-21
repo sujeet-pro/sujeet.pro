@@ -1,0 +1,43 @@
+%% Diagram: Draw quad translation pipeline — abstract quads become GPU commands via Skia.
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CF["CompositorFrame"]
+        RP1["RenderPass: root<br/>(drawn last)"]
+        RP2["RenderPass: effect<br/>(intermediate texture)"]
+    end
+
+    subgraph Quads["Draw Quads"]
+        Q1["TextureDrawQuad"]
+        Q2["SolidColorDrawQuad"]
+        Q3["SurfaceDrawQuad"]
+        Q4["VideoDrawQuad"]
+        Q5["RenderPassDrawQuad"]
+    end
+
+    subgraph Skia["Skia translation"]
+        SkCanvas["SkCanvas calls<br/>(drawRect, drawImage, …)"]
+        Backend["Backend<br/>Ganesh → Graphite"]
+    end
+
+    subgraph GPU["GPU command path"]
+        Cmd["Command buffer<br/>(Vulkan / Metal / D3D / GL)"]
+        Driver["GPU driver"]
+        HW["Hardware execution"]
+    end
+
+    RP1 --> Q1
+    RP1 --> Q2
+    RP1 --> Q3
+    RP2 --> Q4
+    RP1 --> Q5
+
+    Q1 --> SkCanvas
+    Q2 --> SkCanvas
+    Q3 --> SkCanvas
+    Q4 -. "may bypass via overlay" .-> HW
+    Q5 --> SkCanvas
+
+    SkCanvas --> Backend
+    Backend --> Cmd
+    Cmd --> Driver
+    Driver --> HW

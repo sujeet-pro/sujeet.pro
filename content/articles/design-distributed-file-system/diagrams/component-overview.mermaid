@@ -1,0 +1,37 @@
+%% Diagram: Full component overview — client, master tier, storage tier, control plane
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph ClientLib["Client library"]
+        CACHE["Chunk location cache"]
+        LEASE["Lease tracking"]
+        BUFFER["Write buffer"]
+    end
+
+    subgraph MasterCluster["Master cluster"]
+        PRIMARY["Primary master"]
+        SHADOW1["Shadow master 1"]
+        SHADOW2["Shadow master 2"]
+        OPLOG[("Operation log")]
+        CKPT[("Checkpoints")]
+    end
+
+    subgraph ChunkServers["Chunk-server pool (rack-aware)"]
+        direction LR
+        RACK1["Rack 1\nCS1, CS2, CS3"]
+        RACK2["Rack 2\nCS4, CS5, CS6"]
+        RACK3["Rack 3\nCS7, CS8, CS9"]
+    end
+
+    subgraph Monitoring["Background services"]
+        HB["Heartbeat collector"]
+        REBALANCER["Chunk rebalancer"]
+        GC["Garbage collector"]
+    end
+
+    ClientLib -->|"Metadata"| PRIMARY
+    ClientLib -->|"Data"| RACK1 & RACK2 & RACK3
+    PRIMARY --> OPLOG --> SHADOW1 & SHADOW2
+    PRIMARY --> CKPT
+    RACK1 & RACK2 & RACK3 -->|"Heartbeat"| HB
+    HB --> PRIMARY

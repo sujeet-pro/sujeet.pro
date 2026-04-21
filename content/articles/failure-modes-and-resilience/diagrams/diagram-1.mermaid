@@ -1,9 +1,0 @@
-%% Diagram: Diagram 1
-%% Type: state
-%%{init: {'htmlLabels': false}}%%
-stateDiagram-v2
-    [*] --> Closed
-    Closed --> Open: Failure threshold exceeded
-    Open --> HalfOpen: Reset timeout expires
-    HalfOpen --> Closed: Probe succeeds
-    HalfOpen --> Open: Probe fails

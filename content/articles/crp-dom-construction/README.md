@@ -6,7 +6,7 @@ description: >-
   recovery, the preload scanner's ~20% performance boost, and the blocking chain
   between scripts, stylesheets, and DOM construction.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - browser
   - rendering
@@ -17,7 +17,7 @@ tags:
 
 # Critical Rendering Path: DOM Construction
 
-How browsers parse HTML bytes into a Document Object Model (DOM) tree, why JavaScript loading strategies dictate performance, and how the preload scanner mitigates the cost of parser-blocking resources.
+How browsers parse HTML bytes into a Document Object Model (DOM) tree, why JavaScript loading strategies dictate performance, and how the preload scanner mitigates the cost of parser-blocking resources. This is the first construction stage of the [Critical Rendering Path](../crp-rendering-pipeline-overview/README.md) series; the parallel CSS pipeline is covered in [CRP: CSSOM Construction](../crp-cssom-construction/README.md).
 
 ![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-light.svg "The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.")
 ![The HTML parsing pipeline: bytes flow through an 80+ state tokenizer into tree construction, which uses insertion modes and error recovery to build the DOM. The preload scanner runs in parallel to discover resources early.](./diagrams/the-html-parsing-pipeline-bytes-flow-through-an-80-state-tokenizer-into-tree-con-dark.svg)
@@ -34,19 +34,10 @@ The HTML parser is a **state machine with error recovery**—not a traditional p
 
 **The blocking chain:**
 
-```
-HTML Parser → encounters <script> → pauses
-                                   ↓
-                           Script downloads
-                                   ↓
-                           CSS finishes (if pending)
-                                   ↓
-                           Script executes
-                                   ↓
-                           Parser resumes
-```
+![The script-and-CSS blocking chain: an inline script downloads in parallel with stylesheets but cannot execute until the CSSOM is ready, and the parser cannot resume until the script returns.](./diagrams/script-css-blocking-chain-light.svg "The script-and-CSS blocking chain: an inline script downloads in parallel with stylesheets but cannot execute until the CSSOM is ready, and the parser cannot resume until the script returns.")
+![The script-and-CSS blocking chain: an inline script downloads in parallel with stylesheets but cannot execute until the CSSOM is ready, and the parser cannot resume until the script returns.](./diagrams/script-css-blocking-chain-dark.svg)
 
-The preload scanner exists because this chain is expensive. By scanning ahead during parser blocks, browsers achieve ~20% faster page loads.
+The preload scanner exists because this chain is expensive. Early measurements when Mozilla, WebKit, and IE shipped speculative parsers in 2008 reported roughly **19–20% faster** page loads — Mozilla in [Bug 364315](https://bugzilla.mozilla.org/show_bug.cgi?id=364315) and Google across the Alexa top 2,000 sites, summarized in [Andy Davies' write-up](https://andydavies.me/blog/2013/10/22/how-the-browser-pre-loader-makes-pages-load-faster/).
 
 ## The Parsing Pipeline
 
@@ -54,7 +45,7 @@ The HTML parser transforms bytes into a DOM tree through two primary stages defi
 
 ### Stage 1: Tokenization
 
-The tokenizer is a state machine with **80+ distinct states** that processes the character stream and emits tokens. Key state categories:
+The tokenizer is a state machine with **80 distinct states** in the current Living Standard ([§13.2.5 — Tokenization](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)) that processes the input character stream and emits tokens. Key state categories:
 
 | State Category           | Purpose                      | Example Transitions                      |
 | ------------------------ | ---------------------------- | ---------------------------------------- |
@@ -62,23 +53,35 @@ The tokenizer is a state machine with **80+ distinct states** that processes the
 | **Tag parsing**          | Element recognition          | `<` triggers Tag Open state              |
 | **Attribute handling**   | Name/value extraction        | Attribute Name → Before Attribute Value  |
 | **Script data**          | Special script content rules | Handles `</script>` detection in strings |
+| **RCDATA / RAWTEXT**     | Title, textarea, style, xmp  | Tags treated as text until matching end  |
 | **Character references** | Entity decoding              | `&amp;` → `&`                            |
 
-The tokenizer emits five token types: DOCTYPE, start tag, end tag, comment, and character tokens. Each token triggers tree construction actions.
+The tokenizer emits **six token types**: DOCTYPE, start tag, end tag, comment, character, and end-of-file ([§13.2.5 — Tokenization](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)). Tokens are passed one-by-one to tree construction; tree construction may switch the tokenizer back into a different state (for example, the tree builder flips the tokenizer into `script data` when it sees a `<script>` start tag), which is why HTML tokenization is **not** a context-free state machine ([§13.2.6.2 — Parsing elements that contain only text](https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text)).
 
 ### Stage 2: Tree Construction
 
-Tree construction uses **insertion modes** to determine how tokens modify the DOM. The specification defines 23 insertion modes including:
+Tree construction uses **insertion modes** to determine how each token modifies the DOM. The [WHATWG specification §13.2.6.4](https://html.spec.whatwg.org/multipage/parsing.html#the-insertion-mode) defines **23 insertion modes**:
 
-- `initial`, `before html`, `before head`, `in head`, `after head`
-- `in body` (handles most content)
-- `in table`, `in row`, `in cell` (table-specific rules)
-- `in template` (for `<template>` elements)
+| Phase            | Modes                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Document prolog  | `initial`, `before html`, `before head`, `in head`, `in head noscript`, `after head`                               |
+| Body content     | `in body`, `text`                                                                                                  |
+| Tables           | `in table`, `in table text`, `in caption`, `in column group`, `in table body`, `in row`, `in cell`                 |
+| Forms / templates| `in select`, `in select in table`, `in template`                                                                   |
+| Document epilog  | `after body`, `in frameset`, `after frameset`, `after after body`, `after after frameset`                          |
 
-The parser maintains two critical data structures:
+A separate set of rules applies inside SVG and MathML subtrees ([§13.2.6.5 — The rules for parsing tokens in foreign content](https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inforeign)).
 
-1. **Stack of open elements**: Tracks the current nesting context
-2. **List of active formatting elements**: Handles `<b>`, `<i>`, `<a>` across misnested tags
+The parser maintains five pieces of mutable state ([§13.2.4 — Parse state](https://html.spec.whatwg.org/multipage/parsing.html#the-insertion-mode)):
+
+1. **Insertion mode** — the current state-machine state.
+2. **Original insertion mode** — saved when entering `text` mode so the parser knows where to return.
+3. **Stack of open elements** — the current nesting context; `current node` is the top of this stack.
+4. **List of active formatting elements** — drives the adoption agency algorithm for `<b>`, `<i>`, `<a>` across misnested tags.
+5. **Stack of template insertion modes** — pushed/popped on entering/leaving each `<template>`.
+
+![Insertion-mode state diagram: the prolog modes set up document, head, and body; in body delegates into table, select, template, and foreign-content sub-machines; the epilog modes consume the body close and EOF.](./diagrams/insertion-mode-state-light.svg "Selected transitions across the 23 HTML5 insertion modes. Most flow content lives in `in body`; structural contexts like tables and selects switch the parser into purpose-built sub-machines that have their own insertion-mode rules.")
+![Insertion-mode state diagram: the prolog modes set up document, head, and body; in body delegates into table, select, template, and foreign-content sub-machines; the epilog modes consume the body close and EOF.](./diagrams/insertion-mode-state-dark.svg)
 
 ```html collapse={1-5,8-12}
 <!doctype html>
@@ -110,7 +113,7 @@ When formatting elements like `<b>` or `<i>` are improperly nested, the adoption
 <p>One <b>two <i>three</i></b><i> four</i> five</p>
 ```
 
-The algorithm earned its name because "elements change parents"—nodes are reparented to produce valid structure. The spec notes this was chosen over alternatives including the "incest algorithm" and "Heisenberg algorithm."
+The algorithm earned its name because "elements change parents" — nodes are reparented to produce valid structure. The [adoption agency algorithm](https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm) was chosen over alternatives that earlier WG drafts named the "incest algorithm" and the "Heisenberg algorithm" — the spec note still acknowledges those rejected names.
 
 ### Foster Parenting
 
@@ -140,7 +143,7 @@ The foster parent is typically the element before the table in the stack of open
 
 ### Common Parse Errors
 
-The specification defines 70+ parse error codes. Common scenarios:
+The specification defines [70+ parse-error codes](https://html.spec.whatwg.org/multipage/parsing.html#parse-errors) for conformance checkers; user agents simply recover. Common scenarios:
 
 | Error                       | Input                 | Recovery Behavior        |
 | --------------------------- | --------------------- | ------------------------ |
@@ -153,17 +156,19 @@ The specification defines 70+ parse error codes. Common scenarios:
 
 ## Why Incremental Parsing Matters
 
-Unlike [CSSOM construction](../crp-cssom-construction/README.md), DOM construction doesn't require the complete document. The browser parses and builds incrementally, enabling:
+Unlike [CSSOM construction](../crp-cssom-construction/README.md), which is render-blocking and must complete before any paint, DOM construction is **streaming and incremental**. The browser starts building the tree as soon as bytes arrive and continues every time a new chunk lands. Three downstream optimizations depend on this:
 
-- **Early resource discovery**: The preload scanner finds `<link>` and `<script>` tags before the main parser reaches them.
-- **Progressive rendering**: Content above the fold displays as soon as it's parsed and styled.
-- **Streaming HTML**: Chunked transfer encoding allows parsing to begin before the full response arrives.
+- **Early resource discovery.** The preload scanner walks the byte stream ahead of tree construction to find `<link>`, `<script>`, and `<img>` resources well before the main parser reaches them.
+- **Progressive rendering.** Once the parser has emitted enough of the tree to lay out an above-the-fold region, [style recalculation](../crp-style-recalculation/README.md) and [layout](../crp-layout/README.md) can run on that subtree without waiting for `</body>`.
+- **Streaming HTML.** Chunked transfer encoding (or HTTP/2/3 framing) lets the server flush partial markup; the parser consumes each chunk into the same DOM tree without re-parsing earlier bytes. Frameworks that stream SSR (React 18 `renderToPipeableStream`, Next.js App Router, SvelteKit, Remix) lean on this directly.
+
+The single thing that breaks incremental parsing is a parser-blocking script — and that is exactly why every loading-strategy decision in this article matters.
 
 ---
 
 ## Browser Design: Why JavaScript Blocks Parsing
 
-By default, `<script>` tags block HTML parsing because scripts can modify the document during parsing via `document.write()`. This legacy API injects content directly into the token stream:
+By default, `<script>` tags block HTML parsing because scripts can modify the document during parsing via `document.write()` ([HTML spec §13.2.6.5 — Scripts that modify the page as it is being parsed](https://html.spec.whatwg.org/multipage/parsing.html#scripts-that-modify-the-page-as-it-is-being-parsed)). This legacy API injects content directly into the parser's input stream:
 
 ```html collapse={1-2,7-8}
 <head>
@@ -190,20 +195,23 @@ Because the parser cannot predict what a script will write, it must pause, execu
 
 ### Chrome's document.write() Intervention
 
-> **Since Chrome 55 (2016)**: Chrome blocks `document.write()`-injected scripts under specific conditions to protect users on slow connections.
+> [!IMPORTANT]
+> Since Chrome 55 (October 2016), Chrome blocks `document.write()`-injected scripts under specific conditions to protect users on slow connections. The intervention shipped for **2G** effective connection types; the original blog post flagged future expansion to slow 3G/Wi‑Fi as a possibility, not a shipped behavior.[^docwrite]
 
-The intervention triggers when **all** conditions are met:
+The intervention triggers when **all** of these conditions hold simultaneously:[^docwrite]
 
-- User is on 2G or slow 3G connection
-- Script is in the top-level document (not iframes)
-- Script is parser-blocking (no `async`/`defer`)
-- Script is cross-origin (different eTLD+1)
-- Script isn't cached
-- Page load wasn't triggered by reload
+- User's effective connection type is 2G.
+- Script is in the top-level document (not an iframe).
+- Script is parser-blocking (no `async` / `defer`).
+- Script is cross-site (different eTLD+1 from the page).
+- Script is not already in the HTTP cache.
+- The page load was not triggered by a reload (reload gestures suppress the intervention).
 
-Chrome's field trial showed dramatic improvements: 10% more pages reaching First Contentful Paint (FCP), 21% faster mean time to FCP, and 38% faster parsing (nearly 6 seconds on 2G).
+Chrome's 28-day, 1%-of-stable field trial on 2G users showed dramatic improvements: **10% more** page loads reached First Contentful Paint, the **mean time to FCP fell 21%** (over a second faster), and the **mean time to fully parsed dropped 38%** — nearly six seconds.[^docwrite]
 
-**Recommendation**: Never use `document.write()` for loading scripts. Use `defer`, `async`, or DOM insertion methods instead.
+**Recommendation:** Never use `document.write()` for loading scripts. Use `defer`, `async`, or DOM insertion methods (`appendChild`, `insertBefore`) instead.
+
+[^docwrite]: [Intervening against `document.write()` — Chrome for Developers](https://developer.chrome.com/blog/removing-document-write).
 
 ---
 
@@ -215,27 +223,37 @@ If browsers rendered with a partial CSSOM, users would experience a **Flash of U
 
 ### When CSS Becomes Parser-Blocking
 
-CSS becomes parser-blocking when a `<script>` follows it in the document:
+CSS becomes parser-blocking whenever **any** script — external **or** inline — follows a pending stylesheet in the document. The HTML spec is explicit: a parser-inserted classic script that does not have `async` or `defer` set is blocked on every style sheet whose `<link>` element appeared earlier in the document ([HTML spec §13.2.6 — A script that will execute when the parser resumes](https://html.spec.whatwg.org/multipage/parsing.html#a-script-that-will-execute-when-the-parser-resumes), step-by-step rules in the [Scripting section §scripting-3](https://html.spec.whatwg.org/multipage/scripting.html#a-script-that-will-execute-when-the-parser-resumes)).
 
 ```html collapse={1}
 <head>
   <link rel="stylesheet" href="styles.css" />
-  <!-- CSS is downloading... -->
+  <!-- Stylesheet is downloading... -->
 
   <script src="app.js"></script>
-  <!-- Parser blocks here! Waiting for CSS + JS -->
+  <!-- Parser blocks here waiting for app.js AND styles.css -->
+
+  <script>
+    // Same blocking applies to inline scripts: this <script>
+    // also waits for styles.css before executing, even though
+    // there is nothing to download.
+    document.body.classList.add("hydrated")
+  </script>
 </head>
 ```
 
-The browser must wait for CSS to finish to build the CSSOM, so it can safely execute the script, which in turn blocks the parser. This indirect blocking is a common performance bottleneck.
+The browser must wait for the stylesheet to finish so it can build a complete CSSOM **before** running the script, because the script might call `getComputedStyle()` or read layout-derived properties (`offsetWidth`, `getBoundingClientRect()`) whose values depend on the cascade ([CSSOM View §extensions-to-the-window-interface](https://drafts.csswg.org/cssom-view/#extensions-to-the-window-interface)). Running the script against a partial CSSOM would return incorrect values and serialize layout bugs into application state.
 
-**Design rationale**: Scripts might call `getComputedStyle()` or access `element.offsetWidth`, which require resolved styles. Running a script before CSSOM completion could return incorrect values, leading to layout bugs.
+The footgun: an inline script in `<head>` is often inserted "for free" by analytics snippets, A/B testing libraries, or CSP nonces, and it silently lengthens the critical path by the round-trip of every preceding stylesheet.
 
 ---
 
 ## JavaScript Loading Strategies
 
-![Async, Defer, Module Diagram](./assets/asyncdefer.inline.svg "Timeline comparison: default scripts block parsing; async/defer enable parallel download.")
+![Defer, async, and module timing relative to HTML parsing: the default script blocks the parser until execution finishes; async downloads in parallel and executes the moment it is ready (interrupting the parser briefly); defer downloads in parallel and executes after the DOM is parsed in document order; type=module behaves like defer by default and additionally fetches the module graph.](./diagrams/defer-async-module-timeline-light.svg "Defer, async, and module timing relative to HTML parsing. Default scripts block; async interrupts whenever it lands; defer and modules wait until parsing is done and execute in document order.")
+![Defer, async, and module timing relative to HTML parsing: the default script blocks the parser until execution finishes; async downloads in parallel and executes the moment it is ready (interrupting the parser briefly); defer downloads in parallel and executes after the DOM is parsed in document order; type=module behaves like defer by default and additionally fetches the module graph.](./diagrams/defer-async-module-timeline-dark.svg)
+
+The semantics below are defined in [HTML spec §4.12.1 — The script element](https://html.spec.whatwg.org/multipage/scripting.html#the-script-element) (the `async`, `defer`, and `type` attributes) and in [§13.2.6 — Tree construction (script handling)](https://html.spec.whatwg.org/multipage/parsing.html#scripting).
 
 ### Default (Parser-Blocking)
 
@@ -279,11 +297,11 @@ The browser must wait for CSS to finish to build the CSSOM, so it can safely exe
 <script type="module" src="app.js"></script>
 ```
 
-- **Deferred by default** (no need to add `defer`)
-- Supports ES Module features: `import`/`export`, top-level `await`
-- Executes once per URL (singleton behavior)—importing the same module twice returns the same instance
-- **Strict mode always enabled**
-- **CORS required** for cross-origin modules (unlike classic scripts)
+- **Deferred by default** ([HTML spec — script type=module](https://html.spec.whatwg.org/multipage/scripting.html#attr-script-type)) — no need to add `defer`.
+- Supports ES Module features: `import` / `export`, top-level `await`.
+- Executes once per URL (singleton behavior) — importing the same module twice returns the same instance.
+- **Strict mode always enabled** ([HTML spec — module scripts integration](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-module-system)).
+- **CORS required** for cross-origin modules (unlike classic scripts).
 
 Adding `async` to a module script makes it execute immediately when ready, like async classic scripts:
 
@@ -293,7 +311,8 @@ Adding `async` to a module script makes it execute immediately when ready, like 
 
 ### Modulepreload
 
-> **Browser support (2023+)**: Chrome 66+, Firefox 115+, Safari 17+
+> [!NOTE]
+> `<link rel="modulepreload">` reached [Baseline (widely available)](https://web-platform-dx.github.io/web-features-explorer/features/modulepreload/) on 2023-09-18 — Chrome 66 (2018), Firefox 115 (2023), Safari 17 (2023).
 
 `<link rel="modulepreload">` preloads ES modules with parsing and compilation:
 
@@ -321,23 +340,30 @@ Unlike `rel="preload"`, modulepreload:
 | `module`       | No              | Yes             | After DOM, before DCL | Modern apps            |
 | `module async` | No              | No              | When downloaded       | Independent ES modules |
 
+### Choosing a Loading Strategy
+
+![Decision tree for choosing a script loading strategy: route ES modules through type=module, prefer defer for ordered application scripts, use async only for independent third-party scripts, and reserve the default mode for legacy code that genuinely depends on document.write.](./diagrams/script-loading-decision-light.svg "Decision tree for choosing a script loading strategy: route ES modules through type=module, prefer defer for ordered application scripts, use async only for independent third-party scripts, and reserve the default mode for legacy code that genuinely depends on document.write.")
+![Decision tree for choosing a script loading strategy: route ES modules through type=module, prefer defer for ordered application scripts, use async only for independent third-party scripts, and reserve the default mode for legacy code that genuinely depends on document.write.](./diagrams/script-loading-decision-dark.svg)
+
+The defaults you should reach for: `defer` for first-party application code, `type="module"` for ES Module-based applications, `async` strictly for independent third-party scripts (analytics, ads, widgets), and the bare `<script>` form only when you are loading legacy code that genuinely depends on synchronous `document.write()`.
+
 ---
 
 ## The Preload Scanner
 
-The **preload scanner** (also called "speculative parser" or "lookahead pre-parser") is one of the most significant browser optimizations ever implemented. When Mozilla, WebKit, and IE added preload scanners in 2008, they measured **~20% improvement** in page load times.
+The **preload scanner** (also called "speculative parser" or "lookahead pre-parser") is one of the most significant browser optimizations ever implemented. When Mozilla, WebKit, and IE added preload scanners in 2008, Mozilla measured a **19% improvement** in their own runs ([Bug 364315](https://bugzilla.mozilla.org/show_bug.cgi?id=364315)) and Google reported roughly 20% across the Alexa top 2,000 sites; both numbers are summarized in [Andy Davies' historical write-up](https://andydavies.me/blog/2013/10/22/how-the-browser-pre-loader-makes-pages-load-faster/) and re-explained in [Mozilla Hacks](https://hacks.mozilla.org/2017/09/building-the-dom-faster-speculative-parsing-async-defer-and-preload/).
 
 ### How It Works
 
-When the main parser blocks on a script, a lightweight secondary parser scans ahead through the remaining HTML to discover external resources. It doesn't build a DOM—it only extracts resource URLs and initiates fetches.
+When the main parser blocks on a script, a lightweight secondary parser scans ahead through the remaining HTML to discover external resources. It doesn't build a DOM — it only extracts resource URLs and initiates fetches. In Chromium it lives in [`HTMLPreloadScanner`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/html/parser/html_preload_scanner.h) and runs on a background thread alongside the main HTML parser ([Mozilla Hacks: Building the DOM faster — speculative parsing](https://hacks.mozilla.org/2017/09/building-the-dom-faster-speculative-parsing-async-defer-and-preload/)).
 
-```
-Main Parser: <html><head><script src="app.js">
-                                     ↓ BLOCKED
-                          Preload Scanner: scans ahead →
-                          Finds: style.css, logo.png, analytics.js
-                          Initiates parallel downloads
-```
+Two further optimizations layer on top of the scanner:
+
+- **V8 streaming compilation.** Once the scanner discovers a `<script>` URL, V8 begins parsing and compiling the bytes off the main thread on a worker as they stream in over the network, so by the time the main parser reaches the tag and is ready to execute, the script is already compiled ([V8 blog: Background compilation](https://v8.dev/blog/background-compilation)).
+- **Resource reuse.** Resources fetched speculatively land in Blink's memory cache. When the main parser reaches the same tag it adopts the in-flight or completed request rather than starting a new one, so a "speculative" preload is never wasted bandwidth in the cache-hit case.
+
+![Preload scanner timeline: while the main parser is blocked on a script, the scanner walks ahead through the HTML and starts fetching subsequent stylesheets, images, and scripts in parallel.](./diagrams/preload-scanner-timeline-light.svg "Preload scanner timeline: while the main parser is blocked on a script, the scanner walks ahead through the HTML and starts fetching subsequent stylesheets, images, and scripts in parallel.")
+![Preload scanner timeline: while the main parser is blocked on a script, the scanner walks ahead through the HTML and starts fetching subsequent stylesheets, images, and scripts in parallel.](./diagrams/preload-scanner-timeline-dark.svg)
 
 By the time the blocking script completes and the main parser reaches these resources, they may already be downloaded or in progress.
 
@@ -350,7 +376,7 @@ The preload scanner examines raw HTML markup for:
 - `<img src="...">` and `srcset` attributes
 - `<link rel="preload" href="...">`
 - `<link rel="modulepreload" href="...">`
-- Inline `@import` rules in `<style>` blocks (Blink/WebKit)
+- Inline `@import` rules in `<style>` blocks — Blink/WebKit only, and historically only when the URL is **quoted** (`@import url("a.css")`); see [CSS Wizardry's deep dive](https://csswizardry.com/2018/11/css-and-network-performance/).
 
 ### What It Misses
 
@@ -410,6 +436,20 @@ Use preload hints only when resources are genuinely hidden from the scanner:
 ```
 
 **Caution**: Overusing preload can backfire. Preloaded resources compete for bandwidth with scanner-discovered resources. Only preload what's truly critical and invisible to the scanner.
+
+### Refining Scanner Priorities with `fetchpriority`
+
+The preload scanner assigns each discovered resource a default priority (stylesheets and render-blocking scripts at *Highest*, in-viewport images at *Medium*, etc.). The [`fetchpriority`](https://web.dev/articles/fetch-priority) attribute (Baseline 2024) lets you nudge that decision without changing what the scanner discovers:
+
+```html
+<!-- Tell the scanner to fetch the LCP image at Highest priority. -->
+<img src="/hero.jpg" fetchpriority="high" alt="Hero" />
+
+<!-- Demote a non-critical above-the-fold script. -->
+<script src="/widget.js" async fetchpriority="low"></script>
+```
+
+`fetchpriority` does **not** make the scanner discover a resource it cannot see — it only re-prioritizes resources the scanner (or a `<link rel="preload">` hint) already found. Use it when the scanner has the right URL but the wrong urgency.
 
 ---
 
@@ -481,7 +521,7 @@ If the injected content includes a script, that script runs before the outer scr
 
 ### Template Element Parsing
 
-`<template>` elements have special parsing rules. Their content is parsed but not rendered—it exists in a separate **document fragment**:
+`<template>` elements have special parsing rules ([HTML spec — the template element](https://html.spec.whatwg.org/multipage/scripting.html#the-template-element)). Their content is parsed but not rendered — it lives in a separate **template contents document fragment** owned by an inert document, so scripts never run and resources never fetch until the fragment is cloned into the live document:
 
 ```html
 <template id="my-template">
@@ -509,7 +549,13 @@ Modern loading strategies should be the default:
 - Use `async` only for truly independent third-party scripts
 - Avoid `document.write()` entirely—Chrome actively blocks it on slow connections
 
-The goal is to keep the parser unblocked so DOM construction and resource discovery can proceed as quickly as possible.
+The goal is to keep the parser unblocked so DOM construction and resource discovery can proceed as quickly as possible. The DOM tree this stage produces is the input to [CSSOM construction](../crp-cssom-construction/README.md) and then to [style recalculation](../crp-style-recalculation/README.md), where the cascade resolves a `ComputedStyle` for every node.
+
+### Series navigation
+
+- ← Series entry: [CRP: Rendering Pipeline Overview](../crp-rendering-pipeline-overview/README.md)
+- ↔ Parallel pipeline: [CRP: CSSOM Construction](../crp-cssom-construction/README.md)
+- → Next stage: [CRP: Style Recalculation](../crp-style-recalculation/README.md)
 
 ---
 
@@ -541,17 +587,23 @@ The goal is to keep the parser unblocked so DOM construction and resource discov
 - Error recovery algorithms (adoption agency, foster parenting) ensure malformed HTML produces consistent DOM trees
 - Scripts block parsing by default because `document.write()` can modify the token stream
 - CSS blocks script execution (not parsing) to ensure correct computed style queries
-- The preload scanner achieves ~20% faster loads by discovering resources during parser blocks
+- The preload scanner saved ~19–20% of page load time in early Mozilla and Google measurements
 - `defer` and `type="module"` are the preferred loading strategies for application scripts
-- Chrome blocks `document.write()` on slow connections (since Chrome 55)
+- Chrome blocks `document.write()` on 2G connections (since Chrome 55, October 2016)
 
 ### References
 
-- [WHATWG HTML Spec: Parsing HTML documents](https://html.spec.whatwg.org/multipage/parsing.html) — Canonical parsing algorithm, tokenization states, tree construction rules
-- [WHATWG HTML Spec: Scripting](https://html.spec.whatwg.org/multipage/scripting.html) — Script element behavior, async/defer/module semantics
-- [Chrome DevRel: Intervening against document.write()](https://developer.chrome.com/blog/removing-document-write) — Chrome's document.write intervention details
-- [web.dev: Don't fight the browser preload scanner](https://web.dev/articles/preload-scanner) — Preload scanner patterns and anti-patterns
+- [WHATWG HTML Spec: Parsing HTML documents](https://html.spec.whatwg.org/multipage/parsing.html) — canonical parsing algorithm, tokenization states, tree construction rules
+- [WHATWG HTML Spec: Scripting](https://html.spec.whatwg.org/multipage/scripting.html) — script element behavior, async/defer/module semantics
+- [Chrome for Developers: Intervening against `document.write()`](https://developer.chrome.com/blog/removing-document-write) — Chrome 55 intervention conditions and field-trial numbers
+- [web.dev: Don't fight the browser preload scanner](https://web.dev/articles/preload-scanner) — preload scanner patterns and anti-patterns
 - [web.dev: Modulepreload](https://web.dev/articles/modulepreload) — ES module preloading mechanics
-- [MDN: Critical Rendering Path](https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path) — Overview of DOM and CSSOM construction
-- [MDN: rel="modulepreload"](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload) — Modulepreload attribute reference
-- [Andy Davies: How the Browser Pre-loader Makes Pages Load Faster](https://andydavies.me/blog/2013/10/22/how-the-browser-pre-loader-makes-pages-load-faster/) — Historical context on preload scanner implementation
+- [Mozilla Hacks: Building the DOM faster — speculative parsing, async, defer and preload](https://hacks.mozilla.org/2017/09/building-the-dom-faster-speculative-parsing-async-defer-and-preload/) — engine-level view of speculative parsing
+- [V8 blog: Background compilation](https://v8.dev/blog/background-compilation) — how V8 streams script parsing/compilation off the main thread
+- [web.dev: Optimize resource loading with the Fetch Priority API](https://web.dev/articles/fetch-priority) — `fetchpriority` semantics and interaction with the preload scanner
+- [Chromium source: `HTMLPreloadScanner`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/html/parser/html_preload_scanner.h) — implementation of the speculative parser in Blink
+- [MDN: rel="modulepreload"](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload) — modulepreload attribute reference
+- [Andy Davies: How the Browser Pre-loader Makes Pages Load Faster](https://andydavies.me/blog/2013/10/22/how-the-browser-pre-loader-makes-pages-load-faster/) — historical context on preload scanner implementations
+- [CSS Wizardry: CSS and Network Performance](https://csswizardry.com/2018/11/css-and-network-performance/) — practitioner deep dive on `@import` and the preload scanner
+- [CRP: Rendering Pipeline Overview](../crp-rendering-pipeline-overview/README.md) — series entry point
+- [CRP: CSSOM Construction](../crp-cssom-construction/README.md) — the parallel CSS pipeline this stage feeds into

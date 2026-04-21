@@ -1,0 +1,20 @@
+%% Diagram: QPACK Required Insert Count blocks one stream, not all
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant E as Encoder
+    participant ES as Encoder stream (uni 0x02)
+    participant RS as Request stream
+    participant D as Decoder
+    participant DS as Decoder stream (uni 0x03)
+
+    E->>ES: Insert "x-custom: value" → dynamic table index 62
+    E->>RS: Header block, Required Insert Count = 63
+
+    Note over D: Request stream arrives first
+    Note over D: Required Insert Count (63) > current (62) → block this stream only
+
+    ES->>D: Dynamic table update arrives
+    Note over D: Insert count now 63 — unblock the request stream
+
+    D->>DS: Section Acknowledgment (frees encoder buffer)

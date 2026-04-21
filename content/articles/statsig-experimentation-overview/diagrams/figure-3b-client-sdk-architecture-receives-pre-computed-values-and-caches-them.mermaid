@@ -1,14 +1,18 @@
-%% Diagram: Figure 3b Client Sdk Architecture Receives Pre Computed Values And Caches Them
+%% Diagram: Client SDK lifecycle - pre-computed values from /initialize
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    B1[Initialize] --> B2[Send User to /initialize]
-    B2 --> B3[Backend Evaluation]
-    B3 --> B4[Pre-computed Values]
-    B4 --> B5[Cache Results]
-    B5 --> B6[Fast Cache Lookup]
+flowchart TB
+    Init["new StatsigClient(clientKey, user, options)<br/>await client.initializeAsync()"]
+    Endpoint[(api.statsig.com /initialize<br/>server-side evaluation)]
+    Payload["Pre-computed JSON<br/>{gate, value, ruleId, exposures}<br/>filtered for this user"]
+    Cache["localStorage cache<br/>keyed by (sdkKey, userKey)"]
+    Calls["checkGate / getLayer / getDynamicConfig<br/>synchronous lookup"]
 
-    B1 -.->|Client Key| B2
+    Init -- "POST user object" --> Endpoint
+    Endpoint -- "tailored payload" --> Payload
+    Payload --> Cache
+    Cache --> Calls
+    Calls -. "details.reason: Network or Cache" .-> Calls
 
-    style B1 fill:#f3e5f5
-    style B6 fill:#c8e6c9
+    OfflineNote["Offline / new session:<br/>initializeSync reads localStorage;<br/>NoValues -> code defaults"]
+    Cache -.- OfflineNote

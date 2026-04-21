@@ -15,8 +15,8 @@ This is what I run on every new Mac. One `curl` command bootstraps the toolchain
 
 The post is opinionated. It is also the only setup I am still happy with after a few years of iteration, so the choices here have all survived at least one rewrite.
 
-![Bootstrap flow: curl/setup.sh installs Homebrew + Ansible, the playbook runs the homebrew, mise, shell, git, ssh, apps and macos roles, then a cleanup check reconciles installed packages against the repo.](./diagrams/bootstrap-flow-light.svg "Bootstrap flow: curl or setup.sh installs Homebrew + Ansible, the playbook runs roles for packages, runtimes, configs and macOS defaults, and the cleanup check reconciles drift.")
-![Bootstrap flow: curl/setup.sh installs Homebrew + Ansible, the playbook runs the homebrew, mise, shell, git, ssh, apps and macos roles, then a cleanup check reconciles installed packages against the repo.](./diagrams/bootstrap-flow-dark.svg)
+![Bootstrap flow: curl or setup.sh installs Xcode CLI, Homebrew and Ansible, the playbook runs nine roles, and a cleanup check reconciles each unmanaged package as add, remove, or skip.](./diagrams/bootstrap-flow-light.svg "Bootstrap flow: one curl line provisions Homebrew and Ansible, the playbook runs nine roles, and the cleanup loop forces every install to be a deliberate add or remove decision.")
+![Bootstrap flow: curl or setup.sh installs Xcode CLI, Homebrew and Ansible, the playbook runs nine roles, and a cleanup check reconciles each unmanaged package as add, remove, or skip.](./diagrams/bootstrap-flow-dark.svg)
 
 ## Three rules that shape everything
 
@@ -103,7 +103,7 @@ fi
 `direnv` also dropped out — `mise` reads `[env]` blocks from `.mise.toml` natively, and the `~/.zshenv` PATH entry for `~/.local/share/mise/shims` makes the runtimes available to GUI apps too.
 
 > [!NOTE]
-> The Volta team [announced in 2024](https://github.com/volta-cli/volta/issues/2080) that they were stepping away from the project, and recommended migrating to `mise` or `fnm`. If you are still on Volta, this is a good moment to switch — Node.js itself now lists `fnm` as the default download option, and `mise` is the path with the lowest long-term maintenance for multi-runtime users.
+> Volta is officially [marked as unmaintained](https://github.com/volta-cli/volta/issues/2080) — the pinned tracking issue went up in late 2025 and recommends migrating to `mise`. If you are still on Volta, this is a good moment to switch. The [Node.js download page](https://nodejs.org/en/download) now lists `fnm` alongside `nvm` as a first-class install option, and `mise` is the path with the lowest long-term maintenance for anyone juggling more than one runtime.
 
 ### Modern CLI defaults
 
@@ -159,7 +159,10 @@ This is the part that took the most iteration. The constraints:
 - The wrong identity should never be possible, even on a freshly cloned repo I have not touched yet.
 - Commit signing must be on by default.
 
-The shape that finally stuck uses three layers.
+The shape that finally stuck uses three layers — a base config, a per-context overlay selected by `includeIf`, and a per-host SSH `IdentityFile`.
+
+![Git identity resolution: a personal-by-default base gitconfig, a work overlay selected by gitdir or remote URL, and per-host SSH IdentityFile selection at push time.](./diagrams/git-identity-resolution-light.svg "Git identity resolution: the base config is personal, includeIf swaps in the work overlay when the path or remote matches, and SSH selects the matching key per host on push.")
+![Git identity resolution: a personal-by-default base gitconfig, a work overlay selected by gitdir or remote URL, and per-host SSH IdentityFile selection at push time.](./diagrams/git-identity-resolution-dark.svg)
 
 ### Layer 1: a base `~/.gitconfig`
 

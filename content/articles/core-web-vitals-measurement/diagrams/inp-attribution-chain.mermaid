@@ -1,0 +1,27 @@
+%% Diagram: INP attribution chain with LoAF + Event Timing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    USER["User input<br/>pointerdown / keydown"]
+    subgraph FRAME["Single animation frame"]
+        ID["Input delay<br/>main thread busy"]
+        PROC["Processing<br/>event handlers run"]
+        PRES["Presentation delay<br/>style + layout + paint"]
+    end
+    NEXT["Next paint<br/>INP value = max event in interaction"]
+
+    USER --> ID --> PROC --> PRES --> NEXT
+
+    subgraph EVT["Event Timing API"]
+        ETI["PerformanceEventTiming<br/>interactionId + duration"]
+    end
+    subgraph LOAF["Long Animation Frames API"]
+        LF["PerformanceLongAnimationFrameTiming<br/>renderStart, blockingDuration"]
+        SCR["PerformanceScriptTiming[]<br/>sourceURL, sourceCharPosition,<br/>sourceFunctionName, invoker"]
+        LF --> SCR
+    end
+
+    FRAME -.observed by.-> ETI
+    FRAME -.observed by.-> LOAF
+    ETI -->|interactionId<br/>+ timing| WV["web-vitals/attribution<br/>onINP({ longAnimationFrameEntries })"]
+    LOAF -->|intersect by time| WV

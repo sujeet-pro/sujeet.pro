@@ -1,0 +1,33 @@
+%% Diagram: Sharded (striped) LRU - hash key to a stripe, lock only that stripe's LRU
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Req(["get / put (key)"])
+    Hash[["hash(key) mod N"]]
+
+    subgraph Shards["N independent LRU stripes (one mutex each)"]
+        direction TB
+        S0["Stripe 0<br/>HashMap + DLL<br/>+ mutex"]
+        S1["Stripe 1<br/>HashMap + DLL<br/>+ mutex"]
+        S2["Stripe 2<br/>HashMap + DLL<br/>+ mutex"]
+        SN["… Stripe N-1<br/>HashMap + DLL<br/>+ mutex"]
+    end
+
+    Req --> Hash
+    Hash -->|"shard 0"| S0
+    Hash -->|"shard 1"| S1
+    Hash -->|"shard 2"| S2
+    Hash -->|"shard N-1"| SN
+
+    S0 -->|"unlock"| Done(["return value / ack"])
+    S1 -->|"unlock"| Done
+    S2 -->|"unlock"| Done
+    SN -->|"unlock"| Done
+
+    classDef io fill:#B43A3A,stroke:#b85450,stroke-width:2px,color:#ffffff
+    classDef hash fill:#5A4D8B,stroke:#9673a6,stroke-width:2px,color:#ffffff
+    classDef shard fill:#2E5A88,stroke:#6c8ebf,stroke-width:2px,color:#ffffff
+
+    class Req,Done io
+    class Hash hash
+    class S0,S1,S2,SN shard

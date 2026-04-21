@@ -1,0 +1,32 @@
+%% Diagram: GraphQL N+1 vs DataLoader batching within one event-loop tick
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Q as GraphQL Engine
+    participant R as Order.user resolver
+    participant L as DataLoader (per request)
+    participant DB as Database
+
+    Note over Q,DB: Naive N+1 (no DataLoader)
+    Q->>R: resolve order 1
+    R->>DB: SELECT user WHERE id=1
+    DB-->>R: row
+    Q->>R: resolve order 2
+    R->>DB: SELECT user WHERE id=2
+    DB-->>R: row
+    Q->>R: resolve order N
+    R->>DB: SELECT user WHERE id=N
+    DB-->>R: row
+
+    Note over Q,DB: With DataLoader (single tick)
+    Q->>R: resolve order 1
+    R->>L: load(1)
+    Q->>R: resolve order 2
+    R->>L: load(2)
+    Q->>R: resolve order N
+    R->>L: load(N)
+    Note over L: end of tick<br/>coalesce keys
+    L->>DB: SELECT user WHERE id IN (1,2,...,N)
+    DB-->>L: rows in input key order
+    L-->>R: resolved promises

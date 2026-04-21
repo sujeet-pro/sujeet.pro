@@ -1,0 +1,24 @@
+%% Diagram: Flexible Paxos - Q1 and Q2 must intersect across phases
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CLASSIC["Classic Paxos / Raft - majority everywhere"]
+        direction LR
+        C_Q1["Phase 1 quorum Q1\n|Q1| > N/2"]
+        C_Q2["Phase 2 quorum Q2\n|Q2| > N/2"]
+        C_Q1 --- C_Inter["Q1 and Q2 always overlap\nbecause both are majorities"] --- C_Q2
+    end
+
+    subgraph FLEX["Flexible Paxos - only across phases"]
+        direction LR
+        F_Q1["Phase 1 quorum Q1\nlarger, infrequent\n(elect new leader)"]
+        F_Q2["Phase 2 quorum Q2\nsmaller, hot path\n(replicate value)"]
+        F_Q1 --- F_Inter["|Q1| + |Q2| > N\nQ2 quorums may be disjoint"] --- F_Q2
+    end
+
+    CLASSIC --> FLEX
+
+    classDef base fill:#94a3b8,stroke:#1e293b,color:#0f172a
+    classDef intersect fill:#fbbf24,stroke:#92400e,color:#451a03
+    class C_Q1,C_Q2,F_Q1,F_Q2 base
+    class C_Inter,F_Inter intersect

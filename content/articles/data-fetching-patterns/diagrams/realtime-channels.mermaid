@@ -1,0 +1,31 @@
+%% Diagram: Realtime channel comparison — SSE vs WebSocket vs WebTransport
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph SSE["SSE (EventSource, HTML LS)"]
+        direction TB
+        S1["HTTP/1.1 or HTTP/2"] --> S2["Server -> client only"]
+        S2 --> S3["Auto-reconnect\nLast-Event-ID"]
+        S3 --> S4["Text only\n(text/event-stream)"]
+    end
+
+    subgraph WS["WebSocket (RFC 6455)"]
+        direction TB
+        W1["TCP via Upgrade"] --> W2["Bidirectional,\nordered, reliable"]
+        W2 --> W3["No standard\nreconnect / framing"]
+        W3 --> W4["Binary or text\nframes"]
+    end
+
+    subgraph WT["WebTransport (W3C / QUIC)"]
+        direction TB
+        T1["HTTP/3 over QUIC"] --> T2["Bidi streams +\nunreliable datagrams"]
+        T2 --> T3["No HoL blocking\nper stream"]
+        T3 --> T4["Browser support\nfrom 2024-2026"]
+    end
+
+    classDef sse fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef ws fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef wt fill:#6B3FA0,stroke:#522F7A,color:#ffffff
+    class S1,S2,S3,S4 sse
+    class W1,W2,W3,W4 ws
+    class T1,T2,T3,T4 wt

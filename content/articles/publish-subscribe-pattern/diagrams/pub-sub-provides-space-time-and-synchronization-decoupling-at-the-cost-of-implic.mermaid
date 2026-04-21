@@ -1,12 +1,25 @@
-%% Diagram: Pub Sub Provides Space Time And Synchronization Decoupling At The Cost Of Implic
+%% Diagram: Three dimensions of decoupling per Eugster et al. — what pub/sub removes vs what RPC retains
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph "Three Decoupling Dimensions"
-        SD[Space: Who?] --- TD[Time: When?]
-        TD --- SYD[Sync: Blocking?]
+    subgraph RPC["Synchronous RPC -<br/>coupled on all 3 axes"]
+        direction TB
+        R1[Caller knows<br/>callee identity] --> R2[Both active<br/>at the same instant]
+        R2 --> R3[Caller blocks<br/>until reply]
     end
 
-    subgraph "Trade-off"
-        DC[Decoupling] <--> DF[Debuggability]
+    subgraph PS["Publish / Subscribe -<br/>decoupled on all 3 axes"]
+        direction TB
+        P1["Space:<br/>publisher unaware<br/>of subscribers"] --> P2["Time:<br/>subscriber may<br/>consume later"]
+        P2 --> P3["Synchronization:<br/>publish returns<br/>immediately"]
     end
+
+    RPC -.->|trade-off| PS
+    PS -.->|cost| DBG[Implicit control flow:<br/>flow lives in event metadata,<br/>not program text]
+
+    classDef coupled fill:#f8cecc,stroke:#b85450,color:#000
+    classDef decoupled fill:#d5e8d4,stroke:#82b366,color:#000
+    classDef cost fill:#fff2cc,stroke:#d6b656,color:#000
+    class R1,R2,R3 coupled
+    class P1,P2,P3 decoupled
+    class DBG cost

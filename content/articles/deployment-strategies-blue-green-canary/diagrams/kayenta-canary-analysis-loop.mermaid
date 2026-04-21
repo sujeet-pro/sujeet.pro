@@ -1,0 +1,27 @@
+%% Diagram: Kayenta-style automated canary analysis (ACA) loop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    LB["Load balancer<br/>traffic split"]
+    subgraph Clusters["Three clusters serving the same traffic"]
+        direction TB
+        Prod["Production cluster<br/>vN, majority traffic"]
+        Base["Baseline cluster<br/>vN, small slice"]
+        Can["Canary cluster<br/>vN+1, small slice"]
+    end
+    Metrics["Time-series store<br/>Atlas / Prometheus / Datadog"]
+    Judge["Kayenta judge<br/>Mann-Whitney U, 98% CI"]
+    Score["Score 0-100<br/>marginal 75 / pass 95"]
+    Promote["Promote rollout"]
+    Rollback["Abort + rollback"]
+
+    LB --> Prod
+    LB --> Base
+    LB --> Can
+    Prod --> Metrics
+    Base --> Metrics
+    Can --> Metrics
+    Metrics --> Judge
+    Judge --> Score
+    Score -->|score >= pass| Promote
+    Score -->|score <= marginal| Rollback

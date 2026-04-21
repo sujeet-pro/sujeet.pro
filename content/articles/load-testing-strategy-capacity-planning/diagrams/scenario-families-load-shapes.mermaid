@@ -1,0 +1,13 @@
+%% Diagram: Scenario families compared by question and load shape
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    MODEL["One workload model\narrival process plus mix"] --> QUESTION{"Which question is this run for?"}
+    QUESTION -->|"Where does it break\nas load grows?"| STEP["Step ramp / capacity search\nincrease in steps, dwell each step\nstop on SLO breach"]
+    QUESTION -->|"Does it stay stable\nover time?"| SOAK["Soak / endurance\nhold sub saturation for hours or days\nfind leaks rollovers credential expiry"]
+    QUESTION -->|"How does it react\nto sudden bursts?"| SPIKE["Spike / burst\njump arrival rate fast\nstress autoscaling and admission control"]
+    QUESTION -->|"What couples\nfirst past peak?"| STRESS["Stress / limit seeking\npush past expected peak in blast radius\nfind first brittle coupling then stop"]
+    STEP --> ENV["Capacity envelope\nper scenario family"]
+    SOAK --> ENV
+    SPIKE --> ENV
+    STRESS --> ENV

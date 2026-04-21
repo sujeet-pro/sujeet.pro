@@ -1,0 +1,22 @@
+%% Diagram: Backend-for-Frontend (BFF) pattern for SPAs
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Browser
+        SPA[SPA Client]
+    end
+
+    subgraph Backend
+        BFF[BFF Server]
+        Session[(Session Store)]
+    end
+
+    subgraph External
+        AuthZ[Auth Server]
+        API[Resource Server]
+    end
+
+    SPA -->|Session cookie| BFF
+    BFF -->|OAuth flow| AuthZ
+    BFF -->|Store tokens| Session
+    BFF -->|Access token| API

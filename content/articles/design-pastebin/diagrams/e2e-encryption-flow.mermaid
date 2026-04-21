@@ -1,0 +1,25 @@
+%% Diagram: End-to-end encryption flow (PrivateBin / 0bin model)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant W as Writer browser
+    participant API as Paste service
+    participant S3 as Object storage
+    participant R as Reader browser
+
+    Note over W: WebCrypto generates<br/>random 256-bit AES-GCM key
+    W->>W: zlib compress
+    W->>W: AES-256-GCM encrypt(content, key, iv)
+    W->>API: POST /pastes {ciphertext, iv, kdf_params}
+    API->>S3: PUT pastes/{paste_id}.bin (ciphertext)
+    API-->>W: 201 {paste_id}
+    W->>W: build URL: https://host/{paste_id}#key=<base58>
+    Note over W,API: Server only sees ciphertext.<br/>Fragment after # is never sent.
+
+    R->>API: GET /{paste_id}<br/>(fragment stays in browser)
+    API->>S3: GET pastes/{paste_id}.bin
+    S3-->>API: ciphertext
+    API-->>R: 200 {ciphertext, iv, kdf_params}
+    R->>R: read key from window.location.hash
+    R->>R: AES-256-GCM decrypt + zlib decompress
+    R->>R: render plaintext + highlight client-side

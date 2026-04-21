@@ -1,0 +1,29 @@
+%% Diagram: Submission lifecycle
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant F as Form runtime
+    participant S as Server
+    participant DB as Draft store
+
+    U->>F: Submit
+    F->>F: Run client validators (suggestive)
+    alt client invalid
+        F-->>U: Show errors, focus first
+    else client valid
+        F->>F: Generate Idempotency-Key (UUIDv4)
+        F->>S: POST /submit + Idempotency-Key + payload
+        alt 200 OK
+            S-->>F: Receipt
+            F->>DB: delete(formId)
+            F-->>U: Success state
+        else 422 application/problem+json
+            S-->>F: { errors:[{ pointer, detail }] }
+            F->>F: Map JSON Pointers to field paths
+            F-->>U: Show server errors, focus first
+        else 409 Conflict / network error
+            F->>F: Backoff + retry with same key
+            F->>S: POST /submit + same Idempotency-Key
+        end
+    end

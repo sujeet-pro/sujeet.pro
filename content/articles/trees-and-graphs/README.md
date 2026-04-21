@@ -4,7 +4,7 @@ linkTitle: 'Trees & Graphs'
 description: >-
   Tree variants (BST, AVL, Red-Black, B-trees, tries) and graph algorithms (DFS, BFS, topological sort, shortest paths) with design trade-offs — when to choose each structure and why, from database indexes to dependency resolution.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - algorithms
   - data-structures
@@ -13,148 +13,140 @@ tags:
 
 # Trees and Graphs: Traversals and Applications
 
-Hierarchical and networked data structures that underpin file systems, databases, build tools, and routing. This guide covers tree variants (BST, AVL, Red-Black, B-trees, tries), graph representations (adjacency matrix vs list), traversal algorithms (DFS, BFS), and key algorithms (cycle detection, topological sort, shortest paths). Focus on design trade-offs and when to choose each structure.
+Trees and graphs are the connective tissue of working systems — file systems and B-tree indexes, build DAGs and package managers, schedulers and routers, virtual DOMs and union-find connectivity. This article is the senior-engineer mental model: which tree variant fits which workload, when adjacency lists beat matrices, why three colours are needed for directed cycle detection, what Kahn's algorithm actually does in a build pipeline, when Dijkstra silently lies (negative weights), and why path-compressed union-find behaves like O(1) in practice. Each section pairs the mechanism with a diagram, a complexity row, and the production system that depends on it.
 
-![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-light.svg "Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.")
+![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-light.svg "Trees model hierarchy, graphs model arbitrary connections; traversal choice follows from the question being asked.")
 ![Trees model hierarchical relationships; graphs model arbitrary connections. Traversal choice depends on the problem: DFS for dependencies and cycles, BFS for shortest paths.](./diagrams/trees-model-hierarchical-relationships-graphs-model-arbitrary-connections-traver-dark.svg)
 
-## Abstract
+## Mental model
 
-Trees and graphs share a fundamental property: nodes connected by edges. The distinction lies in structure constraints—trees enforce hierarchy (single parent, no cycles), while graphs allow arbitrary connections.
+Trees and graphs share a node-and-edge substrate. The distinction is structural: trees enforce a single parent and forbid cycles; graphs allow arbitrary connections, including cycles and multi-edges. Once you internalise that, the rest is engineering trade-offs:
 
-**Core mental model:**
+- **Tree variant = access-pattern fit.** AVL trades insert/delete cost for tighter height (search-heavy). Red-black trees trade height for rotation budget (write-heavy and the default in standard libraries). B/B+ trees raise fanout so the working set fits fewer disk or SSD pages (databases, file systems). Tries amortise per-character work across shared prefixes (autocomplete, IP routing).
+- **Graph representation = density bet.** Adjacency matrices give O(1) edge lookup but always cost O(V²) space — only worth it on dense graphs. Adjacency lists cost O(V + E) and dominate everywhere else, which means almost everything real (social networks, road maps, dependency graphs).
+- **Traversal = question shape.** DFS uses a stack and probes deep first — natural for cycle detection, topological order, and any "explore one branch fully" problem. BFS uses a queue and explores level by level — the only traversal that finds shortest paths in unweighted graphs in linear time.
+- **Union-Find = connectivity oracle.** Path compression plus union-by-rank pushes the amortised cost per operation to O(α(n)), where α is the inverse Ackermann function — at most 4 for any input the universe can hold[^tarjan75].
 
-- **Tree variants optimize different access patterns**: AVL for search-heavy workloads (stricter balance = fewer comparisons), Red-Black for write-heavy workloads (fewer rotations), B-trees for disk I/O (multiple keys per node = fewer seeks), tries for prefix operations (shared prefixes = O(key length) search)
-- **Graph representation is a space-time trade-off**: Adjacency matrices give O(1) edge lookup but O(V²) space; adjacency lists give O(V+E) space but O(degree) edge lookup. Choose based on graph density.
-- **Traversal choice follows from problem structure**: DFS uses a stack and explores deeply first—ideal for cycle detection, topological sort, and backtracking. BFS uses a queue and explores level-by-level—ideal for shortest paths in unweighted graphs.
-- **Union-Find enables near-O(1) connectivity queries** through path compression and union by rank, making it the go-to structure for dynamic connectivity and Kruskal's MST.
+## Tree variants
 
-## Tree Fundamentals
+### Binary search tree (BST)
 
-### Binary Search Tree (BST)
+A BST holds the in-order invariant `left subtree < node < right subtree`. Search, insert, and delete are O(h) where `h` is the height. The catch: the height isn't bounded unless something keeps it bounded.
 
-A BST maintains the invariant: left subtree values < node < right subtree values. This enables O(log n) search, insertion, and deletion—_when balanced_.
-
-**The problem**: Without balancing, insertions in sorted order create a linear chain. A BST of n elements inserted in ascending order degenerates to a linked list with O(n) operations.
-
-```ts title="bst-insertion.ts" collapse={1-3, 20-30}
-// BST node structure
+```ts title="bst-degenerate.ts" collapse={1-3}
 interface BSTNode<T> {
   value: T
   left: BSTNode<T> | null
   right: BSTNode<T> | null
 }
 
-// Worst case: sorted insertions create O(n) height
+// Sorted insertions degenerate the tree to a linked list:
 // insert(1), insert(2), insert(3), insert(4)
-// Results in:
-//   1
-//    \
-//     2
-//      \
-//       3
-//        \
-//         4
-
-// Solution: self-balancing trees (AVL, Red-Black)
+//   1 -> 2 -> 3 -> 4   (height = n, all ops O(n))
+//
+// The fix is a balancing invariant: AVL, Red-Black, B-tree, treap, ...
 ```
 
-### AVL Trees: Strict Balance for Search-Heavy Workloads
+> [!WARNING]
+> A "plain" BST is a teaching artefact, not a production data structure. Sorted-input degeneration is the most common interview-grade footgun. Reach for a self-balancing variant or a hash map by default; only hand-roll a BST when you control the key distribution.
 
-AVL trees (Adelson-Velsky and Landis, 1962) were the first self-balancing BSTs. The invariant: for every node, the height difference between left and right subtrees (balance factor) must be -1, 0, or +1.
+![Decision tree for picking a tree variant by workload and access pattern.](./diagrams/tree-variant-decision-light.svg "Pick a tree variant: prefix-keyed → trie; on-disk → B+ tree; in-RAM with workload mix → AVL (read-heavy) or red-black (write-heavy / mixed).")
+![Decision tree for picking a tree variant by workload and access pattern.](./diagrams/tree-variant-decision-dark.svg)
 
-**Design rationale**: Strict balancing minimizes tree height, guaranteeing O(log n) operations. The trade-off is more rotations during modifications.
+### AVL trees: strict balance for search-heavy workloads
 
-**When to use**: Read-heavy workloads where search performance matters more than write throughput. Database indexes with infrequent updates.
+AVL trees, named after Adelson-Velsky and Landis (1962), were the first self-balancing BSTs[^avl-paper]. Every node's balance factor — the height difference between left and right subtrees — must stay in `{-1, 0, +1}`. Insert or delete may break this; the tree restores it with a single or double rotation along the path back to the root.
 
-**Rotation mechanics**: After insertion or deletion, if balance factor becomes ±2, perform single or double rotations to restore balance. Four cases: Left-Left, Right-Right (single rotation), Left-Right, Right-Left (double rotation).
+- **What you get:** the tightest height bound of the common balanced trees (`h ≤ 1.44 · log₂(n+2)`)[^wiki-avl]. Lookups visit fewer nodes than a comparable red-black tree.
+- **What you pay:** more rotations per modification (potentially log n on the path back to the root) — a cost that matters under heavy mutation.
+- **When to reach for it:** search-dominated workloads where you can amortise the rotation cost — read-mostly indexes, lookup-heavy in-memory dictionaries.
 
-### Red-Black Trees: Looser Balance for Write-Heavy Workloads
+### Red-black trees: looser balance for write-heavy workloads
 
-Red-Black trees (Guibas and Sedgewick, 1978) use node coloring instead of strict height balance. Five invariants:
+Red-black trees come from Guibas and Sedgewick's 1978 paper "A Dichromatic Framework for Balanced Trees"[^rb-paper]. The invariants are colour-based, not height-based:
 
-1. Every node is red or black
-2. Root is black
-3. Leaves (NIL) are black
-4. Red nodes have black children
-5. All paths from node to descendant leaves have equal black nodes
+1. Every node is red or black.
+2. The root is black.
+3. NIL leaves are black.
+4. A red node's children are both black (no two reds in a row).
+5. Every root-to-leaf path crosses the same number of black nodes ("black-height").
 
-**Design rationale**: Looser balance (height can be up to 2× optimal) means fewer rotations during modifications. Maximum 2 rotations per insertion, 3 per deletion.
+Together these bound the height at `2 · log₂(n+1)` — looser than AVL — but in exchange every insert needs at most 2 rotations and every delete at most 3, making modifications cheaper on average[^wiki-rb].
 
-**When to use**: Write-heavy workloads. System-level data structures where modification frequency is high.
+- **Production footprint:** Java's `TreeMap` and `TreeSet`, the GCC and LLVM standard libraries' `std::map` / `std::set`, and the Linux kernel's red-black tree (`include/linux/rbtree.h`) used by the Completely Fair Scheduler — and now the EEVDF scheduler since Linux 6.6 — to keep the runqueue ordered by virtual deadline[^cfs-doc][^eevdf-vt].
+- **Why the kernel chose RB over a heap:** the scheduler needs O(log n) insert and remove plus O(1) "leftmost" lookup (the next task). A red-black tree gives both with a contiguous parent/child layout that doesn't need the heap's sift-down on arbitrary removal[^cfs-doc].
 
-**Real-world usage**: Java `TreeMap`, C++ `std::map`, Linux kernel's Completely Fair Scheduler (CFS).
+### AVL vs red-black: the trade-off
 
-### AVL vs Red-Black: The Trade-off
+| Aspect        | AVL                              | Red-Black                                |
+| ------------- | -------------------------------- | ---------------------------------------- |
+| Balance       | Strict (height diff ≤ 1)         | Loose (height ≤ 2 × optimal)             |
+| Search        | Slightly faster (shorter height) | Slightly slower                          |
+| Insert/Delete | Up to log n rotations            | ≤ 2 (insert) / ≤ 3 (delete) rotations    |
+| Use case      | Read-dominant                    | Write-dominant or mixed (the std-lib default) |
 
-| Aspect        | AVL                              | Red-Black                   |
-| ------------- | -------------------------------- | --------------------------- |
-| Balance       | Strict (height diff ≤ 1)         | Loose (height ≤ 2× optimal) |
-| Search        | Slightly faster (shorter height) | Slightly slower             |
-| Insert/Delete | More rotations                   | Fewer rotations (max 2-3)   |
-| Use case      | Search-dominant                  | Write-dominant              |
+> [!TIP]
+> If you're not sure, pick red-black. Standard libraries shipped that decision because the rotation budget matters more for typical workloads than the constant-factor lookup difference.
 
-### B-Trees: Disk I/O Optimization
+### B-trees and B+ trees: page-aware indexes
 
-Binary trees are inefficient for disk storage: each node access requires a disk seek (~10ms latency). With millions of nodes, tree traversal becomes I/O-bound.
+Binary trees are wrong for storage that fetches in pages. A modern HDD pays roughly 4–10 ms per random seek; a NVMe SSD pays 20–80 µs[^melbicom-storage]. Either way the cost per node access dwarfs the comparison cost, so the engineering goal is to **make each fetched page do as much work as possible**. That means raising the fanout.
 
-**Design rationale**: B-trees increase the branching factor. Each node contains multiple keys (typically sized to fit a disk page, 4-16KB), reducing tree height and disk seeks.
+A B-tree of order `m`[^wiki-btree]:
 
-A B-tree of order m:
+- Every node holds up to `m − 1` keys and `m` children.
+- Every non-root node holds at least `⌈m/2⌉ − 1` keys.
+- All leaves sit at the same depth (perfectly balanced).
 
-- Each node has at most m children
-- Each node (except root) has at least ⌈m/2⌉ children
-- All leaves are at the same depth
+Sized so a node fits one page (4–16 KB), a B-tree with millions of keys is typically 3–4 levels deep, so a point lookup costs 3–4 page fetches.
 
-**B+ tree variant**: Internal nodes contain only keys for routing; all data lives in leaf nodes, which are linked for efficient range scans. Used by most databases.
+A **B+ tree** is the variant most production databases ship[^pg-nbtree][^mysql-innodb]:
 
-**Real-world usage**: SQLite, PostgreSQL, MySQL indexes. File systems: NTFS, HFS+, ext4, Btrfs.
+- Internal nodes store only routing keys.
+- All values live in the leaf level.
+- Leaves are linked into a doubly-linked list for cheap range scans.
 
-```ts title="btree-node.ts" collapse={1-2, 15-20}
-// B-tree node structure (simplified)
+Production footprint:
+
+- **PostgreSQL** uses Lehman & Yao's high-concurrency B+ tree variant, which adds a right-link per page so readers traverse without blocking on splits[^pg-nbtree].
+- **MySQL InnoDB** stores every table as a clustered B+ tree on the primary key; secondary indexes are separate B+ trees whose leaves hold the primary-key value rather than a row pointer[^mysql-innodb].
+- **SQLite** uses a B-tree for index pages and a B+ tree for table pages[^sqlite-btree].
+- **File systems**: NTFS, HFS+, Btrfs, and XFS use B/B+ trees for directories and on-disk indexes; ext4 uses an HTree (a hashed B-tree variant with fixed depth 1–2) for directory indexing[^ext4-htree].
+
+```ts title="btree-shape.ts" collapse={1-2}
 interface BTreeNode<K, V> {
-  keys: K[] // Up to m-1 keys
-  children: BTreeNode<K, V>[] // Up to m children
+  keys: K[]                  // up to m - 1
+  children: BTreeNode<K, V>[] // up to m
   isLeaf: boolean
 }
 
-// Example: B-tree of order 4 (up to 3 keys, 4 children per node)
-// A single node can store keys [10, 20, 30]
-// Children partition the key space:
-// [-∞, 10), [10, 20), [20, 30), [30, +∞)
-
-// Disk optimization: one node = one disk page
-// Tree of 1M keys with order 100: height ≤ 3
-// Only 3 disk reads for any lookup
+// Order-4 node holding keys [10, 20, 30] partitions the key space:
+//   (-inf, 10)  [10, 20)  [20, 30)  [30, +inf)
+//      child 0    child 1    child 2    child 3
+//
+// 1M keys, order 100 (~100 keys per page) -> height ≤ 3 -> at most
+// 3 page fetches per point lookup, regardless of where the key sits.
 ```
 
-### Tries: Prefix-Optimized Search
+### Tries: prefix-shared search
 
-Tries (prefix trees) organize strings by shared prefixes. Each edge represents a character; paths from root to marked nodes spell complete strings.
+Tries (aka prefix trees) replace per-key comparison with per-character descent. Each edge represents one character; a marked node means "a stored string ends here". Lookup, insert, and delete are O(L) where L is the key length — independent of how many strings are stored.
 
-**Design rationale**: Exploit prefix sharing. Looking up "prefix" in a trie of 1M words takes O(6) operations—independent of dictionary size.
+- **What they buy:** prefix queries that hash maps cannot answer (autocomplete, "all keys starting with `pre`"), and longest-prefix matching for routing tables.
+- **What they cost:** more memory than a hash table — every distinct character on the path needs a node or edge unless you compress.
+- **The compressed variants matter in practice:**
+  - **Radix / Patricia tries** collapse single-child chains into a single edge labelled with multiple characters[^radix-wiki].
+  - **LC-tries** add level compression on top, expanding dense subtries into a single node with a `2^k`-entry vector. The Linux IPv4 routing table (`fib_trie`) has used an LC-trie for longest-prefix-match lookups since kernel 2.6.39[^fib-trie].
 
-**Trade-off**: Higher memory than hash tables (each character requires a node or edge), but enables prefix queries that hash tables cannot support.
+Application footprint: autocomplete, spell checking, IP routing (LC-trie / Patricia), genomic suffix structures.
 
-**When to use**:
+## Graph representations
 
-- Autocomplete (find all strings with prefix)
-- Spell checking
-- IP routing (longest prefix matching)
-- T9 predictive text
+### Adjacency matrix
 
-**Complexity**: O(L) for search, insert, delete—where L is key length, not dictionary size.
+A V × V matrix where `matrix[i][j]` carries the edge weight (or 0/1 for unweighted). Edges are O(1) to look up but space is O(V²) regardless of how many edges exist.
 
-## Graph Representations
-
-Graphs model relationships without hierarchical constraints. The choice of representation determines performance for different operations.
-
-### Adjacency Matrix
-
-A V×V matrix where `matrix[i][j]` indicates the edge from vertex i to j (1/0 for unweighted, weight value for weighted).
-
-```ts title="adjacency-matrix.ts" collapse={1-2, 18-25}
-// Adjacency matrix representation
+```ts title="adjacency-matrix.ts" collapse={1-2}
 class GraphMatrix {
   private matrix: number[][]
 
@@ -164,7 +156,7 @@ class GraphMatrix {
 
   addEdge(u: number, v: number, weight = 1): void {
     this.matrix[u][v] = weight
-    // For undirected: this.matrix[v][u] = weight;
+    // For undirected: this.matrix[v][u] = weight
   }
 
   hasEdge(u: number, v: number): boolean {
@@ -173,21 +165,13 @@ class GraphMatrix {
 }
 ```
 
-**Operations**:
+When it wins: dense graphs (E ≈ V²), heavy edge-existence queries, small graphs where V² is acceptable, and algorithms that benefit from cache-friendly contiguous memory (Floyd-Warshall is the canonical example).
 
-- Edge lookup: O(1)
-- Add/remove edge: O(1)
-- Find neighbors: O(V)—must scan entire row
-- Space: O(V²)—always, regardless of edge count
+### Adjacency list
 
-**When to use**: Dense graphs where E ≈ V², frequent edge existence checks, small graphs where V² is acceptable.
+Each vertex maps to its set of neighbours. Space is O(V + E); edge-existence is O(degree) with arrays, O(1) with sets or hash maps.
 
-### Adjacency List
-
-Array or map of vertices, each storing a list of adjacent vertices.
-
-```ts title="adjacency-list.ts" collapse={1-2, 20-27}
-// Adjacency list representation
+```ts title="adjacency-list.ts" collapse={1-2}
 class GraphList {
   private adj: Map<number, Set<number>>
 
@@ -198,114 +182,93 @@ class GraphList {
   addEdge(u: number, v: number): void {
     if (!this.adj.has(u)) this.adj.set(u, new Set())
     this.adj.get(u)!.add(v)
-    // For undirected: add reverse edge
   }
 
   hasEdge(u: number, v: number): boolean {
-    return this.adj.get(u)?.has(v) ?? false // O(1) with Set
+    return this.adj.get(u)?.has(v) ?? false
   }
 
   neighbors(u: number): number[] {
-    return [...(this.adj.get(u) ?? [])] // O(degree)
+    return [...(this.adj.get(u) ?? [])]
   }
 }
 ```
 
-**Operations**:
+When it wins: sparse graphs (E ≪ V²) — which is virtually every real graph (social networks, road networks, dependency graphs), and any algorithm that iterates neighbours rather than probing arbitrary edges.
 
-- Edge lookup: O(degree) with list, O(1) with Set/hash
-- Add edge: O(1)
-- Remove edge: O(degree) with list, O(1) with Set
-- Find neighbors: O(degree)—exactly the neighbors, no scanning
-- Space: O(V + E)
-
-**When to use**: Sparse graphs (E << V²), most real-world graphs (social networks, road networks), memory-constrained environments.
-
-### Representation Trade-offs
+### Representation trade-offs
 
 | Operation          | Adjacency Matrix | Adjacency List |
 | ------------------ | ---------------- | -------------- |
 | Space              | O(V²)            | O(V + E)       |
-| Edge lookup        | O(1)             | O(degree)      |
-| Neighbor iteration | O(V)             | O(degree)      |
+| Edge lookup        | O(1)             | O(1) with set, O(degree) with list |
+| Neighbour iteration | O(V)             | O(degree)      |
 | Add edge           | O(1)             | O(1)           |
-| Remove edge        | O(1)             | O(degree)      |
-| Dense graphs       | ✓ Efficient      | ✗ Wasteful     |
-| Sparse graphs      | ✗ Wasteful       | ✓ Efficient    |
+| Remove edge        | O(1)             | O(degree) with list, O(1) with set |
+| Dense graphs       | Efficient        | Wasteful       |
+| Sparse graphs      | Wasteful         | Efficient      |
 
-**Rule of thumb**: If E < V²/64, adjacency list is more space-efficient. Most real graphs are sparse.
+> [!TIP]
+> Default to adjacency lists with hash sets per vertex. Switch to matrices only when the graph is provably dense (Floyd-Warshall, dense bipartite matching) or when you need branch-free edge lookups in a hot loop.
 
-## Traversal Algorithms
+## Traversal algorithms
 
-### Depth-First Search (DFS)
+### Depth-first search (DFS)
 
-DFS explores as deep as possible before backtracking. Uses a stack (explicit or call stack).
+DFS goes deep before wide. The recursive version uses the call stack; the iterative version uses an explicit stack so you can run it on graphs deeper than your call-stack limit.
 
-```ts title="dfs-traversal.ts" collapse={1-3, 30-40}
-// DFS - Recursive (uses call stack)
-function dfsRecursive(graph: Map<number, number[]>, start: number, visited = new Set<number>()): void {
+```ts title="dfs.ts" collapse={1-3}
+function dfsRecursive(
+  graph: Map<number, number[]>,
+  start: number,
+  visited = new Set<number>(),
+): void {
   if (visited.has(start)) return
   visited.add(start)
-
-  // Process node here
-  console.log(start)
-
+  // process(start)
   for (const neighbor of graph.get(start) ?? []) {
     dfsRecursive(graph, neighbor, visited)
   }
 }
 
-// DFS - Iterative (explicit stack)
 function dfsIterative(graph: Map<number, number[]>, start: number): void {
   const visited = new Set<number>()
   const stack = [start]
-
   while (stack.length > 0) {
     const node = stack.pop()!
     if (visited.has(node)) continue
     visited.add(node)
-
-    // Process node here
-    console.log(node)
-
-    // Add neighbors in reverse for same order as recursive
+    // process(node)
     const neighbors = graph.get(node) ?? []
     for (let i = neighbors.length - 1; i >= 0; i--) {
-      if (!visited.has(neighbors[i])) {
-        stack.push(neighbors[i])
-      }
+      if (!visited.has(neighbors[i])) stack.push(neighbors[i])
     }
   }
 }
 ```
 
-**Tree DFS variants**:
+Tree DFS variants are useful in their own right:
 
-- **Preorder** (root-left-right): Process node before children. Use: tree copying, serialization.
-- **Inorder** (left-root-right): Process node between children. Use: BST sorted traversal.
-- **Postorder** (left-right-root): Process node after children. Use: tree deletion, expression evaluation, dependency resolution.
+- **Preorder** (root → left → right): tree copying, serialisation.
+- **Inorder** (left → root → right): produces sorted output for a BST.
+- **Postorder** (left → right → root): tree deletion, expression evaluation, dependency resolution where children must finish before the parent.
 
-**Complexity**: O(V + E) time, O(V) space for visited set + recursion stack.
+Complexity: O(V + E) time, O(V) space (visited set + stack/recursion depth).
 
-**When to use**: Cycle detection, topological sorting, path finding in mazes, detecting connected components.
+> [!CAUTION]
+> Recursive DFS on a graph with depth > ~10⁴ blows the JavaScript call stack and most language defaults. For deep graphs (file system trees, dependency DAGs across large monorepos), the iterative form is the safe default.
 
-### Breadth-First Search (BFS)
+### Breadth-first search (BFS)
 
-BFS explores all neighbors at current depth before moving deeper. Uses a queue.
+BFS explores all neighbours of the current node before any of their children, using a queue.
 
-```ts title="bfs-traversal.ts" collapse={1-3, 25-35}
-// BFS - Level-order traversal
+```ts title="bfs.ts" collapse={1-3}
 function bfs(graph: Map<number, number[]>, start: number): void {
-  const visited = new Set<number>()
+  const visited = new Set<number>([start])
   const queue: number[] = [start]
-  visited.add(start)
-
   while (queue.length > 0) {
-    const node = queue.shift()! // Dequeue front
-
-    // Process node here
-    console.log(node)
-
+    const node = queue.shift()!
+    // process(node)
     for (const neighbor of graph.get(node) ?? []) {
       if (!visited.has(neighbor)) {
         visited.add(neighbor)
@@ -316,50 +279,47 @@ function bfs(graph: Map<number, number[]>, start: number): void {
 }
 ```
 
-**Complexity**: O(V + E) time, O(V) space for visited set + queue.
+The defining property: in an **unweighted** graph, the first time BFS visits a node, it's via a shortest path (in edge count). That single fact powers most "minimum hops" problems — friend-of-a-friend search, web crawls bounded by depth, network reachability checks.
 
-**Key property**: BFS finds shortest path in unweighted graphs. The first time BFS reaches a node, it's via the shortest path (in terms of edge count).
+Complexity: O(V + E) time, O(V) space.
 
-**When to use**: Shortest path (unweighted), level-order traversal, finding nearest neighbors, web crawling by breadth.
+> [!NOTE]
+> `Array.shift()` is O(n) in V8 and most engines, so a naïve BFS in JavaScript can degrade to O(V²) on large graphs. Use a circular buffer, `Deque`, or an index-based queue head pointer if BFS is on a hot path.
 
-### DFS vs BFS: Choosing the Right Traversal
+### DFS vs BFS
 
-| Aspect         | DFS                                             | BFS                                              |
-| -------------- | ----------------------------------------------- | ------------------------------------------------ |
-| Data structure | Stack                                           | Queue                                            |
-| Exploration    | Deep first                                      | Level by level                                   |
-| Path finding   | Any path                                        | Shortest path (unweighted)                       |
-| Memory         | O(max depth)                                    | O(max width)                                     |
-| Use cases      | Cycle detection, topological sort, maze solving | Shortest path, level traversal, nearest neighbor |
+| Aspect          | DFS                                              | BFS                                                |
+| --------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Data structure  | Stack (explicit or call stack)                    | Queue                                              |
+| Exploration     | Deep first                                        | Level by level                                     |
+| Path finding    | Any path                                          | Shortest path (unweighted)                         |
+| Memory          | O(max depth)                                      | O(max width)                                       |
+| Use cases       | Cycle detection, topological sort, maze solving   | Shortest path, level traversal, nearest neighbours  |
 
-**Memory consideration**: In wide, shallow graphs, DFS uses less memory. In deep, narrow graphs, BFS uses less memory. For balanced trees, both use O(log n).
+In wide-shallow graphs, DFS uses less memory; in deep-narrow graphs, BFS uses less. For balanced trees, both stay at O(log n).
 
-## Cycle Detection
+## Cycle detection
 
-### Undirected Graphs: DFS with Parent Tracking
+### Undirected graphs: DFS with parent tracking
 
-In undirected graphs, an edge to a visited node that isn't the parent indicates a cycle.
+In undirected graphs, the `parent → child → parent` round-trip is structural, not a cycle. So the rule is: an edge to an already-visited node that **isn't the immediate parent** is a back edge — and a back edge is a cycle.
 
-```ts title="cycle-undirected.ts" collapse={1-3, 25-35}
-// Cycle detection in undirected graph
+```ts title="cycle-undirected.ts" collapse={1-3}
 function hasCycleUndirected(graph: Map<number, number[]>, vertices: number[]): boolean {
   const visited = new Set<number>()
 
   function dfs(node: number, parent: number | null): boolean {
     visited.add(node)
-
     for (const neighbor of graph.get(node) ?? []) {
       if (!visited.has(neighbor)) {
         if (dfs(neighbor, node)) return true
       } else if (neighbor !== parent) {
-        // Visited and not parent = cycle
         return true
       }
     }
     return false
   }
 
-  // Check all components
   for (const v of vertices) {
     if (!visited.has(v) && dfs(v, null)) return true
   }
@@ -367,36 +327,27 @@ function hasCycleUndirected(graph: Map<number, number[]>, vertices: number[]): b
 }
 ```
 
-### Directed Graphs: Three-Color DFS
+### Directed graphs: three-colour DFS
 
-In directed graphs, use three states: unvisited (white), currently visiting (gray), fully visited (black). A back edge to a gray node indicates a cycle.
+In a directed graph, "I've seen this node before" doesn't mean "I'm in a cycle" — you might just be re-arriving via a different path. The cycle question is: did I re-arrive at a node **still on the current DFS path**? That requires three states, not two.
 
-```ts title="cycle-directed.ts" collapse={1-3, 30-40}
-// Cycle detection in directed graph (three-color algorithm)
-enum Color {
-  WHITE,
-  GRAY,
-  BLACK,
-}
+![State diagram for the three-colour DFS used to detect cycles in directed graphs.](./diagrams/three-color-dfs-state-light.svg "Each node moves White → Gray on entry, Gray → Black on exit. An edge to a Gray node is a back edge — a cycle.")
+![State diagram for the three-colour DFS used to detect cycles in directed graphs.](./diagrams/three-color-dfs-state-dark.svg)
+
+```ts title="cycle-directed.ts" collapse={1-5}
+enum Color { WHITE, GRAY, BLACK }
 
 function hasCycleDirected(graph: Map<number, number[]>, vertices: number[]): boolean {
   const color = new Map<number, Color>()
   vertices.forEach((v) => color.set(v, Color.WHITE))
 
   function dfs(node: number): boolean {
-    color.set(node, Color.GRAY) // Currently visiting
-
+    color.set(node, Color.GRAY)
     for (const neighbor of graph.get(node) ?? []) {
-      if (color.get(neighbor) === Color.GRAY) {
-        // Back edge to node in current path = cycle
-        return true
-      }
-      if (color.get(neighbor) === Color.WHITE) {
-        if (dfs(neighbor)) return true
-      }
+      if (color.get(neighbor) === Color.GRAY) return true       // back edge
+      if (color.get(neighbor) === Color.WHITE && dfs(neighbor)) return true
     }
-
-    color.set(node, Color.BLACK) // Fully visited
+    color.set(node, Color.BLACK)
     return false
   }
 
@@ -407,114 +358,104 @@ function hasCycleDirected(graph: Map<number, number[]>, vertices: number[]): boo
 }
 ```
 
-**Why three colors?** In directed graphs, revisiting a node isn't inherently a cycle—it could be via a different path. Only revisiting a node _in the current DFS path_ (gray) indicates a cycle.
+This same machinery underlies most directed-DAG validators: import-cycle detection in module bundlers, dependency cycle detection in package managers, build-graph validation in CI.
 
-## Topological Sorting
+## Topological sorting
 
-Topological sort produces a linear ordering of DAG (Directed Acyclic Graph) vertices where for every edge u→v, u appears before v. Essential for dependency resolution.
+A topological order on a directed acyclic graph lists vertices so that for every edge `u → v`, `u` precedes `v`. It is the canonical output of dependency resolution.
 
-### Kahn's Algorithm (BFS-based)
+### Kahn's algorithm (BFS-based)
 
-Process vertices with no incoming edges first, then update in-degrees.
+Repeatedly emit a vertex with in-degree 0; decrement the in-degree of each of its out-neighbours; repeat until empty. If you ran out of zero-in-degree vertices but vertices remain, the graph has a cycle.
 
-```ts title="topological-kahn.ts" collapse={1-3, 35-45}
-// Kahn's algorithm - BFS-based topological sort
-function topologicalSortKahn(graph: Map<number, number[]>, vertices: number[]): number[] | null {
-  // Calculate in-degrees
+![Worked Kahn's-algorithm trace on a five-node build DAG showing the emission order.](./diagrams/topological-sort-trace-light.svg "Kahn's algorithm on a build DAG: utils → core → tests → app → package, emitted in five steps as in-degrees hit zero.")
+![Worked Kahn's-algorithm trace on a five-node build DAG showing the emission order.](./diagrams/topological-sort-trace-dark.svg)
+
+```ts title="topological-kahn.ts" collapse={1-3}
+function topologicalSortKahn(
+  graph: Map<number, number[]>,
+  vertices: number[],
+): number[] | null {
   const inDegree = new Map<number, number>()
   vertices.forEach((v) => inDegree.set(v, 0))
-
-  for (const [_, neighbors] of graph) {
+  for (const [, neighbors] of graph) {
     for (const neighbor of neighbors) {
       inDegree.set(neighbor, (inDegree.get(neighbor) ?? 0) + 1)
     }
   }
 
-  // Queue vertices with in-degree 0
   const queue = vertices.filter((v) => inDegree.get(v) === 0)
   const result: number[] = []
-
   while (queue.length > 0) {
     const node = queue.shift()!
     result.push(node)
-
     for (const neighbor of graph.get(node) ?? []) {
       const newDegree = inDegree.get(neighbor)! - 1
       inDegree.set(neighbor, newDegree)
-      if (newDegree === 0) {
-        queue.push(neighbor)
-      }
+      if (newDegree === 0) queue.push(neighbor)
     }
   }
 
-  // If not all vertices processed, cycle exists
-  return result.length === vertices.length ? result : null
+  return result.length === vertices.length ? result : null // null = cycle
 }
 ```
 
-**Advantage**: Naturally detects cycles—if result doesn't include all vertices, a cycle exists.
+### DFS-based approach
 
-### DFS-based Approach
+Visit each unvisited vertex; emit it on the way back up (postorder); reverse at the end. The same colour bookkeeping that detected directed cycles tells you when the input isn't a DAG.
 
-Add vertices to result after visiting all descendants (postorder), then reverse.
-
-```ts title="topological-dfs.ts" collapse={1-3, 30-40}
-// DFS-based topological sort
+```ts title="topological-dfs.ts" collapse={1-3}
 function topologicalSortDFS(graph: Map<number, number[]>, vertices: number[]): number[] | null {
   const visited = new Set<number>()
-  const inStack = new Set<number>() // For cycle detection
+  const inStack = new Set<number>()
   const result: number[] = []
 
   function dfs(node: number): boolean {
-    if (inStack.has(node)) return false // Cycle
+    if (inStack.has(node)) return false
     if (visited.has(node)) return true
-
     visited.add(node)
     inStack.add(node)
-
     for (const neighbor of graph.get(node) ?? []) {
       if (!dfs(neighbor)) return false
     }
-
     inStack.delete(node)
-    result.push(node) // Postorder
+    result.push(node)
     return true
   }
 
   for (const v of vertices) {
     if (!visited.has(v) && !dfs(v)) return null
   }
-
   return result.reverse()
 }
 ```
 
-**Real-world applications**:
+Both are O(V + E). Pick Kahn's when you also want to drive a worker pool (it produces ready vertices in batches as in-degrees hit zero); pick the DFS form when the surrounding code already does a DFS.
 
-- Build systems (Maven, Gradle, Make): Compile dependencies before dependents
-- Package managers (npm, pip): Install dependencies in correct order
-- Task scheduling: Execute prerequisites before dependent tasks
-- Database migrations: Apply schema changes in dependency order
-- Course scheduling: Prerequisites before advanced courses
+Real-world applications: build systems (Make, Maven, Gradle, Bazel), package managers (npm, pip, cargo), database migrations, course-prerequisite scheduling, and any pipeline where step `A` must complete before step `B` begins.
 
-## Shortest Path Algorithms
+## Shortest paths
 
-### BFS for Unweighted Graphs
+![Decision tree for picking a shortest-path algorithm by weights and source pattern.](./diagrams/shortest-path-decision-light.svg "Unweighted → BFS. Non-negative single-source → Dijkstra. Negative weights → Bellman-Ford. All-pairs → Floyd-Warshall (dense) or Johnson's (sparse).")
+![Decision tree for picking a shortest-path algorithm by weights and source pattern.](./diagrams/shortest-path-decision-dark.svg)
 
-BFS inherently finds shortest paths when all edges have equal weight (or weight = 1).
+### BFS for unweighted graphs
 
-```ts title="bfs-shortest-path.ts" collapse={1-3, 25-35}
-// Shortest path in unweighted graph using BFS
-function shortestPath(graph: Map<number, number[]>, start: number, end: number): number[] | null {
-  const visited = new Set<number>()
+When every edge counts the same, BFS is the shortest-path algorithm. The first visit to a node is via a shortest path; reconstruct the path with a `parent` pointer back-chain.
+
+```ts title="bfs-shortest-path.ts" collapse={1-3}
+function shortestPath(
+  graph: Map<number, number[]>,
+  start: number,
+  end: number,
+): number[] | null {
+  const visited = new Set<number>([start])
   const parent = new Map<number, number>()
   const queue = [start]
-  visited.add(start)
 
   while (queue.length > 0) {
     const node = queue.shift()!
     if (node === end) {
-      // Reconstruct path
       const path = [end]
       let current = end
       while (parent.has(current)) {
@@ -523,7 +464,6 @@ function shortestPath(graph: Map<number, number[]>, start: number, end: number):
       }
       return path
     }
-
     for (const neighbor of graph.get(node) ?? []) {
       if (!visited.has(neighbor)) {
         visited.add(neighbor)
@@ -532,61 +472,49 @@ function shortestPath(graph: Map<number, number[]>, start: number, end: number):
       }
     }
   }
-  return null // No path exists
+  return null
 }
 ```
 
-### Dijkstra's Algorithm (Non-negative Weights)
+### Dijkstra (non-negative weights)
 
-Greedy algorithm using a priority queue. Always processes the vertex with smallest known distance.
+Always extract the unsettled vertex with the smallest tentative distance; relax its outgoing edges; repeat. The greedy invariant — once a vertex is settled, its distance is final — depends critically on edges being non-negative.
 
-**Invariant**: When a vertex is dequeued, its distance is final.
+- **Complexity:** O((V + E) log V) with a binary heap. The classic Fibonacci-heap result is O(E + V log V) but the constant factors usually make a binary or `d`-ary heap competitive in practice[^cs6046-fib].
+- **Footprint:** GPS routing (with A\* on top), OSPF link-state routing, anything weighted with non-negative costs.
 
-**Limitation**: Cannot handle negative edge weights—the greedy assumption breaks.
+> [!CAUTION]
+> Dijkstra silently produces wrong answers on graphs with negative edge weights — it never revisits a "settled" vertex, so a later, cheaper path through a negative edge is missed. If your graph can have negative weights, you need Bellman-Ford. There is no "fix Dijkstra to handle negatives" without becoming Bellman-Ford.
 
-**Complexity**: O((V + E) log V) with a binary heap, O(E + V log V) with a Fibonacci heap.
+### Bellman-Ford (handles negative weights)
 
-**Use cases**: GPS navigation, network routing (OSPF protocol). For all-pairs shortest paths, switch to Floyd-Warshall or run a single-source shortest-path algorithm from each source node.
+Relax every edge V − 1 times. After that many rounds the shortest path distances are final unless a negative cycle exists; one extra round detects the cycle by spotting an edge that still relaxes.
 
-### Bellman-Ford (Handles Negative Weights)
+- **Complexity:** O(V·E) — slower than Dijkstra by a factor of `V / log V`, paid in exchange for negative-weight support and explicit cycle detection.
+- **Footprint:** the original distance-vector routing protocols (RIP), arbitrage detection across currency exchange rates (a profitable cycle is a negative cycle in `-log(rate)` space).
 
-Relaxes all edges V-1 times. Can detect negative cycles.
+### Algorithm selection
 
-**Algorithm**:
+| Scenario                    | Algorithm                  | Time complexity            |
+| --------------------------- | -------------------------- | -------------------------- |
+| Unweighted graph            | BFS                        | O(V + E)                   |
+| Non-negative single source  | Dijkstra                   | O(E + V log V)             |
+| Negative weights / cycles   | Bellman-Ford               | O(V · E)                   |
+| All-pairs (dense)           | Floyd-Warshall             | O(V³)                      |
+| All-pairs (sparse, no negs) | V × Dijkstra               | O(V · (E + V log V))       |
+| All-pairs (sparse, w/ negs) | Johnson's (reweight + Dijkstra) | O(V · E + V² log V)   |
 
-1. Initialize distances (source = 0, others = ∞)
-2. Repeat V-1 times: for each edge (u,v), if dist[u] + weight < dist[v], update dist[v]
-3. Check for negative cycles: if any edge can still be relaxed, negative cycle exists
+## Union-Find (disjoint set union)
 
-**Complexity**: O(V·E)—slower than Dijkstra but handles negative weights.
+Union-Find answers "are `x` and `y` in the same connected component?" in near-constant amortised time. The two optimisations that get it there are:
 
-**Use cases**: Routing protocols (RIP), arbitrage detection in currency exchange.
+- **Union by rank** (or by size): when merging two trees, attach the shorter under the taller so heights stay logarithmic.
+- **Path compression**: every `find` walk re-points every visited node directly at the root, flattening the tree as a side effect of querying it.
 
-### Algorithm Selection
+![Before and after path compression: find(7) re-points the chain so subsequent finds are O(1).](./diagrams/union-find-path-compression-light.svg "Before: find(7) walks 7 → 5 → 3 → 1. After: each visited node points straight at the representative, so future finds are O(1).")
+![Before and after path compression: find(7) re-points the chain so subsequent finds are O(1).](./diagrams/union-find-path-compression-dark.svg)
 
-| Scenario                 | Algorithm      | Complexity     |
-| ------------------------ | -------------- | -------------- |
-| Unweighted graph         | BFS            | O(V + E)       |
-| Non-negative weights     | Dijkstra       | O(E + V log V) |
-| Negative weights         | Bellman-Ford   | O(V·E)         |
-| All-pairs shortest paths | Floyd-Warshall | O(V³)          |
-
-## Union-Find (Disjoint Set Union)
-
-Union-Find manages a collection of disjoint sets, answering "are x and y connected?" in near-constant time.
-
-### Operations
-
-- **MakeSet(x)**: Create a singleton set containing x
-- **Find(x)**: Return the representative (root) of x's set
-- **Union(x, y)**: Merge the sets containing x and y
-
-### Optimizations
-
-**Path compression**: During Find, make every node point directly to the root.
-
-```ts title="union-find.ts" collapse={1-3, 35-45}
-// Union-Find with path compression and union by rank
+```ts title="union-find.ts" collapse={1-3}
 class UnionFind {
   private parent: Map<number, number>
   private rank: Map<number, number>
@@ -595,15 +523,14 @@ class UnionFind {
     this.parent = new Map()
     this.rank = new Map()
     elements.forEach((e) => {
-      this.parent.set(e, e) // Each element is its own parent
+      this.parent.set(e, e)
       this.rank.set(e, 0)
     })
   }
 
   find(x: number): number {
     if (this.parent.get(x) !== x) {
-      // Path compression: point directly to root
-      this.parent.set(x, this.find(this.parent.get(x)!))
+      this.parent.set(x, this.find(this.parent.get(x)!)) // path compression
     }
     return this.parent.get(x)!
   }
@@ -612,15 +539,11 @@ class UnionFind {
     const rootX = this.find(x)
     const rootY = this.find(y)
     if (rootX === rootY) return
-
-    // Union by rank: attach smaller tree to larger
     const rankX = this.rank.get(rootX)!
     const rankY = this.rank.get(rootY)!
-    if (rankX < rankY) {
-      this.parent.set(rootX, rootY)
-    } else if (rankX > rankY) {
-      this.parent.set(rootY, rootX)
-    } else {
+    if (rankX < rankY) this.parent.set(rootX, rootY)
+    else if (rankX > rankY) this.parent.set(rootY, rootX)
+    else {
       this.parent.set(rootY, rootX)
       this.rank.set(rootX, rankX + 1)
     }
@@ -632,160 +555,134 @@ class UnionFind {
 }
 ```
 
-**Union by rank**: Attach the shorter tree to the taller one, preventing worst-case linear chains.
+With both optimisations, the amortised cost of `m` operations on `n` elements is Θ(m · α(n)), where α is the inverse Ackermann function — at most 4 for any `n` you can store on real hardware[^tarjan75][^dsu-wiki].
 
-**Combined complexity**: O(α(n)) per operation, where α is the inverse Ackermann function. For all practical purposes, α(n) ≤ 4, making operations effectively O(1).
+Footprint: Kruskal's MST, dynamic connectivity, percolation models, image segmentation, and the cycle detector in undirected graph builders.
 
-**Use cases**:
+## Production applications
 
-- Kruskal's MST algorithm
-- Cycle detection in undirected graphs
-- Connected components
-- Network connectivity (social graphs, computer networks)
-- Image segmentation
+### DOM and virtual DOM (React)
 
-## Production Applications
+The DOM is a tree; React's reconciliation diffs two virtual DOM trees. The general "minimum edit distance between trees" problem is O(n³)[^react-recon]; React shaves it to O(n) with two heuristics, lifted directly from the official docs:
 
-### DOM and Virtual DOM (React)
+1. Two elements of different types produce different trees — React tears the old subtree down rather than diffing across the boundary.
+2. Sibling elements with stable `key` props are matched by key across renders; without keys, React falls back to index-based matching, which thrashes when list order changes.
 
-The DOM (Document Object Model) is a tree where each node represents an HTML element. React's reconciliation algorithm diffs virtual DOM trees.
+That's why missing or unstable keys cause "lost focus / scroll position when a row reorders" — the DOM nodes are correct, but they're now associated with different React fibers.
 
-**The O(n³) problem**: A general algorithm to transform one tree into another with minimum edit operations requires O(n³) time—prohibitive for UI updates.
+### File systems
 
-**React's heuristics** (from React documentation):
+Modern file systems use trees at two levels: directory hierarchies as logical trees, and on-disk indexes as B/B+ trees or hashed variants[^ext4-htree].
 
-1. Elements of different types produce different trees (full rebuild)
-2. Elements of same type with different `key` props are different instances
-3. Same type, same key → minimal diff
+- **Directory entries → inode numbers** map names to metadata; ext4 indexes large directories with HTree (a hashed B-tree variant).
+- **NTFS, HFS+, Btrfs, XFS** use B-trees / B+ trees for directory indexes and on-disk metadata.
+- **Dentry cache** in the Linux VFS layer caches resolved path components so repeated lookups don't replay the on-disk traversal.
 
-**Result**: O(n) diffing with well-chosen keys. Without keys, React falls back to index-based matching, causing unnecessary re-renders when list order changes.
+### Build and package systems
 
-### File Systems
+Maven, Gradle, npm, cargo, pip, Bazel, and Buck all model their build graph as a DAG and run topological sort on it. Gradle's two-phase resolution[^gradle-graph] is representative:
 
-File systems use tree structures for directory hierarchies and B-trees for efficient storage.
+1. **Graph resolution**: build the DAG of declared and transitive dependencies.
+2. **Artifact resolution**: fetch files for every resolved component.
 
-**Inode-based structure** (Linux, macOS):
+The topological order both forces correct compile order and reveals the parallelism — every group of zero-in-degree tasks is independent and can be scheduled across cores.
 
-- Directory entries map filenames to inode numbers
-- Inodes store metadata and block pointers
-- Multi-level indexing (direct, indirect, double indirect) for large files
+### Database indexes
 
-**Dentry cache**: Kernel caches directory lookups, avoiding repeated disk reads for path traversal.
+B+ trees dominate database indexing because they minimise page fetches under realistic working-set sizes. A binary index of 1 million keys is ~20 levels deep; a B+ tree with fanout ~100 is 3 levels deep — and on a large table that often means 3 page reads rather than 20, the difference between sub-millisecond lookup and disk-bound query[^pg-nbtree][^mysql-innodb].
 
-### Dependency Resolution (Build Systems)
+### Network routing
 
-Gradle, Maven, and npm model dependencies as DAGs and use topological sorting.
+The Linux kernel's IPv4 forwarding table is an LC-trie (`fib_trie`)[^fib-trie]. Longest-prefix-match descents stop early thanks to path and level compression, keeping per-packet routing decisions in CPU-cache time.
 
-**Gradle's two-phase resolution**:
+### Social networks
 
-1. **Graph resolution**: Build DAG of dependencies and transitive dependencies
-2. **Artifact resolution**: Fetch files for resolved components
+Friend graphs use BFS for the "n-th degree" queries that power "people you may know" panels, and personalised PageRank for ranking. Mutual-connections heuristics fall out as a one-step BFS combined with set intersection — no special data structure required, just an adjacency list.
 
-Topological sort determines build order and enables parallel execution of independent tasks.
+## Complexity reference
 
-### Database Indexing
+### Tree operations
 
-B-trees are the standard for database indexes because they minimize disk I/O.
+| Structure          | Search   | Insert   | Delete   | Space  | Best for                         |
+| ------------------ | -------- | -------- | -------- | ------ | -------------------------------- |
+| BST (balanced)     | O(log n) | O(log n) | O(log n) | O(n)   | Generic ordered map (textbook)   |
+| AVL                | O(log n) | O(log n) | O(log n) | O(n)   | Read-heavy in-memory dictionaries |
+| Red-black          | O(log n) | O(log n) | O(log n) | O(n)   | Standard libraries, kernel queues |
+| B / B+ tree        | O(log n) | O(log n) | O(log n) | O(n)   | Disk / SSD-resident indexes       |
+| Trie (uncompressed) | O(L)    | O(L)     | O(L)     | O(n·L) | Prefix queries                    |
+| Radix / LC-trie    | O(L)     | O(L)     | O(L)     | O(n)   | IP routing, dictionary compression |
 
-**Why B-trees**: A binary tree with 1M keys has height ~20. A B-tree of order 100 with 1M keys has height ~3. Each level requires a disk seek—reducing seeks by 85% dramatically improves query performance.
+### Graph operations by representation
 
-### Social Networks
+| Operation           | Adjacency Matrix | Adjacency List |
+| ------------------- | ---------------- | -------------- |
+| Space               | O(V²)            | O(V + E)       |
+| Edge lookup         | O(1)             | O(1)/O(degree) |
+| Neighbour iteration | O(V)             | O(degree)      |
+| Add edge            | O(1)             | O(1)           |
+| Remove edge         | O(1)             | O(1)/O(degree) |
 
-Social graphs use graph algorithms for friend recommendations and connectivity.
+### Algorithm complexity
 
-**Common algorithms**:
+| Algorithm        | Time           | Space | Use case                               |
+| ---------------- | -------------- | ----- | -------------------------------------- |
+| DFS              | O(V + E)       | O(V)  | Cycle detection, topological sort       |
+| BFS              | O(V + E)       | O(V)  | Shortest path (unweighted)              |
+| Dijkstra         | O(E + V log V) | O(V)  | Shortest path (non-negative weights)    |
+| Bellman-Ford     | O(V · E)       | O(V)  | Shortest path with negative weights     |
+| Floyd-Warshall   | O(V³)          | O(V²) | All-pairs (dense graphs)                |
+| Johnson's        | O(V·E + V² log V) | O(V²) | All-pairs (sparse, possibly negative) |
+| Topological sort | O(V + E)       | O(V)  | Dependency resolution                   |
+| Union-Find       | O(α(n))        | O(n)  | Dynamic connectivity, MST               |
 
-- **Common neighbors**: Suggest users with most mutual connections
-- **BFS**: Find 1st/2nd/3rd degree connections
-- **Personalized PageRank**: User-specific importance ranking
+## Practical takeaways
 
-## Complexity Reference
-
-### Tree Operations
-
-| Structure      | Search   | Insert   | Delete   | Space  | Best For        |
-| -------------- | -------- | -------- | -------- | ------ | --------------- |
-| BST (balanced) | O(log n) | O(log n) | O(log n) | O(n)   | General purpose |
-| AVL            | O(log n) | O(log n) | O(log n) | O(n)   | Search-heavy    |
-| Red-Black      | O(log n) | O(log n) | O(log n) | O(n)   | Write-heavy     |
-| B-tree         | O(log n) | O(log n) | O(log n) | O(n)   | Disk storage    |
-| Trie           | O(L)     | O(L)     | O(L)     | O(n·L) | Prefix search   |
-
-### Graph Operations by Representation
-
-| Operation          | Adjacency Matrix | Adjacency List |
-| ------------------ | ---------------- | -------------- |
-| Space              | O(V²)            | O(V + E)       |
-| Edge lookup        | O(1)             | O(degree)      |
-| Neighbor iteration | O(V)             | O(degree)      |
-| Add edge           | O(1)             | O(1)           |
-| Remove edge        | O(1)             | O(degree)      |
-
-### Algorithm Complexity
-
-| Algorithm        | Time           | Space | Use Case                          |
-| ---------------- | -------------- | ----- | --------------------------------- |
-| DFS              | O(V + E)       | O(V)  | Cycle detection, topological sort |
-| BFS              | O(V + E)       | O(V)  | Shortest path (unweighted)        |
-| Dijkstra         | O(E + V log V) | O(V)  | Shortest path (non-negative)      |
-| Bellman-Ford     | O(V·E)         | O(V)  | Shortest path (negative weights)  |
-| Topological Sort | O(V + E)       | O(V)  | Dependency resolution             |
-| Union-Find       | O(α(n))        | O(n)  | Connectivity, MST                 |
-
-## Conclusion
-
-Trees and graphs model hierarchical and networked relationships respectively. The key engineering decisions are:
-
-1. **Tree variant selection**: Match the data structure to access patterns—AVL for reads, Red-Black for writes, B-trees for disk, tries for prefixes.
-
-2. **Graph representation**: Adjacency lists for sparse graphs (most real-world cases), matrices only for dense graphs with frequent edge lookups.
-
-3. **Traversal choice**: DFS for problems requiring path exploration (cycles, dependencies), BFS for shortest path and level-order problems.
-
-4. **Union-Find for connectivity**: Near-O(1) operations make it the optimal choice for dynamic connectivity problems.
-
-These structures underpin critical systems—file systems, databases, build tools, social networks, and routing. Understanding their trade-offs enables informed architectural decisions.
+1. **Pick the tree by workload, not by familiarity.** AVL for read-heavy in-memory dictionaries, red-black as the safe default (it's what every standard library shipped), B+ trees the moment data lives on disk or SSD, tries and their compressed variants for prefix-keyed problems.
+2. **Default to adjacency lists with hash sets.** Matrices only earn their O(V²) cost on dense graphs or in algorithms (Floyd-Warshall) that exploit the contiguous layout.
+3. **DFS for "explore one branch fully", BFS for "shortest path / nearest first".** Iterate, don't recurse, when graphs may be deeper than a few thousand nodes.
+4. **Three-colour DFS for directed cycle detection, parent-tracking DFS for undirected.** The two-state version that works in undirected graphs silently misses cycles in directed ones.
+5. **Negative weights → Bellman-Ford, otherwise Dijkstra.** Don't try to retrofit Dijkstra; the greedy invariant breaks the moment an edge can be negative.
+6. **Path-compressed union-find is effectively O(1).** Reach for it any time the question is "are these in the same set?" — Kruskal, percolation, dynamic connectivity, dynamic equivalence classes.
 
 ## Appendix
 
 ### Prerequisites
 
-- Big O notation and complexity analysis
+- Big O notation and amortised analysis
 - Recursion and iteration
-- Basic data structures (arrays, linked lists, hash maps)
-- Stack and queue operations
+- Arrays, hash maps, stacks, queues
+- Comfortable reading TypeScript / pseudocode
 
 ### Terminology
 
-- **BST (Binary Search Tree)**: Binary tree where left < root < right
-- **AVL tree**: Self-balancing BST with strict height balance (difference ≤ 1)
-- **Red-Black tree**: Self-balancing BST using node coloring for looser balance
-- **B-tree**: Multi-way search tree optimized for disk I/O
-- **Trie (prefix tree)**: Tree structure for string storage with shared prefixes
-- **DAG (Directed Acyclic Graph)**: Directed graph with no cycles
-- **DFS (Depth-First Search)**: Traversal exploring deep before wide
-- **BFS (Breadth-First Search)**: Traversal exploring level by level
-- **Topological sort**: Linear ordering of DAG vertices respecting edge direction
-- **Union-Find**: Data structure for disjoint set operations with near-O(1) complexity
-
-### Summary
-
-- **Tree variants optimize different dimensions**: AVL for search, Red-Black for writes, B-trees for disk, tries for prefixes
-- **Graph representation choice depends on density**: Adjacency list for sparse (E << V²), matrix for dense
-- **DFS uses stack, BFS uses queue**: Choose based on problem structure—depth exploration vs level-order
-- **Cycle detection**: Parent tracking for undirected, three-color for directed graphs
-- **Topological sort requires DAG**: Kahn's (BFS) or DFS-based, both O(V + E)
-- **Union-Find achieves near-O(1)** through path compression and union by rank
+- **BST (Binary Search Tree):** binary tree with the in-order key invariant.
+- **AVL tree:** self-balancing BST keeping balance factor in {-1, 0, +1}.
+- **Red-black tree:** self-balancing BST using node colouring; the standard-library default.
+- **B-tree / B+ tree:** multi-way trees designed for paged storage; B+ trees keep all values at the leaf level for cheap range scans.
+- **Trie / radix tree / LC-trie:** prefix trees with progressively more aggressive compression.
+- **DAG:** directed graph with no directed cycle.
+- **DFS / BFS:** depth-first / breadth-first traversals.
+- **Topological order:** linearisation of a DAG respecting edge direction.
+- **Union-Find / DSU:** disjoint-set data structure with near-O(1) amortised operations.
 
 ### References
 
-- [Introduction to Algorithms (CLRS)](https://mitpress.mit.edu/books/introduction-algorithms-fourth-edition) - Chapters on BSTs, Red-Black trees, B-trees, graph algorithms
-- [Red-Black Tree - Wikipedia](https://en.wikipedia.org/wiki/Red%E2%80%93black_tree) - Properties and implementation
-- [AVL Tree - Wikipedia](https://en.wikipedia.org/wiki/AVL_tree) - Balance factors and rotations
-- [B-tree - Wikipedia](https://en.wikipedia.org/wiki/B-tree) - Structure and disk optimization rationale
-- [SQLite B-Tree Module](https://sqlite.org/btreemodule.html) - Production B-tree implementation
-- [React Reconciliation](https://legacy.reactjs.org/docs/reconciliation.html) - DOM diffing algorithm and heuristics
-- [Trie - Wikipedia](https://en.wikipedia.org/wiki/Trie) - Prefix tree structure and applications
-- [Disjoint Set Union - CP-Algorithms](https://cp-algorithms.com/data_structures/disjoint_set_union.html) - Union-Find optimizations
-- [Dijkstra vs Bellman-Ford - Baeldung](https://www.baeldung.com/cs/dijkstra-vs-bellman-ford) - Shortest path algorithm comparison
-- [Gradle Dependency Resolution](https://docs.gradle.org/current/userguide/graph_resolution.html) - Build system graph handling
+[^avl-paper]: Adelson-Velsky, Landis, "An algorithm for the organization of information" (1962). [Wikipedia summary](https://en.wikipedia.org/wiki/AVL_tree).
+[^wiki-avl]: ["AVL tree" — Wikipedia](https://en.wikipedia.org/wiki/AVL_tree) — the height bound `h ≤ 1.44 · log₂(n+2)` and rotation cases.
+[^rb-paper]: Guibas, Sedgewick, "A Dichromatic Framework for Balanced Trees" (1978).
+[^wiki-rb]: ["Red–black tree" — Wikipedia](https://en.wikipedia.org/wiki/Red%E2%80%93black_tree) — invariants, height bound, rotation budget.
+[^cfs-doc]: ["CFS Scheduler" — kernel.org](https://docs.kernel.org/scheduler/sched-design-CFS.html) — red-black tree as the runqueue, leftmost-task selection.
+[^eevdf-vt]: ["sched/eevdf: Sort the rbtree by virtual deadline" — Linux kernel mail archive](https://mailweb.openeuler.org/archives/list/kernel@openeuler.org/message/KJ7UVDCOBVLDCPTIW6WEMMZ7U4LT3JBD/) — EEVDF (default since Linux 6.6) keeps the rbtree, sorted by virtual deadline.
+[^melbicom-storage]: [Melbicom, "Dedicated Server Storage: HDD vs SSD vs NVMe"](https://www.melbicom.net/blog/dedicated/hdd-vs-ssd-vs-nvme/) — random-read latency: NVMe 0.02–0.08 ms, SATA SSD ~0.1 ms, 7200 RPM HDD 4–10 ms.
+[^wiki-btree]: ["B-tree" — Wikipedia](https://en.wikipedia.org/wiki/B-tree) — order, fanout, page-aligned design rationale.
+[^pg-nbtree]: [PostgreSQL `nbtree` README](https://github.com/postgres/postgres/blob/master/src/backend/access/nbtree/README) — Lehman & Yao high-concurrency B+ tree implementation.
+[^mysql-innodb]: [MySQL Reference Manual — InnoDB clustered and secondary indexes](https://dev.mysql.com/doc/refman/9.3/en/innodb-index-types.html) — B+ tree clustered indexes, secondary indexes carrying the primary key.
+[^sqlite-btree]: [SQLite B-Tree module](https://sqlite.org/btreemodule.html) — index pages use B-trees, table pages use B+ trees.
+[^ext4-htree]: ["HTree" — Wikipedia](https://en.wikipedia.org/wiki/HTree) and [Linux kernel ext4 directory docs](https://docs.kernel.org/filesystems/ext4/directory.html) — fixed-depth hashed B-tree variant for ext3/ext4 directory indexing.
+[^radix-wiki]: ["Radix tree" — Wikipedia](https://en.wikipedia.org/wiki/Radix_tree) — Patricia / radix trie compression and routing-table use.
+[^fib-trie]: [Linux kernel "LC-trie implementation notes"](https://www.kernel.org/doc/html/v6.0/networking/fib_trie.html) — LC-trie as the IPv4 routing table since 2.6.39.
+[^cs6046-fib]: [MIT 6.046J Lecture 16 — disjoint-set data structures and Fibonacci heap context](https://ocw.mit.edu/courses/6-046j-design-and-analysis-of-algorithms-spring-2012/dbbca5218779336114dcd3b3195e7783_MIT6_046JS12_lec16.pdf).
+[^tarjan75]: Tarjan, "Efficiency of a Good But Not Linear Set Union Algorithm", *Journal of the ACM* (1975). The original O(α(n)) amortised bound for union-by-rank + path compression.
+[^dsu-wiki]: ["Disjoint-set data structure" — Wikipedia](https://en.wikipedia.org/wiki/Disjoint-set_data_structure) — α(n) ≤ 4 for any practical input; Fredman/Saks lower bound.
+[^react-recon]: [React legacy docs — Reconciliation](https://legacy.reactjs.org/docs/reconciliation.html) — generic O(n³), heuristic O(n) using element type and `key` prop.
+[^gradle-graph]: [Gradle docs — Graph and artifact resolution](https://docs.gradle.org/current/userguide/graph_resolution.html) — two-phase dependency resolution.

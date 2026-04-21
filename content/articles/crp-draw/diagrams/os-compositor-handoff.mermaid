@@ -1,0 +1,42 @@
+%% Diagram: How Viz hands the drawn frame off to the OS compositor on each platform.
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Viz["Viz<br/>SkiaRenderer + GPU command buffer"]
+
+    subgraph Win["Windows"]
+        direction TB
+        DXGI["DXGI flip-model SwapChain<br/>+ DirectComposition visual tree"]
+        DWM["DWM compositor<br/>(MPO direct flip / iflip when eligible)"]
+        DXGI --> DWM
+    end
+
+    subgraph Mac["macOS"]
+        direction TB
+        IOSurf["IOSurface bound to<br/>CALayer.contents"]
+        CA["CoreAnimation / WindowServer"]
+        IOSurf --> CA
+    end
+
+    subgraph Linux["Linux / ChromeOS"]
+        direction TB
+        DMABUF["dma-buf via Ozone backend<br/>(Wayland surface or X11 pixmap)"]
+        KMS["Wayland / DRM-KMS<br/>(direct scanout when eligible)"]
+        DMABUF --> KMS
+    end
+
+    subgraph Android["Android"]
+        direction TB
+        AHB["AHardwareBuffer +<br/>SurfaceControl"]
+        SF["SurfaceFlinger<br/>(HWC2 overlay planes)"]
+        AHB --> SF
+    end
+
+    Viz --> DXGI
+    Viz --> IOSurf
+    Viz --> DMABUF
+    Viz --> AHB
+
+    DWM --> Display["Display controller<br/>scans out at VBlank"]
+    CA --> Display
+    KMS --> Display
+    SF --> Display

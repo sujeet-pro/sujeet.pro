@@ -1,0 +1,33 @@
+%% Diagram: Open Connect fill pipeline — proactive content placement
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph INPUT["Inputs (daily)"]
+        VIEW["Recent view telemetry"]
+        CATALOG["Catalog metadata<br/>per file (codec, resolution)"]
+        TOPOLOGY["Cluster topology<br/>and capacity"]
+    end
+
+    subgraph PLAN["Planning"]
+        POP["File-level popularity model<br/>per region and per OCA cluster"]
+        REPL["Replica calculator<br/>more popular -> more copies"]
+        MANIFEST["Per-OCA fill manifest"]
+        VIEW --> POP
+        CATALOG --> POP
+        POP --> REPL
+        TOPOLOGY --> REPL
+        REPL --> MANIFEST
+    end
+
+    subgraph TRANSFER["Off-peak transfer"]
+        WIN["Configurable fill window<br/>typically off-peak local time"]
+        S3[("S3 origin")]
+        OCA["OCAs in ISP / IXP"]
+        VERIFY["Checksum verification"]
+        MANIFEST --> WIN
+        S3 --> OCA
+        WIN --> OCA
+        OCA --> VERIFY
+    end
+
+    VERIFY -->|next-day| POP

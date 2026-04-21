@@ -1,0 +1,29 @@
+%% Diagram: MySQL 5.7 to 8.0 Rolling Upgrade Per Cluster
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START(["Cluster on 5.7\n(rollback-safe state)"])
+
+    S1["Step 1: Replica upgrade\nDeploy 8.0 replicas alongside 5.7\nshift reads gradually"]
+    S2["Step 2: Topology split\nDual replication chains:\n- 8.0 chain (live)\n- 5.7 chain (rollback)"]
+    S3["Step 3: Primary promotion\norchestrator failover to 8.0\nblacklist 5.7 from candidates"]
+    S4["Step 4: Ancillary upgrade\nbackups, non-prod, internal"]
+    S5["Step 5: Cleanup\nRemove 5.7 after 24h\nstability window"]
+
+    DONE(["Cluster on 8.0\nready for next cluster"])
+
+    ROLLBACK["Rollback: re-promote 5.7\nvia backward replication\n(needs utf8/utf8_unicode_ci\n+ Trilogy client)"]
+
+    START --> S1 --> S2 --> S3 --> S4 --> S5 --> DONE
+
+    S1 -.->|"regression\ndetected"| ROLLBACK
+    S2 -.->|"regression\ndetected"| ROLLBACK
+    S3 -.->|"regression\ndetected"| ROLLBACK
+    ROLLBACK -.->|"return to\n5.7 chain"| START
+
+    classDef step fill:#7faed1,stroke:#23476a,color:#1c1c1c
+    classDef rollback fill:#d97757,stroke:#5d2a16,color:#1c1c1c
+    classDef terminal fill:#5fa479,stroke:#26482f,color:#1c1c1c
+    class S1,S2,S3,S4,S5 step
+    class ROLLBACK rollback
+    class START,DONE terminal

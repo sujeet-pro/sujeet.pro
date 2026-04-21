@@ -1,875 +1,489 @@
 ---
 title: Design Dropbox File Sync
-linkTitle: 'Dropbox Sync'
+linkTitle: Dropbox Sync
 description: >-
-  System design for cross-device file synchronization at Dropbox scale, covering
-  content-defined chunking for delta sync, the three-tree merge model for conflict
-  detection, and block-level deduplication across 500+ petabytes of user data.
+  System design for cross-device file sync at Dropbox scale — content-defined
+  chunking, the three-tree planner that detects conflicts without
+  coordination, content-addressed blocks for cross-user dedup, and the
+  Magic Pocket storage layer behind 700M+ users and multi-exabyte data.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
+  - distributed-systems
+  - storage
+  - case-study
   - interview-prep
 ---
 
 # Design Dropbox File Sync
 
-A system design for a file synchronization service that keeps files consistent across multiple devices. This design addresses the core challenges of efficient data transfer, conflict resolution, and real-time synchronization at scale—handling 500+ petabytes of data across 700 million users.
+Cross-device file sync looks deceptively simple — keep a folder identical on every device — but the design hides three hard distributed-systems problems: detecting *which* side changed without a coordinator, transferring the smallest possible delta over a flaky network, and storing exabytes of immutable content cheaply enough to make $10/month plans viable. This article reconstructs the design Dropbox actually shipped, with citations to their engineering write-ups, and uses it to ground the canonical "design Dropbox" interview answer in real engineering trade-offs.
 
-![High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.](./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s-light.svg "High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.")
-![High-level architecture: clients sync through API gateway to metadata and block services, with real-time notifications via message queue.](./diagrams/high-level-architecture-clients-sync-through-api-gateway-to-metadata-and-block-s-dark.svg)
+The Dropbox numbers it has to support, as of fiscal year 2025: more than 700 million registered accounts, 18.08 million paying users, and roughly 5 exabytes of customer storage[^stats].
 
-## Abstract
+[^stats]: [Dropbox Q4 / FY2025 results](https://investors.dropbox.com/news-releases/news-release-details/dropbox-announces-fourth-quarter-and-fiscal-2025-results) and [Dropbox Q3 2025 investor slides (storage figure)](https://www.investing.com/news/company-news/dropbox-q3-2025-slides-margin-expansion-offsets-user-decline-as-ai-strategy-unfolds-93CH-4340993).
 
-File sync is fundamentally a **distributed state reconciliation** problem with three key insights:
+![High-level architecture: clients talk to a metadata plane (API gateway, metadata service, notification service backed by an append-only journal) and a separate data plane (block service, Magic Pocket).](./diagrams/high-level-architecture-light.svg "Two planes: metadata operations dominate request count and require strong consistency; bulk block traffic is decoupled and content-addressed.")
+![High-level architecture: clients talk to a metadata plane (API gateway, metadata service, notification service backed by an append-only journal) and a separate data plane (block service, Magic Pocket).](./diagrams/high-level-architecture-dark.svg)
 
-1. **Content-defined chunking** breaks files at content-determined boundaries (not fixed offsets), so insertions don't invalidate all subsequent chunks—enabling ~90% deduplication across file versions
-2. **Three-tree model** (local, remote, synced) provides an unambiguous merge base to determine change direction without conflicts
-3. **Block-level addressing** (content hash as ID) makes upload idempotent and enables cross-user deduplication at petabyte scale
+## Thesis
 
-The critical tradeoff: **eventual consistency with conflict preservation**. Rather than complex merge algorithms, create "conflicted copies" when concurrent edits occur—simple, predictable, and avoids data loss.
+File sync is a **distributed-state reconciliation** problem with three load-bearing ideas:
+
+1. **Content-defined chunking** (CDC) makes block boundaries depend on content, not byte offsets, so an insertion in the middle of a file shifts only one chunk instead of every subsequent one. This is what unlocks delta sync and cross-user dedup at scale.
+2. **The three-tree planner** persists *observations* (Local, Remote, Synced) instead of *outstanding work*. The Synced tree acts as a merge base — exactly like a git merge base — so the engine can derive change direction without asking either side what it intended.
+3. **Content-addressed blocks** (block ID = SHA-256 of bytes) make uploads idempotent, deduplication trivial, and the data plane oblivious to users, paths, and namespaces. The metadata plane owns identity; the data plane owns bytes.
+
+The trade-off Dropbox accepted: **eventual consistency with conflict preservation**. When two clients edit the same file before they see each other, the engine never tries to merge bytes — it keeps the remote version at the original path and renames the local copy `… (conflicted copy YYYY-MM-DD).ext`. Predictable, no data loss, no domain-specific merge code.
 
 ## Requirements
 
-### Functional Requirements
+### Functional
 
-| Feature              | Priority | Scope                  |
-| -------------------- | -------- | ---------------------- |
-| File upload/download | Core     | Full implementation    |
-| Cross-device sync    | Core     | Full implementation    |
-| Selective sync       | Core     | Full implementation    |
-| File versioning      | Core     | 30-day history         |
-| Conflict handling    | Core     | Conflicted copies      |
-| Shared folders       | High     | Full implementation    |
-| Link sharing         | High     | Read/write permissions |
-| LAN sync             | Medium   | P2P optimization       |
-| Offline access       | Medium   | Client-side            |
-| Search               | Low      | Metadata only          |
+| Capability             | Priority | Notes                                                        |
+| ---------------------- | -------- | ------------------------------------------------------------ |
+| Upload / download      | Core     | Block-based, resumable                                        |
+| Cross-device sync      | Core     | Bidirectional, eventually consistent                          |
+| File versioning        | Core     | 30-day history (Basic / Plus / Family); 180-day (Professional / Business) |
+| Conflict handling      | Core     | Conflicted-copy strategy, never silent data loss              |
+| Selective / Smart Sync | Core     | Some folders local, others on-demand placeholders              |
+| Shared folders         | High     | Namespaces with their own permission set                      |
+| Link sharing           | High     | Read-only and edit links, expiry, password                    |
+| LAN sync               | Medium   | Peer-to-peer block fetch on the same network                  |
+| Offline access         | Medium   | Read and write while disconnected, reconcile on reconnect     |
 
-### Non-Functional Requirements
+### Non-functional
 
-| Requirement                | Target                    | Rationale                    |
-| -------------------------- | ------------------------- | ---------------------------- |
-| Availability               | 99.99%                    | Business-critical data       |
-| Sync latency (same region) | p50 < 2s, p99 < 10s       | User perception threshold    |
-| Upload throughput          | 100 MB/s per client       | Saturate typical connections |
-| Storage durability         | 99.9999999999% (12 nines) | Data loss is unacceptable    |
-| Consistency                | Eventual (< 5s typical)   | Acceptable for file sync     |
-| Deduplication ratio        | > 2:1 cross-user          | Storage cost optimization    |
+| Requirement              | Target                  | Why                                                         |
+| ------------------------ | ----------------------- | ----------------------------------------------------------- |
+| Annual data durability   | ≥ 99.9999999999% (12 nines)[^durability] | Loss of user data is the only unrecoverable failure         |
+| Service availability     | ≥ 99.99%[^durability]    | Sync should resume on reconnect, never require user retry   |
+| Sync latency (intra-region) | p50 < 2 s for small files | Below the perceptual "did it work?" threshold              |
+| Upload throughput        | Saturate the client uplink | Compression and chunking must not become the bottleneck    |
+| Cross-user dedup ratio   | > 2:1                   | Dominant lever on storage cost at exabyte scale             |
 
-### Scale Estimation
+[^durability]: [Extending Magic Pocket Innovation with the first petabyte-scale SMR drive deployment (Dropbox)](https://dropbox.tech/infrastructure/extending-magic-pocket-innovation-with-the-first-petabyte-scale-smr-drive-deployment) — Dropbox publicly cites "annual data durability of over 99.9999999999%, and availability of over 99.99%". As Magic Pocket designer James Cowling has [pointed out](https://medium.com/@jamesacowling/how-many-nines-is-my-storage-system-7d16e852d56d), these "nines" are upper-bound Markov-model numbers; competent providers actually lose data to bugs and operator error, not disk failure rates. Treat the published figure as a *lower bound on the engineering investment*, not a meaningful operational SLA.
 
-**Users:**
+> [!NOTE]
+> The numbers below are sized for a "design Dropbox" interview answer, not lifted from internal Dropbox dashboards. They're the right order of magnitude for the published user count and storage footprint.
 
-- Registered users: 700M
-- DAU: 70M (10% of registered)
-- Peak concurrent: 7M
+### Back-of-the-envelope
 
-**Files:**
+- **Users:** 700 M registered, ~70 M DAU, ~7 M peak concurrent.
+- **Files:** ~5 000 files / user → ~3.5 trillion files. Average file ~150 KB.
+- **Storage:** ~5 EB total customer data; ~180 TB ingress / day (1.2 B new file revisions × 150 KB).
+- **Traffic:** Metadata reads dominate (~10 M RPS). Block puts ~500 K RPS. Block gets ~2 M RPS. ~7 M concurrent push connections at peak.
 
-- Files per user: 5,000 average
-- Total files: 3.5 trillion
-- New files per day: 1.2B
+The single most useful thing to internalise here is the **read:write ratio on metadata is ~20:1** and **metadata RPS dwarfs block RPS by an order of magnitude**. That asymmetry drives most of the architectural choices below.
 
-**Storage:**
+## Mental model: two planes, one journal, three trees
 
-- Average file size: 150KB
-- Total storage: 500PB+
-- Daily ingress: 180TB (1.2B × 150KB)
+Five concepts carry the rest of the article:
 
-**Traffic:**
+- **Block.** An immutable, content-addressed chunk of a file. Up to 4 MiB, keyed by `SHA-256(bytes)`[^block].
+- **Blocklist.** The ordered list of block hashes that reconstructs a file. The file's identity on the wire and in storage.
+- **Namespace.** The unit of access control. Every account has a root namespace; every shared folder is its own namespace mounted into one or more roots[^namespaces].
+- **Server File Journal (SFJ).** Append-only metadata log, one row per file revision in a namespace. Each row carries a monotonically increasing `journal_id` (JID). Clients sync by tracking a cursor in this log[^streaming].
+- **Three trees.** The Nucleus sync engine persists three filesystem snapshots — Local (last observed disk), Remote (last observed server), Synced (last fully-synced state) — and a Planner derives operations to converge them[^nucleus-test].
 
-- Metadata operations: 10M RPS (reads dominate)
-- Block uploads: 500K RPS
-- Block downloads: 2M RPS
-- Notification connections: 7M concurrent WebSockets
+[^block]: [Streaming File Synchronization (Dropbox tech blog)](https://dropbox.tech/infrastructure/streaming-file-synchronization) — "Every file in Dropbox is partitioned into 4MB blocks… These blocks are hashed with SHA-256 and stored." Confirmed in [Inside the Magic Pocket](https://dropbox.tech/infrastructure/inside-the-magic-pocket).
+[^namespaces]: [Streaming File Synchronization](https://dropbox.tech/infrastructure/streaming-file-synchronization) and [Inside LAN Sync](https://dropbox.tech/infrastructure/inside-lan-sync).
+[^streaming]: [Streaming File Synchronization](https://dropbox.tech/infrastructure/streaming-file-synchronization) — defines the SFJ schema and the JID cursor.
+[^nucleus-test]: [Testing sync at Dropbox](https://dropbox.tech/infrastructure/-testing-our-new-sync-engine) — the canonical description of the three-tree model and the Planner.
 
-## Design Paths
+The key separation of concerns: **the metadata plane owns identity (namespaces, paths, file IDs, blocklists) and consistency. The data plane owns bytes (immutable, content-addressed, oblivious to users).** Block servers don't know whose file a block belongs to; they only know the hash.
 
-### Path A: Block-Based Sync (Chosen)
+## Chunking and content-addressed dedup
 
-**Best when:**
+The first design decision is how to cut files into blocks. With **fixed-size chunking**, a one-byte insertion at the start of a file shifts every byte of every subsequent block, so every block hash changes, and the entire file has to be re-uploaded. With **content-defined chunking** (CDC), boundaries are placed where a rolling hash over a sliding window matches a target pattern; an insertion shifts boundaries only locally, so most blocks stay identical.
 
-- Large files that change incrementally (documents, code repositories)
-- Cross-user deduplication is valuable
-- Bandwidth optimization is critical
+![Fixed vs content-defined chunking: an inserted byte in the middle of a file changes every block under fixed chunking, but only the local block under CDC.](./diagrams/cdc-vs-fixed-chunking-light.svg "Fixed chunking: insert one byte, re-upload the whole file. CDC: insert one byte, re-upload one block.")
+![Fixed vs content-defined chunking: an inserted byte in the middle of a file changes every block under fixed chunking, but only the local block under CDC.](./diagrams/cdc-vs-fixed-chunking-dark.svg)
 
-**Architecture:** Files split into content-defined chunks (~4MB blocks), each identified by content hash. Only changed blocks transfer.
+> [!IMPORTANT]
+> Dropbox's actual production design uses **fixed 4 MiB blocks**, not CDC[^block][^content-hash]. The section below covers CDC because it is the canonical "design Dropbox" interview answer and the right starting point for any *general* delta-sync system (rsync, restic, borg, ZFS dedup). The trade-off Dropbox accepted — the cost of *managing* a block (an SFJ row, a Block Index entry, a Magic Pocket put) is much higher than the bytes saved by a finer cut — is itself a useful design lesson. The cross-user dedup ratio at 4 MiB granularity is meaningfully lower than what CDC at 8 KiB would deliver, but the metadata cost would be ~500× higher.
 
-**Key characteristics:**
+[^content-hash]: [Dropbox content_hash reference](https://www.dropbox.com/developers/reference/content-hash) — defines the canonical hash as the SHA-256 of the concatenation of per-4 MiB-block SHA-256s, confirming the fixed 4 MiB block boundary at the public-API level.
 
-- Deduplication at block level
-- Delta sync requires only changed blocks
-- Block storage can be globally deduplicated
+### Picking a rolling hash: from Rabin to Gear
 
-**Trade-offs:**
+The original CDC design (LBFS, SOSP 2001) used **Rabin fingerprints** over a sliding window[^lbfs]. Rabin gives a strong rolling hash but costs roughly 2 XORs, 2 shifts, and 2 table lookups per byte — a real bottleneck on commodity client CPUs.
 
-- ✅ 2,500x bandwidth reduction for incremental changes
-- ✅ Cross-user deduplication (identical blocks stored once)
-- ✅ Resumable uploads (block-level checkpointing)
-- ❌ Complexity in chunking algorithms
-- ❌ Small file overhead (metadata > content for tiny files)
-- ❌ Client CPU cost for hashing
+[^lbfs]: [LBFS: A Low-bandwidth Network File System (SOSP '01)](https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf) — introduces Rabin-fingerprint CDC for network file systems.
 
-**Real-world example:** Dropbox uses 4MB blocks with SHA-256 hashing. Magic Pocket stores 500+ PB with 600K+ drives, achieving significant deduplication across their user base.
+**Gear hash** simplifies this dramatically. The fingerprint update is a single shift, an addition, and one array lookup per byte:
 
-### Path B: Whole-File Sync
-
-**Best when:**
-
-- Small files only (< 1MB average)
-- Simple implementation required
-- Files rarely modified (write-once)
-
-**Architecture:** Files uploaded/downloaded atomically. No chunking.
-
-**Trade-offs:**
-
-- ✅ Simple implementation
-- ✅ Lower client CPU (no chunking)
-- ❌ No delta sync (full re-upload on any change)
-- ❌ No cross-file deduplication
-- ❌ Large files block on full transfer
-
-**Real-world example:** Simple cloud storage for photos (Google Photos initially) where files are write-once and relatively small.
-
-### Path Comparison
-
-| Factor               | Block-Based             | Whole-File          |
-| -------------------- | ----------------------- | ------------------- |
-| Delta sync           | Yes (block-level)       | No                  |
-| Deduplication        | Cross-user, cross-file  | None                |
-| Bandwidth efficiency | High (2,500x for edits) | Low                 |
-| Client complexity    | High                    | Low                 |
-| Small file overhead  | Higher                  | None                |
-| Best for             | Documents, code         | Photos, small media |
-
-### This Article's Focus
-
-This article focuses on **Path A (Block-Based Sync)** because file sync services primarily handle documents and files that change incrementally, where bandwidth optimization provides the most value.
-
-## High-Level Design
-
-### Client Architecture: Three Trees Model
-
-The sync engine maintains three tree structures representing file state:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Sync Engine                        │
-├─────────────────┬─────────────────┬─────────────────────────┤
-│   Local Tree    │   Synced Tree   │      Remote Tree        │
-│  (disk state)   │  (merge base)   │   (server state)        │
-├─────────────────┼─────────────────┼─────────────────────────┤
-│ file.txt (v3)   │ file.txt (v2)   │ file.txt (v2)           │
-│ new.txt         │      -          │       -                 │
-│      -          │ deleted.txt     │       -                 │
-└─────────────────┴─────────────────┴─────────────────────────┘
-```
-
-**Why three trees?** Without a synced tree (merge base), you cannot distinguish:
-
-- "User deleted file locally" vs "File was never synced here"
-- "User created file locally" vs "File deleted on server"
-
-**Sync algorithm:**
-
-1. Compare Local vs Synced → detect local changes
-2. Compare Remote vs Synced → detect remote changes
-3. Apply non-conflicting changes bidirectionally
-4. Handle conflicts (see Conflict Resolution section)
-
-**Node identification:** Files identified by unique ID (not path), enabling O(1) atomic directory renames instead of O(n) path updates.
-
-### Chunking: Content-Defined Chunking (CDC)
-
-Fixed-size chunking fails catastrophically when content is inserted:
-
-```
-Fixed chunking (4-byte blocks):
-Before: [ABCD][EFGH][IJKL]
-Insert X at position 2:
-After:  [ABXC][DEFG][HIJK][L...]  ← All blocks change!
-
-Content-defined chunking:
-Before: [ABC|DEF|GHIJ]  (boundaries at content patterns)
-Insert X at position 2:
-After:  [ABXC|DEF|GHIJ]  ← Only first block changes
-```
-
-#### Gear Hash Algorithm
-
-Dropbox and modern implementations use **Gear hash** for chunk boundary detection:
-
-```typescript
-// Gear hash: FP_i = (FP_{i-1} << 1) + GearTable[byte]
-const GEAR_TABLE: Uint32Array = new Uint32Array(256) // Random values
+```ts title="gear.ts"
+const GEAR: Uint32Array = new Uint32Array(256) // one random 32-bit constant per byte value
 
 function findChunkBoundary(
   data: Uint8Array,
   minSize: number,
   maxSize: number,
-  mask: number, // e.g., 0x1FFF for ~8KB average
+  mask: number, // e.g. 0x1FFF for ~8 KiB average chunks
 ): number {
   let fp = 0
-
-  // Skip minimum chunk size (cut-point skipping optimization)
+  // Cut-point skipping: don't even look for boundaries inside the minimum-size region.
   for (let i = 0; i < Math.min(minSize, data.length); i++) {
-    fp = ((fp << 1) + GEAR_TABLE[data[i]]) >>> 0
+    fp = ((fp << 1) + GEAR[data[i]]) >>> 0
   }
-
-  // Search for boundary
   for (let i = minSize; i < Math.min(maxSize, data.length); i++) {
-    fp = ((fp << 1) + GEAR_TABLE[data[i]]) >>> 0
-    if ((fp & mask) === 0) {
-      return i + 1 // Boundary found
-    }
+    fp = ((fp << 1) + GEAR[data[i]]) >>> 0
+    if ((fp & mask) === 0) return i + 1
   }
-
-  return Math.min(maxSize, data.length) // Force boundary at max
+  return Math.min(maxSize, data.length) // force a boundary at maxSize
 }
 ```
 
-**Performance:** Gear hash performs 1 ADD + 1 SHIFT + 1 array lookup per byte, vs Rabin's 2 XORs + 2 SHIFTs + 2 lookups. FastCDC achieves **10x faster** than Rabin-based CDC.
+The full **FastCDC** algorithm (USENIX ATC 2016) layers two more tricks on top of plain Gear: a normalised chunk-size distribution that recovers the deduplication ratio Gear loses to its smaller effective window, and the cut-point skipping shown above. The headline result: ≈ **10× faster than Rabin-based CDC** at a comparable deduplication ratio, and ≈ **3× faster than vanilla Gear / AE-based CDC**[^fastcdc].
 
-**Chunk parameters:**
-| Parameter | Typical Value | Rationale |
-|-----------|---------------|-----------|
-| Min chunk | 2KB | Avoid tiny chunks |
-| Average chunk | 8KB (small files) / 4MB (large files) | Balance dedup vs overhead |
-| Max chunk | 64KB / 16MB | Bound worst-case |
-| Mask bits | 13 (8KB avg) | 2^13 = 8192 expected bytes between boundaries |
+[^fastcdc]: [FastCDC: A Fast and Efficient Content-Defined Chunking Approach for Data Deduplication (USENIX ATC '16)](https://www.usenix.org/system/files/conference/atc16/atc16-paper-xia.pdf) — see Table 1 (throughput) and §5 (dedup ratio).
 
-**Dropbox specifics:** 4MB blocks, SHA-256 content hash as block identifier.
+### How content-addressed dedup actually flows
 
-### Block Storage Architecture
+Whether the cut is fixed or content-defined, the system effect is the same: each block is named by `SHA-256(bytes)`, and the metadata service keeps a global `hash → (cell, bucket)` index. The client computes hashes locally, asks the server "which of these are missing?", and only uploads the ones the index has never seen — across every user, not just this one.
 
-![Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.](./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with-light.svg "Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.")
-![Block storage with three-zone replication. Blocks stored in at least 2 zones within 1 second, third zone async.](./diagrams/block-storage-with-three-zone-replication-blocks-stored-in-at-least-2-zones-with-dark.svg)
+![Chunk dedup flow: client hashes blocks, sends blocklist to metadata, metadata diffs against the global Block Index, client uploads only novel blocks, then re-commits.](./diagrams/chunk-dedup-flow-light.svg "The Block Index is global and content-addressed. Two unrelated users uploading the same VS Code installer pay for one block between them.")
+![Chunk dedup flow: client hashes blocks, sends blocklist to metadata, metadata diffs against the global Block Index, client uploads only novel blocks, then re-commits.](./diagrams/chunk-dedup-flow-dark.svg)
 
-**Block addressing:** Content hash (SHA-256) as block ID. Two identical blocks anywhere in the system share storage.
+## Three-tree planner: deriving sync from observations
 
-**Storage hierarchy:**
+The legacy "Sync Engine Classic" persisted *outstanding work* — "upload this file", "delete that one". Nucleus, the Rust rewrite that replaced it in 2020, persists *observations*: three filesystem trees that each represent a single consistent state, and a planner that derives operations to converge them[^nucleus][^nucleus-test].
 
-1. **Block** (4MB max): Unit of upload/download, content-addressed
-2. **Bucket** (1GB): Aggregation of blocks for efficient disk I/O
-3. **Cell** (~50-100PB): Failure domain, independent replication
-4. **Zone**: Geographic region
+[^nucleus]: [Rewriting the heart of our sync engine (Dropbox)](https://dropbox.tech/infrastructure/rewriting-the-heart-of-our-sync-engine) — the rewrite story; covers Rust, the Control thread, and the redesigned client-server protocol.
 
-**Durability math:**
+![Three trees: Local (disk), Remote (server), Synced (merge base). The Planner takes all three as input and emits a batch of operations to converge them.](./diagrams/three-tree-merge-base-light.svg "Without the Synced tree, an absent file is ambiguous: was it never synced, or was it deleted? The Synced tree resolves the ambiguity by recording what was last known to be in sync.")
+![Three trees: Local (disk), Remote (server), Synced (merge base). The Planner takes all three as input and emits a batch of operations to converge them.](./diagrams/three-tree-merge-base-dark.svg)
 
-- 3-zone replication
-- Within each zone: erasure coding or replication
-- Target: 99.9999999999% annual durability (< 1 block lost per 100 billion)
+The Synced tree is the load-bearing innovation — and the parallel to git is intentional. With only Local and Remote, the engine cannot distinguish "user deleted this file locally" from "this file was added on the server while the client was offline". Both look the same: present on one side, missing on the other. The Synced tree records the last state both sides agreed on, which lets the planner derive the *direction* of every change[^nucleus-test].
 
-### Metadata Service
+The other Nucleus invariant worth absorbing: **nodes are keyed by a stable unique identifier, not by path**. In Sync Engine Classic, a directory rename was a delete + add for every descendant — O(n) operations, observable by any application reading the folder mid-sync. In Nucleus, a rename is a single attribute update on one node[^nucleus-test].
 
-Metadata operations dominate traffic (10:1 vs block operations). Design for high read throughput.
+### What the planner actually emits
 
-#### Schema Design
+The planner output is a set of operations safe to execute concurrently, batched so dependencies (parent must exist before child) are respected. It also enforces an ordering invariant: a child node can never appear before its parent, even transiently. That single invariant — "no orphans, ever, even mid-sync" — was impossible to assert in Sync Engine Classic because the legacy protocol *could* send a metadata row for `/baz/cat` before `/baz`[^nucleus-test].
 
-```sql
--- File metadata (sharded by namespace_id)
-CREATE TABLE files (
-    namespace_id    BIGINT NOT NULL,      -- User/shared folder
-    file_id         UUID NOT NULL,        -- Stable identifier
-    path            TEXT NOT NULL,        -- Current path (mutable)
-    blocklist       UUID[] NOT NULL,      -- Ordered list of block hashes
-    size            BIGINT NOT NULL,
-    content_hash    BYTEA NOT NULL,       -- Hash of concatenated blocks
-    modified_at     TIMESTAMPTZ NOT NULL,
-    revision        BIGINT NOT NULL,      -- Monotonic version
-    is_deleted      BOOLEAN DEFAULT FALSE,
+### Convergence and termination
 
-    PRIMARY KEY (namespace_id, file_id)
-);
+The Planner runs in a loop: pick a batch of safe operations, apply, observe new tree state, repeat until all three trees match. This loop can fail in two ways: it never converges (livelock) or it converges to the wrong state. Both are checked by **CanopyCheck**, a randomised testing framework that generates the three trees randomly, drives the planner to fixpoint, and asserts that (a) it terminates in ≤ 200 iterations, (b) the trees are equal at the end, and (c) global invariants hold (e.g. "any unsynced server-side file is present in all three trees at the end")[^nucleus-test].
 
--- Enables path lookups within namespace
-CREATE INDEX idx_files_path ON files(namespace_id, path)
-    WHERE NOT is_deleted;
+## Conflict resolution: keep both, merge nothing
 
--- Journal for sync cursor (append-only)
-CREATE TABLE journal (
-    namespace_id    BIGINT NOT NULL,
-    journal_id      BIGINT NOT NULL,      -- Monotonic cursor
-    file_id         UUID NOT NULL,
-    operation       VARCHAR(10) NOT NULL, -- 'create', 'modify', 'delete', 'move'
-    timestamp       TIMESTAMPTZ NOT NULL,
+When the planner sees Local *and* Remote both diverged from Synced and the changes aren't identical, it has a conflict. The decision tree is small enough to fit on one diagram:
 
-    PRIMARY KEY (namespace_id, journal_id)
-);
+![Conflict resolution decision tree: edit + edit becomes a conflicted copy; edit + delete restores the edit; both delete is a no-op.](./diagrams/conflict-resolution-decision-light.svg "The conflict policy is intentionally dumb: keep the remote version at the canonical path, rename the local version. The user disambiguates intent later.")
+![Conflict resolution decision tree: edit + edit becomes a conflicted copy; edit + delete restores the edit; both delete is a no-op.](./diagrams/conflict-resolution-decision-dark.svg)
+
+```python title="planner_conflict.py"
+def resolve(local: Node, remote: Node, synced: Node) -> Action:
+    local_changed = local != synced
+    remote_changed = remote != synced
+
+    if not local_changed: return Action.PULL          # apply remote
+    if not remote_changed: return Action.PUSH         # apply local
+    if local == remote: return Action.NOOP            # idempotent
+    if local.is_delete and remote.is_delete: return Action.NOOP
+    if local.is_delete or remote.is_delete: return Action.RESTORE_EDIT
+    return Action.CONFLICTED_COPY                     # edit + edit
 ```
 
-**Sharding strategy:** By `namespace_id` (user account or shared folder). Co-locates all user's files on same shard.
+The "conflicted copy" name is exactly what Dropbox surfaces to users: `report (Sujay's conflicted copy 2026-04-21).pdf`[^conflict-help]. There is deliberately no algorithmic merge attempt because the file format is opaque to the sync engine — any byte-level merge of a `.docx`, a `.psd`, or a SQLite database is corruption.
 
-**Journal pattern:** Clients track sync position via `journal_id`. On reconnect, fetch all changes since last cursor—O(changes) not O(files).
+[^conflict-help]: [Why am I seeing "conflicted copy" in the name of a file? (Dropbox help)](https://help.dropbox.com/sync/conflicted-copy) — the user-facing description of the same policy described above.
 
-#### Caching Strategy
+| Strategy                | Pros                              | Cons                                                | Used by                                |
+| :---------------------- | :-------------------------------- | :-------------------------------------------------- | :------------------------------------- |
+| Conflicted copy         | No data loss, no domain knowledge | User has to merge manually                          | Dropbox, OneDrive, iCloud Drive        |
+| Last-write-wins         | Trivial, no metadata              | Silent data loss; flaky-clock dependent             | Internal logs, append-only stores      |
+| Vector clocks           | Causal correctness                | Per-file vector grows; doesn't fix opaque-merge     | Riak, Voldemort                         |
+| CRDTs                   | Automatic convergence              | Only works for specific data types (sets, counters) | Collaborative whiteboards, presence   |
+| Operational Transform   | Real-time concurrent edits        | Per-document complexity is brutal                   | Google Docs, Etherpad                  |
 
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Cache Hierarchy                          │
-├──────────────────┬──────────────────┬──────────────────────┤
-│   Client Cache   │   Edge Cache     │   Origin Cache       │
-│   (SQLite)       │   (Regional)     │   (Global)           │
-├──────────────────┼──────────────────┼──────────────────────┤
-│ Full tree state  │ Hot metadata     │ Frequently accessed  │
-│ Block cache      │ TTL: 5 seconds   │ TTL: 30 seconds      │
-│ Offline access   │ Namespace-keyed  │ File-id keyed        │
-└──────────────────┴──────────────────┴──────────────────────┘
-```
+The right reading of this table for an interview: "we're not merging bytes — we don't even own the file format — so we deliberately punt to the user with a no-data-loss strategy." Avoid the trap of "let's use CRDTs"; CRDTs solve a different problem (merging *semantically structured* state).
 
-**Invalidation:** Write-through to cache on metadata mutations. Short TTL acceptable because clients reconcile via journal cursor.
+### Edge cases worth knowing
 
-### Notification Service
+- **Edit / delete.** Remote deleted, local edited → restore the file with the local edit. Local deleted, remote edited → keep the remote (a remote edit "wins" against a local delete because losing a remote edit is silent data loss).
+- **Move + edit.** Apply the move, then sync the content to the new location. The stable file ID makes this unambiguous.
+- **Move + move.** Two clients move the same file to different parents. The engine picks an arbitrary winner by lexicographic comparison of the originating client's ID and surfaces the loser as a conflicted copy.
+- **Rename cycles.** Alberto moves `/Archives` into `/January`, Beatrice simultaneously moves `/January` into `/Archives`. The legacy engine produced duplicate directories; Nucleus picks an order based on which client's commit reaches the SFJ first[^nucleus].
 
-Real-time sync requires push notifications when remote changes occur.
+## The block sync protocol
 
-**Options:**
+The wire protocol mirrors the data model: metadata first, blocks second.
 
-| Mechanism    | Latency | Connections          | Use Case         |
-| ------------ | ------- | -------------------- | ---------------- |
-| Polling      | 5-30s   | Stateless            | Simple, legacy   |
-| Long polling | 1-5s    | Semi-persistent      | Moderate scale   |
-| WebSocket    | < 100ms | Persistent           | Real-time sync   |
-| SSE          | < 100ms | Persistent (one-way) | Server push only |
+![Block sync sequence: client sends blocklist to metadata service, server replies with the subset of missing block hashes, client uploads only those, then re-commits.](./diagrams/block-sync-protocol-light.svg "The metadata service rejects the first commit with the list of missing hashes. This is what makes uploads idempotent: a retry costs zero bytes if the blocks already arrived.")
+![Block sync sequence: client sends blocklist to metadata service, server replies with the subset of missing block hashes, client uploads only those, then re-commits.](./diagrams/block-sync-protocol-dark.svg)
 
-**Chosen: WebSocket with fallback to long polling**
+Two design properties to highlight:
 
-**Connection scaling:**
+1. **Commit-then-upload-then-recommit.** Sending the blocklist *first* lets the server tell the client which blocks it already has — across the entire system, not just this user's namespace. A user uploading the latest VS Code release pays for one or two new bytes. This is also where cross-user dedup happens: the server doesn't care *who* uploaded the block before, only that its hash is in the Block Index.
+2. **Block puts are idempotent.** The block server stores by hash; a duplicate `PutBlock` is a no-op. The metadata commit is the only thing that has to be transactional. If a client crashes mid-upload, it just re-runs the protocol; the partial uploads it already did still count.
 
-- 7M concurrent connections at peak
-- Each connection: ~10KB memory
-- Total: ~70GB memory for connection state
-- Horizontal scaling via connection affinity (consistent hashing on user_id)
+### Resumable upload state machine
 
-**Notification payload (minimal):**
+Idempotency at the wire level is what gives the client a clean, restartable state machine. The Nucleus engine treats each pending file as a tiny finite-state machine whose transitions are either client-driven (hash, upload, commit) or recovery edges back to a prior state on a crash, network partition, or server-reported missing-block list. The same diagram covers fresh uploads, resumes after a crash, and recoveries from a half-applied commit.
 
-```json
-{
-  "namespace_id": "ns_abc123",
-  "journal_id": 158293,
-  "hint": "file_changed" // Client fetches details via API
-}
-```
+![Resumable upload state machine: states for chunked, hashed, blocklist-committing, uploading, recommitting, and committed; failure edges return to the most recent durable state.](./diagrams/resumable-upload-state-machine-light.svg "Every transient state is recoverable from disk. The only durable progress is the SFJ commit, so all failure edges fall back to the last hash list or the last successful PutBlock.")
+![Resumable upload state machine: states for chunked, hashed, blocklist-committing, uploading, recommitting, and committed; failure edges return to the most recent durable state.](./diagrams/resumable-upload-state-machine-dark.svg)
 
-Keep payloads minimal—notification triggers sync, doesn't contain data.
+Three properties make the machine safe under arbitrary client/server crashes:
 
-## API Design
+- **Hashes are deterministic.** The client can always recompute `SHA-256` over the on-disk bytes, so the `Chunked → Hashed` edge is repeatable. There is no need to durably store the blocklist before commit.
+- **`PutBlock` is idempotent.** Re-uploading a block already in Magic Pocket costs one round-trip and zero storage.
+- **Commit is atomic and last.** The SFJ row is the single source of truth for "this revision exists". Until it is appended, no other client sees the new revision; after it is appended, the new state is durable. There is no in-between visible to the rest of the system.
 
-### Sync Flow APIs
+### Streaming sync: prefetch before commit
 
-#### List Changes (Cursor-Based)
+For large files, the simple protocol leaves throughput on the table: clients downloading the file can't start until the upload commit succeeds, even though most blocks are already in Magic Pocket. **Streaming Sync** lets the metadata service speculatively notify downloaders about a not-yet-committed blocklist (kept in memcache, not the SFJ), so they can prefetch blocks while the writer is still pushing. In Dropbox's published benchmark on a typical asymmetric link (~1.2 MB/s up, ~5 MB/s down), this cut multi-client sync time by ~25 % on a 100 MB file, with the theoretical headroom approaching 2× as files get larger and the upload/download bandwidth approaches parity[^streaming].
 
-```
-GET /api/v2/files/list_folder/continue
-```
+### Cursor-based delta API
 
-**Request:**
+Clients sync by tracking an opaque cursor encoded with `(namespace_id, journal_id)`. On reconnect they call `list_folder/continue(cursor)` and get back every change since that JID — O(changes), not O(files). Cursors are stable under concurrent writes (the SFJ is append-only, JIDs are monotonic) and let a client disconnect for hours and resume exactly where it left off.
 
-```json
-{
-  "cursor": "AAGvR5..." // Opaque cursor encoding (namespace_id, journal_id)
-}
-```
+```http title="API surface"
+POST /2/files/list_folder/continue
+{ "cursor": "AAGvR5..." }
 
-**Response:**
-
-```json
+200 OK
 {
   "entries": [
-    {
-      "tag": "file",
-      "id": "id:abc123",
-      "path_display": "/Documents/report.pdf",
-      "rev": "015a3e0c4b650000000",
-      "size": 1048576,
-      "content_hash": "e3b0c44298fc1c149afbf4c8996fb924...",
-      "server_modified": "2024-01-15T10:30:00Z"
-    },
-    {
-      "tag": "deleted",
-      "id": "id:def456",
-      "path_display": "/old-file.txt"
-    }
+    { "tag": "file", "id": "id:abc", "rev": "015a3e", "content_hash": "e3b0..." },
+    { "tag": "deleted", "id": "id:def" }
   ],
   "cursor": "AAGvR6...",
   "has_more": false
 }
 ```
 
-**Why cursor-based:**
+The cursor is the *only* thing the client persists for sync state. Lose it, and you fall back to a full `list_folder` scan; corrupt it, and you risk missing changes — which is why the server signs / opaquely encodes it instead of letting the client mint one.
 
-- Stable under concurrent modifications
-- Client can disconnect/reconnect and resume exactly
-- O(1) database lookup vs O(n) offset skip
+## Notification fan-out: WebSocket plus journal
 
-#### Upload Session (Block-Based)
+Polling for changes at 1-second granularity over 7 M concurrent clients is wasteful (most calls return nothing). Long-poll was Dropbox's original mechanism, and modern clients use a persistent WebSocket connection that the notification service uses to push hints when the user's namespace gets a new SFJ row[^streaming].
 
-**Phase 1: Start session**
+![Notification fan-out: writer commits, metadata appends SFJ row, notification service pushes a hint to readers, readers fetch deltas via cursor.](./diagrams/notification-fanout-light.svg "Notification payloads carry no file content — just 'namespace N has new entries past your cursor'. This decouples the push system's throughput from file size.")
+![Notification fan-out: writer commits, metadata appends SFJ row, notification service pushes a hint to readers, readers fetch deltas via cursor.](./diagrams/notification-fanout-dark.svg)
 
-```
-POST /api/v2/files/upload_session/start
-```
+Two things keep this affordable:
 
-```json
-{
-  "session_type": "concurrent", // Allows parallel block uploads
-  "content_hash": "e3b0c44..." // Optional: skip if file unchanged
-}
-```
+- **The push payload is a hint, not data.** It carries `(namespace_id, latest_jid)` and nothing else. Clients fetch the actual delta over the regular cursor API. This means notification servers don't need to fan out file content, only short events, and they survive the writer-side burstiness of "user dropped a 2 GB folder".
+- **Connection affinity by namespace.** Clients for the same namespace are routed (via consistent hashing on `namespace_id`) to the same notification node, so the metadata service only fans out one event per namespace, not one per client.
 
-**Phase 2: Append blocks (parallelizable)**
+A WebSocket connection in steady state is cheap (~10 KB of kernel + userspace state), so 7 M concurrent connections is ~70 GB of memory across the notification fleet. The harder constraints are file descriptor limits per host (`ulimit -n`) and load-balancer connection capacity, both of which push the design toward many small notification nodes rather than few large ones.
 
-```
-POST /api/v2/files/upload_session/append_v2
-Content-Type: application/octet-stream
-Dropbox-API-Arg: {"cursor": {"session_id": "...", "offset": 0}}
+> [!TIP]
+> The `(opaque cursor, hint-only push, idempotent delta fetch)` pattern is the same one used by Slack's RTM, Notion's sync, GitHub's webhook redelivery, and most CRM "real-time" feeds. The mechanics are interchangeable; what differs is the *granularity* of what a "namespace" means.
 
-[4MB binary block data]
-```
+## Metadata service and the journal
 
-**Phase 3: Finish and commit**
+The metadata service is, in practice, a big sharded SQL deployment storing two tables that matter:
 
-```
-POST /api/v2/files/upload_session/finish
-```
+```sql title="metadata-schema.sql"
+-- Files: current state, sharded by namespace_id
+CREATE TABLE files (
+    namespace_id    BIGINT       NOT NULL,
+    file_id         UUID         NOT NULL,           -- stable, survives moves
+    path            TEXT         NOT NULL,           -- mutable
+    blocklist       UUID[]       NOT NULL,           -- ordered SHA-256s
+    size            BIGINT       NOT NULL,
+    content_hash    BYTEA        NOT NULL,           -- hash-of-blocklist
+    revision        BIGINT       NOT NULL,           -- monotonic per file
+    is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
+    modified_at     TIMESTAMPTZ  NOT NULL,
+    PRIMARY KEY (namespace_id, file_id)
+);
 
-```json
-{
-  "cursor": { "session_id": "...", "offset": 12582912 },
-  "commit": {
-    "path": "/Documents/large-file.zip",
-    "mode": "overwrite",
-    "mute": false // true = don't notify other clients immediately
-  }
-}
-```
-
-**Response includes block deduplication:**
-
-```json
-{
-  "id": "id:abc123",
-  "size": 12582912,
-  "blocks_reused": 2, // Blocks already existed
-  "blocks_uploaded": 1, // New blocks stored
-  "bytes_transferred": 4194304 // Only new block data
-}
+-- Server File Journal: append-only change log per namespace
+CREATE TABLE journal (
+    namespace_id    BIGINT       NOT NULL,
+    journal_id      BIGINT       NOT NULL,           -- monotonic per namespace
+    file_id         UUID         NOT NULL,
+    operation       VARCHAR(10)  NOT NULL,           -- create | modify | delete | move
+    timestamp       TIMESTAMPTZ  NOT NULL,
+    PRIMARY KEY (namespace_id, journal_id)
+);
 ```
 
-### Block Sync Protocol
+Sharding key is `namespace_id`. This keeps a user's entire root and their joined shared folders on the same shard, so the common operation — "give me everything in namespace N since cursor C" — is a single-shard range scan. It also means a busy team's folder all lives on one shard, which is fine because the journal is append-only and the read load is dominated by deltas, not full scans.
 
-![Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.](./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre-light.svg "Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.")
-![Upload flow: commit blocklist first, upload only missing blocks, then finalize. Streaming sync allows downloads to begin before upload completes.](./diagrams/upload-flow-commit-blocklist-first-upload-only-missing-blocks-then-finalize-stre-dark.svg)
+### Caching policy
 
-**Streaming sync optimization:** Clients can prefetch blocks from partial blocklists before commit finalizes—reduces end-to-end sync time by 2x for large files.
+Three caching layers, each with a distinct invalidation story:
 
-## Low-Level Design: Conflict Resolution
+| Layer        | Lives on        | Holds                             | TTL    | Invalidation                           |
+| ------------ | --------------- | --------------------------------- | ------ | -------------------------------------- |
+| Client       | Disk (SQLite)   | Full local subtree state, block cache | None  | Reconciled via journal cursor on every poll |
+| Edge / regional | Memory (regional) | Hot path metadata for a namespace | Seconds | TTL — short because clients self-correct via cursor |
+| Origin       | Memory (per-shard) | Frequently-accessed `(namespace, file_id)` | Tens of seconds | Write-through on metadata mutation     |
 
-### Conflict Detection
+The reason short TTLs are *acceptable* here is the same reason cursors are: clients reconcile via the journal anyway, so a stale read is corrected on the next poll. The cache is an optimisation for read latency, not a source of truth.
 
-Conflicts occur when both local and remote trees changed the same file since the synced tree state:
+## Magic Pocket: the data plane
 
-```
-Timeline:
-t0: Synced tree = {file.txt, rev=5}
-t1: Local edit  → Local tree = {file.txt, rev=5, modified}
-t2: Remote edit → Remote tree = {file.txt, rev=6}
-t3: Sync attempt → CONFLICT (local modified, remote also modified)
-```
+The block service is a thin shim. The thing behind it — Dropbox's content-addressable storage system, **Magic Pocket** — is the part worth designing carefully. It's an immutable block store: blocks go in, never change, eventually get garbage-collected when no SFJ row references them. Capacity is multi-exabyte, durability is 12 nines on paper[^durability], and Dropbox claims the migration off S3 saved roughly **$75 M in operating costs** over the first two years[^smr].
 
-**Detection algorithm:**
+[^smr]: [Extending Magic Pocket Innovation with the first petabyte-scale SMR drive deployment (Dropbox)](https://dropbox.tech/infrastructure/extending-magic-pocket-innovation-with-the-first-petabyte-scale-smr-drive-deployment) — also covers SMR drive adoption and the $75 M figure (as of 2018).
 
-```python
-def detect_conflict(local: Node, remote: Node, synced: Node) -> ConflictType:
-    local_changed = local != synced
-    remote_changed = remote != synced
+![Magic Pocket: zone-local frontend talks to a sharded MySQL block index; data lives in cells (~50 PB each, capped at ~100 PB by the central per-cell Master) split across zones with ≤ 1s async cross-zone replication.](./diagrams/magic-pocket-zones-light.svg "Cells are independent failure domains. The Master per cell is centralised but soft-state — reads survive its absence; only new bucket creation stalls.")
+![Magic Pocket: zone-local frontend talks to a sharded MySQL block index; data lives in cells (~50 PB each, capped at ~100 PB by the central per-cell Master) split across zones with ≤ 1s async cross-zone replication.](./diagrams/magic-pocket-zones-dark.svg)
 
-    if not local_changed:
-        return ConflictType.NONE  # Apply remote
-    if not remote_changed:
-        return ConflictType.NONE  # Apply local
-    if local == remote:
-        return ConflictType.NONE  # Same change, no conflict
+### The hierarchy
 
-    # Both changed differently
-    if local.is_delete and remote.is_delete:
-        return ConflictType.NONE  # Both deleted, no conflict
-    if local.is_delete or remote.is_delete:
-        return ConflictType.EDIT_DELETE
+| Level    | Size                     | Purpose                                                  |
+| -------- | ------------------------ | -------------------------------------------------------- |
+| Block    | ≤ 4 MiB                  | Unit of upload / download, content-addressed              |
+| Bucket   | 1 GiB                    | Aggregate of blocks; unit of placement and erasure coding |
+| Volume   | one or more buckets, replicated across OSDs | Unit of repair                          |
+| Cell     | ~50 PB (cap ~100 PB)     | Independent failure domain, single Master                |
+| Zone     | many cells               | Geographic region; independent admin / network domain    |
 
-    return ConflictType.EDIT_EDIT
-```
+Each block is placed in **at least two zones**, with cross-zone replication completing within ~1 second of the local write[^magic-pocket]. Within a zone, recently-uploaded data is replicated; older, colder data is rolled into erasure-coded volumes (Reed–Solomon, with Local Reconstruction Codes for read-cost optimisation) for storage efficiency.
 
-### Conflict Resolution Strategy
+[^magic-pocket]: [Inside the Magic Pocket (Dropbox)](https://dropbox.tech/infrastructure/inside-the-magic-pocket) — defines blocks, buckets, volumes, cells, zones, the Block Index, and the per-cell Master.
 
-**Chosen approach: Conflicted copies**
+### Design choices worth understanding
 
-When conflict detected:
+- **Sharded MySQL is the Block Index.** Hash → `(cell, bucket, checksum)`. Magic Pocket's authors deliberately *avoided* a custom KV store: MySQL gave them an expressive schema, mature operational tooling, and a team that already knew how to run it at scale[^magic-pocket]. This is a recurring lesson — "boring tech the team already runs" beats "the perfect data store the team has to learn."
+- **Master per cell, soft state.** Each cell has one Master, which coordinates repair, garbage collection, and bucket creation. It's *not* on the data path — reads survive a Master outage; only the rate of new bucket creation slows. This bounds cell size to ~100 PB before the Master itself becomes a bottleneck, which is precisely *why* the system is decomposed into many cells.
+- **Open-vs-closed volumes.** A volume is either open (accepts writes, pinned to its OSDs) or closed (immutable, can be moved around for repair / erasure coding). This single bit removes most of the concurrency between the data path and the repair path: live traffic never collides with background work because they touch disjoint volume sets.
+- **Frontends are stateless.** They look up the cell from the Block Index, the OSDs from the cell's Replication Table, and write directly. Failures retry on a different volume, possibly a different cell.
+- **No quorum protocol.** Frontends write to all replica OSDs and wait for fsync; quorum-based protocols would have lower tail latency at the cost of much more code. Dropbox's authors chose the simpler approach explicitly[^magic-pocket].
 
-1. Keep the remote version at original path
-2. Create local version as `filename (Computer Name's conflicted copy YYYY-MM-DD).ext`
-3. User manually resolves by keeping preferred version
+> [!IMPORTANT]
+> The fact that Magic Pocket is **immutable** is what lets every other simplification stand. The legacy Sync Engine "rev = pair of (delete, add)" ambiguities, the conflicted-copy strategy that never byte-merges, the Broccoli compression that pre-compresses on store, the SMR drive adoption — all of them depend on blocks never changing once written.
 
-**Why not auto-merge:**
+## Bandwidth optimisation
 
-- File formats are opaque (binary, proprietary)
-- Wrong merge = data corruption (worse than duplicate)
-- User knows intent; algorithm cannot
-- Simple, predictable behavior
+CDC + delta sync is necessary but not sufficient. Three further layers, in order of impact:
 
-**Alternative strategies (not chosen):**
+### Broccoli — the Brotli variant Dropbox actually uses
 
-| Strategy                   | Pros             | Cons                       | Use Case           |
-| -------------------------- | ---------------- | -------------------------- | ------------------ |
-| Last-write-wins            | Simple           | Data loss                  | Logs, non-critical |
-| Vector clocks              | Tracks causality | Complex, metadata overhead | Distributed DBs    |
-| CRDTs                      | Auto-merge       | Limited data types         | Collaborative text |
-| OT (Operational Transform) | Real-time collab | Extreme complexity         | Google Docs        |
+Dropbox compresses blocks with **Broccoli**, a modified Brotli encoder that produces concatenateable chunks (so multiple cores can compress different parts of a file in parallel and the results glue together at the byte level). The published numbers from the rollout[^broccoli]:
 
-### Edge Cases
+| Path     | Median bandwidth saving | p50 latency improvement | Notes                                            |
+| -------- | ----------------------- | ----------------------- | ------------------------------------------------ |
+| Upload   | ~30 %                   | ~35 % faster            | Quality level lowered from 5 → tuned for client CPU |
+| Download | ~15 % (avg daily, all requests) | ~50 % faster | Higher-quality codings precomputed in Magic Pocket |
 
-**Edit-delete conflict:**
+[^broccoli]: [Broccoli: Syncing faster by syncing less (Dropbox)](https://dropbox.tech/infrastructure/-broccoli--syncing-faster-by-syncing-less) — covers the Brotli protocol modifications, Rust implementation, and rollout metrics.
 
-- Remote deleted, local edited → Restore file with local edits
-- Local deleted, remote edited → Keep remote version, local delete is lost
+Two non-obvious lessons from the rollout:
 
-**Directory conflicts:**
+- **Compression became the bottleneck on fat client uplinks.** At quality level 5, Broccoli couldn't keep up with 100+ Mbps connections, so Dropbox lowered the quality at the cost of slightly larger payloads. The principle: prefer *throughput* over *bytes saved* whenever bytes saved aren't actually saving wall-clock time.
+- **End-to-end hash check is non-negotiable.** Broccoli is in safe Rust, but client RAM mostly isn't ECC. Dropbox sends the hash of the *uncompressed* block alongside the compressed payload and re-checks on the server, because they observed real-world memory corruption rates that would silently corrupt files otherwise.
 
-- Move vs edit: Apply move, file content syncs to new location
-- Move vs move: Create conflicted folder name
-- Delete folder with unsynced children: Preserve unsynced files in special recovery folder
+### LAN sync — peer-to-peer block fetch
 
-**Rename loops:**
+If two clients on the same network both want a block, fetching it from each other is faster and cheaper than going to Magic Pocket. LAN sync is mostly a *security* design problem, because the obvious design (broadcast "who has block X?") leaks information about what files exist. Dropbox's solution[^lan-sync]:
 
-- A renames folder X→Y, B renames Y→X simultaneously
-- Resolution: Arbitrary tiebreaker (lexicographic on device ID)
+[^lan-sync]: [Inside LAN Sync (Dropbox)](https://dropbox.tech/infrastructure/inside-lan-sync) — UDP discovery, per-namespace SSL, mTLS / SNI, key rotation on membership change.
 
-## Low-Level Design: Delta Sync
+![LAN sync: clients announce themselves on UDP 17500, then fetch blocks from peers over HTTPS with mutual TLS using a per-namespace certificate.](./diagrams/lan-sync-discovery-light.svg "Per-namespace mutual TLS means a peer can only request a block if both ends hold the certificate for the namespace that block belongs to. Removing a user from a shared folder rotates the cert.")
+![LAN sync: clients announce themselves on UDP 17500, then fetch blocks from peers over HTTPS with mutual TLS using a per-namespace certificate.](./diagrams/lan-sync-discovery-dark.svg)
 
-For files that change incrementally (e.g., appending to logs, editing documents), transferring only the diff provides massive bandwidth savings.
+- **Discovery** is a UDP broadcast on port 17500 (IANA-assigned to Dropbox as `db-lsp`)[^iana]. Each broadcast advertises the protocol version, the namespaces the client has access to, the TCP port the LAN sync server is listening on, and a random ID (so clients can detect their own broadcasts and de-duplicate peers seen via multiple interfaces).
+- **Transfer** is HTTPS with the path `/blocks/{namespace_id}/{block_hash}`, supporting `HEAD` (do you have it?) and `GET`. Both ends authenticate to the same per-namespace certificate, indicated via SNI. If you're not on the namespace, you can't even open the connection.
+- **Cert rotation on membership change.** When someone leaves a shared folder, that namespace's certificate is rotated by Dropbox servers, so the ex-member's client can no longer fetch blocks for it from peers.
 
-### Block-Level Delta
+[^iana]: [IANA Service Name and Transport Protocol Port Number Registry](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=17500) — port 17500 is registered as `db-lsp` ("Dropbox LanSync Protocol").
 
-When a file changes, recompute chunk boundaries:
+### Sub-block delta with rsync
 
-```
-Before: [Block A][Block B][Block C]
-        (hash_a) (hash_b) (hash_c)
+For files where the *content* of a block (not just its position) changed slightly — appending to a log, editing a paragraph — rsync's rolling-checksum algorithm finds matching subsequences inside the changed block, so the wire format becomes "copy bytes 0–700 from old block, here are 24 new literal bytes, copy bytes 724–4096 from old block"[^rsync]. The pseudocode below is the textbook rsync algorithm, lightly simplified:
 
-Edit middle of Block B:
+[^rsync]: [The rsync algorithm (Tridgell & Mackerras, 1996)](https://rsync.samba.org/tech_report/) — original technical report. The "weak rolling + strong cryptographic" two-checksum design is the same one used today.
 
-After:  [Block A][Block B'][Block C]
-        (hash_a) (hash_b') (hash_c)
+```python title="rsync_delta.py"
+def compute_delta(old: bytes, new: bytes, window: int = 700) -> list[Op]:
+    weak_index: dict[int, list[tuple[int, bytes]]] = {}
+    for i in range(0, len(old) - window, window):
+        block = old[i:i + window]
+        weak_index.setdefault(adler32(block), []).append((i, sha256(block).digest()))
 
-Blocks to upload: only Block B' (hash_b')
-Bandwidth saved: 66% (2 of 3 blocks reused)
-```
-
-**Content-defined chunking is critical:** Fixed-size chunks would shift all boundaries after an insertion, invalidating all subsequent blocks.
-
-### Sub-Block Delta (Binary Diff)
-
-For further optimization within changed blocks, use rsync-style rolling checksums:
-
-```python
-def compute_delta(old_block: bytes, new_block: bytes) -> Delta:
-    """Rsync algorithm: find matching regions, send only diffs."""
-    BLOCK_SIZE = 700  # Rolling checksum window
-
-    # Build index of old block's checksums
-    old_checksums = {}
-    for i in range(0, len(old_block) - BLOCK_SIZE, BLOCK_SIZE):
-        weak = adler32(old_block[i:i+BLOCK_SIZE])
-        strong = sha256(old_block[i:i+BLOCK_SIZE])
-        old_checksums[weak] = (i, strong)
-
-    # Scan new block with rolling checksum
-    delta = []
+    delta: list[Op] = []
     i = 0
-    while i < len(new_block) - BLOCK_SIZE:
-        weak = rolling_adler32(new_block, i, BLOCK_SIZE)
-
-        if weak in old_checksums:
-            offset, expected_strong = old_checksums[weak]
-            actual_strong = sha256(new_block[i:i+BLOCK_SIZE])
-
-            if actual_strong == expected_strong:
-                # Match found - emit COPY instruction
-                delta.append(Copy(source_offset=offset, length=BLOCK_SIZE))
-                i += BLOCK_SIZE
-                continue
-
-        # No match - emit literal byte
-        delta.append(Literal(new_block[i]))
-        i += 1
-
+    rolling = adler32(new[:window])
+    while i + window <= len(new):
+        if rolling in weak_index:
+            for offset, strong in weak_index[rolling]:
+                if sha256(new[i:i + window]).digest() == strong:
+                    delta.append(Copy(src=offset, length=window))
+                    rolling = adler32(new[i + window:i + 2 * window])
+                    i += window
+                    break
+            else:
+                delta.append(Literal(new[i]))
+                rolling = roll(rolling, new[i], new[i + window], window)
+                i += 1
+        else:
+            delta.append(Literal(new[i]))
+            rolling = roll(rolling, new[i], new[i + window], window)
+            i += 1
+    delta.append(Literal(new[i:]))
     return delta
 ```
 
-**Rolling checksum:** Adler-32 based, can update in O(1) as window slides:
+The two-checksum design (cheap rolling Adler-style hash to short-circuit, strong cryptographic hash to confirm) is the classic pattern; it's the same shape Git uses for pack file deltas and `xdelta` uses for binary patches.
 
-```
-a(i+1, i+n) = a(i, i+n-1) - old_byte + new_byte
-b(i+1, i+n) = b(i, i+n-1) - n*old_byte + a(i+1, i+n)
-checksum = b * 65536 + a
-```
+## Client architecture
 
-**Real-world impact:** Binary diff on a 100MB database file with 1KB change: ~2KB transfer instead of 100MB (**50,000x reduction**).
+The desktop client is where most of the engineering complexity lives. Three subsystems matter:
 
-## Low-Level Design: Bandwidth Optimization
+- **Filesystem watcher.** macOS uses [FSEvents](https://developer.apple.com/documentation/coreservices/file_system_events) (coalesced, scales to deep trees). Linux uses [inotify](https://man7.org/linux/man-pages/man7/inotify.7.html), which has a per-user watch limit (`fs.inotify.max_user_watches`) historically defaulting to 8 192 on older kernels and 65 536+ on modern ones — large folder trees still benefit from periodic polling fallback. Windows uses [`ReadDirectoryChangesW`](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw).
+- **Sync engine (Nucleus).** Written in Rust, runs almost entirely on a single "Control" thread, with futures for concurrency. Network I/O goes to an event loop, hashing to a thread pool, filesystem I/O to a dedicated thread. The single-thread design is what makes the engine deterministic — and therefore testable with seeded randomised testing — at the cost of needing to be careful never to do CPU-heavy work on the Control thread itself[^nucleus].
+- **Local SQLite.** Stores the three trees, the block cache index, and the sync cursor. The cursor is the *only* state that can't be reconstructed by re-downloading; everything else can be rebuilt from disk and the server.
 
-### Compression Pipeline
+### Smart Sync (placeholders)
 
-Dropbox's **Broccoli** (modified Brotli) achieves 30% bandwidth savings:
+Large accounts can exceed local disk. Smart Sync — originally announced as "Project Infinite" in 2016[^infinite] — exposes every file in the user's namespace as a placeholder in the local filesystem; opening one triggers an on-demand download.
 
-```
-┌─────────────────────────────────────────────────────┐
-│              Compression Pipeline                    │
-├─────────────────────────────────────────────────────┤
-│ 1. Chunk file (CDC)                                 │
-│ 2. Compress each chunk independently (parallel)     │
-│ 3. Concatenate compressed streams                   │
-│ 4. Upload concatenated result                       │
-├─────────────────────────────────────────────────────┤
-│ Broccoli modifications:                             │
-│ - Uncompressed meta-block header for context        │
-│ - Disabled dictionary references across blocks      │
-│ - Enables parallel compression + concatenation      │
-└─────────────────────────────────────────────────────┘
-```
+[^infinite]: [A revolutionary new way to access all your files (Dropbox blog)](https://blog.dropbox.com/topics/company/announcing-project-infinite) — the original Project Infinite announcement.
 
-**Performance impact:**
-| Metric | Before Broccoli | After Broccoli |
-|--------|-----------------|----------------|
-| Upload bandwidth | 100% | ~70% (30% savings) |
-| Download bandwidth | 100% | ~85% (15% savings) |
-| p50 upload latency | baseline | 35% faster |
-| p50 download latency | baseline | 50% faster |
+The interesting part is that this is *not* a custom kernel extension anymore. Dropbox now uses platform-native APIs:
 
-### LAN Sync
+- **macOS** ships [File Provider extensions](https://developer.apple.com/documentation/fileprovider) (the same framework iCloud Drive uses); the Dropbox folder lives at `~/Library/CloudStorage/Dropbox` and the OS owns the placeholder lifecycle[^file-provider].
+- **Windows** uses the [Cloud Files API / Cloud Filter API](https://learn.microsoft.com/en-us/windows/win32/cfapi/cloud-files-api-portal), which exposes hydrated / dehydrated states to Explorer.
 
-When multiple clients on same LAN have the same blocks, transfer locally instead of through cloud:
+[^file-provider]: [Dropbox support for macOS on File Provider (Dropbox help)](https://help.dropbox.com/installs/dropbox-for-macos-support) — covers the migration off the Dropbox kernel extension to Apple's File Provider framework.
 
-**Discovery:** UDP broadcast on port 17500 (IANA-reserved for Dropbox)
+Both moves were forced by platform vendors deprecating the old kernel-extension / FUSE-style integrations, but the architectural payoff was significant: less platform-specific code, no per-OS-version crash surface, no kext signing dance, and the OS handles things like virus-scanner interactions correctly.
 
-**Protocol:**
+## Operational reality
 
-```
-GET https://<lan-peer>/blocks/{namespace_id}/{block_hash}
-Authorization: Bearer <namespace-scoped-certificate>
-```
+A few production failure modes worth knowing — these are the ones that will actually page someone:
 
-**Security:** Per-namespace SSL certificates issued by Dropbox servers, rotated when shared folder membership changes. Prevents unauthorized block access even on local network.
+- **inotify watch exhaustion** on Linux clients with very large trees. The watcher silently stops firing for new directories. Mitigation: detect via `EMFILE`/`ENOSPC` from `inotify_add_watch`, fall back to coarse polling for the affected subtree.
+- **Clock skew between client and server** breaks `If-Modified-Since`-style headers. Block protocol avoids this by using content hashes, but file metadata (mtime) is best-effort and shouldn't drive sync decisions; the server's `revision` is authoritative.
+- **Shared-folder cert rotation lag.** When a member is removed, in-flight LAN sync connections still hold the old cert. Mitigation: short keep-alive timeout + revocation on next handshake.
+- **Notification connection thundering herd** on regional outage / restart. 7 M clients reconnecting simultaneously will saturate any single notification node. Mitigation: jittered reconnect backoff in the client, plus connection-affinity routing so reconnects naturally shard.
+- **SFJ shard hot-spot** on a viral shared folder. Solution is to pre-split very large team namespaces across shards using composite keys, even though it costs locality.
 
-**Bandwidth savings:** 100% of block data stays on LAN for shared team folders.
+## What you'd answer differently in an interview
 
-### Upload Prioritization
+- **Don't pitch CRDTs for Dropbox.** They solve a different problem (semantic merging of structured state). Conflicted copies are the right answer for opaque files.
+- **Don't pitch a custom KV store for the Block Index.** Magic Pocket runs sharded MySQL on purpose. Pick the boring option that the team already operates.
+- **Don't conflate the metadata plane and the data plane.** Bring this up explicitly — it's the load-bearing simplification, and it lets you talk about caching, sharding, and dedup on the right plane.
+- **Pick one or two depth dives.** Three trees + CDC, or CDC + Magic Pocket, or block protocol + notification fan-out. Trying to cover everything turns into a tour rather than a design.
 
-Not all files are equal. Prioritize based on:
+## Out of scope (deliberately)
 
-1. **User-initiated actions** (explicit upload) > Background sync
-2. **Small files** > Large files (faster perceived completion)
-3. **Recently modified** > Old files
-4. **Active documents** > Archives
+- Team admin, audit logging, compliance (SOC 2, HIPAA), data residency.
+- Mobile-specific battery and bandwidth scheduling.
+- Search, indexing, content previews — these are downstream consumers of the SFJ, not part of the sync engine.
+- Dropbox Paper, Dash, and the rest of the application layer.
 
-**Implementation:** Priority queue with aging to prevent starvation.
+## References
 
-## Frontend Considerations
-
-### Desktop Client Architecture
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Desktop Client                           │
-├──────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ File System │  │ Sync Engine │  │ Network Layer       │  │
-│  │ Watcher     │  │             │  │                     │  │
-│  │             │  │ Three Trees │  │ HTTP/2 multiplexing │  │
-│  │ inotify/    │──│ Reconciler  │──│ WebSocket notify    │  │
-│  │ FSEvents    │  │             │  │ Block upload/down   │  │
-│  │             │  │ Conflict    │  │                     │  │
-│  │             │  │ Handler     │  │ Retry + backoff     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                    Local Database                        ││
-│  │  SQLite: tree state, block cache index, sync cursor     ││
-│  └─────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────┘
-```
-
-**File system watching:**
-
-- macOS: FSEvents (coalesced, efficient)
-- Linux: inotify (per-file, watch limits ~8192 default)
-- Windows: ReadDirectoryChangesW
-
-**Watch limit handling:** For large folders exceeding inotify limits, fall back to periodic polling with checksums.
-
-### Sync Status UI
-
-Users need visibility into sync state:
-
-```typescript
-interface SyncStatus {
-  state: "synced" | "syncing" | "paused" | "offline" | "error"
-  pendingFiles: number
-  pendingBytes: number
-  currentFile?: {
-    path: string
-    progress: number // 0-100
-    speed: number // bytes/sec
-  }
-  errors: SyncError[]
-}
-```
-
-**Status indicators:**
-
-- ✓ Green checkmark: Fully synced
-- ↻ Blue arrows: Syncing in progress
-- ⏸ Gray pause: Paused (user-initiated or bandwidth limit)
-- ⚠ Yellow warning: Conflicts or errors need attention
-- ✕ Red X: Critical error (auth failed, storage full)
-
-### Selective Sync
-
-Large Dropbox accounts may exceed local disk. Allow users to choose which folders sync locally:
-
-```typescript
-interface SelectiveSyncConfig {
-  // Folders to sync (whitelist approach)
-  includedPaths: string[]
-
-  // Or folders to exclude (blacklist approach for "sync everything except")
-  excludedPaths: string[]
-
-  // Smart sync: files appear in finder but download on-demand
-  smartSyncEnabled: boolean
-  smartSyncPolicy: "local" | "online-only" | "mixed"
-}
-```
-
-**Smart Sync (virtual files):**
-
-- Files appear in file browser with cloud icon
-- Open file → triggers download
-- Configurable: keep local after access vs evict after N days
-- Requires OS integration (Windows: Cloud Files API, macOS: File Provider)
-
-## Infrastructure Design
-
-### Cloud-Agnostic Concepts
-
-| Component      | Concept                              | Requirements                             |
-| -------------- | ------------------------------------ | ---------------------------------------- |
-| Block storage  | Object store with content addressing | High durability, geo-replication         |
-| Metadata store | Sharded relational DB                | Strong consistency, high read throughput |
-| Cache          | Distributed key-value                | Sub-ms latency, TTL support              |
-| Notification   | Pub/sub with persistent connections  | Millions of concurrent connections       |
-| Compute        | Container orchestration              | Auto-scaling, rolling deploys            |
-
-### AWS Reference Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     AWS Infrastructure                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐     ┌──────────────┐     ┌─────────────┐ │
-│  │ Route 53     │────▶│ CloudFront   │────▶│ ALB         │ │
-│  │ (DNS)        │     │ (CDN)        │     │             │ │
-│  └──────────────┘     └──────────────┘     └──────┬──────┘ │
-│                                                    │        │
-│  ┌────────────────────────────────────────────────▼──────┐ │
-│  │                    ECS / EKS                          │ │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │ │
-│  │  │ API      │ │ Metadata │ │ Block    │ │ Notify   │ │ │
-│  │  │ Gateway  │ │ Service  │ │ Service  │ │ Service  │ │ │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                    Data Layer                           ││
-│  │                                                         ││
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ││
-│  │  │ Aurora       │  │ ElastiCache  │  │ S3           │  ││
-│  │  │ PostgreSQL   │  │ Redis        │  │ (Block Store)│  ││
-│  │  │ (Metadata)   │  │ (Cache)      │  │              │  ││
-│  │  └──────────────┘  └──────────────┘  └──────────────┘  ││
-│  │                                                         ││
-│  │  ┌──────────────┐  ┌──────────────┐                    ││
-│  │  │ DynamoDB     │  │ SQS/SNS      │                    ││
-│  │  │ (Journal)    │  │ (Events)     │                    ││
-│  │  └──────────────┘  └──────────────┘                    ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
-
-| Component     | AWS Service                    | Configuration                                 |
-| ------------- | ------------------------------ | --------------------------------------------- |
-| Metadata DB   | Aurora PostgreSQL              | Multi-AZ, read replicas                       |
-| Block storage | S3                             | Cross-region replication, 11 nines durability |
-| Cache         | ElastiCache Redis              | Cluster mode, 100+ nodes                      |
-| Notifications | API Gateway WebSocket + Lambda | 7M concurrent connections                     |
-| Queue         | SQS FIFO                       | Deduplication, ordering                       |
-| CDN           | CloudFront                     | Edge caching for static assets                |
-
-### Self-Hosted Alternatives
-
-| Managed Service | Self-Hosted          | When to Consider        |
-| --------------- | -------------------- | ----------------------- |
-| Aurora          | PostgreSQL + Patroni | Cost at 100+ TB scale   |
-| S3              | MinIO / Ceph         | Data sovereignty, cost  |
-| ElastiCache     | Redis Cluster        | Specific Redis modules  |
-| API Gateway WS  | Custom WS server     | Connection limits, cost |
-
-**Dropbox's approach:** Built custom storage system (Magic Pocket) at 50+ PB scale—$75M/year savings vs S3.
-
-## Conclusion
-
-File sync at scale requires:
-
-1. **Content-defined chunking** for efficient delta sync and deduplication
-2. **Three-tree model** for unambiguous conflict detection
-3. **Content-addressed blocks** for idempotent uploads and cross-user deduplication
-4. **Conflicted copies** for safe conflict resolution (no data loss)
-5. **Real-time notifications** via WebSocket for sync latency
-
-**Key tradeoffs accepted:**
-
-- Eventual consistency (acceptable for file sync, not for transactional data)
-- Client complexity (chunking, hashing, tree reconciliation)
-- Storage overhead for deduplication metadata
-
-**Not covered:** Team administration, audit logging, compliance features (HIPAA, SOC 2), mobile-specific optimizations.
-
-## Appendix
-
-### Prerequisites
-
-- Understanding of content-addressable storage
-- Familiarity with eventual consistency models
-- Basic knowledge of compression algorithms
-
-### Summary
-
-- Content-defined chunking (Gear hash/FastCDC) enables delta sync with only changed blocks transferred
-- Three-tree model (local, synced, remote) provides unambiguous merge base for bidirectional sync
-- Block-level content addressing enables cross-user deduplication at petabyte scale
-- Conflicted copy strategy avoids data loss without complex merge algorithms
-- WebSocket notifications + cursor-based APIs enable sub-second sync latency
-
-### References
-
-- [Dropbox: Rewriting the heart of our sync engine](https://dropbox.tech/infrastructure/rewriting-the-heart-of-our-sync-engine) - Three-tree model and Rust rewrite
-- [Dropbox: Streaming File Synchronization](https://dropbox.tech/infrastructure/streaming-file-synchronization) - Block sync protocol details
-- [Dropbox: Inside the Magic Pocket](https://dropbox.tech/infrastructure/inside-the-magic-pocket) - Storage infrastructure at 500+ PB scale
-- [Dropbox: Broccoli - Syncing faster by syncing less](https://dropbox.tech/infrastructure/-broccoli--syncing-faster-by-syncing-less) - Compression optimization
-- [Dropbox: Inside LAN Sync](https://dropbox.tech/infrastructure/inside-lan-sync) - P2P sync protocol
-- [FastCDC: A Fast and Efficient Content-Defined Chunking Approach](https://www.usenix.org/system/files/conference/atc16/atc16-paper-xia.pdf) - USENIX ATC 2016
-- [LBFS: A Low-bandwidth Network File System](https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf) - Rabin fingerprinting for chunking
-- [The rsync algorithm](https://rsync.samba.org/tech_report/) - Rolling checksum delta sync
+- [Dropbox: Streaming File Synchronization (2014)](https://dropbox.tech/infrastructure/streaming-file-synchronization) — block protocol, SFJ, blocklist, streaming sync optimisation.
+- [Dropbox: Inside the Magic Pocket (2016)](https://dropbox.tech/infrastructure/inside-the-magic-pocket) — exabyte-scale block storage architecture.
+- [Dropbox: Inside LAN Sync (2015)](https://dropbox.tech/infrastructure/inside-lan-sync) — peer-to-peer block protocol with per-namespace mTLS.
+- [Dropbox: Rewriting the heart of our sync engine (2020)](https://dropbox.tech/infrastructure/rewriting-the-heart-of-our-sync-engine) — Nucleus rewrite, three-tree model, Rust.
+- [Dropbox: Testing sync at Dropbox (2020)](https://dropbox.tech/infrastructure/-testing-our-new-sync-engine) — definitive description of the three-tree planner and CanopyCheck / Trinity testing.
+- [Dropbox: Broccoli — Syncing faster by syncing less (2020)](https://dropbox.tech/infrastructure/-broccoli--syncing-faster-by-syncing-less) — Brotli variant and rollout metrics.
+- [Dropbox: Extending Magic Pocket Innovation with the first petabyte-scale SMR drive deployment (2018)](https://dropbox.tech/infrastructure/extending-magic-pocket-innovation-with-the-first-petabyte-scale-smr-drive-deployment) — durability targets and SMR adoption.
+- [Xia et al., FastCDC: A Fast and Efficient Content-Defined Chunking Approach for Data Deduplication, USENIX ATC '16](https://www.usenix.org/system/files/conference/atc16/atc16-paper-xia.pdf) — Gear hash, normalised chunking, ~10× speed-up over Rabin.
+- [Muthitacharoen, Chen, Mazières, A Low-bandwidth Network File System, SOSP '01](https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf) — original Rabin-fingerprint CDC for network file systems.
+- [Tridgell & Mackerras, The rsync algorithm (1996)](https://rsync.samba.org/tech_report/) — rolling-checksum delta sync.
+- [IANA Service Name and Transport Protocol Port Number Registry](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=17500) — port 17500 = `db-lsp`.

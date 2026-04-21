@@ -1,0 +1,34 @@
+%% Diagram: Strangler fig migration — traffic gradually shifts from monolith to microservices
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph S1["Step 1: 100% monolith"]
+        direction LR
+        GW1["API gateway"] --> M1["Monolith"] --> DB1["Oracle DB"]
+    end
+
+    S1 --> S2
+
+    subgraph S2["Step 2: extract one bounded context, canary"]
+        direction LR
+        GW2["API gateway"] -->|"99%"| M2["Monolith"]
+        GW2 -->|"1% canary"| NS2["New service"]
+        M2 --> DB2["Oracle"]
+        NS2 --> NDB2["Service store"]
+    end
+
+    S2 --> S3
+
+    subgraph S3["Step 3: cut over, repeat per bounded context"]
+        direction LR
+        GW3["API gateway"] -->|"shrinking"| M3["Monolith (legacy)"]
+        GW3 -->|"growing"| NS3["Microservices"]
+        M3 --> DB3["Oracle"]
+        NS3 --> NDB3["Per-service stores"]
+    end
+
+    S3 --> S4
+
+    subgraph S4["Step 4: monolith decommissioned"]
+        direction LR
+        GW4["API gateway"] --> NS4["Microservices"] --> NDB4["Per-service stores"]
+    end

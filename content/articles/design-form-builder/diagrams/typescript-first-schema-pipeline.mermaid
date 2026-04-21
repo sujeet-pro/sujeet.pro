@@ -1,0 +1,11 @@
+%% Diagram: TypeScript-first schema pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    TS["TypeScript schema<br/>(Zod / TypeBox / Valibot)"] --> Types["Inferred types<br/>(z.infer&lt;typeof S&gt;)"]
+    TS --> Validator["Runtime parser/validator"]
+    Types --> Form["Type-safe form<br/>(RHF + zodResolver)"]
+    Form --> Validator
+    Validator -->|ZodError| Form
+    Types -.shared.-> ServerHandler["Server handler<br/>(tRPC / Next.js / Remix)"]
+    Validator -.shared.-> ServerHandler

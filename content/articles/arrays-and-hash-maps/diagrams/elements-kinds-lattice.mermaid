@@ -1,0 +1,31 @@
+%% Diagram: V8 elements-kinds lattice (one-way transitions)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    PSE["PACKED_SMI_ELEMENTS"]
+    PDE["PACKED_DOUBLE_ELEMENTS"]
+    PEE["PACKED_ELEMENTS"]
+    HSE["HOLEY_SMI_ELEMENTS"]
+    HDE["HOLEY_DOUBLE_ELEMENTS"]
+    HEE["HOLEY_ELEMENTS"]
+    DICT["DICTIONARY_ELEMENTS"]
+
+    PSE -- "push float" --> PDE
+    PSE -- "push string / object" --> PEE
+    PDE -- "push string / object" --> PEE
+    PSE -- "delete or sparse write" --> HSE
+    PDE -- "delete or sparse write" --> HDE
+    PEE -- "delete or sparse write" --> HEE
+    HSE -- "push float" --> HDE
+    HDE -- "push string / object" --> HEE
+    HSE -- "push string / object" --> HEE
+    HEE -- "very sparse" --> DICT
+    HDE -- "very sparse" --> DICT
+    HSE -- "very sparse" --> DICT
+
+    classDef packed fill:#1f6f3c,stroke:#0f4520,color:#ffffff
+    classDef holey fill:#a06a00,stroke:#603f00,color:#ffffff
+    classDef dict fill:#7a1f1f,stroke:#3f0f0f,color:#ffffff
+    class PSE,PDE,PEE packed
+    class HSE,HDE,HEE holey
+    class DICT dict

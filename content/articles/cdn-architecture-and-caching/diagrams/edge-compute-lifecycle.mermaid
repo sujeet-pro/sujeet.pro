@@ -1,0 +1,33 @@
+%% Diagram: Edge compute request lifecycle — isolate warmed during TLS handshake
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Edge as Edge PoP\n(TLS terminator)
+    participant Iso as Worker runtime\n(V8 isolate / Wasm sandbox)
+    participant Cache as Edge cache
+    participant Origin
+
+    Client->>Edge: TCP / QUIC connect
+    Client->>Edge: TLS ClientHello (SNI = app.example.com)
+    Note over Edge: Read SNI, identify worker\nfor this hostname
+    par TLS handshake completes
+        Edge-->>Client: ServerHello, certificate
+    and Pre-warm worker
+        Edge->>Iso: Instantiate isolate /\nWasm module (single-digit ms)
+    end
+    Note over Edge,Iso: First request observes ~0 ms cold start\n(work hidden behind TLS RTT)
+
+    Client->>Edge: HTTP request
+    Edge->>Iso: Dispatch fetch event
+    Iso->>Cache: cache.match(req)
+    alt Hit
+        Cache-->>Iso: Response
+    else Miss
+        Iso->>Origin: subrequest (or KV / D1 / Durable Object)
+        Origin-->>Iso: Response
+        Iso->>Cache: cache.put(req, resp)
+    end
+    Iso-->>Edge: Response (mutated headers, body)
+    Edge-->>Client: HTTP response over the same connection

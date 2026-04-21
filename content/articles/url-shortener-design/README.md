@@ -1,394 +1,277 @@
 ---
-title: 'Design a URL Shortener: IDs, Storage, and Scale'
-linkTitle: 'URL Shortener'
+title: "Design a URL Shortener: IDs, Storage, and Scale"
+linkTitle: "URL Shortener"
 description: >-
-  System design for a URL shortener at Bitly scale — covering ID generation strategies, multi-tier caching for sub-50ms redirects, database sharding, async analytics pipelines, and abuse prevention with 99.99% availability.
+  Staff-level system design for a URL shortener — ID generation, multi-tier caching for sub-50 ms redirects, sharding, async analytics with ClickHouse, abuse prevention, and the failure modes that actually hit production.
 publishedDate: 2026-02-06T00:00:00.000Z
-lastUpdatedOn: 2026-02-06T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - system-design
+  - distributed-systems
+  - reliability-engineering
   - interview-prep
 ---
 
 # Design a URL Shortener: IDs, Storage, and Scale
 
-A comprehensive system design for a URL shortening service covering ID generation strategies, database sharding, caching layers, analytics pipelines, and abuse prevention. This design addresses sub-50ms redirect latency at Bitly scale (6 billion clicks/month) with 99.99% availability and real-time click tracking.
+A URL shortener looks like a one-line problem — store a `code → URL` row, return a redirect — but the constraints that matter are the ones that surface only at scale: collision-free IDs across many writers, single-digit-millisecond redirects across the planet, hot-key behavior on viral links, and an analytics path that never blocks the redirect. This article walks the design end-to-end at roughly Bitly's order of magnitude (≈6 billion clicks/month as of 2014, growing past 9 billion by 2017)[^bitly-scale], with each major decision tied to its underlying constraint and trade-off.
 
-![High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-light.svg "High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.")
-![High-level architecture: CDN handles cached redirects, core services manage shortening and redirection, analytics collected asynchronously to avoid blocking redirects.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-dark.svg)
+![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-light.svg "High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.")
+![High-level architecture: CDN absorbs cached redirects, the redirect path stays free of analytics work, and a separate shortening path handles writes and security scanning.](./diagrams/high-level-architecture-cdn-handles-cached-redirects-core-services-manage-shorte-dark.svg)
 
-## Abstract
+## Mental model
 
-URL shorteners solve a deceptively simple problem—mapping short codes to long URLs—but at scale, the design choices compound: ID generation must be collision-free across distributed nodes, redirects must complete in milliseconds globally, and analytics must not block the critical path.
+Hold three ideas in mind for the rest of the article:
 
-**Core architectural decisions:**
+1. **Read path and write path are different services with different SLOs.** The redirect path is single-digit-millisecond and absorbs the entire fan-out of viral traffic. The shortening path runs writes, validation, and malware scanning, and is happy with hundreds of milliseconds.
+2. **The short code is the only thing that matters in the hot path.** Once you've decided how it's generated, every other choice (storage layout, caching tier, sharding key) follows from that one.
+3. **Analytics can never block redirects.** Anything you want to count goes onto a queue, period. Counters in the primary store are a footgun (more on Cassandra `COUNTER` below).
 
-| Decision      | Choice                               | Rationale                                                   |
-| ------------- | ------------------------------------ | ----------------------------------------------------------- |
-| ID generation | Snowflake + Base62                   | Decentralized, time-ordered, no coordination overhead       |
-| Storage       | NoSQL key-value (Cassandra/DynamoDB) | O(1) lookups, horizontal scaling, 100:1 read-to-write ratio |
-| Caching       | Multi-tier (CDN → Redis → DB)        | Sub-50ms global latency, hot-key protection                 |
-| Redirect type | 302 (Temporary) with CDN caching     | Enables click tracking while CDN absorbs traffic            |
-| Analytics     | Async pipeline (Kafka → ClickHouse)  | Never blocks redirect path                                  |
-| Sharding      | Consistent hashing on short code     | Minimal data movement on cluster changes                    |
+The core decisions, in one table:
 
-**Key trade-offs accepted:**
+| Decision               | Choice                                  | Why                                                                                                  |
+| ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| ID generation          | KGS for random codes + Snowflake fallback | Pre-allocated codes guarantee zero collisions; Snowflake handles batch / programmatic writes |
+| Encoding               | Base62 (`0-9 A-Z a-z`)                  | URL-safe, compact, no `+`/`/` to escape                                                              |
+| Primary store          | Wide-column KV (Cassandra / ScyllaDB / DynamoDB) | Partition-key lookups are O(1); read-heavy 100:1 fits the model                          |
+| Cache tier             | CDN edge → Redis cluster → primary store | CDN absorbs viral spikes; Redis catches everything else                                              |
+| Redirect status        | `302 Found` with `Cache-Control: private, max-age=60` | `302` is not heuristically cacheable per RFC 9111; explicit `max-age` keeps CDN absorption while preserving analytics fidelity[^rfc9111-302] |
+| Analytics              | Fire-and-forget → Kafka → ClickHouse    | Decouples redirect SLO from analytics throughput                                                     |
+| Sharding               | Consistent hashing on `short_code`      | Minimal data movement during cluster changes                                                         |
 
-- 302 redirects increase server load vs. 301, but enable accurate analytics
-- Pre-generated keys (KGS) require storage overhead but guarantee no collisions
-- Multi-tier caching adds complexity but essential for viral link handling
-- Async analytics means real-time dashboards have 1-5 second delay
+Trade-offs you are explicitly accepting:
 
-**What this design optimizes:**
-
-- Sub-50ms redirect latency globally via CDN edge caching
-- 10,000+ redirects/second per node with Redis caching
-- Zero collision guarantee via Key Generation Service
-- Real-time abuse detection without blocking legitimate traffic
+- `302` increases origin load relative to `301`'s heuristic caching, in exchange for accurate per-click analytics.
+- A pre-generated key service (KGS) costs storage and operational attention, in exchange for zero collisions.
+- Async analytics means dashboards lag by 1–5 seconds.
+- A bloom filter in front of the primary store eliminates most cache-stampede traffic for non-existent codes, at the cost of a small fixed memory footprint and a tunable false-positive rate (see [Redirect path](#redirect-path)).
 
 ## Requirements
 
-### Functional Requirements
+### Functional
 
-| Requirement         | Priority | Notes                                           |
-| ------------------- | -------- | ----------------------------------------------- |
-| Shorten long URLs   | Core     | Generate unique short code for any valid URL    |
-| Redirect short URLs | Core     | 301/302 redirect to original URL                |
-| Custom short codes  | Core     | User-specified aliases (e.g., `suj.ee/my-link`) |
-| Link expiration     | Core     | TTL-based or click-limit expiration             |
-| Click analytics     | Core     | Count, geo, device, referrer tracking           |
-| Link management     | Extended | Edit destination, enable/disable links          |
-| Bulk shortening     | Extended | API for batch URL processing                    |
-| QR code generation  | Extended | QR codes for shortened URLs                     |
+| Requirement         | Priority | Notes                                                              |
+| ------------------- | -------- | ------------------------------------------------------------------ |
+| Shorten long URLs   | Core     | Generate a unique short code for any well-formed URL               |
+| Redirect short URLs | Core     | Return `302` with destination in `Location`                        |
+| Custom short codes  | Core     | User-specified aliases (e.g. `suj.ee/launch-2026`)                 |
+| Link expiration     | Core     | TTL-based or click-limit                                           |
+| Click analytics     | Core     | Count, geo, device, referrer                                       |
+| Link management     | Extended | Edit destination, disable links                                    |
+| Bulk shortening     | Extended | Batch API with job tracking                                        |
+| QR code generation  | Extended | On-demand QR for any short URL                                     |
 
-### Non-Functional Requirements
+### Non-functional
 
-| Requirement         | Target                   | Rationale                                             |
-| ------------------- | ------------------------ | ----------------------------------------------------- |
-| Availability        | 99.99% (4 nines)         | Links embedded everywhere; downtime = broken internet |
-| Redirect latency    | p99 < 50ms               | User experience, SEO impact                           |
-| Write latency       | p99 < 200ms              | Acceptable for link creation                          |
-| Throughput (reads)  | 100K RPS                 | Peak viral traffic handling                           |
-| Throughput (writes) | 1K RPS                   | Link creation is infrequent                           |
-| Data durability     | 99.999999999% (11 nines) | Links must never be lost                              |
-| URL lifetime        | 5+ years default         | Permalinks for content                                |
+| Requirement         | Target                   | Why this number                                                                  |
+| ------------------- | ------------------------ | -------------------------------------------------------------------------------- |
+| Availability        | 99.99 %                  | Short links are embedded in emails, posts, QR codes; downtime is irreversible    |
+| Redirect latency    | p99 < 50 ms              | Below the human-perceptible threshold and SEO-relevant for crawlers              |
+| Write latency       | p99 < 200 ms             | Acceptable for an interactive `POST /urls`                                       |
+| Read throughput     | 100k RPS sustained       | Headroom for viral amplification                                                 |
+| Write throughput    | 1k RPS sustained         | Most traffic is reads                                                            |
+| Durability          | 11 nines                 | Equivalent to S3 standard; lost mappings are unrecoverable from the origin       |
+| URL lifetime        | ≥ 5 years default        | Permalinks for content; tunable per link                                         |
 
-### Scale Estimation
+### Scale estimation
 
-**Traffic patterns:**
+Working at roughly Bitly's 2014 order of magnitude:
 
-- Read-to-write ratio: 100:1 (redirects dominate)
-- Viral amplification: Single link can generate 80% of daily traffic in minutes
+- 100:1 read:write ratio. Single viral link can produce 80 % of daily traffic in minutes — plan for it.
+- 1 M new URLs/day, 100 M redirects/day → ~1.2 k RPS average, ~12 k peak, 100 k+ during a spike.
+- 5-year storage: 1 M URLs/day × 365 × 5 × ~500 B ≈ 0.9 TB of mappings, plus 100 M clicks/day × 200 B ≈ 7 TB/year of analytics.
 
-**Users and URLs:**
+The numbers say two things: storage is cheap, and **the engineering problem is read latency under bursty traffic, not raw capacity**.
 
-- Monthly Active Users: 10M
-- New URLs/day: 1M
-- Total URLs (5 years): 1M × 365 × 5 = 1.825B URLs
+## ID generation: four real options
 
-**Traffic:**
+Picking how you mint short codes determines almost everything downstream — coordination model, collision risk, code length, and whether the design is horizontally scalable at all.
 
-- Redirects/day: 1M URLs × 100 clicks avg = 100M redirects/day
-- Average RPS: 100M / 86400 ≈ 1,157 RPS
-- Peak multiplier (10x): 11,570 RPS
-- Viral spike (100x single link): 100K+ RPS burst
+### Option A — Auto-increment counter
 
-**Storage:**
+A relational `BIGINT IDENTITY` column hands out IDs; the application Base62-encodes the value.
 
-- URL record: ~500 bytes (short_code, long_url, metadata, timestamps)
-- Daily growth: 1M × 500B = 500MB/day
-- 5-year storage: 500MB × 365 × 5 ≈ 912GB URLs
-- Analytics (per click): ~200 bytes
-- Analytics daily: 100M × 200B = 20GB/day
-- Analytics 1-year retention: 7.3TB
+![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/diagram-1-light.svg "Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.")
+![Counter-based shortening: a single SQL row hands out the next ID; Base62 encoding turns it into the short code.](./diagrams/diagram-1-dark.svg)
 
-**Key insight:** Storage is manageable; the challenge is latency at the read path and handling viral traffic spikes.
+Pros: trivially correct, compact codes (sequential IDs Base62-encode to short strings), single source of truth.
 
-## Design Paths
+Cons: a single writer is a single point of failure and a hard ceiling on write throughput; the IDs are guessable, exposing total link counts and enabling enumeration scraping. Workable for an internal tool or an MVP, indefensible at Bitly scale.
 
-### Path A: Counter-Based ID Generation
+### Option B — Hash-based generation
 
-**Best when:**
+Hash the long URL (MD5/SHA-256), truncate to the desired length, retry on collision.
 
-- Single datacenter deployment
-- Moderate scale (< 10M URLs)
-- Simplicity is paramount
-- Sequential IDs acceptable
+![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/diagram-2-light.svg "Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.")
+![Hash-based shortening: hash → truncate → collision check → store or rehash with a salt.](./diagrams/diagram-2-dark.svg)
 
-**Architecture:**
+Pros: deterministic — same long URL always produces the same short code, enabling natural deduplication. No central coordinator.
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+Cons: collisions are inevitable. By the birthday problem, with a 7-character Base62 keyspace ($62^7 \approx 3.52 \times 10^{12}$), collision probability is roughly 0.014 % at 1 B URLs and around 1.4 % at 10 B. Each collision means an extra round trip to the store and a salt-and-rehash retry. It also rules out user-chosen custom codes since they'd have to fit the same scheme.
 
-**Key characteristics:**
+### Option C — Snowflake (distributed time-ordered IDs)
 
-- Auto-increment database ID
-- Base62 encode the numeric ID
-- Single source of truth for ID generation
+Twitter's Snowflake[^snowflake-2010] packs a 64-bit ID as `[1 bit unused][41 bit timestamp ms since epoch][10 bit worker ID][12 bit sequence]`, yielding 4 096 IDs per millisecond per node and 1 024 nodes — about 4.1 M IDs/s aggregate at one-millisecond grain[^snowflake-wiki].
 
-**Trade-offs:**
+![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/diagram-3-light.svg "Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.")
+![Snowflake ID generation per datacenter: each app server holds a generator instance with a unique node ID; Base62 encoding produces the user-visible short code.](./diagrams/diagram-3-dark.svg)
 
-- ✅ Simplest implementation
-- ✅ Guaranteed unique (database constraint)
-- ✅ Short codes (sequential = compact)
-- ❌ Single point of failure (database)
-- ❌ Predictable URLs (security concern)
-- ❌ Doesn't scale horizontally
+| Bits | Field      | Purpose                                                               |
+| ---- | ---------- | --------------------------------------------------------------------- |
+| 41   | Timestamp  | Milliseconds since a chosen epoch (≈ 69 years headroom)               |
+| 10   | Node ID    | 1 024 unique generators (datacenter + worker)                         |
+| 12   | Sequence   | 4 096 IDs/ms/node                                                     |
 
-**Real-world example:** Early TinyURL used this approach before scaling challenges emerged.
+Pros: no coordination, time-ordered (good for range scans and analytics), proven at Twitter and adopted by Discord for snowflake-style message IDs[^discord-snowflake].
 
-### Path B: Hash-Based Generation
+Cons: Base62-encoding a 64-bit integer produces an 11-character code, longer than what KGS or counter approaches yield. Operationally you must (a) prevent two nodes from ever sharing a node ID and (b) survive backwards clock jumps — the canonical implementations refuse to issue IDs until the clock recovers, which is a real availability event.
 
-**Best when:**
+> [!NOTE]
+> The epoch in a Snowflake implementation is arbitrary as long as it predates the first issued ID. Twitter chose `1288834974657` ms (2010-11-04T01:42:54.657 UTC)[^snowflake-2010]. Pick your own and document it; you cannot change it later without remapping every existing ID.
 
-- Idempotent shortening required (same URL → same short code)
-- Deduplication is important
-- Moderate collision risk acceptable
+### Option D — Pre-generated Key Generation Service (KGS)
 
-**Architecture:**
+An offline process generates all short codes in advance and stores them in a `keys_unused` table. Application servers fetch batches into a local buffer and atomically move codes from `unused → allocated → used`.
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/diagram-4-light.svg "KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.")
+![KGS lifecycle: an offline generator fills the unused-keys table; app servers fetch batches into local caches and mark codes used on assignment.](./diagrams/diagram-4-dark.svg)
 
-**Key characteristics:**
+Pros: zero collisions by construction; codes are short and configurable in length; custom user-chosen codes can be reserved out of the same pool.
 
-- Hash the long URL
-- Truncate hash to desired length
-- Handle collisions with rehashing or appending
+Cons: storing the entire 6-character Base62 keyspace ($62^6 \approx 56.8 \times 10^9$ codes) at 6 B per code is roughly 400 GB raw — manageable but not trivial. KGS becomes a critical dependency on the write path, and key exhaustion needs to be alerted on long before it happens. App-server crashes orphan whatever codes were in their local buffer; at scale this is acceptable wastage.
 
-**Trade-offs:**
+### Comparison
 
-- ✅ Same URL always produces same short code
-- ✅ No central coordinator needed
-- ✅ Natural deduplication
-- ❌ Collision probability increases with scale
-- ❌ Collision handling adds latency
-- ❌ Cannot support custom codes easily
+| Factor               | Counter   | Hash    | Snowflake  | KGS           |
+| -------------------- | --------- | ------- | ---------- | ------------- |
+| Collision risk       | None      | Real    | None       | None          |
+| Coordination on write| Required  | None    | None       | Batch fetch   |
+| Code length          | Shortest  | Fixed   | 11 chars   | Configurable  |
+| Predictability       | High      | Low     | Medium     | Low           |
+| Horizontal scale     | Poor      | Good    | Excellent  | Good          |
+| Custom codes         | Hard      | Hard    | Hard       | Native        |
+| Operational burden   | Low       | Medium  | Medium     | High          |
 
-**Collision math (Birthday Paradox):**
+This article focuses on a **KGS-primary, Snowflake-fallback** hybrid. KGS handles user-facing single-link creation (short codes, custom aliases). Snowflake covers programmatic / bulk writes where the longer code is acceptable and you do not want to pay a KGS round-trip.
 
-- 7-character Base62: 62^7 = 3.5 trillion combinations
-- At 1 billion URLs: collision probability ≈ 0.014%
-- At 10 billion URLs: collision probability ≈ 1.4%
+## High-level design
 
-### Path C: Distributed ID Generation (Snowflake + Base62)
+### Request path
 
-**Best when:**
+![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/diagram-5-light.svg "Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.")
+![Request path: clients hit a CDN edge, miss into the load balancer, then through API gateway concerns (rate limit, auth, route) into the per-domain core services.](./diagrams/diagram-5-dark.svg)
 
-- Multi-datacenter deployment
-- High scale (billions of URLs)
-- Time-ordered IDs beneficial
-- No central coordinator acceptable
+### Backing services
 
-**Architecture:**
+![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/diagram-5-backing-light.svg "Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.")
+![Backing services: shortening invokes URL scanning before persisting; redirects only touch Redis or the primary store; the analytics pipeline is fully async behind Kafka.](./diagrams/diagram-5-backing-dark.svg)
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+### Shortening service
 
-**Snowflake ID structure (64-bit):**
+Handles writes — validation, malware scanning, code assignment, persistence.
 
-| Bits | Field     | Purpose                             |
-| ---- | --------- | ----------------------------------- |
-| 41   | Timestamp | Milliseconds since epoch (69 years) |
-| 10   | Node ID   | 1024 unique nodes                   |
-| 12   | Sequence  | 4096 IDs/ms/node                    |
+| Decision           | Choice                                                | Why                                                                   |
+| ------------------ | ----------------------------------------------------- | --------------------------------------------------------------------- |
+| Duplicate handling | Optional dedup, off by default                        | Tracking links want one code per click campaign; idempotent shortening would defeat that |
+| URL validation     | Format synchronously, reachability via async HEAD     | Don't block the user on a slow destination                            |
+| Scanning           | Synchronous for new domains, async for known-good     | Fast path for the long tail of safe traffic                            |
+| Custom codes       | Reserved out of the KGS pool                          | Keeps the code space coherent; one source of truth                     |
 
-**Trade-offs:**
+### Redirect path
 
-- ✅ No coordination between nodes
-- ✅ Time-ordered (useful for analytics)
-- ✅ 4M IDs/second/node capacity
-- ❌ Longer codes (64-bit → 11 Base62 chars)
-- ❌ Clock synchronization required
-- ❌ Node ID management overhead
+The 99 % case. Must be cheap, predictable, and never block on analytics or scanning.
 
-**Real-world example:** Twitter uses Snowflake for tweet IDs; Discord adopted it for message IDs.
+![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/diagram-6-light.svg "Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.")
+![Redirect sequence: CDN edge cache → Redis hot cache → primary store fallback; analytics is fire-and-forget at every layer.](./diagrams/diagram-6-dark.svg)
 
-### Path D: Pre-Generated Key Service (KGS)
+Why each layer is there:
 
-**Best when:**
+- **CDN edge** (CloudFront / Fastly / Cloudflare) caches the `302` for the configured `max-age`. A viral link that goes from 0 → 100 k RPS gets absorbed entirely at the edge after the first hit per POP.
+- **Redis cluster** caches everything that escapes the CDN. LRU eviction; a TTL of an hour or so keeps memory bounded.
+- **Bloom filter** in Redis keeps cache-stampede-style attacks (spraying random codes that don't exist) from reaching the primary store. The trade-off is a fixed-cost false-positive rate. For a 1 B-item bloom filter at a 0.1 % false-positive rate, the canonical formula $m = -\frac{n \ln p}{(\ln 2)^2}$ gives ≈ 14.4 bits/element and roughly 1.7 GB of memory[^bloom-sizing].
 
-- Guaranteed zero collisions required
-- Predictable short code length needed
-- Can tolerate key pre-generation overhead
-
-**Architecture:**
-
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
-
-**Key characteristics:**
-
-- Offline process generates all possible short codes
-- Application servers fetch batches of unused keys
-- Atomic move from unused → used on assignment
-
-**Trade-offs:**
-
-- ✅ Zero collision guarantee
-- ✅ O(1) key retrieval
-- ✅ Predictable key length
-- ❌ Storage for pre-generated keys (~412GB for 68.7B 6-char keys)
-- ❌ KGS becomes critical dependency
-- ❌ Key exhaustion planning required
-
-**Real-world example:** Production URL shorteners at scale often use KGS for reliability.
-
-### Path Comparison
-
-| Factor           | Counter  | Hash   | Snowflake | KGS          |
-| ---------------- | -------- | ------ | --------- | ------------ |
-| Collision risk   | None     | Medium | None      | None         |
-| Coordination     | Required | None   | None      | Batch fetch  |
-| Code length      | Shortest | Fixed  | 11 chars  | Configurable |
-| Predictability   | High     | Low    | Medium    | Low          |
-| Horizontal scale | Poor     | Good   | Excellent | Good         |
-| Complexity       | Low      | Medium | Medium    | High         |
-
-### This Article's Focus
-
-This article focuses on **Path D (KGS) + Snowflake hybrid** because:
-
-1. Zero collision guarantee is critical for production reliability
-2. Enables both random (KGS) and time-ordered (Snowflake) IDs
-3. Proven at Bitly scale (6B clicks/month)
-4. Supports custom short codes naturally
-
-## High-Level Design
-
-### Component Overview
-
-![Request path: clients through edge, API gateway, into core services.](./diagrams/diagram-5-light.svg)
-![Request path: clients through edge, API gateway, into core services.](./diagrams/diagram-5-dark.svg)
-
-![Backing services: security checks, async analytics pipeline, and storage tiers.](./diagrams/diagram-5-backing-light.svg)
-![Backing services: security checks, async analytics pipeline, and storage tiers.](./diagrams/diagram-5-backing-dark.svg)
-
-### Shortening Service
-
-Receives long URLs, validates, scans for malware, assigns short codes, and persists mappings.
-
-**Responsibilities:**
-
-- URL validation (scheme, format, reachability)
-- Malware/phishing scanning
-- Short code assignment (KGS or custom)
-- Duplicate detection (optional)
-- Metadata extraction (title, favicon)
-
-**Design decisions:**
-
-| Decision           | Choice                                     | Rationale                                 |
-| ------------------ | ------------------------------------------ | ----------------------------------------- |
-| Duplicate handling | Optional dedup                             | Some users want unique links for tracking |
-| URL validation     | Async HEAD request                         | Don't block on slow destinations          |
-| Scanning           | Sync for new domains, async for known-good | Balance security with latency             |
-| Custom codes       | Reserve from KGS pool                      | Prevents collision with random codes      |
-
-### Redirect Service
-
-The most critical service—handles 99% of traffic. Must be blazing fast.
-
-**Flow:**
-
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
-
-**Critical optimizations:**
-
-- Redis stores hot URLs (LRU eviction)
-- Bloom filter prevents cache stampede on non-existent codes
-- Connection pooling to database (PGBouncer pattern)
-- Analytics logging is fire-and-forget (async)
+> [!IMPORTANT]
+> Use `302 Found` with `Cache-Control: private, max-age=60`. RFC 9111 makes `301` heuristically cacheable indefinitely by default; `302` is only cacheable when you opt in via explicit freshness headers[^rfc9111-302]. The explicit `max-age` lets the CDN absorb spikes for a minute while keeping clicks observable.
 
 ### Key Generation Service (KGS)
 
-Pre-generates unique short codes for zero-collision guarantee.
+![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/diagram-7-light.svg "KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.")
+![KGS internals: an offline generator fills the unused-keys table; the API distributes batches into per-app-server queues; used keys are tracked separately for forensics.](./diagrams/diagram-7-dark.svg)
 
-**Architecture:**
+Allocation flow:
 
-![Diagram](./diagrams/diagram-7-light.svg)
-![Diagram](./diagrams/diagram-7-dark.svg)
+1. Each app server requests a batch (typically 1 000 codes).
+2. The KGS atomically moves the batch from `unused` → `allocated` keyed by the requesting server's instance ID.
+3. The app server holds the batch in memory and assigns codes locally.
+4. On code use, the row moves from `allocated` → `used`.
+5. On graceful shutdown, the server returns its unused tail; on a crash, those codes are orphaned. At scale, a few thousand orphaned codes per crash is irrelevant against billions of available codes.
 
-**Key allocation strategy:**
+Failure handling:
 
-1. Each app server requests batch of 1000 keys
-2. Keys moved atomically to "allocated" state
-3. App server caches keys in memory
-4. On use, key marked as "used"
-5. Unused allocated keys returned on graceful shutdown
+- **KGS unavailable.** App servers continue serving from their local buffers. Sized for ~1 hour of writes, this absorbs short outages; longer than that, the shortening API starts returning `503` while redirects keep working from cache and the primary store.
+- **Key exhaustion.** Alert at 80 % of the unused pool consumed; trigger background generation. Never let the buffer drop below the time it takes to provision more codes.
 
-**Failure handling:**
+### Analytics collector
 
-- App server crash: Allocated keys orphaned (acceptable loss at scale)
-- KGS unavailable: App servers have local cache buffer
-- Key exhaustion: Alert at 80% usage, generate new batch
+Click data is captured outside the redirect path. The redirect handler emits a fire-and-forget event; everything downstream is best-effort with no SLO impact on the redirect.
 
-### Analytics Collector
-
-Captures click data without blocking redirects.
-
-**Click event structure:**
-
-```typescript
+```typescript title="ClickEvent.ts"
 interface ClickEvent {
   shortCode: string
   timestamp: number
 
-  // Client info
-  ipHash: string // Anonymized for GDPR
+  // Captured at edge
+  ipHash: string         // SHA-256 with rotating salt; never store raw IP for >1 day
   userAgent: string
   referer: string | null
 
-  // Derived fields
+  // Enriched downstream
   country: string
   city: string
   deviceType: "mobile" | "desktop" | "tablet"
   browser: string
   os: string
 
-  // Bot detection
   isBot: boolean
   botType: string | null
 }
 ```
 
-**Pipeline:**
+Pipeline:
 
-1. Redirect service sends event to Kafka (fire-and-forget)
-2. Stream processor enriches (geo-IP, device parsing, bot detection)
-3. Aggregated into ClickHouse for querying
-4. Real-time counters updated in Redis (for API responses)
+1. Redirect service appends to an in-memory buffer; flushed to Kafka in batches of 100 or every second.
+2. Stream processor enriches events (geo-IP, UA parsing, bot detection).
+3. Enriched events land in ClickHouse via batched inserts.
+4. A real-time counter in Redis is updated for the API to read without hitting ClickHouse.
 
-## API Design
+> [!CAUTION]
+> Do not put click counters in the primary store as Cassandra `COUNTER` columns. Counter writes are not idempotent; on a write timeout the client cannot tell whether the increment succeeded, so a retry over-counts and a non-retry under-counts[^cassandra-counter]. Counter columns also can't share a table with non-counter data, can't have TTLs, and can't be part of a primary key. Keep "fresh" counters in Redis (atomic `INCR`) and authoritative aggregates in ClickHouse.
 
-### Create Short URL
+## API design
 
-**Endpoint:** `POST /api/v1/urls`
+### Create short URL
 
-**Request:**
+`POST /api/v1/urls`
 
-```json
+```json title="POST /api/v1/urls (request)"
 {
   "url": "https://example.com/very/long/path?with=params",
-  "customCode": "my-link",
-  "expiresAt": "2025-12-31T23:59:59Z",
+  "customCode": "launch-2026",
+  "expiresAt": "2027-12-31T23:59:59Z",
   "password": "optional-password",
   "maxClicks": 1000,
-  "tags": ["campaign-2024", "social"]
+  "tags": ["campaign-2026", "social"]
 }
 ```
 
-**Response (201 Created):**
-
-```json
+```json title="POST /api/v1/urls (201 Created)"
 {
   "id": "url_abc123def456",
-  "shortCode": "my-link",
-  "shortUrl": "https://suj.ee/my-link",
+  "shortCode": "launch-2026",
+  "shortUrl": "https://suj.ee/launch-2026",
   "longUrl": "https://example.com/very/long/path?with=params",
-  "createdAt": "2024-02-03T10:00:00Z",
-  "expiresAt": "2025-12-31T23:59:59Z",
+  "createdAt": "2026-04-21T10:00:00Z",
+  "expiresAt": "2027-12-31T23:59:59Z",
   "isPasswordProtected": true,
   "maxClicks": 1000,
   "clickCount": 0,
@@ -396,354 +279,276 @@ interface ClickEvent {
 }
 ```
 
-**Error Responses:**
-
-| Code | Error                 | When                             |
-| ---- | --------------------- | -------------------------------- |
-| 400  | `INVALID_URL`         | Malformed or unreachable URL     |
-| 400  | `INVALID_CUSTOM_CODE` | Code contains invalid characters |
-| 409  | `CODE_TAKEN`          | Custom code already exists       |
-| 403  | `URL_BLOCKED`         | Destination flagged as malicious |
-| 429  | `RATE_LIMITED`        | Too many requests                |
-
-**Rate Limits:**
+| Code | Error                 | When                                |
+| ---- | --------------------- | ----------------------------------- |
+| 400  | `INVALID_URL`         | Malformed scheme or unreachable URL |
+| 400  | `INVALID_CUSTOM_CODE` | Code contains disallowed characters |
+| 409  | `CODE_TAKEN`          | Custom code already in use          |
+| 403  | `URL_BLOCKED`         | Destination flagged by scanner      |
+| 429  | `RATE_LIMITED`        | Too many requests                   |
 
 | Plan       | Create/hour | Create/day |
 | ---------- | ----------- | ---------- |
 | Free       | 50          | 500        |
-| Pro        | 500         | 5,000      |
-| Enterprise | 5,000       | Unlimited  |
+| Pro        | 500         | 5 000      |
+| Enterprise | 5 000       | Unlimited  |
 
-### Redirect (Read)
+### Redirect
 
-**Endpoint:** `GET /{shortCode}`
+`GET /{shortCode}` returns:
 
-**Response:** `302 Found` with `Location` header
-
-**Headers:**
-
-```http
+```http title="HTTP/1.1 302 Found"
 HTTP/1.1 302 Found
 Location: https://example.com/very/long/path
 Cache-Control: private, max-age=60
 X-Robots-Tag: noindex
 ```
 
-**Error Responses:**
+| Code | When                                      |
+| ---- | ----------------------------------------- |
+| 404  | Short code not found                      |
+| 410  | Link expired or disabled                  |
+| 429  | Click limit exceeded                      |
+| 403  | Password required (renders HTML form)     |
 
-| Code | When                                  |
-| ---- | ------------------------------------- |
-| 404  | Short code not found                  |
-| 410  | Link expired or disabled              |
-| 429  | Click limit exceeded                  |
-| 403  | Password required (returns HTML form) |
+### Analytics
 
-### Get URL Analytics
+`GET /api/v1/urls/{id}/analytics`
 
-**Endpoint:** `GET /api/v1/urls/{id}/analytics`
+| Param     | Type    | Default | Notes                                    |
+| --------- | ------- | ------- | ---------------------------------------- |
+| period    | string  | `7d`    | One of `24h`, `7d`, `30d`, `90d`, `custom` |
+| startDate | ISO8601 | —       | Required when `period=custom`            |
+| endDate   | ISO8601 | —       | Required when `period=custom`            |
+| groupBy   | string  | `day`   | `hour`, `day`, `week`, `month`           |
 
-**Query Parameters:**
-
-| Param     | Type    | Default | Description                            |
-| --------- | ------- | ------- | -------------------------------------- |
-| period    | string  | 7d      | Time range (24h, 7d, 30d, 90d, custom) |
-| startDate | ISO8601 | -       | Custom range start                     |
-| endDate   | ISO8601 | -       | Custom range end                       |
-| groupBy   | string  | day     | Aggregation (hour, day, week, month)   |
-
-**Response:**
-
-```json
+```json title="Analytics response"
 {
   "urlId": "url_abc123def456",
-  "period": {
-    "start": "2024-01-27T00:00:00Z",
-    "end": "2024-02-03T23:59:59Z"
-  },
-  "summary": {
-    "totalClicks": 15420,
-    "uniqueClicks": 12350,
-    "botClicks": 1230
-  },
+  "period": { "start": "2026-04-14T00:00:00Z", "end": "2026-04-21T23:59:59Z" },
+  "summary": { "totalClicks": 15420, "uniqueClicks": 12350, "botClicks": 1230 },
   "timeSeries": [
-    { "date": "2024-01-27", "clicks": 2100, "unique": 1800 },
-    { "date": "2024-01-28", "clicks": 2450, "unique": 2100 }
+    { "date": "2026-04-14", "clicks": 2100, "unique": 1800 },
+    { "date": "2026-04-15", "clicks": 2450, "unique": 2100 }
   ],
   "topReferrers": [
-    { "referrer": "twitter.com", "clicks": 5200, "percentage": 33.7 },
-    { "referrer": "facebook.com", "clicks": 3100, "percentage": 20.1 }
+    { "referrer": "x.com", "clicks": 5200, "percentage": 33.7 },
+    { "referrer": "linkedin.com", "clicks": 3100, "percentage": 20.1 }
   ],
   "topCountries": [
     { "country": "US", "clicks": 6800, "percentage": 44.1 },
     { "country": "UK", "clicks": 2300, "percentage": 14.9 }
   ],
   "devices": {
-    "mobile": { "clicks": 9200, "percentage": 59.7 },
+    "mobile":  { "clicks": 9200, "percentage": 59.7 },
     "desktop": { "clicks": 5800, "percentage": 37.6 },
-    "tablet": { "clicks": 420, "percentage": 2.7 }
+    "tablet":  { "clicks":  420, "percentage":  2.7 }
   }
 }
 ```
 
-### Bulk Create URLs
+### Bulk and listing
 
-**Endpoint:** `POST /api/v1/urls/bulk`
+`POST /api/v1/urls/bulk` returns `202 Accepted` with a job ID; the caller polls `/api/v1/jobs/{id}`. `GET /api/v1/urls?cursor=...&limit=50` returns paginated user URLs with cursor-based navigation. Cursor pagination is deliberately chosen over offset because the underlying `urls_by_user` partition is sorted on `created_at DESC`.
 
-**Request:**
+## Data modeling
 
-```json
-{
-  "urls": [{ "url": "https://example.com/page1" }, { "url": "https://example.com/page2", "customCode": "page2" }],
-  "defaultExpiry": "2025-12-31T23:59:59Z",
-  "tags": ["bulk-import"]
-}
-```
+### URL mappings (Cassandra / ScyllaDB / DynamoDB)
 
-**Response (202 Accepted):**
+The primary table is optimized for redirect lookups by `short_code`. Cassandra's `LeveledCompactionStrategy` is the right choice here: read-heavy workloads benefit from at-most-one-SSTable-per-level guarantees, at the cost of higher write amplification[^cassandra-lcs].
 
-```json
-{
-  "jobId": "job_xyz789",
-  "status": "processing",
-  "totalUrls": 2,
-  "statusUrl": "/api/v1/jobs/job_xyz789"
-}
-```
-
-### List User URLs
-
-**Endpoint:** `GET /api/v1/urls?cursor=xxx&limit=50`
-
-**Response:**
-
-```json
-{
-  "urls": [
-    {
-      "id": "url_abc123",
-      "shortCode": "abc123",
-      "shortUrl": "https://suj.ee/abc123",
-      "longUrl": "https://example.com/...",
-      "clickCount": 1542,
-      "createdAt": "2024-01-15T10:00:00Z",
-      "status": "active"
-    }
-  ],
-  "pagination": {
-    "nextCursor": "cursor_def456",
-    "hasMore": true,
-    "total": 234
-  }
-}
-```
-
-## Data Modeling
-
-### URL Mapping (Cassandra)
-
-**Primary table optimized for redirect lookups:**
-
-```sql
+```cql title="url_mappings.cql"
 CREATE TABLE url_mappings (
-    short_code TEXT,
-    long_url TEXT,
-    user_id UUID,
-    created_at TIMESTAMP,
-    expires_at TIMESTAMP,
-    is_active BOOLEAN,
-    click_count COUNTER,
-    password_hash TEXT,
-    max_clicks INT,
-    metadata MAP<TEXT, TEXT>,
-    PRIMARY KEY (short_code)
+  short_code TEXT,
+  long_url   TEXT,
+  user_id    UUID,
+  created_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  is_active  BOOLEAN,
+  password_hash TEXT,
+  max_clicks INT,
+  metadata MAP<TEXT, TEXT>,
+  PRIMARY KEY (short_code)
 ) WITH default_time_to_live = 157680000  -- 5 years
   AND compaction = {'class': 'LeveledCompactionStrategy'}
   AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'};
 ```
 
-**Secondary table for user queries:**
+Note: `click_count` is **not** in this table. Counter columns force a separate counter-only table and bring the consistency footguns called out earlier; we keep the source of truth in ClickHouse and a fresh value in Redis.
 
-```sql
+A secondary table keyed by user supports the dashboard:
+
+```cql title="urls_by_user.cql"
 CREATE TABLE urls_by_user (
-    user_id UUID,
-    created_at TIMESTAMP,
-    short_code TEXT,
-    long_url TEXT,
-    click_count BIGINT,
-    is_active BOOLEAN,
-    PRIMARY KEY ((user_id), created_at, short_code)
+  user_id    UUID,
+  created_at TIMESTAMP,
+  short_code TEXT,
+  long_url   TEXT,
+  click_count BIGINT,
+  is_active  BOOLEAN,
+  PRIMARY KEY ((user_id), created_at, short_code)
 ) WITH CLUSTERING ORDER BY (created_at DESC);
 ```
 
-**Why Cassandra:**
+This is a denormalized companion table written by the shortening service; the `click_count` here is a periodically refreshed cache from ClickHouse, not a live counter.
 
-- O(1) lookups by short_code (partition key)
-- Horizontal scaling for billions of URLs
-- Tunable consistency (ONE for reads, QUORUM for writes)
-- Built-in TTL for expiration
-- 100:1 read-to-write ratio matches Cassandra strengths
+**Why a wide-column store at all?** O(1) lookups by partition key, horizontal scaling, tunable consistency (read `ONE` for redirects is fine; write `QUORUM` for shortening), and built-in TTL for expiration. ScyllaDB is a drop-in replacement that trades JVM dependence for a shard-per-core C++ runtime and reports lower p99 tail latencies in vendor benchmarks[^scylla-vs-cassandra]. DynamoDB is the AWS-native option with serverless billing; it enforces hard per-partition limits (3 000 RCU / 1 000 WCU) but uses adaptive capacity ("split for heat") to redistribute hot partitions automatically — important for viral links[^ddb-hot-partition].
 
-### Click Analytics (ClickHouse)
+### Click analytics (ClickHouse)
 
-```sql
+Raw click events land in a `MergeTree` partitioned by month; query workloads are served by materialized views.
+
+```sql title="clicks.sql"
 CREATE TABLE clicks (
-    short_code String,
-    clicked_at DateTime64(3),
+  short_code String,
+  clicked_at DateTime64(3),
 
-    -- Client data
-    ip_hash FixedString(16),
-    country LowCardinality(String),
-    city String,
+  ip_hash    FixedString(16),
+  country    LowCardinality(String),
+  city       String,
 
-    -- Device data
-    device_type Enum8('mobile' = 1, 'desktop' = 2, 'tablet' = 3),
-    browser LowCardinality(String),
-    os LowCardinality(String),
+  device_type Enum8('mobile' = 1, 'desktop' = 2, 'tablet' = 3),
+  browser     LowCardinality(String),
+  os          LowCardinality(String),
 
-    -- Referrer
-    referrer_domain LowCardinality(String),
-    referrer_path String,
+  referrer_domain LowCardinality(String),
+  referrer_path   String,
 
-    -- Bot detection
-    is_bot UInt8,
-    bot_type LowCardinality(String),
+  is_bot   UInt8,
+  bot_type LowCardinality(String),
 
-    -- Aggregation keys
-    date Date MATERIALIZED toDate(clicked_at),
-    hour UInt8 MATERIALIZED toHour(clicked_at)
+  date Date MATERIALIZED toDate(clicked_at),
+  hour UInt8 MATERIALIZED toHour(clicked_at)
 )
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(clicked_at)
 ORDER BY (short_code, clicked_at)
 TTL clicked_at + INTERVAL 1 YEAR;
+```
 
--- Materialized view for real-time aggregates
+For sums (`count()`), `SummingMergeTree` is the right materialized-view target. For unique counts, use `AggregatingMergeTree` with `uniqState()` and read with `uniqMerge()`; storing `uniqExact()` directly inside a `SummingMergeTree` does not aggregate further on subsequent merges and will quietly under-count[^clickhouse-mv]:
+
+```sql title="clicks_daily_mv.sql"
 CREATE MATERIALIZED VIEW clicks_daily_mv
-ENGINE = SummingMergeTree()
+ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (short_code, date, country, device_type)
 AS SELECT
-    short_code,
-    date,
-    country,
-    device_type,
-    count() as clicks,
-    uniqExact(ip_hash) as unique_clicks
+  short_code,
+  date,
+  country,
+  device_type,
+  countState()      AS clicks,
+  uniqState(ip_hash) AS unique_clicks
 FROM clicks
 GROUP BY short_code, date, country, device_type;
 ```
 
-**Why ClickHouse:**
+ClickHouse strengths used here: columnar storage with `LowCardinality` dictionary encoding for the high-cardinality-low-value columns (country, browser, OS), `MergeTree` partition pruning by month for time-range queries, and TTL-driven retention. Best practice is ten-to-hundred partitions total, which `toYYYYMM` keeps you safely inside[^clickhouse-best].
 
-- Columnar storage for analytics queries
-- 10-100x compression on click data
-- Sub-second aggregations on billions of rows
-- Materialized views for real-time dashboards
+### Users and configuration (PostgreSQL)
 
-### User and Configuration (PostgreSQL)
+Relational data — accounts, custom domains, API keys — lives in PostgreSQL because it actually benefits from ACID transactions and joins.
 
-```sql
+```sql title="users.sql"
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    plan TEXT DEFAULT 'free',
-    api_key_hash TEXT UNIQUE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  plan TEXT DEFAULT 'free',
+  api_key_hash TEXT UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE custom_domains (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    domain TEXT UNIQUE NOT NULL,
-    is_verified BOOLEAN DEFAULT false,
-    ssl_status TEXT DEFAULT 'pending',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  domain TEXT UNIQUE NOT NULL,
+  is_verified BOOLEAN DEFAULT false,
+  ssl_status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE api_keys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    key_hash TEXT UNIQUE NOT NULL,
-    name TEXT,
-    permissions JSONB DEFAULT '["read", "write"]',
-    last_used_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  key_hash TEXT UNIQUE NOT NULL,
+  name TEXT,
+  permissions JSONB DEFAULT '["read", "write"]',
+  last_used_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX idx_users_api_key ON users(api_key_hash);
-CREATE INDEX idx_domains_user ON custom_domains(user_id);
 ```
 
-### Key Generation Service (PostgreSQL)
+### KGS storage (PostgreSQL)
 
-```sql
+The KGS lives in PostgreSQL because its work is small-volume, transactional, and benefits from `FOR UPDATE SKIP LOCKED` for collision-free batch allocation:
+
+```sql title="kgs.sql"
 CREATE TABLE keys_unused (
-    short_code TEXT PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+  short_code TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE keys_allocated (
-    short_code TEXT PRIMARY KEY,
-    allocated_to TEXT NOT NULL,  -- Server instance ID
-    allocated_at TIMESTAMPTZ DEFAULT NOW()
+  short_code   TEXT PRIMARY KEY,
+  allocated_to TEXT NOT NULL,
+  allocated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE keys_used (
-    short_code TEXT PRIMARY KEY,
-    used_at TIMESTAMPTZ DEFAULT NOW()
+  short_code TEXT PRIMARY KEY,
+  used_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Batch allocation function
-CREATE OR REPLACE FUNCTION allocate_keys(
-    server_id TEXT,
-    batch_size INT
-) RETURNS TABLE(short_code TEXT) AS $$
+CREATE OR REPLACE FUNCTION allocate_keys(server_id TEXT, batch_size INT)
+RETURNS TABLE(short_code TEXT) AS $$
 BEGIN
-    RETURN QUERY
-    WITH allocated AS (
-        DELETE FROM keys_unused
-        WHERE short_code IN (
-            SELECT ku.short_code
-            FROM keys_unused ku
-            LIMIT batch_size
-            FOR UPDATE SKIP LOCKED
-        )
-        RETURNING keys_unused.short_code
+  RETURN QUERY
+  WITH allocated AS (
+    DELETE FROM keys_unused
+    WHERE short_code IN (
+      SELECT ku.short_code
+      FROM keys_unused ku
+      LIMIT batch_size
+      FOR UPDATE SKIP LOCKED
     )
-    INSERT INTO keys_allocated (short_code, allocated_to)
-    SELECT a.short_code, server_id
-    FROM allocated a
-    RETURNING keys_allocated.short_code;
+    RETURNING keys_unused.short_code
+  )
+  INSERT INTO keys_allocated (short_code, allocated_to)
+  SELECT a.short_code, server_id
+  FROM allocated a
+  RETURNING keys_allocated.short_code;
 END;
 $$ LANGUAGE plpgsql;
 ```
 
-### Database Selection Matrix
+`FOR UPDATE SKIP LOCKED` is the key primitive — concurrent allocators don't block on each other's batches, they each grab the next available rows.
 
-| Data Type      | Store      | Rationale                                            |
-| -------------- | ---------- | ---------------------------------------------------- |
-| URL mappings   | Cassandra  | O(1) lookups, horizontal scale, high read throughput |
-| Click events   | ClickHouse | Columnar analytics, compression, fast aggregations   |
-| User accounts  | PostgreSQL | ACID transactions, relational queries                |
-| KGS keys       | PostgreSQL | Transactional batch allocation                       |
-| Hot URLs cache | Redis      | Sub-ms latency, TTL support                          |
-| Rate limits    | Redis      | Atomic counters, sliding windows                     |
-| Bloom filter   | Redis      | Memory-efficient existence checks                    |
+### Selection matrix
 
-## Low-Level Design
+| Data                  | Store       | Why                                                    |
+| --------------------- | ----------- | ------------------------------------------------------ |
+| URL mappings          | Cassandra / ScyllaDB / DynamoDB | O(1) by partition key, horizontal scale, TTL |
+| Click events          | ClickHouse  | Columnar, compression, sub-second aggregates           |
+| User accounts         | PostgreSQL  | ACID, joins, native UUIDs, plenty fast at this size    |
+| KGS keys              | PostgreSQL  | Transactional batch allocation with `SKIP LOCKED`      |
+| Hot URL cache         | Redis       | Sub-ms `GET`, TTL, atomic operations                    |
+| Rate limits           | Redis       | Atomic counters, sliding-window via sorted sets        |
+| Bloom filter          | Redis (`RedisBloom`) | `BF.MEXISTS` membership for cheap negative lookups |
 
-### Base62 Encoder
+## Low-level design
 
-```typescript collapse={1-5}
+### Base62 encoder
+
+```typescript title="base62.ts" collapse={1-5}
 const CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const BASE = BigInt(62)
 
 export function encodeBase62(num: bigint): string {
   if (num === 0n) return CHARSET[0]
-
   let result = ""
   while (num > 0n) {
     result = CHARSET[Number(num % BASE)] + result
@@ -762,31 +567,26 @@ export function decodeBase62(str: string): bigint {
   return result
 }
 
-// Pad to fixed length for consistent URLs
 export function encodeBase62Padded(num: bigint, length: number): string {
-  const encoded = encodeBase62(num)
-  return encoded.padStart(length, "0")
+  return encodeBase62(num).padStart(length, "0")
 }
 ```
 
-**Code length capacity:**
+| Length | Combinations | Comfortable up to       |
+| ------ | ------------ | ----------------------- |
+| 6      | 56.8 B       | A small public service  |
+| 7      | 3.5 T        | Bitly-class scale       |
+| 8      | 218 T        | Internet-scale headroom |
 
-| Length | Combinations | Sufficient for        |
-| ------ | ------------ | --------------------- |
-| 6      | 56.8B        | Small-medium services |
-| 7      | 3.5T         | Large services        |
-| 8      | 218T         | All URLs on internet  |
+### Snowflake generator
 
-### Snowflake ID Generator
-
-```typescript collapse={1-15}
-const EPOCH = 1609459200000n // 2021-01-01 00:00:00 UTC
+```typescript title="snowflake.ts" collapse={1-15}
+const EPOCH = 1735689600000n // 2025-01-01T00:00:00Z; choose your own and never change it.
 const NODE_BITS = 10n
 const SEQUENCE_BITS = 12n
 
 const MAX_NODE_ID = (1n << NODE_BITS) - 1n
 const MAX_SEQUENCE = (1n << SEQUENCE_BITS) - 1n
-
 const NODE_SHIFT = SEQUENCE_BITS
 const TIMESTAMP_SHIFT = SEQUENCE_BITS + NODE_BITS
 
@@ -805,10 +605,14 @@ export class SnowflakeGenerator {
   generate(): bigint {
     let timestamp = BigInt(Date.now()) - EPOCH
 
+    if (timestamp < this.lastTimestamp) {
+      // Clock moved backwards (NTP step). Refuse rather than risk duplicate IDs.
+      throw new Error("Clock moved backwards; refusing to issue an ID")
+    }
+
     if (timestamp === this.lastTimestamp) {
       this.sequence = (this.sequence + 1n) & MAX_SEQUENCE
       if (this.sequence === 0n) {
-        // Sequence exhausted, wait for next millisecond
         timestamp = this.waitNextMillis(this.lastTimestamp)
       }
     } else {
@@ -816,7 +620,6 @@ export class SnowflakeGenerator {
     }
 
     this.lastTimestamp = timestamp
-
     return (timestamp << TIMESTAMP_SHIFT) | (this.nodeId << NODE_SHIFT) | this.sequence
   }
 
@@ -830,11 +633,11 @@ export class SnowflakeGenerator {
 }
 ```
 
-**Capacity:** 4,096 IDs per millisecond per node × 1,024 nodes = 4.1M IDs/second total.
+The clock-backwards check is the operationally-important detail: NTP slewing is fine, but a sudden step backward would issue duplicates. Throwing is the canonical Twitter-implementation choice; the alternative is a wait-loop that turns a clock event into a service availability event.
 
-### Redirect Service with Bloom Filter
+### Redirect service with bloom filter
 
-```typescript collapse={1-20}
+```typescript title="RedirectService.ts" collapse={1-20}
 import { BloomFilter } from "bloom-filters"
 
 interface RedirectResult {
@@ -851,65 +654,54 @@ class RedirectService {
   private readonly analytics: AnalyticsCollector
 
   constructor() {
-    // Bloom filter: 1B items, 0.1% false positive rate
-    // Memory: ~1.2GB
+    // 1B items, 0.1% false-positive rate ≈ 14.4 bits/item ≈ 1.7 GB
     this.bloomFilter = BloomFilter.create(1_000_000_000, 0.001)
   }
 
   async redirect(shortCode: string, context: RequestContext): Promise<RedirectResult> {
-    // Step 1: Bloom filter check (prevents cache stampede on non-existent codes)
     if (!this.bloomFilter.has(shortCode)) {
       return { found: false }
     }
 
-    // Step 2: Redis cache check
     const cached = await this.redis.hgetall(`url:${shortCode}`)
     if (cached && cached.long_url) {
-      this.logClick(shortCode, context) // Async, non-blocking
+      this.logClick(shortCode, context)
       return this.buildResult(cached)
     }
 
-    // Step 3: Database lookup
-    const row = await this.cassandra.execute("SELECT * FROM url_mappings WHERE short_code = ?", [shortCode])
-
+    const row = await this.cassandra.execute(
+      "SELECT * FROM url_mappings WHERE short_code = ?",
+      [shortCode],
+    )
     if (!row || row.length === 0) {
-      // False positive from bloom filter
-      return { found: false }
+      return { found: false } // Bloom-filter false positive
     }
 
     const url = row[0]
-
-    // Step 4: Cache the result
     await this.redis.hset(`url:${shortCode}`, {
       long_url: url.long_url,
       expires_at: url.expires_at?.toISOString() || "",
       password_hash: url.password_hash || "",
       is_active: url.is_active ? "1" : "0",
     })
-    await this.redis.expire(`url:${shortCode}`, 3600) // 1 hour TTL
+    await this.redis.expire(`url:${shortCode}`, 3600)
 
     this.logClick(shortCode, context)
     return this.buildResult(url)
   }
 
   private buildResult(data: any): RedirectResult {
-    if (data.is_active === "0" || data.is_active === false) {
-      return { found: false }
-    }
-
+    if (data.is_active === "0" || data.is_active === false) return { found: false }
     if (data.expires_at && new Date(data.expires_at) < new Date()) {
       return { found: true, isExpired: true }
     }
-
     if (data.password_hash) {
       return { found: true, requiresPassword: true, longUrl: data.long_url }
     }
-
     return { found: true, longUrl: data.long_url }
   }
 
   private logClick(shortCode: string, context: RequestContext): void {
-    // Fire and forget - don't await
     this.analytics
       .log({
         shortCode,
@@ -923,9 +715,11 @@ class RedirectService {
 }
 ```
 
-### Rate Limiter (Sliding Window)
+### Sliding-window rate limiter
 
-```typescript collapse={1-12}
+A standard sorted-set rate limiter. The Lua script keeps the read-modify-write atomic, which matters under burst load:
+
+```typescript title="SlidingWindowRateLimiter.ts" collapse={1-12}
 interface RateLimitResult {
   allowed: boolean
   remaining: number
@@ -939,7 +733,6 @@ class SlidingWindowRateLimiter {
     const now = Date.now()
     const windowStart = now - windowMs
 
-    // Lua script for atomic sliding window
     const result = await this.redis.eval(
       `
       local key = KEYS[1]
@@ -948,40 +741,31 @@ class SlidingWindowRateLimiter {
       local limit = tonumber(ARGV[3])
       local window_ms = tonumber(ARGV[4])
 
-      -- Remove old entries
       redis.call('ZREMRANGEBYSCORE', key, '-inf', window_start)
-
-      -- Count current entries
       local count = redis.call('ZCARD', key)
 
       if count < limit then
-        -- Add new entry
         redis.call('ZADD', key, now, now .. ':' .. math.random())
         redis.call('PEXPIRE', key, window_ms)
         return {1, limit - count - 1, now + window_ms}
       else
-        -- Get oldest entry for reset time
         local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
         local reset_at = oldest[2] + window_ms
         return {0, 0, reset_at}
       end
-    `,
+      `,
       [key],
       [now, windowStart, limit, windowMs],
     )
 
-    return {
-      allowed: result[0] === 1,
-      remaining: result[1],
-      resetAt: result[2],
-    }
+    return { allowed: result[0] === 1, remaining: result[1], resetAt: result[2] }
   }
 }
 ```
 
-### URL Scanner (Security)
+### URL scanner
 
-```typescript collapse={1-15}
+```typescript title="URLScanner.ts" collapse={1-15}
 interface ScanResult {
   isSafe: boolean
   threats: string[]
@@ -990,78 +774,61 @@ interface ScanResult {
 
 class URLScanner {
   private readonly blocklist: BlocklistService
-  private readonly googleSafeBrowsing: GoogleSafeBrowsingClient
+  private readonly webRisk: WebRiskClient        // Google Web Risk API for commercial use
   private readonly virusTotal: VirusTotalClient
   private readonly redis: RedisCluster
 
   async scan(url: string): Promise<ScanResult> {
     const urlHash = this.hashUrl(url)
 
-    // Check cache first
     const cached = await this.redis.get(`scan:${urlHash}`)
-    if (cached) {
-      return JSON.parse(cached)
-    }
+    if (cached) return JSON.parse(cached)
 
     const domain = new URL(url).hostname
     const threats: string[] = []
 
-    // Step 1: Local blocklist (fast)
     if (await this.blocklist.contains(domain)) {
-      return this.cacheResult(urlHash, { isSafe: false, threats: ["blocklist"] })
+      return this.cacheResult(urlHash, { isSafe: false, threats: ["blocklist"], scanTime: Date.now() })
     }
 
-    // Step 2: Known-good allowlist
     if (await this.isKnownGood(domain)) {
-      return this.cacheResult(urlHash, { isSafe: true, threats: [] })
+      return this.cacheResult(urlHash, { isSafe: true, threats: [], scanTime: Date.now() })
     }
 
-    // Step 3: Google Safe Browsing API
-    const gsbResult = await this.googleSafeBrowsing.lookup(url)
-    if (gsbResult.threats.length > 0) {
-      threats.push(...gsbResult.threats)
-    }
+    const wrResult = await this.webRisk.lookup(url)
+    if (wrResult.threats.length > 0) threats.push(...wrResult.threats)
 
-    // Step 4: VirusTotal (for suspicious domains)
     if (await this.isSuspicious(domain)) {
       const vtResult = await this.virusTotal.scan(url)
-      if (vtResult.positives > 2) {
-        threats.push("malware")
-      }
+      if (vtResult.positives > 2) threats.push("malware")
     }
 
-    const result: ScanResult = {
-      isSafe: threats.length === 0,
-      threats,
-      scanTime: Date.now(),
-    }
-
-    return this.cacheResult(urlHash, result)
+    return this.cacheResult(urlHash, { isSafe: threats.length === 0, threats, scanTime: Date.now() })
   }
 
   private async cacheResult(hash: string, result: ScanResult): Promise<ScanResult> {
-    // Cache safe results longer than unsafe
-    const ttl = result.isSafe ? 86400 : 3600 // 24h vs 1h
+    const ttl = result.isSafe ? 86400 : 3600
     await this.redis.setex(`scan:${hash}`, ttl, JSON.stringify(result))
     return result
   }
 
   private async isKnownGood(domain: string): Promise<boolean> {
-    // Top 10K domains by traffic
     return this.redis.sismember("domains:allowlist", domain)
   }
 
   private async isSuspicious(domain: string): Promise<boolean> {
-    // New domain, unusual TLD, etc.
     const domainAge = await this.getDomainAge(domain)
-    return domainAge < 30 // Less than 30 days old
+    return domainAge < 30
   }
 }
 ```
 
-### Analytics Pipeline
+> [!NOTE]
+> Google Safe Browsing v4 is restricted to non-commercial use. Commercial URL shorteners must use the Google Web Risk API; the Lookup endpoint is rate-limited to 6 000 requests/minute per project, which is the natural ceiling on synchronous scanning[^web-risk].
 
-```typescript collapse={1-10}
+### Analytics pipeline
+
+```typescript title="AnalyticsCollector.ts" collapse={1-10}
 interface ClickEvent {
   shortCode: string
   timestamp: number
@@ -1074,7 +841,7 @@ class AnalyticsCollector {
   private readonly kafka: KafkaProducer
   private readonly buffer: ClickEvent[] = []
   private readonly BUFFER_SIZE = 100
-  private readonly FLUSH_INTERVAL = 1000 // 1 second
+  private readonly FLUSH_INTERVAL = 1000
 
   constructor() {
     setInterval(() => this.flush(), this.FLUSH_INTERVAL)
@@ -1082,17 +849,12 @@ class AnalyticsCollector {
 
   async log(event: ClickEvent): Promise<void> {
     this.buffer.push(event)
-
-    if (this.buffer.length >= this.BUFFER_SIZE) {
-      await this.flush()
-    }
+    if (this.buffer.length >= this.BUFFER_SIZE) await this.flush()
   }
 
   private async flush(): Promise<void> {
     if (this.buffer.length === 0) return
-
     const events = this.buffer.splice(0)
-
     await this.kafka.sendBatch({
       topic: "clicks",
       messages: events.map((e) => ({
@@ -1104,7 +866,6 @@ class AnalyticsCollector {
   }
 }
 
-// Stream processor (Kafka Consumer → ClickHouse)
 class ClickProcessor {
   private readonly clickhouse: ClickHouseClient
   private readonly geoIP: GeoIPService
@@ -1119,7 +880,7 @@ class ClickProcessor {
     return {
       short_code: event.shortCode,
       clicked_at: new Date(event.timestamp),
-      ip_hash: this.hashIP(event.ip), // GDPR compliance
+      ip_hash: this.hashIP(event.ip),  // GDPR: rotating-salt hash; never persist raw IP
       country: geo.country,
       city: geo.city,
       device_type: device.type,
@@ -1133,7 +894,6 @@ class ClickProcessor {
   }
 
   private hashIP(ip: string): string {
-    // GDPR-compliant anonymization
     return crypto
       .createHash("sha256")
       .update(ip + process.env.IP_SALT)
@@ -1143,20 +903,53 @@ class ClickProcessor {
 }
 ```
 
-## Frontend Considerations
+The salt is rotated on a schedule (typically daily) so that the hash is reversible only within the rotation window — long enough to deduplicate same-day visitors, short enough to limit GDPR exposure on any single salt leak.
 
-### Redirect Performance
+## Failure modes and operational implications
 
-**Critical path optimization:**
+This is the part the design has to survive in production.
 
-The redirect is the most latency-sensitive operation. Every millisecond matters.
+### Viral hot keys
 
-```typescript collapse={1-8}
-// Server-side redirect handler (minimal processing)
+A single tweet can move a link from 0 to 100 k RPS in minutes. Mitigations stack:
+
+- **CDN edge caching** is the primary defense — once the first request per POP populates the edge cache, the next 60 s are served entirely off the CDN and never touch your infrastructure.
+- **Redis hot-key shielding.** If the same code shows up in your Redis cluster's hottest-key telemetry, optionally pin it to a local in-process cache on the redirect nodes for the duration of the spike.
+- **Per-link rate caps** for free-tier abuse: a free-plan link with > 10 M clicks/hour is almost certainly being weaponized; throttle and alert.
+
+### Cache-stampede on non-existent codes
+
+A scanner spraying random codes that don't exist would bypass Redis (miss everywhere) and hammer the primary store. The bloom filter in front of Redis keeps roughly 99.9 % of these requests from ever reaching the primary store. False positives still pass through, which is why the Cassandra read is bounded with a small local connection pool.
+
+### Abuse and link rot
+
+URL shorteners are an ideal vector for phishing because the destination is opaque[^menlo-shortener-abuse]. Defense:
+
+- **At creation time:** synchronous Web Risk API lookup, with a fast-path allowlist of well-known domains; suspicious domains (recently registered, unusual TLD) get a deeper VirusTotal scan.
+- **Continuously:** rescan all live links periodically (a TTL-based queue keyed on `last_scanned_at`); flip `is_active = false` on links whose destination later turns malicious. The redirect path checks `is_active` on every read.
+- **At request time:** rate-limit per source IP, and refuse to redirect requests with anomalous patterns (no `User-Agent`, suspicious `Referer`).
+
+Link rot is the destination going away — your link is fine, but `destination.example.com/page` returns 404. Background HEAD-checking and a `last_known_status` column let you serve a graceful interstitial instead of a hard browser error.
+
+### Counter drift
+
+ClickHouse aggregates lag the redirect by 1–5 seconds. If the API is asked for "clicks right now", read from Redis (`INCR`-style fresh counter), not ClickHouse. Reconcile the two values periodically; small drift is acceptable, large drift means an analytics pipeline incident worth paging on.
+
+### KGS exhaustion
+
+The most embarrassing outage is "out of short codes". Alert on `keys_unused` dropping below your weekly burn rate, not below some absolute number. The generator job runs continuously off-peak; if it fails for a day, the alert fires before write capacity is at risk.
+
+### Redirect-service partial outage
+
+If Redis is degraded but the primary store is healthy, the redirect path slows down but stays correct. If the primary store is down, the bloom filter and Redis can serve roughly the cache hit rate — typically > 95 % — with the rest returning a temporary `503`. Do not return `404` for misses-through-degradation; that bakes a wrong answer into client and CDN caches.
+
+## Frontend considerations
+
+### The redirect handler is the hot path
+
+```typescript title="redirect-handler.ts" collapse={1-8}
 export async function handleRedirect(req: Request): Promise<Response> {
   const shortCode = req.url.split("/").pop()
-
-  // Validate format before any I/O
   if (!isValidCode(shortCode)) {
     return new Response(null, { status: 404 })
   }
@@ -1167,17 +960,9 @@ export async function handleRedirect(req: Request): Promise<Response> {
     referer: req.headers.get("referer"),
   })
 
-  if (!result.found) {
-    return new Response(null, { status: 404 })
-  }
-
-  if (result.isExpired) {
-    return new Response("Link expired", { status: 410 })
-  }
-
-  if (result.requiresPassword) {
-    return renderPasswordPage(shortCode)
-  }
+  if (!result.found) return new Response(null, { status: 404 })
+  if (result.isExpired) return new Response("Link expired", { status: 410 })
+  if (result.requiresPassword) return renderPasswordPage(shortCode)
 
   return new Response(null, {
     status: 302,
@@ -1190,21 +975,18 @@ export async function handleRedirect(req: Request): Promise<Response> {
 }
 ```
 
-**Why 302 over 301:**
+### 302 vs 301 in practice
 
-| Factor          | 301 (Permanent)         | 302 (Temporary)        |
-| --------------- | ----------------------- | ---------------------- |
-| Browser caching | Aggressive (forever)    | Respects Cache-Control |
-| Click tracking  | Misses cached clicks    | Tracks all clicks      |
-| URL updates     | Cached version persists | Changes reflected      |
-| CDN caching     | Long TTL safe           | Short TTL recommended  |
+| Concern              | `301 Moved Permanently`                                | `302 Found`                                            |
+| -------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
+| Default cacheability | Heuristically cacheable indefinitely (RFC 9111 §4.2.2)[^rfc9111-302] | Only cacheable with explicit freshness                  |
+| Click tracking       | Misses cached repeat clicks                             | Tracks every click after `max-age` expires              |
+| Updating destination | Browser/CDN may serve stale forever                     | Reflected after `max-age` expires                       |
+| CDN strategy         | Long TTL is safe — but you can never retract            | Short TTL recommended (60 s typical)                    |
 
-**Recommendation:** Use 302 with `Cache-Control: private, max-age=60`. CDN caches for 60s (absorbs spikes), browsers cache briefly, analytics remain accurate.
+### Dashboard state
 
-### Dashboard State Management
-
-```typescript collapse={1-12}
-// URL analytics dashboard state
+```typescript title="dashboardStore.ts" collapse={1-12}
 interface DashboardState {
   urls: Map<string, URLSummary>
   selectedUrl: string | null
@@ -1213,7 +995,6 @@ interface DashboardState {
   isLoading: boolean
 }
 
-// Normalized store for efficient updates
 const useDashboardStore = create<DashboardState>((set, get) => ({
   urls: new Map(),
   selectedUrl: null,
@@ -1221,14 +1002,10 @@ const useDashboardStore = create<DashboardState>((set, get) => ({
   dateRange: { start: subDays(new Date(), 7), end: new Date() },
   isLoading: false,
 
-  // Actions
   fetchUrls: async () => {
     set({ isLoading: true })
     const urls = await api.getUrls()
-    set({
-      urls: new Map(urls.map((u) => [u.id, u])),
-      isLoading: false,
-    })
+    set({ urls: new Map(urls.map((u) => [u.id, u])), isLoading: false })
   },
 
   selectUrl: async (urlId: string) => {
@@ -1249,188 +1026,153 @@ const useDashboardStore = create<DashboardState>((set, get) => ({
 }))
 ```
 
-### Real-Time Click Counter
+### Real-time click counter
 
-```typescript collapse={1-10}
-// WebSocket for live click updates
+```typescript title="ClickStreamClient.ts" collapse={1-10}
 class ClickStreamClient {
   private ws: WebSocket | null = null
   private subscriptions = new Set<string>()
 
   connect(authToken: string): void {
     this.ws = new WebSocket(`wss://api.suj.ee/ws?token=${authToken}`)
-
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
-      if (data.type === "click") {
-        this.handleClick(data.shortCode, data.count)
-      }
+      if (data.type === "click") this.handleClick(data.shortCode, data.count)
     }
   }
 
   subscribe(shortCode: string): void {
     this.subscriptions.add(shortCode)
-    this.ws?.send(
-      JSON.stringify({
-        action: "subscribe",
-        shortCode,
-      }),
-    )
+    this.ws?.send(JSON.stringify({ action: "subscribe", shortCode }))
   }
 
   private handleClick(shortCode: string, count: number): void {
-    // Update local state
     useDashboardStore.getState().updateClickCount(shortCode, count)
   }
 }
 ```
 
+The WebSocket reads from the Redis fresh counter (via a thin pub/sub bridge), not from ClickHouse. Real-time means within 1 s of the click; dashboards pulling from ClickHouse are eventually consistent within the materialized-view refresh interval.
+
 ## Infrastructure
 
-### Cloud-Agnostic Components
+### Cloud-agnostic shape
 
-| Component      | Purpose                       | Options                        |
-| -------------- | ----------------------------- | ------------------------------ |
-| CDN            | Edge caching, DDoS protection | Cloudflare, Fastly, CloudFront |
-| Load balancer  | Traffic distribution          | HAProxy, NGINX, ALB            |
-| Application    | Redirect service, API         | Node.js, Go, Rust              |
-| KV cache       | Hot URLs, rate limits         | Redis, KeyDB, Dragonfly        |
-| Primary DB     | URL mappings                  | Cassandra, ScyllaDB, DynamoDB  |
-| Analytics DB   | Click data                    | ClickHouse, Druid, TimescaleDB |
-| Message queue  | Analytics pipeline            | Kafka, Pulsar, Redpanda        |
-| Object storage | Exports, backups              | S3, GCS, MinIO                 |
+| Component        | Purpose                          | Options                              |
+| ---------------- | -------------------------------- | ------------------------------------ |
+| CDN              | Edge cache, DDoS absorb          | Cloudflare, Fastly, CloudFront       |
+| Load balancer    | Traffic distribution             | HAProxy, NGINX, AWS ALB              |
+| Application      | Redirect, API                    | Node.js, Go, Rust                    |
+| KV cache         | Hot URLs, rate limits, bloom     | Redis Cluster, KeyDB, Dragonfly      |
+| Primary store    | URL mappings                     | Cassandra, ScyllaDB, DynamoDB        |
+| Analytics store  | Click data                       | ClickHouse, Druid, TimescaleDB       |
+| Message queue    | Analytics pipeline               | Kafka, Pulsar, Redpanda              |
+| Object storage   | Exports, backups                 | S3, GCS, MinIO                       |
 
-### AWS Reference Architecture
+### AWS reference
 
-![Diagram](./diagrams/diagram-8-light.svg)
-![Diagram](./diagrams/diagram-8-dark.svg)
+![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/diagram-8-light.svg "AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.")
+![AWS reference architecture: Route 53 → CloudFront with WAF/Shield → Fargate redirect/shortening tier → ElastiCache + Keyspaces; analytics on MSK + ClickHouse on EC2.](./diagrams/diagram-8-dark.svg)
 
-**Service configurations:**
+| Service                      | Configuration                  | Why                                          |
+| ---------------------------- | ------------------------------ | -------------------------------------------- |
+| CloudFront                   | 200+ POPs                      | Global low-latency redirects                 |
+| Redirect tier (Fargate)      | 2 vCPU, 4 GB, 50 tasks         | Stateless, scales horizontally               |
+| Shortening tier (Fargate)    | 2 vCPU, 4 GB, 10 tasks         | Lower traffic, write-heavy                   |
+| ElastiCache Redis            | r6g.xlarge cluster, 3 shards   | Hot URLs, rate limits, bloom                 |
+| Amazon Keyspaces             | On-demand                      | Serverless Cassandra; auto-scales            |
+| RDS PostgreSQL               | db.r6g.large Multi-AZ          | Users, KGS, configuration                    |
+| MSK                          | kafka.m5.large × 3             | Click event streaming                        |
 
-| Service                      | Configuration                | Rationale                                  |
-| ---------------------------- | ---------------------------- | ------------------------------------------ |
-| CloudFront                   | 200+ edge locations          | Global low-latency redirects               |
-| Redirect Service (Fargate)   | 2 vCPU, 4GB, 50 tasks        | High throughput, stateless                 |
-| Shortening Service (Fargate) | 2 vCPU, 4GB, 10 tasks        | Lower traffic than redirects               |
-| ElastiCache Redis            | r6g.xlarge cluster, 3 shards | Hot URL cache, rate limits                 |
-| Amazon Keyspaces             | On-demand                    | Serverless Cassandra, scales automatically |
-| RDS PostgreSQL               | db.r6g.large Multi-AZ        | Users, KGS, configuration                  |
-| MSK                          | kafka.m5.large × 3           | Click event streaming                      |
-
-### Self-Hosted Alternatives
-
-| Managed Service  | Self-Hosted Option   | When to Self-Host               |
-| ---------------- | -------------------- | ------------------------------- |
-| Amazon Keyspaces | ScyllaDB             | Cost at scale, lower latency    |
-| ElastiCache      | Redis Cluster on EC2 | Specific modules, cost          |
-| CloudFront       | Cloudflare           | Better DDoS protection, cheaper |
-| MSK              | Redpanda             | Lower latency, simpler ops      |
+| Managed                | Self-hosted alternative   | When to switch                          |
+| ---------------------- | ------------------------- | --------------------------------------- |
+| Amazon Keyspaces       | ScyllaDB on EC2           | Cost at scale, p99 sensitivity          |
+| ElastiCache            | Redis Cluster on EC2      | RedisBloom / specific modules           |
+| CloudFront             | Cloudflare                | DDoS protection, predictable pricing    |
+| MSK                    | Redpanda                  | Lower latency, simpler ops              |
 
 ### Monitoring
 
-**Key metrics:**
+| Metric                | Alert at  | Action                                       |
+| --------------------- | --------- | -------------------------------------------- |
+| Redirect latency p99  | > 100 ms  | Check Redis health, CDN cache-hit ratio      |
+| CDN cache-hit ratio   | < 80 %    | Review `Cache-Control`; scope `Vary` headers |
+| 404 rate              | > 5 %     | Likely a scanner; check WAF rules            |
+| KGS unused inventory  | < 1 week of writes | Trigger key generation                |
+| Analytics lag         | > 60 s    | Scale Kafka consumers; check ClickHouse      |
+| Counter drift (ClickHouse vs Redis) | > 5 % | Pipeline incident; investigate         |
 
-| Metric               | Alert Threshold | Action                     |
-| -------------------- | --------------- | -------------------------- |
-| Redirect latency p99 | > 100ms         | Scale Redis, check CDN     |
-| CDN cache hit ratio  | < 80%           | Review cache headers       |
-| 404 rate             | > 5%            | Check for scanning attacks |
-| KGS key inventory    | < 20%           | Generate new batch         |
-| Click pipeline lag   | > 60s           | Scale analytics processors |
+Each redirect carries a trace ID propagated through CDN → LB → service → cache → store → analytics. Sample rate is 100 % for errors and 1 % for normal traffic — enough to characterize p99 without paying the cost of full sampling at the redirect tier.
 
-**Distributed tracing:**
+## Practical takeaways
 
-```
-Request → CDN → Load Balancer → Redirect Service → Redis/Cassandra → Analytics
-   │                                                                      │
-   └─────────────────── Trace ID propagated ──────────────────────────────┘
-```
-
-- Each redirect gets unique trace ID
-- Propagate through all services
-- 100% sampling for errors, 1% for normal traffic
-
-## Conclusion
-
-This design provides a production-ready URL shortener with:
-
-1. **Zero collision guarantee** via Key Generation Service
-2. **Sub-50ms global redirect latency** through CDN edge caching and Redis
-3. **100K+ RPS capacity** with horizontal scaling
-4. **Real-time analytics** without blocking redirects
-5. **Security-first approach** with URL scanning and rate limiting
-
-**Key architectural decisions:**
-
-- KGS + Snowflake hybrid for ID generation balances simplicity and scale
-- 302 redirects with short CDN TTL enable analytics while absorbing traffic spikes
-- Cassandra for URL mappings provides O(1) lookups and horizontal scaling
-- Async analytics pipeline (Kafka → ClickHouse) keeps redirect path fast
-
-**Known limitations:**
-
-- KGS requires pre-generation overhead and key exhaustion monitoring
-- 302 redirects increase server load vs. 301 caching
-- Analytics have 1-5 second delay due to async processing
-- Bloom filter false positives cause unnecessary DB lookups (~0.1%)
-
-**Future enhancements:**
-
-- Link preview generation (OpenGraph scraping)
-- A/B testing for destinations
-- Geographic routing (different destination per region)
-- Deep link support for mobile apps
+- **The redirect path is the product.** Optimize relentlessly for it; everything else exists to serve it without slowing it down.
+- **`302` with a short explicit `Cache-Control: max-age` is the right default.** `301` only if you genuinely don't need analytics and are sure the destination is forever.
+- **KGS for primary code generation, Snowflake for bulk/programmatic.** This avoids the worst of both — collision overhead and unnecessary code length.
+- **Counters never live in the primary store.** Cassandra `COUNTER` columns invite over- and under-counting on retries; use Redis for fresh values and ClickHouse for authoritative totals.
+- **Bloom filter sizing is math, not vibes.** $m = -n \ln p / (\ln 2)^2$; 1 B items at 0.1 % FPR is ≈ 1.7 GB.
+- **Plan for the viral spike, not the steady state.** A single link can move 80 % of daily traffic in minutes; CDN-first design is non-negotiable.
+- **Abuse defense is a continuous job, not a creation-time check.** Live-rescan known links; flip `is_active` when a destination turns bad.
 
 ## Appendix
 
 ### Prerequisites
 
-- Distributed systems fundamentals (consistent hashing, replication)
-- Database selection trade-offs (SQL vs. NoSQL)
-- Caching strategies (TTL, eviction policies)
-- HTTP redirect semantics (301 vs. 302)
+- Distributed-systems fundamentals: replication, consistent hashing, quorum reads/writes.
+- Database trade-offs: when SQL beats NoSQL and vice versa.
+- HTTP redirect semantics — RFC 9110 §15.4.2 (301), §15.4.3 (302); RFC 9111 §4.2.2 (heuristic freshness).
+- Caching strategies: TTL, eviction policies, hot-key behavior.
 
 ### Terminology
 
-| Term                   | Definition                                                                  |
-| ---------------------- | --------------------------------------------------------------------------- |
-| **Base62**             | Encoding using 62 characters (0-9, A-Z, a-z) for URL-safe short codes       |
-| **Snowflake ID**       | Twitter's distributed ID generation algorithm (timestamp + node + sequence) |
-| **KGS**                | Key Generation Service - pre-generates unique short codes                   |
-| **Bloom filter**       | Probabilistic data structure for fast membership testing                    |
-| **Consistent hashing** | Sharding technique that minimizes data movement on cluster changes          |
-| **CDN**                | Content Delivery Network - edge caching for global low latency              |
-| **Hot key**            | Cache key receiving disproportionate traffic (viral links)                  |
-
-### Summary
-
-- **ID generation** uses KGS for random codes and Snowflake for time-ordered IDs, both Base62 encoded for URL-safe 7-character codes
-- **Storage** uses Cassandra for URL mappings (O(1) lookups, horizontal scaling) and ClickHouse for analytics (columnar, fast aggregations)
-- **Caching** is multi-tier: CDN edge (global) → Redis (regional) → Database, with Bloom filters preventing cache stampede
-- **Redirects** use 302 status with short CDN TTL to balance analytics accuracy with traffic absorption
-- **Analytics** collected asynchronously via Kafka to never block the redirect critical path
-- **Security** includes URL scanning (Google Safe Browsing, VirusTotal), rate limiting, and bot detection
+| Term                   | Definition                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| Base62                 | Encoding using `0-9 A-Z a-z` for URL-safe short codes                        |
+| Snowflake ID           | Twitter's distributed ID format: timestamp + worker + sequence in 64 bits   |
+| KGS                    | Key Generation Service — pre-allocates unique short codes                    |
+| Bloom filter           | Probabilistic membership test; never says "no" wrong, can say "yes" wrong   |
+| Consistent hashing     | Sharding scheme that minimizes data movement on cluster-membership changes  |
+| CDN                    | Content Delivery Network — edge caching for global low latency              |
+| Hot key                | A cache key receiving disproportionate traffic (viral links)                |
 
 ### References
 
-**Real-World Implementations:**
+- [Bitly — Lessons Learned Building a Distributed System That Handles 6 Billion Clicks a Month (2014)](https://highscalability.com/bitly-lessons-learned-building-a-distributed-system-that-han/) — primary source for scale numbers and SOA architecture pattern.
+- [Bitly — NSQ: realtime distributed message processing at scale](https://word.bitly.com/post/33232969144/nsq) — origin of NSQ; useful baseline for async messaging design.
+- [Twitter Engineering — Announcing Snowflake (2010)](https://blog.x.com/engineering/en_us/a/2010/announcing-snowflake) — original Snowflake design.
+- [Snowflake ID — Wikipedia](https://en.wikipedia.org/wiki/Snowflake_ID) — concise reference for the 64-bit layout.
+- [RFC 9110 — HTTP Semantics, §15.4.2 (301), §15.4.3 (302)](https://www.rfc-editor.org/rfc/rfc9110.html#name-301-moved-permanently)
+- [RFC 9111 — HTTP Caching, §4.2.2 (Calculating Heuristic Freshness)](https://www.rfc-editor.org/rfc/rfc9111.html#name-calculating-heuristic-fresh)
+- [Apache Cassandra — Counter columns (`COUNTER` data type)](https://cassandra.apache.org/doc/stable/cassandra/cql/types.html)
+- [Apache Cassandra — Leveled Compaction Strategy](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/compaction/lcs.html)
+- [Google Web Risk API — Quotas and limits](https://docs.cloud.google.com/web-risk/quotas)
+- [ClickHouse — Use materialized views](https://clickhouse.com/docs/best-practices/use-materialized-views) and [Top 10 best practices](https://clickhouse.com/blog/10-best-practice-tips)
+- [AWS Database Blog — DynamoDB partitions, hot keys, and split-for-heat](https://aws.amazon.com/blogs/database/part-2-scaling-dynamodb-how-partitions-hot-keys-and-split-for-heat-impact-performance/)
 
-- [Bitly: Lessons Learned Building a Distributed System that Handles 6 Billion Clicks a Month](http://highscalability.com/blog/2014/7/14/bitly-lessons-learned-building-a-distributed-system-that-han.html) - SOA architecture, monitoring at scale
-- [Twitter t.co Documentation](https://developer.x.com/en/docs/tco) - Built-in security scanning, analytics integration
-- [Snowflake ID - Wikipedia](https://en.wikipedia.org/wiki/Snowflake_ID) - Distributed ID generation algorithm
+[^bitly-scale]: [Bitly: Lessons Learned Building a Distributed System That Handles 6 Billion Clicks a Month](https://highscalability.com/bitly-lessons-learned-building-a-distributed-system-that-han/), High Scalability summary of a Bitly engineering presentation, July 2014. Subsequent industry coverage put Bitly at 9–11 B clicks/month by late 2017.
 
-**Technical Deep Dives:**
+[^snowflake-2010]: [Announcing Snowflake](https://blog.x.com/engineering/en_us/a/2010/announcing-snowflake), Twitter (now X) Engineering Blog, June 2010. Custom epoch `1288834974657` ms = 2010-11-04T01:42:54.657 UTC.
 
-- [System Design: URL Shortening](https://systemdesign.one/url-shortening-system-design/) - Comprehensive system design walkthrough
-- [URL Shortener Using Snowflake IDs and Base62 Encoding](https://dev.to/speaklouder/url-shortener-using-snowflake-ids-and-base62-encoding-4179) - Implementation details
-- [301 vs 302 Redirects in URL Shorteners](https://url-shortening.com/blog/301-vs-302-redirects-in-shorteners-speed-seo-and-caching) - Redirect strategy trade-offs
+[^snowflake-wiki]: [Snowflake ID](https://en.wikipedia.org/wiki/Snowflake_ID), Wikipedia, accessed 2026-04-21.
 
-**Security:**
+[^discord-snowflake]: [Discord Developer Documentation — Snowflakes](https://discord.com/developers/docs/reference#snowflakes).
 
-- [URL Shortening Allows Threats to Evade Traditional Tools](https://www.menlosecurity.com/blog/url-shortening-allows-threats-to-evade-url-filtering-and-categorization-tools) - Security challenges
-- [How URL Shortener Services Handle Abuse and Spam](https://on4t.net/blog/url-shortener-handle-abuse-spam/) - Abuse prevention strategies
+[^rfc9111-302]: [RFC 9111 §4.2.2 (Calculating Heuristic Freshness)](https://www.rfc-editor.org/rfc/rfc9111.html#name-calculating-heuristic-fresh) and [RFC 9110 §15.4.3 (302 Found)](https://www.rfc-editor.org/rfc/rfc9110.html#status.302). 301 responses are heuristically cacheable; 302 responses are cacheable only when the response includes explicit freshness information (e.g. `Cache-Control: max-age` or `Expires`).
 
-**Privacy and Compliance:**
+[^cassandra-counter]: [Apache Cassandra — Data Types: counter](https://cassandra.apache.org/doc/stable/cassandra/cql/types.html) on counter limitations; [Cassandra counter columns: nice in theory, hazardous in practice](https://ably.com/blog/cassandra-counter-columns-nice-in-theory-hazardous-in-practice), Ably Engineering, for a production-experience perspective on retry and replica-failure semantics.
 
-- [GDPR Compliance in URL Shorteners](https://iplogger.org/gdpr/) - Privacy requirements
-- [Best URL Shorteners for Privacy](https://blog.choto.co/best-url-shorteners-for-privacy/) - GDPR-compliant implementations
+[^cassandra-lcs]: [Apache Cassandra — Leveled Compaction Strategy](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/compaction/lcs.html). Note that Cassandra 5.0 introduces UCS (Unified Compaction Strategy); LCS remains valid for read-dominant workloads.
+
+[^web-risk]: [Google Web Risk — Quotas and limits](https://docs.cloud.google.com/web-risk/quotas) and [Safe Browsing APIs (v4) Overview](https://developers.google.com/safe-browsing/v4) on the non-commercial restriction.
+
+[^bloom-sizing]: Bloom-filter bit count $m = -\frac{n \ln p}{(\ln 2)^2}$ and optimal hash count $k = \frac{m}{n} \ln 2$. For $n = 10^9$ and $p = 0.001$: $m \approx 1.44 \times 10^{10}$ bits ($\approx 1.7$ GB), $k = 10$. See [Bloom filter calculator](https://hur.st/bloomfilter/) and the [Redis Bloom filter docs](https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/) bits-per-element table.
+
+[^clickhouse-mv]: See [ClickHouse — Use materialized views](https://clickhouse.com/docs/best-practices/use-materialized-views) and the engine-specific docs for [`SummingMergeTree`](https://clickhouse.com/docs/engines/table-engines/mergetree-family/summingmergetree) and `AggregatingMergeTree`. `SummingMergeTree` only sums numeric columns on merge; non-additive aggregates such as `uniqExact` belong in `AggregatingMergeTree` with `*State` / `*Merge` functions.
+
+[^clickhouse-best]: [Top 10 best practices tips for ClickHouse](https://clickhouse.com/blog/10-best-practice-tips), ClickHouse Blog. Recommends 10–100 partitions total; `toYYYYMM` is the typical default.
+
+[^scylla-vs-cassandra]: [ScyllaDB vs. Apache Cassandra](https://www.scylladb.com/compare/scylladb-vs-apache-cassandra/), ScyllaDB. Vendor source — values are indicative, not independent benchmarks.
+
+[^ddb-hot-partition]: [Scaling DynamoDB: how partitions, hot keys, and split-for-heat impact performance](https://aws.amazon.com/blogs/database/part-2-scaling-dynamodb-how-partitions-hot-keys-and-split-for-heat-impact-performance/), AWS Database Blog.
+
+[^menlo-shortener-abuse]: [URL shortening allows threats to evade URL filtering and categorization tools](https://www.menlosecurity.com/blog/url-shortening-allows-threats-to-evade-url-filtering-and-categorization-tools), Menlo Security.

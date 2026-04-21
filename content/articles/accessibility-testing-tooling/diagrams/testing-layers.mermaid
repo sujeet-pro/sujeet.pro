@@ -1,0 +1,39 @@
+%% Diagram: Layered accessibility testing workflow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph DEV["Dev time"]
+        direction TB
+        Lint["jsx-a11y<br/>36 lint rules"]
+    end
+
+    subgraph CI["CI gate"]
+        direction TB
+        Comp["jest-axe<br/>component"]
+        E2E["Playwright<br/>+ axe-core"]
+        Pa["Pa11y-CI<br/>axe + HTMLCS"]
+        LH["Lighthouse CI<br/>~57 audits"]
+        Comp --- E2E
+        E2E --- Pa
+        Pa --- LH
+    end
+
+    subgraph MAN["Manual"]
+        direction TB
+        KB["Keyboard pass<br/>tab, focus, SPA"]
+        SR["Screen readers<br/>NVDA / JAWS / VO"]
+        EXT["WAVE / axe IGT"]
+        KB --- SR
+        SR --- EXT
+    end
+
+    subgraph COV["Coverage signals (different metrics)"]
+        direction TB
+        VOL["~57% issues by volume<br/>(Deque corpus)"]
+        CRIT["~13 / 45 / 42% criteria<br/>(reliable / partial / none)"]
+        VOL --- CRIT
+    end
+
+    DEV --> CI
+    CI --> MAN
+    MAN --> COV

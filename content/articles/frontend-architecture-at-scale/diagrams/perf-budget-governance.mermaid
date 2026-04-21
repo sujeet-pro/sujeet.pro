@@ -1,0 +1,46 @@
+%% Diagram: Performance Budget Governance
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph define["1. Define"]
+    sloDef["Per-route SLOs:<br/>LCP &lt; 2.5s,<br/>INP &lt; 200ms,<br/>CLS &lt;= 0.1,<br/>JS &lt; 170 kB gz"]
+  end
+
+  subgraph gate["2. CI lab gate"]
+    pr["Pull request"]
+    lab["Lighthouse CI<br/>+ bundle-stats<br/>vs budget"]
+    block{"Within<br/>budget?"}
+    fail["Block merge<br/>(actionable diff)"]
+    pass["Merge"]
+    pr --> lab --> block
+    block -- "no" --> fail
+    block -- "yes" --> pass
+  end
+
+  subgraph field["3. Field RUM"]
+    deploy["Deploy"]
+    crux["CrUX + RUM:<br/>p75 INP, LCP, CLS<br/>per route + segment"]
+    deploy --> crux
+  end
+
+  subgraph respond["4. Respond"]
+    breach{"p75 SLO<br/>breached?"}
+    page["Page owning team<br/>(CODEOWNERS)"]
+    revert["Auto-revert /<br/>flag rollback"]
+    review["RFC for<br/>permanent budget shift"]
+    breach -- "yes" --> page --> revert
+    page --> review
+    breach -- "no" --> ok["No-op"]
+  end
+
+  sloDef --> lab
+  sloDef --> crux
+  pass --> deploy
+  crux --> breach
+
+  classDef def fill:#eef3ff,stroke:#3a4f9f,color:#1c2d6b;
+  classDef bad fill:#fde2e1,stroke:#b03a2e,color:#5a1812;
+  classDef good fill:#dff5e1,stroke:#1f7a3a,color:#0c3d1d;
+  class sloDef def;
+  class fail,revert bad;
+  class pass,ok good;

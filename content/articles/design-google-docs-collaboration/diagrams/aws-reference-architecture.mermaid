@@ -1,0 +1,37 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge
+        CF["CloudFront"]
+        ALB["Application load balancer"]
+    end
+
+    subgraph Compute["ECS / EKS cluster"]
+        WS["WebSocket service<br/>(Fargate)"]
+        API["Document API<br/>(Fargate)"]
+        WORKER["Snapshot workers<br/>(Fargate Spot)"]
+    end
+
+    subgraph Data
+        REDIS["ElastiCache Redis<br/>(cluster mode)"]
+        RDS["RDS PostgreSQL<br/>(Multi-AZ)"]
+        DDB["DynamoDB<br/>(on-demand)"]
+        S3["S3<br/>(Standard + IA)"]
+    end
+
+    subgraph Streaming
+        MSK["Amazon MSK<br/>(Kafka)"]
+    end
+
+    CF --> ALB
+    ALB --> WS
+    ALB --> API
+    WS --> REDIS
+    WS --> DDB
+    API --> RDS
+    API --> DDB
+    API --> S3
+    WS --> MSK
+    MSK --> WORKER
+    WORKER --> S3

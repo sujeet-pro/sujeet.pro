@@ -1,0 +1,26 @@
+%% Diagram: HTTP/2 vs HTTP/3 head-of-line blocking under packet loss
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant N as Network (1% loss)
+    participant S as Server
+
+    Note over C,S: HTTP/2 over TCP — single TCP stream, app-level multiplex
+    C->>N: GET /a (stream 1) + GET /b (stream 3) + GET /c (stream 5)
+    N-->>S: packets for /a, /b, /c
+    S-->>N: response packets (interleaved)
+    Note over N: Packet for /a is lost
+    N--xC: packet loss on stream 1
+    Note over C: TCP waits for retransmit — /b and /c are BLOCKED
+    N-->>C: retransmit /a packet
+    N-->>C: /a, /b, /c released together
+
+    Note over C,S: HTTP/3 over QUIC — independent streams in transport
+    C->>N: GET /a (stream 1) + GET /b (stream 5) + GET /c (stream 9)
+    N-->>S: QUIC packets per stream
+    S-->>N: response frames per stream
+    Note over N: Packet for /a is lost
+    N--xC: packet loss on stream 1
+    N-->>C: /b and /c continue uninterrupted
+    N-->>C: retransmit /a frame — /a delivered later

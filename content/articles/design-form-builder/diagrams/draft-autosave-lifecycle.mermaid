@@ -1,0 +1,30 @@
+%% Diagram: Draft autosave + recovery lifecycle
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant U as User
+    participant F as Form runtime
+    participant W as Watcher (debounced)
+    participant DB as IndexedDB
+    participant API as Backend
+
+    Note over F,DB: Page load — recovery phase
+    F->>DB: get(formId)
+    DB-->>F: { data, savedAt } or null
+    alt draft exists and not stale
+        F-->>U: prompt "Restore draft?"
+        U->>F: restore | discard
+    end
+
+    Note over F,W: Editing phase — autosave
+    loop on every keystroke
+        U->>F: input
+        F->>W: notify(values)
+    end
+    W-->>DB: put(formId, snapshot) (after 2s idle)
+
+    Note over F,API: Submit phase
+    U->>F: submit
+    F->>API: POST submission
+    API-->>F: 2xx
+    F->>DB: delete(formId)

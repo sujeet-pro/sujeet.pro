@@ -1,0 +1,29 @@
+%% Diagram: GFS-style read — client cache, master fallback, checksum verify
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Client
+    participant Cache as Client cache (LRU)
+    participant Master
+    participant CS1 as Closest CS
+    participant CS2 as Alt CS
+
+    Client->>Cache: 1. Lookup(file, chunkIndex)
+    alt Cache hit (warm)
+        Cache-->>Client: Locations + version (cached)
+    else Cache miss
+        Client->>Master: 2. GetChunkLocations(file, chunkIndex)
+        Master-->>Client: ChunkInfo{replicas, version}
+        Client->>Cache: Store (TTL 10 min)
+    end
+
+    Client->>CS1: 3. ReadChunk(handle, offset, len, version)
+    CS1->>CS1: Verify CRC32C per 64 KB block
+    alt OK
+        CS1-->>Client: Bytes
+    else Checksum mismatch / stale version
+        CS1-->>Client: Error + report bad chunk to master
+        Client->>CS2: 4. Retry on alt replica
+        CS2-->>Client: Bytes
+        Note over Master: Master schedules re-replication<br/>and version bump for the bad replica
+    end

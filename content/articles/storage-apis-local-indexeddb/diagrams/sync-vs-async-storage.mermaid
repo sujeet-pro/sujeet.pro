@@ -1,0 +1,29 @@
+%% Diagram: Sync vs async storage APIs and how they map to the quota model
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Sync, Main Thread"
+        LS["localStorage\nDOMString KV"]
+        SS["sessionStorage\nTab-scoped KV"]
+    end
+
+    subgraph "Async, Off Main Thread"
+        IDB["IndexedDB\nStructured clone"]
+        CACHE["Cache API\nRequest to Response"]
+        OPFS["OPFS async\nMain thread + workers"]
+    end
+
+    subgraph "Sync, Worker Only"
+        OPFSSYNC["FileSystemSyncAccessHandle\nDirect byte access"]
+    end
+
+    subgraph "Quota Model"
+        BE["best-effort\nEvictable under pressure"]
+        P["persistent\nUser must approve deletion"]
+    end
+
+    IDB --> BE
+    CACHE --> BE
+    OPFS --> BE
+    OPFSSYNC --> BE
+    BE -.->|"navigator.storage.persist()"| P

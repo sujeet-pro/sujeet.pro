@@ -1,0 +1,54 @@
+%% Diagram: Fetch -> parse -> dedup pipeline with two-tier deduplication
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph In["Input"]
+        Q[Frontier pop<br/>URL + host context]
+    end
+
+    subgraph FetchStage["Fetch"]
+        Robots{robots.txt<br/>allowed?}
+        Get[HTTP GET<br/>HTTP/2, gzip/br]
+        Status{2xx?}
+    end
+
+    subgraph DecideRender["Render decision"]
+        JSCheck{JS-heavy?<br/>noscript only,<br/>SPA markers}
+        Headless[Headless Chromium<br/>render]
+    end
+
+    subgraph ParseStage["Parse"]
+        DOM[DOM parse<br/>jsoup / lxml / parse5]
+        ExtractText[Text + metadata<br/>title, lang, canonical]
+        ExtractLinks[Link extraction<br/>+ canonicalise per RFC 3986]
+    end
+
+    subgraph DedupStage["Dedup (two layers)"]
+        Bloom{URL Bloom<br/>seen?}
+        URLStore[(Persistent URL store<br/>confirms positives)]
+        SimHash{SimHash<br/>Hamming &le; 3?}
+    end
+
+    subgraph Out["Outputs"]
+        StoreBody[(Object store<br/>gzip body)]
+        StoreFP[(Fingerprint index)]
+        Reinject[Re-inject new URLs<br/>into frontier]
+        Drop[Drop / reference-only]
+    end
+
+    Q --> Robots
+    Robots -->|deny| Drop
+    Robots -->|allow| Get --> Status
+    Status -->|3xx 4xx 5xx| Drop
+    Status -->|yes| JSCheck
+    JSCheck -->|no| DOM
+    JSCheck -->|yes| Headless --> DOM
+    DOM --> ExtractText --> SimHash
+    DOM --> ExtractLinks --> Bloom
+    Bloom -->|definitely new| Reinject
+    Bloom -->|maybe seen| URLStore
+    URLStore -->|new| Reinject
+    URLStore -->|seen| Drop
+    SimHash -->|new| StoreBody
+    StoreBody --> StoreFP
+    SimHash -->|near-dup| Drop

@@ -6,7 +6,7 @@ description: >-
   through vertical partitioning, custom tooling (gh-ost, orchestrator, freno),
   Vitess adoption, and a rolling MySQL 8.0 upgrade — without a big rewrite.
 publishedDate: 2026-02-08T00:00:00.000Z
-lastUpdatedOn: 2026-02-08T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - data
@@ -75,9 +75,9 @@ By 2014, the single-cluster architecture had hit concrete limits:
 - **Schema migration risk**: Altering a table schema on a multi-hundred-gigabyte table was a multi-hour operation that could cause lock contention and degrade the entire site
 - **Vertical scaling limits**: Even with the best available hardware, a single primary could not absorb the growing write load indefinitely
 
-### The 2014 Datacenter Migration
+### The 2013 Datacenter Migration
 
-In August 2014, GitHub's infrastructure team (led by Sam Lambert) executed a major datacenter migration:
+On Saturday, August 31, 2013 (5am PDT), GitHub's infrastructure team (led by Sam Lambert) executed a major datacenter migration. The retrospective ["Making MySQL Better at GitHub"](https://github.blog/2014-09-02-making-mysql-better-at-github/) was published a year later. The team:
 
 - Migrated the bulk of GitHub.com's MySQL infrastructure to a new datacenter with upgraded hardware and networking
 - Used `tcpdump` to extract production `SELECT` queries and replay them against the new cluster for workload validation
@@ -90,7 +90,7 @@ In August 2014, GitHub's infrastructure team (led by Sam Lambert) executed a maj
 | ---------------------- | -------- | ---------------------------- |
 | Average page load time | Baseline | **50% reduction**            |
 | P99 response time      | Baseline | **66% reduction**            |
-| Migration downtime     | —        | 13 minutes (Saturday 5am PT) |
+| Migration downtime     | —        | 13 minutes (Saturday 5am PDT, 31 Aug 2013) |
 
 The migration bought time, but the fundamental architecture—a single primary for most data—remained. The next phase addressed the operational tooling needed to safely evolve the schema and topology at scale.
 
@@ -110,6 +110,9 @@ GitHub's database team recognized that before partitioning the database, they ne
 **Solution**: In August 2016, GitHub open-sourced **gh-ost** (GitHub's Online Schema Transmogrifier), a triggerless migration tool. Instead of triggers, gh-ost connects to a MySQL replica and tails the binary log in Row-Based Replication (RBR) format. It creates a shadow ("ghost") table with the desired schema, copies rows incrementally, and applies ongoing changes from the binary log asynchronously. When the ghost table is synchronized, it performs an atomic table swap.
 
 The key insight: gh-ost presents as a single sequential connection writing to the ghost table—comparable to an Extract, Transform, Load (ETL) process rather than an invasive trigger chain operating inside every production transaction.
+
+![gh-ost migration flow: a stateless binary tails the binary log on a replica, copies rows from the original table in chunks, and applies live changes to the ghost table before an atomic RENAME swap.](./diagrams/gh-ost-migration-flow-light.svg "gh-ost migration flow — binlog tail + chunked row copy converge on a ghost table, swapped in via an atomic RENAME.")
+![gh-ost migration flow: a stateless binary tails the binary log on a replica, copies rows from the original table in chunks, and applies live changes to the ghost table before an atomic RENAME swap.](./diagrams/gh-ost-migration-flow-dark.svg)
 
 **Key operational features:**
 
@@ -172,6 +175,9 @@ In parallel, GitHub developed **Trilogy**, a MySQL client library written in C w
 
 During the MySQL 8.0 upgrade, Trilogy's consistent behavior gave the team confidence that the Rails monolith's connections would not break backward replication—a critical property for safe rollback. Multi-client clusters using other frameworks saw backward replication break within hours.
 
+> [!IMPORTANT]
+> The choice of database client gates rollback safety on a major-version upgrade. If your applications use heterogeneous MySQL drivers (Java, Python, Node, Go) writing to the same cluster, expect backward replication from 8.0 → 5.7 to break within hours of cutover—compressing your rollback window from days to a single shift.
+
 ### Automated Schema Migration Pipeline
 
 By 2020, GitHub had assembled these tools into a fully automated migration pipeline:
@@ -213,6 +219,9 @@ users:
 
 This approach partitions along the boundaries that already exist in the application code. Tables within a domain stay together; tables in different domains can be moved to separate clusters independently.
 
+![Schema-domain partitioning: the mysql1 monolith first becomes a logical partition in code via schema-domains.yml plus query and transaction linters; once a domain has zero violations, its tables physically move to a dedicated cluster.](./diagrams/schema-domain-partitioning-light.svg "Schema-domain partitioning — logical boundaries in code precede the physical split into 50+ domain clusters.")
+![Schema-domain partitioning: the mysql1 monolith first becomes a logical partition in code via schema-domains.yml plus query and transaction linters; once a domain has zero violations, its tables physically move to a dedicated cluster.](./diagrams/schema-domain-partitioning-dark.svg)
+
 ### Enforcement: SQL Linters
 
 Before physically moving tables, GitHub deployed two linters to identify and eliminate cross-domain dependencies:
@@ -235,16 +244,19 @@ GitHub used two complementary approaches to move tables between clusters without
 
 **Vitess vertical sharding**: Deployed Vitess's VTGate in Kubernetes clusters as the MySQL protocol endpoint. VReplication (Vitess's replication engine) streamed table data to the destination cluster while applications connected through VTGate, which handled routing transparently.
 
-**Custom write-cutover**: A lighter-weight alternative using standard MySQL replication. The destination cluster replicates from the source, with ProxySQL initially routing all traffic back to the source primary. At cutover time, six steps execute in **tens of milliseconds**:
+**Custom write-cutover**: A lighter-weight alternative using standard MySQL replication. The destination cluster (`cluster_b`) is configured as a sub-cluster of the source (`cluster_a`); ProxySQL on `cluster_b` initially routes everything back to `cluster_a`'s primary, so reads and writes already pass through the destination's proxy without splitting traffic. At cutover time a script executes six steps in **tens of milliseconds**:
 
-1. Enable read-only on source primary
-2. Read final GTID (Global Transaction Identifier) from source
-3. Poll destination primary until GTID arrives
-4. Stop replication from source
-5. Update ProxySQL routing to destination
-6. Disable read-only on both primaries
+1. `SET GLOBAL read_only=ON` on `cluster_a`'s primary (a small burst of write 5xx is expected and budgeted into the off-peak window)
+2. Read the last executed GTID (Global Transaction Identifier) from `cluster_a`
+3. Poll `cluster_b`'s primary until that GTID is applied
+4. `STOP REPLICA` on `cluster_b`'s primary
+5. Update ProxySQL on `cluster_b` to point at `cluster_b`'s primary
+6. `SET GLOBAL read_only=OFF` on both primaries
 
-The custom approach served as risk mitigation—a simpler alternative when Vitess's overhead was not justified for a particular table set.
+The custom approach served as risk mitigation—a simpler alternative when Vitess's overhead was not justified for a particular table set, and an independent tool so a single-vendor outage would not block all migrations.
+
+![Custom six-step ProxySQL cutover used to move 130 hot tables off mysql1: cluster_b is preconfigured as a sub-cluster of cluster_a, the script flips read-only, syncs on a final GTID, then swaps ProxySQL's routing target.](./diagrams/dual-write-cutover-light.svg "Custom write-cutover — preconfigured ProxySQL routing collapses the cutover to a six-step, tens-of-milliseconds operation gated on a single GTID handoff.")
+![Custom six-step ProxySQL cutover used to move 130 hot tables off mysql1: cluster_b is preconfigured as a sub-cluster of cluster_a, the script flips read-only, syncs on a final GTID, then swaps ProxySQL's routing target.](./diagrams/dual-write-cutover-dark.svg)
 
 ### Results
 
@@ -291,6 +303,9 @@ The team designed a per-cluster upgrade process that preserved rollback capabili
 
 **Step 5 — Cleanup**: Remove 5.7 servers after a minimum 24-hour production traffic cycle confirms stability.
 
+![MySQL 5.7 to 8.0 rolling upgrade per cluster: replicas first, then dual replication chains for rollback, then primary promotion via orchestrator, then ancillary infrastructure, then cleanup after a 24-hour stability window. A regression at any step rolls back to the 5.7 chain via backward replication.](./diagrams/mysql-8-rolling-upgrade-light.svg "Per-cluster MySQL 8.0 upgrade: a five-step pipeline that preserves rollback capability via dual replication chains and the Trilogy + utf8 compatibility envelope.")
+![MySQL 5.7 to 8.0 rolling upgrade per cluster: replicas first, then dual replication chains for rollback, then primary promotion via orchestrator, then ancillary infrastructure, then cleanup after a 24-hour stability window. A regression at any step rolls back to the 5.7 chain via backward replication.](./diagrams/mysql-8-rolling-upgrade-dark.svg)
+
 ### Challenges Encountered
 
 **Character set incompatibility**: MySQL 8.0 defaults to `utf8mb4_0900_ai_ci` collation, which MySQL 5.7 does not support. Backward replication from 8.0 to 5.7 (needed for rollback) broke immediately. The fix: configure 8.0 servers with `utf8` / `utf8_unicode_ci` defaults—sacrificing 8.0's improved collation until all clusters were upgraded and rollback was no longer needed.
@@ -299,7 +314,7 @@ The team designed a per-cluster upgrade process that preserved rollback capabili
 
 **Query plan regressions**: Queries passing CI against controlled test data failed in production against real-world data distributions. Most notably, queries with large `WHERE IN` clauses (tens of thousands of values) crashed MySQL outright. The team relied on SolarWinds DPM (Database Performance Monitor) for query sampling to detect these regressions before they caused outages.
 
-**Vitess version advertisement**: VTGate advertises a MySQL version to clients. Java clients disabled query caching for 5.7 servers but generated blocking errors after upgrade because MySQL 8.0 removed the query cache entirely. VTGate settings required manual updates per keyspace during the shard-by-shard upgrade.
+**Vitess version advertisement**: VTGate advertises an upstream MySQL version to its clients, and some drivers branch on that string. One Java client issued query-cache control statements that worked against 5.7 but errored against 8.0 (which [removed the query cache entirely](https://dev.mysql.com/doc/refman/8.0/en/query-cache.html)). For each Vitess keyspace, the team had to upgrade the underlying MySQL one shard at a time **and** flip VTGate's advertised version manually—neither could move ahead of the other without breaking clients.
 
 ### Why Prior Partitioning Made This Possible
 

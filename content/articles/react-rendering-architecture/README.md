@@ -1,75 +1,71 @@
 ---
-title: 'React Rendering Architecture: Fiber, SSR, and RSC'
-linkTitle: 'React Rendering'
+title: "React Rendering Architecture: Fiber, Lanes, Streaming SSR, and RSC"
+linkTitle: "React Rendering"
 description: >-
-  How React renders under the hood — the Fiber reconciliation engine, lane-based priority scheduling, two-phase render/commit cycle, streaming SSR, and React Server Components as stabilized in React 19.
+  How React renders under the hood — the Fiber reconciliation engine, lane-based priority scheduling, streaming SSR with Suspense, React Server Components stabilized in React 19, and the React Compiler released as v1.0 in late 2025.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-04-14
+lastUpdatedOn: 2026-04-21
 tags:
   - react
-  - design-systems
   - frontend
-  - components
+  - performance
+  - rendering
+  - server-components
 ---
 
-# React Rendering Architecture: Fiber, SSR, and RSC
+# React Rendering Architecture: Fiber, Lanes, Streaming SSR, and RSC
 
-React's rendering architecture has evolved from a synchronous stack-based reconciler to a sophisticated concurrent system built on Fiber's virtual call stack. This article examines the Fiber reconciliation engine, lane-based priority scheduling, streaming Server-Side Rendering (SSR), and React Server Components (RSC)—now stable as of React 19 (December 2024). Understanding these internals is essential for making informed architectural decisions about rendering strategies, performance optimization, and infrastructure requirements.
+React's rendering architecture has evolved from a synchronous stack-based reconciler to a concurrent system built on Fiber's virtual call stack. This article works through the four layers that, together, define how a modern React app actually renders: the **Fiber reconciler**, the **lane-based priority scheduler**, **streaming SSR with Suspense**, and **React Server Components** (RSC) — stable as of [React 19, December 2024](https://react.dev/blog/2024/12/05/react-19). Each layer builds on the one below it, and most production performance and correctness questions trace back to which layer is making the decision. The audience is senior engineers who already write React and want to make architecture-level calls about which rendering strategy to use, where to place Suspense boundaries, and what infrastructure RSC actually requires.
 
-![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams server output and hydrates only the client boundaries that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-light.svg "Fiber underpins CSR, SSR, and RSC. Traditional SSR hydrates the rendered tree; RSC keeps non-interactive server components on the server and hydrates only client boundaries.")
-![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams server output and hydrates only the client boundaries that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-dark.svg)
+![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams a server-only component tree and hydrates only the client islands that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-light.svg "Fiber underpins CSR, SSR, and RSC. Traditional SSR hydrates the rendered tree; RSC keeps non-interactive components on the server and hydrates only the client islands.")
+![All rendering models use the Fiber reconciler; SSR hydrates client-rendered markup, while RSC streams a server-only component tree and hydrates only the client islands that need interactivity.](./diagrams/all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-dark.svg)
 
-## Abstract
+## Mental model
 
-React's rendering architecture rests on three interdependent pillars:
+The whole architecture rests on five interlocking ideas. Each one has its own section below; this is the smallest set of concepts you need to follow the rest.
 
-![Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-light.svg "Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.")
-![Fiber enables interruptible work; Lanes determine priority; execution models determine where rendering occurs.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-dark.svg)
+![The four layers of modern React rendering: Fiber as the virtual call stack, Lanes as the 31-bit priority bitmask, Suspense and transitions as concurrency primitives, and CSR/SSR/RSC as the execution models that ride on top.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-light.svg "Fiber is the virtual stack; Lanes give each update a priority bit; Suspense and transitions ride on top; CSR, SSR, and RSC are execution models, not separate engines.")
+![The four layers of modern React rendering: Fiber as the virtual call stack, Lanes as the 31-bit priority bitmask, Suspense and transitions as concurrency primitives, and CSR/SSR/RSC as the execution models that ride on top.](./diagrams/fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-dark.svg)
 
-**Mental model:**
+1. **Fiber is a virtual call stack.** Each component instance becomes a fiber node linked via `child`/`sibling`/`return` pointers. React can pause mid-tree, yield to the browser, and resume — something the native JavaScript stack cannot express. Fiber shipped in [React 16, September 2017](https://legacy.reactjs.org/blog/2017/09/26/react-v16.0.html), as a from-scratch rewrite of the reconciler ([engineering write-up from Meta](https://engineering.fb.com/2017/09/26/web/react-16-a-look-inside-an-api-compatible-rewrite-of-our-frontend-ui-library/)).
+2. **Reconciliation runs in two phases.** The render phase builds a work-in-progress (WIP) tree and is interruptible — the scheduler yields to the host every ~5 ms via `MessageChannel.postMessage`. The commit phase applies DOM mutations synchronously and cannot be interrupted.
+3. **Lanes are a 31-bit priority bitmask.** As of React 18, every update gets a lane bit; the scheduler walks the highest-priority bit set first. Sync (discrete input) preempts transitions; transitions preempt idle work. This replaced the older expiration-time model.
+4. **Rendering location is orthogonal to Fiber.** CSR, SSR, and RSC all use the same Fiber reconciler. They differ in *where* the render runs and *what* crosses the wire — DOM API calls in the browser for CSR, an HTML string for SSR, a serialized component tree (the **Flight** payload) for RSC.
+5. **RSC is stable in React 19.** Server Components ship zero JavaScript to the client, fetch data directly on the server, and integrate with Suspense for progressive streaming. Only modules marked with `"use client"` end up in the client bundle.
 
-1. **Fiber as virtual stack**: Each component becomes a fiber node linked via `child`/`sibling`/`return` pointers. React can pause mid-tree, yield to the browser, and resume—impossible with the native call stack.
+## 1. The Fiber reconciliation engine
 
-2. **Two-phase reconciliation**: The render phase builds a work-in-progress (WIP) tree and is interruptible (5ms time slices via `MessageChannel`). The commit phase applies DOM mutations synchronously—no interruption allowed.
+### 1.1 From stack to fiber
 
-3. **Lanes replace expiration times**: As of React 18, priority is a 31-bit bitmask. Each update gets a lane bit; the scheduler processes the highest-priority lane set first. User input lanes preempt transition lanes.
+React's pre-16 reconciler was synchronous and bound to the JavaScript call stack: a `setState` triggered a depth-first recursion through the entire affected subtree, and the browser could not respond to input until that recursion completed. On large trees this manifested as multi-frame jank.
 
-4. **Rendering location is orthogonal to Fiber**: CSR, SSR, and RSC all use Fiber for reconciliation. RSC differs by serializing the component tree into a streamable Flight protocol, sending only UI descriptions—never component code—to the client.
+[React Fiber](https://github.com/acdlite/react-fiber-architecture), shipped in React 16 (September 2017), reimplemented reconciliation by **replacing the native call stack with an in-memory data structure** — a tree of fiber nodes linked via `child`/`sibling`/`return` pointers. Because the stack is now a heap-allocated structure, the scheduler can pause work, yield to the browser for input or paint, and resume later. Andrew Clark's original architecture document is still the clearest single reference.
 
-5. **RSC is stable in React 19**: Server Components themselves ship zero JavaScript to the client, fetch data directly on the server, and integrate with Suspense for progressive streaming while client boundaries hydrate where interactivity is needed.
+> [!NOTE]
+> Concurrent rendering itself only became opt-in with React 18's `createRoot` (March 2022). React 16 shipped Fiber as a foundation; the public concurrent APIs (`useTransition`, `useDeferredValue`, streaming SSR) came later.
 
-## 1. The Fiber Reconciliation Engine
-
-### 1.1 From Stack to Fiber: The Paradigm Shift
-
-React's original reconciliation algorithm (pre-React 16) operated synchronously, bound to the JavaScript call stack. A state update would recursively traverse the entire component tree in one uninterruptible pass—blocking the main thread for the duration. Complex trees could cause noticeable jank.
-
-React Fiber (React 16, September 2017) reimplemented reconciliation by **replacing the native call stack with a controllable in-memory data structure**: a tree of fiber nodes linked via `child`/`sibling`/`return` pointers. This virtual stack allows React's scheduler to pause work, yield to the browser for user input or paint, and resume later.
-
-> **Prior to React 16:** The "stack reconciler" processed the entire tree synchronously. Once a render started, it had to complete before the browser could respond to input—causing jank on complex updates.
-
-### 1.2 Anatomy of a Fiber Node
+### 1.2 Anatomy of a fiber node
 
 Each fiber node is a "virtual stack frame" holding metadata about a component and its rendering state:
 
-```javascript title="fiber-node-structure.js" collapse={1-2, 26-30}
-// Simplified fiber node structure (React 19)
-// See ReactFiberLane.js and ReactFiber.js in react-reconciler
+```javascript title="fiber-node-shape.js" collapse={1-2, 26-30}
+// Simplified fiber node shape (see ReactFiber.js / ReactFiberLane.js
+// in the react-reconciler package).
 const fiberNode = {
   // Identity
-  tag: FunctionComponent, // Component type (FunctionComponent, HostComponent, etc.)
-  type: ComponentFunction, // Reference to component function/class
+  tag: FunctionComponent, // FunctionComponent, HostComponent, etc.
+  type: ComponentFunction, // Reference to the component function/class
   key: "unique-key", // Stable identity for diffing
 
   // Tree pointers
   child: childFiber, // First child
   sibling: siblingFiber, // Next sibling
-  return: parentFiber, // Parent (named "return" as in call stack)
+  return: parentFiber, // Parent (named "return" because it mirrors the call stack)
 
   // Props/state
   pendingProps: newProps, // Props for this render
-  memoizedProps: oldProps, // Props from previous render
-  memoizedState: hookList, // Linked list of hooks (for function components)
+  memoizedProps: oldProps, // Props from the previous render
+  memoizedState: hookList, // Linked list of hooks (function components)
 
   // Double buffering
   alternate: wipFiber, // Links current ↔ work-in-progress
@@ -84,24 +80,25 @@ const fiberNode = {
 }
 ```
 
-**Double buffering**: React maintains two fiber trees—the **current tree** (displayed UI) and the **work-in-progress (WIP) tree** (being built). The `alternate` pointer links corresponding nodes. During reconciliation, React builds the WIP tree; at commit, a pointer swap makes WIP the new current. This technique—borrowed from video game rendering—ensures atomic UI updates without mutating the live interface.
+**Double buffering.** React maintains two fiber trees — the **current tree** (what the browser is showing) and the **work-in-progress (WIP) tree** (what is being built). The `alternate` pointer links corresponding nodes. During reconciliation, React mutates the WIP tree freely; at commit, a single pointer swap promotes WIP to current. Borrowed from video-game rendering, this technique guarantees the browser never sees a half-applied update.
 
-### 1.3 Two-Phase Reconciliation
+### 1.3 Two-phase reconciliation
 
-Fiber's reconciliation operates in two distinct phases—a design that directly enables concurrent rendering:
+Fiber's reconciliation is split into two distinct phases. The split is what enables every concurrent feature React has shipped since.
 
-#### Render Phase (Interruptible)
+#### Render phase (interruptible)
 
-The render phase determines what changes to apply. It is **asynchronous and interruptible**, safe to pause mid-tree:
+The render phase computes *what* will change. It is asynchronous and may pause mid-tree:
 
-1. **Work loop starts** at the root fiber, traversing depth-first
-2. **`performUnitOfWork`** calls `beginWork()` on each fiber, diffing against the previous state
-3. **WIP tree builds** progressively as new fibers are created and linked
-4. **Time-slicing** pauses after 5ms, yielding to the browser via `MessageChannel`
+1. **Work loop** starts at the root fiber, traversing depth-first.
+2. **`performUnitOfWork`** calls `beginWork()` on each fiber, diffing children against the previous tree.
+3. **WIP tree** builds progressively as new fibers are created and linked.
+4. **Time-slicing** pauses after roughly 5 ms, yielding to the host via `MessageChannel`.
 
 ```javascript title="work-loop-concept.js" collapse={1-2}
-// Conceptual work loop (actual implementation in ReactFiberWorkLoop.js)
-// React yields after 5ms to maintain 60fps (16.67ms per frame)
+// Conceptual work loop. Real source lives in ReactFiberWorkLoop.js
+// in the facebook/react repo; the 5 ms budget is the `frameYieldMs`
+// constant in packages/scheduler/src/forks/Scheduler.js.
 function workLoopConcurrent() {
   while (workInProgress !== null && !shouldYield()) {
     performUnitOfWork(workInProgress)
@@ -109,77 +106,91 @@ function workLoopConcurrent() {
 }
 
 function shouldYield() {
-  return performance.now() >= deadline // deadline = startTime + 5ms
+  return performance.now() >= deadline // deadline = startTime + 5 ms
 }
 ```
 
-**Why MessageChannel, not requestIdleCallback?** `requestIdleCallback` only fires during idle periods—which may never happen on busy pages. `MessageChannel` posts to the macrotask queue, guaranteeing React gets CPU time in the next event loop iteration. The 5ms slice leaves ~11ms per frame for browser layout, paint, and user input.
+**Why 5 ms, and why `MessageChannel`?** The scheduler picks 5 ms so that, on a 16.67 ms frame budget, the host still has roughly 11 ms left for layout, paint, and input handling. The continuation is posted via [`MessageChannel.port2.postMessage`](https://html.spec.whatwg.org/multipage/web-messaging.html#message-channels) for two reasons: `requestIdleCallback` may never fire on a busy page, and `setTimeout(fn, 0)` is subject to a 4 ms minimum clamp once nested ([HTML spec, "timers" section](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers)). `MessageChannel` queues a fresh macrotask without either constraint. The 5 ms default is the `frameYieldMs` constant inside [`packages/scheduler/src/forks/Scheduler.js`](https://github.com/facebook/react/blob/main/packages/scheduler/src/forks/Scheduler.js); see [JSer's annotated walkthrough](https://jser.dev/react/2022/03/16/how-react-scheduler-works/) for the source-level detail.
 
-#### Commit Phase (Synchronous)
+#### Commit phase (synchronous)
 
-Once render completes, React enters the **synchronous, non-interruptible commit phase**:
+Once the render phase produces a complete WIP tree, React enters the commit phase, which is synchronous and uninterruptible:
 
-1. **Tree swap**: WIP becomes current via pointer manipulation
-2. **DOM mutations**: React applies changes from the `flags` bitmask on each fiber
-3. **Effects execution**: `useLayoutEffect` runs synchronously; `useEffect` schedules asynchronously
+1. **Tree swap**: the WIP tree replaces the current tree via pointer manipulation.
+2. **DOM mutations**: React walks the `flags` bitmask on each fiber and applies inserts, updates, and deletions in order.
+3. **Effects**: `useLayoutEffect` runs synchronously between mutation and paint; `useEffect` is flushed in a separate, microtask-scheduled pass after paint.
 
-This two-phase architecture is the foundation for Suspense, concurrent transitions, and RSC streaming.
+The commit phase being synchronous is *the* reason React can guarantee a consistent UI — a half-committed tree would expose torn state to event handlers and refs.
 
-### 1.4 Lane-Based Priority System
+### 1.4 Lane-based priority scheduling
 
-As of React 18, the scheduler uses **lanes**—a 31-bit bitmask where each bit represents a priority level. This replaced the previous expiration time model.
+As of React 18, scheduling is built on **lanes** — a 31-bit bitmask where each bit represents a priority class. Lanes replaced the previous expiration-time model.
 
-| Lane                  | Priority | Use Case                               |
-| --------------------- | -------- | -------------------------------------- |
-| `SyncLane`            | Highest  | Discrete user input (click, key press) |
-| `InputContinuousLane` | High     | Continuous input (drag, scroll)        |
-| `DefaultLane`         | Normal   | Regular `setState` calls               |
-| `TransitionLane`      | Low      | `startTransition` updates              |
-| `IdleLane`            | Lowest   | Background work                        |
+| Lane                    | Priority | Use case                                                        |
+| ----------------------- | -------- | --------------------------------------------------------------- |
+| `SyncLane`              | Highest  | Discrete user input (click, keypress, change)                   |
+| `InputContinuousLane`   | High     | Continuous input (drag, scroll, mouse-move)                     |
+| `DefaultLane`           | Normal   | Plain `setState` calls outside any scheduling primitive         |
+| `TransitionLane` (×16)  | Low      | `startTransition` / `useDeferredValue` updates                  |
+| `RetryLane`             | Low      | Re-render after a Suspense boundary's data resolves             |
+| `IdleLane`              | Lowest   | Background work (offscreen, prerendered routes)                 |
 
-**Why lanes?** Expiration times forced React to process updates in order of expiration. Lanes allow **batching updates of the same priority** (multiple `SyncLane` updates batch into one render) and **preemption** (a `SyncLane` update can interrupt a `TransitionLane` render).
+The full enumeration lives in [`packages/react-reconciler/src/ReactFiberLane.js`](https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberLane.js). Cross-referenced annotated walkthrough: [JSer, "What are Lanes in React source code?"](https://jser.dev/react/2022/03/26/lanes-in-react/).
+
+**Why lanes?** Expiration times forced React to process updates strictly in order of expiration. Lanes give two new capabilities:
+
+- **Batching** — multiple updates of the same priority merge into a single render. A `setState` call inside an event handler that triggers another `setState` will, since React 18, batch into one render automatically (`automaticBatching`).
+- **Preemption** — a higher-priority lane can interrupt an in-flight lower-priority render. A click during a slow `startTransition` discards the WIP tree, processes the click on `SyncLane`, then restarts the transition from the new state.
 
 ```javascript title="lane-example.js"
-// User clicks button → SyncLane
-// startTransition → TransitionLane (won't block input)
 function handleClick() {
-  setCount((c) => c + 1) // SyncLane - processed immediately
+  setCount((c) => c + 1) // SyncLane — committed immediately
   startTransition(() => {
-    setSearchResults(filterLargeList()) // TransitionLane - can be interrupted
+    setSearchResults(filterLargeList()) // TransitionLane — interruptible
   })
 }
 ```
 
-### 1.5 The Heuristic Diffing Algorithm
+The sequence below shows what preemption looks like in practice: a transition starts, yields after its first 5 ms slice, and is then discarded when the user clicks.
 
-React implements an **O(n) heuristic diffing algorithm** based on two assumptions that hold for typical UI patterns:
+![A click on SyncLane preempts an in-flight TransitionLane render. The scheduler discards the WIP tree, commits sync feedback, then restarts the transition from the updated state.](./diagrams/lane-preemption-sequence-light.svg "How lane preemption works: a transition yields, the user clicks, the scheduler discards the WIP tree, commits sync work, then restarts the transition.")
+![A click on SyncLane preempts an in-flight TransitionLane render. The scheduler discards the WIP tree, commits sync feedback, then restarts the transition from the updated state.](./diagrams/lane-preemption-sequence-dark.svg)
 
-1. **Different element types produce different trees**: Comparing `<div>` to `<span>` at the same position tears down the entire subtree and rebuilds—no attempt to diff children.
+> [!IMPORTANT]
+> Preemption discards work; it does not merge it. A long transition repeatedly preempted by sync updates can starve. React's scheduler has starvation protection — lanes that have waited too long are escalated to `SyncLane` so they always commit eventually.
 
-2. **`key` provides stable identity**: In lists, the `key` prop allows React to track insertions, deletions, and reordering. Without keys, React uses positional comparison—leading to performance degradation and state bugs when items reorder.
+### 1.5 The heuristic diffing algorithm
 
-### 1.6 Hooks Integration with Fiber
+React implements an **O(n) heuristic diff** based on two assumptions that hold for typical UI patterns ([React docs, "Reconciliation"](https://legacy.reactjs.org/docs/reconciliation.html)):
 
-Each function component's fiber stores its hooks as a linked list in `memoizedState`. A cursor tracks the current hook position during render:
+1. **Different element types produce different trees.** Comparing `<div>` to `<span>` at the same position tears down the entire subtree and rebuilds it; React makes no attempt to diff their children.
+2. **`key` provides stable identity.** In lists, `key` lets React track insertions, deletions, and reordering. Without keys, React falls back to positional comparison — which both wastes work and silently corrupts component-local state when items reorder.
+
+Both assumptions break the worst-case theoretical bound (true tree edit distance is O(n³)) in exchange for a practical O(n) that handles the vast majority of UIs correctly.
+
+### 1.6 Hooks integration with fiber
+
+Each function component's fiber stores its hooks as a linked list in `memoizedState`. A cursor (`workInProgressHook`) tracks the current position during render:
 
 ```javascript title="hook-structure.js" collapse={1-2}
-// Simplified hook object (see ReactFiberHooks.js)
-// Each hook in a component forms a linked list
+// Simplified hook record (see ReactFiberHooks.js).
+// Each hook in a component is a node in a linked list,
+// in the exact order the hooks were called.
 const hook = {
   memoizedState: value, // Current value (state, ref, etc.)
-  baseState: value, // Base for update calculations
-  queue: updateQueue, // Pending updates
-  next: nextHook, // Next hook in list
+  baseState: value, // Base for queued updates
+  queue: updateQueue, // Pending updates (state hooks only)
+  next: nextHook, // Next hook in the list
 }
 ```
 
-**Why the Rules of Hooks exist**: Hooks rely on call order, not names. React walks the linked list position-by-position. If you call `useState` conditionally, the cursor misaligns—React reads the wrong hook's state. The lint rule `react-hooks/rules-of-hooks` enforces consistent ordering.
+**Why the rules of hooks exist.** Hooks are looked up by call order, not name. React walks the linked list position-by-position. A conditional `useState` shifts the cursor and React reads the wrong hook's state from the next render onward. The lint rule [`react-hooks/rules-of-hooks`](https://react.dev/reference/rules/rules-of-hooks) enforces consistent ordering at build time, which is why violating it is treated as a hard error rather than a warning.
 
-## 2. Client-Side Rendering Architectures
+## 2. Client-side rendering and hydration
 
-### 2.1 Pure Client-Side Rendering (CSR)
+### 2.1 Pure CSR
 
-In CSR, the browser receives a minimal HTML shell; JavaScript constructs the entire DOM:
+In CSR the server returns a near-empty HTML shell and the browser builds the entire DOM from JavaScript:
 
 ```javascript title="csr-init.js" collapse={1-2}
 // CSR initialization (React 18+)
@@ -189,101 +200,103 @@ const root = createRoot(document.getElementById("root"))
 root.render(<App />)
 ```
 
-`createRoot` establishes the fiber tree foundation:
+`createRoot` builds the foundation:
 
-1. Creates **FiberRootNode** (top-level container for React's internal state)
-2. Creates **HostRoot fiber** (root fiber corresponding to the DOM container)
-3. Links them bidirectionally
+1. Creates a **`FiberRootNode`** (the top-level container that owns the scheduler state).
+2. Creates a **`HostRoot` fiber** corresponding to the DOM container element.
+3. Links the two bidirectionally so the scheduler can walk back to the DOM root.
 
-`root.render()` schedules an update on the HostRoot fiber, triggering two-phase reconciliation.
+`root.render()` then schedules an update on the `HostRoot` fiber, which kicks off the two-phase reconciliation described above.
 
-**CSR trade-offs**:
+| Metric                       | CSR posture | Why                                                                     |
+| ---------------------------- | ----------- | ----------------------------------------------------------------------- |
+| TTFB                         | Fast        | Server returns a tiny shell                                             |
+| FCP / LCP                    | Slow        | Blank screen until the bundle loads, parses, and executes               |
+| Time to Interactive          | Slow        | All JS must execute before any handler binds                            |
+| SEO                          | Poor        | Crawlers without JS execution see an empty shell                        |
+| Infrastructure cost          | Lowest      | Static hosting only                                                     |
 
-| Metric | CSR Performance | Why                                            |
-| ------ | --------------- | ---------------------------------------------- |
-| TTFB   | Fast            | Minimal HTML shell                             |
-| FCP    | Slow            | Blank screen until JS executes                 |
-| TTI    | Slow            | Full bundle must load and execute              |
-| SEO    | Poor            | Crawlers see empty shell (unless SSR fallback) |
+CSR is the right default for internal dashboards and authenticated SPAs where SEO is irrelevant and a loading skeleton is acceptable. It is the wrong default for public marketing or e-commerce surfaces where Core Web Vitals are revenue-coupled.
 
-CSR suits internal dashboards and SPAs (Single-Page Applications) where SEO is irrelevant and users expect a loading state.
+### 2.2 Server-side rendering with hydration
 
-### 2.2 Server-Side Rendering with Hydration
+SSR pre-renders HTML on the server so the browser can paint immediately. **Hydration** is the process of attaching React's event delegation and component state to that server-generated HTML.
 
-SSR addresses CSR's blank-screen problem by pre-rendering HTML on the server. **Hydration** is the process of attaching React to server-generated HTML—making it interactive.
-
-#### The Hydration Process
-
-Hydration is **not a full re-render**. React reconciles existing DOM with its virtual tree:
-
-```javascript title="hydration.js" collapse={1-2}
+```javascript title="hydrate-root.js" collapse={1-2}
 // React 18+ hydration API
 import { hydrateRoot } from "react-dom/client"
 
 hydrateRoot(document.getElementById("root"), <App />)
 ```
 
-Steps:
+Hydration is **not a re-render**. React walks the existing DOM alongside its virtual tree and:
 
-1. **DOM traversal**: React walks existing HTML alongside its virtual component tree
-2. **Event attachment**: Handlers bind to existing DOM elements (no new elements created)
-3. **State initialization**: Hooks initialize; effects schedule
-4. **Consistency check**: React validates server/client output matches
+1. Reuses the existing DOM nodes — no inserts, no replaces.
+2. Binds event handlers to those DOM nodes via React's synthetic event system.
+3. Initializes hook state and queues `useEffect` callbacks for after paint.
+4. Verifies that the structure of the server output matches the client render.
 
-#### Hydration Mismatches
+#### Hydration mismatches and recovery
 
-Mismatches occur when server HTML differs from client render. Common causes:
+A mismatch happens when the markup React would produce on the client differs from what the server emitted. The common causes:
 
-| Cause               | Example                    | Fix                                                      |
-| ------------------- | -------------------------- | -------------------------------------------------------- |
-| Date/time           | `new Date().toISOString()` | Use consistent timezone or defer to client               |
-| Browser APIs        | `window.innerWidth`        | Check `typeof window !== 'undefined'` or use `useEffect` |
-| Random values       | `Math.random()`            | Generate on server, pass as prop                         |
-| Extension injection | Ad blockers modify DOM     | Use `suppressHydrationWarning` sparingly                 |
+| Cause                  | Example                          | Fix                                                                          |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| Date/time              | `new Date().toISOString()`       | Render with a fixed timezone, or defer to client via `useEffect`             |
+| Browser-only APIs      | `window.innerWidth`              | Guard with `typeof window !== "undefined"`, or compute inside `useEffect`    |
+| Random values          | `Math.random()`                  | Generate on the server, pass as a prop                                       |
+| User-locale formatters | `Intl.DateTimeFormat()`          | Pin the locale + timezone explicitly                                         |
+| Extension-injected DOM | Ad blockers, password managers   | Use `suppressHydrationWarning` on the affected node                          |
 
-React 18+ can **recover from some mismatches** by re-rendering the mismatched subtree, but recovery has costs: slower hydration and potential for event handlers attaching to wrong elements.
+React 18's recovery model is more aggressive than React 17's. Per the [`hydrateRoot` reference](https://react.dev/reference/react-dom/client/hydrateRoot), if a mismatch is detected **inside a Suspense boundary**, React discards that subtree's server HTML and re-renders it on the client. If a mismatch is detected **outside any Suspense boundary**, React falls back to a full client render of the entire root, throwing away the SSR payload for that page load. Both paths are correct but expensive — recovery costs you a paint, and in the root-fallback case it costs you the entire SSR benefit.
 
-#### Selective Hydration
+> [!WARNING]
+> Treat hydration warnings in development as bugs, not noise. They predict a client-side re-render in production. The combination of `suppressHydrationWarning` + a mismatching subtree + no Suspense boundary is the most common silent SSR regression we see.
 
-Suspense enables **selective hydration**—critical components hydrate immediately; others defer:
+#### Selective hydration
+
+Suspense lets React **prioritize hydration** on demand instead of hydrating the whole tree at once. Components inside a `<Suspense>` boundary hydrate independently of components outside it, and React schedules the hydration work alongside everything else on the lane scheduler — meaning a click on a not-yet-hydrated boundary preempts the lower-priority hydration of other boundaries and fast-paths the clicked one. The mechanism is described in [Andrew Clark's original New Suspense SSR post](https://github.com/reactwg/react-18/discussions/37).
 
 ```javascript title="selective-hydration.jsx" collapse={1-3}
 // Selective hydration with Suspense (React 18+)
 import { lazy, Suspense } from "react"
-const HeavyComponent = lazy(() => import("./HeavyComponent"))
+const HeavyPanel = lazy(() => import("./HeavyPanel"))
 
 function App() {
   return (
     <div>
       <CriticalHeader />
       <Suspense fallback={<Skeleton />}>
-        <HeavyComponent /> {/* Hydrates when visible or interacted with */}
+        <HeavyPanel /> {/* Hydration of this subtree is prioritized
+                          when the user interacts with it. */}
       </Suspense>
     </div>
   )
 }
 ```
 
-Components inside Suspense boundaries hydrate **on demand**—when scrolled into view or when the user attempts interaction. This reduces Time to Interactive (TTI) for complex pages.
+> [!NOTE]
+> "Hydrate when scrolled into view" is **not** part of React's selective hydration. React itself prioritizes based on user interaction (clicks, key presses), not viewport visibility. Frameworks like Astro and Qwik provide viewport-triggered hydration as a separate feature; if you want it in a React app you have to wire an `IntersectionObserver` to gate the import yourself.
 
 ### 2.3 Streaming SSR with Suspense
 
-React 18 introduced **streaming SSR**—progressive HTML delivery through Suspense boundaries:
+React 18 introduced streaming SSR through Suspense boundaries. Instead of rendering the whole tree to a string and flushing once, the server flushes the static shell immediately and streams suspended subtrees as their data resolves.
 
 ```javascript title="streaming-ssr.js" collapse={1-3}
-// Server streaming (React 18+)
+// Server streaming entry (React 18+)
 import { renderToPipeableStream } from "react-dom/server"
 import { App } from "./App"
 
 const stream = renderToPipeableStream(<App />, {
   onShellReady() {
-    // Shell ready → send immediately
+    // Shell is renderable → flush headers and start the stream.
     response.statusCode = 200
     response.setHeader("content-type", "text/html")
     stream.pipe(response)
   },
   onAllReady() {
-    // All Suspense boundaries resolved → useful for crawlers
+    // Every Suspense boundary has resolved → useful for crawlers
+    // or when you want a fully-formed HTML response.
   },
   onError(error) {
     console.error(error)
@@ -292,27 +305,30 @@ const stream = renderToPipeableStream(<App />, {
 })
 ```
 
-**How streaming works**:
+The mechanism, in three steps:
 
-1. React renders until it hits a suspended component (e.g., awaiting data)
-2. It sends the shell HTML immediately with a `<template>` placeholder
-3. As Promises resolve, React streams `<script>` tags containing the resolved HTML
-4. Client-side React swaps placeholders with streamed content—no full page reload
+1. React renders the tree until it hits a suspended component (e.g., one that read from a not-yet-resolved promise).
+2. It emits the shell HTML immediately, with a `<template>` placeholder where the suspended subtree will go.
+3. As each suspended Promise resolves, React streams a small `<script>` block that injects the resolved HTML and tells the client runtime to swap the placeholder.
 
-**React 19 behavior change**: In React 19, sibling components inside the same Suspense boundary no longer render in parallel—they render sequentially. This was a deliberate performance optimization that caused controversy. To fetch in parallel, either:
+#### React 19 changed sibling render behavior
 
-- Use separate Suspense boundaries for each sibling
-- Trigger fetches outside the render phase (route loaders, RSC data fetching)
+In React 18, siblings of a suspended component continued to *pre-render* in parallel — meaning fetch-on-render patterns naturally fanned out. In React 19, [the team disabled that pre-rendering](https://github.com/facebook/react/issues/29898): once one sibling suspends, its in-render-tree siblings no longer start their own fetches until the suspended sibling resolves. The result is sequential data fetching, which can produce noticeable waterfalls on pages built around the React Query / TanStack Suspense patterns. The change is intentional ([React team rationale](https://github.com/facebook/react/issues/29898#issuecomment-2241500215)) but contentious — see [TkDodo's three-act write-up](https://tkdodo.eu/blog/react-19-and-suspense-a-drama-in-3-acts) for the full discourse and mitigation patterns.
 
-## 3. Server-Side Rendering Strategies
+The two practical mitigations:
 
-### 3.1 Traditional SSR (Page Router Pattern)
+- **Move data fetching out of render.** Use route loaders (TanStack Router, React Router data APIs) or fetch from server components. This is the React team's recommended path.
+- **Split the Suspense boundary.** Wrap each independent fetcher in its own `<Suspense>`; siblings in different boundaries still resolve in parallel.
 
-In Next.js Pages Router (and similar frameworks), server rendering follows a page-centric data fetching model:
+## 3. Server-rendered architectures beyond the request
+
+### 3.1 Traditional SSR (page router)
+
+In Next.js Pages Router and similar frameworks, server rendering is page-centric: a single server function fetches everything the page needs, then the component tree renders top-down with that data threaded through props.
 
 ```javascript title="pages/products.js" collapse={1-2, 14-20}
 // Next.js Pages Router pattern
-// Data fetching happens before component renders
+// Data fetching happens before the component renders.
 export async function getServerSideProps({ req, res }) {
   const products = await fetchProducts()
 
@@ -332,13 +348,14 @@ export default function ProductsPage({ products }) {
 }
 ```
 
-This model couples data fetching to routing—server functions execute before rendering, props flow down the tree.
+This model couples data fetching to routing — server functions execute first, props flow down. It is easy to reason about and easy to cache at the CDN layer; it is also the source of the "everything cascades through one prop" anti-pattern that RSC was designed to eliminate.
 
-### 3.2 Static Site Generation (SSG)
+### 3.2 Static site generation (SSG)
 
-SSG renders at **build time**, producing static HTML:
+SSG renders pages at **build time** to static HTML files served from a CDN edge.
 
 ```javascript title="ssg-example.js"
+// Next.js getStaticProps with ISR-style revalidation.
 export async function getStaticProps() {
   const posts = await fetchPosts()
   return {
@@ -348,55 +365,61 @@ export async function getStaticProps() {
 }
 ```
 
-| Benefit        | Why                                    |
-| -------------- | -------------------------------------- |
-| Optimal TTFB   | Static files served from CDN edge      |
-| Cache-friendly | No server computation per request      |
-| Cost-efficient | No runtime infrastructure              |
-| Resilient      | No server failures affect availability |
+| Property             | Why it matters                                              |
+| -------------------- | ----------------------------------------------------------- |
+| Optimal TTFB         | Static files served from CDN edge                           |
+| Trivial caching      | No server computation per request                           |
+| Lowest infra cost    | No runtime origin compute                                   |
+| Highest resilience   | No origin failures affect availability                      |
+| Stale by default     | Pages reflect the world as of the last build, not now       |
 
-### 3.3 Incremental Static Regeneration (ISR)
+SSG is the right default for content that changes on a schedule rather than per request — blogs, marketing pages, documentation.
 
-ISR bridges SSG and SSR—static pages update **after** build:
+### 3.3 Incremental static regeneration (ISR)
 
-1. First request serves stale static page
-2. Background regeneration triggers if `revalidate` time exceeded
-3. Next request serves updated content
-4. On failure, stale content continues serving
+ISR sits between SSG and SSR. Pages are pre-rendered at build, but the framework re-renders them in the background after a TTL or after an explicit revalidation event:
 
-**Limitation**: ISR is a Next.js-specific feature, not a React primitive. Other frameworks implement similar patterns differently.
+1. First request after a deploy serves the build-time static HTML.
+2. If the configured `revalidate` window has expired, the framework triggers a background regeneration.
+3. The next request serves the freshly regenerated HTML.
+4. If the regeneration fails, the stale page keeps serving — graceful degradation by default.
+
+ISR was popularized by Next.js and is the term the React community uses, but it is no longer Next.js-only. As of 2026, [Vercel's ISR documentation](https://vercel.com/docs/incremental-static-regeneration) lists first-class support for Next.js, SvelteKit, Astro, and Nuxt; Gatsby exposes the same capability under the name **Deferred Static Generation (DSG)**; and Remix achieves equivalent behavior with HTTP `Cache-Control: stale-while-revalidate` semantics at the CDN layer. The implementation details (how revalidation is triggered, whether per-page or per-tag) vary; the user-visible behavior — *static, occasionally regenerated, gracefully stale* — is portable across the modern framework ecosystem.
 
 ## 4. React Server Components
 
-### 4.1 The RSC Paradigm Shift
+### 4.1 The RSC paradigm shift
 
-React Server Components (RSC), **stable as of React 19** (December 2024), address a different problem than SSR. SSR optimizes initial page load; RSC **eliminates client JavaScript for non-interactive components**.
+React Server Components solve a different problem than SSR. SSR optimizes the *initial paint* of a server-rendered page; RSC **eliminates client JavaScript for non-interactive components entirely**. The two are complementary — a typical RSC application uses SSR for the first paint and Flight streaming for the subsequent component-level data fetches.
 
-| Aspect         | SSR                                    | RSC                                |
-| -------------- | -------------------------------------- | ---------------------------------- |
-| When code runs | Server (once), then client (hydration) | Server only (never reaches client) |
-| Bundle size    | Full bundle shipped                    | Only client components in bundle   |
-| Data access    | Via API layer                          | Direct database/filesystem access  |
-| Interactivity  | After hydration                        | Client components only             |
+| Aspect            | SSR                                          | RSC                                                |
+| ----------------- | -------------------------------------------- | -------------------------------------------------- |
+| When code runs    | Server (once), then client (hydration)       | Server only (never reaches the client)             |
+| Client bundle     | Full app bundle                              | Only `"use client"` modules + their imports        |
+| Data access       | Through an API layer                         | Direct DB, filesystem, or internal-service access  |
+| Interactivity     | After hydration                              | Only inside `"use client"` islands                 |
+| Wire format       | HTML                                         | Flight (a streamable React-tree serialization)     |
 
-**Key characteristics**:
+**Key characteristics:**
 
-- **Zero bundle impact**: Server component code never reaches the client
-- **Direct backend access**: Query databases, read files, call internal services
-- **Streaming-native**: Integrates with Suspense for progressive rendering
-- **Composable**: Server components can render client components (not vice versa)
+- **Zero client cost** for any code path that lives entirely in server components.
+- **Direct backend access** — query a database, read a file, call an internal service without inventing a public API for it.
+- **Streaming-native** — Flight integrates with Suspense for progressive rendering.
+- **Composable in one direction** — server components can render client components; client components cannot render server components, only receive them as `children`.
 
-### 4.2 The Dual Component Model
+### 4.2 The dual component model
 
-RSC introduces a clear boundary between component types via module-level directives.
+RSC introduces a clear boundary between component types via module-level directives. Both directives are documented on react.dev: [`"use client"`](https://react.dev/reference/rsc/use-client) and [`"use server"`](https://react.dev/reference/rsc/use-server).
 
-#### Server Components (Default in React 19)
+#### Server components (the default)
+
+Server components are the default in any RSC-enabled environment. There is no opt-in directive — a file with no `"use client"` and no `"use server"` is a server component.
 
 ```javascript title="ProductList.server.jsx" collapse={1-2}
-// Server Component - runs only on server
-// No directive needed - server is the default in RSC environments
+// Server component — runs only on the server.
+// No directive needed; "server" is the default in RSC environments.
 export default async function ProductList() {
-  // Direct database access - no API layer needed
+  // Direct database access; no API layer required.
   const products = await db.query("SELECT * FROM products WHERE active = true")
 
   return (
@@ -409,17 +432,17 @@ export default async function ProductList() {
 }
 ```
 
-**Server component constraints**:
+**Server-component constraints:**
 
-- No hooks that use client state (`useState`, `useReducer`, `useEffect`, `useLayoutEffect`)
-- No browser APIs (`window`, `document`, event handlers)
-- No client-only imports
-- Can use: `async/await`, filesystem, database, environment variables
+- No state or effect hooks (`useState`, `useReducer`, `useEffect`, `useLayoutEffect`).
+- No browser APIs (`window`, `document`, event handlers).
+- No client-only imports (those would be pulled into the server graph but not the client bundle, then crash at runtime).
+- May freely use: `async/await` directly in the component body, filesystem and database calls, environment variables, `use()` to read promises and context.
 
-#### Client Components (Explicit Opt-in)
+#### Client components (explicit opt-in)
 
 ```javascript title="AddToCart.client.jsx"
-"use client" // Module-level directive - marks client boundary
+"use client" // Module-level directive; this file and its imports become client code.
 
 import { useState } from "react"
 
@@ -428,23 +451,45 @@ export function AddToCart({ productId }) {
 
   return (
     <button onClick={() => addToCart(productId)} disabled={pending}>
-      Add to Cart
+      Add to cart
     </button>
   )
 }
 ```
 
-**`"use client"` semantics**: This is a **module boundary**, not a component boundary. All imports from this module (and their transitive imports) become part of the client bundle. Place the directive at the top of the file, before imports.
+**`"use client"` semantics.** This is a **module boundary**, not a component boundary. All exports from a `"use client"` module — and the transitive imports of those exports — are bundled for the client. Place the directive on the first line of the file, before imports. A common mistake is to put `"use client"` inside a deeply-imported leaf module and assume only that module becomes client code; in practice, anything reachable from the entry of that module crosses into the client graph.
 
-### 4.3 The Flight Protocol (RSC Wire Format)
+#### Server actions and `"use server"`
 
-RSC serializes the component tree into a **streamable wire format** called Flight. Unlike JSON, Flight supports:
+`"use server"` is a separate directive that marks a function (or all exports of a module) as a **Server Action**: a function callable from client code that always executes on the server.
 
-- Streaming (chunks arrive progressively)
-- Promise references (resolved out-of-order)
-- Module references (for client component loading)
+```javascript title="actions.js"
+"use server"
 
-#### Payload Structure
+import { revalidatePath } from "next/cache" // Next.js-specific cache primitive
+
+export async function addToCart(productId) {
+  await db.cart.add(productId)
+  revalidatePath("/cart")
+}
+```
+
+`"use server"` does **not** mark Server Components — that is a common confusion. Server Components have no directive; `"use server"` is for the action surface. The `revalidatePath` call above is a Next.js convenience that does not exist in vanilla React; in other RSC frameworks the cache-invalidation primitive has a different name.
+
+### 4.3 The Flight wire format
+
+RSC serializes the rendered server tree into a **streamable wire format** colloquially called Flight (after the package `react-server-dom-webpack/server` and its peers). Unlike JSON, Flight supports:
+
+- **Streaming** — chunks arrive progressively over the wire.
+- **Promise references** — values can resolve out of order; later chunks fill in earlier placeholders.
+- **Module references** — client components are encoded as a path + export name pair, not as code.
+
+> [!IMPORTANT]
+> Flight is implementation-defined, not a stable public protocol. The exact prefixes and chunk shape live in `react-server-dom-webpack`, `react-server-dom-turbopack`, and the equivalent Vite/Bun bindings. Treat it as an internal contract between the server runtime and the matching client runtime, not as a wire format you can consume by hand. (The 2025 [`CVE-2025-55182`](https://www.offsec.com/blog/cve-2025-55182/) RCE in the Flight deserializer is a reminder that the protocol is not designed for untrusted producers.)
+
+#### Payload structure
+
+A simplified payload looks like:
 
 ```text title="flight-payload-example.txt"
 0:["$","div",null,{"children":["$","h1",null,{"children":"Store"}]}]
@@ -454,30 +499,28 @@ RSC serializes the component tree into a **streamable wire format** called Fligh
 4:["$","li",null,{"children":"Product A"}]
 ```
 
-| Prefix | Meaning                                |
-| ------ | -------------------------------------- |
-| `$`    | React element (like Virtual DOM)       |
-| `$L`   | Lazy client component reference        |
-| `I`    | Module import (client component chunk) |
-| `$@`   | Promise reference (resolved later)     |
+| Prefix | Meaning                                                     |
+| ------ | ----------------------------------------------------------- |
+| `$`    | A React element (the JSX you are used to, but serialized)   |
+| `$L`   | A lazy/deferred client-component reference                  |
+| `I`    | A module import row (resolves to a client-component bundle) |
+| `$@`   | A Promise reference; resolved by a later numbered chunk     |
 
-#### Out-of-Order Resolution
+The chunks are sent over a single streaming response. The client runtime parses them as they arrive, swaps placeholder slots when later chunks fulfil them, and triggers hydration on `"use client"` islands when their bundles arrive.
 
-Flight enables **streaming with out-of-order resolution**:
+#### End-to-end RSC streaming
 
-1. Server sends shell immediately: `["$","div",null,{"children":"$@1"}]`
-2. `$@1` is a promise placeholder—client renders fallback
-3. When data resolves, server streams: `1:["$","ul",null,{"children":[...]}]`
-4. Client swaps placeholder with resolved content
+The sequence below traces a single navigation to an RSC page with two suspended subtrees: the server flushes the shell + first chunks immediately, then continues to stream chunks for each Suspense boundary as its data resolves.
 
-This is how RSC achieves progressive rendering without multiple HTTP requests.
+![Sequence diagram of an RSC navigation: the browser requests a route, the edge runtime renders the server component tree, queries the database, flushes the shell and first Flight chunks, and continues streaming chunks for suspended subtrees as their queries resolve.](./diagrams/rsc-flight-stream-sequence-light.svg "RSC streaming end-to-end. The server flushes the shell immediately, then streams Flight chunks for each Suspense boundary as its data resolves. Server-component code never crosses the wire.")
+![Sequence diagram of an RSC navigation: the browser requests a route, the edge runtime renders the server component tree, queries the database, flushes the shell and first Flight chunks, and continues streaming chunks for suspended subtrees as their queries resolve.](./diagrams/rsc-flight-stream-sequence-dark.svg)
 
-### 4.4 RSC Integration with Suspense
+### 4.4 RSC integration with Suspense
 
-Suspense boundaries define streaming units. Each boundary can resolve independently:
+Suspense boundaries are the unit of streaming. Each boundary resolves independently, and the server flushes its chunk as soon as that boundary is ready:
 
 ```javascript title="page.server.jsx" collapse={1-2}
-// RSC page with Suspense boundaries
+// RSC page with Suspense boundaries.
 import { Suspense } from "react"
 
 export default async function Page() {
@@ -495,176 +538,172 @@ export default async function Page() {
 }
 
 async function AsyncHeader() {
-  const user = await fetchUserData() // Suspends until resolved
+  const user = await fetchUserData() // Suspends until the promise resolves.
   return <Header user={user} />
 }
 ```
 
-**Parallel vs. sequential fetching**: Each Suspense boundary fetches independently. If `AsyncHeader` and `AsyncProductList` are in separate boundaries, they fetch in parallel. If in the same boundary (React 19), they fetch sequentially.
+Because each `<Suspense>` is its own streaming unit, `AsyncHeader` and `AsyncProductList` start their fetches in parallel — the React 19 sequential-sibling change discussed in §2.3 only applies to siblings inside the *same* boundary. Splitting boundaries is the simplest way to preserve parallel fetching in React 19.
 
-### 4.5 React 19 RSC Enhancements
+### 4.5 React 19 RSC enhancements
 
-React 19 stabilized RSC and added:
+React 19 stabilized RSC and shipped a related set of primitives that make server-driven mutations ergonomic from client components:
 
-| Feature             | Description                                                             |
-| ------------------- | ----------------------------------------------------------------------- |
-| **Actions**         | Async functions in `startTransition` with automatic pending/error state |
-| **`use()` hook**    | Read promises and context directly in render                            |
-| **`useFormStatus`** | Access form pending state without prop drilling                         |
-| **`useOptimistic`** | Optimistic UI updates while server confirms                             |
-| **Ref as prop**     | No more `forwardRef` wrapper needed                                     |
+| Feature           | Description                                                                    |
+| ----------------- | ------------------------------------------------------------------------------ |
+| **Actions**       | Async functions in `startTransition` with automatic pending/error state        |
+| **`useActionState`** | Returns `[state, action, isPending]` for form-style action invocation        |
+| **`useFormStatus`**  | Reads the parent `<form>` action's pending state without prop drilling       |
+| **`useOptimistic`**  | Applies an optimistic UI update while the server confirms                    |
+| **`use()` hook**     | Reads a promise or context directly inside render (suspends if not resolved) |
+| **Ref as prop**      | Function components accept `ref` as a normal prop; `forwardRef` is no longer required |
 
-```javascript title="server-action.js"
-"use server"
+Each is documented in the [React 19 release post](https://react.dev/blog/2024/12/05/react-19).
 
-export async function addToCart(productId) {
-  await db.cart.add(productId)
-  revalidatePath("/cart")
-}
-```
+### 4.6 RSC performance and infra implications
 
-The `"use server"` directive marks a function as a **Server Action**—callable from client components, executed on the server.
+| Aspect                  | Effect of adopting RSC                                                |
+| ----------------------- | --------------------------------------------------------------------- |
+| Client bundle size      | Server-component code contributes 0 bytes to the client bundle        |
+| Time to Interactive     | Lower — fewer bytes to parse, compile, and execute                    |
+| TTFB                    | Slightly higher — server now does template work before flushing       |
+| Network requests        | One streaming response replaces N separate API calls                  |
+| Caching                 | Cacheable per component, per route, or at the CDN layer               |
+| Origin compute cost     | Higher — every request renders on the server                          |
+| Operational complexity  | Higher — needs a Node/edge runtime that hosts React's RSC environment |
+| Observability surface   | New — Flight chunks, server-component errors, action invocations      |
 
-### 4.6 RSC Performance Implications
+The trade is bundle and request-count for origin compute and operational surface. It is a net win for content-heavy, public, SEO-bearing surfaces and for product surfaces with deep server-only logic. It is a net loss for thin SPAs where the server has nothing useful to do.
 
-| Aspect      | Impact                                                    |
-| ----------- | --------------------------------------------------------- |
-| Bundle size | Server components contribute 0 bytes to client bundle     |
-| TTI         | Reduced—fewer bytes to parse and execute                  |
-| TTFB        | May increase slightly (server rendering time)             |
-| Network     | Single streaming response vs. multiple API calls          |
-| Caching     | Server output cacheable at component, route, or CDN level |
+## 5. The React Compiler
 
-## 5. React Compiler
+The [React Compiler](https://react.dev/learn/react-compiler) (formerly "React Forget") is a build-time optimizer that automatically memoizes components and values. **Despite the name overlap, the Compiler is not part of React 19** — it shipped as an independent package, with v1.0 released on [October 7, 2025](https://react.dev/blog/2025/10/07/react-compiler-1) (an [RC](https://react.dev/blog/2025/04/21/react-compiler-rc) preceded it in April 2025). It targets React 17, 18, and 19; the older targets need the small `react-compiler-runtime` shim package.
 
-React 19 introduced the **React Compiler** (formerly "React Forget")—a build-time optimization tool that automatically memoizes components and values.
+### 5.1 What it does
 
-### 5.1 What It Does
+The compiler statically analyzes function components and hooks, then emits memoized output that:
 
-The compiler analyzes your code and inserts optimizations:
-
-- Skips re-renders when props/state haven't changed
-- Memoizes expensive calculations
-- Stabilizes function references
-
-**What it replaces**: Manual `useMemo`, `useCallback`, and `React.memo`. The compiler does this more efficiently through inlining rather than runtime checks.
+- Skips re-rendering subtrees whose inputs (props, state, hook results) are unchanged.
+- Stabilizes function references so they do not invalidate downstream memoization.
+- Caches expensive computed values across renders without an explicit `useMemo`.
 
 ```javascript title="before-after.js"
-// Before: Manual memoization
+// Before: manual memoization
 const filteredList = useMemo(() => items.filter(predicate), [items, predicate])
 const handleClick = useCallback(() => doSomething(id), [id])
 
-// After: Compiler handles it automatically
-const filteredList = items.filter(predicate) // Compiler memoizes
-const handleClick = () => doSomething(id) // Compiler stabilizes
+// After: the compiler infers and inserts the equivalent caches.
+const filteredList = items.filter(predicate)
+const handleClick = () => doSomething(id)
 ```
 
-### 5.2 Limitations
+### 5.2 Limits and escape hatches
 
-The compiler optimizes **how** components render, not **whether** they render. Architectural decisions remain your responsibility:
+The compiler optimizes **how** components render, not **whether** they render. Architectural decisions remain the engineer's responsibility — list virtualization, code splitting, choice of CSR/SSR/RSC. Per the v1.0 announcement, `useMemo`, `useCallback`, and `React.memo` are not deprecated; they remain useful as **escape hatches** when:
 
-- Virtualization for long lists
-- Code splitting
-- Render strategy selection (CSR/SSR/RSC)
+- A third-party library compares values by reference identity and you need a stable handle.
+- A `useEffect` dependency must not change unless a specific input changes, and you want explicit, audit-able control.
+- The compiler legitimately cannot prove a value is pure (it conservatively skips memoization in those cases).
 
-## 6. Architectural Synthesis and Trade-offs
+You also do not need to delete existing manual memoization on day one. The compiler coexists with explicit hooks; you can migrate at your own pace.
 
-| Architecture  | Rendering       | Bundle  | Interactivity   | SEO       | Best For                   |
-| ------------- | --------------- | ------- | --------------- | --------- | -------------------------- |
-| **CSR**       | Client          | Full    | Immediate       | Poor      | Dashboards, internal tools |
-| **SSR**       | Server → Client | Full    | After hydration | Excellent | Dynamic, SEO-critical      |
-| **SSG**       | Build time      | Full    | After hydration | Excellent | Blogs, marketing           |
-| **RSC + SSR** | Hybrid          | Minimal | Selective       | Excellent | Complex apps               |
+## 6. Architectural synthesis
 
-### 6.1 The Dependency Chain
+### 6.1 The dependency chain
 
-React's architecture forms a dependency chain:
+The four layers compose top-down. Each layer assumes the one below it.
 
-```
-Fiber → Lanes → Suspense → Concurrent Features → RSC Streaming
+```text
+Fiber  →  Lanes  →  Suspense + Concurrency  →  Streaming SSR / RSC
 ```
 
-1. **Fiber** enables interruptible rendering
-2. **Lanes** provide priority-based scheduling
-3. **Suspense** provides the async primitive
-4. **Concurrent features** (transitions, deferred values) build on Suspense
-5. **RSC streaming** leverages all of the above
+1. **Fiber** makes work pause-able by representing the call stack as data.
+2. **Lanes** assign each piece of work a priority bit and let the scheduler preempt and batch.
+3. **Suspense** + **transitions** are the user-facing concurrency primitives — they only work because Fiber and Lanes exist.
+4. **Streaming SSR** and **RSC** are server-side execution models that ride on the same primitives, using Suspense as the unit of streamed delivery.
 
-### 6.2 Decision Framework
+A regression at any layer ripples upward. RSC streaming relies on Suspense's ability to pause render at arbitrary points; that ability requires Fiber's interruptible render phase; that requires the lane-based scheduler to know when to yield.
 
-**RSC + SSR** when:
+### 6.2 Picking a strategy
 
-- Optimal performance across all metrics required
-- Team can manage server infrastructure
-- Mix of static and interactive content
+The decision tree below is the shortest defensible heuristic. The only bias to flag: when in doubt, prefer the *less* operationally complex option — CSR or SSG — and only escalate to SSR or RSC when the user-visible metric (LCP, INP, SEO indexing, bundle size) actually requires it.
 
-**Traditional SSR** when:
+![Decision tree for picking a React rendering strategy. Branches on SEO requirement, content freshness, and client bundle/data-access constraints, ending in CSR, SSG, ISR, traditional SSR, or RSC + SSR.](./diagrams/rendering-strategy-decision-light.svg "When to use which: CSR for internal tools, SSG for static content, ISR for moderately fresh content, SSR for per-request dynamic pages, RSC + SSR for everything else.")
+![Decision tree for picking a React rendering strategy. Branches on SEO requirement, content freshness, and client bundle/data-access constraints, ending in CSR, SSG, ISR, traditional SSR, or RSC + SSR.](./diagrams/rendering-strategy-decision-dark.svg)
 
-- Existing SSR infrastructure
-- Page-level data fetching sufficient
-- Full hydration acceptable
+| Architecture        | Where it runs        | Bundle impact         | Interactivity            | SEO         | Best for                       |
+| ------------------- | -------------------- | --------------------- | ------------------------ | ----------- | ------------------------------ |
+| **CSR**             | Client only          | Full app              | Immediate after JS load  | Poor        | Dashboards, internal tools     |
+| **SSG**             | Build time           | Full app              | After hydration          | Excellent   | Marketing, docs, blogs         |
+| **ISR / SWR**       | Build + background   | Full app              | After hydration          | Excellent   | Catalogs, content sites        |
+| **Traditional SSR** | Server per request   | Full app              | After hydration          | Excellent   | Page-router apps, legacy SSR   |
+| **RSC + SSR**       | Server + client      | Only client islands   | Selective per island     | Excellent   | Mixed static + interactive     |
 
-**SSG** when:
+### 6.3 Failure modes worth budgeting for
 
-- Content changes infrequently
-- Maximum performance required
-- CDN-first architecture
+The footguns that bite in production are not in the happy path of any of these models — they are at the seams.
 
-**CSR** when:
-
-- Internal tool / dashboard
-- SEO irrelevant
-- Simplest deployment
+- **Hydration mismatches in production silently fall back to client render.** You lose the SSR benefit for that page load and the user sees a flicker. Treat any dev-only mismatch warning as a P1 bug.
+- **Single Suspense boundary around N siblings serializes their fetches under React 19.** You will not see this in synthetic benchmarks; you will see it in waterfall RUM data on real networks.
+- **`"use client"` placed deep in an import graph pulls in more than expected.** Audit the client bundle composition after every refactor — `next build` (and equivalents) will tell you which modules became client modules.
+- **Server component code that imports a client-only library crashes at runtime.** Type checking does not catch this because the import is technically valid; the failure is environmental.
+- **`useEffect` inside a Suspense fallback never runs if the fallback never renders.** Surprisingly common bug when porting an existing component into a Suspense subtree.
 
 ## Conclusion
 
-React's architecture has evolved from a synchronous stack reconciler to a sophisticated concurrent system built on Fiber's virtual call stack. The lane-based priority system enables responsive UIs under load; Suspense provides the async primitive; RSC—now stable in React 19—eliminates unnecessary client JavaScript while enabling direct server-side data access.
+React's architecture is a stack of cooperating layers: a virtual call stack (Fiber), a priority scheduler (Lanes), concurrency primitives that ride on those (Suspense, transitions, deferred values), and execution models that ride on the primitives (CSR, SSR, streaming SSR, RSC). The 2024–2025 wave — React 19 stabilizing RSC, the React Compiler reaching v1.0 — does not change the foundation; it makes the upper layers production-credible.
 
-Understanding these internals informs architectural decisions: when to use transitions, how Suspense boundaries affect streaming, why hydration mismatches occur, and when RSC provides meaningful bundle savings. The React Compiler further reduces the cognitive overhead of manual memoization, letting developers focus on architecture rather than micro-optimizations.
-
-The dependency chain—Fiber → Lanes → Suspense → RSC—means each layer builds on the previous. Breaking changes at any level ripple upward. As React continues evolving, these foundational patterns will shape both the framework's future and the broader landscape of UI frameworks.
+The practical payoff of internalizing this stack is making decisions at the right layer. *When* to add a Suspense boundary is a Suspense question. *When* to switch from SSR to RSC is an execution-model question. *When* to add `useMemo` (in a Compiler-enabled codebase) is now a "is this an escape hatch?" question, not a default. Most production performance regressions and weird hydration bugs are layer-confusion at root: someone reaching for a higher-layer API (`startTransition`) to fix a lower-layer problem (a render that does too much synchronous work), or vice versa.
 
 ## Appendix
 
 ### Prerequisites
 
-- JavaScript async/await and Promises
-- React component model (props, state, hooks)
-- HTTP request/response cycle
-- Basic understanding of browser rendering (layout, paint, composite)
+- JavaScript `async`/`await` and Promises.
+- React's component model (props, state, hooks).
+- HTTP request/response cycle and basic CDN caching.
+- Browser rendering pipeline at a high level (parse → style → layout → paint → composite).
 
 ### Summary
 
-- **Fiber** replaces the native call stack with a virtual stack of linked fiber nodes, enabling interruptible rendering
-- **Lanes** (31-bit bitmask) replaced expiration times in React 18; higher-priority lanes preempt lower ones
-- **Two-phase reconciliation**: interruptible render phase (5ms slices via MessageChannel), synchronous commit phase
-- **Streaming SSR** sends HTML progressively through Suspense boundaries; React 19 changed sibling rendering to sequential
-- **RSC** (stable in React 19) serializes UI via Flight protocol; server components ship zero client JavaScript
-- **React Compiler** automates memoization at build time
+- **Fiber** replaces the native call stack with a tree of fiber nodes so render work can pause and resume.
+- **Lanes** are a 31-bit priority bitmask; sync input preempts transitions, transitions preempt idle work, and starved lanes escalate.
+- **Two-phase reconciliation** — interruptible render phase yielding via `MessageChannel` every ~5 ms; synchronous, non-interruptible commit phase.
+- **Streaming SSR** flushes a shell immediately and streams Suspense boundaries as their data resolves; React 19 made siblings inside one boundary render sequentially.
+- **RSC** (stable in React 19) serializes the server tree via the implementation-defined Flight format; server components contribute zero client bytes.
+- **React Compiler** (v1.0, October 2025) automates most uses of `useMemo`/`useCallback`/`React.memo` at build time; works with React 17+ and is not bundled with React 19.
 
 ### References
 
-**Official Documentation**
+**Official documentation**
 
-- [React 19 Release Blog](https://react.dev/blog/2024/12/05/react-19) - Official release notes (December 2024)
-- [React Server Components Reference](https://react.dev/reference/rsc/server-components) - Official RSC documentation
-- [Suspense Reference](https://react.dev/reference/react/Suspense) - Official Suspense API docs
-- [hydrateRoot API](https://react.dev/reference/react-dom/client/hydrateRoot) - Hydration documentation
-- [React Compiler Introduction](https://react.dev/learn/react-compiler) - Official compiler docs
+- [React 19 release](https://react.dev/blog/2024/12/05/react-19)
+- [React Compiler v1.0](https://react.dev/blog/2025/10/07/react-compiler-1) and [React Compiler RC](https://react.dev/blog/2025/04/21/react-compiler-rc)
+- [Server Components reference](https://react.dev/reference/rsc/server-components)
+- [`"use client"` directive](https://react.dev/reference/rsc/use-client)
+- [`"use server"` directive](https://react.dev/reference/rsc/use-server)
+- [`hydrateRoot` API](https://react.dev/reference/react-dom/client/hydrateRoot)
+- [Suspense reference](https://react.dev/reference/react/Suspense)
+- [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks)
 
-**Architecture & Design**
+**Architecture and design**
 
-- [React Fiber Architecture](https://github.com/acdlite/react-fiber-architecture) - Andrew Clark's Fiber design explanation
-- [React Server Components RFC](https://github.com/reactjs/rfcs/blob/main/text/0188-server-components.md) - Original RFC
+- [React Fiber Architecture](https://github.com/acdlite/react-fiber-architecture) — Andrew Clark's design doc
+- [React 16: A look inside the rewrite](https://engineering.fb.com/2017/09/26/web/react-16-a-look-inside-an-api-compatible-rewrite-of-our-frontend-ui-library/) — Meta engineering post-mortem of the Fiber rewrite
+- [New Suspense SSR architecture](https://github.com/reactwg/react-18/discussions/37) — original React 18 working-group post
+- [React 19 sequential Suspense behavior](https://github.com/facebook/react/issues/29898) — issue + team rationale
 
-**Implementation Details**
+**Implementation deep-dives**
 
-- [React GitHub Repository](https://github.com/facebook/react) - Source code (ReactFiberWorkLoop.js, ReactFiberLane.js)
-- [Scheduling in React 16.x](https://adasq.github.io/scheduling-in-react-16-x/) - MessageChannel scheduler analysis
-- [React Lanes Guide](https://dev.to/yorgie7/react-scheduler-lanes-the-ultimate-guide-to-smooth-ui-1gmk) - Lane system deep dive
+- [`Scheduler.js` source](https://github.com/facebook/react/blob/main/packages/scheduler/src/forks/Scheduler.js) — `frameYieldMs`, `MessageChannel` posting
+- [`ReactFiberLane.js` source](https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberLane.js) — the canonical lane definitions
+- [How React Scheduler works internally](https://jser.dev/react/2022/03/16/how-react-scheduler-works/) — JSer
+- [What are Lanes in React source code?](https://jser.dev/react/2022/03/26/lanes-in-react/) — JSer
 
-**Ecosystem**
+**Ecosystem and analysis**
 
-- [Next.js App Router](https://nextjs.org/docs/app) - RSC implementation in Next.js
-- [Rendering on the Web](https://web.dev/articles/rendering-on-the-web) - Google's rendering strategy comparison
-- [React 19 Suspense Analysis](https://tkdodo.eu/blog/react-19-and-suspense-a-drama-in-3-acts) - TkDodo on Suspense behavior changes
+- [Next.js App Router](https://nextjs.org/docs/app) — RSC implementation in Next.js
+- [Vercel ISR documentation](https://vercel.com/docs/incremental-static-regeneration) — multi-framework ISR support
+- [Rendering on the Web](https://web.dev/articles/rendering-on-the-web) — Google's rendering-strategy comparison
+- [React 19 and Suspense — A Drama in 3 Acts](https://tkdodo.eu/blog/react-19-and-suspense-a-drama-in-3-acts) — TkDodo on the sibling-rendering change
+- [CVE-2025-55182](https://www.offsec.com/blog/cve-2025-55182/) — RCE in Flight deserializer; useful reminder that Flight is an implementation-defined internal protocol

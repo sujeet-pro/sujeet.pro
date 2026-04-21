@@ -1,0 +1,28 @@
+%% Diagram: Dual-write anti-pattern vs transactional outbox + CDC
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Anti [Dual-write anti-pattern]
+        direction TB
+        A1[Service]
+        A1 -->|"1. UPDATE users"| ADB[(Database)]
+        A1 -->|"2. publish event"| AK[Kafka]
+        XF1{{"Failure between<br/>step 1 and step 2:<br/>state diverges"}}
+        A1 -.-> XF1
+    end
+
+    subgraph Outbox [Transactional outbox + CDC]
+        direction TB
+        B1[Service]
+        B1 -->|"1. BEGIN TX:<br/>UPDATE users +<br/>INSERT outbox<br/>COMMIT"| BDB[(Database)]
+        BDB -->|"WAL / binlog"| CDC[CDC connector]
+        CDC -->|"event router transform"| BK[Kafka]
+        OK1{{"One commit, one log;<br/>no consensus problem"}}
+        BDB -.-> OK1
+    end
+
+    Anti -.-> Outbox
+    classDef bad fill:#fff5f5,stroke:#c92a2a,color:#7a1f1f
+    classDef good fill:#f4fcf4,stroke:#2f9e44,color:#1f5f2c
+    class Anti bad
+    class Outbox good

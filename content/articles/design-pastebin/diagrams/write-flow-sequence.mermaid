@@ -1,0 +1,23 @@
+%% Diagram: Paste creation sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant API as API server
+    participant KGS as Key Gen Service
+    participant S3 as Object storage
+    participant DB as PostgreSQL
+    participant Q as Job queue
+
+    C->>API: POST /api/v1/pastes {content, expiration, visibility}
+    API->>API: Validate (size, rate limit, scan)
+    API->>KGS: Pull next key from local batch
+    KGS-->>API: paste_id = "aB3kF9x"
+    API->>API: zstd compress content
+    API->>API: SHA-256 hash (for dedup + integrity)
+    API->>S3: PUT /pastes/aB3kF9x.zst
+    S3-->>API: 200 OK
+    API->>DB: INSERT metadata (paste_id, content_hash, expires_at, visibility)
+    DB-->>API: row inserted
+    API->>Q: Enqueue syntax-highlight job
+    API-->>C: 201 {paste_id, url, expires_at}

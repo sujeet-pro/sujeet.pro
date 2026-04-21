@@ -1,0 +1,25 @@
+%% Diagram: WCAG 2.2 deltas grouped by purpose
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Cognitive["Cognitive accessibility"]
+        C1["3.2.6 Consistent Help (A)"]
+        C2["3.3.7 Redundant Entry (A)"]
+        C3["3.3.8 Accessible Auth Min (AA)"]
+        C4["3.3.9 Accessible Auth Enh (AAA)"]
+    end
+
+    subgraph Motor["Motor / pointer input"]
+        M1["2.5.7 Dragging Movements (AA)"]
+        M2["2.5.8 Target Size Min 24px (AA)"]
+    end
+
+    subgraph Focus["Focus visibility"]
+        F1["2.4.11 Focus Not Obscured Min (AA)"]
+        F2["2.4.12 Focus Not Obscured Enh (AAA)"]
+        F3["2.4.13 Focus Appearance (AAA)"]
+    end
+
+    subgraph Removed["Removed in 2.2"]
+        R1["4.1.1 Parsing — obsolete<br/>still failable via 4.1.2"]
+    end

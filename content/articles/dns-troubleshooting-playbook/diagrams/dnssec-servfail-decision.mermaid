@@ -1,0 +1,31 @@
+%% Diagram: DNSSEC SERVFAIL Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["SERVFAIL observed at resolver"])
+    CD{"dig +cd succeeds?"}
+    NotDNSSEC["Not DNSSEC.<br/>Suspect authoritative,<br/>network, or RRL.<br/>Use +trace and +norecurse."]
+    EDE{"EDE present in response?<br/>(dig OPT pseudo-section)"}
+    DELV["Run delv +rtrace<br/>and delv +vtrace<br/>for chain detail."]
+    Code{"INFO-CODE value?"}
+    E7["EDE 7 — Signature Expired.<br/>Re-sign zone; check<br/>auto-resigner / scheduler."]
+    E8["EDE 8 — Signature Not Yet Valid.<br/>Check inception time,<br/>signer clock skew."]
+    E9["EDE 9 — DNSKEY Missing.<br/>DNSKEY RRset removed<br/>before RRSIGs rotated."]
+    E10["EDE 10 — RRSIGs Missing.<br/>Zone served unsigned<br/>or partial sign."]
+    E6["EDE 6 — DNSSEC Bogus.<br/>Compare DS at parent<br/>vs DNSKEY at child."]
+    DS{"DS at parent matches<br/>active KSK at child?"}
+    FixDS["Update DS at registrar.<br/>RFC 6781 §4.1 KSK rollover."]
+    Probe["Run dnsviz probe<br/>to localize broken hop."]
+
+    Start --> CD
+    CD -- "no" --> NotDNSSEC
+    CD -- "yes" --> EDE
+    EDE -- "no" --> DELV --> Probe
+    EDE -- "yes" --> Code
+    Code -- "6" --> E6 --> DS
+    Code -- "7" --> E7
+    Code -- "8" --> E8
+    Code -- "9" --> E9
+    Code -- "10" --> E10
+    DS -- "no" --> FixDS
+    DS -- "yes" --> Probe

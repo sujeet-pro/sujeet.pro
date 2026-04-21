@@ -1,0 +1,20 @@
+%% Diagram: Cell dependency for the floors-covered DP f(k, m) = f(k-1, m-1) + f(k, m-1) + 1
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Prev["Already filled (m-1 column)"]
+        direction TB
+        A["f(k-1, m-1)<br/>floors covered if egg breaks"]
+        B["f(k, m-1)<br/>floors covered if egg holds"]
+    end
+
+    subgraph Cur["Cell being filled (m column)"]
+        direction TB
+        C["f(k, m) = A + B + 1<br/>+1 = the floor we just tested"]
+    end
+
+    A --> C
+    B --> C
+
+    Note["Fill order: increase m (drops), then k (eggs).<br/>Stop at the smallest m where f(k, m) >= N."]
+    C -.-> Note

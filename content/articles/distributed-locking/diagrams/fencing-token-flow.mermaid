@@ -1,0 +1,23 @@
+%% Diagram: Fencing token rejects stale write
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client 1
+    participant L as Lock Service
+    participant S as Storage
+    participant C2 as Client 2
+
+    C1->>L: Acquire(resource)
+    L-->>C1: Granted, token = 33
+    Note over C1: GC pause (lease expires)
+
+    C2->>L: Acquire(resource)
+    L-->>C2: Granted, token = 34
+
+    C2->>S: Write (token = 34)
+    S-->>C2: OK (highest seen = 34)
+
+    Note over C1: GC ends
+    C1->>S: Write (token = 33)
+    S-->>C1: REJECTED (33 < 34)
+    Note over S: Stale write fenced out

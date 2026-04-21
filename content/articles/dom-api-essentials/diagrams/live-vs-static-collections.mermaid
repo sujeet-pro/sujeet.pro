@@ -1,0 +1,27 @@
+%% Diagram: Live vs Static Collections
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  q["DOM query"]
+  q --> qsa["querySelectorAll(...)"]
+  q --> gec["getElementsByClassName / getElementsByTagName"]
+  q --> gen["getElementsByName"]
+  q --> cn["childNodes"]
+  q --> ch["children"]
+
+  qsa --> snl["static NodeList&#10;(snapshot, has forEach)"]
+  gec --> lhc["live HTMLCollection&#10;(updates on every mutation)"]
+  gen --> lnl1["live NodeList&#10;(historical exception)"]
+  cn  --> lnl2["live NodeList&#10;(includes text & comment nodes)"]
+  ch  --> lhc2["live HTMLCollection&#10;(elements only)"]
+
+  snl --> safe["Safe to mutate during iteration&#10;Re-query to see new state"]
+  lhc --> trap["Mutating items during a for-i loop&#10;skips entries — convert to Array first"]
+  lnl1 --> trap
+  lnl2 --> trap
+  lhc2 --> trap
+
+  classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+  classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+  class safe ok
+  class trap warn

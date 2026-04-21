@@ -1,0 +1,17 @@
+%% Diagram: Hybrid Fan-out Decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    MSG["Message Service\nincoming send"]
+
+    MSG --> CHECK{"Conversation\nmember count"}
+
+    CHECK -->|"< ~100 members"| PUSH["Direct Push\nsynchronous gateway RPC"]
+    CHECK -->|">= ~100 members"| QUEUE["Async Fan-out\npublish to Kafka"]
+
+    PUSH --> GW1["Recipient gateways"] --> U1["Online users"]
+    PUSH --> OFF1["Offline -> push notification"]
+
+    QUEUE --> KAFKA["Kafka topic"] --> FANOUT["Fan-out workers\nbatch + paginate members"]
+    FANOUT --> GW2["Recipient gateways"] --> U2["Online users"]
+    FANOUT --> OFF2["Offline -> push notification"]

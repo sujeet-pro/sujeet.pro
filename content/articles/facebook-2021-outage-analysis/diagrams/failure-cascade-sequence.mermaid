@@ -1,0 +1,22 @@
+%% Diagram: Failure Cascade Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Audit as Config\naudit tool
+    participant BB as Backbone\nrouters
+    participant Edge as Edge facility\n(authoritative DNS)
+    participant Peer as IXP / upstream\npeers
+    participant Resolver as Recursive\nresolvers
+    participant User as Browser /\napp
+
+    Audit->>BB: Apply maintenance command\n(audit bug fails to block)
+    BB-->>BB: All inter-DC links go down
+    Edge->>BB: Health probe (data center reachable?)
+    BB--xEdge: TIMEOUT
+    Note over Edge: Safety policy:\nno reach => no advertise
+    Edge->>Peer: BGP UPDATE\n(withdraw DNS prefixes)
+    Peer-->>Peer: Withdrawal propagates\n15:42 -> 15:53:47 UTC
+    Resolver->>Edge: Query a.ns.facebook.com\n(after TTL expiry)
+    Resolver--xEdge: No route to\n129.134.30.0/24
+    Resolver-->>User: SERVFAIL
+    User->>Resolver: Aggressive retries\n(~30x normal volume)

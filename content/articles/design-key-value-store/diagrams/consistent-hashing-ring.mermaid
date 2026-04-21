@@ -1,0 +1,35 @@
+%% Diagram: Consistent Hashing Ring with Virtual Nodes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Ring["Hash Ring 0..2^64-1 (logical)"]
+        direction LR
+        P0["pos 0<br/>vnode A1"]
+        P1["pos 25%<br/>vnode B1"]
+        P2["pos 35%<br/>vnode A2"]
+        P3["pos 50%<br/>vnode C1"]
+        P4["pos 60%<br/>vnode B2"]
+        P5["pos 70%<br/>vnode D1"]
+        P6["pos 80%<br/>vnode A3"]
+        P7["pos 90%<br/>vnode C2"]
+        P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P0
+    end
+
+    K["hash(key) = 32%"] -. lands at .-> P2
+
+    subgraph Pref["Preference list for key (RF=3)"]
+        R1["replica 1: vnode A2 -> Node A"]
+        R2["replica 2: vnode C1 -> Node C (next vnode not on Node A)"]
+        R3["replica 3: vnode B2 -> Node B (skip A3: Node A already taken)"]
+    end
+
+    P2 -. walk clockwise, skip vnodes on physical nodes already in list .-> Pref
+
+    subgraph Phys["Physical nodes own multiple vnodes"]
+        NA["Node A: A1, A2, A3"]
+        NB["Node B: B1, B2"]
+        NC["Node C: C1, C2"]
+        ND["Node D: D1"]
+    end
+
+    Phys -.- Ring

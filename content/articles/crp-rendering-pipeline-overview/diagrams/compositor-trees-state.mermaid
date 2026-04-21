@@ -1,0 +1,27 @@
+%% Diagram: Compositor three-tree state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction LR
+    [*] --> Main: cc receives commit
+    Main --> Pending: push to pending tree
+    Pending --> Pending: raster outstanding tiles
+    Pending --> Active: activate when raster complete
+    Active --> Active: scroll, transform,<br/>opacity animation
+    Active --> [*]: replaced by next activation
+
+    note right of Main
+        Source of truth.
+        Updated by main thread
+        via Commit.
+    end note
+    note right of Pending
+        Staging area while
+        raster work is in flight.
+        Not drawable yet.
+    end note
+    note right of Active
+        Drawable. Survives until
+        the next pending tree
+        activates.
+    end note

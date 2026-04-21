@@ -1,0 +1,22 @@
+%% Diagram: Super-Disk Hybrid Storage Topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    db["ScyllaDB process\n(reads + writes)"]:::primary
+    db --> md1["md RAID1 (mirror)\nread-balancing skipped\nfor write-mostly leg"]:::secondary
+
+    md1 -->|"reads served from\nfast leg (low latency)"| md0["md RAID0 stripe\n(aggregate capacity\n+ parallel I/O)"]:::secondary
+    md1 -.->|"writes mirrored\nto slow leg\nasync via kernel"| pd["GCP Persistent Disk\n(write-mostly,\n~1–2 ms latency,\nsnapshottable)"]:::storage
+
+    md0 --> ssd0[("Local SSD #0\n375 GB NVMe")]:::storage
+    md0 --> ssd1[("Local SSD #1\n375 GB NVMe")]:::storage
+    md0 --> ssdN[("Local SSD #N\n375 GB NVMe")]:::storage
+
+    note["On host migration\n(any Local SSD failure):\nGCP replaces the host;\nrebuild RAID0 from PD mirror\n+ ScyllaDB replication"]:::accent
+    pd -.-> note
+    md0 -.-> note
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff

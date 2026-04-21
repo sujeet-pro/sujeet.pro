@@ -1,0 +1,39 @@
+%% Diagram: System overview — collaboration topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Clients["Clients"]
+        C1["Editor A"]
+        C2["Editor B"]
+        C3["Viewer"]
+    end
+
+    subgraph Edge["Edge"]
+        CDN["CDN<br/>(static assets)"]
+        LB["Load balancer<br/>(sticky by document)"]
+    end
+
+    subgraph Collab["Collaboration tier"]
+        WS["WebSocket gateway"]
+        SYNC["Sync engine<br/>(OT transform + apply)"]
+        PRES["Presence service<br/>(in-memory)"]
+    end
+
+    subgraph Persistence["Persistence tier"]
+        API["Document API"]
+        CACHE["Redis<br/>(active doc state)"]
+        DB[("PostgreSQL<br/>metadata + ACL")]
+        OPS[("Op log<br/>DynamoDB / Cassandra")]
+        BLOB["Object store<br/>(snapshots, media)"]
+    end
+
+    C1 & C2 & C3 --> CDN
+    C1 & C2 & C3 --> LB
+    LB --> WS
+    WS <--> SYNC
+    WS <--> PRES
+    SYNC --> API
+    API --> CACHE
+    API --> DB
+    API --> OPS
+    API --> BLOB

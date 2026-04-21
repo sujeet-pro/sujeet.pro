@@ -1,0 +1,18 @@
+%% Diagram: Synchronous transform path with guaranteed 200
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant E as CDN
+    participant G as Gateway+Transform
+
+    C->>E: GET /v1/.../w_800.webp
+    E->>G: cache miss
+    G->>G: parse + validate + lock
+    alt cache MISS
+        G->>G: fetch + libvips + store
+    else derived found
+        G->>G: serve cached
+    end
+    G-->>E: 200 + Cache-Control
+    E-->>C: 200 (< 800ms)

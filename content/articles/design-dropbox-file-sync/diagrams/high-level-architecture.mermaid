@@ -1,0 +1,37 @@
+%% Diagram: High-level Dropbox sync architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Clients["Client devices"]
+        Desktop["Desktop (Nucleus, Rust)"]
+        Mobile["Mobile"]
+        Web["Web"]
+    end
+
+    subgraph Edge["Edge"]
+        LB["Load balancer / TLS terminator"]
+    end
+
+    subgraph Control["Metadata plane"]
+        API["API gateway"]
+        Meta["Metadata service"]
+        Notify["Notification service (long-poll / WebSocket)"]
+        SFJ["Server File Journal (SFJ)<br/>append-only"]
+        MetaDB[("Sharded SQL<br/>per-namespace")]
+    end
+
+    subgraph Data["Data plane"]
+        Block["Block service"]
+        MP["Magic Pocket<br/>(immutable 4MB blocks,<br/>SHA-256 keyed)"]
+    end
+
+    Clients --> LB
+    LB --> API
+    API --> Meta
+    API --> Block
+    API --> Notify
+    Meta --> SFJ
+    Meta --> MetaDB
+    SFJ --> Notify
+    Block --> MP
+    Notify -. push hints .-> Clients

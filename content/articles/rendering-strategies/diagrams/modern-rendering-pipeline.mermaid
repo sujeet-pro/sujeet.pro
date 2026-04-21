@@ -1,0 +1,37 @@
+%% Diagram: Modern rendering pipeline — where HTML is produced, what runs on the client
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph BUILD["Build time"]
+        SSG["SSG render<br/>per page"]
+        Shell["Static shell<br/>(PPR, islands)"]
+    end
+
+    subgraph SERVER["Request time (server / edge)"]
+        SSR["SSR render"]
+        RSC["React Server<br/>Components"]
+        Stream["Suspense<br/>streaming"]
+        ISR["ISR cache<br/>+ revalidate"]
+    end
+
+    subgraph EDGE["CDN / Edge cache"]
+        CDN[("Edge cache")]
+    end
+
+    subgraph CLIENT["Client"]
+        HTML["Browser parses<br/>streamed HTML"]
+        Hydrate["Selective<br/>hydration"]
+        Islands["Island<br/>hydration"]
+        Resume["Qwik resume<br/>(no replay)"]
+    end
+
+    SSG --> CDN
+    Shell --> CDN
+    ISR --> CDN
+    SSR --> Stream
+    RSC --> Stream
+    Stream --> HTML
+    CDN --> HTML
+    HTML --> Hydrate
+    HTML --> Islands
+    HTML --> Resume

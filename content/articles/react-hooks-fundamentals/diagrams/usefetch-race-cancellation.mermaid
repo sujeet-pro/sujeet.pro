@@ -1,0 +1,23 @@
+%% Diagram: useFetch race-condition cancellation with AbortController
+%% Type: sequence
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant C as Component
+    participant E as useEffect
+    participant N as Network
+
+    U->>C: typed userId = 1
+    C->>E: setup(userId=1)
+    E->>N: fetch("/users/1", signal=abort#1)
+
+    U->>C: typed userId = 2 (before /users/1 resolves)
+    C->>E: cleanup for userId=1
+    E->>N: abort#1.abort()
+    N-->>E: rejects with AbortError (filtered)
+    C->>E: setup(userId=2)
+    E->>N: fetch("/users/2", signal=abort#2)
+    N-->>E: 200 OK { user: 2 }
+    E->>C: dispatch({ type: 'success', data })
+
+    Note over E,N: Without abort, /users/1 could resolve<br/>after /users/2 and overwrite the<br/>visible state ("last write wins" bug).

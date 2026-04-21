@@ -1,0 +1,37 @@
+%% Diagram: Rasterization pipeline overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph MainThread [Main Thread]
+        Paint["Paint stage<br/>records cc::PaintRecord"]
+    end
+
+    subgraph CompositorThread [Compositor thread cc]
+        Commit["Commit<br/>main → pending tree"]
+        Tiling["Tiling<br/>PictureLayerImpl"]
+        Schedule["TileManager<br/>priority + budget"]
+        Activate["Activate<br/>pending → active"]
+    end
+
+    subgraph RasterPool [Raster worker pool]
+        Software["Software raster<br/>Skia CPU bitmap"]
+        GPU["GPU raster (OOP-R)<br/>serialize commands"]
+    end
+
+    subgraph VizProcess [Viz / GPU process]
+        SkiaGPU["Skia replays commands<br/>Ganesh / Graphite"]
+        Textures["GPU textures<br/>shared via mailbox"]
+        Display["Display compositor<br/>draws quads"]
+    end
+
+    Paint --> Commit
+    Commit --> Tiling
+    Tiling --> Schedule
+    Schedule --> Software
+    Schedule --> GPU
+    Software --> Textures
+    GPU --> SkiaGPU
+    SkiaGPU --> Textures
+    Schedule --> Activate
+    Activate --> Display
+    Textures --> Display

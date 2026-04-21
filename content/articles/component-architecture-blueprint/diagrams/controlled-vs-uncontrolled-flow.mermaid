@@ -1,0 +1,39 @@
+%% Diagram: Controlled vs Uncontrolled State Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CONTROLLED["Controlled component"]
+        direction TB
+        CU["User keystroke"] --> CONCH["onChange handler"]
+        CONCH --> CSET["setState(next)"]
+        CSET --> CRER["Re-render"]
+        CRER --> CDOM["DOM value = state"]
+        CDOM -.->|displayed| CU
+        CSTATE[(React state<br/>= source of truth)]
+        CSET -.-> CSTATE
+        CSTATE -.-> CDOM
+    end
+
+    subgraph UNCONTROLLED["Uncontrolled component"]
+        direction TB
+        UU["User keystroke"] --> UDOM["DOM value updates<br/>natively"]
+        UDOM -.->|displayed| UU
+        UREAD["Read on submit:<br/>FormData / ref.current"]
+        UDOM -->|on submit| UREAD
+        USTATE[(DOM<br/>= source of truth)]
+        UDOM -.-> USTATE
+    end
+
+    NOTE["Use controlled when you need<br/>derived UI, validation as you type,<br/>or to sync with state outside the form.<br/>Use uncontrolled (with name + defaultValue)<br/>for plain forms — React 19 Actions<br/>collect FormData natively."]
+
+    CONTROLLED --- NOTE
+    UNCONTROLLED --- NOTE
+
+    classDef controlled fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef uncontrolled fill:#1F6E68,stroke:#155752,color:#fff
+    classDef state fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef note fill:#8B5E15,stroke:#6E4810,color:#fff
+    class CU,CONCH,CSET,CRER,CDOM controlled
+    class UU,UDOM,UREAD uncontrolled
+    class CSTATE,USTATE state
+    class NOTE note

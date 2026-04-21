@@ -4,10 +4,12 @@ linkTitle: 'Web Video Playback'
 description: >-
   The complete video delivery pipeline from codecs (H.264, HEVC, AV1) and containers to adaptive streaming with HLS and DASH, DRM fragmentation, and ultra-low latency techniques — including protocol internals, design trade-offs, and production failure modes.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - media
-  - testing
+  - architecture
+  - networking
+  - web-platform
   - platform-engineering
 ---
 
@@ -15,8 +17,8 @@ tags:
 
 The complete video delivery pipeline from codecs and compression to adaptive streaming protocols, DRM systems, and ultra-low latency technologies. Covers protocol internals, design trade-offs, and production failure modes for building resilient video applications.
 
-![End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback](./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to--light.svg "End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback")
-![End-to-end video playback pipeline from source encoding through CDN delivery to adaptive client playback](./diagrams/end-to-end-video-playback-pipeline-from-source-encoding-through-cdn-delivery-to--dark.svg)
+![End-to-end web video playback pipeline: encode, package, encrypt, deliver, decrypt, decode, play](./diagrams/end-to-end-pipeline-light.svg "End-to-end pipeline: a mezzanine source is encoded, packaged into CMAF segments, encrypted under CENC, distributed by CDN PoPs and DRM license servers, then consumed by an ABR-driven player feeding MSE and the platform CDM.")
+![End-to-end web video playback pipeline: encode, package, encrypt, deliver, decrypt, decode, play](./diagrams/end-to-end-pipeline-dark.svg)
 
 ## Abstract
 
@@ -97,7 +99,7 @@ Standardized in 2003 by ITU-T/ISO (ITU-T H.264 | ISO/IEC 14496-10), H.264 remain
 
 #### H.265 (HEVC - High Efficiency Video Coding)
 
-Standardized in 2013 (ITU-T H.265 | ISO/IEC 23008-2), HEVC was designed for 4K and HDR (High Dynamic Range) content. Version 10 was approved in July 2024. As of late 2024, 92% of browsers support HEVC hardware decode.
+Standardized in 2013 (ITU-T H.265 | ISO/IEC 23008-2), HEVC was designed for 4K and HDR (High Dynamic Range) content. Browser support is functional in approximately 92% of installed browsers per [caniuse](https://caniuse.com/hevc), but in every case it depends on the underlying OS and a hardware HEVC decoder; there is no widely-shipped software HEVC fallback in the major browsers, mainly because of patent-licensing exposure.
 
 **Key Characteristics:**
 
@@ -121,17 +123,20 @@ Released in 2018 by the Alliance for Open Media (AOM)—Google, Netflix, Amazon,
 
 | Attribute                 | Value                                                       |
 | ------------------------- | ----------------------------------------------------------- |
-| Compression Efficiency    | ~30% better than HEVC                                       |
-| Ideal Use Case            | High-volume VOD, bandwidth savings                          |
-| Licensing                 | Royalty-free (AOM patent commitment)                        |
-| Hardware Support          | ~10% of smartphones (Q2 2024), 88% of Netflix-certified TVs |
-| Typical Bitrate (1080p30) | 2-3 Mbps                                                    |
+| Compression Efficiency    | ~30% better than HEVC                                                         |
+| Ideal Use Case            | High-volume VOD, bandwidth savings                                            |
+| Licensing                 | Royalty-free (AOM patent commitment)                                          |
+| Hardware Support          | Mobile: still partial; large screens: ~88% of Netflix-certified devices since 2021 |
+| Typical Bitrate (1080p30) | 2-3 Mbps                                                                      |
 
-**Adoption status (2024-2025):**
+**Adoption status (late 2025):**
 
-- YouTube: 75%+ of videos encoded in AV1
-- Netflix: 30% of streams
-- Hardware decode: iPhone 15 Pro (A17 chip), Snapdragon 8 Gen 2+, Intel Arc, NVIDIA RTX 40-series
+- YouTube serves 75%+ of its catalog (weighted by watch time) in AV1; software AV1 decode was rolled out to mobile devices without hardware support starting in 2024.[^yt-av1]
+- AV1 powers ~30% of Netflix streaming; 88% of large-screen devices submitted for Netflix certification between 2021 and 2025 ship AV1 hardware decode.[^nflx-av1]
+- Apple shipped AV1 hardware decode in the A17 Pro (iPhone 15 Pro) and M3 in 2023; current Snapdragon flagships, Intel Arc / 12th-gen+ iGPUs, and NVIDIA RTX 40-series also decode AV1 in hardware.[^nflx-av1]
+
+[^yt-av1]: [Video Streaming with the AV1 Video Codec in Mobile Devices (Meta + YouTube white paper, Sept 2025)](https://engineering.fb.com/wp-content/uploads/2025/09/Meta-AV1-White-Paper-FINAL.pdf).
+[^nflx-av1]: [AV1 — Now Powering 30% of Netflix Streaming (Netflix Tech Blog, Dec 2025)](https://netflixtechblog.com/av1-now-powering-30-of-netflix-streaming-02f592242d80).
 
 **Design trade-off:** AV1's superior compression comes from computationally expensive encoding. Software encoding is 10-20x slower than H.264. Hardware encoders (NVIDIA NVENC, Intel QuickSync) are now available but still slower than HEVC hardware encoding.
 
@@ -212,16 +217,12 @@ The `moov` box must appear before any `mdat` for playback to begin without full 
 
 CMAF (ISO/IEC 23000-19:2024) is not a new container but a standardization of fMP4 for streaming. Its introduction was a watershed moment for the industry.
 
-**The problem CMAF solves:** Before CMAF, supporting both Apple devices (HLS with .ts) and other devices (DASH with .mp4) required encoding, packaging, and storing two complete sets of video files. This doubled storage costs and reduced CDN cache efficiency.
+**The problem CMAF solves:** Before CMAF, supporting both Apple devices (HLS with .ts) and other devices (DASH with .mp4) required encoding, packaging, and storing two complete sets of video files. This doubled storage costs and halved CDN cache efficiency, because the same content was hashed under two different URL spaces.
 
-**CMAF architecture:**
+![CMAF unified packaging vs legacy dual stack of MPEG-TS for HLS and fMP4 for DASH](./diagrams/cmaf-unified-packaging-light.svg "Legacy stacks shipped twice: MPEG-TS for HLS, fMP4 for DASH. CMAF lets a single fMP4 segment stream be addressed by both manifest formats, halving storage and doubling CDN cache hit rates for the same audience mix.")
+![CMAF unified packaging vs legacy dual stack of MPEG-TS for HLS and fMP4 for DASH](./diagrams/cmaf-unified-packaging-dark.svg)
 
-```
-Single Source → CMAF Segments (fMP4) → [HLS Manifest (.m3u8)]
-                                     → [DASH Manifest (.mpd)]
-```
-
-A provider creates one set of CMAF segments and serves them with two different manifest files. Storage cost: 1x instead of 2x.
+A provider creates one set of CMAF segments and serves them with two different manifest files. Storage cost: 1× instead of 2×; cache fill cost (the bandwidth between origin and CDN edges) drops in lock-step.
 
 **CMAF chunks for low-latency:** CMAF defines "chunks"—the smallest addressable unit containing a `moof` + `mdat` pair. For low-latency streaming, each chunk can be independently transferred via HTTP chunked encoding as soon as it's encoded, without waiting for the full segment.
 
@@ -229,26 +230,49 @@ Example: A 4-second segment at 30fps contains 120 frames. With one frame per CMA
 
 ### The Segmentation Process
 
-ffmpeg is the workhorse of video processing. Here's a multi-bitrate HLS encoding pipeline:
+ffmpeg is the workhorse of video processing. Here is a minimal three-rendition HLS encoding pipeline that produces a master playlist plus per-variant media playlists and segments:
 
-```bash title="hls.bash" collapse={1-4}
-
+```bash title="encode-hls.sh"
+ffmpeg -i source.mp4 \
+  -filter_complex "[0:v]split=3[v1][v2][v3]; \
+                   [v1]scale=w=1920:h=1080[v1080]; \
+                   [v2]scale=w=1280:h=720[v720];   \
+                   [v3]scale=w=854:h=480[v480]" \
+  -map "[v1080]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k \
+  -map "[v720]"  -c:v:1 libx264 -b:v:1 2800k -maxrate:v:1 2996k -bufsize:v:1 4200k \
+  -map "[v480]"  -c:v:2 libx264 -b:v:2 1400k -maxrate:v:2 1498k -bufsize:v:2 2100k \
+  -map a:0 -c:a aac -b:a:0 128k -ac 2 \
+  -map a:0       -b:a:1 128k -ac 2 \
+  -map a:0       -b:a:2 96k  -ac 2 \
+  -g 60 -keyint_min 60 -sc_threshold 0 \
+  -hls_time 6 -hls_playlist_type vod \
+  -hls_segment_type fmp4 -hls_flags independent_segments \
+  -master_pl_name master.m3u8 \
+  -var_stream_map "v:0,a:0 v:1,a:1 v:2,a:2" \
+  out/stream_%v/playlist.m3u8
 ```
 
 **Key parameters explained:**
 
-| Parameter               | Purpose                                                      |
-| ----------------------- | ------------------------------------------------------------ |
-| `split=7`               | Creates 7 parallel encoding pipelines from one input         |
-| `scale=WxH`             | Resizes to target resolution                                 |
-| `-c:v:N h264 -b:v:N Xk` | Sets codec and target bitrate for variant N                  |
-| `-hls_time 6`           | Target segment duration (actual duration varies by keyframe) |
-| `-var_stream_map`       | Groups video/audio variants for ABR playlist generation      |
-| `-master_pl_name`       | Generates master playlist referencing all variants           |
+| Parameter                        | Purpose                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `split=3`                        | Splits the decoded video into N parallel filter chains, one per rendition                                        |
+| `scale=w=W:h=H`                  | Resizes to the target rendition resolution                                                                       |
+| `-c:v:N libx264 -b:v:N Xk`       | Sets the codec and target bitrate for output stream N                                                            |
+| `-maxrate -bufsize`              | Caps the leaky-bucket peak bitrate so ABR rungs do not overshoot the rung above                                  |
+| `-g 60 -keyint_min 60 -sc_threshold 0` | Forces a fixed 2-second GOP at 30 fps so every segment can begin on a keyframe and aligns across renditions |
+| `-hls_time 6`                    | Target segment duration; actual length snaps to the next keyframe inside `±0.5s` of the target                   |
+| `-hls_segment_type fmp4`         | Emits CMAF-style fMP4 init + media segments instead of MPEG-TS                                                   |
+| `-hls_flags independent_segments` | Each segment is independently decodable (no cross-segment frame dependencies)                                   |
+| `-var_stream_map`                | Groups video and audio outputs into ABR variants in the master playlist                                          |
+| `-master_pl_name`                | Filename for the generated master playlist that references all variants                                          |
 
-**Gotcha: Keyframe alignment.** Segments can only split at keyframes (I-frames). If your source has keyframes every 10 seconds but you request 6-second segments, actual segment duration will be 10 seconds. Always set keyframe interval at encode time: `-g 180` for 6-second GOP (Group of Pictures) at 30fps.
+**Gotcha: Keyframe alignment.** Segments can only split at keyframes (I-frames). If your source has keyframes every 10 seconds but you request 6-second segments, actual segment duration will be ~10 seconds. Always set the keyframe interval at encode time (`-g`, `-keyint_min`, `-sc_threshold 0`). For low-latency, use a 1-2 second GOP so partial segments (LL-HLS parts) line up with `EXT-X-PART-INF:PART-TARGET`.[^apple-hls-spec]
 
-**Gotcha: Segment duration consistency.** The HLS spec requires segment duration to match `EXT-X-TARGETDURATION` ±0.5 seconds. Variable segment durations (common with scene-change keyframes) can cause buffer underruns if the player's buffer model assumes consistent duration.
+**Gotcha: Segment duration consistency.** The HLS spec requires every segment's `EXTINF` duration to be no greater than `EXT-X-TARGETDURATION`, with the target itself rounded from the actual maximum to the nearest integer.[^rfc8216-target] Variable segment durations (common with scene-change keyframes when `-sc_threshold 0` is omitted) confuse player buffer models and can cause underruns near the live edge.
+
+[^apple-hls-spec]: [HLS Authoring Specification for Apple Devices — Apple Developer](https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices).
+[^rfc8216-target]: [RFC 8216 §4.3.3.1 — `EXT-X-TARGETDURATION`](https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.3.1).
 
 ## The Protocols of Power - HLS and MPEG-DASH
 
@@ -256,7 +280,7 @@ The protocols for adaptive bitrate streaming define the rules of communication b
 
 ### HLS (HTTP Live Streaming)
 
-Created by Apple and documented in RFC 8216 (with draft RFC8216bis describing protocol version 13), HLS is the most widely deployed streaming protocol. Its dominance stems from mandatory support on Apple's ecosystem—Safari will only play HLS natively.
+Created by Apple and documented in [RFC 8216](https://datatracker.ietf.org/doc/html/rfc8216), HLS is the most widely deployed streaming protocol. The spec is being revised in [draft-pantos-hls-rfc8216bis](https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/) (draft-21 as of March 2026), which still describes HLS protocol *version 13* but folds in everything that has been added since 2017 — fMP4, LL-HLS, content steering, interstitials. Its dominance stems from mandatory support on Apple's ecosystem — Safari will only play HLS natively.
 
 **Design philosophy:** HLS was designed to work with standard HTTP infrastructure. Segments are regular files; playlists are text files. Any HTTP server or CDN can serve HLS content without modification.
 
@@ -267,7 +291,17 @@ HLS uses a two-level playlist structure:
 **Master Playlist** (entry point, lists all variants):
 
 ```m3u8 title="master.m3u8"
+#EXTM3U
+#EXT-X-VERSION:7
 
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,LANGUAGE="en",URI="audio/en/playlist.m3u8"
+
+#EXT-X-STREAM-INF:BANDWIDTH=5350000,AVERAGE-BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",AUDIO="aac"
+video/1080p/playlist.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2996000,AVERAGE-BANDWIDTH=2800000,RESOLUTION=1280x720,CODECS="avc1.64001f,mp4a.40.2",AUDIO="aac"
+video/720p/playlist.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1498000,AVERAGE-BANDWIDTH=1400000,RESOLUTION=854x480,CODECS="avc1.64001e,mp4a.40.2",AUDIO="aac"
+video/480p/playlist.m3u8
 ```
 
 **Key tags explained:**
@@ -282,8 +316,23 @@ HLS uses a two-level playlist structure:
 
 **Media Playlist** (lists segments for one variant):
 
-```m3u8 title="playlist.m3u8"
+```m3u8 title="video/720p/playlist.m3u8"
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-MAP:URI="init.mp4"
 
+#EXTINF:6.000,
+segment_00000.m4s
+#EXTINF:6.000,
+segment_00001.m4s
+#EXTINF:5.840,
+segment_00002.m4s
+#EXTINF:6.000,
+segment_00003.m4s
+#EXT-X-ENDLIST
 ```
 
 **Critical tags for playback:**
@@ -418,18 +467,22 @@ CENC (ISO/IEC 23001-7:2023) enables a single encrypted file to work with multipl
 
 ### EME: The Browser API
 
-Encrypted Media Extensions (EME) is the W3C API that connects JavaScript to the platform's Content Decryption Module (CDM).
+[Encrypted Media Extensions](https://www.w3.org/TR/encrypted-media/) (EME) is the W3C Recommendation that connects JavaScript to the platform's Content Decryption Module (CDM). EME standardizes the *handshake*; the CDM and the underlying DRM (Widevine, FairPlay, PlayReady) standardize the *trust*.
+
+![EME / CDM license acquisition sequence for encrypted CMAF playback](./diagrams/eme-license-flow-light.svg "License acquisition sequence: the init segment carries a PSSH box; the encrypted event triggers the player to negotiate keys with the CDM and exchange a license challenge with the operator's license server; the CDM decrypts samples in the TEE for L1 / SL3000 paths.")
+![EME / CDM license acquisition sequence for encrypted CMAF playback](./diagrams/eme-license-flow-dark.svg)
 
 **Flow:**
 
-1. Player detects encrypted content (via `encrypted` event)
-2. Calls `navigator.requestMediaKeySystemAccess()` to check DRM availability
-3. Creates `MediaKeys` and `MediaKeySession`
-4. Sends license request to server (challenge from CDM)
-5. Passes license response to CDM
-6. CDM decrypts content; HTMLMediaElement plays
+1. Player detects encrypted content (via `encrypted` event on `HTMLMediaElement`).
+2. Calls `navigator.requestMediaKeySystemAccess()` to check DRM availability and required capabilities (codec, robustness level).
+3. Creates `MediaKeys` and a `MediaKeySession`.
+4. Sends the license challenge produced by the CDM to the operator's license server (typically over an authenticated HTTPS endpoint).
+5. Passes the signed license response back into the session via `session.update()`.
+6. CDM decrypts content; `HTMLMediaElement` plays.
 
-**Gotcha: EME is not DRM.** EME is the API; Widevine/FairPlay/PlayReady are the DRM systems. EME standardizes the interface but doesn't define the security properties. A browser can implement EME with a software CDM (low security) or hardware TEE (high security).
+> [!IMPORTANT]
+> EME is not DRM. EME is the JavaScript API; Widevine, FairPlay, and PlayReady are the DRM systems behind it. The same EME call sequence can resolve to a software CDM with no robustness guarantees (e.g. Widevine L3) or to a hardware-backed CDM (Widevine L1, FairPlay on Secure Enclave, PlayReady SL3000). License servers must consult the negotiated robustness level before issuing keys for premium tiers.
 
 ## The New Frontier: Ultra-Low Latency
 
@@ -448,11 +501,16 @@ Traditional HLS/DASH has 6-15+ seconds of latency (segment duration × buffer de
 
 ### Low-Latency HLS (LL-HLS)
 
-Apple introduced LL-HLS in 2019 (WWDC 2019) to reduce latency while preserving HTTP scalability. It achieves 2-4 second latency through three mechanisms:
+Apple introduced LL-HLS at [WWDC 2019](https://developer.apple.com/videos/play/wwdc2019/502/) to reduce latency while preserving HTTP scalability. It achieves 2-4 second latency through three mechanisms working together:
+
+![LL-HLS sequence: blocking playlist reload, partial segments, and preload hints](./diagrams/ll-hls-sequence-light.svg "LL-HLS request sequence: the player long-polls the playlist with _HLS_msn / _HLS_part hints, the origin holds the connection until the part is ready, the response includes a PRELOAD-HINT for the next part, and the player issues that request before the part exists so the server can stream it as soon as the encoder publishes it.")
+![LL-HLS sequence: blocking playlist reload, partial segments, and preload hints](./diagrams/ll-hls-sequence-dark.svg)
 
 #### 1. Partial Segments (Parts)
 
-Instead of waiting for a full 6-second segment, LL-HLS publishes smaller "parts" (200ms-2s) as soon as they're encoded.
+Instead of waiting for a full 4-6 second segment, LL-HLS publishes smaller "parts" (Apple recommends `PART-TARGET=1.0` for stability; deployments typically use 200 ms-1 s) as soon as they are encoded.[^apple-ll-hls]
+
+[^apple-ll-hls]: [Enabling Low-Latency HTTP Live Streaming (HLS) — Apple Developer](https://developer.apple.com/documentation/http-live-streaming/enabling-low-latency-http-live-streaming-hls).
 
 ```m3u8
 #EXTM3U
@@ -516,7 +574,9 @@ LL-DASH achieves similar latency through different mechanisms:
 
 3. **CMSD (Common Media Server Data):** Server-to-client signaling of real-time latency targets, enabling dynamic adjustment.
 
-**L3D Profile (2024):** The 6th edition of DASH introduces Low Latency, Low Delay DASH with discretely addressable partial segments, aligning more closely with LL-HLS's partial segment model.
+ISO/IEC 23009-1 is currently being revised — the 6th edition has reached FDIS as of 2025 and is expected to tighten low-latency interoperability with the LL-HLS partial-segment model and align more closely with [DASH-IF Live Media Ingest](https://dashif.org/guidelines/) practice.[^dash-fdis]
+
+[^dash-fdis]: [ISO/IEC FDIS 23009-1 — Information technology — Dynamic adaptive streaming over HTTP (DASH) — Part 1](https://www.iso.org/standard/89027.html).
 
 ### WebRTC (Web Real-Time Communication)
 
@@ -534,7 +594,10 @@ WebRTC is fundamentally different from HTTP streaming. It's designed for true re
 
 **Why UDP for low latency?** TCP's reliability (retransmission, ordering) introduces head-of-line blocking. A lost packet blocks all subsequent packets until retransmitted. For live video, it's better to skip a frame than delay the entire stream.
 
-**SFU (Selective Forwarding Unit) architecture:** For group calls and broadcasting, WebRTC uses SFUs. Each participant sends once to the SFU; the SFU forwards streams to all receivers without transcoding. This scales better than mesh (N² connections) or MCU (transcoding bottleneck).
+**SFU (Selective Forwarding Unit) architecture:** For group calls and broadcasting, WebRTC uses SFUs. Each participant sends once to the SFU; the SFU forwards streams to all receivers without transcoding. This scales better than mesh (N² connections) or MCU (transcoding bottleneck), but it is fundamentally bounded by per-server fan-out — typically hundreds to low thousands of viewers per SFU instance versus the millions a single CDN PoP can serve.
+
+![HTTP CDN fan-out vs WebRTC SFU fan-out for live distribution](./diagrams/webrtc-vs-cdn-fanout-light.svg "CMAF over CDN fans out at the edge: each PoP caches once and serves thousands locally, with cache hit ratios approaching 1. WebRTC SFUs cannot cache (each receiver is a stateful peer connection) so scale grows linearly with server count, capping out at hundreds to low thousands per SFU.")
+![HTTP CDN fan-out vs WebRTC SFU fan-out for live distribution](./diagrams/webrtc-vs-cdn-fanout-dark.svg)
 
 ### Latency Technology Selection
 
@@ -554,7 +617,7 @@ The browser's native `<video>` element can only handle progressive download or a
 
 ### MSE Architecture
 
-MSE (W3C Recommendation, actively updated through 2024) provides a JavaScript API to feed media data to `<video>`:
+[Media Source Extensions](https://www.w3.org/TR/media-source-2/) (W3C Recommendation, MSE 2 in active maintenance) provides a JavaScript API to feed media data to `<video>`:
 
 ```javascript
 const mediaSource = new MediaSource()
@@ -586,7 +649,9 @@ The player must balance competing concerns:
 2. **Responsive quality switching** (smaller buffer = faster adaptation)
 3. **Memory constraints** (5-20 MB typical; mobile is more constrained)
 
-**ManagedMediaSource (2024):** A new addition where the browser manages buffer eviction automatically. The player receives `bufferedchange` events when the browser evicts data, enabling simpler player implementations.
+**ManagedMediaSource (Safari 17, 2023):** Apple shipped `ManagedMediaSource` in Safari 17 (macOS) and Safari 17.1 (iOS); it is currently the only browser implementation.[^mms] The browser owns buffer eviction; the player listens for `bufferedchange` to react. `ManagedMediaSource` only enters the `open` state if the page either provides an HLS AirPlay alternative or sets `video.disableRemotePlayback = true`.
+
+[^mms]: [Managed Media Source — caniuse](https://caniuse.com/wf-managed-media-source).
 
 **Gotcha: Buffer eviction timing.** If the player doesn't track eviction, it may request already-evicted segments, causing playback stalls. Production players must handle the `bufferedchange` event or implement their own eviction tracking.
 
@@ -625,7 +690,12 @@ A CDN is non-negotiable for any streaming service at scale:
 
 ### ABR Ladder Design
 
-The bitrate ladder determines which quality levels are available. Poor ladder design causes:
+The bitrate ladder determines which quality levels are available, and the player's ABR algorithm picks one ladder rung per segment based on a throughput estimate and the buffer level.
+
+![Client-side ABR decision loop comparing throughput estimate against current rung and buffer panic threshold](./diagrams/abr-decision-loop-light.svg "ABR decision loop: after every segment download the player updates its throughput estimate (typically EWMA or harmonic mean), checks the buffer against a panic threshold, then either steps up, holds, steps down, or drops to the lowest safe rung. Rung changes happen at segment boundaries to avoid mid-segment seeks.")
+![Client-side ABR decision loop comparing throughput estimate against current rung and buffer panic threshold](./diagrams/abr-decision-loop-dark.svg)
+
+Poor ladder design causes:
 
 - **Wasted bandwidth:** Steps too small for perceptible quality difference
 - **Unnecessary buffering:** Steps too large, causing oscillation
@@ -643,7 +713,9 @@ The bitrate ladder determines which quality levels are available. Poor ladder de
 | 640×360    | 600 kbps | Constrained mobile             |
 | 426×240    | 300 kbps | Edge case fallback             |
 
-**Per-title encoding:** Advanced platforms analyze each video's complexity and generate custom ladders. A static talking-head video needs lower bitrates than an action scene. Netflix's per-title encoding reduced bandwidth by 20% without quality loss.
+**Per-title encoding:** Advanced platforms analyze each video's complexity and generate custom ladders. A static talking-head video needs lower bitrates than an action scene. Netflix's per-title encoding reduced average bandwidth by ~20% at the same perceived quality compared with a fixed ladder, and shot-based / Dynamic Optimizer follow-ups improved that further (~28% for x264, ~34% for HEVC).[^nflx-per-title]
+
+[^nflx-per-title]: [Per-Title Encode Optimization — Netflix Tech Blog (Dec 2015)](http://techblog.netflix.com/2015/12/per-title-encode-optimization.html). Later iterations are summarized by Netflix in [Optimized Shot-Based Encodes (2018)](https://netflixtechblog.com/optimized-shot-based-encodes-now-streaming-4b9464204830).
 
 ### Monitoring and Observability
 

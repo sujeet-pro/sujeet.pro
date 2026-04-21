@@ -1,0 +1,23 @@
+%% Diagram: Magic Pocket read path
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant FE as Frontend
+    participant BI as Block Index
+    participant RT as Repl Table
+    participant O as OSDs
+
+    C->>FE: GET(hash)
+    FE->>BI: lookup hash
+    BI-->>FE: cell, bucket, checksum
+    FE->>RT: lookup volume
+    RT-->>FE: volume + OSDs
+    alt replicated volume
+        FE->>O: read from one OSD
+        O-->>FE: block
+    else erasure-coded volume
+        FE->>O: read shard from primary OSD
+        O-->>FE: block (or trigger reconstruction)
+    end
+    FE-->>C: block bytes

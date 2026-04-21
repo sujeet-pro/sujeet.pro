@@ -6,7 +6,7 @@ description: >-
   — covering lease-based expiration, the Redlock controversy, fencing tokens,
   and when you need correctness locks versus efficiency locks.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - distributed-systems
   - patterns
@@ -15,34 +15,40 @@ tags:
 
 # Distributed Locking
 
-Distributed locks coordinate access to shared resources across multiple processes or nodes. Unlike single-process mutexes, they must handle network partitions, clock drift, process pauses, and partial failures—all while providing mutual exclusion guarantees that range from "best effort" to "correctness critical."
+Distributed locks coordinate access to shared resources across processes or nodes. Unlike a single-process mutex, they must hold up under network partitions, clock drift, process pauses, and partial failures — all while delivering mutual-exclusion guarantees that range from "best effort" to "correctness critical."
 
-This article covers lock implementations (Redis, ZooKeeper, etcd, Chubby), the Redlock controversy, fencing tokens, lease-based expiration, and when to avoid locks entirely.
+This article covers lease-based locking, the major implementations (Redis, ZooKeeper, etcd, Chubby), the Redlock controversy, fencing tokens, and when to skip locks entirely.
 
-![Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.](./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw-light.svg "Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.")
-![Distributed locks must handle failures that single-process locks never face—network partitions, clock drift, and process pauses can all cause multiple clients to believe they hold the same lock simultaneously.](./diagrams/distributed-locks-must-handle-failures-that-single-process-locks-never-face-netw-dark.svg)
+![Distributed locks have to survive failure modes that single-process locks never see — partitions, clock drift, and stop-the-world pauses can all let two clients believe they hold the same lock.](./diagrams/distributed-lock-overview-light.svg "Distributed locks have to survive failure modes that single-process locks never see — partitions, clock drift, and stop-the-world pauses can all let two clients believe they hold the same lock.")
+![Distributed locks have to survive failure modes that single-process locks never see — partitions, clock drift, and stop-the-world pauses can all let two clients believe they hold the same lock.](./diagrams/distributed-lock-overview-dark.svg)
 
-## Abstract
+## Mental Model
 
-Distributed locking is fundamentally harder than it appears. The safety property—at most one client holds the lock at any time—requires either **consensus protocols** (ZooKeeper, etcd) or careful timing assumptions that can fail under realistic conditions (Redlock).
+Distributed locking is fundamentally harder than it appears. The safety property — at most one client holds the lock at any time — needs either a **consensus protocol** (ZooKeeper, etcd, Chubby) or timing assumptions that can fail in real systems (Redlock).
 
-**Core mental model:**
+The first split that matters is the [efficiency vs. correctness distinction popularised by Martin Kleppmann](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html):
 
-- **Efficiency locks**: Prevent duplicate work. Occasional double-execution is tolerable. Redis single-node or Redlock works.
-- **Correctness locks**: Protect invariants. Double-execution corrupts data. Requires consensus + fencing tokens.
+- **Efficiency locks** prevent duplicate work. Occasional double-execution costs cycles or duplicate notifications, but does not corrupt state. Single-node Redis or Redlock is acceptable.
+- **Correctness locks** protect an invariant. Double-execution corrupts data, double-bills a customer, or double-publishes a job. These need consensus _and_ fencing tokens.
 
-**Key insight**: Most lock implementations provide **leases** (auto-expiring locks) rather than indefinite locks. Leases prevent deadlock from crashed clients but introduce the fundamental problem: **what if the lease expires while the client is still working?**
+The second key idea is the **lease**. Almost every practical distributed lock is time-bounded — a lock with a TTL that auto-expires — to avoid deadlocks from crashed clients. Leases solve liveness but introduce the central problem of distributed locking: **what if the lease expires while the client is still working?**
 
-**Fencing tokens** solve this: the lock service issues a monotonically increasing token with each lock grant. The protected resource rejects operations with tokens lower than the highest it has seen. This transforms lease expiration from a safety violation into a detected-and-rejected stale operation.
+**Fencing tokens** are the answer. The lock service hands out a monotonically increasing token with every grant. The protected resource tracks the highest token it has ever seen and rejects operations carrying a smaller one. Lease expiration during a long operation goes from "silent corruption" to "detected and refused."
 
 **Decision framework:**
 
-| Requirement                     | Implementation           | Trade-off                      |
-| ------------------------------- | ------------------------ | ------------------------------ |
-| Best-effort deduplication       | Redis single-node        | Single point of failure        |
-| Efficiency with fault tolerance | Redlock (5 nodes)        | No fencing, timing assumptions |
-| Correctness critical            | ZooKeeper/etcd + fencing | Operational complexity         |
-| Already using PostgreSQL        | Advisory locks           | Limited to single database     |
+| Requirement                     | Implementation              | Trade-off                       |
+| ------------------------------- | --------------------------- | ------------------------------- |
+| Best-effort deduplication       | Redis single-node           | Single point of failure         |
+| Efficiency with fault tolerance | Redlock (5 nodes)           | No fencing, timing assumptions  |
+| Correctness critical            | ZooKeeper / etcd + fencing  | Operational complexity          |
+| Already running Consul          | Consul session lock + index | Advisory; needs LockIndex check |
+| Already using PostgreSQL        | Advisory locks              | Limited to single database      |
+
+A consensus-backed lock funnels every grant through a single elected leader so that the lock state, the grant order, and the token are all derived from the same replicated log:
+
+![Every contender talks to the elected leader of a consensus cluster; the leader replicates the grant via quorum and hands back a monotonic token (zxid, etcd revision, Chubby generation number) that the protected resource validates.](./diagrams/consensus-leader-lock-light.svg "Consensus-backed lock: a single elected leader grants the lock through a replicated log and emits a monotonic token the resource validates.")
+![Consensus-backed lock with a single leader, follower replicas, and a monotonic token validated by the protected resource.](./diagrams/consensus-leader-lock-dark.svg)
 
 ## The Problem
 
@@ -96,23 +102,24 @@ Fails because:
 
 ### The Core Challenge
 
-The fundamental tension: **distributed systems are asynchronous**—there are no bounded delays on message delivery, no bounded process pauses, and no bounded clock drift.
+The fundamental tension: **distributed systems are asynchronous**. There are no bounded delays on message delivery, no bounded process pauses, and no bounded clock drift. Acquiring a lock is a [compare-and-set operation, which requires consensus](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html)[^kleppmann] — and the [FLP impossibility result](http://www.cs.princeton.edu/courses/archive/fall07/cos518/papers/flp.pdf) tells us consensus in a fully asynchronous system with even one faulty process is impossible.
 
-Distributed locks exist to provide **mutual exclusion** across this asynchronous environment. The challenge: you cannot distinguish a slow client from a crashed client, and you cannot trust clocks.
+Distributed locks have to provide mutual exclusion in that environment. You cannot reliably distinguish a slow client from a crashed one, and you cannot trust clocks.
 
-> "Distributed locks are not just a scaling challenge—they're a correctness challenge. The algorithm must be correct even when clocks are wrong, networks are partitioned, and processes pause unexpectedly."
-> — Martin Kleppmann, "How to do distributed locking" (2016)
+[^kleppmann]: Martin Kleppmann. ["How to do distributed locking"](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html). 2016.
 
 ## Lease-Based Locking
 
-All practical distributed locks use **leases**—time-bounded locks that expire automatically. This prevents indefinite lock holding by crashed clients.
+All practical distributed locks use **leases** — time-bounded locks that expire automatically. Leases protect liveness against crashed clients (no lock is held forever) at the cost of a new safety hazard: a slow client can outlive its lease.
 
 ### Core Mechanism
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![A client acquires a lease, performs work, and either releases the lock or lets the TTL expire — at which point a stale holder may still be in the middle of a write.](./diagrams/lease-lifecycle-light.svg "Lease lifecycle: acquire, work, release or expire — and the dangerous window where a slow client outlives its lease.")
+![Lease lifecycle showing acquire, work, and release or expiration.](./diagrams/lease-lifecycle-dark.svg)
 
 ### TTL Selection Formula
+
+The Redlock spec defines the [validity time of a lease](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) as:
 
 ```
 MIN_VALIDITY = TTL - (T_acquire - T_start) - CLOCK_DRIFT
@@ -120,31 +127,32 @@ MIN_VALIDITY = TTL - (T_acquire - T_start) - CLOCK_DRIFT
 
 Where:
 
-- **TTL**: Initial lease duration
-- **T_acquire - T_start**: Time elapsed acquiring the lock
-- **CLOCK_DRIFT**: Maximum expected clock skew between client and server
+- **TTL** is the initial lease duration.
+- **`T_acquire - T_start`** is the wall time spent acquiring the lock across instances.
+- **CLOCK_DRIFT** is the maximum tolerated skew between the participating clocks (the spec recommends ~1% of TTL plus a few milliseconds).
 
-**Practical guidance:**
+If `MIN_VALIDITY` goes non-positive, the acquire is treated as failed and all instances are released.
 
-- **JVM applications**: TTL ≥ 60s (stop-the-world GC can pause for seconds)
-- **Go/Rust applications**: TTL ≥ 30s (less GC concern, but network issues)
-- **General rule**: TTL should be 10x your expected operation duration
+**Practical guidance** (rules of thumb, calibrate to your workload):
+
+- **JVM applications**: TTL ≥ 60 s. Stop-the-world GC pauses [have been observed in the multi-second range, and full pauses of minutes have been recorded in HBase](https://blog.cloudera.com/avoiding-full-gcs-in-hbase-with-memstore-local-allocation-buffers-part-1/).
+- **Go / Rust**: TTL ≥ 30 s. GC is less of a concern, but page faults, EBS reads, and CPU contention still pause the process.
+- **General rule**: target TTL ≈ 10 × the p99 of the protected operation, then add a renewal heartbeat for long-running work.
 
 ### Clock Skew Issues
 
-**Wall-clock danger:** Redis uses wall-clock time for TTL expiration. If the server's clock jumps forward (NTP adjustment, manual change), leases expire prematurely.
+**Wall-clock danger.** Redis [uses `gettimeofday`-based wall-clock time, not a monotonic clock, to expire keys](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html). If the server clock jumps forward (NTP step, sysadmin adjustment), leases expire ahead of schedule:
 
-**Example failure scenario:**
+1. Client acquires the lock at server time `T` with `TTL = 30 s`.
+2. NTP steps the clock forward by 20 s.
+3. Redis treats the lock as expired at "T+30 s", actually elapsed `T+10 s`.
+4. Another client acquires the lock while the first one is still working.
+5. Two clients believe they hold the same lock.
 
-1. Client acquires lock with TTL=30s at server time T
-2. NTP adjusts server clock forward by 20s
-3. Lock expires at "T+30s" = actual T+10s
-4. Client still working; another client acquires lock
-5. **Two clients now hold the "same" lock**
+**Mitigation.** Use monotonic clocks where possible. Linux `clock_gettime(CLOCK_MONOTONIC)` measures elapsed time without wall-clock adjustments. In his [rebuttal to Kleppmann](https://antirez.com/news/101), Antirez agreed Redis itself should move TTL expiration off `gettimeofday` onto the monotonic clock API. Internal Redis subsystems have shifted toward monotonic time over the years, but key expiration is still wall-clock-driven, so the clock-jump failure mode has not been retired in practice.
 
-**Mitigation:** Use monotonic clocks where possible. Linux `clock_gettime(CLOCK_MONOTONIC)` measures elapsed time without wall-clock adjustments.
-
-> **Prior to Redis 7.0:** TTL expiration relied entirely on wall-clock time. Redis 7.0+ uses monotonic clocks internally for some operations, but the fundamental issue remains for distributed Redlock scenarios where multiple independent clocks are involved.
+> [!WARNING]
+> Configure NTP to **slew** rather than **step** the clock (`-x` / `tinker step 0` on `ntpd`, default for `chronyd`). A slewing clock cannot violate Redlock's bounded-drift assumption; a stepping clock can.
 
 ## Design Paths
 
@@ -269,29 +277,26 @@ async function redlockAcquire(instances: Redis[], resource: string, ttlMs: numbe
 
 **When to choose:**
 
-- Correctness-critical locks (fencing required)
-- Already running ZooKeeper (Kafka, HBase ecosystem)
-- Can tolerate higher latency for stronger guarantees
+- Correctness-critical locks (fencing required).
+- Already running ZooKeeper (Kafka, HBase, Hadoop ecosystem).
+- You can tolerate higher latency for stronger guarantees.
 
-**Ephemeral sequential node recipe:**
+**Ephemeral sequential node recipe** (the canonical [ZooKeeper lock recipe](https://zookeeper.apache.org/doc/current/recipes.html#sc_recipes_Locks)):
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+![ZooKeeper lock recipe — every contender creates an ephemeral sequential znode under the lock parent and watches its immediate predecessor; the lowest sequence holds the lock.](./diagrams/zookeeper-lock-recipe-light.svg "ZooKeeper lock recipe: ephemeral sequential nodes form a chain; each waiter watches only its immediate predecessor.")
+![ZooKeeper lock recipe with three ephemeral sequential nodes and a predecessor-watch chain.](./diagrams/zookeeper-lock-recipe-dark.svg)
 
 **Algorithm:**
 
-1. Client creates ephemeral sequential node under `/locks/resource`
-2. Client lists all children, sorts by sequence number
-3. If client's node has lowest sequence: lock acquired
-4. Otherwise: set watch on the node with next-lowest sequence number
-5. When watch fires: repeat step 2
+1. Client creates an `EPHEMERAL_SEQUENTIAL` node under `/locks/<resource>`.
+2. Client lists all children and sorts by sequence number.
+3. If the client's node is the lowest sequence, the lock is acquired.
+4. Otherwise, set a watch on the immediate predecessor.
+5. When the watch fires (predecessor deleted), repeat from step 2.
 
-**Why watch predecessor, not parent:**
+**Why watch the predecessor, not the parent.** Watching the parent fires every waiter on every release ([thundering herd](https://zookeeper.apache.org/doc/current/recipes.html#sc_recipes_Locks)). Watching only the predecessor wakes exactly one waiter per release.
 
-- Watching parent causes **thundering herd**: all N clients wake when lock releases
-- Watching predecessor: only next client wakes
-
-**Fencing via zxid:** ZooKeeper's transaction ID (zxid) is a monotonically increasing 64-bit number. Use the zxid of your lock node as a fencing token.
+**Fencing via zxid.** ZooKeeper's transaction ID is a monotonically increasing 64-bit value (`epoch << 32 | counter`). The creation zxid of the lock znode is available via `Stat.getCzxid()` and works as a fencing token.
 
 ```java collapse={1-6}
 import org.apache.zookeeper.*;
@@ -392,10 +397,12 @@ func acquireLock(client *clientv3.Client, resource string) (*concurrency.Mutex, 
 
 **Fencing via revision:** etcd assigns a globally unique, monotonically increasing revision to every modification. Use `mutex.Header().Revision` as your fencing token.
 
-**Critical limitation (Jepsen finding):** Under network partitions, etcd locks can fail to provide mutual exclusion. Jepsen testing found ~18% loss of acknowledged updates when locks protected concurrent modifications. The root cause: etcd must sacrifice correctness to preserve liveness in asynchronous systems.
+**Critical limitation (Jepsen finding).** Kyle Kingsbury's [Jepsen analysis of etcd 3.4.3](https://jepsen.io/analyses/etcd-3.4.3) found that etcd locks do not provide mutual exclusion. Using etcd mutexes to protect concurrent updates to an in-memory set, with two-second lease TTLs and process pauses every five seconds, "[reliably induced] the loss of ~18% of acknowledged updates." Mutex violations were observed even in healthy clusters — exacerbated by an etcd bug ([etcd-io/etcd#11456](https://github.com/etcd-io/etcd/issues/11456)) where the server did not re-check lease validity after a contended lock was released.
 
-> "etcd's lock is not safe. It is possible for two processes to simultaneously hold the same lock, even in healthy clusters."
+> "etcd locks (like all distributed locks) do not provide mutual exclusion. Multiple processes can hold an etcd lock concurrently, even in healthy clusters with perfectly synchronized clocks."
 > — Kyle Kingsbury, Jepsen analysis of etcd 3.4.3 (2020)
+
+The recommended mitigation is exactly what Kleppmann argued for: treat the etcd revision of the lock key as a fencing token and have the protected resource reject operations that present a lower revision than it has already accepted.
 
 **Trade-offs:**
 
@@ -450,21 +457,59 @@ UPDATE resources SET ... WHERE id = 'resource-1';
 | Already have PostgreSQL       | Not for multi-database      |
 | Automatic transaction cleanup | Lock ID collisions possible |
 
+### Path 6: Consul Sessions and KV Locks
+
+**When to choose:**
+
+- Already running Consul for service discovery / config.
+- You want session-bound locks tied to node and health-check liveness.
+- You need a built-in cool-down window after lock loss (the Consul `LockDelay`).
+
+**Mechanism.** A [Consul session](https://developer.hashicorp.com/consul/docs/automate/session) binds together a node, its health checks, and an optional TTL. The `acquire=<session-id>` parameter on `PUT /v1/kv/<key>` is a [check-and-set](https://developer.hashicorp.com/consul/api-docs/kv) op: it succeeds only if the key is currently unlocked or already held by the same session. `release=<session-id>` is the symmetric CAS. Sessions are invalidated on node deregistration, health-check failure, explicit destroy, or TTL expiry; the `Behavior` field controls whether held locks are `release`d (default) or the keys `delete`d.
+
+```bash frame="terminal"
+# Create a session with a 15s TTL, default LockDelay = 15s
+curl -X PUT http://consul:8500/v1/session/create \
+  -d '{"TTL": "15s", "LockDelay": "15s", "Behavior": "release"}'
+# -> {"ID": "<sid>"}
+
+# Acquire (CAS): succeeds iff key is unlocked or already held by <sid>
+curl -X PUT "http://consul:8500/v1/kv/locks/order-svc/leader?acquire=<sid>" \
+  -d '{"holder": "node-7"}'
+# -> true
+```
+
+**Fencing via `LockIndex`.** Each successful `acquire` increments the key's `LockIndex` and stamps the holding `Session`. Consul's docs explicitly cast the tuple `(Key, LockIndex, Session)` as a sequencer: a client that intends to mutate a downstream resource can pass `LockIndex` along, and the resource can reject any operation whose `LockIndex` is lower than the highest it has already accepted. This gives Consul the same fencing-token shape as ZooKeeper's `czxid` and etcd's revision.
+
+**`LockDelay` as a safety buffer.** When a session is invalidated, Consul refuses to grant the same lock for a default 15 s (configurable 0–60 s). The window gives a previously-leading client time to notice it lost the lock and stop performing protected operations before any new holder can race ahead — an explicit, advisory mitigation for the slow-client / stale-write problem rather than a substitute for fencing.
+
+> [!WARNING]
+> Setting `LockDelay: 0` removes the safety buffer entirely. Pair it with strict `LockIndex` fencing on the protected resource, or you have a Redlock-class race built into Consul.
+
+**Trade-offs:**
+
+| Advantage                            | Disadvantage                              |
+| ------------------------------------ | ----------------------------------------- |
+| Session-bound + health-check-bound   | Advisory only; resource must check        |
+| `LockDelay` reduces stale-write race | TTL bounded to 10 s–24 h                  |
+| `LockIndex` works as fencing token   | Tied to Consul cluster availability       |
+| Reuses existing Consul infra         | Many subtle session/healthcheck pitfalls  |
+
 ### Comparison Matrix
 
-| Factor                 | Redis Single | Redlock         | ZooKeeper    | etcd             | PostgreSQL      |
-| ---------------------- | ------------ | --------------- | ------------ | ---------------- | --------------- |
-| Fault tolerance        | None         | N/2 failures    | N/2 failures | N/2 failures     | Database HA     |
-| Fencing tokens         | No           | No              | Yes (zxid)   | Yes (revision)   | No              |
-| Latency (acquire)      | ~1ms         | ~5-10ms         | ~10-50ms     | ~10-50ms         | ~1-5ms          |
-| Clock assumptions      | Yes          | Yes (all nodes) | No           | No               | No              |
-| Correctness guarantee  | No           | No              | Yes          | Partial (Jepsen) | Yes (single DB) |
-| Operational complexity | Low          | Medium          | High         | Medium           | Low             |
+| Factor                 | Redis Single | Redlock         | ZooKeeper    | etcd             | Consul                 | PostgreSQL      |
+| ---------------------- | ------------ | --------------- | ------------ | ---------------- | ---------------------- | --------------- |
+| Fault tolerance        | None         | N/2 failures    | N/2 failures | N/2 failures     | N/2 failures           | Database HA     |
+| Fencing tokens         | No           | No              | Yes (zxid)   | Yes (revision)   | Yes (`LockIndex`)      | No              |
+| Latency (acquire)      | ~1 ms        | ~5–10 ms        | ~10–50 ms    | ~10–50 ms        | ~10–50 ms              | ~1–5 ms         |
+| Clock assumptions      | Yes          | Yes (all nodes) | No           | No               | TTL only               | No              |
+| Correctness guarantee  | No           | No              | Yes          | Partial (Jepsen) | Advisory + `LockIndex` | Yes (single DB) |
+| Operational complexity | Low          | Medium          | High         | Medium           | Medium                 | Low             |
 
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+![Decision tree for picking a distributed lock implementation: efficiency vs. correctness, fault tolerance, fencing requirement, and existing infrastructure constraints.](./diagrams/lock-decision-tree-light.svg "Lock implementation decision tree: efficiency vs. correctness, fault-tolerance, and existing infrastructure pick the path.")
+![Decision tree for picking a distributed lock implementation.](./diagrams/lock-decision-tree-dark.svg)
 
 ## Fencing Tokens
 
@@ -474,18 +519,22 @@ Leases expire. When they do, a "stale" lock holder may still be executing its cr
 
 **Example failure scenario:**
 
-![Diagram](./diagrams/diagram-4-light.svg)
-![Diagram](./diagrams/diagram-4-dark.svg)
+![Without fencing, a client whose lease expired during a GC pause can still write to storage long after another client took the lock — last-write-wins corruption.](./diagrams/stale-write-without-fencing-light.svg "Without fencing: a stale client whose lease expired during a GC pause still writes to storage after a new lock holder, corrupting state.")
+![Failure scenario: a stale client overwrites the new lock holder's data because storage has no fencing check.](./diagrams/stale-write-without-fencing-dark.svg)
 
 ### How Fencing Tokens Work
 
-1. Lock service issues **monotonically increasing token** with each grant
-2. Client includes token with every operation on protected resource
-3. Resource tracks **highest token ever seen**
-4. Resource **rejects** operations with token < highest seen
+The fencing-token contract has four pieces, and **the protected resource is the part that does the actual work** — a lock service alone cannot fence:
 
-![Diagram](./diagrams/diagram-5-light.svg)
-![Diagram](./diagrams/diagram-5-dark.svg)
+1. Lock service issues a **strictly monotonically increasing token** with each grant. Without a total order, "stale" is undefined.
+2. Client includes the token with every mutating operation against the protected resource (write, RPC, transaction).
+3. Resource tracks the **highest token it has ever accepted** for that resource key.
+4. Resource **rejects** any operation whose token is lower than the highest it has seen, atomically with the operation it would otherwise perform.
+
+The ordering must come from somewhere — Kleppmann's punchline is that "[it's likely that you would need a consensus algorithm just to generate the fencing tokens](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html)"[^kleppmann]. That is exactly what ZooKeeper's `zxid`, etcd's revision, and Chubby's lock-generation number give you for free: a totally-ordered identifier minted from the same replicated log that decided who holds the lock.
+
+![With fencing, the lock service issues monotonic tokens 33 and 34; storage rejects the stale client 1 write because 33 < 34.](./diagrams/fencing-token-flow-light.svg "Fencing tokens prevent stale writes: storage tracks the highest token it has ever accepted and refuses lower ones.")
+![Fencing-token flow showing storage rejecting a write with token 33 after it has already accepted token 34.](./diagrams/fencing-token-flow-dark.svg)
 
 ### Implementation Pattern
 
@@ -546,10 +595,7 @@ class FencedStorage {
 
 ### Why Random Values Don't Work
 
-Redlock uses random values (20 bytes), not ordered tokens. A resource cannot determine if `abc123` is "newer" than `xyz789`. This is why Redlock cannot provide fencing—the values lack the **ordering property** required to reject stale operations.
-
-> "To make the lock safe with fencing, you need not just a random token, but a monotonically increasing token. And the only way to generate a monotonically increasing token is to use a consensus protocol."
-> — Martin Kleppmann
+Redlock uses 20 random bytes from `/dev/urandom`, not ordered tokens. A resource cannot determine whether `abc123` is "newer" than `xyz789`. The values lack the **ordering property** required to reject stale operations. As Kleppmann put it: "the algorithm does not produce any number that is guaranteed to increase every time a client acquires a lock … the unique random value it uses does not provide the required monotonicity. … It's likely that you would need a consensus algorithm just to generate the fencing tokens."[^kleppmann]
 
 ### ZooKeeper zxid as Fencing Token
 
@@ -572,132 +618,90 @@ resource.write(data, fencingToken);
 
 ### Kleppmann's Critique (2016)
 
-Martin Kleppmann identified fundamental problems with Redlock:
+Martin Kleppmann's core argument is that [Redlock is "neither fish nor fowl"](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html): too heavy and complex for efficiency locks, not safe enough for correctness locks. Three concrete problems:
 
-**1. Timing assumptions violated by real systems:**
+**1. Timing assumptions violated by real systems.** Redlock works correctly only if the system is "[partially synchronous](http://www.net.t-labs.tu-berlin.de/~petr/ADC-07/papers/DLS88.pdf)": bounded network delay, bounded process pauses, bounded clock drift. Real systems violate all three:
 
-Redlock assumes bounded network delay, bounded process pauses, and bounded clock drift. Real systems violate all three:
+- Network packets can be delayed arbitrarily — including [GitHub's 2012 incident with ~90 s of network delay](https://github.blog/2012-12-26-downtime-last-saturday/).
+- Stop-the-world GC pauses can exceed any reasonable lease TTL ([HBase observed multi-minute pauses](https://blog.cloudera.com/avoiding-full-gcs-in-hbase-with-memstore-local-allocation-buffers-part-1/)).
+- Clock skew can be large under adversarial NTP conditions or operator error.
 
-- Network packets can be delayed arbitrarily (TCP retransmits, routing changes)
-- GC pauses can exceed lease TTL (observed: 1+ minutes in production JVMs)
-- Clock skew can be seconds under adversarial NTP conditions
+**2. No fencing capability.** Even if every step worked perfectly, Redlock generates random values, not monotonic tokens — so the protected resource has no way to reject stale operations.
 
-**2. No fencing capability:**
+**3. Clock-jump scenario** (paraphrased from the post):
 
-Even if Redlock worked perfectly, it generates random values, not monotonic tokens. Resources cannot reject stale operations.
+1. Client 1 acquires the lock on nodes A, B, C; D and E are unreachable.
+2. Clock on node C jumps forward; C's copy of the lease expires.
+3. Client 2 acquires the lock on C, D, E.
+4. Both clients now hold a quorum.
 
-**3. Clock jump scenario:**
-
-1. Client acquires lock on 3 of 5 Redis instances
-2. Clock on one instance jumps forward (NTP sync)
-3. Lock expires prematurely on that instance
-4. Another client acquires on 3 instances (the jumped one + 2 others)
-5. **Two clients now hold majority**
+![A wall-clock jump on a single Redlock instance is enough to reissue the lock to a second client, producing two overlapping quora — a quorum-level split brain that no extra Redlock node can prevent.](./diagrams/redlock-clock-jump-light.svg "Redlock clock-jump split-brain: an NTP step on a single instance reissues the lock to a new client; the two quora overlap on the skewed node.")
+![Redlock clock-jump split-brain: a wall-clock jump on Redis C reissues the lock; clients 1 and 2 both end up with a quorum sharing C.](./diagrams/redlock-clock-jump-dark.svg)
 
 ### Antirez's Response
 
-Salvatore Sanfilippo (Redis creator) responded:
+Salvatore Sanfilippo's [rebuttal](https://antirez.com/news/101) argues:
 
-**1. Random values + CAS = sufficient:**
-
-> "The token is a random string. If you use check-and-set (CAS), you can use the random string to ensure that only the lock owner can modify the resource."
-
-**2. Post-acquisition time check:**
-
-Redlock spec includes checking elapsed time after acquisition. If elapsed > TTL, the lock is considered invalid. This allegedly handles delayed responses.
-
-**3. Monotonic clocks:**
-
-Proposed using `CLOCK_MONOTONIC` instead of wall clocks to eliminate clock jump issues.
+- **A unique random token is enough for many uses.** With check-and-set against the protected resource, only the holder of the matching token can mutate it. Antirez's point: most practical workflows do not in fact need monotonic ordering.
+- **Post-acquisition time check.** Redlock's spec instructs the client to record `T_start`, attempt all instances, then re-read the clock and refuse the lock if elapsed time has consumed the TTL. He argues this neutralises the GC-during-acquire scenario, but Kleppmann's reply is that the pause can happen _after_ acquisition, between the validity check and the resource access.
+- **Monotonic clocks.** Antirez agreed Kleppmann was right that Redis and Redlock should use the monotonic clock API to eliminate the clock-jump variant of the attack.
 
 ### The Verdict
 
 Neither argument is fully satisfying:
 
-| Kleppmann's points       | Antirez's counterpoints      | Reality                                                             |
-| ------------------------ | ---------------------------- | ------------------------------------------------------------------- |
-| GC pauses violate timing | Post-acquisition check helps | Pauses can happen _during_ resource access, not just during acquire |
-| No fencing possible      | Random + CAS works           | CAS requires resource to store lock value; not always feasible      |
-| Clock jumps break safety | Use monotonic clocks         | Cross-machine monotonic clocks don't exist                          |
+| Kleppmann's points       | Antirez's counter-points     | Reality                                                                 |
+| ------------------------ | ---------------------------- | ----------------------------------------------------------------------- |
+| GC pauses violate timing | Post-acquisition check helps | Pauses can happen _during_ resource access, not just during acquisition |
+| No fencing possible      | Random token + CAS works     | CAS works only when the resource itself stores the token                |
+| Clock jumps break safety | Use monotonic clocks         | A cross-machine monotonic clock does not exist                          |
 
 **Practical guidance:**
 
-- **Efficiency locks**: Redlock is acceptable. Double-execution is annoying but not catastrophic.
-- **Correctness locks**: Use consensus-based systems (ZooKeeper) with fencing tokens. Redlock's random values cannot fence.
+- **Efficiency locks**: Redlock is fine. Occasional double-execution is annoying, not catastrophic.
+- **Correctness locks**: use a consensus-based system (ZooKeeper, Chubby, or etcd with revision-based fencing) and enforce fencing on every protected operation. Redlock's random values cannot fence.
 
 ## Production Implementations
 
 ### Google Chubby: The Original
 
-**Context:** Internal distributed lock service powering GFS, BigTable, and other Google infrastructure. Open-sourced concept inspired ZooKeeper.
+**Context.** Internal distributed lock service powering GFS, BigTable, and other Google infrastructure. The [Chubby paper](https://research.google/pubs/the-chubby-lock-service-for-loosely-coupled-distributed-systems/) directly inspired ZooKeeper.
 
-**Architecture:**
+**Architecture (Burrows, OSDI 2006):**
 
-- 5-replica Paxos cluster
-- Replicas elect master using Paxos; master lease is several seconds
-- Client sessions with grace periods (45s default)
-- Files + locks (locks are files with special semantics)
+- A Chubby cell is typically **5 replicas**; replicas elect a master via Paxos and the master holds a multi-second master lease.
+- The master serves all client traffic; writes are committed via Paxos to a quorum of replicas.
+- Client sessions hold a session lease (default ~12 s); on lease loss, the client enters a "jeopardy" state and waits a default **45 s grace period** before declaring the session dead and releasing locks.
+- The data model is a small filesystem; locks are advisory and attached to files.
 
 **Key design decisions:**
 
-- **Coarse-grained locks**: Designed for locks held minutes to hours, not milliseconds
-- **Advisory locks by default**: Files don't prevent access without explicit lock checks
-- **Master lease renewal**: Master doesn't lose leadership on brief network blips
-- **Client grace period**: On leader change, clients have 45s to reconnect before session (and locks) invalidate
+- **Coarse-grained locks** — designed for locks held seconds to hours (leader election, configuration), not millisecond-scale critical sections.
+- **Advisory by default** — files do not refuse reads or writes from non-holders; correctness depends on holders honouring the protocol or using sequencers.
+- **Master lease renewal** — brief network blips do not cause leadership churn.
+- **Client grace period** — sessions survive transient outages without dropping every lock the client holds.
 
-**Fencing mechanism:** Chubby supports sequencers (fencing tokens). The lock service hands out sequencers; resources can verify them with Chubby before accepting writes.
+**Fencing via sequencers.** Chubby exposes `GetSequencer()` / `SetSequencer()` / `CheckSequencer()`. A sequencer is an opaque byte-string carrying the lock name, mode, and lock generation number. The protected service can either pass it back to Chubby for validation or compare generation numbers locally. The Chubby paper notes: if a sequencer is no longer valid (the lock was lost or re-acquired), the validation call fails. This is the same fencing-token pattern Kleppmann argues for, predating his blog by a decade.
 
-> "If a process's lease has expired, the lock server will refuse to validate the sequencer."
-> — Mike Burrows, "The Chubby Lock Service" (2006)
+**Scale.** Chubby is optimised for reliability and small numbers of long-lived locks, not lock throughput. Heavy fan-in workloads use it for leader election and route the actual lock traffic through purpose-built systems (BigTable's metadata, for example).
 
-**Scale:** Chubby is not designed for high-frequency locking. It's optimized for reliability of infrequent operations, not throughput.
+### Industry Patterns
 
-### Uber: Driver Assignment
+Public engineering write-ups about distributed lock usage tend to be short on first-party detail, but the same patterns recur across companies:
 
-**Context:** When a rider requests a cab, multiple nearby drivers could be assigned. Exactly one driver must be assigned per ride.
-
-**Problem:**
-
-- Multiple matching service instances receive the same request
-- Race condition: both try to assign the same driver
-- Result: driver assigned to multiple rides, customer experience failure
-
-**Solution:**
-
-- Distributed lock on `driver:{driver_id}` before assignment
-- Lock held only during assignment operation (~10-100ms)
-- Redis-based (likely Redlock or single-node with replication)
-
-**Why it works:** This is an efficiency lock. If two services somehow both assign the same driver (lock failure), the booking system downstream rejects the duplicate. Occasional failures are detected and handled.
-
-### Netflix: Job Deduplication
-
-**Context:** Millions of distributed jobs, some triggered by events that may arrive multiple times.
-
-**Problem:**
-
-- Event arrives at multiple consumer instances
-- Same job should execute exactly once
-- Idempotency alone doesn't help if job has side effects
-
-**Solution approach:**
-
-- Acquire lock before processing event
-- Lock key: `job:{event_id}:{job_type}`
-- TTL: Expected job duration + buffer
-- Combined with idempotency keys in downstream services
-
-**Insight:** Netflix uses a layered approach—locks provide first-line deduplication, idempotent operations provide safety net, and monitoring detects drift.
+- **Per-key efficiency locks for assignment / matching.** Ride-hailing, ad-serving, and inventory systems hold a millisecond-scale lock on the contended entity (driver ID, ad slot, SKU) so only one of N concurrent matchers attempts the write. Failures are caught downstream — the booking system rejects a duplicate driver assignment, the inventory system rejects a double-decrement — so the lock can use the cheapest possible backend (single-node Redis or Redlock).
+- **Per-event deduplication around side effects.** Event-driven pipelines acquire `job:{event_id}` for the expected job duration so a re-delivered event does not re-fire the side effect. Locks deduplicate; idempotency keys at the downstream API are the safety net; monitoring catches the drift between the two.
+- **Layered defence.** No production system relies on a single layer. The pattern is lock-for-deduplication + idempotency-for-correctness + reconciliation-for-eventual-fix. Treat any "we use Redis locks for correctness" claim with suspicion until you find the layer that actually enforces it.
 
 ### Implementation Comparison
 
-| Aspect    | Google Chubby              | Uber                       | Netflix                    |
-| --------- | -------------------------- | -------------------------- | -------------------------- |
-| Lock type | Correctness                | Efficiency                 | Efficiency                 |
-| Duration  | Minutes-hours              | Milliseconds               | Seconds                    |
-| Backend   | Paxos (custom)             | Redis                      | Redis/ZK hybrid            |
-| Fencing   | Sequencers                 | Downstream checks          | Idempotency keys           |
-| Scale     | Low freq, high reliability | High freq, acceptable loss | High freq, acceptable loss |
+| Aspect    | Google Chubby                  | Efficiency lock (typical)            | Job-dedup lock (typical)            |
+| --------- | ------------------------------ | ------------------------------------ | ----------------------------------- |
+| Lock type | Correctness                    | Efficiency                           | Efficiency                          |
+| Duration  | Seconds–hours                  | Milliseconds                         | Seconds–minutes                     |
+| Backend   | Paxos (custom)                 | Redis (single-node or Redlock)       | Redis or ZK + idempotency keys      |
+| Fencing   | Sequencers                     | None (downstream rejects duplicates) | None (idempotent downstream)        |
+| Scale     | Low frequency, high durability | High frequency, occasional loss OK   | High frequency, occasional loss OK  |
 
 ## Lock-Free Alternatives
 
@@ -767,12 +771,12 @@ async function optimisticUpdate(id: string, transform: (data: unknown) => unknow
 
 **4. Queue-based serialization:**
 
-Route all operations for a resource to a single queue/partition.
+Route all operations for a resource to a single queue or partition. This is how Kafka, Kinesis, and most modern command-bus designs avoid locks entirely.
 
-![Diagram](./diagrams/diagram-6-light.svg)
-![Diagram](./diagrams/diagram-6-dark.svg)
+![Per-resource queues with single-writer workers eliminate concurrent access by partitioning operations on the resource key.](./diagrams/queue-based-serialization-light.svg "Queue-based serialization: partition by resource key so each resource has a single writer, no locks needed.")
+![Queue-based serialization where operations for each resource are routed to a single worker.](./diagrams/queue-based-serialization-dark.svg)
 
-This eliminates concurrent access by design.
+Concurrent access is eliminated by design — at the cost of latency (queue depth) and operational complexity (partition rebalancing, hot partitions).
 
 ### Decision: Lock vs Lock-Free
 
@@ -936,16 +940,18 @@ Distributed locking is a coordination primitive that requires careful considerat
 
 ### Terminology
 
-| Term               | Definition                                                                        |
-| ------------------ | --------------------------------------------------------------------------------- |
-| **Lease**          | Time-bounded lock that expires automatically                                      |
-| **Fencing token**  | Monotonically increasing identifier that resources use to reject stale operations |
-| **TTL**            | Time-To-Live; duration before lease expires                                       |
-| **Quorum**         | Majority of nodes (N/2 + 1) required for consensus                                |
-| **Split-brain**    | Network partition where multiple partitions believe they are authoritative        |
-| **zxid**           | ZooKeeper transaction ID; monotonically increasing, usable as fencing token       |
-| **Advisory lock**  | Lock that doesn't prevent access—just signals intention                           |
-| **Ephemeral node** | ZooKeeper node that is automatically deleted when the client session ends         |
+| Term               | Definition                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Lease**          | Time-bounded lock that expires automatically                                                                |
+| **Fencing token**  | Monotonically increasing identifier that resources use to reject stale operations                           |
+| **Sequencer**      | Chubby's term for a fencing token: opaque byte-string carrying lock name, mode, and lock generation number  |
+| **TTL**            | Time-To-Live; duration before lease expires                                                                 |
+| **Quorum**         | Majority of nodes (N/2 + 1) required for consensus                                                          |
+| **Split-brain**    | Network partition where multiple partitions believe they are authoritative                                  |
+| **zxid**           | ZooKeeper transaction ID; monotonically increasing, usable as fencing token                                 |
+| **Lock delay**     | Consul's cool-down window after session invalidation during which the lock cannot be re-acquired            |
+| **Advisory lock**  | Lock that does not prevent access — just signals intention; correctness depends on holders honoring the protocol |
+| **Ephemeral node** | ZooKeeper node that is automatically deleted when the client session ends                                   |
 
 ### Summary
 
@@ -961,24 +967,29 @@ Distributed locking is a coordination primitive that requires careful considerat
 
 **Foundational:**
 
-- [How to do distributed locking](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html) - Martin Kleppmann's analysis of Redlock.
-- [Is Redlock safe?](https://antirez.com/news/101) - Salvatore Sanfilippo's response.
-- [The Chubby Lock Service for Loosely-Coupled Distributed Systems](https://research.google/pubs/the-chubby-lock-service-for-loosely-coupled-distributed-systems/) - Mike Burrows, OSDI 2006.
+- [How to do distributed locking](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html) — Martin Kleppmann's analysis of Redlock (2016).
+- [Is Redlock safe?](https://antirez.com/news/101) — Salvatore Sanfilippo's rebuttal (2016).
+- [The Chubby Lock Service for Loosely-Coupled Distributed Systems](https://research.google/pubs/the-chubby-lock-service-for-loosely-coupled-distributed-systems/) — Mike Burrows, OSDI 2006.
+- [Consensus in the Presence of Partial Synchrony](http://www.net.t-labs.tu-berlin.de/~petr/ADC-07/papers/DLS88.pdf) — Dwork, Lynch & Stockmeyer, JACM 1988. The model that Redlock implicitly assumes.
+- [Impossibility of Distributed Consensus with One Faulty Process](http://www.cs.princeton.edu/courses/archive/fall07/cos518/papers/flp.pdf) — Fischer, Lynch & Paterson, JACM 1985 (FLP).
 
-**Implementation Documentation:**
+**Implementation documentation:**
 
-- [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) - Official Redis distributed lock documentation.
-- [ZooKeeper Recipes and Solutions](https://zookeeper.apache.org/doc/current/recipes.html) - Official ZooKeeper lock recipe.
-- [etcd Concurrency API](https://etcd.io/docs/v3.5/dev-guide/api_concurrency_ref/) - etcd lease and lock APIs.
-- [PostgreSQL Advisory Locks](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS) - PostgreSQL documentation.
+- [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) — official Redis distributed-lock pattern (the Redlock spec).
+- [ZooKeeper Recipes and Solutions](https://zookeeper.apache.org/doc/current/recipes.html#sc_recipes_Locks) — canonical lock recipe with predecessor-watch.
+- [etcd Concurrency API](https://etcd.io/docs/v3.5/dev-guide/api_concurrency_ref/) — etcd lease, mutex, and election APIs.
+- [Consul Sessions and Distributed Locks](https://developer.hashicorp.com/consul/docs/automate/session) — session lifecycle, `LockDelay`, `LockIndex` sequencer.
+- [Consul KV HTTP API](https://developer.hashicorp.com/consul/api-docs/kv) — `acquire` / `release` CAS semantics on KV keys.
+- [PostgreSQL Advisory Locks](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS) — session and transaction-scoped advisory locks.
 
-**Testing and Analysis:**
+**Testing and analysis:**
 
-- [Jepsen: etcd 3.4.3](https://jepsen.io/analyses/etcd-3.4.3) - Kyle Kingsbury's analysis finding safety violations in etcd locks.
-- [Designing Data-Intensive Applications](https://dataintensive.net/) - Martin Kleppmann. Chapter 8 covers distributed coordination.
+- [Jepsen: etcd 3.4.3](https://jepsen.io/analyses/etcd-3.4.3) — Kyle Kingsbury's analysis finding mutex violations in etcd locks even in healthy clusters.
+- [etcd Jepsen results blog](https://etcd.io/blog/2020/jepsen-343-results/) — etcd team's response and patch reference.
+- [Designing Data-Intensive Applications](https://dataintensive.net/) — Martin Kleppmann. Chapter 8 covers distributed coordination and locking.
 
 **Libraries:**
 
-- [Redisson](https://redisson.org/) - Redis Java client with distributed locks.
-- [node-redlock](https://github.com/mike-marcacci/node-redlock) - Redlock implementation for Node.js.
-- [Curator](https://curator.apache.org/) - ZooKeeper recipes including distributed locks.
+- [Redisson](https://redisson.org/) — Redis Java client with distributed locks (implements Redlock and a single-node variant).
+- [node-redlock](https://github.com/mike-marcacci/node-redlock) — Redlock implementation for Node.js.
+- [Apache Curator](https://curator.apache.org/) — ZooKeeper recipes, including `InterProcessMutex` and `LeaderLatch`.

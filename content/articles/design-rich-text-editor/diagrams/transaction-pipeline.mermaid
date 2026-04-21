@@ -1,0 +1,19 @@
+%% Diagram: Transaction pipeline — beforeinput keystroke to reconciled DOM
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    KS["Keystroke / paste / IME"]
+    BI["beforeinput\n(inputType, data)"]
+    CMD["Command dispatch\n(e.g. FORMAT_TEXT, INSERT_PARAGRAPH)"]
+    TR["Transaction\n(steps + selection + meta)"]
+    SCH["Schema validation\n/ normalization"]
+    APP["state.apply(tr)\n→ new immutable EditorState"]
+    HIST["History plugin\n(coalesce undo batch)"]
+    REC["Reconciler\n(diff prev vs next)"]
+    DOM["DOM mutation\n+ selection sync"]
+    COL["Collab plugin\nrebase + ship steps"]
+
+    KS --> BI --> CMD --> TR --> SCH --> APP
+    APP --> HIST
+    APP --> REC --> DOM
+    APP --> COL

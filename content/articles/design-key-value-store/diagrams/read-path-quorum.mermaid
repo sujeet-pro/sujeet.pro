@@ -1,0 +1,32 @@
+%% Diagram: Quorum Read Path - Fan-out, Wait for R, Resolve, Read Repair
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CL as Client
+    participant CO as Coordinator
+    participant R1 as Replica 1
+    participant R2 as Replica 2
+    participant R3 as Replica 3
+
+    CL->>CO: GET(key)
+    Note over CO: hash(key) -> N=3 preference list
+
+    par fan-out to N replicas
+        CO->>R1: read(k)
+        CO->>R2: read(k)
+        CO->>R3: read(k)
+    end
+
+    R1-->>CO: (v_a, vc_a)
+    R2-->>CO: (v_b, vc_b)
+    Note over CO: R=2 satisfied -> resolve
+
+    alt vc_a dominates vc_b (or equal)
+        CO-->>CL: 200 OK, value=v_a
+    else concurrent (siblings)
+        CO-->>CL: 300 Multiple Choices, [v_a, v_b]
+    end
+
+    R3-->>CO: (v_c, vc_c) (late)
+    Note over CO: async read repair:<br/>write winning value to stale replicas
+    CO->>R3: write-back(winning value)

@@ -1,0 +1,14 @@
+%% Diagram: Decision tree for choosing loading + fetchpriority per image.
+%% Maps a small set of editorial inputs (LCP candidate, position,
+%% decorative) onto the correct loading and fetchpriority pair.
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Img(["Image to deliver"]) --> Q1{{"LCP candidate\n(hero, first product, etc.)?"}}
+    Q1 -->|Yes| Q2{{"Discoverable in HTML\nbefore CSS / JS runs?"}}
+    Q2 -->|Yes| Eager["loading=eager (default)\nfetchpriority=high\nNever loading=lazy"]
+    Q2 -->|No, in CSS or JS| Preload["link rel=preload\nas=image fetchpriority=high\nimagesrcset / imagesizes"]
+    Q1 -->|No| Q3{{"Above the fold?"}}
+    Q3 -->|Yes| Default["loading=eager\nfetchpriority=auto"]
+    Q3 -->|No| Q4{{"Decorative / footer / chrome?"}}
+    Q4 -->|Yes| LowLazy["loading=lazy\nfetchpriority=low"]
+    Q4 -->|No, content image| Lazy["loading=lazy\nfetchpriority=auto"]

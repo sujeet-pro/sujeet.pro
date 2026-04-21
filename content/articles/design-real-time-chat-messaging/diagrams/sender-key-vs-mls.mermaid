@@ -1,0 +1,35 @@
+%% Diagram: Sender Keys vs MLS Group Key Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SK["Sender Keys (Signal-style)"]
+        direction TB
+        SKA["Member A\nchain key + sig key"]
+        SKB["Member B"]
+        SKC["Member C"]
+        SKD["Member D"]
+        SKA -- "1:1 X3DH/Double Ratchet" --> SKB
+        SKA -- "1:1 X3DH/Double Ratchet" --> SKC
+        SKA -- "1:1 X3DH/Double Ratchet" --> SKD
+        SKNOTE["Distribute sender key to N-1 members\nO(N) cost per join/leave\nrekey on remove = O(N)"]
+        SKA -.-> SKNOTE
+    end
+
+    subgraph MLS["MLS TreeKEM (RFC 9420)"]
+        direction TB
+        ROOT["Root secret"]
+        N12["Internal node"]
+        N34["Internal node"]
+        L1["Leaf A"]
+        L2["Leaf B"]
+        L3["Leaf C"]
+        L4["Leaf D"]
+        ROOT --> N12
+        ROOT --> N34
+        N12 --> L1
+        N12 --> L2
+        N34 --> L3
+        N34 --> L4
+        MLSNOTE["Path update touches log2(N) nodes\nCommit advances epoch atomically\nWelcome onboards new joiners\nForward secrecy + post-compromise security"]
+        ROOT -.-> MLSNOTE
+    end

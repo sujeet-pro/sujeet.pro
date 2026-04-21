@@ -1,0 +1,26 @@
+%% Diagram: VReplication-driven resharding workflow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Op as Operator
+    participant Topo as Topology
+    participant VG as VTGate
+    participant Src as Source shard
+    participant Tgt as Target shards
+
+    Op->>Topo: Reshard.Init (new ranges)
+    Topo->>Tgt: Provision MySQL + VTTablet
+    Note over Src,Tgt: 1 — Bulk copy + stream
+    Tgt->>Src: VStream subscribe (binlog)
+    Src-->>Tgt: Snapshot + tail events
+    Note over Tgt: 2 — Catchup, lag → 0
+    Op->>Tgt: 3 — VDiff verify
+    Tgt-->>Op: Diff report (empty)
+    Note over VG,Tgt: 4 — SwitchTraffic
+    Op->>VG: SwitchTraffic (primary)
+    VG->>Src: Stop writes, record GTID
+    Note over Tgt: Catch up to GTID (≤ 30 s)
+    Note over VG: Buffer queries (sub-sec)
+    VG->>Topo: Atomic topology update
+    VG-->>Tgt: Resume writes on targets
+    Op->>Src: 5 — Drop source artifacts

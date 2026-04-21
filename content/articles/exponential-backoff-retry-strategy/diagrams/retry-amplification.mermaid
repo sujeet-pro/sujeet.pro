@@ -1,0 +1,43 @@
+%% Diagram: Retry Amplification Across Deep Call Chains
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    USER["User request\n1 attempt"]
+
+    subgraph layer1["Layer 1 — Edge service"]
+        L1["1 initial + 3 retries\n= 4 attempts"]
+    end
+
+    subgraph layer2["Layer 2 — Mid-tier service"]
+        L2["each call retried 4x\n= 16 attempts"]
+    end
+
+    subgraph layer3["Layer 3 — Database"]
+        L3["each call retried 4x\n= 64 attempts on the failing DB"]
+    end
+
+    USER -->|"1"| L1
+    L1 -->|"x 4"| L2
+    L2 -->|"x 4"| L3
+
+    subgraph defense["Mitigation"]
+        direction TB
+        SINGLE["Retry at one layer only\nusually the layer just above the rejecting one"]
+        BUDGET["Per-client retry budget\nratio < 10 percent"]
+        SIGNAL["Server signal\nUNAVAILABLE = retry elsewhere\nRESOURCE_EXHAUSTED = stop"]
+    end
+
+    L3 -.->|"keeps the backend swamped"| SINGLE
+    L3 -.->|"caps amplification at ~ 1.1x per layer"| BUDGET
+    L3 -.->|"backend tells caller when to stop"| SIGNAL
+
+    classDef good fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class USER neutral
+    class L1 warn
+    class L2 warn
+    class L3 bad
+    class SINGLE,BUDGET,SIGNAL good

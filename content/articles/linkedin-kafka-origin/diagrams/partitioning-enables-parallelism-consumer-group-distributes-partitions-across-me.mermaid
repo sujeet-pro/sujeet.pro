@@ -1,16 +1,24 @@
-%% Diagram: Partitioning Enables Parallelism Consumer Group Distributes Partitions Across Me
+%% Diagram: Partitioning + consumer groups distribute work; same key always lands on the same partition
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-flowchart TB
-    subgraph "Topic: user-events"
-        P0["Partition 0<br/>user_id % 3 == 0"]
-        P1["Partition 1<br/>user_id % 3 == 1"]
-        P2["Partition 2<br/>user_id % 3 == 2"]
+flowchart LR
+    Prod[Producer] -- "partition = hash(key) mod N" --> Router{{Partitioner}}
+
+    subgraph Topic["Topic: user-events (3 partitions)"]
+        direction TB
+        P0["Partition 0<br/>append-only log"]
+        P1["Partition 1<br/>append-only log"]
+        P2["Partition 2<br/>append-only log"]
     end
 
-    subgraph "Consumer Group A"
-        C0[Consumer 0]
-        C1[Consumer 1]
+    Router --> P0
+    Router --> P1
+    Router --> P2
+
+    subgraph CG["Consumer group A (2 members)"]
+        direction TB
+        C0["Consumer 0<br/>owns P0 and P1"]
+        C1["Consumer 1<br/>owns P2"]
     end
 
     P0 --> C0

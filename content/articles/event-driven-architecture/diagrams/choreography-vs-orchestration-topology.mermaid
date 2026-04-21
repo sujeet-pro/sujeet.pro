@@ -1,0 +1,33 @@
+flowchart LR
+  subgraph Choreo["Choreography: broker-centric mesh"]
+    direction LR
+    BC[(Topics)]
+    SA1[Order]
+    SA2[Inventory]
+    SA3[Payment]
+    SA4[Shipping]
+    SA1 -- publishes --> BC
+    BC -- subscribes --> SA2
+    SA2 -- publishes --> BC
+    BC -- subscribes --> SA3
+    SA3 -- publishes --> BC
+    BC -- subscribes --> SA4
+    SA4 -- publishes --> BC
+    BC -- subscribes --> SA1
+  end
+  subgraph Orch["Orchestration: hub and spoke"]
+    direction LR
+    O((Orchestrator<br/>state machine))
+    SB1[Order]
+    SB2[Inventory]
+    SB3[Payment]
+    SB4[Shipping]
+    O -- command --> SB1
+    SB1 -- reply --> O
+    O -- command --> SB2
+    SB2 -- reply --> O
+    O -- command --> SB3
+    SB3 -- reply --> O
+    O -- command --> SB4
+    SB4 -- reply --> O
+  end

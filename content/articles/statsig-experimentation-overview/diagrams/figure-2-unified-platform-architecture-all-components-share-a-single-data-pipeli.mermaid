@@ -1,30 +1,34 @@
-%% Diagram: Figure 2 Unified Platform Architecture All Components Share A Single Data Pipeli
+%% Diagram: Statsig unified platform - one ingestion pipeline for all surfaces
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
-graph TB
-    A[Feature Flags] --> E[Unified Data Pipeline]
-    B[Experimentation] --> E
-    C[Product Analytics] --> E
-    D[Session Replay] --> E
+flowchart TB
+    subgraph Surfaces["Product surfaces"]
+        FF[Feature flags]
+        XP[Experiments]
+        PA[Product analytics]
+        SR[Session replay]
+    end
 
-    E --> F[Assignment Service]
-    E --> G[Configuration Service]
-    E --> H[Metrics Pipeline]
-    E --> I[Analysis Service]
+    subgraph Ingest["Shared ingestion + identity"]
+        Pipe["Event pipeline (common identity + metric model)"]
+    end
 
-    F --> J[User Assignments]
-    G --> K[Rule Definitions]
-    H --> L[Event Processing]
-    I --> M[Statistical Analysis]
+    subgraph Backend["Platform services"]
+        Assign["Assignment service"]
+        Cfg["Configuration service<br/>(serves config spec)"]
+        Metrics["Metrics pipeline"]
+        Stats["Stats Engine<br/>(CUPED, sequential testing)"]
+    end
 
-    J --> N[Consistent Results]
-    K --> N
-    L --> N
-    M --> N
+    FF --> Pipe
+    XP --> Pipe
+    PA --> Pipe
+    SR --> Pipe
 
-    style E fill:#e3f2fd
-    style N fill:#c8e6c9
-    style A fill:#fff3e0
-    style B fill:#f3e5f5
-    style C fill:#e8f5e8
-    style D fill:#fce4ec
+    Pipe --> Assign
+    Pipe --> Cfg
+    Pipe --> Metrics
+    Metrics --> Stats
+
+    Outcome["Causal link from exposure to outcome without cross-tool reconciliation"]
+    Stats --> Outcome

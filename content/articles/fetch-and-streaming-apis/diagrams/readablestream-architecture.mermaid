@@ -1,0 +1,34 @@
+%% Diagram: ReadableStream internal architecture and consumer surface
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Source["Underlying source"]
+        PUSH["Push source<br/>(events, sockets)"]
+        PULL["Pull source<br/>(file, db, fetch body)"]
+    end
+
+    subgraph Stream["ReadableStream"]
+        QUEUE["Internal chunk queue"]
+        CTRL["controller<br/>enqueue / close / error"]
+        DS["controller.desiredSize<br/>= highWaterMark - queueSize"]
+    end
+
+    subgraph Consumer["Consumer (one at a time)"]
+        READER["getReader"]
+        ITER["for await of"]
+        PIPE["pipeTo / pipeThrough"]
+    end
+
+    PUSH -->|enqueue| QUEUE
+    PULL -->|pull| QUEUE
+    QUEUE --> READER
+    QUEUE --> ITER
+    QUEUE --> PIPE
+
+    DS -.->|stop producing when zero or less| PUSH
+    DS -.->|delay next pull| PULL
+
+    classDef primary fill:#1f4870,stroke:#1a3a5c,color:#ffffff
+    classDef accent fill:#7c2d12,stroke:#641e0e,color:#ffffff
+    class QUEUE primary
+    class DS accent

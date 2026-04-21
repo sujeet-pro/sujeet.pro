@@ -1,0 +1,26 @@
+%% Diagram: Undo with a concurrent operation interleaved (IP3 motivation)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant A as Site A
+    participant S as Server
+    participant B as Site B
+
+    Note over A,B: Initial state: 'abc'
+    A->>S: O1 = Ins(2, 'X')
+    S->>S: Sequence O1 (rev 1) → 'abXc'
+    S-->>B: Broadcast O1
+    Note over A,B: Both sites: 'abXc'
+
+    B->>S: O2 = Del(1) (concurrent edit by B on 'abXc')
+    S->>S: Sequence O2 (rev 2) → 'aXc'
+    S-->>A: Broadcast O2
+    Note over A,B: Both sites: 'aXc'
+
+    A->>S: Undo(O1) — A wants its insert reverted
+    Note over S: Naive: invert O1 = Del(2). But position 2 in 'aXc' is 'c', not 'X'.
+    S->>S: Apply IP3: transform inverse of O1 against O2 → Del(1)
+    S->>S: Result: 'ac' (X removed, B's delete preserved)
+    S-->>A: Ack undo
+    S-->>B: Broadcast undo'
+    Note over A,B: Both sites: 'ac'

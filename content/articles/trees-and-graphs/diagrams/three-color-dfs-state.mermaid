@@ -1,0 +1,15 @@
+%% Diagram: Three-color DFS node states for cycle detection
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> White
+    White: White\n(unvisited)
+    Gray: Gray\n(on current\nDFS path)
+    Black: Black\n(fully explored)
+
+    White --> Gray: dfs(node)\nenters
+    Gray --> Black: all out-edges\nexplored
+    Gray --> Cycle: edge to a Gray\nnode = back edge
+    Cycle: Cycle\ndetected
+    Cycle --> [*]
+    Black --> [*]

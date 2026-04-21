@@ -1,0 +1,52 @@
+%% Diagram: DOM API Essentials Overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph hier["Interface hierarchy"]
+    et["EventTarget"] --> n["Node"]
+    n --> e["Element"]
+    e --> html["HTMLElement"]
+    e --> svg["SVGElement"]
+    e --> math["MathMLElement"]
+  end
+
+  subgraph trav["Traversal & manipulation"]
+    parent["ParentNode mixin: append, prepend, replaceChildren, children"]
+    child["ChildNode mixin: before, after, replaceWith, remove"]
+    walk["TreeWalker / NodeIterator: typed, filtered traversal"]
+    frag["DocumentFragment / Range / StaticRange&#10;CSS Custom Highlight API"]
+  end
+
+  subgraph sel["Selection & liveness"]
+    qsa["querySelectorAll → static NodeList"]
+    gec["getElementsByClassName → live HTMLCollection"]
+    gen["getElementsByName → live NodeList"]
+  end
+
+  subgraph evt["Events & cancellation"]
+    dispatch["dispatchEvent: capture → target → bubble"]
+    abort["AbortController / AbortSignal&#10;any() · timeout() · throwIfAborted()"]
+    shadow["Shadow DOM: composedPath · retargeting"]
+  end
+
+  subgraph obs["Observers (async, batched)"]
+    mo["MutationObserver: microtask"]
+    ro["ResizeObserver: between layout & paint"]
+    io["IntersectionObserver: rendering steps"]
+    po["PerformanceObserver: timeline entries"]
+  end
+
+  e --> parent
+  e --> child
+  e --> qsa
+  e --> gec
+  e --> gen
+  n --> walk
+  n --> frag
+  et --> dispatch
+  et --> abort
+  e --> shadow
+  e --> mo
+  e --> ro
+  e --> io
+  et --> po

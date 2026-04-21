@@ -1,0 +1,33 @@
+%% Diagram: HTTP CDN fan-out vs WebRTC SFU fan-out
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Http["HTTP / CMAF over CDN"]
+        direction TB
+        OriginH[Origin] --> EdgeA[CDN PoP A<br/>cache]
+        OriginH --> EdgeB[CDN PoP B<br/>cache]
+        OriginH --> EdgeC[CDN PoP C<br/>cache]
+        EdgeA --> Va1[Viewer]
+        EdgeA --> Va2[Viewer]
+        EdgeA --> Va3[... thousands]
+        EdgeB --> Vb1[Viewer]
+        EdgeB --> Vb2[... thousands]
+        EdgeC --> Vc1[... thousands]
+    end
+
+    subgraph Rtc["WebRTC over SFUs"]
+        direction TB
+        Pub[Publisher] --> SfuA[SFU A]
+        SfuA --> SfuB[SFU B]
+        SfuA --> SfuC[SFU C]
+        SfuA --> P1[Peer]
+        SfuA --> P2[Peer]
+        SfuB --> P3[Peer]
+        SfuC --> P4[Peer]
+        SfuC --> P5[... ~hundreds per server]
+    end
+
+    classDef cache fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef sfu fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class EdgeA,EdgeB,EdgeC cache
+    class SfuA,SfuB,SfuC sfu

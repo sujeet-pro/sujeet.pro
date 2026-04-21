@@ -1,0 +1,48 @@
+%% Diagram: Workers vs worklets decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start(("Off-main\nwork?"))
+
+    pipeline_q{"In render\npipeline?"}
+
+    audio_q{"Audio\nsamples?"}
+    paint_q{"Custom CSS\nimage?"}
+    scroll_q{"Scroll-linked\nanim?"}
+
+    network_q{"Network\nintercept?"}
+    cross_tab_q{"Cross-tab\nstate?"}
+    shared_mem_q{"Shared\nmemory?"}
+
+    audio_w[/"Audio Worklet"/]
+    paint_w[/"Paint Worklet"/]
+    scroll_w[/"Scroll-driven\nAnimations"/]
+    sw_pick[/"Service Worker"/]
+    shared_w_pick[/"Shared Worker"/]
+    sab_pick[/"SAB + Atomics"/]
+    dedicated_w_pick[/"Dedicated Worker"/]
+
+    start --> pipeline_q
+
+    pipeline_q -- yes --> audio_q
+    audio_q -- yes --> audio_w
+    audio_q -- no  --> paint_q
+    paint_q -- yes --> paint_w
+    paint_q -- no  --> scroll_q
+    scroll_q -- yes --> scroll_w
+
+    pipeline_q -- no --> network_q
+    network_q -- yes --> sw_pick
+    network_q -- no  --> cross_tab_q
+    cross_tab_q -- yes --> shared_w_pick
+    cross_tab_q -- no  --> shared_mem_q
+    shared_mem_q -- yes --> sab_pick
+    shared_mem_q -- no  --> dedicated_w_pick
+
+    classDef question fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef worker fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef worklet fill:#8B5E15,stroke:#6E4810,color:#ffffff
+
+    class pipeline_q,audio_q,paint_q,scroll_q,network_q,cross_tab_q,shared_mem_q question
+    class sw_pick,shared_w_pick,sab_pick,dedicated_w_pick worker
+    class audio_w,paint_w,scroll_w worklet

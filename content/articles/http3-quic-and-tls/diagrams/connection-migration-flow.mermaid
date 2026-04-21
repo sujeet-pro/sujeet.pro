@@ -1,0 +1,18 @@
+%% Diagram: QUIC connection migration via Connection IDs
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: WiFi 4-tuple
+    C->>S: 1-RTT packets DCID=CID_S
+    S->>C: 1-RTT packets DCID=CID_C
+
+    Note over C: Hand-off to cellular (NAT rebinding)
+    C->>S: Probe from new 4-tuple DCID=CID_S
+    S->>C: PATH_CHALLENGE (8 random bytes)
+    C->>S: PATH_RESPONSE (echoes same 8 bytes)
+    Note over C,S: New path validated. Same CID. No re-handshake.
+
+    C->>S: 1-RTT packets from cellular 4-tuple

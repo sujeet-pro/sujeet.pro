@@ -1,0 +1,16 @@
+%% Diagram: How an insertion shifts boundaries under fixed-size vs content-defined chunking
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    O1["Original<br/>A B C D · E F G H · I J K L"]
+
+    F1["Fixed-size, after inserting X<br/>X A B C · D E F G · H I J K · L _ _ _<br/><br/>Every chunk hash changes.<br/>≈0% dedup vs original."]
+
+    C1["CDC, after inserting X<br/>X A B C D · E F G H · I J K L<br/><br/>Chunks 2 and 3 byte-identical.<br/>≈67% dedup vs original."]
+
+    O1 --> F1
+    O1 --> C1
+
+    style O1 fill:#e1f5fe
+    style F1 fill:#ffebee
+    style C1 fill:#e8f5e9

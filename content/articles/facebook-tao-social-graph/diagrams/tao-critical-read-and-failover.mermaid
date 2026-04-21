@@ -1,0 +1,23 @@
+%% Diagram: TAO critical reads and follower failover
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    Client["Client (slave region)"]
+    F["Local follower<br/>(primary tier)"]
+    Fb["Backup follower tier"]
+    LB["Local leader"]
+    LA["Master-region leader"]
+    DBA[("MySQL master")]
+
+    Client -- "normal read" --> F
+    F -. "follower down<br/>retry on backup tier" .-> Fb
+
+    Client == "critical=true read" ==> F
+    F == "bypass cache,<br/>route to master leader" ==> LA
+    LA == "fresh row" ==> DBA
+    DBA == "row" ==> LA
+    LA == "fresh row" ==> F
+    F == "fresh row" ==> Client
+
+    Client -. "leader down on miss" .-> F
+    F -. "fall back: read directly from local slave DB" .-> LB

@@ -1,1080 +1,580 @@
 ---
-title: 'DOM API Essentials: Structure, Traversal, and Mutation'
-linkTitle: 'DOM API Essentials'
+title: "DOM API Essentials: Structure, Events, Observers, Cancellation"
+linkTitle: "DOM API Essentials"
 description: >-
-  Why querySelector lives on Element and not HTMLElement, the difference between
-  live and static collections, and how Observer APIs batch notifications — a
-  design-focused tour of the DOM interface hierarchy.
+  Why querySelector lives on Element, what live versus static collections cost,
+  how events propagate (and retarget across shadow boundaries), where every
+  observer fires in the rendering pipeline, and why AbortSignal has quietly
+  become the unified cancellation primitive for the whole DOM.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
-  - browser
+  - dom
   - web-apis
+  - browser
   - javascript
-  - accessibility
 ---
 
-# DOM API Essentials: Structure, Traversal, and Mutation
+# DOM API Essentials: Structure, Events, Observers, Cancellation
 
-A comprehensive exploration of DOM APIs, examining the interface hierarchy design decisions, selector return type differences, and the modern Observer pattern for efficient DOM monitoring. The [DOM Standard](https://dom.spec.whatwg.org/) (WHATWG Living Standard, last updated January 2026) defines a layered inheritance model where each interface adds specific capabilities while maintaining backward compatibility—understanding this design reveals why certain methods exist on `Element` rather than `HTMLElement` and why selector APIs return different collection types with distinct liveness semantics.
+The DOM is one large API surface arranged around a small set of design choices: a layered interface hierarchy that separates universal element operations from markup-specific ones; two collection types whose liveness rules decide whether your iteration is correct; a quiet split of mutation methods between the `ParentNode` and `ChildNode` mixins; an event model whose three-phase dispatch and shadow-boundary retargeting are spec-defined, not implementation detail; observer APIs whose delivery timing is part of the spec; and an `AbortSignal` primitive that is now the standard way to cancel everything from a `fetch` to an `addEventListener`. This article is the mental model and reference for those layers, written for senior engineers who want to know **why** the surface looks the way it does, not just which method to call.
 
-![DOM interface inheritance hierarchy showing Element as the universal base for all markup types](./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al-light.svg "DOM interface inheritance hierarchy showing Element as the universal base for all markup types")
-![DOM interface inheritance hierarchy showing Element as the universal base for all markup types](./diagrams/dom-interface-inheritance-hierarchy-showing-element-as-the-universal-base-for-al-dark.svg)
+The normative source is the [WHATWG DOM Living Standard](https://dom.spec.whatwg.org/), with HTML-element specifics in the [WHATWG HTML Living Standard](https://html.spec.whatwg.org/multipage/dom.html#htmlelement). Everything below traces back to those two specs unless noted.
 
-## Abstract
+![DOM essentials overview: hierarchy, traversal mixins, collections, events, observers, AbortSignal](./diagrams/dom-essentials-overview-light.svg "Six design layers: the inheritance hierarchy, the ParentNode/ChildNode mixins, collection liveness, three-phase event dispatch with AbortSignal-based teardown, shadow DOM retargeting, and asynchronous observer delivery.")
+![DOM essentials overview: hierarchy, traversal mixins, collections, events, observers, AbortSignal](./diagrams/dom-essentials-overview-dark.svg)
 
-The Document Object Model (DOM) API exposes document structure through a **layered interface hierarchy** designed for cross-markup compatibility. The core mental model:
+## Mental model in seven rules
 
-![DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection](./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ-light.svg "DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection")
-![DOM APIs organize around three concerns: interface hierarchy for capability separation, collection types for liveness semantics, and Observer pattern for efficient change detection](./diagrams/dom-apis-organize-around-three-concerns-interface-hierarchy-for-capability-separ-dark.svg)
+- **`Element` is the markup-neutral base.** `querySelector`, `getAttribute`, and `classList` live on `Element` so they work for HTML, SVG, and MathML alike. Markup-specific behavior (text content semantics, editability, accessibility hooks) lives on `HTMLElement`.
+- **A small set of HTML-ish properties are shared with SVG.** `dataset`, `tabIndex`, `autofocus`, `nonce`, `focus()`, and `blur()` come from the `HTMLOrSVGElement` interface mixin, not from `HTMLElement` — they are valid on both `<div>` and `<svg>`.[^hosmixin]
+- **Collections are live by default.** The DOM Standard states that "a collection can be either live or static. Unless otherwise stated, a collection must be live."[^domcoll] Only `querySelectorAll` (and `StaticRange`) opt out.
+- **Mutation methods come in two flavors.** Old DOM-1 methods (`appendChild`, `removeChild`, `insertBefore`) operate from the parent's perspective. Modern methods on the `ParentNode` and `ChildNode` mixins (`append`, `prepend`, `replaceChildren`, `before`, `after`, `replaceWith`, `remove`) accept variadic `Node | string` arguments and are how you should be writing new code.
+- **Every event has three phases — but the target sees both.** Dispatch is a fixed sequence of capture (root → target), target, then bubble (target → root). The "capture" / "bubble" choice for a listener decides which traversal it sees; listeners on the actual target run regardless of that flag.[^dispatchspec]
+- **Observers do not run synchronously.** `MutationObserver` is a microtask; `ResizeObserver` runs in a defined slot between layout and paint; `IntersectionObserver` and `PerformanceObserver` are driven by the rendering steps. Each timing slot has consequences for what you can safely do inside the callback.
+- **`AbortSignal` is the unified cancellation primitive.** `addEventListener`, `fetch`, `ReadableStream`, `setTimeout` (where supported), `WebSocketStream`, and any well-designed async API now accept a `signal`. One `controller.abort()` tears down everything attached to that signal — and `AbortSignal.any([…])` lets you compose them.[^anymdn]
 
-**Key design decisions:**
+## The interface hierarchy
 
-- **Element vs HTMLElement split**: Methods like `querySelector()` and `classList` live on Element (not HTMLElement) because they must work across HTML, SVG, and MathML—the hierarchy reflects cross-markup requirements, not implementation convenience
-- **Live vs static collections**: `getElementsByClassName()` returns live HTMLCollection (auto-updates), while `querySelectorAll()` returns static NodeList (snapshot)—choose based on whether you need real-time tracking or one-time processing
-- **Observer async batching**: All Observer APIs deliver notifications asynchronously in batches, enabling browser-internal optimizations impossible with synchronous event listeners
+Each interface is a thin layer that adds capabilities to its ancestor. Cross-markup compatibility is the reason `Element` and `HTMLElement` exist as separate types: an SVG `<circle>` is a perfectly real `Element` but is **not** an `HTMLElement`.
 
----
+![Interface inheritance: EventTarget → Node → Element, with HTMLElement, SVGElement, MathMLElement extending Element and the HTMLOrSVGElement mixin shared by HTMLElement and SVGElement](./diagrams/interface-hierarchy-light.svg "Element is the cross-markup base. HTMLOrSVGElement is a mixin (not a class) shared between HTMLElement and SVGElement; that is why dataset and tabIndex work on both.")
+![Interface inheritance: EventTarget → Node → Element, with HTMLElement, SVGElement, MathMLElement extending Element and the HTMLOrSVGElement mixin shared by HTMLElement and SVGElement](./diagrams/interface-hierarchy-dark.svg)
 
-## The DOM Interface Hierarchy
+### What each layer adds
 
-The [DOM Standard](https://dom.spec.whatwg.org/) (WHATWG Living Standard) establishes a layered inheritance model where each interface adds capabilities while remaining backward compatible with its ancestors. The spec defines the DOM as "a platform-neutral model for events, aborting activities, and node trees."
+- **[`EventTarget`](https://dom.spec.whatwg.org/#interface-eventtarget)** — `addEventListener`, `removeEventListener`, `dispatchEvent`. Anything that can receive events is one, including `Window`, `XMLHttpRequest`, `AbortSignal`, message ports, and offscreen workers — not just elements. The interface even has a public constructor (`new EventTarget()`), which makes it a useful building block for in-process pub/sub.
+- **[`Node`](https://dom.spec.whatwg.org/#interface-node)** — tree participation: `parentNode`, `childNodes`, `firstChild`, `lastChild`, `appendChild`, `removeChild`, `insertBefore`, `nodeType`, `nodeName`, `cloneNode`. Text nodes, comments, document fragments, and the document itself are all `Node`s.
+- **[`Element`](https://dom.spec.whatwg.org/#interface-element)** — the cross-markup element surface: `getAttribute`/`setAttribute`, `classList`, `id`, `tagName`, namespace-aware variants (`getAttributeNS`), CSS selectors (`querySelector`, `querySelectorAll`, `matches`, `closest`), and box geometry (`getBoundingClientRect`, `getClientRects`, scroll APIs). All work on HTML, SVG, and MathML elements.
+- **[`HTMLElement`](https://html.spec.whatwg.org/multipage/dom.html#htmlelement)** — HTML-specific semantics: `innerText`, `outerText`, `contentEditable`, `isContentEditable`, `accessKey`, `lang`, `dir`, `translate`, `hidden`, `inputMode`, `enterKeyHint`, `popover`, the inline-style `style` setter, the `click()` activation behavior, and (on supporting browsers) `editContext` for custom editable surfaces.[^editcontext]
+- **[`SVGElement`](https://www.w3.org/TR/SVG2/types.html#InterfaceSVGElement)** — SVG-specific surface: `ownerSVGElement`, `viewportElement`, and SVG-specific style and class plumbing.
+- **[`HTMLOrSVGElement`](https://html.spec.whatwg.org/multipage/dom.html#htmlorsvgelement)** — a Web IDL **interface mixin** (not a class) shared by `HTMLElement` and `SVGElement`. It contributes `dataset`, `nonce`, `autofocus`, `tabIndex`, `focus()`, and `blur()`. This is the reason you can write `circle.dataset.userId` on an SVG element.[^hosmixin]
 
-### Why Element, Not HTMLElement?
+### Why the split matters in practice
 
-Element serves as the universal base class for all markup languages because **DOM operations must work across different document types**. Consider these scenarios:
+Typing a utility as `Element` instead of `HTMLElement` is the difference between "works on icons too" and "throws on the SVG sprite":
 
-```typescript
-// This SVG circle is an Element, but NOT an HTMLElement
-const circle = document.querySelector("circle")
-circle.setAttribute("r", "50") // Element method works
-circle.classList.add("active") // Element method works
-
-// HTMLElement methods would fail on SVG elements
-// circle.contentEditable // undefined - this is HTML-specific
-// circle.dataset         // undefined - this is HTML-specific
-```
-
-The browser's internal class hierarchy looks like this:
-
-```
-EventTarget (base for all event-capable objects)
-    ↓
-Node (tree participation)
-    ↓
-Element (universal element operations)
-    ├── HTMLElement (HTML-specific: contentEditable, dataset, innerText)
-    ├── SVGElement (SVG-specific: SVG DOM properties)
-    └── MathMLElement (MathML-specific: mathematical markup)
-```
-
-**Design insight**: Methods defined on Element work for HTML, SVG, and MathML elements. Methods requiring HTML-specific semantics live on HTMLElement. This separation ensures `querySelector()`, `getAttribute()`, and `classList` function identically whether you're manipulating `<div>`, `<svg>`, or `<math>` elements.
-
-### Interface Responsibilities
-
-![Each interface layer adds specific capabilities while inheriting all parent functionality](./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func-light.svg "Each interface layer adds specific capabilities while inheriting all parent functionality")
-![Each interface layer adds specific capabilities while inheriting all parent functionality](./diagrams/each-interface-layer-adds-specific-capabilities-while-inheriting-all-parent-func-dark.svg)
-
-**[EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)** (`EventTarget`)
-
-- Event registration and dispatch
-- Foundation for all interactive objects
-- No DOM tree awareness
-
-**[Node](https://developer.mozilla.org/en-US/docs/Web/API/Node)** (`Node extends EventTarget`)
-
-- Tree structure participation
-- Parent/child/sibling relationships
-- Node types (element, text, comment, document)
-- `parentNode`, `childNodes`, `firstChild`, `lastChild`
-- `appendChild()`, `removeChild()`, `insertBefore()`
-
-**[Element](https://developer.mozilla.org/en-US/docs/Web/API/Element)** (`Element extends Node`)
-
-- Attribute management: `getAttribute()`, `setAttribute()`, `hasAttribute()`
-- CSS selector queries: `querySelector()`, `querySelectorAll()`, `matches()`, `closest()`
-- Class manipulation: `classList`, `className`
-- Geometry: `getBoundingClientRect()`, `scrollIntoView()`
-- Namespace-aware operations for XML-based documents
-- Works for HTML, SVG, MathML, and other XML vocabularies
-
-**[HTMLElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement)** (`HTMLElement extends Element`)
-
-- HTML-specific content: `innerText`, `outerText`
-- Editability: `contentEditable`, `isContentEditable`
-- Data attributes: `dataset` (access to `data-*` attributes)
-- Form interaction: `autofocus`, `tabIndex`, `hidden`
-- Input hints: `inputMode`, `enterKeyHint`, `autocapitalize`
-- Accessibility shortcuts: `accessKey`, `title`
-- Internationalization: `lang`, `dir`, `translate`
-
-### Practical Implications
-
-The hierarchy determines method availability at compile and runtime:
-
-```typescript
-// TypeScript enforces hierarchy
-const element: Element = document.querySelector("div")!
-element.classList.add("active") // ✅ Element method
-element.setAttribute("role", "tab") // ✅ Element method
-
-// @ts-error: Property 'dataset' does not exist on type 'Element'
-element.dataset.userId = "123" // ❌ HTMLElement-specific
-
-// Type narrowing required
-if (element instanceof HTMLElement) {
-  element.dataset.userId = "123" // ✅ Now TypeScript knows it's HTMLElement
-  element.contentEditable = "true" // ✅ HTML-specific property
+```typescript title="utilities.ts"
+function setActive(el: Element, active: boolean): void {
+  el.classList.toggle("active", active)
+  el.setAttribute("aria-selected", String(active))
 }
 
-// SVG elements demonstrate the distinction
-const svg = document.querySelector("svg")!
-svg.classList.add("icon") // ✅ Element method works
-svg.setAttribute("viewBox", "0 0 100 100") // ✅ Element method works
-// svg.innerText = 'text';           // ❌ Would fail - innerText is HTMLElement-specific
-```
-
-**Why this matters**: When writing reusable utilities that manipulate both HTML and SVG elements, typing parameters as `Element` rather than `HTMLElement` ensures compatibility across markup types.
-
----
-
-## Selector APIs: HTMLCollection vs NodeList
-
-DOM selector methods return two distinct collection types with different liveness characteristics and capabilities ([HTMLCollection vs NodeList](https://www.freecodecamp.org/news/dom-manipulation-htmlcollection-vs-nodelist/)).
-
-### Return Type Matrix
-
-| Method                     | Return Type    | Live/Static | Node Types                         |
-| -------------------------- | -------------- | ----------- | ---------------------------------- |
-| `querySelectorAll()`       | NodeList       | Static      | Elements only                      |
-| `getElementsByClassName()` | HTMLCollection | Live        | Elements only                      |
-| `getElementsByTagName()`   | HTMLCollection | Live        | Elements only                      |
-| `getElementsByName()`      | NodeList       | **Live**    | Elements only (unusual exception)  |
-| `childNodes`               | NodeList       | Live        | All nodes (text, comment, element) |
-| `children`                 | HTMLCollection | Live        | Elements only                      |
-
-### HTMLCollection: Live and Limited
-
-[HTMLCollection](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCollection) maintains active references to matching elements, automatically reflecting DOM changes:
-
-```typescript
-const container = document.getElementById("list")
-const items = container.getElementsByClassName("item")
-
-console.log(items.length) // 3
-
-// Add a new element with class 'item'
-const newItem = document.createElement("div")
-newItem.className = "item"
-container.appendChild(newItem)
-
-console.log(items.length) // 4 - automatically updated!
-```
-
-**Liveness implications**:
-
-```typescript
-// ⚠️ Infinite loop: collection updates as you modify the DOM
-const items = document.getElementsByClassName("item")
-for (let i = 0; i < items.length; i++) {
-  items[i].classList.remove("item") // Removes element from collection
-  // Now items.length decreased, but i increased
-  // You'll only process every other element
+function setLabel(el: HTMLElement, text: string): void {
+  el.innerText = text
 }
 
-// ✅ Convert to array to capture snapshot
-const itemsArray = Array.from(document.getElementsByClassName("item"))
-for (const item of itemsArray) {
-  item.classList.remove("item") // Safe: iterating over static array
-}
+const tab: Element = document.querySelector('[role="tab"]')!
+const icon: Element = document.querySelector("svg.icon")!
+
+setActive(tab, true)
+setActive(icon, true)
 ```
 
-**No array methods**:
+`innerText` is HTML-only, so `setLabel` correctly demands `HTMLElement`. TypeScript's lib types reflect the spec — and the `instanceof` check is also a real runtime narrowing, not just a typing trick.
+
+> [!NOTE]
+> The historical "`dataset` is HTML-only" line is wrong. `dataset` and `tabIndex` are on `HTMLOrSVGElement` and have been since the mixin was introduced; both work on SVG. `contentEditable`, `innerText`, `accessKey`, `lang`, `dir`, `translate`, `hidden`, and `inputMode` are the genuinely HTML-only members.[^hosmixin]
+
+## Selection and collection liveness
+
+Five DOM methods give you a collection. They differ along two axes — **type** (`HTMLCollection` vs `NodeList`) and **liveness** (live vs static) — and the combination decides what loop patterns are safe.
+
+![Collection types and liveness: querySelectorAll returns static NodeList; getElementsByClassName/TagName and children return live HTMLCollection; getElementsByName and childNodes return live NodeList; live collections are the trap during for-i mutation loops.](./diagrams/live-vs-static-collections-light.svg "Five DOM methods, three return shapes. The static NodeList from querySelectorAll is the only one safe to mutate during iteration without surprises.")
+![Collection types and liveness: querySelectorAll returns static NodeList; getElementsByClassName/TagName and children return live HTMLCollection; getElementsByName and childNodes return live NodeList; live collections are the trap during for-i mutation loops.](./diagrams/live-vs-static-collections-dark.svg)
+
+### The matrix
+
+| Method                                | Return type                                                                            | Live?      | Includes non-element nodes? |
+| ------------------------------------- | -------------------------------------------------------------------------------------- | ---------- | --------------------------- |
+| `querySelectorAll(selectors)`         | [`NodeList`](https://dom.spec.whatwg.org/#interface-nodelist)                          | **static** | no                          |
+| `getElementsByClassName(classNames)`  | [`HTMLCollection`](https://dom.spec.whatwg.org/#interface-htmlcollection)              | live       | no                          |
+| `getElementsByTagName(qualifiedName)` | `HTMLCollection`                                                                       | live       | no                          |
+| `getElementsByName(name)`             | `NodeList`                                                                             | **live**   | no                          |
+| `children`                            | `HTMLCollection`                                                                       | live       | no                          |
+| `childNodes`                          | `NodeList`                                                                             | live       | yes (text, comment)         |
+
+`querySelectorAll` is the odd one out: the spec defines it as returning the **static result** of running scope-match against the selectors string, and that snapshot is captured once.[^qsastatic] Everything else either explicitly returns a live `HTMLCollection` or — in the cases of `childNodes` and the spec quirk that is `getElementsByName` — a **live `NodeList`**.[^genlive]
+
+### The for-i mutation footgun
+
+Live collections re-evaluate as the DOM mutates. A naive `for (let i = 0; i < items.length; i++)` that removes the matched class from each element will skip every other one because the collection shrinks under the iterator:
 
 ```typescript
 const items = document.getElementsByClassName("item")
 
-// ❌ TypeError: items.forEach is not a function
-items.forEach((item) => console.log(item))
-
-// ✅ Convert to array first
-Array.from(items).forEach((item) => console.log(item))
-
-// ✅ Or use spread operator
-;[...items].forEach((item) => console.log(item))
-
-// ✅ Traditional for loop works
 for (let i = 0; i < items.length; i++) {
-  console.log(items[i])
+  items[i].classList.remove("item")
 }
 
-// ✅ for...of works (HTMLCollection is iterable)
-for (const item of items) {
-  console.log(item)
+for (const item of [...document.getElementsByClassName("item")]) {
+  item.classList.remove("item")
 }
 ```
 
-### NodeList: Static Snapshot with forEach
+The same trap appears with `for...of` on a live collection if the body adds or removes matching elements. The fix is to materialize a snapshot first — `Array.from(...)`, the spread operator, or just call `querySelectorAll` instead.
 
-[NodeList](https://developer.mozilla.org/en-US/docs/Web/API/NodeList) from `querySelectorAll()` captures document state at query time:
+### `NodeList` versus `HTMLCollection` capabilities
+
+- `NodeList` has a native `forEach`. `HTMLCollection` does not.
+- `HTMLCollection` has `namedItem(name)`, which returns the first element whose `id` or `name` matches. `NodeList` has only `item(index)` and indexed access.
+- Both are iterable with `for...of`, both support indexed access, and neither is an `Array` — `map`, `filter`, `reduce`, and the rest live on `Array.prototype`. Spread or `Array.from` to use them.
+- Never use `for...in` on either — you will enumerate `length` and `item` along with the indices.
+
+> [!TIP]
+> Default to `querySelectorAll` for one-shot processing and `getElementsByClassName`/`children` only when you actually want a live view. The live collections amortize their cost over many mutations, but the overhead of maintaining them is real and the mental model they impose on code is heavier than the snapshot.
+
+## Traversal and structural mutation
+
+The DOM gives you four traversal surfaces. They overlap in capability but differ in what they include and how programmable they are.
+
+### Sibling and parent navigation
+
+Every `Node` exposes `parentNode`, `firstChild`, `lastChild`, `previousSibling`, and `nextSibling`. Every `Node` that participates as an element also exposes the **element-only** variants on the [`NonDocumentTypeChildNode`](https://dom.spec.whatwg.org/#interface-nondocumenttypechildnode) mixin: `previousElementSibling` and `nextElementSibling`. The element variants skip text nodes and comments — you almost always want them when walking siblings.
+
+`parentNode` returns a `Node`; `parentElement` returns an `Element` or `null` (the document itself has no parent element). `closest(selectors)` walks up the ancestor chain (including the starting element) and returns the first ancestor that matches a CSS selector — the right tool for "find the enclosing form" or "find the nearest section".
+
+### `ParentNode` and `ChildNode` mixins
+
+Two interface mixins define the modern manipulation surface:
+
+- **[`ParentNode`](https://dom.spec.whatwg.org/#interface-parentnode)** is implemented by `Document`, `DocumentFragment`, and `Element`. It contributes `children`, `firstElementChild`, `lastElementChild`, `childElementCount`, `querySelector`, `querySelectorAll`, and the variadic mutation methods `append(...nodes)`, `prepend(...nodes)`, `replaceChildren(...nodes)`, and (newer) `moveBefore(node, child)`.
+- **[`ChildNode`](https://dom.spec.whatwg.org/#interface-childnode)** is implemented by `Element`, `CharacterData` (text/comment), and `DocumentType`. It contributes `before(...nodes)`, `after(...nodes)`, `replaceWith(...nodes)`, and `remove()`.
+
+All variadic methods accept `(Node | string)...`. Strings become `Text` nodes automatically, which removes a whole class of `document.createTextNode` boilerplate. They also accept zero arguments — `replaceChildren()` with no arguments empties the parent, and `remove()` is the modern replacement for `parent.removeChild(child)` from `child`'s perspective.
 
 ```typescript
-const items = document.querySelectorAll(".item")
-console.log(items.length) // 3
+list.append(item, " · ", footer)
+list.replaceChildren()
+list.replaceChildren(...newItems)
 
-const newItem = document.createElement("div")
-newItem.className = "item"
-document.body.appendChild(newItem)
-
-console.log(items.length) // Still 3 - NodeList doesn't update
-
-// Must re-query to see new elements
-const updatedItems = document.querySelectorAll(".item")
-console.log(updatedItems.length) // 4
+stale.remove()
+stale.replaceWith(replacement)
+target.before("Section: ", heading)
 ```
 
-**forEach support**:
+Compared to the DOM-1 methods these are not just shorter; they are also unambiguous. `parent.appendChild(node)` returns the appended node and throws if `node` is not a `Node`. `parent.append(node, " ", other)` returns `undefined` and accepts any number of nodes and strings. The asymmetric return type is one of the small reasons DOM-1 code reads strangely today.
 
-```typescript
-const items = document.querySelectorAll(".item")
+### Fragments, ranges, and selections
 
-// ✅ NodeList has native forEach
-items.forEach((item, index) => {
-  item.dataset.index = String(index)
-})
+For larger structural moves and editor-style operations, four interfaces become relevant:
 
-// ✅ Also supports for...of
-for (const item of items) {
-  console.log(item)
-}
+- **[`DocumentFragment`](https://dom.spec.whatwg.org/#interface-documentfragment)** is a parent-less container. Append a fragment to a real parent and the spec moves the fragment's children to the parent and **empties** the fragment in one tree-mutating step.[^docfrag] That coalesces what would otherwise be N separate insertions into one mutation observation and one layout invalidation.
+- **[`Range`](https://dom.spec.whatwg.org/#interface-range)** is a live boundary pair `(startContainer, startOffset)` to `(endContainer, endOffset)`. The spec calls these "live ranges" because tree mutations move the boundary points as the underlying content shifts. `range.deleteContents()`, `range.extractContents()` (returns a `DocumentFragment`), and `range.insertNode(node)` let you operate on arbitrary slices of a tree, including across element boundaries.
+- **[`StaticRange`](https://dom.spec.whatwg.org/#interface-staticrange)** is the snapshot equivalent: cheaper because it does not maintain itself across mutations. Used by `InputEvent.getTargetRanges()` and similar APIs that just need to describe a region without owning it.
+- **[`Selection`](https://w3c.github.io/selection-api/#selection-interface)** is the user-visible selection — the highlighted text in a document. It is a single live range per document (multi-range selections were spec'd but never implemented in WebKit/Blink). `window.getSelection()` returns it; `selection.getRangeAt(0)` lifts it into a `Range` you can manipulate.
 
-// ⚠️ But still not a real Array
-items.map((item) => item.textContent) // ❌ TypeError: items.map is not a function
+> [!TIP]
+> Reach for `replaceChildren(...batch)` first; reach for `DocumentFragment` only when you need to build the subtree elsewhere (e.g., a `<template>` clone or an off-thread parsed document) before attaching it. Both produce a single mutation; the fragment is just the bring-your-own-container variant.
 
-// ✅ Convert for full array methods
-const texts = Array.from(items).map((item) => item.textContent)
-```
+### CSS Custom Highlight API: ranges without DOM mutation
 
-**Exception: Live NodeList**:
+Until 2025 the only way to render a "highlight" in the document was either to wrap the highlighted text in a `<span>` (mutating the DOM, which can disturb live ranges, observers, and editor state) or to lean on the user-controlled `Selection`. The [CSS Custom Highlight API](https://drafts.csswg.org/css-highlight-api-1/) is the third option: register `Range`s in the document's `Highlight` registry and style them via the `::highlight()` pseudo-element, with **no DOM mutation at all**.[^cssch]
 
-The `childNodes` property returns a **live** NodeList. Additionally, `getElementsByName()` returns a live NodeList (not HTMLCollection)—an unusual API design exception:
+```typescript title="highlight-search-results.ts"
+function highlightMatches(article: HTMLElement, query: string) {
+  CSS.highlights.delete("search-results")
+  if (!query) return
 
-```typescript
-const parent = document.getElementById("container")
-const children = parent.childNodes // Live NodeList
-
-console.log(children.length) // Includes text nodes, comments, elements
-
-parent.appendChild(document.createElement("div"))
-console.log(children.length) // Automatically increased
-
-// getElementsByName() also returns live NodeList (unusual exception)
-const namedElements = document.getElementsByName("email")
-// This NodeList updates when matching elements are added/removed
-```
-
-**Iteration caveat**: Never use `for...in` to enumerate NodeList items—it will also enumerate `length` and `item` properties. Use `for...of`, `forEach()`, or convert to array.
-
-### Performance Considerations
-
-![Trade-offs between live collections that auto-update vs static snapshots](./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots-light.svg "Trade-offs between live collections that auto-update vs static snapshots")
-![Trade-offs between live collections that auto-update vs static snapshots](./diagrams/trade-offs-between-live-collections-that-auto-update-vs-static-snapshots-dark.svg)
-
-**Live collections** (HTMLCollection, `childNodes`):
-
-- **Cost**: Browser maintains internal references and updates collection on every DOM mutation
-- **Benefit**: Always current without re-querying
-- **Use when**: Need real-time DOM state and will access collection multiple times over time
-
-**Static collections** (NodeList from `querySelectorAll()`):
-
-- **Cost**: Must re-query to see DOM changes
-- **Benefit**: No ongoing maintenance overhead
-- **Use when**: Processing elements once or DOM is stable during iteration
-
-**Benchmark insight**: Static `querySelectorAll()` is faster for one-time operations. Live collections amortize cost when accessed repeatedly across multiple DOM mutations.
-
-### Practical Selector Strategy
-
-```typescript
-// ✅ Use querySelectorAll for one-time processing
-function highlightAllWarnings() {
-  const warnings = document.querySelectorAll(".warning")
-  warnings.forEach((warning) => {
-    warning.style.backgroundColor = "yellow"
-  })
-}
-
-// ✅ Use getElementsByClassName when DOM changes frequently
-function setupLiveCounter() {
-  const items = document.getElementsByClassName("cart-item")
-
-  function updateCount() {
-    document.getElementById("count").textContent = String(items.length)
+  const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+  const ranges: Range[] = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.nodeValue ?? ""
+    const lower = text.toLowerCase()
+    let from = 0
+    for (let i; (i = lower.indexOf(query.toLowerCase(), from)) !== -1; ) {
+      const r = new Range()
+      r.setStart(node, i)
+      r.setEnd(node, i + query.length)
+      ranges.push(r)
+      from = i + query.length
+    }
   }
-
-  // Collection automatically reflects added/removed items
-  document.addEventListener("DOMContentLoaded", updateCount)
-  document.addEventListener("cartUpdate", updateCount)
+  CSS.highlights.set("search-results", new Highlight(...ranges))
 }
+```
 
-// ✅ Convert live to static when iterating and modifying
-function removeAllItems() {
-  const items = document.getElementsByClassName("item")
-  Array.from(items).forEach((item) => item.remove())
+```css
+::highlight(search-results) { background: #ff0; color: #000; }
+```
+
+Compared to `Selection`, `::highlight()` lets you maintain **multiple independent highlight layers** (search results, spelling errors, collaborator cursors), it does not steal user focus from the actual selection, and it leaves the DOM unchanged — which means `MutationObserver`, `IntersectionObserver` sentinels, and live `Range`s outside the registry are not perturbed. Use the API when the highlight is decorative or informational; reach for `Selection` only when you are actually setting the user's selection.
+
+### `TreeWalker` and `NodeIterator`
+
+CSS selectors only see elements. When you need to visit text nodes, comments, processing instructions, or to express a programmatic filter that no selector can capture, the DOM gives you the [traversal API](https://dom.spec.whatwg.org/#traversal):
+
+```typescript
+const walker = document.createTreeWalker(
+  article,
+  NodeFilter.SHOW_TEXT,
+  {
+    acceptNode(node) {
+      return /\d{4}-\d{2}-\d{2}/.test(node.nodeValue ?? "")
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT
+    },
+  },
+)
+
+for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+  highlightDate(n)
 }
+```
 
-// ✅ Cache length for performance in loops
-function processItems() {
-  const items = document.querySelectorAll(".item")
-  const length = items.length // Cache length
+Two callable types live here:
 
-  for (let i = 0; i < length; i++) {
-    // Process items[i]
+- **`NodeIterator`** is a flat, in-order cursor with `nextNode()` / `previousNode()`.
+- **`TreeWalker`** maintains a `currentNode` and exposes hierarchical navigation (`parentNode`, `firstChild`, `nextSibling`, …) so you can walk by structure instead of in linear order.
+
+`NodeFilter.SHOW_*` is a bitmask (`SHOW_ELEMENT`, `SHOW_TEXT`, `SHOW_COMMENT`, `SHOW_ALL`, …) that pre-filters by node type before the `acceptNode` callback runs. `acceptNode` returns `FILTER_ACCEPT`, `FILTER_SKIP` (skip this node, descend into its children), or `FILTER_REJECT` (skip this node and its subtree). For `NodeIterator`, `FILTER_REJECT` is treated identically to `FILTER_SKIP` — there is no concept of "subtree" in a flat iterator.[^treewalker]
+
+> [!NOTE]
+> Use `querySelectorAll` whenever a CSS selector covers your filter. Reach for `TreeWalker`/`NodeIterator` when you need text/comment nodes, when the filter is too dynamic to express in CSS, or when pruning whole subtrees with `FILTER_REJECT` is materially cheaper than walking them.
+
+## Events: dispatch, composition, cancellation
+
+Every `Event` traverses the tree in three spec-defined phases and every `addEventListener` chooses which phase it sees. The dispatch algorithm in DOM §2.9 is what makes the model predictable across HTML, SVG, custom elements, and shadow DOM.[^dispatchspec]
+
+![Event dispatch and shadow DOM retargeting: capture from Window down to target, target phase fires both capture and bubble listeners on the target, then bubble back up; event.target is retargeted to the shadow host outside the boundary; composedPath() returns the full crossing path only when event.composed is true](./diagrams/event-flow-light.svg "Capture, target, bubble. Inside an open shadow tree the real target is preserved; outside the boundary it is retargeted to the shadow host. composedPath() returns the full path only for events whose composed flag is true.")
+![Event dispatch and shadow DOM retargeting: capture from Window down to target, target phase fires both capture and bubble listeners on the target, then bubble back up; event.target is retargeted to the shadow host outside the boundary; composedPath() returns the full crossing path only when event.composed is true](./diagrams/event-flow-dark.svg)
+
+### Capture, target, bubble
+
+`event.eventPhase` reports `CAPTURING_PHASE`, `AT_TARGET`, or `BUBBLING_PHASE` while a listener runs. The third argument to `addEventListener` chooses which traversal a listener participates in — `true` (or `{ capture: true }`) for capture, default `false` for bubble. **The target itself fires both kinds**, in the order they were added.[^addeventlistener] `stopPropagation()` halts the rest of the path; `stopImmediatePropagation()` also skips remaining listeners on the current target.
+
+A handful of events are **non-bubbling by default**: `focus`, `blur`, `mouseenter`, `mouseleave`, `loadstart`, `progress`, `scroll` (on most elements), and the media-element events. Use the bubbling counterparts (`focusin`/`focusout`, `mouseover`/`mouseout`) or capture-phase listeners on an ancestor when you need delegation.
+
+### Listener options that change behavior
+
+`addEventListener(type, listener, options)` takes an options dictionary that controls more than capture vs bubble:
+
+| Option       | Effect                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `capture`    | Run during the capture phase (default `false`).                                                         |
+| `once`       | Auto-remove the listener after the first invocation. Cheaper than a manual `removeEventListener` dance. |
+| `passive`    | Promise not to call `preventDefault()`; lets the browser keep scrolling on the compositor thread.       |
+| `signal`     | An `AbortSignal`; calling `controller.abort()` removes the listener.[^addeventlistener]                  |
+
+Two of these are quietly load-bearing for performance and lifetime management:
+
+- **`passive: true`** is the difference between butter-smooth and janky scrolling. Chromium and WebKit treat `wheel`, `touchstart`, and `touchmove` listeners on `Window`, `Document`, and `<body>` as passive by default — the spec calls these the **passive default targets**.[^passivedefault] If you genuinely need to call `preventDefault()` on these, set `passive: false` explicitly.
+- **`signal`** is the modern way to clean up listeners. One controller can tear down dozens of subscriptions, including `MutationObserver`s and `fetch`es, with a single `abort()`.
+
+### `EventInit`, `CustomEvent`, and `EventTarget` as a base class
+
+`Event` is constructible: `new Event(type, { bubbles, cancelable, composed })`. The `composed` flag controls whether the event crosses shadow boundaries. For carrying a payload, use `CustomEvent`:
+
+```typescript
+class Cart extends EventTarget {
+  add(item: Item) {
+    this.#items.push(item)
+    this.dispatchEvent(new CustomEvent<Item>("itemadded", {
+      detail: item,
+      bubbles: false,
+    }))
   }
+  #items: Item[] = []
+}
+
+const cart = new Cart()
+cart.addEventListener("itemadded", (e: CustomEventMap["itemadded"]) => {
+  console.log(e.detail.sku)
+})
+```
+
+`EventTarget`'s public constructor makes it the right base for any in-process pub/sub bus — you get capture/bubble (vacuously), `once`, `signal`, and the rest of the listener machinery without inventing your own. Don't import an event-emitter library when the platform ships one.
+
+### Shadow DOM and event retargeting
+
+When an event is dispatched inside an open shadow tree, the algorithm composes a path that crosses the boundary. As the event propagates **outside** the shadow root, `event.target` is **retargeted** to the shadow host so that consumers of the host element never see internal nodes they were not given access to. Inside the shadow tree, `event.target` still points at the real target. `event.composedPath()` returns the full crossing path **only** if the event's `composed` flag is true (UI events like `click`, `keydown`, `input` are composed; many synthetic events default to `composed: false`).[^composedpath]
+
+```typescript
+host.addEventListener("click", (e) => {
+  console.log(e.target)         // the host (retargeted)
+  console.log(e.composedPath()) // [button, …shadowRoot, host, body, html, document, window]
+})
+```
+
+`{ mode: "closed" }` shadow roots elide their internals from `composedPath()` entirely — the path stops at the host. This is a privacy boundary, not a security boundary; treat it accordingly.
+
+### Cancellation as a first-class primitive
+
+`AbortController` and `AbortSignal` (DOM §3) are the unified cancellation primitive across the web platform.[^abortcontroller] Beyond `fetch`, every modern API that takes time accepts a `signal` — `addEventListener`, `EventSource`, `ReadableStream.pipeTo`, `WritableStream.close`, `WebSocketStream`, the streams `cancel()` family, and many newer APIs (`scheduler.postTask`, `Web Locks`, the View Transitions API). Two static helpers make composition cheap:
+
+- **`AbortSignal.timeout(ms)`** returns a signal that aborts with a `TimeoutError` `DOMException` after `ms` milliseconds.
+- **`AbortSignal.any([sig1, sig2, …])`** returns a signal that aborts when any input aborts; the resulting `signal.reason` is the first input's reason.[^anymdn]
+
+![AbortSignal propagation: a user-driven AbortController and a timeout signal feed AbortSignal.any, which fans out to fetch, addEventListener, stream cancellation, and any custom API that calls signal.throwIfAborted plus signal.addEventListener('abort')](./diagrams/abortsignal-propagation-light.svg "AbortSignal as a fan-in/fan-out cancellation bus: compose any number of input signals with AbortSignal.any, then attach the resulting signal to every cancellable operation in the unit of work.")
+![AbortSignal propagation: a user-driven AbortController and a timeout signal feed AbortSignal.any, which fans out to fetch, addEventListener, stream cancellation, and any custom API that calls signal.throwIfAborted plus signal.addEventListener('abort')](./diagrams/abortsignal-propagation-dark.svg)
+
+The pattern that replaces nearly every "manual cleanup" idiom you used to write:
+
+```typescript title="component-lifecycle.ts"
+function mount(host: HTMLElement) {
+  const controller = new AbortController()
+  const { signal } = controller
+
+  host.addEventListener("click", onClick, { signal })
+  window.addEventListener("resize", onResize, { signal, passive: true })
+
+  const observer = new MutationObserver(onMutate)
+  observer.observe(host, { childList: true, subtree: true })
+  signal.addEventListener("abort", () => observer.disconnect(), { once: true })
+
+  fetch("/state", { signal }).then(applyState).catch(reportIfNotAbort)
+
+  return () => controller.abort()
 }
 ```
 
----
+One `controller.abort()` removes both listeners, disconnects the `MutationObserver`, and cancels the in-flight `fetch`. This is now the canonical lifecycle pattern — for components, for routes, for anything with a teardown.
 
-## Observer APIs: Efficient DOM Monitoring
+> [!IMPORTANT]
+> Authoring an async API today? Take a `{ signal }` parameter. Call `signal.throwIfAborted()` early, and attach an `'abort'` listener with `{ once: true }` so the listener is collectable after firing. The MDN [implementing an abortable API](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal#implementing_an_abortable_api) recipe is the template.
 
-Modern Observer APIs provide performant, callback-based change detection without polling or continuous event listener execution.
+## Observer APIs
 
-### Shared Observer Pattern
+Four observers cover most of the DOM change surface: **`MutationObserver`** for tree changes, **`ResizeObserver`** for box-size changes, **`IntersectionObserver`** for visibility against a root rectangle, and **`PerformanceObserver`** for entries on the performance timeline. They share a tiny shape — `new Observer(callback); observer.observe(target, options); observer.unobserve(target); observer.disconnect()` — but each is timed differently, and the timing is the part of the spec you have to internalize.
 
-All Observer APIs follow the same interface design:
+![Observer lifecycle: construct → observe → registered with agent → wait for spec-defined timing slot (MutationObserver microtask, ResizeObserver between layout/paint, IntersectionObserver/PerformanceObserver rendering steps) → callback drains entries → loop. Cleanup paths: unobserve(target), disconnect(), or AbortSignal-removed listener.](./diagrams/observer-lifecycle-light.svg "Each observer has a different timing slot but the same lifecycle: construct, observe one or more targets, wake on the spec slot, drain entries, repeat — and disconnect explicitly or via an AbortSignal-driven listener.")
+![Observer lifecycle: construct → observe → registered with agent → wait for spec-defined timing slot (MutationObserver microtask, ResizeObserver between layout/paint, IntersectionObserver/PerformanceObserver rendering steps) → callback drains entries → loop. Cleanup paths: unobserve(target), disconnect(), or AbortSignal-removed listener.](./diagrams/observer-lifecycle-dark.svg)
 
-```typescript
-// 1. Create observer with callback
-const observer = new ObserverType((entries, observer) => {
-  entries.forEach((entry) => {
-    // Handle changes
-  })
-})
+### Cleanup is your responsibility
 
-// 2. Start observing targets
-observer.observe(targetElement, options)
-
-// 3. Stop observing specific target
-observer.unobserve(targetElement)
-
-// 4. Stop observing all targets
-observer.disconnect()
-
-// 5. Get pending notifications (some observers)
-const records = observer.takeRecords()
-```
-
-### IntersectionObserver: Visibility Detection
-
-[IntersectionObserver](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver) monitors when elements enter or exit specified boundaries (typically the viewport), enabling lazy loading and scroll-based interactions without scroll event listeners.
-
-**Core concepts**:
-
-- **Root**: Bounding box for intersection testing (viewport by default, or ancestor element)
-- **Root margin**: CSS-style margin offsets applied to root's bounding box
-- **Threshold**: Visibility ratios (0.0 to 1.0) that trigger callbacks
+None of the observer constructors take a `signal` directly. Wire them into the `AbortSignal` lifecycle by attaching a one-shot listener:
 
 ```typescript
-const observer = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      // entry.target - the observed element
-      // entry.isIntersecting - whether target intersects root
-      // entry.intersectionRatio - percentage of target visible (0.0 to 1.0)
-      // entry.intersectionRect - visible portion dimensions
-      // entry.boundingClientRect - target's full bounding box
-      // entry.rootBounds - root element's bounding box
-      // entry.time - timestamp when intersection changed
-    })
-  },
-  {
-    root: null, // viewport (null) or ancestor Element
-    rootMargin: "0px", // margin around root
-    threshold: [0, 0.5, 1.0], // trigger at 0%, 50%, 100% visibility
-  },
-)
+function watch(host: Element, signal: AbortSignal) {
+  const mo = new MutationObserver(handle)
+  const ro = new ResizeObserver(handle)
+  const io = new IntersectionObserver(handle, { threshold: [0, 1] })
 
-observer.observe(document.querySelector("#target"))
-```
+  mo.observe(host, { childList: true, subtree: true })
+  ro.observe(host)
+  io.observe(host)
 
-#### Threshold: When to Fire Callbacks
-
-The `threshold` option controls what percentage of the target element must be visible before the callback fires. **Default value: `0`** (callback fires when even a single pixel becomes visible).
-
-**Single threshold value**:
-
-```typescript
-// Fire when 50% of element is visible
-const observer = new IntersectionObserver(callback, { threshold: 0.5 })
-
-// Common threshold values:
-// 0    - Fire immediately when any part enters (default)
-// 0.5  - Fire when half visible
-// 1.0  - Fire only when fully visible
-```
-
-**Multiple thresholds** for progressive tracking:
-
-```typescript
-// Track visibility at multiple stages
-const observer = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      // Callback fires at each threshold crossing
-      console.log(`Visibility: ${Math.round(entry.intersectionRatio * 100)}%`)
-
-      if (entry.intersectionRatio >= 0.75) {
-        // Element is mostly visible - count as "viewed"
-        trackImpression(entry.target)
-      }
-    })
-  },
-  { threshold: [0, 0.25, 0.5, 0.75, 1.0] },
-)
-```
-
-**Threshold behavior**:
-
-- Callbacks fire when visibility **crosses** a threshold in either direction (entering or leaving)
-- With `threshold: 0`, callback fires when element goes from 0% → any visibility AND from any visibility → 0%
-- With `threshold: 1.0`, callback fires only when element is 100% visible (or leaves 100% visibility)
-
-#### Root Margin: Expanding or Shrinking the Detection Zone
-
-The `rootMargin` option adjusts the root's bounding box before calculating intersections, using CSS margin syntax. **Default value: `"0px 0px 0px 0px"`**.
-
-![Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible](./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca-light.svg "Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible")
-![Positive rootMargin expands the detection zone beyond the viewport, triggering callbacks before elements become visible](./diagrams/positive-rootmargin-expands-the-detection-zone-beyond-the-viewport-triggering-ca-dark.svg)
-
-**Syntax** follows CSS margin shorthand (top, right, bottom, left):
-
-```typescript
-// Single value: applies to all sides
-rootMargin: "50px" // Expand all sides by 50px
-
-// Two values: vertical | horizontal
-rootMargin: "50px 0px" // Expand top/bottom by 50px
-
-// Four values: top | right | bottom | left
-rootMargin: "100px 0px 50px 0px" // Expand top 100px, bottom 50px
-```
-
-**Positive vs negative values**:
-
-```typescript
-// Positive: EXPAND detection zone (trigger BEFORE element is visible)
-const preloadObserver = new IntersectionObserver(callback, {
-  rootMargin: "200px", // Start loading 200px before entering viewport
-})
-
-// Negative: SHRINK detection zone (trigger AFTER element is well inside)
-const deepVisibilityObserver = new IntersectionObserver(callback, {
-  rootMargin: "-100px", // Only trigger when 100px inside viewport
-})
-```
-
-**Practical rootMargin patterns**:
-
-```typescript
-// Preload content before it scrolls into view
-const lazyLoader = new IntersectionObserver(loadContent, {
-  rootMargin: "300px 0px", // 300px buffer above and below viewport
-})
-
-// Sticky header detection - trigger when element is near top
-const stickyObserver = new IntersectionObserver(updateSticky, {
-  rootMargin: "-80px 0px 0px 0px", // 80px from top edge (header height)
-})
-
-// Analytics: only count as "viewed" if visible for meaningful time
-const impressionObserver = new IntersectionObserver(trackView, {
-  rootMargin: "-50px", // Must be 50px inside viewport
-  threshold: 0.5, // AND 50% visible
-})
-```
-
-**Why rootMargin matters**: Without rootMargin, lazy loading triggers exactly when an element enters the viewport, causing a visible loading delay. With `rootMargin: '200px'`, loading starts 200px before the element scrolls into view, creating a seamless experience.
-
-**Use case: Lazy loading images**
-
-```typescript
-const imageObserver = new IntersectionObserver(
-  (entries, observer) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        const img = entry.target as HTMLImageElement
-
-        // Load image when it enters viewport
-        img.src = img.dataset.src!
-        img.onload = () => img.classList.add("loaded")
-
-        // Stop observing this image
-        observer.unobserve(img)
-      }
-    })
-  },
-  {
-    // Start loading slightly before image enters viewport
-    rootMargin: "50px",
-  },
-)
-
-// Observe all images with data-src attribute
-document.querySelectorAll("img[data-src]").forEach((img) => {
-  imageObserver.observe(img)
-})
-```
-
-**Use case: Infinite scroll**
-
-```typescript collapse={1-6, 32-38}
-function setupInfiniteScroll(loadMoreFn: () => Promise<void>) {
-  // Sentinel setup (collapsed)
-  const sentinel = document.createElement("div")
-  sentinel.id = "scroll-sentinel"
-  sentinel.style.height = "1px"
-  document.querySelector("#content-container")!.appendChild(sentinel)
-
-  let isLoading = false
-
-  // Key pattern: IntersectionObserver triggers load before reaching end
-  const observer = new IntersectionObserver(
-    async (entries) => {
-      const entry = entries[0]
-
-      if (entry.isIntersecting && !isLoading) {
-        isLoading = true
-
-        try {
-          await loadMoreFn()
-        } finally {
-          isLoading = false
-        }
-      }
-    },
-    {
-      rootMargin: "200px", // Trigger 200px before reaching sentinel
-    },
-  )
-
-  observer.observe(sentinel)
-
-  return () => observer.disconnect()
+  signal.addEventListener("abort", () => {
+    mo.disconnect()
+    ro.disconnect()
+    io.disconnect()
+  }, { once: true })
 }
-
-// Usage (collapsed)
-const cleanup = setupInfiniteScroll(async () => {
-  const newItems = await fetchNextPage()
-  renderItems(newItems)
-})
 ```
 
-**Use case: Scroll-triggered animations**
+Forgetting `disconnect()` is one of the most common leaks in long-lived SPAs: each observer keeps strong references to its targets and to the closure of its callback.
 
-```typescript
-const animationObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("animate-in")
-      } else {
-        // Optional: reset animation when scrolling back up
-        entry.target.classList.remove("animate-in")
+### `MutationObserver` — microtask-timed
+
+The DOM Standard schedules MutationObserver delivery via "queue a mutation observer microtask", which sets a per-agent flag, queues a microtask to "notify mutation observers", and clears the flag when the microtask runs.[^moqueue] All mutations from a synchronous task therefore arrive in **one** callback invocation, scheduled on the microtask queue alongside resolved promises.
+
+![MutationObserver microtask delivery: synchronous tree mutations enqueue records, a single microtask is queued, and the callback drains all records at once](./diagrams/mutationobserver-microtask-delivery-light.svg "Three tree mutations during one synchronous task produce one microtask and one callback invocation that sees all three records.")
+![MutationObserver microtask delivery: synchronous tree mutations enqueue records, a single microtask is queued, and the callback drains all records at once](./diagrams/mutationobserver-microtask-delivery-dark.svg)
+
+Practical consequences:
+
+- **Batching is automatic and inescapable.** You cannot get a synchronous notification per mutation. If you need the synchronous behavior of the deprecated `MutationEvent` API, the answer is "you do not".[^mutevents]
+- **Microtask, not task.** Because delivery happens in the microtask checkpoint at the end of the current synchronous task, your callback runs before any subsequent rendering and before the next event loop task. Heavy work in the callback delays paint just like heavy work in a `Promise.then`.
+- **Records survive disconnection.** `observer.takeRecords()` drains anything still queued when you `disconnect()`, useful when you want to flush before tearing down.
+
+The options object must specify at least one of `childList`, `attributes`, `characterData`. Add `subtree: true` to watch the entire descendant tree, `attributeFilter: ["class", "data-state"]` to limit attribute watching, and `attributeOldValue` / `characterDataOldValue` to capture the prior value:
+
+```typescript title="watch-validation-state.ts"
+function watchInvalid(form: HTMLFormElement, signal: AbortSignal) {
+  const observer = new MutationObserver((records) => {
+    for (const r of records) {
+      if (r.type !== "attributes") continue
+      const field = r.target as HTMLElement
+      const errorId = field.getAttribute("aria-describedby")
+      const errorEl = errorId ? document.getElementById(errorId) : null
+      if (errorEl) {
+        errorEl.hidden = field.getAttribute("aria-invalid") !== "true"
       }
-    })
-  },
-  {
-    threshold: 0.1, // Trigger when 10% visible
-  },
-)
-
-// Observe all elements with animation class
-document.querySelectorAll(".animate-on-scroll").forEach((element) => {
-  animationObserver.observe(element)
-})
-```
-
-**Performance benefit**: IntersectionObserver uses browser's rendering pipeline to detect intersections, avoiding expensive `getBoundingClientRect()` calls in scroll handlers. Per the W3C spec (Editor's Draft, June 2024): "The information can be delivered asynchronously (e.g. from another thread) without penalty."
-
-#### Cross-Origin Privacy Safeguards
-
-IntersectionObserver implements privacy restrictions for cross-origin content to prevent viewport geometry probing:
-
-```typescript
-// When observing cross-origin iframe content:
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    // For cross-origin targets:
-    // - rootBounds is null (suppressed to prevent viewport probing)
-    // - rootMargin effects are ignored
-    // - scrollMargin effects are ignored
-
-    if (entry.rootBounds === null) {
-      // Cross-origin target - limited information available
-      console.log("Cross-origin: rootBounds suppressed for privacy")
-    }
-  })
-})
-```
-
-**Design rationale**: The spec states this "prevent[s] probing for global viewport geometry information that could deduce user hardware configuration" and avoids revealing whether cross-origin iframes are visible.
-
-### MutationObserver: DOM Change Detection
-
-[MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) monitors DOM tree modifications, replacing [legacy Mutation Events](https://developer.chrome.com/blog/mutation-events-deprecation) with better performance and clearer semantics. The DOM Standard (Section 4.3) defines three components: the MutationObserver interface, a "queuing a mutation record" algorithm, and the MutationRecord data structure. Unlike the older MutationEvent API which triggered synchronously for every change, MutationObserver batches mutations into a single callback at the end of a microtask.
-
-**Observed mutation types**:
-
-- **Child nodes**: Elements added or removed from target
-- **Attributes**: Attribute values changed
-- **Character data**: Text node content changed
-- **Subtree**: Monitor target and all descendants
-
-```typescript
-const observer = new MutationObserver((mutations, observer) => {
-  mutations.forEach((mutation) => {
-    // mutation.type - 'childList', 'attributes', or 'characterData'
-    // mutation.target - the node that changed
-    // mutation.addedNodes - NodeList of added children
-    // mutation.removedNodes - NodeList of removed children
-    // mutation.attributeName - changed attribute name
-    // mutation.oldValue - previous value (if requested in options)
-  })
-})
-
-observer.observe(targetNode, {
-  // At least one of these must be true:
-  childList: true, // Watch child node additions/removals
-  attributes: true, // Watch attribute changes
-  characterData: true, // Watch text content changes
-
-  // Optional refinements:
-  subtree: true, // Monitor all descendants too
-  attributeOldValue: true, // Include previous attribute values
-  characterDataOldValue: true, // Include previous text values
-  attributeFilter: ["class", "data-state"], // Only specified attributes
-})
-```
-
-**Use case: Monitoring dynamic content injection**
-
-```typescript collapse={28-39}
-function watchDynamicContent(container: Element, callback: (addedElements: Element[]) => void) {
-  const observer = new MutationObserver((mutations) => {
-    const addedElements: Element[] = []
-
-    // Key pattern: filter for element nodes from childList mutations
-    mutations.forEach((mutation) => {
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            addedElements.push(node as Element)
-          }
-        })
-      }
-    })
-
-    if (addedElements.length > 0) {
-      callback(addedElements)
     }
   })
 
-  observer.observe(container, {
-    childList: true,
-    subtree: true, // Watch all descendants
-  })
-
-  return () => observer.disconnect()
-}
-
-// Usage example (collapsed)
-const cleanup = watchDynamicContent(document.body, (elements) => {
-  elements.forEach((el) => {
-    if (el.hasAttribute("data-tooltip")) {
-      initializeTooltip(el)
-    }
-  })
-})
-```
-
-**Use case: Form validation on attribute changes**
-
-```typescript collapse={7-16}
-function trackFormFieldState(form: HTMLFormElement) {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      // Key pattern: watch aria-invalid attribute for validation state changes
-      if (mutation.type === "attributes" && mutation.attributeName === "aria-invalid") {
-        const field = mutation.target as HTMLElement
-        // Error message visibility logic (collapsed)
-        const isInvalid = field.getAttribute("aria-invalid") === "true"
-        const errorId = field.getAttribute("aria-describedby")
-        if (errorId) {
-          const errorElement = document.getElementById(errorId)
-          if (errorElement) {
-            errorElement.hidden = !isInvalid
-          }
-        }
-      }
-    })
-  })
-
-  // Watch all form fields with attributeFilter for efficiency
-  form.querySelectorAll("input, textarea, select").forEach((field) => {
+  for (const field of form.querySelectorAll("input, textarea, select")) {
     observer.observe(field, {
       attributes: true,
-      attributeFilter: ["aria-invalid"], // Only watch this attribute
+      attributeFilter: ["aria-invalid"],
       attributeOldValue: true,
     })
-  })
+  }
 
-  return () => observer.disconnect()
+  signal.addEventListener("abort", () => observer.disconnect(), { once: true })
 }
 ```
 
-**Use case: Character data monitoring**
+### `ResizeObserver` — between layout and paint
 
-```typescript
-function watchTextChanges(editableElement: HTMLElement) {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === "characterData") {
-        console.log("Text changed from:", mutation.oldValue)
-        console.log("Text changed to:", mutation.target.textContent)
+The [Resize Observer specification](https://www.w3.org/TR/resize-observer/) defines a deterministic slot in the rendering steps: after layout is up to date, the user agent gathers active observations, broadcasts them to your callback, and only then proceeds to paint.[^rospec] If your callback dirties layout for an element deeper in the tree than the deepest one whose observation it just delivered, the loop runs again at the new depth. If something stays dirty after the loop terminates, the user agent fires an `ErrorEvent` on `Window` with the message **"ResizeObserver loop completed with undelivered notifications"** and defers the leftovers to the next opportunity.[^roloop]
 
-        // Update character count, word count, etc.
-        updateTextStats(editableElement)
-      }
-    })
-  })
+![ResizeObserver pipeline timing: rendering opportunity → recalc styles → update layout → gather active observations → broadcast (your callback) → recalc/layout → gather at deeper depth → repeat or paint; loop error fires if work cannot complete](./diagrams/resizeobserver-pipeline-timing-light.svg "ResizeObserver runs after layout and before paint. The depth-monotone loop bounds re-entry; remaining work falls out as a loop error fired on Window.")
+![ResizeObserver pipeline timing: rendering opportunity → recalc styles → update layout → gather active observations → broadcast (your callback) → recalc/layout → gather at deeper depth → repeat or paint; loop error fires if work cannot complete](./diagrams/resizeobserver-pipeline-timing-dark.svg)
 
-  observer.observe(editableElement, {
-    characterData: true,
-    subtree: true, // Watch text nodes in all descendants
-    characterDataOldValue: true,
-  })
+This timing is what makes ResizeObserver safe for layout-modifying callbacks: the changes you make invalidate layout but the user agent has not yet painted, so they coalesce into the same paint instead of triggering an extra one. It also explains the cardinal rule:
 
-  return () => observer.disconnect()
-}
+> [!CAUTION]
+> Modifying the observed element's box from inside its own callback risks the loop error. Either modify a child whose layout depth is greater (the loop will pick it up at the next depth), or defer the change with `requestAnimationFrame` so it happens in the next frame instead of inside this one.
+
+Other edge cases worth knowing:
+
+- **Three box options.** `box: "content-box"` (the default), `"border-box"`, or `"device-pixel-content-box"`. Read the corresponding entry array — `entry.contentBoxSize`, `entry.borderBoxSize`, or `entry.devicePixelContentBoxSize` — instead of the legacy `entry.contentRect`, which only describes content-box CSS pixels.
+- **`inlineSize` and `blockSize`.** The size entries are writing-mode aware; `inlineSize` is width in horizontal writing modes and height in vertical ones.
+- **CSS transforms do not fire.** Transforms move pixels, not boxes — the spec explicitly excludes them.[^rotransform]
+- **Non-replaced inline elements report zero.** They have no box of their own; observe a containing block-level element instead.
+- **Insertion and removal fire.** A first observation arrives once after `observe()` if the element has any box; setting `display: none` reports zero dimensions in a fresh entry.
+
+### `IntersectionObserver` — driven by the rendering steps
+
+`IntersectionObserver` watches whether a target is visible against a **root** (the viewport by default) inflated or shrunk by **`rootMargin`**, and fires when the visible ratio crosses any of the configured **`threshold`** values. The detailed mechanics (root, rootMargin, threshold semantics, sentinel patterns, batching, and when to prefer scroll listeners) are covered in the dedicated [Intersection Observer API](../intersection-observer/README.md) article. The two cross-cutting facts worth keeping in this article:
+
+- **Cross-origin privacy.** When the target is in a cross-origin-domain document, `entry.rootBounds` is `null` and any `rootMargin` or `scrollMargin` offsets are ignored. The W3C spec says this prevents a cross-origin frame from "probing for global viewport geometry information that could deduce user hardware configuration".[^iocrossorigin]
+- **Asynchronous batched delivery.** Like the other observers, `IntersectionObserver` callbacks are batched and delivered as part of the rendering steps, so a single callback can carry intersection changes for many targets.
+
+### `PerformanceObserver` — the timeline subscription
+
+`PerformanceObserver` subscribes to the [Performance Timeline](https://w3c.github.io/performance-timeline/) and is how you observe Core Web Vitals (`largest-contentful-paint`, `layout-shift`, `event` and `first-input` for INP), long animation frames (`long-animation-frame`), navigation, resource, and `paint` entries.[^perfobs] Two patterns dominate:
+
+```typescript title="cwv.ts"
+new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    sendBeacon("lcp", entry.startTime, entry as PerformanceEntry)
+  }
+}).observe({ type: "largest-contentful-paint", buffered: true })
+
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries() as PerformanceEventTiming[]) {
+    if (e.duration > 40) reportSlowInteraction(e)
+  }
+}).observe({ type: "event", durationThreshold: 40, buffered: true })
 ```
 
-**Batching behavior**: MutationObserver batches multiple mutations and delivers them asynchronously, improving performance compared to synchronous Mutation Events.
+`buffered: true` replays entries that arrived before the observer was constructed — essential for early-page metrics like LCP. Use the `type`/`buffered` form (not the older `entryTypes` array) when you need that replay or `durationThreshold`.
 
-```typescript
-const target = document.getElementById("container")!
-const observer = new MutationObserver((mutations) => {
-  // This callback receives ALL mutations in a single batch
-  console.log(`Received ${mutations.length} mutations`)
-})
+### Custom editable surfaces: `EditContext`
 
-observer.observe(target, { childList: true })
+The newest piece of the editor stack is the [EditContext API](https://w3c.github.io/edit-context/) (Chromium 121+, behind a flag in WebKit, Firefox not yet shipping). `element.editContext = new EditContext()` makes any element — including a `<canvas>` — focusable and connected to the OS text input service, with IME composition, dead keys, and language switching delegated to the platform. Combined with `Selection`, `Range`, and the CSS Custom Highlight API, this is the modern foundation for building a real editor in the browser without the `contenteditable`-and-pray approach that has failed every previous generation of editors.[^editcontext]
 
-// These three operations generate three mutation records,
-// but callback is invoked once with all three
-target.appendChild(document.createElement("div"))
-target.appendChild(document.createElement("span"))
-target.appendChild(document.createElement("p"))
+### Compared to scroll/resize event listeners
 
-// Callback invoked asynchronously with 3 mutation records
-```
+| Concern             | `scroll` / `resize` listener            | Observer                                                     |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| Runs on             | Every event the page emits              | Only when the watched property changes                       |
+| Forced sync layout  | Common — `getBoundingClientRect` reads  | Browser computes geometry once, off the listener hot path    |
+| Batching            | Manual (`requestAnimationFrame`, debounce) | Spec-defined timing slot                                  |
+| Cleanup             | Per listener, easy to forget            | One `disconnect()` clears every observed target             |
+| Visibility for many | Single listener, N `getBoundingClientRect` | One observer, N targets, no per-target geometry calls    |
 
-### ResizeObserver: Element Dimension Changes
+The takeaway is not "always use observers" — `pointermove` and `keydown` will never be observers — but rather: any time you find yourself reaching for `scroll`/`resize` to derive **geometry** or **structure**, the observer API is the version that the platform optimized for that job.
 
-[ResizeObserver](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) reports changes to element dimensions, enabling responsive component sizing independent of viewport resize events. Defined in the [CSS Resize Observer Module Level 1](https://drafts.csswg.org/resize-observer/) specification (separate from DOM Standard).
+## Decision matrix: which API for which problem
 
-**Key distinction**:
+| Problem                                                  | Reach for                                                              | Avoid                                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Find one or many elements once                           | `querySelector` / `querySelectorAll`                                   | `getElementsBy*` (live, harder to reason about)                             |
+| Continuously reflect a count of children                 | `children` (live `HTMLCollection`)                                     | `querySelectorAll` in a loop                                                |
+| Append/replace a batch of children                       | `replaceChildren(...batch)`                                            | N×`appendChild` (N mutation observations, N layout invalidations)           |
+| Build a subtree off-tree before attaching                | `DocumentFragment` (or `<template>.content.cloneNode(true)`)           | Hand-rolled detached parents                                                |
+| Operate on text crossing element boundaries              | `Range` + `extractContents` / `insertNode`                             | Manual node splitting                                                       |
+| Highlight matches, errors, collaborator cursors          | CSS Custom Highlight API + `::highlight()`                             | Wrapping text in `<span>` (DOM mutation, observer churn)                    |
+| Walk text or comment nodes                               | `TreeWalker` / `NodeIterator`                                          | Recursive `childNodes` walks                                                |
+| Watch tree changes                                       | `MutationObserver`                                                     | The deprecated `MutationEvent` family                                       |
+| Watch box-size changes                                   | `ResizeObserver`                                                       | `window.resize` + `getBoundingClientRect`                                   |
+| Watch visibility / lazy-load / infinite-scroll sentinels | `IntersectionObserver`                                                 | `scroll` + `getBoundingClientRect`                                          |
+| Observe Core Web Vitals / long tasks / paint timing      | `PerformanceObserver`                                                  | Manual `performance.getEntries()` polling                                   |
+| Cancel listeners, fetches, observers together            | `AbortController` + `{ signal }` everywhere                            | Per-handle `removeEventListener` / per-fetch ad-hoc cancel flags            |
+| Compose user-cancel + timeout                            | `AbortSignal.any([ctrl.signal, AbortSignal.timeout(ms)])`              | Hand-coded `setTimeout` + cleanup                                           |
+| Encapsulate component internals                          | Shadow DOM + `composedPath()` for boundary-aware listeners             | CSS-only "BEM" containment, runtime `Object.freeze` games                   |
+| Build a custom editor surface                            | `EditContext` (where supported), `Selection`, `Range`, `::highlight()` | `contenteditable` + `execCommand` + DOM rewriting                           |
 
-- **Content box**: Inner content area (excludes padding and border)
-- **Border box**: Full element dimensions (includes padding and border)
-- **Device pixel content box**: Content box in device pixels (for high-DPI displays)
+## Performance pitfalls
 
-```typescript
-const observer = new ResizeObserver((entries) => {
-  entries.forEach((entry) => {
-    // entry.target - the observed element
-    // entry.contentRect - DOMRect with dimensions (legacy)
-    // entry.contentBoxSize - ReadonlyArray of ResizeObserverSize
-    // entry.borderBoxSize - ReadonlyArray of ResizeObserverSize
-    // entry.devicePixelContentBoxSize - Device pixel dimensions
-  })
-})
+A short list of the patterns that consistently show up in profiles:
 
-observer.observe(element, {
-  box: "content-box", // 'content-box', 'border-box', or 'device-pixel-content-box'
-})
-```
+- **Reading layout inside a write loop** triggers forced synchronous layout. `getBoundingClientRect`, `offsetTop`, `clientWidth`, `getComputedStyle` all read live geometry. Either batch all reads before all writes, or do the geometric work inside a `ResizeObserver`/`IntersectionObserver` callback that runs after layout.
+- **Holding live collections across mutations** keeps the document's name/class indices warm. Convert to a snapshot (`[...coll]`) when you only need it once.
+- **Heavy `MutationObserver` callbacks** delay paint because they run in the microtask checkpoint. Move expensive work to `requestIdleCallback` or `scheduler.postTask({ priority: 'background' })`.
+- **Non-passive `wheel`/`touchmove` listeners** force scrolling onto the main thread. Always set `passive: true` unless you actually call `preventDefault()`.
+- **One listener per child element** for delegated events. Use a single capture-phase listener on the container and dispatch by `event.target.closest(...)`.
+- **Unbounded `ResizeObserver` loops** that mutate the observed element's own box will eventually fire the loop error and skip a frame. Mutate a deeper element or defer to `requestAnimationFrame`.
+- **Forgotten observers and listeners** in long-lived SPAs leak both DOM nodes and the closures their callbacks capture. Wire every subscription to an `AbortSignal`.
 
-**ResizeObserverEntry structure**:
+## Practical defaults
 
-```typescript
-interface ResizeObserverEntry {
-  target: Element
-  contentRect: DOMRectReadOnly // Legacy property
-  contentBoxSize: ReadonlyArray<ResizeObserverSize>
-  borderBoxSize: ReadonlyArray<ResizeObserverSize>
-  devicePixelContentBoxSize: ReadonlyArray<ResizeObserverSize>
-}
-
-interface ResizeObserverSize {
-  inlineSize: number // Width in horizontal writing mode
-  blockSize: number // Height in horizontal writing mode
-}
-```
-
-**Use case: Responsive typography**
-
-```typescript collapse={19-25}
-function setupResponsiveText(container: HTMLElement) {
-  const heading = container.querySelector("h1")!
-  const paragraph = container.querySelector("p")!
-
-  const observer = new ResizeObserver((entries) => {
-    entries.forEach((entry) => {
-      // Key pattern: use contentBoxSize for modern width detection
-      if (entry.contentBoxSize) {
-        const contentBoxSize = Array.isArray(entry.contentBoxSize) ? entry.contentBoxSize[0] : entry.contentBoxSize
-
-        const width = contentBoxSize.inlineSize
-
-        // Scale font size based on container width
-        heading.style.fontSize = `${Math.max(1.5, width / 200)}rem`
-        paragraph.style.fontSize = `${Math.max(1, width / 600)}rem`
-      } else {
-        // Fallback for older browsers (collapsed)
-        const width = entry.contentRect.width
-        heading.style.fontSize = `${Math.max(1.5, width / 200)}rem`
-        paragraph.style.fontSize = `${Math.max(1, width / 600)}rem`
-      }
-    })
-  })
-
-  observer.observe(container)
-  return () => observer.disconnect()
-}
-```
-
-**Use case: Container-based grid layout**
-
-```typescript
-function setupAdaptiveGrid(grid: HTMLElement) {
-  const observer = new ResizeObserver((entries) => {
-    entries.forEach((entry) => {
-      const width = entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width
-
-      // Adjust grid columns based on available width
-      let columns: number
-      if (width < 400) columns = 1
-      else if (width < 800) columns = 2
-      else if (width < 1200) columns = 3
-      else columns = 4
-
-      grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`
-      grid.dataset.columns = String(columns)
-    })
-  })
-
-  observer.observe(grid)
-  return () => observer.disconnect()
-}
-```
-
-**Use case: Textarea auto-resize**
-
-```typescript
-function setupAutoResize(textarea: HTMLTextAreaElement) {
-  const observer = new ResizeObserver((entries) => {
-    // Prevent infinite loops by checking if size actually changed
-    entries.forEach((entry) => {
-      const target = entry.target as HTMLTextAreaElement
-
-      // Reset height to measure scrollHeight
-      target.style.height = "auto"
-
-      // Set height to content height
-      const newHeight = target.scrollHeight + 2 // +2 for border
-      target.style.height = `${newHeight}px`
-    })
-  })
-
-  // Observe the textarea
-  observer.observe(textarea)
-
-  // Also trigger on input
-  textarea.addEventListener("input", () => {
-    textarea.style.height = "auto"
-    textarea.style.height = `${textarea.scrollHeight + 2}px`
-  })
-
-  return () => observer.disconnect()
-}
-```
-
-#### Timing and Edge Cases
-
-ResizeObserver processing occurs **between layout and paint phases** in the rendering pipeline. This timing makes the callback an ideal place for layout changes—modifications only invalidate layout, not paint, avoiding unnecessary repaints.
-
-**Edge cases to know**:
-
-- Observations trigger when elements are inserted/removed from DOM
-- Setting `display: none` fires an observation
-- **Non-replaced inline elements always report empty dimensions** (no intrinsic size)
-- **CSS transforms do NOT trigger observations**—transforms don't change box dimensions, only visual position
-
-**Avoiding infinite loops**:
-
-ResizeObserver can trigger infinite notification loops if your callback modifies observed element dimensions. The browser limits iterations and throws an error:
-
-```typescript
-// ❌ Infinite loop: callback increases size, triggering more callbacks
-const observer = new ResizeObserver((entries) => {
-  entries.forEach((entry) => {
-    const target = entry.target as HTMLElement
-    // Each resize triggers another observation
-    target.style.width = `${entry.contentRect.width + 10}px`
-  })
-})
-
-observer.observe(element)
-// Error: ResizeObserver loop completed with undelivered notifications
-```
-
-**Solutions**:
-
-```typescript
-// ✅ Solution 1: Use requestAnimationFrame to defer changes
-const observer = new ResizeObserver((entries) => {
-  requestAnimationFrame(() => {
-    entries.forEach((entry) => {
-      const target = entry.target as HTMLElement
-      target.style.width = `${entry.contentRect.width + 10}px`
-    })
-  })
-})
-
-// ✅ Solution 2: Track expected size to avoid redundant updates
-const expectedSizes = new WeakMap<Element, number>()
-
-const observer = new ResizeObserver((entries) => {
-  entries.forEach((entry) => {
-    const expectedSize = expectedSizes.get(entry.target)
-    const currentSize = entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width
-
-    // Only update if not at expected size
-    if (currentSize !== expectedSize) {
-      const newSize = currentSize + 10
-      ;(entry.target as HTMLElement).style.width = `${newSize}px`
-      expectedSizes.set(entry.target, newSize)
-    }
-  })
-})
-```
-
-### Observer Performance Comparison
-
-![Observer APIs batch changes and invoke callbacks asynchronously for optimal performance](./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf-light.svg "Observer APIs batch changes and invoke callbacks asynchronously for optimal performance")
-![Observer APIs batch changes and invoke callbacks asynchronously for optimal performance](./diagrams/observer-apis-batch-changes-and-invoke-callbacks-asynchronously-for-optimal-perf-dark.svg)
-
-**Compared to traditional event listeners**:
-
-```typescript
-// ❌ Expensive: scroll handler runs on every scroll event
-window.addEventListener("scroll", () => {
-  document.querySelectorAll(".lazy-image").forEach((img) => {
-    const rect = img.getBoundingClientRect()
-    if (rect.top < window.innerHeight) {
-      loadImage(img)
-    }
-  })
-})
-
-// ✅ Efficient: IntersectionObserver uses browser internals
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (entry.isIntersecting) {
-      loadImage(entry.target)
-      observer.unobserve(entry.target)
-    }
-  })
-})
-
-document.querySelectorAll(".lazy-image").forEach((img) => {
-  observer.observe(img)
-})
-```
-
-**Batching example**:
-
-```typescript
-// Demonstrate batching behavior
-const element = document.getElementById("container")!
-const observer = new ResizeObserver((entries) => {
-  console.log(`Callback invoked with ${entries.length} entries`)
-  console.log("All size changes processed in one batch")
-})
-
-observer.observe(element)
-
-// Rapidly change size multiple times
-element.style.width = "100px"
-element.style.width = "200px"
-element.style.width = "300px"
-
-// Output (single callback invocation):
-// "Callback invoked with 1 entries"
-// "All size changes processed in one batch"
-```
-
----
-
-## Conclusion
-
-DOM APIs reflect decades of web platform evolution, balancing backward compatibility with modern performance requirements. The interface hierarchy separates universal tree operations (Element) from markup-specific behaviors (HTMLElement), enabling consistent APIs across HTML, SVG, and MathML. Selector return types encode liveness semantics directly into collection objects—live HTMLCollection for real-time tracking, static NodeList for one-time queries (with the notable exception of `getElementsByName()` returning a live NodeList). Observer APIs replace polling and event handler patterns with efficient, callback-based change detection integrated into the browser's rendering pipeline.
-
-Understanding these design decisions enables you to choose the right API for each scenario: Element-typed utilities for cross-markup compatibility, `querySelectorAll()` for one-time selections, `getElementsByClassName()` when tracking dynamic DOM state, and Observer APIs for monitoring changes without performance overhead. The specs themselves—particularly the WHATWG DOM Standard and W3C IntersectionObserver spec—provide the authoritative source for edge cases and guarantees when production behavior matters.
-
----
+- Type cross-markup utilities as `Element`. Reach for `HTMLElement` only when you actually need an HTML-only member.
+- Default to `querySelectorAll` plus `for...of`. Keep live collections for the cases where you genuinely want auto-updating views.
+- Prefer `append`/`prepend`/`replaceChildren`/`before`/`after`/`replaceWith`/`remove` over the DOM-1 methods. Use `replaceChildren(...batch)` to swap a subtree atomically; reach for `DocumentFragment` when you need to build the batch off-tree first.
+- Use `closest(selector)` instead of hand-rolled `parentNode` walks, and `previousElementSibling`/`nextElementSibling` instead of the all-node sibling pointers.
+- Default to `MutationObserver` over polling and over the deprecated `MutationEvent` API. Trust the microtask delivery; don't wrap callbacks in `setTimeout(..., 0)` chasing some "more synchronous" behavior.
+- Inside a `ResizeObserver` callback, avoid mutating the observed element's own box. Modify a deeper element or defer to `requestAnimationFrame`.
+- For visibility, reach for `IntersectionObserver`. For geometry-derived behavior on scroll, ask whether an observer can do it before reaching for a scroll handler.
+- Pass `{ passive: true, signal }` to every `addEventListener` you don't need to `preventDefault` on. One `AbortController` per component teardown.
+- For decorative or informational text highlights, reach for the CSS Custom Highlight API. Reserve `Selection` for actually setting the user's selection.
 
 ## Appendix
 
 ### Prerequisites
 
-- JavaScript fundamentals (classes, inheritance, async callbacks)
-- Basic HTML/CSS understanding (elements, attributes, selectors)
-- Familiarity with browser DevTools for DOM inspection
+- JavaScript fundamentals (classes and prototypal inheritance, microtasks, promises).
+- Basic HTML/CSS.
+- DevTools "Elements" and "Performance" panel familiarity.
 
 ### Summary
 
-- **Interface hierarchy**: EventTarget → Node → Element → HTMLElement; Element methods (`querySelector()`, `classList`) work across HTML, SVG, and MathML
-- **Collection liveness**: `querySelectorAll()` returns static NodeList (snapshot); `getElementsByClassName()` returns live HTMLCollection (auto-updates); `getElementsByName()` is an unusual exception returning live NodeList
-- **Observer pattern**: IntersectionObserver, MutationObserver, and ResizeObserver all use async batched callbacks for efficient change detection
-- **IntersectionObserver privacy**: Cross-origin targets have suppressed `rootBounds` and ignored margin options to prevent viewport probing
-- **ResizeObserver timing**: Callbacks execute between layout and paint—ideal for layout changes without extra repaints; CSS transforms don't trigger observations
+- `Element` is the cross-markup base. `HTMLElement` adds HTML-only semantics; `HTMLOrSVGElement` is the mixin that gives `dataset`, `tabIndex`, `autofocus`, `nonce`, `focus()`, and `blur()` to both HTML and SVG.
+- Collections are live by default. `querySelectorAll` is the only spec-static collection method; `getElementsByName` is the spec-quirk live `NodeList`.
+- The modern manipulation API is the variadic `ParentNode`/`ChildNode` mixin methods. `DocumentFragment`, `Range`, and the CSS Custom Highlight API cover the rest of the structural-edit surface.
+- `TreeWalker`/`NodeIterator` exist for traversals selectors cannot express (text/comment nodes, programmatic filters, subtree pruning).
+- Events propagate capture → target → bubble; the target sees both phases. `passive` matters for scroll performance; `signal` matters for cleanup. Shadow DOM retargets `event.target` outside the boundary; `composedPath()` reveals the full path only for `composed` events.
+- Observers have spec-defined timing. `MutationObserver` is microtask-timed. `ResizeObserver` runs between layout and paint with a depth-monotone loop and a defined error path. `IntersectionObserver` is driven by the rendering steps and suppresses geometry across origin boundaries. `PerformanceObserver` is the subscription model for the performance timeline.
+- `AbortController` / `AbortSignal` is the unified cancellation primitive. `AbortSignal.any` and `AbortSignal.timeout` compose. Use one signal per unit of work and attach it to every cancellable thing the unit owns.
 
 ### References
 
-**Specifications (Primary Sources)**
+**Specifications**
 
-- [DOM Standard](https://dom.spec.whatwg.org/) - WHATWG Living Standard (last updated January 2026)
-- [HTML Standard](https://html.spec.whatwg.org/) - WHATWG HTML Specification
-- [IntersectionObserver Specification](https://w3c.github.io/IntersectionObserver/) - W3C Editor's Draft (June 2024)
-- [Resize Observer Module Level 1](https://drafts.csswg.org/resize-observer/) - CSS Working Group Draft
+- [DOM Standard](https://dom.spec.whatwg.org/) — WHATWG Living Standard.
+- [HTML Standard — DOM section](https://html.spec.whatwg.org/multipage/dom.html) — `HTMLElement`, `HTMLOrSVGElement` mixin, `getElementsByName`.
+- [Resize Observer](https://www.w3.org/TR/resize-observer/) — W3C Working Draft.
+- [Intersection Observer](https://www.w3.org/TR/intersection-observer/) — W3C Working Draft.
+- [Performance Timeline Level 2](https://w3c.github.io/performance-timeline/) — `PerformanceObserver`, `buffered` flag.
+- [CSS Custom Highlight API Module Level 1](https://drafts.csswg.org/css-highlight-api-1/).
+- [Selection API](https://w3c.github.io/selection-api/) — W3C.
+- [EditContext API](https://w3c.github.io/edit-context/) — W3C.
+- [SVG 2 — Basic Data Types and Interfaces](https://www.w3.org/TR/SVG2/types.html#InterfaceSVGElement).
 
-**Official Documentation**
+**MDN reference**
 
-- [Element - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/Element)
-- [HTMLElement - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement)
-- [SVGElement - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/SVGElement)
-- [NodeList - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/NodeList)
-- [HTMLCollection - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCollection)
-- [Document: querySelectorAll() - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelectorAll)
-- [IntersectionObserver - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver)
-- [MutationObserver - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver)
-- [ResizeObserver - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver)
-- [Mutation Events Deprecation | Chrome Developers](https://developer.chrome.com/blog/mutation-events-deprecation)
+- [Element](https://developer.mozilla.org/en-US/docs/Web/API/Element), [HTMLElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement), [SVGElement](https://developer.mozilla.org/en-US/docs/Web/API/SVGElement)
+- [NodeList](https://developer.mozilla.org/en-US/docs/Web/API/NodeList), [HTMLCollection](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCollection)
+- [ParentNode](https://developer.mozilla.org/en-US/docs/Web/API/ParentNode), [ChildNode](https://developer.mozilla.org/en-US/docs/Web/API/ChildNode)
+- [TreeWalker](https://developer.mozilla.org/en-US/docs/Web/API/TreeWalker), [NodeIterator](https://developer.mozilla.org/en-US/docs/Web/API/NodeIterator), [NodeFilter](https://developer.mozilla.org/en-US/docs/Web/API/NodeFilter)
+- [DocumentFragment](https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment), [Range](https://developer.mozilla.org/en-US/docs/Web/API/Range), [StaticRange](https://developer.mozilla.org/en-US/docs/Web/API/StaticRange), [Selection](https://developer.mozilla.org/en-US/docs/Web/API/Selection)
+- [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget), [addEventListener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener), [Event.composedPath](https://developer.mozilla.org/en-US/docs/Web/API/Event/composedPath), [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent)
+- [AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController), [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal), [AbortSignal.any](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static), [AbortSignal.timeout](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static)
+- [Using shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM)
+- [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver), [ResizeObserver](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver), [IntersectionObserver](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver), [PerformanceObserver](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver)
+- [CSS Custom Highlight API](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API), [EditContext API](https://developer.mozilla.org/en-US/docs/Web/API/EditContext_API)
 
-**Supplementary Resources**
-
-- [HTMLCollection vs NodeList | FreeCodeCamp](https://www.freecodecamp.org/news/dom-manipulation-htmlcollection-vs-nodelist/)
-- [WHATWG DOM GitHub Repository](https://github.com/whatwg/dom)
+[^hosmixin]: WHATWG HTML Standard, [HTMLOrSVGElement interface mixin](https://html.spec.whatwg.org/multipage/dom.html#htmlorsvgelement) — declares `dataset`, `nonce`, `autofocus`, `tabIndex`, `focus()`, `blur()` and is implemented by both `HTMLElement` and `SVGElement`.
+[^domcoll]: WHATWG DOM Standard §4.2.10, [Old-style collections: NodeList and HTMLCollection](https://dom.spec.whatwg.org/#old-style-collections-nodelist-and-htmlcollection): "A collection can be either live or static. Unless otherwise stated, a collection must be live."
+[^qsastatic]: WHATWG DOM Standard, [`querySelectorAll(selectors)` method steps](https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall): "to return the static result of running scope-match a selectors string …".
+[^genlive]: WHATWG HTML Standard, [`document.getElementsByName(name)`](https://html.spec.whatwg.org/multipage/dom.html#dom-document-getelementsbyname): "must return a live `NodeList` containing all the HTML elements in that document that have a name attribute whose value is equal to the name argument".
+[^moqueue]: WHATWG DOM Standard §4.3, [`queue a mutation observer microtask`](https://dom.spec.whatwg.org/#queue-a-mutation-observer-microtask) and [`notify mutation observers`](https://dom.spec.whatwg.org/#notify-mutation-observers).
+[^mutevents]: Chrome for Developers, [Mutation Events deprecation and removal](https://developer.chrome.com/blog/mutation-events-deprecation).
+[^docfrag]: WHATWG DOM Standard, the insert algorithm moves a `DocumentFragment`'s children to the parent and leaves the fragment empty; see [`DocumentFragment`](https://dom.spec.whatwg.org/#interface-documentfragment) and the [insert steps](https://dom.spec.whatwg.org/#concept-node-insert).
+[^treewalker]: WHATWG DOM Standard §6, [Traversal](https://dom.spec.whatwg.org/#traversal); `NodeFilter.FILTER_REJECT` for `NodeIterator` is treated identically to `FILTER_SKIP`.
+[^rospec]: W3C Resize Observer §3, [Algorithms](https://www.w3.org/TR/resize-observer/#algorithms): the rendering steps gather active observations, broadcast them, recalc styles and layout, gather at the new depth, and only then update the rendering.
+[^roloop]: W3C Resize Observer §3.5, [Deliver Resize Loop Error notification](https://www.w3.org/TR/resize-observer/#deliver-resize-loop-error); MDN, [ResizeObserver](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) for the exact `ErrorEvent` message.
+[^rotransform]: W3C Resize Observer, "Observations will not be triggered by CSS transforms" — transforms do not change box dimensions.
+[^iocrossorigin]: W3C Intersection Observer, [§2 Intersection Observer Concepts](https://www.w3.org/TR/intersection-observer/#intersection-observer-concepts) — for cross-origin-domain targets, `rootBounds` is `null` and `rootMargin`/`scrollMargin` offsets are ignored.
+[^dispatchspec]: WHATWG DOM Standard §2.9, [Dispatching events](https://dom.spec.whatwg.org/#dispatching-events) and [the dispatch algorithm](https://dom.spec.whatwg.org/#concept-event-dispatch).
+[^addeventlistener]: MDN, [EventTarget.addEventListener — `options` parameter](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options) — `capture`, `once`, `passive`, `signal`.
+[^passivedefault]: WHATWG DOM Standard, [event listener options — passive](https://dom.spec.whatwg.org/#dom-addeventlisteneroptions-passive); the spec specifies the **passive default targets** for which `wheel`, `touchstart`, and `touchmove` are passive unless explicitly overridden.
+[^composedpath]: MDN, [Event.composedPath](https://developer.mozilla.org/en-US/docs/Web/API/Event/composedPath) — closed shadow roots elide their internals; WHATWG DOM Standard, [`composed`](https://dom.spec.whatwg.org/#dom-event-composed) and [retargeting](https://dom.spec.whatwg.org/#retarget).
+[^abortcontroller]: WHATWG DOM Standard §3, [`AbortController`](https://dom.spec.whatwg.org/#interface-abortcontroller) and [`AbortSignal`](https://dom.spec.whatwg.org/#interface-abortsignal).
+[^anymdn]: MDN, [`AbortSignal.any()`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static) and [`AbortSignal.timeout()`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static) — Baseline 2024.
+[^cssch]: W3C, [CSS Custom Highlight API Module Level 1](https://drafts.csswg.org/css-highlight-api-1/); MDN, [CSS Custom Highlight API](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API) — Baseline June 2025.
+[^perfobs]: W3C, [Performance Timeline](https://w3c.github.io/performance-timeline/#dom-performanceobserver); MDN, [PerformanceObserver](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver).
+[^editcontext]: W3C, [EditContext API](https://w3c.github.io/edit-context/); MDN, [EditContext API](https://developer.mozilla.org/en-US/docs/Web/API/EditContext_API) — currently experimental, behind flags in non-Chromium engines.

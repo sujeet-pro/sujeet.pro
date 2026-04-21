@@ -1,0 +1,40 @@
+%% Diagram: Preference resolution cascade
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    IN["Notification\n(user_id, category, channels)"]
+    G{"Global enabled?"}
+    C{"Category enabled\nfor user?"}
+    OV{"Category-level\nchannel override?"}
+    EFF["Effective channel set\n= override AND requested"]
+    DEF["Effective channel set\n= channel prefs AND requested"]
+    LOOP["For each channel\nin effective set"]
+    CHAN{"Channel enabled?"}
+    FREQ{"Per-channel\nfrequency cap left?\n(maxPerHour, maxPerDay)"}
+    QH{"In quiet hours?"}
+    PCRIT{"priority == critical?"}
+    DISPATCH["Dispatch on this channel"]
+    DEFER["Schedule for end of\nquiet-hours window"]
+    DROP_G["Drop:\nglobal_off"]
+    DROP_C["Drop:\ncategory_off"]
+    DROP_CH["Skip channel:\nchannel_off"]
+    DROP_F["Skip channel:\nfrequency_capped"]
+
+    IN --> G
+    G -- "no" --> DROP_G
+    G -- "yes" --> C
+    C -- "no" --> DROP_C
+    C -- "yes" --> OV
+    OV -- "yes" --> EFF
+    OV -- "no" --> DEF
+    EFF --> LOOP
+    DEF --> LOOP
+    LOOP --> CHAN
+    CHAN -- "no" --> DROP_CH
+    CHAN -- "yes" --> FREQ
+    FREQ -- "no" --> DROP_F
+    FREQ -- "yes" --> QH
+    QH -- "no" --> DISPATCH
+    QH -- "yes" --> PCRIT
+    PCRIT -- "yes" --> DISPATCH
+    PCRIT -- "no" --> DEFER

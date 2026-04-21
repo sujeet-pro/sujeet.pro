@@ -1,0 +1,16 @@
+%% Diagram: Service Worker lifecycle
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> Parsed: register(scriptURL)
+    Parsed --> Installing: install event
+    Installing --> Installed: precache complete
+    Installing --> Redundant: install rejected
+    Installed --> Activating: activate event
+    Activating --> Activated: claim() resolved
+    Activated --> Dormant: idle ~30s
+    Dormant --> Activated: next event<br/>(fetch / push / msg)
+    Activated --> Redundant: new SW activated
+    Dormant --> Redundant: new SW activated
+    Redundant --> [*]

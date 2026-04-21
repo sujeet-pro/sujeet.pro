@@ -1,0 +1,23 @@
+%% Diagram: Guest-to-user cart merge
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[User logs in with guest_token] --> B{User has existing cart?}
+    B -->|No| C[Convert guest cart to user cart]
+    B -->|Yes| D[Load both carts under row locks]
+    D --> E[For each guest cart item]
+    E --> F{Item exists in user cart?}
+    F -->|No| G[Add item to user cart]
+    F -->|Yes| H{Merge strategy}
+    H -->|Sum quantities| I[Add quantities, cap at max_per_order]
+    H -->|Keep higher| J[Take max quantity]
+    H -->|Keep user| K[Ignore guest item]
+    G --> L{More items?}
+    I --> L
+    J --> L
+    K --> L
+    L -->|Yes| E
+    L -->|No| M[Re-issue reservations against user cart]
+    M --> N[Mark guest cart as merged]
+    N --> O[Return merged cart]
+    C --> O

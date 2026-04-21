@@ -1,0 +1,13 @@
+flowchart LR
+  A[Author schema v2<br/>in producer repo] --> B[Local diff vs<br/>registered v1]
+  B --> C{Compatibility<br/>check}
+  C -- BACKWARD<br/>fails --> X[Block CI<br/>fix or version bump]
+  C -- BACKWARD<br/>passes --> D[Register v2<br/>at schema registry]
+  D --> E1[Roll out new consumers<br/>that understand v1 and v2]
+  E1 --> E2[Roll out producers<br/>emitting v2]
+  E2 --> F[Drain remaining v1<br/>events from topic]
+  F --> G{Breaking change<br/>required?}
+  G -- no --> H[Optional cleanup:<br/>retire upcaster in consumer]
+  G -- yes --> I[Publish new event type<br/>OrderPlacedV2]
+  I --> J[Run V1 and V2<br/>in parallel for window]
+  J --> K[Switch consumers<br/>to V2; retire V1]

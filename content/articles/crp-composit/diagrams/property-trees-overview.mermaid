@@ -1,0 +1,25 @@
+%% Diagram: Property trees and the per-element PropertyTreeState 4-tuple
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Element["DOM element / paint chunk"]
+        PTS["PropertyTreeState<br/>{ transform_id,<br/>&nbsp;&nbsp;clip_id,<br/>&nbsp;&nbsp;effect_id,<br/>&nbsp;&nbsp;scroll_id }"]
+    end
+
+    subgraph Trees["Property Trees (one per type)"]
+        direction TB
+        TT["Transform Tree<br/>2D/3D transforms<br/>scroll offsets as 2D translations<br/>cached screen-space matrix"]
+        CT["Clip Tree<br/>overflow clips<br/>clip-path<br/>cached visual rect"]
+        ET["Effect Tree<br/>opacity, filter,<br/>mix-blend-mode, mask,<br/>backdrop filters"]
+        ST["Scroll Tree<br/>scroll-chain metadata<br/>nested scrollers, bounds,<br/>latching"]
+    end
+
+    PTS -- "transform_id" --> TT
+    PTS -- "clip_id" --> CT
+    PTS -- "effect_id" --> ET
+    PTS -- "scroll_id" --> ST
+
+    TT -- "owned by" --> Compositor["cc::PropertyTrees<br/>(committed copy<br/>on compositor thread)"]
+    CT --> Compositor
+    ET --> Compositor
+    ST --> Compositor

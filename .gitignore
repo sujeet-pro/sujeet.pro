@@ -5,3 +5,4 @@ dev/
 **/diagrams/manifest.json
 test-results/
 playwright-report/
+.temp/

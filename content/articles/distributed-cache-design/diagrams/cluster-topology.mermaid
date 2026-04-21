@@ -1,0 +1,52 @@
+%% Diagram: Distributed cache cluster topology with primaries, replicas, and gossip
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph clients["Clients (with cluster-aware libraries)"]
+        direction LR
+        C1["App"]
+        C2["App"]
+        C3["App"]
+    end
+
+    subgraph proxy["Optional proxy tier (mcrouter / twemproxy)"]
+        P["Connection multiplex\nconsistent hashing\nprotocol routing"]
+    end
+
+    subgraph shard1["Shard 1 (slots 0-5460)"]
+        P1["Primary"]
+        R1A["Replica A"]
+        R1B["Replica B"]
+        P1 -.->|"async\nreplication"| R1A
+        P1 -.->|"async\nreplication"| R1B
+    end
+
+    subgraph shard2["Shard 2 (slots 5461-10922)"]
+        P2["Primary"]
+        R2A["Replica A"]
+        P2 -.->|"async"| R2A
+    end
+
+    subgraph shard3["Shard 3 (slots 10923-16383)"]
+        P3["Primary"]
+        R3A["Replica A"]
+        P3 -.->|"async"| R3A
+    end
+
+    C1 & C2 & C3 --> proxy
+    proxy --> P1
+    proxy --> P2
+    proxy --> P3
+
+    P1 <-.->|"gossip:\nPING/PONG\nFAIL, UPDATE"| P2
+    P2 <-.->|"gossip"| P3
+    P1 <-.->|"gossip"| P3
+
+    classDef client fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef router fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef replica fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class C1,C2,C3 client
+    class P router
+    class P1,P2,P3 primary
+    class R1A,R1B,R2A,R3A replica

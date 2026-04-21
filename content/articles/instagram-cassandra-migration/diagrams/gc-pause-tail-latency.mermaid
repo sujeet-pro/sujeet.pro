@@ -1,0 +1,33 @@
+%% Diagram: How JVM stop-the-world GC pauses inflate Cassandra P99 read latency
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Cli as Client
+    participant Coord as Cassandra coordinator (JVM)
+    participant Mut as Mutator threads
+    participant GC as JVM GC (stop-the-world)
+    participant Disk as SSTable / page cache
+
+    Note over Coord,Mut: Steady state — typical read ~5 ms
+    Cli->>Coord: read(key)
+    Coord->>Mut: schedule read task
+    Mut->>Disk: fetch row from memtable + SSTable
+    Disk-->>Mut: row bytes
+    Mut-->>Coord: response
+    Coord-->>Cli: 5 ms (avg case)
+
+    Note over Mut,GC: Eden fills from row + iterator + buffer allocations
+    GC->>Coord: STW Young GC begins
+    Note over Coord,Mut: All mutator threads paused for tens of ms
+    Cli->>Coord: read(key) (queued)
+    Cli->>Coord: read(key) (queued)
+    Cli->>Coord: read(key) (queued)
+    GC-->>Coord: STW Young GC ends
+
+    Note over Coord,Cli: Backlog drains — every queued read inherits the pause
+    Coord-->>Cli: 25-60 ms (P99 spike)
+    Coord-->>Cli: 25-60 ms (P99 spike)
+    Coord-->>Cli: 25-60 ms (P99 spike)
+
+    Note over GC,Disk: GC stalls consumed 1.25 % of wall time at low traffic, 2.5 % at peak<br/>→ dominant source of P99 variance, independent of disk or network

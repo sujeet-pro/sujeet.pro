@@ -1,0 +1,22 @@
+%% Diagram: SSRF defense — URL validation pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Outbound URL from user input"]) --> Parse{"Parse URL"}
+    Parse -- "fail" --> Reject["Reject"]
+    Parse -- "ok" --> Scheme{"scheme in {http, https}?"}
+    Scheme -- "no" --> Reject
+    Scheme -- "yes" --> HostList{"hostname in deny list?"}
+    HostList -- "yes" --> Reject
+    HostList -- "no" --> Resolve["DNS resolve A/AAAA records"]
+    Resolve --> AllResolved{"every resolved IP<br/>outside RFC 1918, link-local,<br/>cloud metadata, loopback?"}
+    AllResolved -- "no" --> Reject
+    AllResolved -- "yes" --> Connect["Open TCP socket<br/>(pin to resolved IP, not hostname)"]
+    Connect --> Recheck{"Re-resolve before reconnect?<br/>(DNS rebinding defense)"}
+    Recheck -- "drift" --> Reject
+    Recheck -- "stable" --> Allow["Allow request"]
+
+    classDef reject fill:#fee,stroke:#a00,color:#600
+    classDef allow fill:#efe,stroke:#070,color:#040
+    class Reject reject
+    class Allow allow

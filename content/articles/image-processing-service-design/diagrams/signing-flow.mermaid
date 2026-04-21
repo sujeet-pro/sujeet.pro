@@ -1,0 +1,29 @@
+%% Diagram: HMAC-SHA256 signing + edge verification flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Caller App
+    participant Signer as Signature Service
+    participant Edge as CDN / Edge Worker
+    participant Origin
+
+    Note over App,Signer: 1. Mint signed URL
+    App->>Signer: path, exp, kid, tenantId
+    Signer->>Signer: canonical = METHOD + path + exp + host + tenantId
+    Signer->>Signer: sig = base64url(HMAC-SHA256(secret_kid, canonical))
+    Signer-->>App: URL?sig=...&exp=...&kid=...
+
+    Note over App,Edge: 2. Use signed URL
+    App->>Edge: GET URL
+    Edge->>Edge: parse sig, exp, kid
+    Edge->>Edge: reject if now > exp
+    Edge->>Edge: lookup secret_kid (KV / secret store)
+    Edge->>Edge: recompute canonical + HMAC
+    alt timingSafeEqual ok
+        Edge->>Edge: strip sig/exp/kid from cache key
+        Edge->>Origin: forward (normalized cache key)
+        Origin-->>Edge: 200 image bytes
+        Edge-->>App: 200 (cacheable)
+    else mismatch or expired
+        Edge-->>App: 401 Unauthorized
+    end

@@ -1,0 +1,29 @@
+%% Diagram: Rocksandra architecture — pluggable storage engine isolating JVM coordination from C++ storage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["CQL client"] --> Coord
+
+    subgraph JVM["Cassandra coordinator (JVM)"]
+        Coord["Coordinator<br/>gossip · request routing"]
+        Repl["Replication &<br/>consistency layer"]
+        Stream["Streaming<br/>(repair, bootstrap)"]
+        API[["StorageEngine API<br/>CASSANDRA-13474"]]
+        Coord --> Repl
+        Repl --> API
+        Stream --> API
+    end
+
+    subgraph Engine["RocksDBEngine (C++ via JNI)"]
+        Encode["Schema encode/decode<br/>CASSANDRA-13476"]
+        SST["SST ingest API<br/>(bulk-load streams)"]
+        RDB[("RocksDB<br/>LSM, no JVM heap")]
+        Encode --> RDB
+        SST --> RDB
+    end
+
+    API --> Encode
+    API --> SST
+
+    Note["No Java GC on read/write/compaction path<br/>P99 stable at ~20ms vs prior 25-60ms"]
+    RDB --- Note

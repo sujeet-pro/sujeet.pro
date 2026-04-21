@@ -1,0 +1,39 @@
+%% Diagram: Compound Component Structure
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    APP["Consumer JSX"]
+
+    subgraph PARENT["Tabs (parent / context owner)"]
+        direction TB
+        STATE["useState(activeId)<br/>+ keyboard handlers"]
+        PROVIDER["TabsContext.Provider<br/>{activeId, setActiveId}"]
+        STATE --> PROVIDER
+    end
+
+    subgraph CHILDREN["Compound children (consumers)"]
+        direction TB
+        LIST["Tabs.List<br/>role=tablist"]
+        TRIGGER["Tabs.Trigger id<br/>role=tab<br/>aria-selected"]
+        PANEL["Tabs.Panel id<br/>role=tabpanel<br/>aria-labelledby"]
+        LIST --> TRIGGER
+        TRIGGER -.->|matches id| PANEL
+    end
+
+    APP --> PARENT
+    PROVIDER --> CHILDREN
+    TRIGGER -->|setActiveId on click /<br/>ArrowRight / ArrowLeft| STATE
+    STATE -->|activeId determines<br/>which Panel is visible| PANEL
+
+    NOTES["Each child reads useTabsContext()<br/>and renders the right ARIA role.<br/>Roving tabindex lives in Tabs.List.<br/>Public API stays small;<br/>internals stay private."]
+
+    CHILDREN --- NOTES
+
+    classDef app fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+    classDef parent fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef child fill:#1F6E68,stroke:#155752,color:#fff
+    classDef note fill:#8B5E15,stroke:#6E4810,color:#fff
+    class APP app
+    class STATE,PROVIDER parent
+    class LIST,TRIGGER,PANEL child
+    class NOTES note

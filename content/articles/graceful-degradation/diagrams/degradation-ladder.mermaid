@@ -1,0 +1,22 @@
+%% Diagram: degradation-ladder
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    L0["L0 Healthy<br/>full functionality, real-time data"]
+    L1["L1 Degraded<br/>cached / stale data"]
+    L2["L2 Limited<br/>non-critical features off"]
+    L3["L3 Minimal<br/>read-only, writes rejected"]
+    L4["L4 Static<br/>defaults, no personalization"]
+    L5["L5 Unavailable<br/>error + Retry-After"]
+
+    L0 -- "rising errors / latency" --> L1
+    L1 -- "feature SLO breached" --> L2
+    L2 -- "write path failing" --> L3
+    L3 -- "primary stores unreachable" --> L4
+    L4 -- "all fallbacks exhausted" --> L5
+
+    L1 -. "dependency healthy" .-> L0
+    L2 -. "feature SLO restored" .-> L1
+    L3 -. "writes accepted" .-> L2
+    L4 -. "personalization back" .-> L3
+    L5 -. "any path returns" .-> L4

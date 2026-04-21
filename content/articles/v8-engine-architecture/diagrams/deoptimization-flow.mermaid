@@ -1,0 +1,21 @@
+%% Diagram: Deoptimization flow — speculative check failure to interpreter resumption
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start([Optimized code: Maglev / TurboFan]) --> Check{Speculative<br/>check passes?}
+    Check -->|"yes"| Continue[Continue in optimized tier]
+    Check -->|"no — kWrongMap, kNotASmi, ..."| Eager[Eager deopt at bytecode offset N]
+
+    External[External invalidation<br/>e.g. prototype mutation] -.->|"mark function"| Lazy[Lazy deopt — bails on next invocation]
+
+    Eager --> Capture[Capture CPU registers + stack into FrameDescription]
+    Lazy --> Capture
+    Capture --> Translate[Translate optimized frame to interpreter frame]
+    Translate --> UpdateFV[Update FeedbackVector — IC slot drifts mono → poly → mega]
+    UpdateFV --> Replace[Pop optimized frame; push interpreter frame]
+    Replace --> Resume([Resume Ignition at bytecode offset N])
+
+    style Start fill:#e8f5e8
+    style Resume fill:#e3f2fd
+    style Eager fill:#fff3e0
+    style Lazy fill:#fff3e0

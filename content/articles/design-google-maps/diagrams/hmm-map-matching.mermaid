@@ -1,0 +1,42 @@
+%% Diagram: HMM map matching for GPS probes
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Observations["GPS observations"]
+        Z1["z1"]
+        Z2["z2"]
+        Z3["z3"]
+    end
+
+    subgraph Candidates["Candidate road segments (within ~200 m)"]
+        S1a["seg A"]
+        S1b["seg B"]
+        S2a["seg A"]
+        S2b["seg B"]
+        S2c["seg C"]
+        S3a["seg B"]
+        S3b["seg C"]
+    end
+
+    Z1 -. emission .-> S1a
+    Z1 -. emission .-> S1b
+    Z2 -. emission .-> S2a
+    Z2 -. emission .-> S2b
+    Z2 -. emission .-> S2c
+    Z3 -. emission .-> S3a
+    Z3 -. emission .-> S3b
+
+    S1a -- transition --> S2a
+    S1a -- transition --> S2b
+    S1b -- transition --> S2b
+    S1b -- transition --> S2c
+    S2a -- transition --> S3a
+    S2b -- transition --> S3a
+    S2b -- transition --> S3b
+    S2c -- transition --> S3b
+
+    Viterbi["Viterbi: argmax over sequences"]
+    S1b --> Viterbi
+    S2b --> Viterbi
+    S3a --> Viterbi
+    Viterbi --> Path["matched: B → B → B"]

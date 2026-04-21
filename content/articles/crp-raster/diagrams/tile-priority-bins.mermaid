@@ -1,0 +1,23 @@
+%% Diagram: Tile priority bins relative to viewport
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Layer["Composited layer (logical pixel space)"]
+        direction TB
+        Now["NOW<br/>visible viewport tiles<br/>blocks activation"]
+        Soon["SOON<br/>≈ 1 viewport away<br/>scheduled to prevent checkerboard"]
+        Eventually["EVENTUALLY<br/>further out<br/>worked on when raster pool idle"]
+        Outside["Outside prepaint window<br/>not scheduled<br/>memory reclaimed"]
+    end
+
+    Now --> Soon
+    Soon --> Eventually
+    Eventually --> Outside
+
+    Budget["GPU memory budget<br/>(soft / hard limits)"]
+    Policy["TileMemoryLimitPolicy<br/>ALLOW_NOTHING → ANYTHING"]
+    Tree["TreePriority<br/>SMOOTHNESS · NEW_CONTENT · SAME"]
+
+    Budget --> Now
+    Policy --> Now
+    Tree --> Now

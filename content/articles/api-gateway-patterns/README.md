@@ -1,70 +1,70 @@
 ---
-title: 'API Gateway Patterns: Routing, Auth, and Policies'
-linkTitle: 'API Gateway'
+title: "API Gateway Patterns: Routing, Auth, and Policies"
+linkTitle: "API Gateway"
 description: >-
   Design choices for API gateways covering routing strategies, JWT and API key authentication,
-  rate limiting algorithms, and BFF patterns, with production examples from Netflix, Stripe, and AWS.
+  rate limiting algorithms, BFF and service-mesh interplay, with cited production data from Netflix, Stripe, Canva, AWS, and Kong.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - infrastructure
   - system-design
   - distributed-systems
+  - networking
+  - patterns
 ---
 
 # API Gateway Patterns: Routing, Auth, and Policies
 
-Centralized traffic management for microservices: design choices for routing, authentication, rate limiting, and protocol translation—with real-world implementations from Netflix, Google, and Amazon.
+An API gateway concentrates the cross-cutting policies that every microservice would otherwise reimplement: TLS termination, authentication, rate limiting, routing, transformation, caching, and observability. Centralization is the value, and centralization is the risk: the gateway becomes a load-bearing piece of infrastructure whose failure modes are global. This article walks a senior engineer through the choices that decide whether the gateway is a resilience layer or a single point of failure, with citations and worked examples from Netflix Zuul, Envoy, Kong, AWS API Gateway, Apigee, and the [Canva 2024-11-12 outage](https://www.canva.dev/blog/engineering/canva-incident-report-api-gateway-outage/).
 
-![API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.](./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th-light.svg "API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.")
-![API gateway as the enforcement point for cross-cutting concerns. Requests flow through auth, rate limiting, and routing before reaching backends. Observability captures metrics at every stage.](./diagrams/api-gateway-as-the-enforcement-point-for-cross-cutting-concerns-requests-flow-th-dark.svg)
+![API gateway as the enforcement point for cross-cutting concerns. Requests traverse auth, rate limiting, routing, transformation, and the response cache before reaching backends; the control plane streams logs, metrics, and traces.](./diagrams/gateway-overview-light.svg "API gateway as the enforcement point for cross-cutting concerns. Requests traverse auth, rate limiting, routing, transformation, and the response cache before reaching backends; the control plane streams logs, metrics, and traces.")
+![API gateway as the enforcement point for cross-cutting concerns. Requests traverse auth, rate limiting, routing, transformation, and the response cache before reaching backends; the control plane streams logs, metrics, and traces.](./diagrams/gateway-overview-dark.svg)
 
-## Abstract
+## Mental model
 
-API gateways solve the "N×M problem" in microservices: without a gateway, every client type (web, mobile, partner) must implement authentication, rate limiting, and service discovery against every backend service. Gateways centralize these cross-cutting concerns at a single enforcement point.
+The gateway is a programmable reverse proxy with strong opinions about policy. Read the [microservices.io API Gateway pattern](https://microservices.io/patterns/apigateway.html) for the canonical statement: it solves the *N×M problem* (N client types speaking to M services) by centralizing what would otherwise be duplicated client-side or service-side. The core trade-off is **centralization vs coupling**: a single enforcement point simplifies clients and standardizes policy but turns the gateway into shared fate.
 
-The core trade-off: **centralization vs coupling**. A gateway simplifies clients but becomes a critical dependency. Design choices determine whether that dependency is an operational risk (single point of failure) or a resilience layer (circuit breaking, graceful degradation).
+| Concern        | Gateway responsibility                | Why at the gateway                                |
+| -------------- | ------------------------------------- | ------------------------------------------------- |
+| Authentication | JWT verification, API key lookup      | Reject unauthorized requests before backend load  |
+| Rate limiting  | Token bucket, sliding window          | Protect backends from abuse at the edge           |
+| Routing        | Path/header-based dispatch            | Decouple client URLs from service topology        |
+| Transformation | Protocol translation, payload shaping | Adapt external formats to internal contracts      |
+| Observability  | Trace initiation, access logs         | Capture full request context at a single entry    |
 
-| Concern        | Gateway Responsibility                | Why at Gateway                                   |
-| -------------- | ------------------------------------- | ------------------------------------------------ |
-| Authentication | JWT validation, API key lookup        | Reject unauthorized requests before backend load |
-| Rate limiting  | Token bucket, sliding window          | Protect backends from abuse at edge              |
-| Routing        | Path/header-based dispatch            | Decouple client URLs from service topology       |
-| Transformation | Protocol translation, payload shaping | Adapt external formats to internal contracts     |
-| Observability  | Trace initiation, access logs         | Capture full request context at entry point      |
+There are three deployment shapes the rest of the article keeps coming back to:
 
-Key architectural patterns:
+- **Edge gateway** for north-south traffic from the public internet.
+- **Internal gateway / service mesh** for east-west service-to-service traffic.
+- **Backend for Frontend (BFF)** as a per-client gateway tier, [popularized by Sam Newman](https://samnewman.io/patterns/architectural/bff/) and the SoundCloud team.
 
-- **Edge gateway**: External traffic, strict security, global distribution
-- **Internal gateway**: Service-to-service, lighter auth, service mesh integration
-- **BFF (Backend for Frontend)**: Client-specific aggregation, mobile-optimized payloads
+## Gateway responsibilities
 
-## Gateway Responsibilities
+### Request routing
 
-### Request Routing
+Gateways decouple client-facing URLs from backend service topology. Clients call `/api/users` regardless of which service, version, or zone handles the request.
 
-Gateways decouple client-facing URLs from backend service topology. Clients call `/api/users` regardless of which service, version, or datacenter handles the request.
+**Path-based routing** (most common):
 
-**Path-based routing:**
-
-```
+```text
 /api/v1/users/* → user-service-v1
 /api/v2/users/* → user-service-v2
 /api/orders/*   → order-service
 /static/*       → CDN origin
 ```
 
-**Header-based routing:**
+**Header-based routing**:
 
+```text
+Stripe-Version: 2026-03-25 → service-v2026-03-25
+X-Client-Type: mobile      → mobile-optimized-backend
+X-Tenant-ID: acme          → tenant-acme-cluster
 ```
-X-API-Version: 2023-10 → service-v2023-10
-X-Client-Type: mobile  → mobile-optimized-backend
-X-Tenant-ID: acme      → tenant-acme-cluster
-```
 
-**Weighted traffic splitting:** Critical for canary deployments. Route 5% of traffic to new version, 95% to stable:
+**Weighted traffic splitting** for canary releases:
 
-```yaml
+```yaml title="canary-route.yaml"
 routes:
   - match: /api/users
     backends:
@@ -74,85 +74,66 @@ routes:
         weight: 95
 ```
 
-**Design consideration:** Path-based versioning (`/v1/`, `/v2/`) is explicit but pollutes URLs. Header-based versioning keeps URLs clean but requires client configuration. Netflix and Stripe use header-based versioning for internal APIs, path-based for public APIs where discoverability matters.
+**Trade-off**: path-based versioning (`/v1/`, `/v2/`) is explicit and discoverable but pollutes URLs and makes evolving identifiers painful. Header-based versioning keeps URLs stable but requires client cooperation. Stripe's public API uses [date-based version headers](https://docs.stripe.com/api/versioning) (`Stripe-Version: 2026-03-25`), with each account *pinned* to a specific version on first use and per-request override available. This lets old SDKs run unchanged for years while new clients opt in to fresh behavior.
 
-### Authentication and Authorization
+### Authentication and authorization
 
-Gateways validate credentials before requests reach backends, rejecting unauthorized traffic at the edge.
+Gateways verify credentials before requests reach backends, rejecting unauthorized traffic at the edge so it does not consume backend capacity.
 
-**JWT validation (stateless):**
+**JWT verification (stateless).** A JWT is a signed JSON envelope defined by [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519); the OAuth profile for it as a bearer access token is [RFC 9068](https://datatracker.ietf.org/doc/html/rfc9068). The gateway:
 
-1. Gateway extracts token from `Authorization: Bearer <token>` header
-2. Validates signature using cached public key from identity provider
-3. Checks `exp`, `iat`, `iss`, `aud` claims
-4. Forwards validated claims to backend via headers
+1. Reads the token from the `Authorization: Bearer <token>` header.
+2. Decodes the JOSE header, looks up the `kid` against a cached [JWKS](https://datatracker.ietf.org/doc/html/rfc7517) (`/.well-known/jwks.json`).
+3. Verifies the signature using the IdP's public key.
+4. Validates the registered claims (`exp`, `iat`, `nbf`, `iss`, `aud`).
+5. Forwards the validated claims to the backend as immutable headers.
 
-**Why at gateway:** A single JWT validation implementation serves all backends. Without gateway auth, each service re-implements token validation—N services × risk of inconsistent implementations.
+![JWT validation sequence at the gateway with cached JWKS, key-rotation refetch, and per-claim verification.](./diagrams/jwt-validation-sequence-light.svg "JWT validation at the gateway with cached JWKS and key-rotation handling.")
+![JWT validation sequence at the gateway with cached JWKS, key-rotation refetch, and per-claim verification.](./diagrams/jwt-validation-sequence-dark.svg)
 
-**Token introspection (stateful):** For opaque tokens or revocation requirements, gateway calls authorization server to validate. Adds latency (~10-50ms per request) but enables immediate revocation.
+> [!IMPORTANT]
+> Two JWT footguns the gateway must handle correctly. First, **never accept `alg: none`** — reject the token before signature verification if the header advertises a non-allow-listed algorithm. Second, when a token arrives with a `kid` not in the JWKS cache, refetch the JWKS once before rejecting: this is how key rotation propagates without client downtime. Use the JWKS endpoint's `Cache-Control` headers and a minimum refetch interval (5–10 min) to avoid abuse.
 
-**API key validation:**
+**Token introspection (stateful).** [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662) defines a synchronous lookup against the authorization server for opaque tokens or revocation enforcement. Cost: a network round trip per request (typically tens of ms). Use it when immediate revocation matters more than latency.
 
-1. Gateway extracts key from header or query param
-2. Looks up key in fast store (Redis, local cache)
-3. Retrieves associated rate limits, quotas, permissions
-4. Forwards tenant context to backend
+**API key lookup.** A pre-shared secret keyed against a fast store (Redis, local cache) that returns the associated tenant, rate-limit bucket, and permissions. Cheaper than JWT for partner APIs where keys are long-lived and revocation is administrative.
 
-**Authorization patterns:**
+**Authorization layering.** Coarse-grained checks at the gateway (route-level: *can this principal call this endpoint?*); fine-grained checks at the service (resource-level: *can this principal access this specific record?*). The gateway should never need to read application data to make an auth decision.
 
-| Pattern                   | Where   | When                                                          |
-| ------------------------- | ------- | ------------------------------------------------------------- |
-| Coarse-grained at gateway | Gateway | Route-level access (can user call this endpoint?)             |
-| Fine-grained at service   | Backend | Resource-level access (can user access this specific record?) |
+### Rate limiting and quotas
 
-**Real-world:** AWS API Gateway supports JWT authorizers with <1ms validation latency when using cached public keys. Custom authorizers (Lambda) add 50-100ms cold start overhead.
+Rate limiting protects backends from abuse and shares capacity fairly across clients.
 
-### Rate Limiting and Quota Enforcement
+**Token bucket** is the workhorse. The parameter set appears in IETF traffic-control work as far back as the [RFC 1363 flow specification](https://datatracker.ietf.org/doc/html/rfc1363) (`Token Bucket Rate`, `Token Bucket Size`) and is documented in the Diffserv informal management model ([RFC 3290](https://www.rfc-editor.org/rfc/rfc3290.html), token-bucket meter and shaper). It parameterizes a flow as a refill rate `R` and a burst size `B`. Each request consumes one token; idle clients accumulate up to `B` tokens and can burst, then drain back to the steady-state `R`.
 
-Rate limiting protects backends from abuse and ensures fair resource allocation among clients.
+**Leaky bucket** (RFC 3290, shaper section) is the dual: requests queue and depart at a constant rate, smoothing bursts into a steady stream. Use it when the constraint is *downstream throughput*, not *fairness*.
 
-**Token bucket algorithm (most common):**
+**Sliding window log** stores the timestamp of every request inside the window and counts entries. Most accurate, highest memory.
 
-- Bucket holds tokens up to maximum capacity
-- Tokens added at fixed rate (e.g., 100/second)
-- Each request consumes one token
-- When empty, requests rejected with 429
+**Sliding window counter** is the practical compromise: combine the current window's count with a weighted slice of the previous window's. If the current minute is 40s in with 50 requests and the previous minute had 100, the weighted count is `50 + 100 × (60 − 40)/60 ≈ 83`. Bounded memory, near-sliding accuracy, no per-request log.
 
-**Why token bucket:** Handles burst traffic naturally. If a client is idle, tokens accumulate (up to bucket size). Short bursts are allowed; sustained overload is blocked.
+**Distributed accuracy.** With multiple gateway instances, a local counter undercounts because each instance only sees a slice of traffic. The Kong rate-limiting plugin documents [three policies for this exact problem](https://developer.konghq.com/plugins/rate-limiting/):
 
-**Sliding window log:**
+| Policy | Storage | Accuracy | Latency cost | When |
+| --- | --- | --- | --- | --- |
+| `local`   | In-memory per node                  | Approximate (drifts with node count) | Lowest  | High throughput, slight overrun acceptable |
+| `cluster` | Kong data store (e.g., Postgres)    | Accurate                             | Highest (DB round trip per request); not supported in Konnect/hybrid | Small clusters, audit-strict limits |
+| `redis`   | Shared Redis                        | Accurate                             | Medium (≈1 ms per request)            | Default for distributed enforcement |
 
-- Track timestamp of each request
-- Count requests in sliding window (e.g., last 60 seconds)
-- More accurate than fixed windows but higher memory (stores every request timestamp)
+Kong's [rate-limiting-advanced plugin](https://developer.konghq.com/plugins/rate-limiting-advanced/) adds true sliding-window semantics and a `sync_rate` knob that controls how often local counters are flushed to Redis (`0` = synchronous, highest accuracy and cost; `>0` = async, lower cost, brief overrun possible). Pair Redis with a consistent-hashing front load balancer to bias each client to the same node and reduce the distributed drift before it ever hits the shared store.
 
-**Sliding window counter (hybrid):**
+**Real numbers from public APIs:**
 
-- Combine current window count with weighted previous window
-- Example: 40 seconds into current minute with 50 requests, previous minute had 100 requests
-- Weighted count: 50 + (100 × 20/60) ≈ 83 requests
+- **Stripe (live mode):** [100 ops/sec global limit per account](https://docs.stripe.com/rate-limits), with stricter per-resource limits (e.g., 1,000 updates/hour per `PaymentIntent`). Sandbox mode is 25 ops/sec.
+- **GitHub REST API:** [60 req/hr unauthenticated per IP, 5,000 req/hr per authenticated user/OAuth app, 15,000 req/hr for GHEC org-owned apps](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api). Status surfaced via `x-ratelimit-*` headers.
 
-**Distributed rate limiting challenge:** With multiple gateway instances, local counters undercount. Solutions:
+### Request and response transformation
 
-1. **Centralized store (Redis):** Accurate but adds network latency (~1ms per request)
-2. **Consistent hashing:** Route same client to same gateway instance
-3. **Gossip protocol:** Eventual consistency across instances, slight overrun possible
-
-**Kong's approach:** Offers local (in-memory), cluster (gossip), and Redis strategies. Redis for accuracy-critical limits, local for high-throughput scenarios where slight overrun is acceptable.
-
-**Real-world numbers:**
-
-- Stripe: 100 requests/second baseline, burst to 200
-- GitHub: 5000 requests/hour for authenticated, 60/hour for unauthenticated
-- Twitter: 300 requests/15-minute window for user timeline
-
-### Request/Response Transformation
-
-Gateways adapt external API contracts to internal service contracts, enabling backend evolution without breaking clients.
+Gateways adapt external API contracts to internal service contracts so backends can evolve without breaking clients.
 
 **Header transformation:**
 
-```yaml
+```yaml title="header-transform.yaml"
 request:
   add:
     X-Request-ID: ${uuid()}
@@ -165,74 +146,48 @@ response:
     - Server
 ```
 
-**Protocol translation:**
+**Protocol translation:** REST↔gRPC bridging is the most common case (gateway accepts JSON, forwards Protobuf to a gRPC service); GraphQL federation composes a unified schema across services; SOAP↔REST bridges legacy estates.
 
-- **REST to gRPC:** Gateway accepts JSON, converts to Protobuf, calls gRPC service
-- **GraphQL federation:** Gateway composes schema from multiple services, resolves queries across backends
-- **SOAP to REST:** Legacy integration without backend changes
+**Payload transformation:** field renaming (`user_id` → `userId`), filtering of internal fields, and lightweight aggregation.
 
-**Payload transformation:**
+> [!CAUTION]
+> Payload transformation belongs at the gateway only when it is *purely structural*. The moment the transformation depends on business rules ("if the user is a Plus member, hide field X"), move it to a BFF or a domain service. Conditional logic in the gateway turns the gateway into a deployment bottleneck and a testing nightmare.
 
-- Field renaming: `user_id` → `userId` for JavaScript clients
-- Field filtering: Remove internal fields from external responses
-- Aggregation: Combine multiple backend responses into single client response
+### Caching at the edge
 
-**Design trade-off:** Heavy transformation logic belongs in a dedicated service or BFF, not the gateway. Gateway transformations should be simple (header injection, field filtering). Complex business logic in the gateway creates a monolith.
+Gateway caching reduces backend load and tail latency for cacheable responses.
 
-### Caching at the Edge
-
-Gateway caching reduces backend load and improves latency for cacheable responses.
-
-**Cache placement:**
-
-```
-Client → CDN → Gateway Cache → Backend
-         ↑         ↑
-      seconds    seconds-minutes
+```text
+Client → CDN (seconds–years) → Gateway cache (seconds–minutes) → Backend
 ```
 
-**Cache key composition:**
+The cache key is normally `hash(method, path, sorted(query_params), vary_headers)`. Suggested TTLs:
 
-```
-key = hash(method + path + query_params + vary_headers)
-```
+| Content                | TTL           | Rationale                              |
+| ---------------------- | ------------- | -------------------------------------- |
+| Versioned static asset | 1 week+       | Hashed URL doubles as cache key        |
+| User profile           | 5–15 min      | Balance freshness vs load              |
+| Search results         | 30–60 s       | Volatile but extremely high read load  |
+| Real-time data         | No cache      | Freshness is the product               |
 
-**TTL strategies:**
+[AWS API Gateway REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-execution-service-limits-table.html) expose cache TTL with default 300 s and maximum 3,600 s; HTTP APIs do not natively support response caching, only the cheaper proxying model. AWS API Gateway carries a [99.95% monthly uptime SLA](https://aws.amazon.com/api-gateway/sla/) per region.
 
-| Content Type   | TTL           | Rationale                             |
-| -------------- | ------------- | ------------------------------------- |
-| Static assets  | 1 week+       | Versioned URLs for cache busting      |
-| User profile   | 5-15 minutes  | Balance freshness vs load             |
-| Search results | 30-60 seconds | Rapidly changing, high request volume |
-| Real-time data | No cache      | Freshness critical                    |
+> [!WARNING]
+> Caching authenticated responses requires the cache key to include user identity (or any header that varies the response). Forgetting this leaks user A's data to user B. The standard guards: include the principal in the key, honor backend `Cache-Control: private`, and never cache `Authorization`-bearing responses without an explicit policy.
 
-**Cache invalidation:**
+### Observability
 
-- **TTL-based:** Simple, eventual consistency
-- **Event-driven:** Backend publishes invalidation events, gateway subscribes
-- **Purge API:** Explicit invalidation for known changes
+The gateway is the natural origin for distributed traces because it sees every request before it fans out. The minimum it must do:
 
-**AWS API Gateway caching:** Default TTL 300 seconds (5 minutes), maximum 3600 seconds (1 hour). Cache per stage, configurable per method.
+1. Generate a trace ID, or honor an incoming W3C `traceparent` header.
+2. Inject trace context into downstream calls.
+3. Emit a gateway span with timing, routing decision, and auth result.
 
-**Gotcha:** Caching authenticated responses requires cache key to include user identity. Without this, user A may see user B's cached response.
+A useful access-log shape:
 
-### Observability Integration
-
-Gateways are the ideal observability entry point—they see every request before distribution across services.
-
-**Distributed tracing initiation:**
-
-1. Gateway generates trace ID (or uses incoming `traceparent` header)
-2. Injects trace context into downstream requests
-3. Records gateway span with timing, routing decision, auth result
-
-**Why gateway-initiated:** Without trace context from gateway, downstream services can't correlate their spans. The gateway ensures every request has a trace ID from the first hop.
-
-**Access logging:**
-
-```json
+```json title="access.log"
 {
-  "timestamp": "2024-01-15T10:30:00Z",
+  "timestamp": "2026-04-21T10:30:00Z",
   "trace_id": "abc123",
   "client_ip": "203.0.113.42",
   "method": "POST",
@@ -244,691 +199,388 @@ Gateways are the ideal observability entry point—they see every request before
 }
 ```
 
-**Metrics to capture:**
+Capture **request rate by endpoint and client**, **latency p50/p95/p99 per route**, **error class** (4xx vs 5xx vs timeout), **rate-limit rejections by client**, and **cache hit ratio**. Modern gateways (Kong, Envoy, Apigee, AWS API Gateway) emit OpenTelemetry-compatible traces and metrics; standardize on OTel so the gateway data joins the rest of the trace pipeline.
 
-- Request rate by endpoint, client, status code
-- Latency percentiles (p50, p95, p99) per route
-- Error rates by type (4xx client, 5xx server, timeout)
-- Rate limit rejections by client
-- Cache hit ratio
+## Architecture patterns
 
-**OpenTelemetry integration:** Modern gateways (Kong, Envoy) export traces, metrics, and logs in OpenTelemetry format, enabling unified observability pipelines.
+### Edge gateway vs internal gateway
 
-## Gateway Architecture Patterns
+**Edge gateway** (north-south): public-facing, terminates TLS, enforces strict auth, runs WAF and DDoS controls, applies global rate limits, and globally distributes endpoints for latency.
 
-### Edge Gateway vs Internal Gateway
+**Internal gateway** (east-west): service-to-service inside the cluster, lighter auth (typically mTLS / [SPIFFE](https://spiffe.io/) identities), focused on routing, retries, and circuit breaking. In Kubernetes shops this role is increasingly played by a **service mesh** (Istio, Linkerd, Consul Connect) rather than a discrete gateway.
 
-**Edge gateway (north-south traffic):**
+Most production systems run both, layered:
 
-- Faces public internet
-- Strict security: TLS termination, WAF integration, DDoS protection
-- Rate limiting by client/API key
-- Protocol translation (external REST to internal gRPC)
-- Global distribution for latency
+![Layered topology with an edge gateway handling north-south traffic and a service-mesh sidecar fabric handling east-west traffic.](./diagrams/edge-mesh-layered-light.svg "Edge gateway plus service mesh: north-south policies stay at the edge; east-west mTLS, retries, and observability stay in the sidecar fabric.")
+![Layered topology with an edge gateway handling north-south traffic and a service-mesh sidecar fabric handling east-west traffic.](./diagrams/edge-mesh-layered-dark.svg)
 
-**Internal gateway (east-west traffic):**
+The [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) standardizes the resource model across both planes: `Gateway` / `HTTPRoute` for ingress, and the [GAMMA initiative](https://gateway-api.sigs.k8s.io/geps/gep-1324/) extends the same shapes to mesh east-west. Treating north-south and east-west as the same routing primitive lets one team reason about both.
 
-- Service-to-service within VPC/cluster
-- Lighter auth: mTLS, service identity tokens
-- Focus on routing, retries, circuit breaking
-- Often replaced by service mesh (Istio, Linkerd)
+| Aspect            | API gateway              | Service mesh             |
+| ----------------- | ------------------------ | ------------------------ |
+| Traffic direction | North-south (external)   | East-west (internal)     |
+| Deployment        | Centralized edge cluster | Sidecar per service      |
+| Auth focus        | External credentials     | Service identity (mTLS)  |
+| Protocol          | HTTP/REST/GraphQL        | Any (TCP, gRPC, HTTP)    |
+| Routing           | Content-based            | Service discovery        |
+| Rate limiting     | Per client / API key     | Per service              |
+| Observability     | Request-level            | Connection-level         |
 
-**Two-tier pattern:** Most production systems use both. Edge gateway handles external clients, internal gateway (or service mesh) handles inter-service communication.
-
-```
-Internet → Edge Gateway → Internal Gateway/Service Mesh → Services
-                ↓                      ↓
-           Public APIs            Service-to-service
-```
+[Christian Posta's "Do I Need an API Gateway if I Have a Service Mesh?"](https://blog.christianposta.com/microservices/do-i-need-an-api-gateway-if-i-have-a-service-mesh/) is the canonical write-up of why the answer is usually "yes, both". Mesh handles transport-level concerns transparently; gateway handles API-level concerns (versioning, payload shaping, partner contracts) explicitly.
 
 ### Backend for Frontend (BFF)
 
-BFF pattern: dedicated gateway per client type, each optimized for its client's needs.
+The BFF pattern is a dedicated gateway *per client type*, owned by the client team. [Sam Newman's pattern article](https://samnewman.io/patterns/architectural/bff/) traces the design back to the SoundCloud team (Phil Calçado, Lukasz Plotnicki) who needed a way to evolve the mobile and web APIs at the speed of the respective product teams without coordinating each release with platform.
 
-**Why BFF:**
+![BFF topology: per-client gateways aggregate domain services into client-shaped responses and own the auth flow that fits each client.](./diagrams/bff-architecture-light.svg "BFF topology: per-client gateways aggregate domain services into client-shaped responses and own the auth flow that fits each client.")
+![BFF topology: per-client gateways aggregate domain services into client-shaped responses and own the auth flow that fits each client.](./diagrams/bff-architecture-dark.svg)
 
-- Mobile needs minimal payloads (bandwidth constraints)
-- Web needs rich data (larger screens, faster networks)
-- Partner APIs need stable contracts (SLAs, versioning)
+A BFF lets the mobile team strip payload to the bytes that fit a phone screen, the web team aggregate richer data for SSR, and the partner team expose a slow-moving, contractually stable surface — all without one shared schema fighting three sets of constraints. The cost is operational: N client types means N services to deploy, monitor, and on-call. Worth it once client divergence is real; premature otherwise.
 
-**Architecture:**
+### Per-domain gateways vs one shared gateway
 
-```
-Mobile App  → Mobile BFF  ┐
-Web App     → Web BFF     ├→ Internal Services
-Partner API → Partner BFF ┘
-```
+A single global gateway is the easiest to operate until it isn't. Once the gateway is the chokepoint for unrelated business domains, a single bug — a memory leak in a logging library, say — takes everything down at once. The pragmatic split is **per business domain**:
 
-**BFF responsibilities:**
+- ✅ Failure isolation (orders' gateway down ≠ payments' gateway down).
+- ✅ Independent scaling per traffic profile.
+- ✅ Domain teams own their gateway as part of their product.
+- ❌ Policy duplication (auth/rate limit config must stay in sync).
+- ❌ More infrastructure to operate.
 
-- Aggregate data from multiple services into client-specific format
-- Handle client-specific auth flows (OAuth for web, API keys for partners)
-- Implement client-specific caching strategies
-- Translate errors into client-appropriate formats
+The Canva incident below is the canonical cautionary tale of one gateway plane carrying every business domain.
 
-**Team ownership:** BFF is owned by client team (mobile team owns mobile BFF). This enables client teams to iterate on API shape without coordinating with backend teams.
+## Design choices and trade-offs
 
-**Trade-off:** BFF adds operational complexity (N client types = N gateways). Worth it when client requirements diverge significantly.
+### Stateless vs stateful gateway
 
-**Real-world:** Netflix runs separate BFFs for TV, mobile, and web. Each optimizes payload size and data shape for its device constraints.
+A **stateless** gateway treats every instance as identical: configuration comes from etcd / Consul / Kubernetes, hot data (rate-limit counters, JWKS) is cached locally with TTL or push-based invalidation. Any instance can serve any request; horizontal scaling is just "add a replica". This is the default for every modern gateway.
 
-### API Gateway vs Service Mesh
+A **stateful** gateway holds session affinity, in-process rate-limit counters, or local connection state that another instance does not have. It can be faster (no external lookups) but turns scaling into a state-migration problem and makes deploys risky.
 
-| Aspect            | API Gateway            | Service Mesh            |
-| ----------------- | ---------------------- | ----------------------- |
-| Traffic direction | North-south (external) | East-west (internal)    |
-| Deployment        | Centralized edge       | Sidecar per service     |
-| Auth focus        | External credentials   | Service identity (mTLS) |
-| Protocol          | HTTP/REST/GraphQL      | Any (TCP, gRPC, HTTP)   |
-| Routing           | Content-based          | Service discovery       |
-| Rate limiting     | Per client/API key     | Per service             |
-| Observability     | Request-level          | Connection-level        |
+In practice you want **stateless with caches**: configuration is external, hot data is cached locally with bounded staleness, and *exactness* (where you need it) is delegated to a shared store like Redis.
 
-**Using both:** Gateway API (Kubernetes standard) enables unified configuration across ingress gateways and service mesh. Istio's ingress gateway implements Gateway API, providing consistent routing semantics edge-to-mesh.
+### Custom vs managed gateways
 
-**When to add service mesh:**
+| Open-source gateway | Strengths | Trade-offs |
+| ------------------- | --------- | ---------- |
+| Kong            | [Plugin ecosystem](https://docs.konghq.com/), Lua and Go plugins      | Operational complexity at scale |
+| Envoy           | High-performance L7 proxy, dynamic config via xDS, used by Istio/Consul/AWS App Mesh | Configuration is verbose; needs a control plane |
+| NGINX (+OSS)    | Mature, predictable, ubiquitous                                       | Limited gateway features without paid module / Kong on top |
+| Apache APISIX   | Modern, good dashboard, [extensible plugin model](https://apisix.apache.org/) | Smaller community than Kong/Envoy |
 
-- Need mTLS between all services
-- Require per-service circuit breaking, retries
-- Want sidecar-based observability
-- Service-to-service traffic is complex (many services, fan-out patterns)
+| Managed service             | Strengths | Trade-offs |
+| --------------------------- | --------- | ---------- |
+| AWS API Gateway         | Serverless, autoscaling, [99.95% SLA](https://aws.amazon.com/api-gateway/sla/) | Lambda cold starts; AWS-shaped pricing |
+| Google Apigee           | [Federated API governance, analytics](https://docs.cloud.google.com/apigee/docs/api-platform/architecture/overview) | Pricing complexity; steep learning curve |
+| Azure API Management    | First-class Azure integration, hybrid deployment | Azure-shaped pricing and runtime |
 
-**When service mesh is overkill:**
+| Factor                  | Choose managed       | Choose self-hosted       |
+| ----------------------- | -------------------- | ------------------------ |
+| Team ops capacity       | Limited              | Dedicated platform team  |
+| Scale                   | < ~1B requests/month | Cost-sensitive at scale  |
+| Customization           | Standard patterns    | Unique requirements      |
+| Compliance              | Cloud-native apps    | On-prem / data residency |
+| Latency requirements    | < 10 ms acceptable   | Sub-millisecond critical |
 
-- Fewer than 10 services
-- Simple call patterns (mostly request-response)
-- Team lacks mesh operational experience
+The cost crossover for managed gateways usually appears between 1B and 10B requests/month — above that, request-priced services start to dominate the bill and a self-hosted Envoy or Kong on platform infrastructure becomes cheaper *if* you have the platform team to operate it.
 
-### Gateway Per Service vs Shared Gateway
+### Synchronous vs asynchronous
 
-**Shared gateway:**
+Most gateway traffic is synchronous: client → gateway → service → gateway → client, with the client blocked on the response. For long-running operations the gateway can return `202 Accepted` with a status URL; the client polls or receives a webhook callback. A common hybrid: try sync up to a budget (say 30 s); on timeout, hand the request to a queue and return 202 with the status URL.
 
-```
-All Clients → Single Gateway → All Services
-```
+## Real-world implementations
 
-- ✅ Single enforcement point for policies
-- ✅ Simpler operations (one thing to monitor)
-- ❌ Single point of failure
-- ❌ Scaling bottleneck
-- ❌ Configuration complexity grows with services
+### Netflix Zuul (Zuul 1) and Zuul 2
 
-**Gateway per domain:**
+[Netflix's "Open Sourcing Zuul 2"](https://netflixtechblog.com/open-sourcing-zuul-2-82ea476cb2b3) reports that Netflix runs **80+ Zuul 2 clusters routing more than 1 million requests per second** to roughly 100 backend service clusters.
 
-```
-User API Clients    → User Gateway    → User Services
-Order API Clients   → Order Gateway   → Order Services
-Partner API Clients → Partner Gateway → Partner Services
-```
+Zuul 1's filter pipeline (PRE / ROUTE / POST / ERROR) was implemented on top of a thread-per-request model. [Zuul 2](http://techblog.netflix.com/2016/09/zuul-2-netflix-journey-to-asynchronous.html) rebuilt the pipeline on Netty with an event-loop-per-core, async/non-blocking design — better suited to the high-connection-count workloads that came with persistent push channels and HTTP/2. The Zuul 2 [filter taxonomy](https://github.com/Netflix/zuul/wiki/How-It-Works-2.0) becomes Inbound, Endpoint, and Outbound, with sync and async variants; the cardinal rule for engineers writing filters is *never block the event loop* — offload anything blocking to a worker thread pool via async filters.
 
-- ✅ Failure isolation (user gateway down ≠ order gateway down)
-- ✅ Independent scaling per traffic pattern
-- ✅ Team ownership (order team owns order gateway)
-- ❌ Policy duplication
-- ❌ More infrastructure to operate
-
-**Production recommendation:** Split gateways by business boundary, not by having a single gateway. The single-gateway pattern has caused major outages (see Canva incident below).
-
-## Design Choices and Trade-offs
-
-### Stateless vs Stateful Gateway
-
-**Stateless gateway (recommended):**
-
-- Configuration from external store (etcd, Consul, Kubernetes ConfigMaps)
-- Session state in external store (Redis) or client tokens (JWT)
-- Any gateway instance can handle any request
-- Fast horizontal scaling, no state migration
-
-**Stateful gateway:**
-
-- Local connection pools to backends
-- In-memory rate limit counters
-- Session affinity required
-- Faster (no external lookups) but harder to scale
-
-**Hybrid approach:** Most gateways are "stateless with caches." Configuration is external, but hot data (rate limit counts, routing tables) is cached locally with TTL or event-based invalidation.
-
-### Custom vs Managed Gateways
-
-**Open-source gateways:**
-
-| Gateway       | Strengths                                  | Trade-offs                                |
-| ------------- | ------------------------------------------ | ----------------------------------------- |
-| Kong          | Plugin ecosystem (100+), Lua extensibility | Complex at scale                          |
-| Envoy         | Performance (~100μs latency), cloud-native | Steep learning curve                      |
-| NGINX         | Mature, high performance                   | Limited API gateway features without Kong |
-| Apache APISIX | Modern, dashboard, cloud-native            | Smaller community                         |
-
-**Managed gateways:**
-
-| Service              | Strengths                            | Trade-offs                      |
-| -------------------- | ------------------------------------ | ------------------------------- |
-| AWS API Gateway      | Serverless, auto-scaling, 99.95% SLA | Cold starts, AWS lock-in        |
-| Google Apigee        | Full lifecycle management, analytics | Complex pricing, steep learning |
-| Azure API Management | Azure integration, hybrid deployment | Azure ecosystem dependency      |
-
-**Decision factors:**
-
-| Factor               | Choose Managed      | Choose Self-Hosted       |
-| -------------------- | ------------------- | ------------------------ |
-| Team ops capacity    | Limited             | Dedicated platform team  |
-| Scale                | < 1B requests/month | Cost-sensitive at scale  |
-| Customization        | Standard patterns   | Unique requirements      |
-| Compliance           | Cloud-native apps   | On-premises requirements |
-| Latency requirements | < 10ms acceptable   | Sub-millisecond critical |
-
-**Cost crossover:** At ~1-10 billion requests/month, managed gateway costs often exceed self-hosted infrastructure + team costs.
-
-### Synchronous vs Asynchronous Patterns
-
-**Synchronous (request-response):**
-
-```
-Client → Gateway → Service → Gateway → Client
+```text
+Zuul 2 request path
+  ┌─ Inbound filters (auth, rate limit, decorate)
+  │
+  └─ Endpoint filter (origin selection, load balance)
+                         │
+  ┌─ Outbound filters (decorate response, capture metrics)
+  │
+  └─ Response written back to client
 ```
 
-- Simple mental model
-- Latency = sum of all hops
-- Client blocks waiting for response
+Two design choices worth borrowing:
 
-**Asynchronous (event-driven):**
-
-```
-Client → Gateway → Queue → Service processes later
-                     ↓
-Client polls or receives webhook
-```
-
-- Better for long-running operations
-- Gateway returns immediately (202 Accepted)
-- Client polls status endpoint or receives callback
-
-**Hybrid pattern:** Gateway proxies synchronous requests but provides async fallback for timeouts:
-
-```
-1. Client calls /api/reports (sync)
-2. Gateway forwards to service
-3. If service responds in < 30s, return response
-4. If timeout, return 202 with status URL
-5. Client polls /api/reports/status/{id}
-```
-
-## Real-World Implementations
-
-### Netflix Zuul Architecture
-
-**Scale:** 80+ Zuul clusters handling 1M+ requests/second across 100+ backend clusters.
-
-**Filter-based architecture:**
-
-```
-Request → PRE filters → ROUTE filters → POST filters → Response
-                              ↓
-                      Error → ERROR filters
-```
-
-**Filter types:**
-
-- **PRE:** Authentication, rate limiting, request decoration
-- **ROUTE:** Backend selection, load balancing (integrates with Ribbon)
-- **POST:** Response decoration, metrics collection
-- **ERROR:** Error handling, fallback responses
-
-**Design decisions:**
-
-1. **Dynamic routing:** Zuul queries Eureka (service discovery) to find healthy instances
-2. **Zone-aware routing:** Tracks success rate per availability zone, shifts traffic away from degraded zones
-3. **Client-side load balancing:** Ribbon handles backend selection, Zuul handles cross-cutting concerns
-
-**Why filters:** Allows plugins without code changes. New auth mechanism = new PRE filter. Netflix deploys filter changes without Zuul restarts.
-
-**Zuul 2 evolution:** Moved from blocking (Zuul 1) to async/non-blocking (Zuul 2) for better resource utilization under high connection counts.
+1. **Service-discovery-driven routing.** Zuul queries Eureka for healthy instances rather than holding a static config. Coupled with [zone-aware load balancing](https://medium.com/netflix-techblog/netflix-edge-load-balancing-695308b5548c), the gateway shifts traffic away from a degraded availability zone before SREs notice.
+2. **Push-based filter deployment.** Filters are loaded dynamically (originally as Groovy, now Java); a new auth mechanism is a new filter, not a Zuul deploy.
 
 ### Amazon API Gateway
 
-**Architecture:**
+Three variants, three sweet spots:
 
-- Serverless, auto-scaling
-- Regional deployment with optional edge-optimized (CloudFront distribution)
-- 99.95% SLA (~4.5 hours downtime/year allowed)
+| Variant     | Use case             | Notable features                                   |
+| ----------- | -------------------- | -------------------------------------------------- |
+| HTTP API    | Simple proxy         | Lower latency and cost, JWT authorizers, OIDC      |
+| REST API    | Full features        | Request validation, response caching, WAF, Usage Plans |
+| WebSocket   | Bi-directional       | Connection management, route selection             |
 
-**API types:**
+Caching is REST-API-only, [default 300 s, configurable 0–3,600 s](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-execution-service-limits-table.html). Account-level throttling defaults to 10,000 req/s with a 5,000 burst per region in major regions; newer / smaller regions default to 2,500 / 1,250. The [99.95% monthly SLA](https://aws.amazon.com/api-gateway/sla/) implies up to ~22 minutes/month of allowed downtime per region.
 
-| Type      | Use Case      | Features                                     |
-| --------- | ------------- | -------------------------------------------- |
-| HTTP API  | Simple proxy  | Lower latency, lower cost, JWT auth          |
-| REST API  | Full features | Request validation, caching, WAF integration |
-| WebSocket | Real-time     | Connection management, route selection       |
+Lambda-backed routes inherit Lambda's cold-start envelope. As of 2026:
 
-**Integration patterns:**
+| Mitigation | Effect | Cost shape |
+| ---------- | ------ | ---------- |
+| Default on-demand | Python/Node typically 200–400 ms; Java/.NET 500–2,000+ ms | Pay-per-invoke, no idle |
+| [Provisioned Concurrency](https://aws.amazon.com/blogs/compute/new-for-aws-lambda-predictable-start-up-times-with-provisioned-concurrency/) | Eliminates cold start; double-digit-ms response times | Pay for pre-warmed concurrency, idle or not |
+| [SnapStart (Java/.NET/Python)](https://aws.amazon.com/blogs/compute/reducing-java-cold-starts-on-aws-lambda-functions-with-snapstart/) | Restores from a pre-initialized snapshot; ~10× faster Java cold starts (≈2 s → ≈200 ms) | Negligible incremental cost |
 
-- **Lambda:** Direct invocation, request/response mapping
-- **HTTP:** Proxy to any HTTP endpoint
-- **VPC Link:** Private integration with ALB/NLB in VPC
-- **AWS Services:** Direct integration with Step Functions, SQS, Kinesis
+VPC-attached Lambda cold starts used to add 3–10 s for ENI attach; that was [largely eliminated by Hyperplane ENIs in 2019](https://aws.amazon.com/blogs/compute/announcing-improved-vpc-networking-for-aws-lambda-functions/), so legacy "VPC adds 10 s" advice is stale.
 
-**Cold start consideration:** Lambda-backed APIs experience cold starts (3-10+ seconds for unoptimized functions). Provisioned Concurrency eliminates cold starts but adds cost.
+### Kong
 
-**Caching:** Per-stage cache with configurable TTL (default 300s, max 3600s). Cache key includes method, path, query params, and configurable headers.
+Kong's design philosophy is "small core, everything is a plugin." The plugin pipeline runs in a deterministic order per phase (certificate → rewrite → access → header transformation → response → log), with rate limiting and auth living in the access phase.
 
-### Kong Plugin Architecture
+Rate-limiting policies, as documented in the [official plugin reference](https://developer.konghq.com/plugins/rate-limiting/):
 
-**Design philosophy:** Core gateway is minimal; capabilities come from plugins.
+| Policy   | Storage                        | Accuracy | Cost   | Notes |
+| -------- | ------------------------------ | -------- | ------ | ----- |
+| `local`  | In-memory per node             | Approx.  | Lowest | Pair with consistent-hash LB to bias clients to the same node |
+| `cluster`| Kong data store (e.g., Postgres) | Exact   | Highest (DB hit per request); not supported in hybrid/Konnect | OK for small tightly-controlled clusters |
+| `redis`  | Shared Redis                   | Exact   | Medium | Most common production choice; `sync_rate` controls async flushing |
 
-**Plugin execution order:**
+Custom plugins are written in Lua, Go, JavaScript, or Python via the Kong PDK.
 
-```
-Request → Certificate → Rewrite → Access → Rate Limiting
-                                     ↓
-Response ← Log ← Body Transformation ← Header Transformation ← Response Transformation
-```
+### Envoy
 
-**Rate limiting strategies:**
+[Envoy's official FAQ on performance](https://www.envoyproxy.io/docs/envoy/latest/faq/performance/how_fast_is_envoy) is unusually candid: the project does *not* publish a canonical latency or throughput number because the answer depends entirely on filter chain, TLS posture, observability budget, and hardware. The [benchmarking guidance](https://www.envoyproxy.io/docs/envoy/latest/faq/performance/how_to_benchmark_envoy) prescribes release builds, `-c opt`, disabling stats and `generate_request_id` for baseline measurements, open-loop generators (Nighthawk), and *not* measuring at saturation.
 
-| Strategy | Accuracy    | Latency | Use Case                               |
-| -------- | ----------- | ------- | -------------------------------------- |
-| Local    | Approximate | Lowest  | High-throughput, slight overrun OK     |
-| Cluster  | Better      | Medium  | Multi-node, gossip sync                |
-| Redis    | Exact       | Highest | Strict limits, distributed enforcement |
+What you can rely on:
 
-**Consistent hashing integration:** Kong routes same client to same gateway node using consistent hashing, improving local rate limit accuracy without Redis overhead.
+- **Native xDS dynamic configuration**: control plane (Istio, Consul Connect, AWS App Mesh, Envoy Gateway) pushes routing/cluster/listener config without restarts.
+- **L7 policy primitives**: retries, timeouts, [circuit breaking via concurrency thresholds](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking) (max connections, max pending requests, max requests, max active retries — per upstream cluster).
+- **Observability**: native OpenTelemetry tracing, Prometheus stats, structured access logs.
+- **Load balancing**: round robin, least request, ring hash, Maglev consistent hash.
 
-**Extensibility:** Custom plugins in Lua, Go, JavaScript, or Python. Kong's plugin development kit (PDK) provides consistent API across languages.
-
-### Envoy as Gateway
-
-**Performance characteristics (from Envoy FAQ):**
-
-- Latency overhead: ~100 microseconds per request baseline
-- Throughput: 200k+ QPS with 4k concurrent clients
-- CPU: Max 10% utilization under load
-- Memory: Never exceeds 1.1 GiB in production scenarios
-
-**Deployment modes:**
-
-1. **Edge gateway:** Centralized ingress, terminates TLS, applies policies
-2. **Sidecar proxy:** Per-service deployment, service mesh data plane
-3. **Hybrid:** Gateway for north-south, sidecar for east-west
-
-**Configuration model:** xDS APIs enable dynamic configuration without restarts. Control plane (Istio, Consul Connect) pushes configuration; Envoy applies without downtime.
-
-**Feature set:**
-
-- L7 routing with retries, timeouts, circuit breaking
-- Rate limiting via external service (rate limit service)
-- Observability: native OpenTelemetry, Prometheus, access logs
-- Load balancing: round robin, least request, ring hash, Maglev
-
-**Why organizations choose Envoy:** Performance for latency-sensitive workloads, cloud-native design, service mesh compatibility (Istio, Consul Connect, AWS App Mesh).
+> [!NOTE]
+> Envoy's circuit breakers are **threshold-based load shedders**, not the classical three-state Nygard breaker. They count outstanding work against a per-cluster limit and reject the next request when the limit is exceeded — there is no half-open probe phase. If you need true closed/open/half-open semantics, layer a [classic circuit breaker](https://martinfowler.com/bliki/CircuitBreaker.html) library in the application.
 
 ### Google Apigee
 
-**Deployment options:**
+[Apigee's architecture](https://docs.cloud.google.com/apigee/docs/hybrid/v1.16/what-is-hybrid) splits cleanly into two planes:
 
-- **Apigee X (cloud-native):** Fully managed on Google Cloud
-- **Apigee hybrid:** Management in cloud, runtime in customer datacenter/VPC
-- **Apigee Edge (legacy):** Fully on-premises
+- **Management plane** — Google-hosted: API lifecycle, policy authoring, analytics, developer portal.
+- **Runtime plane** — request processing. Customer-deployed in Apigee hybrid (Kubernetes in your VPC); Google-managed in Apigee X.
 
-**Federated API development:** Unlike centralized gateway models, Apigee enables distributed API ownership. Teams create and publish APIs independently; Apigee provides governance overlay.
+The runtime plane is itself a few services: **Message Processors** that execute proxies and policies; a **Synchronizer** that pulls config from the management plane and writes it to local disk so the runtime survives a management-plane outage; **Cassandra** for runtime state (KVMs, quotas, OAuth tokens); and **MART** for management-plane↔runtime data plane access. Three deployment shapes today: **Apigee X** (full SaaS), **Apigee hybrid** (customer runtime, Google management), and **Apigee Edge** (legacy).
 
-**Architecture components:**
+Apigee's distinctive feature is its analytics surface — traffic patterns, error rates, latency distributions, developer adoption — which makes it the default choice for teams running APIs as a product.
 
-- **Management plane:** Policy configuration, analytics, developer portal
-- **Runtime plane:** Request processing, policy enforcement
-- **Message processor:** Actual request handling
-- **Router:** Traffic distribution to message processors
+## Common pitfalls
 
-**Analytics focus:** Apigee emphasizes API analytics—traffic patterns, error rates, latency distribution, developer adoption. Useful for API-as-product organizations.
+### 1. Gateway as a single point of failure
 
-## Common Pitfalls
+**The mistake.** All traffic funnels through one gateway plane, every business domain shares the same fate.
 
-### 1. Gateway as Single Point of Failure
+**Real incident — Canva, 2024-11-12 (~52 minutes).** From the [Canva engineering post-mortem](https://www.canva.dev/blog/engineering/canva-incident-report-api-gateway-outage/):
 
-**The mistake:** Funneling all traffic through one gateway cluster.
+1. A Cloudflare network event briefly stalled requests for a critical JavaScript asset; over 270k client requests for that asset queued up.
+2. When Cloudflare recovered, those queued requests completed almost simultaneously — a classic *thundering herd*. The API gateway saw **~1.5 million requests/second, roughly 3× peak**.
+3. A recently-deployed telemetry library re-registered metrics under a lock inside a third-party library on every request. Lock contention serialized work on the gateway's event loop, throttling effective throughput.
+4. As tasks fell behind, the load balancer opened more connections to already-overloaded instances. Off-heap memory grew until the **Linux OOM killer** terminated containers within ~2 minutes — faster than autoscaling could replace them. Cascading failure followed.
 
-**Why it happens:** Centralization is convenient. One place to configure auth, rate limits, routing.
+The fixes the report calls out are the textbook ones: failure-domain isolation between business domains, circuit breakers between gateway and backends, graceful degradation paths (cached/static content during gateway issues), and load shedding before complete failure. The deeper lesson is that the gateway's event-loop budget is finite — *anything* that locks it (telemetry, sync logging, blocking auth lookups) becomes an outage vector.
 
-**The consequence:** Gateway failure = complete outage.
+### 2. Business logic in the gateway
 
-**Real incident—Canva (November 2024):**
+The gateway's position makes it tempting to add "just one more thing." Over time you find yourself routing on customer tier, computing pricing, or feature-flagging in the gateway. The tax: every product change becomes a gateway deploy (high blast radius), every test environment needs a full gateway, the gateway team becomes the bottleneck, and the gateway becomes a monolith with global access.
 
-- A telemetry library deployment introduced a performance regression
-- Gateway received 1.5M requests/second (3x typical peak)
-- Off-heap memory growth triggered Linux OOM Killer
-- All containers terminated, cascading failure outpaced autoscaling
-- Result: 52-minute outage, all requests to canva.com failed
+The fix: gateway does **auth, rate limiting, routing, transformation, observability**. Aggregation belongs in a BFF. Feature flags belong in a feature-flag service. Business decisions belong in the domain service.
 
-**The fix:**
+### 3. Over-caching at the edge
 
-- Multiple independent gateways per business domain
-- Circuit breakers between gateway and backends
-- Graceful degradation paths (serve cached/static content during gateway issues)
-- Load shedding before complete failure
+Caching is a footgun if you forget that "personalized" responses must include identity in the cache key. Symptoms: stale data after writes, cache stampedes when many keys expire together, cross-user data leaks. Mitigations: include the principal (or `Vary` header set) in the key, honor backend `Cache-Control`, stagger TTLs (jitter), and prefer event-driven invalidation for high-write resources. Treat a *suspiciously high* cache hit ratio as a signal that the cache is masking missing freshness.
 
-### 2. Business Logic in Gateway
+### 4. Lying health checks
 
-**The mistake:** Adding business rules to gateway routing decisions.
+A `/health` that returns 200 only because the process is running tells the gateway nothing useful: traffic still routes to a backend that fails every request. The fix is the standard liveness/readiness split, with the readiness probe checking critical dependencies (DB ping, cache ping, queue connectivity), but cheaply.
 
-**Examples of anti-patterns:**
+```go title="health.go"
+func ReadinessHandler(deps Deps) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        ctx, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+        defer cancel()
 
-- Gateway decides which payment processor based on transaction amount
-- Gateway aggregates data from 5 services to build response
-- Gateway implements A/B test logic for feature flags
-
-**Why it happens:** Gateway's position makes it "convenient" to add "just one more thing." Over time, business logic accumulates.
-
-**The consequence:**
-
-- Gateway becomes a monolith
-- Changes require gateway deployment (high-risk, affects everything)
-- Testing business logic requires gateway environment
-- Gateway team becomes bottleneck for feature development
-
-**The fix:**
-
-- Gateway does: auth, rate limiting, routing, transformation, observability
-- Gateway does not do: business decisions, data aggregation, feature flags
-- Use BFF pattern for aggregation needs
-- Feature flags belong in dedicated service (LaunchDarkly, Unleash)
-
-### 3. Over-Caching at Gateway
-
-**The mistake:** Aggressive caching without considering cache invalidation.
-
-**Symptoms:**
-
-- Users see stale data after updates
-- Cache stampede when TTL expires simultaneously
-- Personalized data served to wrong users
-
-**The fix:**
-
-- Cache key must include user identity for personalized responses
-- Use `Cache-Control` headers from backend, don't override
-- Implement staggered TTLs to prevent stampede
-- Event-driven invalidation for frequently-updated data
-- Monitor cache hit ratio—too high may indicate stale data
-
-### 4. Health Check Endpoint That Lies
-
-**The mistake:** Health endpoint returns 200 but service can't handle traffic.
-
-**Example:**
-
-```go
-// Bad: Always healthy if process is running
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    w.WriteHeader(http.StatusOK)
-    w.Write([]byte("OK"))
-}
-
-// Better: Verify critical dependencies
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    if err := db.Ping(); err != nil {
-        w.WriteHeader(http.StatusServiceUnavailable)
-        return
+        if err := deps.DB.PingContext(ctx); err != nil {
+            http.Error(w, "db unavailable", http.StatusServiceUnavailable)
+            return
+        }
+        if err := deps.Cache.Ping(ctx).Err(); err != nil {
+            http.Error(w, "cache unavailable", http.StatusServiceUnavailable)
+            return
+        }
+        w.WriteHeader(http.StatusOK)
     }
-    if err := cache.Ping(); err != nil {
-        w.WriteHeader(http.StatusServiceUnavailable)
-        return
-    }
-    w.WriteHeader(http.StatusOK)
 }
 ```
 
-**The consequence:** Gateway routes traffic to "healthy" backend that fails every request.
+### 5. Ignoring connection draining
 
-**The fix:**
+Terminating a backend or gateway instance immediately during deploy returns `502/503` to in-flight requests. The fix is connection draining (also called *deregistration delay* on AWS ELBs, default 300 s): the gateway stops sending *new* requests to the draining instance, lets in-flight ones complete (or time out), then terminates. Set the drain timeout above your longest expected request duration.
 
-- Health endpoint verifies critical path (database, cache, essential dependencies)
-- Keep health checks fast (don't run full queries, just ping)
-- Distinguish liveness (process running) from readiness (can serve traffic)
+## Performance
 
-### 5. Ignoring Connection Draining
+### Latency budget
 
-**The mistake:** Terminating gateway/backend instances immediately during deployments.
+Treat the gateway's latency contribution as a budget you spend on policy. Rough envelopes from production reports and vendor docs (cited individually elsewhere):
 
-**The consequence:** In-flight requests get 502/503 errors. Users see failures during every deploy.
+| Component               | Typical latency |
+| ----------------------- | --------------- |
+| Network hop             | 0.1–1 ms        |
+| TLS termination         | 0.5–2 ms        |
+| JWT verification (cached JWKS) | 0.1–1 ms |
+| Rate-limit check (local)       | < 0.1 ms |
+| Rate-limit check (Redis)       | 1–5 ms   |
+| Routing decision               | < 0.1 ms |
+| Baseline overhead, well-tuned  | 1–5 ms   |
 
-**The fix:**
+Things that blow the budget: **token introspection** (RFC 7662 lookup adds a network round trip — tens of ms); **complex transformations** (a few ms each); **custom plugins** (varies wildly with what they do); **Lambda cold starts** (hundreds of ms to multiple seconds). Always measure under realistic load (50–80% capacity), never at peak — latency is non-linear near saturation.
 
-- Configure connection draining timeout (30-300 seconds)
-- Gateway stops sending new requests to draining instance
-- Existing requests complete or timeout
-- Only then terminate instance
+### Connection pooling
 
-**Real-world:** AWS ALB default drain timeout is 300 seconds. Set this to exceed your longest expected request duration.
+Opening a new TCP+TLS connection per request burns 2–4 round trips. Gateways maintain pools to backends:
 
-## Performance Considerations
-
-### Latency Overhead
-
-**Baseline gateway overhead:**
-
-| Component                | Latency |
-| ------------------------ | ------- |
-| Network hop              | 0.1-1ms |
-| TLS termination          | 0.5-2ms |
-| Auth (JWT validation)    | 0.1-1ms |
-| Rate limit check (local) | <0.1ms  |
-| Rate limit check (Redis) | 1-5ms   |
-| Routing decision         | <0.1ms  |
-| Total baseline           | 1-5ms   |
-
-**Factors that increase latency:**
-
-- External auth calls (token introspection): +10-50ms
-- Complex transformations: +1-10ms
-- Custom plugins/filters: varies
-- Cold starts (serverless): +100ms-10s
-
-**Measurement guidance:** Measure latency at realistic load (50-80% capacity), not at maximum. Latency increases non-linearly near capacity limits.
-
-### Connection Pooling
-
-**Problem:** Opening new TCP connection per request adds latency (TCP handshake + TLS handshake = 2-4 round trips).
-
-**Solution:** Gateway maintains pool of open connections to backends.
-
-**Pool configuration:**
-
-```yaml
+```yaml title="upstream-pool.yaml"
 upstream backend:
-  max_connections: 100 # Total connections to all instances
-  max_connections_per_host: 10 # Connections per backend instance
-  idle_timeout: 60s # Close idle connections after
-  connect_timeout: 5s # Fail fast on connection issues
+  max_connections: 100         # Total to all instances
+  max_connections_per_host: 10 # Per backend instance
+  idle_timeout: 60s            # Reap idle connections
+  connect_timeout: 5s          # Fail fast on connect
 ```
 
-**HTTP/2 multiplexing:** Single connection handles multiple concurrent requests. Gateway-to-backend H2 reduces connection count while maintaining throughput.
+HTTP/2 multiplexing flips the equation: one connection carries many concurrent streams. Gateway-to-backend H2 cuts the connection count by one or two orders of magnitude while preserving throughput. Netflix's Zuul team [describes the connection-churn savings explicitly](https://netflixtechblog.com/curbing-connection-churn-in-zuul-2feb273a3598).
 
-### Cold Start Mitigation (Serverless)
+### Cold-start mitigation (serverless)
 
-**AWS Lambda cold starts:**
+See the [AWS API Gateway](#amazon-api-gateway) table above for the current Lambda numbers. Two takeaways: SnapStart is the cheapest fix for JVM/.NET cold starts; Provisioned Concurrency is the only mitigation that *guarantees* warm capacity at the cost of paying for idle. "Keep-warm pings" are unreliable — Lambda recycles environments aggressively and ping-driven warmth is non-contractual.
 
-- Simple function: 100-500ms
-- Function with dependencies: 1-5s
-- Function in VPC: 3-10s (historically, now improved with Hyperplane ENI)
+### Circuit breaker integration
 
-**Mitigation strategies:**
+The classic [Nygard](https://pragprog.com/titles/mnee2/release-it-second-edition/) / [Fowler](https://martinfowler.com/bliki/CircuitBreaker.html) circuit breaker has three states:
 
-| Strategy                | Latency Impact         | Cost Impact                         |
-| ----------------------- | ---------------------- | ----------------------------------- |
-| Provisioned Concurrency | Eliminates cold start  | Fixed cost for pre-warmed instances |
-| SnapStart (Java/.NET)   | Reduces to <1s         | Minimal                             |
-| Smaller packages        | Reduces initialization | Effort to optimize                  |
-| Keep-warm pings         | Reduces frequency      | Unreliable, not recommended         |
+![Three-state circuit breaker: closed → open on failure threshold; open → half-open after a cool-off; half-open → closed on probe success or → open on probe failure.](./diagrams/circuit-breaker-states-light.svg "Three-state circuit breaker: closed → open on failure threshold; open → half-open after a cool-off timer; half-open → closed on probe success or back to open on probe failure.")
+![Three-state circuit breaker: closed → open on failure threshold; open → half-open after a cool-off; half-open → closed on probe success or → open on probe failure.](./diagrams/circuit-breaker-states-dark.svg)
 
-**Provisioned Concurrency numbers:** AWS reports 75% improvement in p99 latency with provisioned concurrency. Cost is ~$0.000004/GB-second provisioned.
+Sample knobs:
 
-### Circuit Breaker Integration
-
-Gateway as circuit breaker enforcement point protects backends from cascade failures.
-
-**Circuit states:**
-
-1. **Closed:** Requests flow normally
-2. **Open:** Requests rejected immediately (fail fast)
-3. **Half-open:** Limited requests allowed to test recovery
-
-**Configuration example:**
-
-```yaml
+```yaml title="breaker.yaml"
 circuit_breaker:
-  failure_threshold: 5 # Failures before opening
-  success_threshold: 3 # Successes to close
-  timeout: 30s # Time in open state before half-open
-  failure_rate_threshold: 50% # Alternative: percentage-based
+  failure_threshold: 5         # consecutive failures to open
+  success_threshold: 3         # consecutive probes to close
+  open_timeout: 30s            # cool-off in open state
+  failure_rate_threshold: 50%  # alternative: percentage trip
 ```
 
-**Fallback strategies:**
+Gateway-side fallbacks when the breaker is open: serve a cached response, return a degraded payload, route to a backup service, or return an error with explicit retry guidance (`Retry-After`).
 
-- Return cached response
-- Return degraded response (partial data)
-- Return error with retry guidance
-- Route to fallback service
+> [!IMPORTANT]
+> A Nygard-style breaker and Envoy's per-cluster concurrency thresholds are **complementary**, not equivalent. Envoy sheds excess load instantly under overload but never enters a half-open probing state; a true breaker reacts to failure *patterns* over time. Run both: Envoy as the always-on shedder, an application-layer breaker as the recovery probe.
 
-## API Versioning Strategies
+## API versioning
 
-### Path-Based Versioning
+### Path-based versioning
 
-```
+```text
 /v1/users → user-service-v1
 /v2/users → user-service-v2
 ```
 
-**Advantages:**
+Pros: explicit, browser-testable, easy in logs. Cons: URL pollution and a permanent commitment to never re-using the same path.
 
-- Explicit in URL, easy to understand
-- Works with all HTTP clients
-- Clear in logs and documentation
-- Browser-testable
+### Header-based versioning
 
-**Disadvantages:**
-
-- URL pollution
-- Harder to deprecate (URLs in wild)
-- Temptation to version everything
-
-### Header-Based Versioning
-
-```
+```text
 GET /users
 Accept: application/vnd.myapi.v2+json
 ```
 
-or
+or the simpler:
 
-```
+```text
 GET /users
-API-Version: 2024-01
+Stripe-Version: 2026-03-25
 ```
 
-**Advantages:**
+Pros: clean URLs, flexible versioning schemes, RESTful. Cons: invisible to a casual `curl`, harder to reason about in CDN configs and logs.
 
-- Clean URLs
-- Flexible versioning schemes (date-based, semantic)
-- RESTful (URL identifies resource, not representation)
+### Gateway implementation
 
-**Disadvantages:**
-
-- Requires client configuration
-- Less discoverable
-- Harder to test in browser
-
-### Gateway Implementation
-
-Gateway routes based on version header or path prefix:
-
-```yaml
+```yaml title="versioned-routes.yaml"
 routes:
-  - match:
-      path_prefix: /v1/
-    route:
-      cluster: api-v1
-  - match:
-      path_prefix: /v2/
-    route:
-      cluster: api-v2
+  - match: { path_prefix: /v1/ }
+    route: { cluster: api-v1 }
+  - match: { path_prefix: /v2/ }
+    route: { cluster: api-v2 }
   - match:
       headers:
-        - name: API-Version
-          exact_match: "2024-01"
-    route:
-      cluster: api-2024-01
+        - { name: API-Version, exact_match: "2026-01" }
+    route: { cluster: api-2026-01 }
 ```
 
-### Backward Compatibility
+### Backward compatibility
 
-**Non-breaking changes (safe to add):**
+Safe additive changes: new optional fields in responses, new endpoints, new optional query parameters or headers. Breaking changes that need a new version: removing a field, changing a field's type, restructuring a URL, changing required parameters.
 
-- New optional fields in response
-- New endpoints
-- New optional query parameters
-- New optional headers
+Stripe's playbook ([blog post](https://stripe.com/blog/api-versioning), [API reference](https://docs.stripe.com/api/versioning)) is the public reference implementation: date-stamped versions, accounts pinned at first use, request-level overrides via `Stripe-Version`, and a long support window. Internally Stripe runs *version change modules* in reverse chronological order to transform a modern internal response into the shape an older account expects — a useful pattern for any team that promises long compatibility windows.
 
-**Breaking changes (require new version):**
+## Practical takeaways
 
-- Removing fields
-- Changing field types
-- Changing URL structure
-- Changing required parameters
+- **Centralize policies, not business logic.** Auth, rate limiting, routing, observability — yes. Pricing, feature flags, aggregation logic — no.
+- **Plan for failure-domain isolation.** Per-domain gateways beat one global gateway once two unrelated outages can no longer share blast radius. The Canva post-mortem makes the case more vividly than any architecture review.
+- **Pick the rate-limit storage strategy by accuracy budget.** Local for hot paths where a small overrun is acceptable; Redis (with `sync_rate` tuned to your accuracy/latency budget) for everything else; cluster mode only when you genuinely need exact accounting and can afford a DB hit per request.
+- **Choose architecture by team and scale.** Small teams: a managed gateway (AWS API Gateway, Apigee). Large teams with platform engineering capacity: Kong or Envoy for flexibility, cost, and customization.
+- **Measure what matters.** Gateway latency overhead, cache hit ratio, rate-limit rejection rate, error rate by route. These four numbers tell you whether the gateway is helping or hurting.
+- **Treat gateway code as load-bearing.** Anything that locks the event loop (sync logging, in-band auth lookups, badly-instrumented telemetry) is an outage vector. The Canva incident shows how a benign-looking telemetry library can be enough.
 
-**Transition strategy:**
-
-1. Deploy new version alongside old
-2. Gateway routes based on version
-3. Publish deprecation timeline (6-12 months typical)
-4. Monitor old version usage
-5. Sunset old version when usage drops
-
-**Stripe's approach:** Date-based API versions (2024-01-15). Default version set per API key. Explicit version header overrides. Old versions supported for years.
-
-## Conclusion
-
-API gateway design requires balancing centralization benefits against coupling risks:
-
-- **Centralize cross-cutting concerns:** Auth, rate limiting, observability belong at the gateway. Implementing these per-service creates inconsistency and duplication.
-
-- **Avoid centralizing business logic:** Gateway decides "can this request proceed" not "what should this request do." Business rules belong in services or BFF layers.
-
-- **Plan for failure:** The gateway sees all traffic—its failure is catastrophic. Use multiple independent gateways per domain, implement circuit breakers, and design graceful degradation paths.
-
-- **Choose architecture by team and scale:** Small teams benefit from managed gateways (AWS API Gateway, Apigee). Large teams with platform engineering capacity can operate Kong or Envoy for flexibility and cost control.
-
-- **Measure what matters:** Gateway latency overhead, cache hit ratio, rate limit rejections, and error rates by endpoint. These metrics reveal whether the gateway is helping or hurting.
-
-The recurring pattern across Netflix, Amazon, and Google: gateways are infrastructure, not application logic. They enforce policies and route traffic. The moment business logic creeps in, the gateway becomes a bottleneck for both performance and organizational velocity.
+The recurring pattern across Netflix, AWS, Apigee, and Canva is consistent: *gateways are infrastructure, not application logic*. They enforce policies and route traffic. The moment business logic creeps in, the gateway becomes a bottleneck for both performance and organizational velocity.
 
 ## Appendix
 
 ### Prerequisites
 
-- HTTP/HTTPS protocol fundamentals
-- TLS handshake process
-- Basic distributed systems concepts (load balancing, service discovery)
-- Microservices architecture patterns
+- HTTP/HTTPS basics; TLS handshake.
+- Microservices and load-balancing fundamentals.
+- Familiarity with at least one of: Kong, Envoy, AWS API Gateway, NGINX.
 
 ### Summary
 
-- Gateways centralize cross-cutting concerns (auth, rate limiting, routing) at a single enforcement point
-- Edge gateways handle external traffic with strict security; internal gateways (or service mesh) handle service-to-service
-- BFF pattern provides client-specific gateways for mobile, web, and partner APIs
-- Stateless gateway design enables horizontal scaling; state lives in external stores
-- Gateway overhead is typically 1-5ms; cold starts (serverless) can add 100ms-10s
-- Split gateways by business domain to avoid single point of failure
-- Business logic in gateway creates monolith; keep gateway focused on policies and routing
+- Gateways centralize cross-cutting concerns (auth, rate limiting, routing, observability) at a single enforcement point — that is both the value and the risk.
+- Edge gateways handle north-south traffic with strict security; service meshes handle east-west traffic with mTLS, retries, and circuit breaking.
+- BFF gives each client team a per-client gateway shaped to their device and team boundaries.
+- Stateless-with-caches is the default scaling shape; rate limit accuracy lives on a `local | redis | cluster` continuum with corresponding latency.
+- The Canva 2024 outage illustrates what happens when a single shared gateway plane absorbs a thundering herd while a telemetry deployment locks the event loop.
+- AWS API Gateway: 99.95% SLA, REST cache TTL default 300 s / max 3,600 s, HTTP API has no native cache.
+- Stripe's date-based versioning with account pinning is the canonical long-compatibility-window playbook.
 
 ### References
 
-- [Microservices Pattern: API Gateway](https://microservices.io/patterns/apigateway.html) - Chris Richardson's canonical pattern description
-- [Netflix: Open Sourcing Zuul 2](https://netflixtechblog.com/open-sourcing-zuul-2-82ea476cb2b3) - Netflix engineering on Zuul architecture
-- [Kong Gateway Documentation](https://docs.konghq.com/) - Plugin architecture and configuration
-- [Envoy Proxy Documentation](https://www.envoyproxy.io/docs/envoy/latest/) - Performance characteristics and configuration
-- [AWS API Gateway Documentation](https://docs.aws.amazon.com/apigateway/) - Managed gateway features and limits
-- [Google Apigee Documentation](https://cloud.google.com/apigee/docs) - Enterprise API management
-- [Sam Newman: Backends for Frontends](https://samnewman.io/patterns/architectural/bff/) - Original BFF pattern description
-- [Canva Incident Report: API Gateway Outage](https://www.canva.dev/blog/engineering/canva-incident-report-api-gateway-outage/) - Real-world gateway failure analysis
-- [Stripe: Designing APIs for Humans](https://stripe.com/blog/payment-api-design) - API versioning and design philosophy
-- [Service Mesh vs API Gateway](https://blog.christianposta.com/microservices/do-i-need-an-api-gateway-if-i-have-a-service-mesh/) - Christian Posta on architectural patterns
+- [API Gateway pattern — microservices.io](https://microservices.io/patterns/apigateway.html) — Chris Richardson's canonical pattern statement.
+- [Open Sourcing Zuul 2 — Netflix Tech Blog](https://netflixtechblog.com/open-sourcing-zuul-2-82ea476cb2b3) — Netflix scale, async/non-blocking design.
+- [Zuul 2: The Netflix Journey to Asynchronous, Non-Blocking Systems](http://techblog.netflix.com/2016/09/zuul-2-netflix-journey-to-asynchronous.html) — pre-open-source design retrospective.
+- [Curbing Connection Churn in Zuul](https://netflixtechblog.com/curbing-connection-churn-in-zuul-2feb273a3598) — connection pool design notes.
+- [Kong Rate Limiting plugin](https://developer.konghq.com/plugins/rate-limiting/) and [Rate Limiting Advanced](https://developer.konghq.com/plugins/rate-limiting-advanced/) — `local | cluster | redis` semantics.
+- [Envoy "How fast is Envoy?" FAQ](https://www.envoyproxy.io/docs/envoy/latest/faq/performance/how_fast_is_envoy) and [benchmarking FAQ](https://www.envoyproxy.io/docs/envoy/latest/faq/performance/how_to_benchmark_envoy).
+- [Envoy circuit breaking](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking).
+- [AWS API Gateway SLA](https://aws.amazon.com/api-gateway/sla/) and [REST quotas](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-execution-service-limits-table.html).
+- [AWS Lambda SnapStart](https://aws.amazon.com/blogs/compute/reducing-java-cold-starts-on-aws-lambda-functions-with-snapstart/) and [Provisioned Concurrency](https://aws.amazon.com/blogs/compute/new-for-aws-lambda-predictable-start-up-times-with-provisioned-concurrency/).
+- [Apigee architecture overview](https://docs.cloud.google.com/apigee/docs/api-platform/architecture/overview) and [Apigee hybrid](https://docs.cloud.google.com/apigee/docs/hybrid/v1.16/what-is-hybrid).
+- [Stripe API versioning](https://docs.stripe.com/api/versioning), [APIs as infrastructure](https://stripe.com/blog/api-versioning), and [Stripe rate limits](https://docs.stripe.com/rate-limits).
+- [GitHub REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+- [Sam Newman: Backends For Frontends](https://samnewman.io/patterns/architectural/bff/).
+- [Christian Posta: Do I Need an API Gateway if I Have a Service Mesh?](https://blog.christianposta.com/microservices/do-i-need-an-api-gateway-if-i-have-a-service-mesh/).
+- [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) and [GAMMA initiative](https://gateway-api.sigs.k8s.io/geps/gep-1324/).
+- [Canva incident report: API Gateway outage](https://www.canva.dev/blog/engineering/canva-incident-report-api-gateway-outage/) — November 12, 2024 post-mortem.
+- [Martin Fowler: Circuit Breaker](https://martinfowler.com/bliki/CircuitBreaker.html) and Michael Nygard, *Release It!* (2nd ed.).
+- [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519) — JSON Web Token (JWT).
+- [RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517) — JSON Web Key (JWK).
+- [RFC 9068](https://datatracker.ietf.org/doc/html/rfc9068) — JWT profile for OAuth 2.0 access tokens.
+- [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662) — OAuth 2.0 Token Introspection.
+- [OAuth 2.1 draft (draft-ietf-oauth-v2-1)](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/).
+- [RFC 1363](https://datatracker.ietf.org/doc/html/rfc1363) and [RFC 3290 §4.4](https://www.rfc-editor.org/rfc/rfc3290.html) — token bucket / leaky bucket parameters.

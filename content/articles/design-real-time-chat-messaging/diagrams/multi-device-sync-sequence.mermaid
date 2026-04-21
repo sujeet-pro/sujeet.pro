@@ -1,0 +1,27 @@
+%% Diagram: Multi-Device Sync Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Phone as Phone (online)
+    participant Tablet as Tablet (offline)
+    participant Web as Web (online)
+    participant GW as Gateway
+    participant MSG as Message Service
+    participant SYNC as Sync Service
+
+    Phone->>GW: send msg (clientId X)
+    GW->>MSG: route + persist (seq=42)
+    MSG-->>GW: ack(seq=42)
+    GW-->>Phone: deliver self-echo(seq=42)
+    GW-->>Web: deliver(seq=42)
+    Note over Tablet: device offline,<br/>retains lastSeq=40
+
+    Tablet->>GW: reconnect + auth
+    Tablet->>SYNC: sync(convId, lastSeq=40)
+    SYNC->>MSG: getMessagesAfter(40)
+    MSG-->>SYNC: [seq=41, seq=42]
+    SYNC-->>Tablet: backfill
+    Tablet->>GW: read(upTo=42)
+    GW->>MSG: store per-device cursor
+    MSG-->>Phone: read receipt(by self, dev=tablet)
+    MSG-->>Web: read receipt(by self, dev=tablet)

@@ -1,0 +1,37 @@
+%% Diagram: Retry Wrapped Inside a Circuit Breaker — Request Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant Caller
+    participant CB as Circuit Breaker
+    participant Retry as Retry Loop
+    participant Server
+
+    Caller->>CB: request()
+    alt breaker is Open
+        CB-->>Caller: fail fast (no retry, no call)
+    else breaker is Closed or Half-Open
+        CB->>Retry: invoke
+        loop attempt = 0..maxRetries
+            Retry->>Server: send request
+            alt success
+                Server-->>Retry: 200 OK
+                Retry-->>CB: report success
+                CB-->>Caller: result
+            else retryable error (5xx, timeout, 429)
+                Server-->>Retry: error
+                Note over Retry: delay = min(cap, base x 2^attempt)\nsleep = jitter(delay)\nhonor Retry-After if present
+                Retry->>Retry: sleep
+            else non-retryable (4xx other than 429)
+                Server-->>Retry: error
+                Retry-->>CB: report failure
+                CB-->>Caller: error
+            end
+        end
+        Retry-->>CB: report failure (budget exhausted)
+        CB->>CB: increment failure counter
+        opt failure rate >= threshold
+            CB->>CB: open circuit, start cool-down
+        end
+        CB-->>Caller: error
+    end

@@ -1,0 +1,37 @@
+%% Diagram: Store-and-Forward Message Flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    actor Sender
+    participant SConn as Sender's chat node
+    participant Router as Routing layer (pg2/wandist)
+    participant RConn as Recipient's chat node
+    participant Mnesia as Offline queue (Mnesia)
+    actor Recipient
+
+    Sender->>SConn: send(msg)
+    SConn->>Router: lookup(recipient)
+
+    alt Recipient online, same cluster
+        Router->>RConn: forward(msg) [sub-ms]
+        RConn->>Recipient: deliver
+        Recipient-->>RConn: ack
+        RConn-->>SConn: delivered
+    else Recipient online, different cluster
+        Router->>RConn: forward via wandist [sub-second]
+        RConn->>Recipient: deliver
+        Recipient-->>RConn: ack
+        RConn-->>SConn: delivered
+    else Recipient offline
+        Router->>Mnesia: enqueue(msg) + replicate to peer
+        Mnesia-->>SConn: queued
+        Note over Recipient,RConn: Up to 30 day TTL
+        Recipient->>RConn: reconnect
+        RConn->>Mnesia: drain queue (ordered)
+        Mnesia->>RConn: msgs
+        RConn->>Recipient: deliver
+        Recipient-->>RConn: ack
+    end
+
+    RConn->>Mnesia: delete on ack
+    Note over Mnesia: Server is a router,\nnot an archive

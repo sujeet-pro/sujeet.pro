@@ -1,0 +1,24 @@
+%% Diagram: Transport Decision Tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Need real-time sync] --> B{Bidirectional?}
+    B -->|"server -> client only"| D{HTTP/2 or HTTP/3 available?}
+    D -->|Yes| E[SSE]
+    D -->|"No / restricted proxy"| F[SSE with HTTP/1.1 fallback]
+    E --> EU{Client also uplinks?}
+    F --> EU
+    EU -->|Yes, infrequent| G[SSE plus HTTP POST]
+    EU -->|No| H[SSE only]
+
+    B -->|"both directions"| I{Greenfield, Chromium-leading OK?}
+    I -->|Yes| J[WebTransport over HTTP/3]
+    I -->|"No, need cross-browser parity"| K[WebSocket]
+
+    J --> L{Offline support needed?}
+    K --> L
+    L -->|Yes| M[Add IndexedDB queue plus reconnect with replay]
+    L -->|No| N[Connection manager plus heartbeats]
+
+    O{Restricted enterprise proxy blocks WS and SSE?} -.fallback.-> P[Long polling]
+    K -.fallback when blocked.-> O

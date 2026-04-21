@@ -1,0 +1,32 @@
+%% Diagram: Payment orchestration (Path C)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Client["Client"]
+    subgraph App["Your application"]
+        API["Single payment API"]
+    end
+
+    subgraph Orchestration["Orchestration layer"]
+        ROUTER["Smart router"]
+        RULES["Routing rules + ML"]
+        TOKENS[("Universal token vault")]
+        FAILOVER["Failover controller"]
+    end
+
+    subgraph Providers["Acquirers / PSPs"]
+        STRIPE["Stripe"]
+        ADYEN["Adyen"]
+        PAYPAL["PayPal / Braintree"]
+        LOCAL["Regional acquirer"]
+    end
+
+    Client --> API
+    API --> ROUTER
+    ROUTER --> RULES
+    ROUTER --> TOKENS
+    RULES --> FAILOVER
+    FAILOVER --> STRIPE
+    FAILOVER --> ADYEN
+    FAILOVER --> PAYPAL
+    FAILOVER --> LOCAL

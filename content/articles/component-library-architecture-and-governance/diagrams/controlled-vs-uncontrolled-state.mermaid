@@ -1,0 +1,22 @@
+%% Diagram: Controlled vs Uncontrolled state ownership
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CONTROLLED["Controlled mode"]
+        direction TB
+        APP1["Consumer state<br/>(useState)"]
+        COMP1["<Input value onChange />"]
+        APP1 -- "value prop" --> COMP1
+        COMP1 -- "onChange event" --> APP1
+    end
+
+    subgraph UNCONTROLLED["Uncontrolled mode"]
+        direction TB
+        COMP2["<Input defaultValue ref />"]
+        INTERNAL["Internal useState<br/>inside component"]
+        APP2["Consumer ref<br/>(read on demand)"]
+        COMP2 -- "owns" --> INTERNAL
+        APP2 -. "ref.current.value" .-> COMP2
+    end
+
+    CONTROLLED ~~~ UNCONTROLLED

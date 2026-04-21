@@ -1,0 +1,31 @@
+%% Diagram: Composition order - bulkhead, breaker, retry, timeout, call
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    caller([Caller]) --> bh{Bulkhead\npermit?}
+    bh -- no --> rejB[Reject:\nBulkheadFull]
+    bh -- yes --> cb{Breaker\nClosed or\nHalf-Open?}
+    cb -- no --> rejC[Fast-fail:\nCallNotPermitted]
+    cb -- yes --> rt[Retry policy\nmaxAttempts, full jitter]
+    rt --> to[Per-attempt\ntimeout]
+    to --> dep[(Dependency)]
+
+    dep -- success --> recOK[Record success]
+    dep -- timeout / 5xx --> rt
+    rt -- attempts exhausted --> recFail[Record failure]
+
+    recOK --> rel[Release\npermit]
+    recFail --> rel
+    rejB --> done([Return])
+    rejC --> done
+    rel --> done
+
+    classDef control fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef io fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+
+    class bh,cb,rt,to control
+    class dep,recOK,recFail,rel io
+    class rejB,rejC warn
+    class caller,done neutral

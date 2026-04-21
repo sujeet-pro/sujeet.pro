@@ -1,0 +1,44 @@
+%% Diagram: how a small DOM maps to four sparse property trees
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph DOM["LayoutObject tree"]
+        direction TB
+        Root["html"]
+        Root --> Body["body"]
+        Body --> Scroller["div #scroll<br/>overflow: scroll"]
+        Body --> Card["div .card<br/>transform: rotate(2deg)<br/>opacity: 0.9"]
+        Scroller --> Item1["p"]
+        Card --> Tip["span .tip<br/>filter: blur(2px)"]
+    end
+
+    subgraph TT["Transform tree"]
+        direction TB
+        TR["root"] --> TS["#scroll<br/>scroll-translation"]
+        TR --> TC["card<br/>rotate(2deg)"]
+    end
+
+    subgraph CT["Clip tree"]
+        direction TB
+        CR["root clip"] --> CS["#scroll<br/>overflow clip"]
+    end
+
+    subgraph ET["Effect tree"]
+        direction TB
+        ER["root"] --> EC["card<br/>opacity 0.9"]
+        EC --> ETip["tip<br/>blur(2px)"]
+    end
+
+    subgraph ST["Scroll tree"]
+        direction TB
+        SR["viewport"] --> SS["#scroll"]
+    end
+
+    Scroller -. "PropertyTreeState =<br/>(TS, CS, root, SS)" .-> TS
+    Card -. "PropertyTreeState =<br/>(TC, root, EC, viewport)" .-> TC
+    Tip -. "PropertyTreeState =<br/>(TC, root, ETip, viewport)" .-> ETip
+    Item1 -. "inherits scroller's tuple" .-> TS
+
+    style Card fill:#fff9c4,stroke:#f9a825
+    style Tip fill:#fff9c4,stroke:#f9a825
+    style Scroller fill:#e3f2fd,stroke:#1565c0

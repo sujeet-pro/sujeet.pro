@@ -1,0 +1,7 @@
+%% Diagram: Path A — monolithic storage
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    CLIENT["Client"] --> API["API server"]
+    API --> CACHE["Redis cache"]
+    API --> DB[("PostgreSQL<br/>metadata + content as TEXT")]

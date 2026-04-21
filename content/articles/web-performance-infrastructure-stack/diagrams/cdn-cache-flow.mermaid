@@ -1,0 +1,27 @@
+%% Diagram: CDN edge cache decision flow with stale-while-revalidate
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    REQ(["Edge receives request"]) --> KEY["Build cache key<br/>(URL + Vary headers)"]
+    KEY --> LOOK{"Object in<br/>edge cache?"}
+
+    LOOK -->|HIT, fresh| SERVE_F["Serve from edge<br/>(5-20 ms)"]
+    LOOK -->|HIT, stale + SWR| SERVE_S["Serve stale immediately"]
+    SERVE_S --> BG["Background revalidate<br/>to origin"]
+    BG --> STORE
+    LOOK -->|MISS| ORIGIN["Fetch from origin<br/>(via VPC)"]
+
+    ORIGIN --> CACHEABLE{"Cacheable?<br/>(Cache-Control,<br/>status, method)"}
+    CACHEABLE -->|yes| STORE["Store + emit response"]
+    CACHEABLE -->|no| BYPASS["Pass-through; no caching"]
+
+    STORE --> SERVE_F
+    BYPASS --> SERVE_F
+
+    classDef hit fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef miss fill:#fef3c7,stroke:#b45309,color:#0f172a
+    classDef bypass fill:#fee2e2,stroke:#b91c1c,color:#0f172a
+    SERVE_F:::hit
+    SERVE_S:::hit
+    ORIGIN:::miss
+    BYPASS:::bypass

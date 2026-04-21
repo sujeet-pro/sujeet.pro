@@ -1,0 +1,10 @@
+%% Diagram: Universal Scalability Law — throughput vs concurrency, contrasted with linear ideal
+%% Type: xy
+%%{init: {'htmlLabels': false}}%%
+xychart-beta
+    title "Universal Scalability Law (alpha = 0.05, beta = 0.001)"
+    x-axis "Concurrency N (workers / clients)" [1, 5, 10, 20, 30, 40, 50, 70, 100, 150, 200]
+    y-axis "Relative throughput X(N)" 0 --> 35
+    line "Linear ideal" [1, 5, 10, 20, 30, 35, 35, 35, 35, 35, 35]
+    line "Amdahl (alpha only)" [1, 4.4, 7.0, 10.0, 11.5, 12.3, 12.9, 13.6, 14.2, 14.7, 14.9]
+    line "USL (alpha + beta)" [1, 4.3, 6.5, 8.6, 9.0, 8.9, 8.5, 7.5, 6.3, 4.9, 4.0]

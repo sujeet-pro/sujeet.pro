@@ -1,0 +1,25 @@
+%% Diagram: ABR quality-selection state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Startup
+    Startup --> Steady: buffer >= 10s
+    Startup --> Startup: keep low quality
+
+    Steady --> RampUp: buffer >= target<br/>and throughput stable
+    Steady --> Steady: buffer near target
+    Steady --> Defensive: buffer < 50% target
+
+    RampUp --> Steady: quality at top safe rung
+    RampUp --> Defensive: throughput drops
+
+    Defensive --> Steady: buffer recovers
+    Defensive --> Emergency: buffer < 5s
+
+    Emergency --> Defensive: buffer recovers
+    Emergency --> Emergency: drop to lowest rung,<br/>switch OCA if available
+
+    note right of Steady
+        safe_bitrate = throughput_estimate * safety_margin
+        pick highest rung <= safe_bitrate
+    end note

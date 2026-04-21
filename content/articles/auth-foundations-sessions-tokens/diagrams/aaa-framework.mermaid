@@ -1,0 +1,31 @@
+%% Diagram: AAA framework (Authentication, Authorization, Accounting)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    User([User / Client])
+
+    subgraph AuthN["Authentication — Who are you?"]
+        direction TB
+        AN1[Password + MFA]
+        AN2[OAuth 2.1 / OIDC]
+        AN3[WebAuthn / Passkeys]
+    end
+
+    subgraph AuthZ["Authorization — What can you do?"]
+        direction TB
+        AZ1[RBAC]
+        AZ2[ABAC]
+        AZ3[ReBAC / Policy]
+    end
+
+    subgraph Acct["Accounting — What did you do?"]
+        direction TB
+        AC1[Audit log]
+        AC2[Anomaly detection]
+        AC3[Forensics / SIEM]
+    end
+
+    User --> AuthN
+    AuthN -->|Identity + claims| AuthZ
+    AuthZ -->|Allow / deny| Acct
+    Acct -.->|Feedback signals| AuthN

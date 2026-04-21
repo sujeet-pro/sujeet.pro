@@ -1,0 +1,39 @@
+%% Diagram: Transform pair example — concrete IT(insert, delete)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph S0["Initial state on both sites: 'abc'"]
+        direction TB
+        T0["a b c"]
+    end
+
+    subgraph A["Site A authors locally"]
+        direction TB
+        OA["O_A = Ins(0, 'x')"]
+        SA["a → x a b c"]
+    end
+
+    subgraph B["Site B authors concurrently"]
+        direction TB
+        OB["O_B = Del(2)"]
+        SB["a b c → a b"]
+    end
+
+    subgraph T["Transform on receive (TP1)"]
+        direction TB
+        TA["T(O_B, O_A) = Del(3)"]
+        TB1["T(O_A, O_B) = Ins(0, 'x')"]
+    end
+
+    subgraph C["Both sites converge to 'xab'"]
+        direction TB
+        F1["A applies Del(3): x a b c → x a b"]
+        F2["B applies Ins(0, 'x'): a b → x a b"]
+    end
+
+    S0 --> OA
+    S0 --> OB
+    OA --> TA
+    OB --> TB1
+    TA --> F1
+    TB1 --> F2

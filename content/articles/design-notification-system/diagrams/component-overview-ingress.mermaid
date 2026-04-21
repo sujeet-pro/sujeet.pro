@@ -1,0 +1,38 @@
+%% Diagram: Component overview — ingress + queueing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Producers["Event Producers"]
+        direction TB
+        AUTH["Auth Service\n(Login alerts)"]
+        ORDER["Order Service\n(Status updates)"]
+        SOCIAL["Social Service\n(Likes, comments)"]
+        MARKETING["Marketing Service\n(Promotions)"]
+    end
+
+    subgraph Gateway["API Gateway"]
+        direction TB
+        RATE["Rate Limiter"]
+        AUTH_GW["Auth Middleware"]
+        VALIDATE["Request Validator"]
+    end
+
+    subgraph Core["Core Services"]
+        direction TB
+        NOTIF_API["Notification API"]
+        TEMPLATE["Template Service"]
+        PREF["Preference Service"]
+        DEVICE["Device Registry"]
+        SCHEDULE["Scheduler"]
+    end
+
+    subgraph Queue["Message Queues"]
+        direction TB
+        CRITICAL_Q["Critical Queue\n(p99 < 500ms)"]
+        HIGH_Q["High Priority Queue\n(p99 < 2s)"]
+        NORMAL_Q["Normal Queue\n(p99 < 10s)"]
+        BULK_Q["Bulk Queue\n(Best effort)"]
+    end
+
+    Producers --> Gateway --> Core --> Queue
+    NOTIF_API --> TEMPLATE & PREF & DEVICE

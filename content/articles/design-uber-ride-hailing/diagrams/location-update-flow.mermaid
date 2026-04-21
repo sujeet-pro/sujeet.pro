@@ -1,0 +1,20 @@
+%% Diagram: Location Update Flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant D as Driver
+    participant WS as WS Gateway
+    participant K as Kafka
+    participant Loc as Location Svc
+    participant R as Redis
+    participant H as Cassandra
+
+    loop every 4-5s
+        D->>WS: GPS ping
+        WS->>K: publish<br/>(partition by H3)
+    end
+    K->>Loc: consume
+    Loc->>Loc: latLngToCell(res 9)
+    Loc->>R: ZADD drivers:h3:cell<br/>(TTL 30s)
+    Loc->>H: append history
+    Note over R: DISCO reads<br/>k-ring → drivers

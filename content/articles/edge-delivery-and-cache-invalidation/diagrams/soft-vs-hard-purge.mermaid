@@ -1,0 +1,27 @@
+%% Diagram: Soft vs hard purge — timing of cache state and origin load after a purge call
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as App / CMS
+    participant CDN
+    participant Origin
+    participant User
+
+    Note over App,User: Hard purge — content removed instantly
+    App->>CDN: Purge key=p-123 (hard)
+    Note over CDN: Entry deleted; key now MISS
+    User->>CDN: GET /products/123
+    CDN->>Origin: synchronous fetch (blocks user)
+    Origin-->>CDN: 200 OK fresh
+    CDN-->>User: 200 OK fresh
+
+    Note over App,User: Soft purge — content marked stale
+    App->>CDN: Purge key=p-123 (soft)
+    Note over CDN: Entry kept, marked stale (SWR / SIE eligible)
+    User->>CDN: GET /products/123
+    CDN-->>User: 200 OK STALE (instant)
+    par background
+        CDN->>Origin: async revalidate
+        Origin-->>CDN: 200 OK fresh
+        Note over CDN: Entry replaced
+    end

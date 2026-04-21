@@ -1,0 +1,28 @@
+%% Diagram: Atomic phases bracket every foreign-state mutation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph p1["Phase 1 — local"]
+        A["Upsert idempotency_keys\nrecovery_point=started\nlocked_at=now"]
+        B["Insert ride row\nrecovery_point=ride_created"]
+        A --> B
+    end
+
+    F1{{"Foreign mutation\nStripe::Charge.create\n(idempotency_key=rocket-rides-atomic-#id)"}}
+
+    subgraph p2["Phase 2 — local"]
+        C["Update ride.stripe_charge_id\nrecovery_point=charge_created"]
+        D["Insert staged_jobs row\nsend_ride_receipt"]
+        C --> D
+    end
+
+    subgraph p3["Phase 3 — local"]
+        E["Persist response_code/body\nrecovery_point=finished\nlocked_at=NULL"]
+    end
+
+    p1 --> F1 --> p2 --> p3
+
+    classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef foreign fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    class A,B,C,D,E phase
+    class F1 foreign

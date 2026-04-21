@@ -1,0 +1,29 @@
+%% Diagram: Multi-tier CDN caching
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Player
+        P[Video player]
+    end
+
+    subgraph Edge["Edge layer (thousands of PoPs)"]
+        E1[Edge cache<br/>ISP / metro PoP]
+    end
+
+    subgraph Shield["Origin shield (10s of regions)"]
+        SH[Regional shield cache]
+    end
+
+    subgraph Origin["Origin"]
+        O[Origin server]
+        ST[(Encoded segment store)]
+    end
+
+    P -->|HTTP GET segment| E1
+    E1 -->|miss| SH
+    SH -->|miss| O
+    O --> ST
+    ST -. byte range .-> O
+    O -. fill .-> SH
+    SH -. fill .-> E1
+    E1 -. hit .-> P

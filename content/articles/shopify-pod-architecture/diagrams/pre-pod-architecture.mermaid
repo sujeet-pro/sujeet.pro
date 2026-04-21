@@ -1,0 +1,17 @@
+%% Diagram: Pre-pod (sharded monolith) architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    LB["Load balancer"] --> APP["Application workers"]
+
+    subgraph "Sharded for write throughput"
+        APP --> S1["MySQL shard 1"]
+        APP --> S2["MySQL shard 2"]
+        APP --> SN["MySQL shard N"]
+    end
+
+    subgraph "Shared single points of failure"
+        APP --> R["Shared Redis"]
+        APP --> MC["Shared Memcached"]
+        APP --> CRON["Shared cron / jobs"]
+    end

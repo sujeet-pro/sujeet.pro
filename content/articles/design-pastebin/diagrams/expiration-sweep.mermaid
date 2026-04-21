@@ -1,0 +1,21 @@
+%% Diagram: Active expiration sweep
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant CRON as Hourly cron
+    participant SWEEP as Expiration sweeper
+    participant DB as PostgreSQL
+    participant S3 as Object storage
+    participant R as Redis
+
+    CRON->>SWEEP: trigger
+    loop until empty (LIMIT 10k per batch)
+        SWEEP->>DB: SELECT id FROM pastes<br/>WHERE expires_at < NOW()<br/>AND deleted_at IS NULL<br/>LIMIT 10000
+        DB-->>SWEEP: batch of expired ids
+        SWEEP->>S3: DELETE pastes/{id}.zst<br/>DELETE highlighted/{id}.html
+        S3-->>SWEEP: 204 No Content
+        SWEEP->>R: DEL paste:{id}
+        SWEEP->>DB: UPDATE pastes SET deleted_at = NOW()<br/>WHERE id = ANY($batch)
+        DB-->>SWEEP: rows updated
+    end
+    Note over SWEEP,DB: Lazy read check still enforces<br/>expiry between sweeps, so a paste<br/>that expires mid-cycle still returns 410.

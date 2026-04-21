@@ -1,0 +1,23 @@
+%% Diagram: Kafka idempotent producer + transactional consume-transform-produce
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Producer["Producer (txn id stable across restarts)"]
+        P[App] --> IP["Idempotent producer\nPID + per-partition seq"]
+    end
+    IP -->|"PID, seq=N"| BL
+
+    subgraph Broker["Kafka broker"]
+        BL["Partition leader"] -->|"compare seq vs\nlast 5 batches"| D{Duplicate or gap?}
+        D -->|"seq <= last_acked"| R["Reject as duplicate"]
+        D -->|"seq > last_acked + 1"| OOO["OutOfOrderSequenceException"]
+        D -->|"seq = last_acked + 1"| W["Append to log"]
+    end
+
+    W --> TC["Transaction coordinator\n(commits offsets + writes\natomically)"]
+    TC --> C["Consumer\n(isolation.level=read_committed)"]
+
+    classDef rejectNode fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef successNode fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class R,OOO rejectNode
+    class W successNode

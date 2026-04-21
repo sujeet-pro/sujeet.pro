@@ -1,0 +1,27 @@
+%% Diagram: Per-query vs normalized cache layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph perquery["Per-query cache (TanStack Query, SWR, RTK Query)"]
+        direction TB
+        K1["users\nlist query"] --> V1["{ users: [\n  {id:1, name:Alice},\n  {id:2, name:Bob}\n] }"]
+        K2["users/1\ndetail query"] --> V2["{ id:1,\n  name:Alice,\n  email:... }"]
+        K3["posts?author=1"] --> V3["[ {id:11, title:...},\n  {id:12, title:...} ]"]
+    end
+
+    subgraph normalized["Normalized cache (Apollo, Relay)"]
+        direction TB
+        ROOT["ROOT_QUERY\nfields"] --> REF1["users -> [Ref User:1, Ref User:2]"]
+        ROOT --> REF2["posts(authorId:1) -> [Ref Post:11, Ref Post:12]"]
+        REF1 --> U1["User:1\n{ id:1, name:Alice, email:... }"]
+        REF1 --> U2["User:2\n{ id:2, name:Bob }"]
+        REF2 --> P1["Post:11"]
+        REF2 --> P2["Post:12"]
+    end
+
+    classDef key fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef val fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef ref fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class K1,K2,K3,ROOT key
+    class V1,V2,V3,U1,U2,P1,P2 val
+    class REF1,REF2 ref

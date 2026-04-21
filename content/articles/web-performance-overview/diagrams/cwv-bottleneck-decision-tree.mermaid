@@ -1,0 +1,23 @@
+%% Diagram: CWV bottleneck decision tree
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START["Failing CWV at p75<br/>(CrUX or RUM)"]
+
+    START --> LCP_Q{"LCP &gt; 2.5 s?"}
+    LCP_Q -- yes --> LCP_BR{"TTFB<br/>&gt; 800 ms?"}
+    LCP_BR -- yes --> INFRA["Infrastructure<br/>(HTTP/3, CDN,<br/>edge cache)"]
+    LCP_BR -- no --> LCP_ELEM{"LCP element<br/>= image?"}
+    LCP_ELEM -- yes --> IMG["Images<br/>(AVIF/WebP,<br/>fetchpriority)"]
+    LCP_ELEM -- no --> CSS_RB["CSS &amp; Type<br/>(critical CSS,<br/>preload fonts)"]
+
+    LCP_Q -- no --> INP_Q{"INP &gt; 200 ms?"}
+    INP_Q -- yes --> JS["JavaScript<br/>(splitting,<br/>scheduler.yield&#40;&#41;,<br/>workers)"]
+
+    INP_Q -- no --> CLS_Q{"CLS &gt; 0.1?"}
+    CLS_Q -- yes --> CLS_SRC{"Shift source?"}
+    CLS_SRC -- fonts --> CSS_FONT["CSS &amp; Type<br/>(size-adjust,<br/>ascent-override)"]
+    CLS_SRC -- "images / ads" --> CSS_DIM["Reserve space<br/>(width/height,<br/>aspect-ratio)"]
+    CLS_SRC -- "DOM injection" --> JS_INJ["JavaScript<br/>(SSR or<br/>placeholder)"]
+
+    CLS_Q -- no --> DONE["Track in CI<br/>and CrUX"]

@@ -1,0 +1,31 @@
+%% Diagram: Release Model Decision
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  start(["Pick a default release model"])
+  qCoupling{"Are domain<br/>boundaries and contracts<br/>actually stable?"}
+  qOrg{"Multiple teams shipping<br/>different cadences<br/>into the same UI?"}
+  qSkew{"Can the platform own<br/>routing, caching,<br/>and version skew?"}
+
+  trainRel["Single release train<br/>(batched, monolithic deploy)"]
+  trunkRel["Trunk-based continuous delivery<br/>on one deployable"]
+  indepRel["Independent deployables<br/>(module federation,<br/>server-included fragments)"]
+
+  trainNote["Best when:<br/>tight regulatory windows,<br/>early product, or<br/>genuinely monolithic runtime"]
+  trunkNote["Best when:<br/>contracts and feature flags<br/>are mature, observability<br/>is strong"]
+  indepNote["Best when:<br/>org parallelism dominates,<br/>and platform owns the seams"]
+
+  start --> qCoupling
+  qCoupling -- "no — coupling is real" --> trainRel
+  qCoupling -- "yes" --> qOrg
+  qOrg -- "no — single team or shared cadence" --> trunkRel
+  qOrg -- "yes — independent cadences" --> qSkew
+  qSkew -- "no — keep it in one bundle" --> trunkRel
+  qSkew -- "yes — platform can absorb the cost" --> indepRel
+
+  trainRel --- trainNote
+  trunkRel --- trunkNote
+  indepRel --- indepNote
+
+  classDef note fill:#fff8e1,stroke:#b08900,color:#5f4b00;
+  class trainNote,trunkNote,indepNote note;

@@ -1,0 +1,12 @@
+%% Diagram: Multi-CDN failover routing
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    DNS[Client DNS resolver] --> HM{Health monitor<br/>RUM + synthetic}
+    HM -->|primary healthy| CDN_A[CDN A<br/>preferred]
+    HM -->|primary degraded| CDN_B[CDN B<br/>secondary]
+    HM -->|both degraded| ORIGIN[Direct origin<br/>last-resort]
+    CDN_A --> SHIELD[Origin shield]
+    CDN_B --> SHIELD
+    ORIGIN --> ORIGINSTORE[(Origin store)]
+    SHIELD --> ORIGINSTORE

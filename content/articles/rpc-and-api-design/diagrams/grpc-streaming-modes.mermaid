@@ -1,0 +1,29 @@
+%% Diagram: gRPC's four streaming modes over a single HTTP/2 stream
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Unary
+    C->>S: Request
+    S-->>C: Response
+
+    Note over C,S: Server streaming
+    C->>S: Request
+    S-->>C: Response 1
+    S-->>C: Response 2
+    S-->>C: Response N (END_STREAM)
+
+    Note over C,S: Client streaming
+    C->>S: Request 1
+    C->>S: Request 2
+    C->>S: Request N (END_STREAM)
+    S-->>C: Final response
+
+    Note over C,S: Bidirectional
+    C->>S: Request 1
+    S-->>C: Response 1
+    C->>S: Request 2
+    S-->>C: Response 2

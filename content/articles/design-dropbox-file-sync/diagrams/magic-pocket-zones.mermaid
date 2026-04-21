@@ -1,0 +1,40 @@
+%% Diagram: Magic Pocket — multi-zone, cell-internal layout
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Frontend["Zone-local frontends"]
+        FE["Frontend<br/>(routes Put/Get,<br/>consults Block Index)"]
+        BI[("Block Index<br/>sharded MySQL<br/>hash -> cell, bucket")]
+    end
+
+    FE --> BI
+
+    subgraph Z1["Zone 1 (West)"]
+        C1A["Cell 1A<br/>~50 PB<br/>Master + OSDs"]
+        C1B["Cell 1B"]
+    end
+
+    subgraph Z2["Zone 2 (Central)"]
+        C2A["Cell 2A"]
+    end
+
+    subgraph Z3["Zone 3 (East)"]
+        C3A["Cell 3A"]
+    end
+
+    FE --> C1A
+    FE --> C2A
+    Z1 -. "≤ 1s async cross-zone replication" .-> Z3
+    Z2 -. "≤ 1s async cross-zone replication" .-> Z3
+
+    subgraph CellDetail["Inside a cell (~50 PB)"]
+        Master["Master<br/>(coordinator, soft state)"]
+        RT[("Replication Table<br/>bucket -> volume -> OSDs")]
+        VM["Volume Managers<br/>(repair, EC encode)"]
+        OSD["Object Storage Devices<br/>(open: writeable; closed: immutable)"]
+    end
+
+    C1A -.-> CellDetail
+    Master --> RT
+    Master --> VM
+    VM --> OSD

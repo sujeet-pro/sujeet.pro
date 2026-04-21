@@ -1,0 +1,47 @@
+%% Diagram: Global view across regions — leaf Prometheus, federation, remote_write to Mimir/Thanos, downsampling tiers
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph RegionA["Region A or cluster A"]
+        direction TB
+        TgtA["Targets\nservices and nodes"]
+        PromA["Leaf Prometheus\nlocal scrape, short retention\nexternal_labels region=a"]
+        TgtA -->|"pull /metrics"| PromA
+    end
+
+    subgraph RegionB["Region B or cluster B"]
+        direction TB
+        TgtB["Targets\nservices and nodes"]
+        PromB["Leaf Prometheus\nlocal scrape, short retention\nexternal_labels region=b"]
+        TgtB -->|"pull /metrics"| PromB
+    end
+
+    GlobalProm["Global Prometheus\n/federate scrape\naggregated rules only\nmatch=job:*"]
+
+    subgraph Central["Central long-term storage: Mimir, Cortex, Thanos"]
+        direction TB
+        Distrib["Distributor or vmagent\nhash by tenant and labels"]
+        Ingester["Ingester or vmstorage\nhead block and WAL"]
+        Object[("Object storage\nS3, GCS, Azure Blob")]
+        Compactor["Compactor\nblock merge and downsample"]
+        Querier["Querier or vmselect\nfan-out and dedup"]
+        Distrib --> Ingester
+        Ingester -->|"block flush"| Object
+        Object --> Compactor
+        Compactor --> Object
+        Object --> Querier
+        Ingester --> Querier
+    end
+
+    Tiers["Resolution tiers\nraw     keep ≈ 30 to 90 d\n5 min   downsample after ≈40 h\n1 hour  downsample after ≈10 d"]
+
+    PromA -->|"remote_write"| Distrib
+    PromB -->|"remote_write"| Distrib
+
+    PromA -.->|"/federate aggregated"| GlobalProm
+    PromB -.->|"/federate aggregated"| GlobalProm
+
+    Compactor -.->|"tier policy"| Tiers
+
+    Querier --> Grafana["Grafana or Perses\nglobal dashboards and alerts"]
+    GlobalProm --> Grafana

@@ -6,7 +6,7 @@ linkTitle: 'Slack Architecture'
 description: >-
   How Slack scaled from a PHP monolith to a distributed architecture — migrating to Vitess for flexible sharding, building Flannel for edge caching, and adopting cellular infrastructure for 99.99% availability — all without a big-bang rewrite.
 publishedDate: 2026-02-16T00:00:00.000Z
-lastUpdatedOn: 2026-02-16T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - case-study
   - architecture
@@ -17,8 +17,8 @@ tags:
 
 How Slack evolved from a PHP monolith with workspace-sharded MySQL into a distributed system handling 2.3 million queries per second (QPS) across Vitess-managed databases, 4 million concurrent WebSocket connections through a global edge cache, and a cellular infrastructure design achieving 99.99% availability—all without a single big-bang rewrite. This case study traces the architectural decisions behind each layer: data storage, real-time messaging, edge caching, and reliability infrastructure.
 
-![Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.](./diagrams/slack-s-distributed-architecture-as-of-2023-traffic-enters-through-envoy-hits-th-light.svg "Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.")
-![Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.](./diagrams/slack-s-distributed-architecture-as-of-2023-traffic-enters-through-envoy-hits-th-dark.svg)
+![Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.](./diagrams/architecture-overview-light.svg "Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.")
+![Slack's distributed architecture as of ~2023. Traffic enters through Envoy, hits the Flannel edge cache, and flows into either the real-time messaging layer (Channel/Gateway Servers) or the webapp monolith. The data layer is anchored by Vitess-managed MySQL with memcached caching and Kafka for event streaming.](./diagrams/architecture-overview-dark.svg)
 
 ## Abstract
 
@@ -200,6 +200,9 @@ The team built three critical pieces of migration infrastructure:
 
 By the end of 2020, 99% of MySQL query traffic was running through Vitess.
 
+![Vitess migration timeline (2016–2020): evaluation, RSS pilot, table-by-table → whole-shard strategy shift, and the COVID-driven scaling moment.](./diagrams/vitess-migration-timeline-light.svg "Vitess migration timeline (2016–2020): evaluation, RSS pilot, table-by-table → whole-shard strategy shift, and the COVID-driven scaling moment.")
+![Vitess migration timeline (2016–2020): evaluation, RSS pilot, table-by-table → whole-shard strategy shift, and the COVID-driven scaling moment.](./diagrams/vitess-migration-timeline-dark.svg)
+
 **Post-migration architecture**:
 - Multiple Vitess clusters across geographic regions
 - Dozens of keyspaces with flexible sharding (channel-based, user-based, and workspace-based depending on access patterns)
@@ -230,11 +233,15 @@ Four server types form the real-time messaging pipeline:
 
 **Gateway Servers (GS)** — stateful services that terminate WebSocket connections. Each GS maintains a map of connected users and their channel subscriptions. Deployed across multiple geographic regions so clients connect to the nearest point of presence. A user's connection to a GS is long-lived (hours to days).
 
-**Channel Servers (CS)** — stateful, in-memory servers that own channels via consistent hashing. At peak, each Channel Server manages approximately 16 million channels. When a message is sent to a channel, the responsible CS broadcasts the event to every GS that has a subscriber in that channel.
+**Channel Servers (CS)** — stateful, in-memory servers that own channels via consistent hashing. At peak, each Channel Server manages approximately 16 million "channels", where a channel is the abstract sharding unit and may represent a regular Slack channel, a user, a team, an enterprise, a file, or a huddle.[^rtm-blog] When a message is sent, the responsible CS broadcasts the event to every Gateway Server that has a subscriber on that channel.
+
+**Consistent Hash Ring Managers (CHARMs)** — operate the hash ring itself. They detect unhealthy Channel Servers and bring a replacement online in **under 20 seconds**, so the worst-case impact of a CS death is sub-20s elevated delivery latency for the small set of teams whose channels were owned by that node.[^rtm-blog]
 
 **Admin Servers (AS)** — stateless intermediaries that route messages from the webapp to the correct Channel Server. The AS uses the consistent hash ring to locate which CS owns a given channel.
 
 **Presence Servers (PS)** — track online/offline status for users and distribute presence events.
+
+[^rtm-blog]: Sameera Thangudu, ["Real-Time Messaging"](https://slack.engineering/real-time-messaging/), Engineering at Slack (Apr 2023).
 
 ### Message Flow
 
@@ -251,6 +258,9 @@ When a user sends a message:
 
 Transient events (typing indicators, reactions) follow the same routing path but skip database persistence.
 
+![Message broadcast — sender posts via the webapp; the Admin Server hashes the channel ID to locate the owning Channel Server; the CS fans out to every Gateway Server holding a subscriber, which in turn pushes over WebSocket. Targets <500 ms end-to-end globally.](./diagrams/message-broadcast-flow-light.svg "Message broadcast — sender posts via the webapp; the Admin Server hashes the channel ID to locate the owning Channel Server; the CS fans out to every Gateway Server holding a subscriber, which in turn pushes over WebSocket. Targets <500 ms end-to-end globally.")
+![Message broadcast — sender posts via the webapp; the Admin Server hashes the channel ID to locate the owning Channel Server; the CS fans out to every Gateway Server holding a subscriber, which in turn pushes over WebSocket. Targets <500 ms end-to-end globally.](./diagrams/message-broadcast-flow-dark.svg)
+
 ### Connection Flow
 
 1. Client fetches a user token and connection URL from the webapp
@@ -264,7 +274,7 @@ Using consistent hashing to map channels to Channel Servers means:
 
 - **Fast routing**: O(1) lookup for which CS owns a channel
 - **Balanced load**: channels distribute across the CS fleet roughly evenly
-- **Stateful failure impact**: when a CS dies, all 16M channels it owns must be reassigned and their in-memory state reconstructed
+- **Stateful failure impact**: when a CS dies, all ~16M channels it owns must be reassigned and their in-memory state reconstructed; CHARM keeps that window under 20 seconds in normal operation.
 
 Slack validated this failure mode through their Disasterpiece Theater chaos engineering program, deliberately partitioning 25% of Channel Servers and confirming that Consul re-routed traffic correctly.
 
@@ -285,6 +295,9 @@ When a Slack client boots, it historically called `rtm.start`—an API that retu
 5. Additional data loads lazily as the user navigates
 
 **Proactive prefetching**: Flannel predicts what data clients will need next. When a user @mentions a colleague, Flannel proactively pushes that user's profile to clients that don't have recent data, eliminating a round-trip.
+
+![Flannel sits at the edge: clients from a workspace are pinned to the same Flannel host via consistent hashing; the host keeps a workspace cache fresh by subscribing to a backend WebSocket event stream and proactively prefetches likely-needed records (for example, on @mention).](./diagrams/flannel-edge-flow-light.svg "Flannel sits at the edge: clients from a workspace are pinned to the same Flannel host via consistent hashing; the host keeps a workspace cache fresh by subscribing to a backend WebSocket event stream and proactively prefetches likely-needed records (for example, on @mention).")
+![Flannel sits at the edge: clients from a workspace are pinned to the same Flannel host via consistent hashing; the host keeps a workspace cache fresh by subscribing to a backend WebSocket event stream and proactively prefetches likely-needed records (for example, on @mention).](./diagrams/flannel-edge-flow-dark.svg)
 
 ### Performance Impact
 
@@ -342,6 +355,9 @@ When an AZ experiences issues:
 3. Traffic drains from the affected AZ within **5 minutes**
 4. Propagation through the control plane takes **seconds**
 
+![Cellular AZ drain — each AZ runs an isolated stack (Gateway → Webapp → local Vitess); Rotor pushes per-AZ weight updates through RTDS, and the edge Envoy reweights traffic away from a degraded AZ in 1% steps without restarting.](./diagrams/cellular-az-drain-light.svg "Cellular AZ drain — each AZ runs an isolated stack (Gateway → Webapp → local Vitess); Rotor pushes per-AZ weight updates through RTDS, and the edge Envoy reweights traffic away from a degraded AZ in 1% steps without restarting.")
+![Cellular AZ drain — each AZ runs an isolated stack (Gateway → Webapp → local Vitess); Rotor pushes per-AZ weight updates through RTDS, and the edge Envoy reweights traffic away from a degraded AZ in 1% steps without restarting.](./diagrams/cellular-az-drain-dark.svg)
+
 ### Why This Matters
 
 The cellular architecture directly supports Slack's **99.99% availability SLA** (Service Level Agreement). Before cells, a failure in one AZ's service could cascade through shared infrastructure. Now, failures are contained within a single cell, and traffic redirects automatically.
@@ -358,7 +374,9 @@ Slack chose PHP (later migrated to Hack/HHVM) for three properties:
 2. **Safe concurrency**: individual requests run single-threaded with shared-nothing semantics. Parallelism comes from running many processes, not from shared-state concurrency.
 3. **Developer velocity**: the edit-reload-test cycle has zero compilation or restart delay. With 150–190 changes merged per day and 30–40 deploys, this velocity matters.
 
-HHVM's JIT (Just-In-Time) compilation provided significant CPU efficiency gains. Facebook reported 11.6x CPU efficiency improvement over standard PHP; Wikipedia reported 6x.
+HHVM's JIT (Just-In-Time) compilation provided significant CPU efficiency gains relative to the stock PHP interpreter — Facebook reported a 11.6x improvement, Wikipedia a 6x improvement.[^php-blog] Slack moved its web environment to HHVM and observed broad latency drops without publishing an apples-to-apples CPU number.[^php-blog]
+
+[^php-blog]: Keith Adams, ["Taking PHP Seriously"](https://slack.engineering/taking-php-seriously/), Engineering at Slack (Oct 2016, updated Jun 2020), citing the [HipHop Virtual Machine paper](https://research.facebook.com/publications/the-hiphop-virtual-machine/) and [Wikipedia on HHVM](http://hhvm.com/blog/7205/wikipedia-on-hhvm).
 
 ### The "Thin Monolith" Pattern
 
@@ -397,6 +415,9 @@ A Consul agent fleet upgrade was being rolled out, replacing 25% of the fleet. D
 - Short-term: modified scatter queries to read from a channel-sharded table instead (co-located data, no scatter needed)
 - Changed queries to read from Vitess replicas for missing data
 - Gradually increased boot rate as the cache warmed
+
+![February 22, 2022 cascade — a routine Consul agent upgrade replaced memcached nodes with cold caches; the resulting cache miss load amplified through a scatter query against the user-id-sharded keyspace, overwhelming Vitess in a self-reinforcing loop until boots were throttled and the scatter query was rewritten against a co-located channel-sharded table.](./diagrams/feb-2022-cascade-light.svg "February 22, 2022 cascade — a routine Consul agent upgrade replaced memcached nodes with cold caches; the resulting cache miss load amplified through a scatter query against the user-id-sharded keyspace, overwhelming Vitess in a self-reinforcing loop until boots were throttled and the scatter query was rewritten against a co-located channel-sharded table.")
+![February 22, 2022 cascade — a routine Consul agent upgrade replaced memcached nodes with cold caches; the resulting cache miss load amplified through a scatter query against the user-id-sharded keyspace, overwhelming Vitess in a self-reinforcing loop until boots were throttled and the scatter query was rewritten against a co-located channel-sharded table.](./diagrams/feb-2022-cascade-dark.svg)
 
 ### Lesson
 
@@ -562,7 +583,8 @@ The key architectural decisions were: keep MySQL but add Vitess middleware for f
 | **VTGate** | Vitess's query routing proxy that sits between applications and MySQL |
 | **Keyspace** | Vitess's logical database unit; maps to one or more MySQL shards with a chosen sharding scheme |
 | **Flannel** | Slack's custom application-level edge cache for reducing client boot payload |
-| **Channel Server (CS)** | Stateful server managing real-time pub/sub for channels via consistent hashing |
+| **Channel Server (CS)** | Stateful server managing real-time pub/sub for "channels" (an abstract entity that can be a Slack channel, user, team, enterprise, file, or huddle) via consistent hashing |
+| **CHARM** | Consistent Hash Ring Manager — owns the CS hash ring and replaces unhealthy CSs in <20 s |
 | **Gateway Server (GS)** | Stateful server terminating WebSocket connections and delivering events to clients |
 | **Mcrouter** | Facebook's memcached protocol router for horizontal scaling of memcached pools |
 | **Rotor** | Slack's custom xDS control plane for Envoy configuration |

@@ -1,0 +1,20 @@
+%% Diagram: Where to run code — edge worker, BFF in VPC, or origin
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    START(["New endpoint or piece of logic"]) --> Q1{"Per-request data<br/>fits &lt; 128 MB +<br/>&lt; 30 ms CPU?"}
+    Q1 -->|no| ORIGIN["Origin service<br/>(no edge constraint)"]
+    Q1 -->|yes| Q2{"Needs filesystem,<br/>raw TCP, or<br/>large native deps?"}
+    Q2 -->|yes| ORIGIN
+    Q2 -->|no| Q3{"Stateful with<br/>strong consistency?"}
+    Q3 -->|yes| BFF["BFF in VPC<br/>near data store"]
+    Q3 -->|no| Q4{"Needs low<br/>per-user latency<br/>worldwide?"}
+    Q4 -->|yes| EDGE["Edge worker<br/>(V8 isolate / WASM)"]
+    Q4 -->|no| BFF
+
+    classDef edge fill:#bae6fd,stroke:#0369a1,color:#0f172a
+    classDef bff fill:#e0e7ff,stroke:#4338ca,color:#0f172a
+    classDef origin fill:#fde68a,stroke:#a16207,color:#0f172a
+    EDGE:::edge
+    BFF:::bff
+    ORIGIN:::origin

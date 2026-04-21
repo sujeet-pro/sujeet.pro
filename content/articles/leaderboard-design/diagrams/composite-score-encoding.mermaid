@@ -1,0 +1,28 @@
+%% Diagram: Composite score encoding - pack primary score and reversed timestamp into one int64
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Inputs["Inputs"]
+        S["primary score<br/>0..2^31-1"]
+        T["epoch ts (s)<br/>0..2^31-1"]
+    end
+
+    R["reversed_ts =<br/>MAX_INT32 - ts"]
+    P["packed = (score << 32)<br/>OR reversed_ts"]
+
+    subgraph Layout["int64 bit layout (high -> low)"]
+        H["bits 63..32: score<br/>(higher score wins)"]
+        L["bits 31..0: reversed_ts<br/>(earlier ts -> higher value)"]
+    end
+
+    Z["ZADD lb {packed} member"]
+
+    S --> P
+    T --> R --> P
+    P --> H
+    P --> L
+    H --> Z
+    L --> Z
+
+    style Layout fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
+    style Z fill:#fef3c7,stroke:#b45309,color:#7c2d12

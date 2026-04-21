@@ -1,156 +1,135 @@
 ---
-title: 'WCAG 2.2: Practical Accessibility Guide'
-linkTitle: 'WCAG 2.2'
+title: "WCAG 2.2: A Practical Guide for Senior Engineers"
+linkTitle: "WCAG 2.2"
 description: >-
-  Practical implementation of WCAG 2.2's 86 success criteria — covering the 9 new additions for cognitive accessibility and mobile interaction, semantic HTML strategies, ARIA patterns, testing methodologies, and legal requirements under ADA and the European Accessibility Act.
+  WCAG 2.2's nine new success criteria, the practical implementation patterns that satisfy them
+  (semantic HTML, ARIA, focus management, accessible authentication), the testing strategy that
+  actually works (automation + manual + screen readers), and the 2026/2030 enforcement timeline
+  under ADA Title II and the European Accessibility Act.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
+  - accessibility
   - browser
   - web-apis
-  - javascript
-  - accessibility
+  - testing
+  - compliance
 ---
 
-# WCAG 2.2: Practical Accessibility Guide
+# WCAG 2.2: A Practical Guide for Senior Engineers
 
-Web Content Accessibility Guidelines (WCAG) 2.2 became a W3C Recommendation in October 2023, adding 9 new success criteria focused on cognitive accessibility, mobile interaction, and focus visibility. This guide covers implementation strategies for semantic HTML, ARIA patterns, and testing methodologies—practical knowledge for building inclusive web experiences that meet legal requirements in the US (ADA) and EU (European Accessibility Act).
+WCAG 2.2 is the current W3C accessibility recommendation and the standard that every modern accessibility law in the US and EU resolves to. It is also the version that finally takes cognitive disabilities, touch input, and focus visibility seriously. This guide explains the nine new success criteria added in 2.2 and the one obsolete criterion removed, the implementation patterns that satisfy them in production code, the realistic split between what automated testing catches and what only manual testing can find, and the 2026–2030 enforcement timeline under ADA Title II and the European Accessibility Act.
 
-![WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-light.svg "WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria")
-![WCAG 2.2 structure: POUR principles map to hierarchical compliance levels totaling 86 success criteria](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-dark.svg)
+![WCAG 2.2 structure: POUR principles map to three cumulative compliance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-light.svg "WCAG 2.2 organises 86 success criteria under the POUR principles across three cumulative conformance levels (A, AA, AAA).")
+![WCAG 2.2 structure: POUR principles map to three cumulative compliance levels totalling 86 success criteria.](./diagrams/wcag-2-2-structure-pour-principles-map-to-hierarchical-compliance-levels-totalin-dark.svg)
 
 ## Abstract
 
-WCAG 2.2 builds on the POUR framework (Perceivable, Operable, Understandable, Robust) with three compliance tiers:
+WCAG 2.2 was published as a W3C Recommendation on [5 October 2023](https://www.w3.org/WAI/news/2023-10-05/wcag22rec/) and republished with editorial updates on [12 December 2024](https://www.w3.org/TR/WCAG22/). It builds on the [POUR framework](https://www.w3.org/TR/WCAG22/#wcag-2-layers-of-guidance) (Perceivable, Operable, Understandable, Robust) with three cumulative conformance levels, totalling 86 success criteria after the 2.1 → 2.2 delta:
 
-| Level   | Criteria       | Purpose                                                              | Legal Status                           |
-| ------- | -------------- | -------------------------------------------------------------------- | -------------------------------------- |
-| **A**   | 32             | Minimum barrier removal—assistive tech cannot function without these | Baseline, rarely sufficient alone      |
-| **AA**  | +24 (56 total) | Balance of impact vs. implementation cost                            | Required by ADA, EU accessibility laws |
-| **AAA** | +30 (86 total) | Maximum accessibility; not universally achievable                    | Specialized contexts only              |
+| Level   | Criteria added at this level | Cumulative total | Practical meaning                                                            |
+| ------- | ---------------------------- | ---------------: | ---------------------------------------------------------------------------- |
+| **A**   | 31                           |               31 | Removing absolute barriers — assistive tech cannot operate the page without these. |
+| **AA**  | +24                          |               55 | Legal target in every modern accessibility regulation. The bar to design for. |
+| **AAA** | +31                          |               86 | Specialised contexts only; some content cannot conform by construction. |
 
-**What's new in WCAG 2.2** (9 criteria added, 1 removed):
+> [!NOTE]
+> Per-level counts come from working through the W3C "What's New" delta: WCAG 2.1 had 30 A / 20 AA / 28 AAA; 2.2 added 2 A, 4 AA, 3 AAA and removed 1 A (4.1.1 Parsing). 2.2 totals: 31 A + 24 AA + 31 AAA = 86.
 
-- **Cognitive accessibility**: Redundant Entry (A), Accessible Authentication (AA/AAA), Consistent Help (A)—no memory tests, no duplicate data entry
-- **Motor accessibility**: Target Size Minimum 24×24px (AA), Dragging Movements alternatives (AA)
-- **Focus visibility**: Focus Not Obscured (AA/AAA), Focus Appearance (AAA)—sticky headers can't hide focused elements
-- **Removed**: 4.1.1 Parsing—browsers now handle HTML robustly; assistive tech no longer parses markup directly
+WCAG 2.2's [9 additions and 1 removal](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) cluster around three previously underserved areas:
 
-**Implementation priorities**:
+- **Cognitive accessibility** (4 criteria): Consistent Help, Redundant Entry, Accessible Authentication (Min + Enh) — the additions designed for users who cannot reliably memorise, transcribe, or solve puzzles.
+- **Motor / pointer input** (2 criteria): Target Size Minimum 24×24 CSS pixels, Dragging Movements alternatives.
+- **Focus visibility** (3 criteria): Focus Not Obscured (Min + Enh), Focus Appearance.
+- **Removed** (1 criterion): 4.1.1 Parsing is now [obsolete](https://www.w3.org/WAI/WCAG22/Understanding/parsing.html); duplicate IDs and improper nesting still fail when they break 4.1.2 Name, Role, Value.
 
-1. Semantic HTML provides 80% of accessibility for free—landmarks, headings, native form controls
-2. ARIA supplements native semantics for custom widgets—roles, states, and live regions
-3. Automated testing catches ~57% of individual issues but only ~35% of WCAG criteria; manual testing is non-negotiable
-4. Focus management in SPAs and modals is the most common source of accessibility regressions
+If you carry exactly four implementation defaults out of this guide:
 
-## Understanding WCAG 2.2
+1. Lean on semantic HTML for landmarks, headings, and form controls before reaching for ARIA.
+2. Manage focus explicitly in SPAs, modals, and any route change — the most common source of regressions.
+3. Wire `axe-core` (or Pa11y) into CI for the ~57% it catches, but never call automation "compliant" without manual + screen reader passes for the rest.
+4. Target WCAG 2.2 AA today even where the law still references 2.1 AA. The delta is 6 criteria and demonstrably narrows legal exposure.
 
-WCAG 2.2, published October 2023 (with minor definition updates in December 2024), contains 86 success criteria across three conformance levels. Each level is cumulative—AA includes all of A, AAA includes all of AA.
+## What changed from WCAG 2.1 to WCAG 2.2
 
-**Level A (32 criteria)** establishes minimum viability. Without these, assistive technologies cannot navigate or operate the interface. Failures at this level are complete barriers—a missing form label makes a field unusable for screen reader users, not merely inconvenient.
+![WCAG 2.2 deltas: nine new success criteria grouped by purpose, plus 4.1.1 Parsing removed.](./diagrams/wcag-2-2-deltas-light.svg "WCAG 2.2 added nine criteria — four cognitive, two motor, three focus — and removed 4.1.1 Parsing as obsolete.")
+![WCAG 2.2 deltas: nine new success criteria grouped by purpose, plus 4.1.1 Parsing removed.](./diagrams/wcag-2-2-deltas-dark.svg)
 
-**Level AA (24 additional, 56 total)** balances impact against implementation cost. This is the legal target: ADA Title II requires WCAG 2.1 AA by 2026 for state/local government; the European Accessibility Act (enforced June 2025) mandates AA for businesses serving EU customers. Courts consistently use AA as the de facto standard for private sector litigation.
+The W3C [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) page is the canonical source for the delta. The implementation-relevant subset:
 
-**Level AAA (30 additional, 86 total)** represents maximum accessibility but is intentionally not a blanket requirement. Some content fundamentally cannot meet certain AAA criteria—a sign language video cannot have a sign language interpretation, and some pages legitimately require reading comprehension above lower secondary education level.
+### New Level A criteria
 
-> **WCAG 2.1 → 2.2 Migration:** If you're already AA-compliant with WCAG 2.1, you need to address 6 new criteria: Focus Not Obscured (2.4.11), Dragging Movements (2.5.7), Target Size Minimum (2.5.8), Consistent Help (3.2.6), Redundant Entry (3.3.7), and Accessible Authentication (3.3.8).
-
-## What's New in WCAG 2.2
-
-WCAG 2.2 added 9 success criteria and removed 1. The additions target three gaps: cognitive disabilities (underserved in 2.0/2.1), mobile/touch interactions, and focus visibility.
-
-### New Level A Criteria
-
-**3.2.6 Consistent Help** requires help mechanisms (contact info, chat, self-help) to appear in the same relative location across pages. Users with cognitive disabilities rely on spatial consistency to find help without searching.
+**[3.2.6 Consistent Help](https://www.w3.org/WAI/WCAG22/Understanding/consistent-help)** — when a help mechanism (human contact details, contact mechanism, self-help option, automated contact) is repeated across a set of pages, it must occur in the same relative order. The criterion is satisfied either by physical layout consistency or by direct-link consistency. Most marketing sites already satisfy it accidentally; the failure mode is a chat widget that moves between corners on different routes of an SPA.
 
 ```html
-<!-- Help in consistent footer position across all pages -->
 <footer>
   <nav aria-label="Help">
-    <a href="/contact">Contact Us</a>
+    <a href="/contact">Contact</a>
     <a href="/faq">FAQ</a>
-    <button id="chat-toggle">Chat Support</button>
+    <button id="chat-toggle" type="button">Chat support</button>
   </nav>
 </footer>
 ```
 
-**3.3.7 Redundant Entry** prohibits asking users to re-enter information they've already provided in the same session, unless re-entry is essential (security confirmation) or the previous value is no longer valid. Auto-population or selection from previous entries satisfies this.
+**[3.3.7 Redundant Entry](https://www.w3.org/WAI/WCAG22/Understanding/redundant-entry)** — within a single process, information the user already provided must be auto-populated or selectable. The exceptions are essential re-entry (security confirmations), data that is no longer valid, and data required to ensure security. Browser autofill alone does not satisfy this; the application is responsible for the carry-over.
 
 ```html
-<!-- Shipping address auto-fills billing if same -->
 <fieldset>
-  <legend>Billing Address</legend>
+  <legend>Billing address</legend>
   <label>
     <input type="checkbox" id="same-as-shipping" checked />
     Same as shipping address
   </label>
-  <!-- Fields auto-populate when checked -->
 </fieldset>
 ```
 
-### New Level AA Criteria
+### New Level AA criteria
 
-**2.4.11 Focus Not Obscured (Minimum)** ensures focused elements aren't entirely hidden by sticky headers, footers, or overlays. Partial obscuring is permitted at AA; full visibility requires AAA (2.4.12).
+**[2.4.11 Focus Not Obscured (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum)** — when a UI component receives keyboard focus, it must not be entirely hidden by author-created content. Partial obscuring is permitted at AA; AAA (2.4.12) tightens this to "no part hidden". The footgun is sticky headers and footers; the cheap fix is `scroll-margin` plus `scroll-padding`:
 
-```css
-/* Ensure focused content isn't hidden by sticky header */
+```css title="focus-visibility.css"
 :focus {
-  scroll-margin-top: 80px; /* Height of sticky header + padding */
+  scroll-margin-top: 5rem;
+  scroll-margin-bottom: 5rem;
 }
 
-/* Or use scroll-padding on the scroll container */
 html {
-  scroll-padding-top: 80px;
+  scroll-padding-top: 5rem;
 }
 ```
 
-**2.5.7 Dragging Movements** requires a single-pointer alternative for any drag operation. Users with motor impairments may not be able to maintain pressure while moving.
+**[2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements)** — any function that uses dragging must have a single-pointer alternative (a tap, click, or button) unless dragging is essential or the user agent provides it. This is broader than "drag-and-drop reorder" — sliders, signature pads, and map panning all fall in scope unless they have a button or numeric alternative.
 
 ```html
-<!-- Drag-to-reorder list with button alternatives -->
 <li draggable="true">
   <span>Item 1</span>
-  <button aria-label="Move Item 1 up" onclick="moveUp(this)">↑</button>
-  <button aria-label="Move Item 1 down" onclick="moveDown(this)">↓</button>
+  <button type="button" aria-label="Move Item 1 up">↑</button>
+  <button type="button" aria-label="Move Item 1 down">↓</button>
 </li>
 ```
 
-**2.5.8 Target Size (Minimum)** requires 24×24 CSS pixel minimum for pointer targets, with exceptions:
+**[2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html)** — pointer targets must be at least 24 × 24 CSS pixels, with five enumerated exceptions:
 
-| Exception      | Description                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------- |
-| **Spacing**    | Undersized target passes if 24px diameter circles centered on each target don't overlap other targets |
-| **Equivalent** | Another control on the same page meets the requirement                                                |
-| **Inline**     | Text links within paragraphs are exempt                                                               |
-| **User agent** | Browser-rendered controls (e.g., date picker calendar)                                                |
-| **Essential**  | Size is legally required or information would be lost (maps)                                          |
+| Exception        | When it applies                                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Spacing**      | An undersized target is permitted if a 24 px diameter circle centred on it does not intersect another target's circle.                                                |
+| **Equivalent**   | Another control on the same page achieves the same function and meets 24 × 24.                                                                                        |
+| **Inline**       | The target sits within a sentence or is constrained by the line-height of the surrounding text (links inside paragraphs, footnote markers).                            |
+| **User agent**   | The browser or platform widget controls the size and the author has not modified it (native date picker cells, browser scrollbars).                                   |
+| **Essential**    | The position is essential or legally required for the information conveyed (interactive maps, signature pads).                                                        |
 
-```css
-/* Minimum touch target with spacing exception fallback */
-.icon-button {
-  min-width: 24px;
-  min-height: 24px;
-  padding: 12px; /* Increases clickable area */
-}
+The most common failure pattern is a row of icon-only buttons that are visually 16 × 16 with no spacing exception — collapse them into a kebab/overflow menu, or pad the click target without changing the visual size.
 
-/* If 24px isn't achievable, ensure 24px spacing */
-.small-button {
-  min-width: 20px;
-  min-height: 20px;
-  margin: 4px; /* Creates 24px circle clearance */
-}
-```
+**[3.3.8 Accessible Authentication (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum)** — no step of an authentication flow may require a [cognitive function test](https://www.w3.org/TR/WCAG22/#dfn-cognitive-function-test) (memorising a password, transcribing a code, solving a puzzle) unless an alternative exists. The W3C explicitly calls out two compliant mechanisms: password manager autofill (so the page must not block paste or autofill) and copy-paste support. Object recognition and personal-content recognition are AA-permitted exceptions but fail at AAA (3.3.9).
 
-**3.3.8 Accessible Authentication (Minimum)** prohibits cognitive function tests (memory, transcription, puzzle-solving) as the sole authentication method. Alternatives must exist:
+What this looks like in practice:
 
-- Copy-paste enabled for passwords (no blocking paste)
-- Password managers can auto-fill
-- OAuth/SSO (delegated authentication)
-- Biometrics or hardware tokens
-- Email/SMS codes (but not CAPTCHA that requires transcription)
+- Set `autocomplete="username"` and `autocomplete="current-password"` so password managers can autofill.
+- Do not block paste on the password field. JavaScript like `onpaste="return false"` is a direct AA failure.
+- Provide a passwordless alternative — magic link, WebAuthn / passkey, or federated SSO.
+- Reusable image CAPTCHAs ("click all the buses") fail 3.3.9 at AAA, but pass 3.3.8 at AA because they are object recognition.
 
-```html
-<!-- Accessible login with password manager support -->
+```html title="accessible-login.html"
 <form>
   <label for="email">Email</label>
   <input type="email" id="email" autocomplete="username" />
@@ -158,49 +137,50 @@ html {
   <label for="password">Password</label>
   <input type="password" id="password" autocomplete="current-password" />
 
-  <!-- Alternative: passwordless -->
-  <button type="button" onclick="sendMagicLink()">Email me a login link</button>
+  <button type="button" data-action="magic-link">Email me a sign-in link</button>
 </form>
 ```
 
-### New Level AAA Criteria
+### New Level AAA criteria
 
-- **2.4.12 Focus Not Obscured (Enhanced)**: No part of focused element obscured (stricter than 2.4.11)
-- **2.4.13 Focus Appearance**: Minimum 2px perimeter, 3:1 contrast between focused/unfocused states
-- **3.3.9 Accessible Authentication (Enhanced)**: No object recognition or personal content identification
+- **[2.4.12 Focus Not Obscured (Enhanced)](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced)** — strict version of 2.4.11; the focused component must not be obscured at all.
+- **[2.4.13 Focus Appearance](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html)** — the focus indicator must (a) cover an area at least as large as a 2 CSS pixel thick perimeter of the unfocused component, and (b) have a 3:1 contrast ratio between the same pixels in the focused and unfocused states.
+- **[3.3.9 Accessible Authentication (Enhanced)](https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-enhanced)** — removes the AA "object recognition" and "personal content" exceptions.
 
-### Removed: 4.1.1 Parsing
+### What "removed: 4.1.1 Parsing" actually means
 
-WCAG 2.2 removed 4.1.1 Parsing because modern assistive technologies no longer parse HTML directly—they rely on browser accessibility APIs. Browsers now handle malformed HTML robustly, and issues that would have failed 4.1.1 (duplicate IDs, improper nesting) cause failures in other criteria (4.1.2 Name, Role, Value) when they actually impact users.
+The W3C [Understanding page for 4.1.1](https://www.w3.org/WAI/WCAG22/Understanding/parsing.html) explains the rationale: assistive technologies no longer parse HTML directly. They consume the browser's accessibility tree, which is built by the browser's own HTML parser — and modern HTML parsers tolerate every malformation that 4.1.1 was designed to flag.
 
-> **Migration note:** If your test suite checks 4.1.1, don't simply remove those tests. Duplicate IDs still fail 4.1.2 when they break accessible names. The change acknowledges that 4.1.1 was testing a mechanism (HTML validity) rather than an outcome (AT compatibility).
+> [!IMPORTANT]
+> Do not delete tests that check for duplicate IDs, mismatched ARIA references, or improper nesting. Those failures still bite — they just bite via 4.1.2 Name, Role, Value when an `aria-labelledby="x"` resolves to two elements, and via 1.3.1 Info and Relationships when nesting breaks the accessibility tree. The right migration is to relocate the assertions, not to drop them.
 
-## The POUR Principles
+## The POUR principles
 
-WCAG organizes all 86 success criteria under four principles. Understanding which principle a criterion belongs to clarifies what breaks when it fails.
+WCAG groups all 86 success criteria under four principles. Knowing which principle a criterion belongs to clarifies what fails when the criterion fails — and which user is affected first.
 
-| Principle          | What Fails                                              | Typical Criteria                                                 |
-| ------------------ | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Perceivable**    | Content cannot be perceived through any available sense | Text alternatives, captions, contrast, adaptable presentation    |
-| **Operable**       | Users cannot interact with the interface                | Keyboard access, sufficient time, seizure prevention, navigation |
-| **Understandable** | Users cannot comprehend content or predict behavior     | Readable text, predictable operation, input assistance           |
-| **Robust**         | Assistive technologies cannot interpret content         | Valid markup, name/role/value, status messages                   |
+| Principle           | What fails when violated                                            | Representative criteria                                                  |
+| ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Perceivable**     | Content cannot be perceived through any available sense.            | Text alternatives, captions, contrast, adaptable presentation.           |
+| **Operable**        | Users cannot interact with the interface.                           | Keyboard access, sufficient time, seizure prevention, navigation, focus. |
+| **Understandable**  | Users cannot comprehend content or predict behaviour.               | Readable text, predictable operation, input assistance.                  |
+| **Robust**          | Assistive technologies cannot interpret content reliably.           | Name, role, value; status messages.                                      |
 
-**Perceivable** failures create absolute barriers for specific disabilities—a missing `alt` attribute means blind users receive nothing. **Operable** failures often affect multiple groups: keyboard traps block keyboard-only users, motor-impaired users, and many screen reader users.
+Two practical implications follow from this layout:
 
-**Understandable** criteria address cognitive accessibility, the focus of WCAG 2.2's additions. Cognitive disabilities affect ~15% of the population—more than any other disability category—yet were underserved in earlier WCAG versions.
+- **Perceivable failures create absolute barriers for one disability group.** A missing `alt` attribute returns nothing to a blind user. A 3:1 contrast ratio on body text is unreadable to many low-vision users.
+- **Operable failures usually affect multiple groups at once.** A keyboard trap blocks keyboard-only users, motor-impaired users on switch devices, and screen-reader users who navigate with the keyboard.
 
-**Robust** ensures AT compatibility. With 4.1.1 Parsing removed, the remaining Robust criteria focus on what browsers expose to the accessibility tree (4.1.2 Name, Role, Value) and how updates are communicated (4.1.3 Status Messages).
+WCAG 2.2's additions are heavily weighted toward **Understandable** (the cognitive criteria) — the area that 2.0 and 2.1 underserved. The CDC's 2022 BRFSS data finds that [13.9% of US adults report a cognitive disability](https://www.cdc.gov/disability-and-health/articles-documents/disability-impacts-all-of-us-infographic.html) (serious difficulty concentrating, remembering, or making decisions), making it the most common disability category in the survey.
 
-## Semantic HTML Implementation
+## Semantic HTML and ARIA — defaults that satisfy most criteria
 
-Semantic HTML provides most accessibility automatically. Native elements expose roles, states, and keyboard behavior to assistive technologies without JavaScript.
+Semantic HTML satisfies the majority of WCAG criteria automatically because native elements ship with the right roles, states, and keyboard behaviour mapped into the [accessibility tree](https://developer.mozilla.org/en-US/docs/Glossary/Accessibility_tree). The [ARIA Authoring Practices Guide (APG)](https://www.w3.org/WAI/ARIA/apg/) is the canonical reference for the cases where native HTML doesn't have a corresponding pattern.
 
-### Landmarks and Structure
+### Landmarks and structure
 
 ```html
 <header>
-  <nav aria-label="Main navigation">
+  <nav aria-label="Primary">
     <ul>
       <li><a href="#main">Skip to main content</a></li>
       <li><a href="/home">Home</a></li>
@@ -211,265 +191,120 @@ Semantic HTML provides most accessibility automatically. Native elements expose 
 
 <main id="main">
   <article>
-    <h1>Page Title</h1>
+    <h1>Page title</h1>
     <section>
-      <h2>Section Heading</h2>
-      <p>Content goes here...</p>
+      <h2>Section heading</h2>
+      <p>Content…</p>
     </section>
   </article>
 </main>
 
-<aside>
-  <h2>Related Information</h2>
+<aside aria-labelledby="related-h">
+  <h2 id="related-h">Related</h2>
 </aside>
 
-<footer>
-  <p>&copy; 2024 Your Website</p>
-</footer>
+<footer>…</footer>
 ```
 
-**Heading Hierarchy**
-Implement a logical heading structure without skipping levels:
+The heading hierarchy must be sequential — never skip a level. The `lang` attribute on `<html>` is mandatory; mark inline language changes with a nested `lang` to keep screen readers from mispronouncing.
+
+### Forms
+
+Every input needs a programmatic label. Prefer explicit `<label for="…">`; use `aria-label` only when the design genuinely cannot accommodate visible text (typically a search field with an adjacent submit button).
 
 ```html
-<h1>Main Page Title</h1>
-<h2>Major Section</h2>
-<h3>Subsection</h3>
-<h3>Another Subsection</h3>
-<h2>Another Major Section</h2>
-<h3>Subsection</h3>
+<label for="email">Email address (required)</label>
+<input
+  type="email"
+  id="email"
+  name="email"
+  required
+  aria-describedby="email-help email-error"
+  aria-invalid="false"
+/>
+<p id="email-help">We use this to send your receipt.</p>
+<p id="email-error" role="alert" hidden>Please enter a valid email address.</p>
 ```
 
-**Language Declaration**
-Always specify the document language and mark language changes:
+Group related controls (radios, related checkboxes) inside `<fieldset>` with a `<legend>` — without it, screen readers will announce each option without the group's purpose.
+
+For error handling: announce errors with `role="alert"` (or a polite live region for non-critical updates), set `aria-invalid` on the field, and link the error message via `aria-describedby`. Server-rendered error messages should be present in the DOM at page load with `hidden` removed when active — adding `role="alert"` after the fact risks the message being missed.
+
+### Images and media
+
+Alt text serves the same purpose as the image. Decorative images take an empty `alt=""` (and optionally `role="presentation"`). Functional images (a button with no text) take alt text describing the action, not the icon.
 
 ```html
-<html lang="en">
-  <head>
-    <title>English Page</title>
-  </head>
-  <body>
-    <p>This is English text.</p>
-    <p lang="es">Este texto está en español.</p>
-  </body>
-</html>
+<img src="sales-chart.png" alt="Sales rose 25% from January to March 2026." />
+<img src="ornament.svg" alt="" />
+<button type="submit"><img src="search.svg" alt="Search" /></button>
 ```
 
-### Forms and Input Elements
+For complex images (charts, diagrams), pair a short `alt` with a longer description via `aria-describedby` or a visible caption.
 
-Forms are critical interaction points that require careful accessibility implementation:
-
-**Proper Labeling**
-Every form control must have an accessible label:
+Video and audio require the right combination of synchronised tracks. Captions cover spoken dialogue and important sounds. Audio descriptions narrate visually significant content for blind users. A transcript covers both at once and is the cheapest accommodation when full captions and descriptions are out of scope.
 
 ```html
-<!-- Explicit labeling (preferred) -->
-<label for="email">Email Address (required)</label>
-<input type="email" id="email" name="email" required aria-describedby="email-error" />
-
-<!-- Implicit labeling -->
-<label>
-  Password
-  <input type="password" name="password" required />
-</label>
-
-<!-- Using aria-label when visual label isn't desired -->
-<input type="search" name="search" aria-label="Search products" placeholder="Search..." />
-```
-
-**Grouping Related Controls**
-Use fieldset and legend for radio buttons and checkboxes:
-
-```html
-<fieldset>
-  <legend>Preferred Contact Method</legend>
-  <input type="radio" id="email" name="contact" value="email" />
-  <label for="email">Email</label>
-
-  <input type="radio" id="phone" name="contact" value="phone" />
-  <label for="phone">Phone</label>
-
-  <input type="radio" id="mail" name="contact" value="mail" />
-  <label for="mail">Mail</label>
-</fieldset>
-```
-
-**Error Handling and Validation**
-Provide clear, helpful error messages:
-
-```html
-<label for="username">Username (required)</label>
-<input type="text" id="username" name="username" required aria-describedby="username-error" aria-invalid="true" />
-<div id="username-error" role="alert">Username is required and must be at least 3 characters long.</div>
-```
-
-**Instructions and Help Text**
-Use aria-describedby to associate help text with form controls:
-
-```html
-<label for="password">Password</label>
-<input type="password" id="password" name="password" aria-describedby="password-help" required />
-<div id="password-help">Password must be at least 8 characters long and contain at least one number.</div>
-```
-
-### Images and Media
-
-**Alternative Text for Images**
-Provide meaningful alt text that serves the same purpose as the image:
-
-```html
-<!-- Informative image -->
-<img src="sales-chart.png" alt="Sales increased 25% from January to March 2024" />
-
-<!-- Decorative image -->
-<img src="decorative-border.png" alt="" role="presentation" />
-
-<!-- Functional image (button) -->
-<button type="submit">
-  <img src="search-icon.png" alt="Search" />
-</button>
-
-<!-- Complex image with longer description -->
-<img src="complex-chart.png" alt="Quarterly sales data" aria-describedby="chart-desc" />
-<div id="chart-desc">
-  Detailed description: Sales data shows Q1 at $100k, Q2 at $150k, Q3 at $175k, and Q4 at $200k, representing steady
-  growth throughout the year.
-</div>
-```
-
-**Video and Audio Accessibility**
-Multimedia content requires multiple accessibility features:
-
-```html
-<!-- Video with captions and audio description -->
 <video controls>
-  <source src="training-video.mp4" type="video/mp4" />
-  <track kind="captions" src="captions.vtt" srclang="en" label="English captions" />
-  <track kind="descriptions" src="descriptions.vtt" srclang="en" label="Audio descriptions" />
-  <p>Your browser doesn't support video. <a href="transcript.html">Read the transcript</a></p>
+  <source src="training.mp4" type="video/mp4" />
+  <track kind="captions" src="captions.en.vtt" srclang="en" label="English captions" />
+  <track kind="descriptions" src="descriptions.en.vtt" srclang="en" label="Audio descriptions" />
+  <p>Your browser doesn't support video. <a href="transcript.html">Read the transcript</a>.</p>
 </video>
-
-<!-- Audio-only content -->
-<audio controls>
-  <source src="podcast.mp3" type="audio/mpeg" />
-  <p>Your browser doesn't support audio. <a href="transcript.html">Read the transcript</a></p>
-</audio>
-<p><a href="podcast-transcript.txt">Download transcript</a></p>
 ```
 
-### Interactive Elements and Custom Components
+### Custom widgets — when to reach for ARIA
 
-**Buttons and Links**
-Ensure interactive elements have clear purposes and are keyboard accessible:
+The first rule of ARIA is "no ARIA is better than bad ARIA". A `<button>` already exposes role, focusability, Enter/Space activation, and the disabled state — recreating it with `<div role="button">` requires you to re-implement all of that, and most reimplementations get at least one piece wrong.
+
+Reach for ARIA when the native HTML genuinely doesn't cover the pattern: tabs, comboboxes, tree views, date grids, drag-and-drop reorderable lists, autocompletes, modal dialogs without `<dialog>`. The APG has a [full pattern catalogue](https://www.w3.org/WAI/ARIA/apg/patterns/) with the keyboard interactions and ARIA attributes each pattern requires.
 
 ```html
-<!-- Descriptive button text -->
-<button type="submit">Submit Contact Form</button>
-
-<!-- Button with icon needs accessible text -->
-<button type="button" aria-label="Close dialog">
-  <svg aria-hidden="true">...</svg>
-</button>
-
-<!-- Link with clear destination -->
-<a href="/products/laptops">View all laptop models</a>
-
-<!-- Link opening new window/tab -->
-<a href="/terms.pdf" target="_blank"> Terms of Service <span class="sr-only">(opens in new tab)</span> </a>
+<div role="tablist" aria-label="Article sections">
+  <button role="tab" aria-selected="true" aria-controls="panel-1" id="tab-1">Overview</button>
+  <button role="tab" aria-selected="false" aria-controls="panel-2" id="tab-2" tabindex="-1">Details</button>
+</div>
+<section role="tabpanel" id="panel-1" aria-labelledby="tab-1">…</section>
+<section role="tabpanel" id="panel-2" aria-labelledby="tab-2" hidden>…</section>
 ```
 
-**Custom Interactive Components**
-When creating custom widgets, use ARIA roles, properties, and states:
+Note the `tabindex="-1"` on the inactive tab — the tablist pattern uses arrow-key navigation between tabs and reserves Tab for moving in and out of the group.
 
-```html
-<!-- Custom dropdown menu -->
-<div class="dropdown">
-  <button aria-haspopup="true" aria-expanded="false" id="menu-button">Options</button>
-  <ul role="menu" aria-labelledby="menu-button" hidden>
-    <li role="menuitem"><a href="/option1">Option 1</a></li>
-    <li role="menuitem"><a href="/option2">Option 2</a></li>
-    <li role="menuitem"><a href="/option3">Option 3</a></li>
-  </ul>
-</div>
+### Colour and contrast
 
-<!-- Custom tab interface -->
-<div role="tablist" aria-label="Content sections">
-  <button role="tab" aria-selected="true" aria-controls="panel1" id="tab1">Section 1</button>
-  <button role="tab" aria-selected="false" aria-controls="panel2" id="tab2">Section 2</button>
-</div>
+WCAG 2.2 keeps the 2.1 contrast requirements (1.4.3 Contrast Minimum, 1.4.11 Non-text Contrast):
 
-<div role="tabpanel" id="panel1" aria-labelledby="tab1">
-  <h2>Section 1 Content</h2>
-  <p>Content for the first section...</p>
-</div>
+- Body text: **4.5:1** against the background (3:1 for "large text" — 18 pt, or 14 pt bold).
+- UI component boundaries and graphical objects: **3:1**.
+- Focus indicators participate in 1.4.11 today, and additionally in 2.4.13 Focus Appearance at AAA.
 
-<div role="tabpanel" id="panel2" aria-labelledby="tab2" hidden>
-  <h2>Section 2 Content</h2>
-  <p>Content for the second section...</p>
-</div>
-```
+Never rely on colour alone. An error state needs colour plus an icon, text, or pattern; a required field needs an asterisk, not just a red label.
 
-### Color and Visual Design
+## Focus management — the most common source of regressions
 
-**Color Contrast Requirements**
-Ensure sufficient contrast ratios for all text and UI components:
+Focus management is where WCAG compliance most often quietly degrades after launch. Static HTML pages get focus management for free from the browser; SPAs and modals do not.
 
-- **Normal text**: Minimum 4.5:1 contrast ratio (WCAG AA)
-- **Large text** (18pt+ or 14pt+ bold): Minimum 3:1 contrast ratio
-- **UI components**: Minimum 3:1 contrast ratio for borders, icons, and focus indicators
+The two patterns to get right:
 
-**Color-Independent Information**
-Never rely solely on color to convey information:
+### Modal dialogs
 
-```html
-<!-- Bad: Only color indicates required field -->
-<label style="color: red;">Email</label>
-<input type="email" name="email" />
+The [APG dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) requires three things:
 
-<!-- Good: Color plus text/symbol indicator -->
-<label>Email <span class="required" aria-label="required">*</span></label>
-<input type="email" name="email" required />
+1. **Initial focus** moves into the dialog when it opens (typically the first interactive element, or the dialog's heading via `tabindex="-1"` when the dialog has long content).
+2. **Focus is trapped** — Tab and Shift+Tab cycle within the dialog and never escape to background content.
+3. **Focus is restored** to the element that opened the dialog when it closes.
 
-<!-- Good: Error states with multiple indicators -->
-<label for="email">Email</label>
-<input type="email" id="email" name="email" aria-invalid="true" class="error" aria-describedby="email-error" />
-<div id="email-error" class="error-message" role="alert">⚠️ Please enter a valid email address</div>
-```
+The native `<dialog>` element with `showModal()` handles focus containment in modern browsers, but does not always restore focus to the trigger if it was removed from the DOM during the dialog's lifetime — code defensively.
 
-### Keyboard Navigation and Focus Management
-
-**Focus Indicators**
-Provide clear, visible focus indicators for all interactive elements:
-
-```css
-/* Ensure focus indicators are visible */
-button:focus,
-input:focus,
-select:focus,
-textarea:focus,
-a:focus {
-  outline: 2px solid #005fcc;
-  outline-offset: 2px;
-}
-
-/* Custom focus styles that meet contrast requirements */
-.custom-button:focus {
-  box-shadow: 0 0 0 3px rgba(0, 95, 204, 0.5);
-  outline: 2px solid #005fcc;
-}
-```
-
-**Focus Trapping**
-
-Modals must trap focus—users shouldn't be able to Tab out of the modal to content behind it. The pattern: track first/last focusable elements, intercept Tab at boundaries.
-
-```javascript title="focus-trap.js" collapse={1-3, 14-18}
-function trapFocus(element) {
-  const focusable = element.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+```javascript title="modal-focus.js"
+function trapFocus(container) {
+  const focusable = container.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )
   const first = focusable[0]
   const last = focusable[focusable.length - 1]
 
-  element.addEventListener("keydown", (e) => {
+  container.addEventListener("keydown", (e) => {
     if (e.key !== "Tab") return
     if (e.shiftKey && document.activeElement === first) {
       last.focus()
@@ -480,309 +315,262 @@ function trapFocus(element) {
     }
   })
 }
+
+function openModal(modal) {
+  const previousFocus = document.activeElement
+  modal.removeAttribute("hidden")
+  modal.querySelector("button, [href], input")?.focus()
+  trapFocus(modal)
+  modal.addEventListener(
+    "close",
+    () => previousFocus instanceof HTMLElement && previousFocus.focus(),
+    { once: true },
+  )
+}
 ```
 
-### Dynamic Content and SPAs
+### SPA route changes
 
-SPAs and dynamic content require explicit accessibility management that static pages handle automatically.
+When a client-side router swaps the page contents, the browser does nothing — focus stays on the link the user just activated, and screen readers do not announce the new route. The fix is to update the document title and move focus into the new view's main landmark or heading:
 
-**Live Regions** announce changes to screen readers without moving focus:
+```javascript title="spa-navigation.js"
+function navigateTo(routePromise) {
+  return routePromise.then(({ html, title }) => {
+    const main = document.getElementById("main-content")
+    main.innerHTML = html
+    document.title = title
+
+    main.setAttribute("tabindex", "-1")
+    main.focus({ preventScroll: false })
+  })
+}
+```
+
+A polite live region announcing the route change is a useful complement, but moving focus is the requirement.
+
+### Live regions for dynamic updates
+
+Use `aria-live` (or its preset roles) when content changes outside the user's current focus:
 
 ```html
-<!-- polite: announced when user is idle; assertive: immediate interruption -->
 <div id="status" role="status" aria-live="polite"></div>
 <div id="alerts" role="alert" aria-live="assertive"></div>
 ```
 
-**SPA Route Changes** must update document title and move focus:
+`polite` waits for the screen reader to finish what it's saying. `assertive` interrupts and should be reserved for genuine alerts — a cart counter incrementing is not an alert.
 
-```javascript title="spa-navigation.js" collapse={1-2}
-function navigateToPage(pageContent, pageTitle) {
-  document.getElementById("main-content").innerHTML = pageContent
-  document.title = pageTitle
+### Visible focus indicators
 
-  // Move focus to main content, not page top
-  const main = document.getElementById("main-content")
-  main.setAttribute("tabindex", "-1")
-  main.focus()
+WCAG 2.4.7 Focus Visible (AA, since 2.0) is the floor; 2.4.13 Focus Appearance (AAA, new in 2.2) is the bar to design for. The cheapest compliant default is a 2 px outline with offset:
+
+```css title="focus-visible.css"
+:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 2px;
 }
 ```
 
-**Modal Focus** requires: (1) trap focus inside, (2) return focus on close.
+Use `:focus-visible` rather than `:focus` so mouse clicks on buttons don't show a focus ring (they still get one when keyboard-activated). Never apply `outline: none` without a replacement — every browser ships a default outline because the platform ships an accessibility default.
 
-```javascript title="modal-focus.js" collapse={1-2, 9-13}
-function openModal(modal) {
-  const previousFocus = document.activeElement
+## Testing strategy — what each layer actually catches
 
-  modal.removeAttribute("hidden")
-  modal.querySelector("button, [href], input")?.focus()
-  trapFocus(modal)
+Automated tools detect [~57.4% of accessibility issues](https://www.deque.com/automated-accessibility-coverage-report/) and cover [16 of 50 WCAG 2.1 Level AA success criteria](https://www.deque.com/blog/automated-testing-study-identifies-57-percent-of-digital-accessibility-issues/) (≈32%) according to Deque's 2021 study across more than 13,000 pages. Those numbers are still the reference today; the rest needs manual inspection.
 
-  modal.addEventListener("close", () => previousFocus.focus(), { once: true })
-}
+![Layered accessibility testing — automated rules find ~57% of issues, the remainder requires manual structural review, screen reader smoke tests, and user research.](./diagrams/testing-coverage-layers-light.svg "Each testing layer catches a different class of accessibility issue. Skip a layer and the issues that layer would have caught ship to production.")
+![Layered accessibility testing — automated rules find ~57% of issues, the remainder requires manual structural review, screen reader smoke tests, and user research.](./diagrams/testing-coverage-layers-dark.svg)
+
+| Layer                       | What it catches                                                                                       | What it misses                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Automated rules             | Missing alt, low contrast (text + UI), duplicate IDs, ARIA syntax errors, missing form labels, landmark structure. | Alt-text accuracy, label clarity, reading order, ARIA *correctness*.    |
+| Manual structural review    | Heading order, focus order, error message helpfulness, target size sanity, colour-only signals.       | Real AT behaviour under live regions, gesture-based widgets.            |
+| Screen reader smoke test    | Live region announcements, modal focus loops, route announcements, form completion flow.              | Cognitive load, real-world AT user workflows.                           |
+| Assistive-tech user research | Cognitive friction, real workflow blockers, prosthetic-fit issues.                                    | Coverage at scale; one-off insights.                                    |
+
+Contrast issues alone account for roughly 30% of all detected issues in the Deque dataset. Highly automatable, but only one slice of the picture.
+
+### Tool selection
+
+[axe-core](https://github.com/dequelabs/axe-core) is the de-facto engine. Wire it into the test runner you already use:
+
+```javascript title="playwright.config.ts" collapse={1-5}
+import AxeBuilder from "@axe-core/playwright"
+import { test, expect } from "@playwright/test"
+
+test("home is WCAG 2.2 AA clean", async ({ page }) => {
+  await page.goto("/")
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze()
+  expect(results.violations).toEqual([])
+})
 ```
 
-## Testing Strategies
+[Pa11y](https://pa11y.org/) is good for crawl-the-sitemap CLI checks. [Lighthouse](https://developer.chrome.com/docs/lighthouse/accessibility/) ships an axe-core subset and is fine for first-pass scoring but not for compliance verification — it skips rules that depend on user interaction.
 
-Automated tools detect ~57% of individual accessibility issues (Deque 2024 study across 13,000+ pages) but only ~35% of WCAG success criteria are fully automatable. The remaining issues require manual testing—there's no shortcut.
+### Screen reader smoke tests
 
-### Automated Testing Coverage
+The [WebAIM Screen Reader User Survey #10](https://webaim.org/projects/screenreadersurvey10/) (1,539 respondents, December 2023 – January 2024) gives the realistic distribution. Match your test matrix to your audience, not to your team's hardware:
 
-| What Automation Catches                  | What Requires Manual Testing     |
-| ---------------------------------------- | -------------------------------- |
-| Missing alt text (presence, not quality) | Alt text accuracy and context    |
-| Color contrast ratios                    | Color-only information conveying |
-| Missing form labels                      | Label clarity and helpfulness    |
-| Duplicate IDs                            | Logical reading order            |
-| ARIA attribute validity                  | ARIA usage correctness           |
-| Heading structure                        | Content organization             |
+| Platform   | Screen reader | Primary use share | Notes                                                               |
+| ---------- | ------------- | ----------------: | ------------------------------------------------------------------- |
+| Windows    | JAWS          |             40.5% | Commercial; the enterprise standard.                                |
+| Windows    | NVDA          |             37.7% | Free, open-source; most common for testing.                         |
+| macOS      | VoiceOver     |              9.7% | Built in; required for the Apple ecosystem.                         |
+| Mobile     | VoiceOver     |             70.6% | Mobile primary; iOS dominance among survey respondents.             |
+| Mobile     | TalkBack      |             29.4% | Android primary.                                                    |
 
-Contrast issues alone account for ~30% of detected issues—highly automatable but only part of the picture.
+NVDA + Firefox and VoiceOver + Safari are the most efficient first two combinations; together they cover the majority of likely AT contexts. Test (a) navigation flow with the screen reader's heading and landmark commands, (b) form completion end to end, (c) live region announcements after a deliberate state change, and (d) error recovery after a deliberately invalid submission.
 
-### Tool Selection
+### CI/CD integration
 
-**axe-core** powers most accessibility testing. Use `@axe-core/playwright` or `cypress-axe` for CI integration. Configure for WCAG 2.2 AA:
+Two patterns scale:
 
-```javascript title="playwright.config.js" collapse={1-5}
-// Configure axe for WCAG 2.2 AA
-const axeConfig = {
-  runOnly: {
-    type: "tag",
-    values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
-  },
-}
-```
-
-**Pa11y** for CLI/CI pipelines—respects `robots.txt` and handles JavaScript-rendered content.
-
-**Lighthouse** provides quick audits but uses a subset of axe-core rules. Use for initial scans, not compliance verification.
-
-### Screen Reader Testing
-
-Test with at least one screen reader per platform your users access:
-
-| Platform  | Screen Reader | Market Share | Notes                                      |
-| --------- | ------------- | ------------ | ------------------------------------------ |
-| Windows   | NVDA          | ~40%         | Free, open-source, most common for testing |
-| Windows   | JAWS          | ~30%         | Commercial, enterprise standard            |
-| macOS/iOS | VoiceOver     | ~15%         | Built-in, required for Apple ecosystem     |
-| Android   | TalkBack      | ~10%         | Built-in, required for Android             |
-
-Focus testing on: navigation flow, form completion, dynamic content updates, and error recovery.
-
-## CI/CD Integration for Automated Accessibility Testing
-
-Integrating accessibility testing into your continuous integration and deployment pipeline ensures that accessibility issues are caught early and consistently.
-
-### Setting Up Automated Testing in CI/CD
-
-**GitHub Actions Example**:
+- **Smoke axe per route** in the test runner you already use (above). Fast; gates PRs.
+- **Crawl-and-report** via Pa11y or axe-core CLI on a deployed preview, with the report uploaded as a PR artifact. Slower; prevents regressions on routes nobody touched.
 
 ```yaml title=".github/workflows/accessibility.yml" collapse={1-22}
-name: Accessibility Testing
+name: Accessibility
 on: [push, pull_request]
-
 jobs:
-  accessibility-test:
+  axe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm ci
+      - run: npm run build
+      - run: npm start &
+      - run: npx wait-on http://localhost:3000
+      - run: npx playwright install --with-deps
+      - run: npx playwright test tests/a11y
+      - if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: "16"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build application
-        run: npm run build
-
-      - name: Start application
-        run: npm start &
-
-      - name: Wait for application to start
-        run: sleep 30
-
-      - name: Run Pa11y tests
-        run: |
-          npx pa11y-ci --sitemap http://localhost:3000/sitemap.xml
-
-      - name: Run axe tests with Cypress
-        run: npx cypress run --spec "cypress/integration/accessibility.spec.js"
+          name: axe-report
+          path: test-results/
 ```
 
-**Cypress with axe-core**:
-
-```javascript title="cypress/integration/accessibility.spec.js" collapse={1-6}
-// cypress/integration/accessibility.spec.js
-describe("Accessibility Tests", () => {
-  beforeEach(() => {
-    cy.visit("/")
-    cy.injectAxe()
-  })
-
-  it("Has no accessibility violations on home page", () => {
-    cy.checkA11y()
-  })
-
-  it("Has no accessibility violations on contact form", () => {
-    cy.visit("/contact")
-    cy.checkA11y()
-  })
-
-  it("Has no accessibility violations after form interaction", () => {
-    cy.visit("/contact")
-    cy.get("#name").type("Test User")
-    cy.get("#email").type("test@example.com")
-    cy.checkA11y()
-  })
-})
-```
-
-**Playwright with axe-core**:
-
-```javascript title="tests/accessibility.spec.js" collapse={1-3}
-const { test, expect } = require("@playwright/test")
-const AxeBuilder = require("@axe-core/playwright")
-
-test("Homepage accessibility", async ({ page }) => {
-  await page.goto("/")
-
-  const accessibilityScanResults = await new AxeBuilder({ page }).analyze()
-
-  expect(accessibilityScanResults.violations).toEqual([])
-})
-```
-
-### Quality Gates and Reporting
-
-Implement accessibility quality gates that fail builds when critical issues are found:
-
-```yaml
-# .github/workflows/accessibility.yml
-- name: Run accessibility tests
-  run: |
-    npx pa11y-ci --threshold 5 http://localhost:3000
-  continue-on-error: false
-
-- name: Generate accessibility report
-  run: |
-    npx pa11y-ci --reporter json > accessibility-report.json
-
-- name: Upload accessibility report
-  uses: actions/upload-artifact@v2
-  with:
-    name: accessibility-report
-    path: accessibility-report.json
-```
+> [!CAUTION]
+> Do not gate on Lighthouse's accessibility *score* in CI. The score weights rules unevenly and is non-deterministic on dynamic pages. Gate on the underlying axe rule output instead.
 
 ## Web Components and Shadow DOM
 
-Shadow DOM creates accessibility challenges because ARIA attributes don't penetrate the shadow boundary and screen readers may not correctly associate labels across boundaries.
+Shadow DOM is a real accessibility constraint. ARIA IDREF attributes (`aria-labelledby`, `aria-describedby`, `aria-controls`, `for`) cannot cross the shadow boundary in any shipping browser today. The platform answer — the [Reference Target](https://github.com/WICG/webcomponents/issues/1111) proposal under WICG — is in [Chromium origin trial as of 2025](https://groups.google.com/a/chromium.org/g/blink-dev/c/C3pELgMqzCY/m/Lpb6DkueAQAJ) but not yet a cross-browser standard.
 
-**Key patterns:**
+Practical patterns that work today:
 
-```javascript title="web-component-a11y.js" collapse={1-8}
-class AccessibleComponent extends HTMLElement {
-  static get observedAttributes() {
-    return ["aria-label", "aria-describedby"]
-  }
+- **Use `aria-label` on the host** when the component name is short and stable. The host's `aria-label` is exposed in the accessibility tree as long as the shadow root forwards focus to a focusable internal element.
+- **Forward observed ARIA attributes** from the host into the shadow DOM in `attributeChangedCallback`:
 
-  connectedCallback() {
-    // Forward ARIA from host to shadow root element
-    const button = this.shadowRoot.querySelector("button")
-    for (const attr of AccessibleComponent.observedAttributes) {
-      if (this.hasAttribute(attr)) {
-        button.setAttribute(attr, this.getAttribute(attr))
+  ```javascript title="web-component-a11y.js" collapse={1-8}
+  class AccessibleToggle extends HTMLElement {
+    static get observedAttributes() {
+      return ["aria-label", "aria-pressed"]
+    }
+
+    connectedCallback() {
+      const internal = this.shadowRoot.querySelector("button")
+      for (const attr of AccessibleToggle.observedAttributes) {
+        if (this.hasAttribute(attr)) {
+          internal.setAttribute(attr, this.getAttribute(attr))
+        }
       }
     }
+
+    attributeChangedCallback(name, _old, value) {
+      this.shadowRoot?.querySelector("button")?.setAttribute(name, value)
+    }
   }
+  ```
 
-  attributeChangedCallback(name, oldVal, newVal) {
-    // Keep shadow DOM in sync with host attributes
-    this.shadowRoot?.querySelector("button")?.setAttribute(name, newVal)
-  }
-}
-```
+- **Delegate focus** by passing `delegatesFocus: true` to `attachShadow()`. The host element becomes the focus target while the focus visually lands on the first focusable internal element. This is the right default for components that wrap a single interactive element.
+- **Slot the label content** when the consumer needs to provide the label as markup rather than as a string — `<my-input><span slot="label">Email</span></my-input>` keeps the labelling element in the light DOM, where IDREFs already work.
 
-**Edge cases:**
+The [Element Internals API](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals) (`this.attachInternals()`) lets a custom element participate in form submission, validity, and the accessibility tree without exposing the shadow root. It is the modern way to ship a custom form control with the right accessible name and role.
 
-- `aria-labelledby` and `aria-describedby` cannot reference IDs outside the shadow root
-- Use `aria-label` instead, or expose a `<slot>` for labeling content
-- Focus delegation with `delegatesFocus: true` in `attachShadow()` options
+## Legal landscape — 2026 to 2030
 
-## Legal Requirements
-
-Accessibility law has shifted from guidance to enforcement. Know your obligations.
+Accessibility law in the US and EU has moved from guidance to enforcement, with two material updates since the article's first publication.
 
 ### United States
 
-**ADA Title II** (state/local government): DOJ's 2024 rule mandates WCAG 2.1 AA by April 2026 for entities with 50,000+ population, April 2027 for smaller entities.
+**ADA Title II (state and local government).** The DOJ's [April 2024 final rule](https://www.ada.gov/resources/2024-03-08-web-rule/) adopts WCAG 2.1 Level AA. The compliance dates were extended by an [interim final rule published 20 April 2026](https://www.federalregister.gov/documents/2026/04/20/2026-07663/extension-of-compliance-dates-for-nondiscrimination-on-the-basis-of-disability-accessibility-of-web) (FR Doc. 2026-07663):
 
-**ADA Title III** (private sector): No explicit WCAG version in regulation, but courts consistently apply WCAG 2.1 AA as the standard. The "places of public accommodation" interpretation covers websites—Domino's v. Robles (2019) confirmed this.
+| Entity                                              | Original deadline | New deadline (after April 2026 IFR) |
+| --------------------------------------------------- | ----------------- | ----------------------------------- |
+| Public entities with population ≥ 50,000           | 24 April 2026     | **26 April 2027**                   |
+| Public entities < 50,000 + special district govts. | 26 April 2027     | **26 April 2028**                   |
 
-**Section 508** (federal government): Still references WCAG 2.0 AA via the Revised 508 Standards (2017). Refresh expected but not yet scheduled.
+> [!IMPORTANT]
+> The DOJ extension is one year only. The 2 April 2026 IFR added a transition; it did not change the technical standard (still WCAG 2.1 AA) or the long-term direction.
+
+**ADA Title III (private sector).** No version-specific WCAG citation exists in regulation. Federal courts consistently apply WCAG 2.1 AA as the de facto standard. [Robles v. Domino's Pizza, 913 F.3d 898 (9th Cir. 2019)](https://cdn.ca9.uscourts.gov/datastore/opinions/2019/01/15/17-55504.pdf) held that Title III applies to a business's website and mobile app when they have a *nexus* to a physical place of public accommodation; the Supreme Court [denied cert](https://www.scotusblog.com/cases/case-files/dominos-pizza-llc-v-robles/) on 7 October 2019, leaving the Ninth Circuit's reading in place.
+
+**Section 508 (federal agencies).** Still references [WCAG 2.0 Level A and AA](https://www.section508.gov/develop/applicability-conformance/) via the Revised 508 Standards (2017, effective 2018). An ICT refresh to WCAG 2.1/2.2 has been discussed but is not on the published rulemaking schedule.
 
 ### European Union
 
-**European Accessibility Act (EAA)**: Enforced since June 28, 2025. Applies to businesses selling to EU customers regardless of where the business is located. Currently requires WCAG 2.1 AA via EN 301 549; update to include WCAG 2.2 in progress.
+**European Accessibility Act (Directive (EU) 2019/882).** [Enforced from 28 June 2025](https://commission.europa.eu/strategy-and-policy/policies/justice-and-fundamental-rights/disability/european-accessibility-act-eaa_en) for products and services placed on the EU market — including products sold from outside the EU to EU consumers. The harmonised technical standard is [EN 301 549 v3.2.1](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf), which incorporates WCAG 2.1 Level AA in full. Existing services in the market on 28 June 2025 have a transition period until 28 June 2030. An update to EN 301 549 to reference WCAG 2.2 is in progress.
 
-**Web Accessibility Directive**: Applies to public sector bodies. Required WCAG 2.1 AA since September 2020.
+**Web Accessibility Directive (Directive (EU) 2016/2102).** Applies to public-sector bodies. Required WCAG 2.1 AA via EN 301 549 since September 2020.
 
-> **Practical note:** Target WCAG 2.2 AA even if current laws reference 2.1. The delta is 6 criteria, and demonstrating awareness of current standards strengthens legal defensibility.
+> [!TIP]
+> Build to WCAG 2.2 AA today even where the law still references 2.1 AA. The delta is six AA criteria, all are practical to satisfy with the patterns in this guide, and demonstrating awareness of the current standard meaningfully narrows litigation risk under both ADA Title III and EAA national-level enforcement.
+
+## Practical takeaways
+
+- **Prioritise the six new AA criteria** if you are already 2.1 AA: Focus Not Obscured, Dragging, Target Size, Consistent Help, Redundant Entry, Accessible Authentication.
+- **Audit authentication first.** It is the most common AA failure introduced by recent CAPTCHA, MFA, and "type the code" flows.
+- **Treat focus management as a first-class concern in your SPA** — write tests for it, not just for visual output.
+- **Wire axe-core into CI today**, but pair it with at least one screen reader smoke test per major release. Automation alone is a known and quantified ~57% solution.
+- **Build to 2.2 AA across the board**, even where the law still references 2.1 AA. The delta is small and the legal exposure is real.
 
 ## Appendix
 
 ### Prerequisites
 
-- HTML5 semantic elements and document structure
-- CSS layout and responsive design fundamentals
-- JavaScript event handling and DOM manipulation
-- Basic understanding of assistive technology categories (screen readers, switch devices, voice control)
-
-### Summary
-
-- **WCAG 2.2** contains 86 success criteria across three levels (A: 32, AA: +24, AAA: +30)
-- **New in 2.2**: 9 criteria targeting cognitive accessibility, motor accessibility, and focus visibility; 4.1.1 Parsing removed
-- **Legal compliance** requires WCAG 2.1 AA minimum (US ADA, EU EAA); target 2.2 AA for future-proofing
-- **Automated testing** catches ~57% of individual issues but only ~35% of criteria; manual testing is mandatory
-- **Semantic HTML** provides most accessibility automatically; ARIA supplements for custom widgets
-- **Focus management** in SPAs and modals is the most common source of regressions
+- HTML5 semantic elements and document structure.
+- CSS layout, contrast, and responsive design fundamentals.
+- JavaScript event handling and DOM manipulation.
+- Basic familiarity with assistive technology categories (screen readers, switch devices, voice control).
 
 ### Terminology
 
-- **a11y**: Numeronym for "accessibility" (a + 11 letters + y)
-- **AT**: Assistive Technology—software/hardware enabling people with disabilities to use computers
-- **POUR**: Perceivable, Operable, Understandable, Robust—WCAG's organizing principles
-- **ARIA**: Accessible Rich Internet Applications—W3C specification for enhancing HTML semantics
-- **Live Region**: ARIA mechanism for announcing dynamic content changes to screen readers
-- **Focus Trap**: Containing keyboard focus within a component (intentional in modals, a bug elsewhere)
+- **a11y** — numeronym for "accessibility" (a + 11 letters + y).
+- **AT** — assistive technology; software or hardware enabling people with disabilities to operate computers.
+- **POUR** — Perceivable, Operable, Understandable, Robust; WCAG's organising principles.
+- **ARIA** — Accessible Rich Internet Applications; W3C specification for enhancing HTML semantics.
+- **APG** — ARIA Authoring Practices Guide; canonical pattern catalogue with keyboard interactions.
+- **Live region** — ARIA mechanism for announcing dynamic content changes to screen readers.
+- **Focus trap** — containing keyboard focus within a component (intentional in modals, a bug elsewhere).
+- **Cognitive function test** — WCAG 2.2's term for a step that requires memory, transcription, or puzzle-solving.
 
 ### References
 
-**Specifications (Primary)**
+**Specifications (primary)**
 
-- [WCAG 2.2 W3C Recommendation](https://www.w3.org/TR/WCAG22/) - Normative requirements
-- [Understanding WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/) - Intent and techniques for each criterion
-- [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) - W3C summary of changes
-- [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/) - ARIA specification
-- [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) - Component patterns and keyboard interaction
+- [WCAG 2.2 W3C Recommendation](https://www.w3.org/TR/WCAG22/) — normative requirements.
+- [Understanding WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/) — intent and techniques per criterion.
+- [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) — W3C summary of changes.
+- [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/) — ARIA specification.
+- [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) — component patterns and keyboard interaction.
 
-**Official Documentation**
+**Official documentation**
 
-- [MDN Accessibility Guide](https://developer.mozilla.org/en-US/docs/Web/Accessibility) - Browser implementation details
-- [ADA.gov Web Accessibility Guidance](https://www.ada.gov/resources/web-guidance/) - DOJ official guidance
-- [EN 301 549](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf) - EU accessibility standard
+- [MDN Accessibility](https://developer.mozilla.org/en-US/docs/Web/Accessibility) — browser implementation details.
+- [ADA.gov web accessibility guidance](https://www.ada.gov/resources/web-guidance/) — DOJ guidance.
+- [EN 301 549 v3.2.1](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf) — EU technical standard.
 
-**Testing Tools**
+**Testing tools and research**
 
-- [axe-core](https://github.com/dequelabs/axe-core) - Accessibility testing engine
-- [Deque Automated Testing Coverage Report](https://www.deque.com/blog/automated-testing-study-identifies-57-percent-of-digital-accessibility-issues/) - Research on automation limits
-- [DWP Accessibility Manual: Automated Testing](https://accessibility-manual.dwp.gov.uk/best-practice/automated-testing-using-axe-core-and-pa11y) - UK government testing guidance
+- [axe-core on GitHub](https://github.com/dequelabs/axe-core) — accessibility testing engine.
+- [Deque automated coverage report](https://www.deque.com/automated-accessibility-coverage-report/) — research on automation limits.
+- [WebAIM Screen Reader User Survey #10](https://webaim.org/projects/screenreadersurvey10/) — current AT distribution.
 
 **Legal**
 
-- [DOJ ADA Title II Web Accessibility Rule (2024)](https://www.ada.gov/resources/2024-03-08-web-rule/) - Federal Register notice
-- [European Accessibility Act](https://ec.europa.eu/social/main.jsp?catId=1202) - EU directive overview
+- [DOJ ADA Title II web rule fact sheet (2024)](https://www.ada.gov/resources/2024-03-08-web-rule/).
+- [DOJ ADA Title II compliance extension (April 2026 IFR)](https://www.federalregister.gov/documents/2026/04/20/2026-07663/extension-of-compliance-dates-for-nondiscrimination-on-the-basis-of-disability-accessibility-of-web).
+- [European Accessibility Act overview](https://commission.europa.eu/strategy-and-policy/policies/justice-and-fundamental-rights/disability/european-accessibility-act-eaa_en).
+- [Robles v. Domino's Pizza, 913 F.3d 898 (9th Cir. 2019)](https://cdn.ca9.uscourts.gov/datastore/opinions/2019/01/15/17-55504.pdf).

@@ -4,7 +4,7 @@ linkTitle: 'V8 Engine'
 description: >-
   V8's four-tier compilation pipeline from Ignition interpreter to TurboFan optimizer — how hidden classes, inline caches, and speculative optimization achieve near-native JavaScript performance, plus Orinoco's concurrent garbage collection strategy.
 publishedDate: 2026-01-31T00:00:00.000Z
-lastUpdatedOn: 2026-01-31T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - javascript
   - runtime
@@ -26,12 +26,14 @@ V8 solves the fundamental tension in dynamic language execution: achieving stati
 
 **The four-tier pipeline** balances compilation cost against execution speed:
 
-| Tier      | Compilation Speed | Execution Speed     | Trigger     |
-| --------- | ----------------- | ------------------- | ----------- |
-| Ignition  | Instant           | Slow (~100x native) | Always      |
-| Sparkplug | ~10μs/function    | Moderate            | ~8 calls    |
-| Maglev    | ~100μs/function   | Fast                | ~500 calls  |
-| TurboFan  | ~1ms/function     | Near-native         | ~6000 calls |
+| Tier      | Compilation Speed | Execution Speed     | Default trigger[^thresholds] |
+| --------- | ----------------- | ------------------- | ---------------------------- |
+| Ignition  | Instant           | Slow (~100× native) | Always                       |
+| Sparkplug | ~10μs/function    | Moderate            | ~8 calls                     |
+| Maglev    | ~100μs/function   | Fast                | ~500 calls                   |
+| TurboFan  | ~1ms/function     | Near-native         | ~6000 calls                  |
+
+[^thresholds]: These thresholds are V8 heuristics — see Intel's [Profile-Guided Tiering in the V8 JavaScript Engine](https://community.intel.com/t5/Blogs/Tech-Innovation/Client/Profile-Guided-Tiering-in-the-V8-JavaScript-Engine/post/1679340) and the V8 flag definitions ([`flag-definitions.h`](https://chromium.googlesource.com/v8/v8/+/master/src/flags/flag-definitions.h)) — adjusted dynamically by feedback stability, OSR pressure, efficiency mode, and profile data. Maglev/TurboFan tier-up resets the counter when feedback shape changes.
 
 **The runtime system** makes speculation viable through:
 
@@ -176,6 +178,9 @@ b.x = 2 // Map path: M0 → M3(y) → M4(y,x)
 
 Objects `a` and `b` have different Maps despite identical property sets. A function optimized for `a`'s Map will deoptimize when passed `b`.
 
+![Map transition tree showing how property addition order forks the Map graph](./diagrams/map-transition-tree-light.svg "Property addition order forks the Map transition graph; identical property sets reached through different paths land on different Maps.")
+![Map transition tree showing how property addition order forks the Map graph](./diagrams/map-transition-tree-dark.svg)
+
 **Best practice**: Initialize all properties in constructors, in consistent order.
 
 ### Inline Caches and FeedbackVector
@@ -199,11 +204,11 @@ As Ignition executes, it populates FeedbackVector slots with observed Maps. This
 
 ## Sparkplug: The Baseline JIT
 
-Introduced in Chrome 91 (2021), Sparkplug bridges the performance gap between interpretation and optimization.
+Introduced in Chrome 91 (May 2021) — see [Sparkplug — a non-optimizing JavaScript compiler](https://v8.dev/blog/sparkplug) — Sparkplug bridges the performance gap between interpretation and optimization.
 
 ### Design Philosophy
 
-Sparkplug optimizes for **compilation speed**, not execution speed. Its entire compiler is essentially "a switch statement inside a for loop":
+Sparkplug optimizes for **compilation speed**, not execution speed. The V8 team describes its compiler as essentially "a switch statement inside a for loop":
 
 1. For each bytecode instruction
 2. Emit the corresponding machine code template
@@ -230,7 +235,7 @@ Sparkplug's value is in eliminating interpreter dispatch overhead. The generated
 
 ## Maglev: The Mid-Tier Optimizer
 
-Introduced in Chrome 117 (2023), Maglev closes the compilation-speed vs. execution-speed gap between Sparkplug and TurboFan.
+Introduced in Chrome 117 (September 2023), [Maglev](https://v8.dev/blog/maglev) closes the compilation-speed vs. execution-speed gap between Sparkplug and TurboFan.
 
 ### Why a Mid-Tier?
 
@@ -260,11 +265,11 @@ The CFG approach provides:
 
 ### Performance Impact
 
-V8 benchmarks (2023):
+V8's published [Maglev benchmarks](https://v8.dev/blog/holiday-season-2023) at the Chrome 117 launch:
 
 - JetStream 2: +8.2%
 - Speedometer 2: +6%
-- Energy consumption: -10%
+- Energy: −10% during Speedometer runs, −3.5% on JetStream
 
 For typical web workloads, Maglev handles most optimization needs. TurboFan activates only for genuinely hot loops and compute-intensive functions.
 
@@ -291,11 +296,11 @@ The result:
 
 ### Turboshaft: The CFG Replacement
 
-Starting in 2023 (Chrome 120+), V8 has been migrating TurboFan's backend to **Turboshaft**—a CFG-based IR. As of 2025, all CPU-agnostic backend phases use Turboshaft.
+Starting in 2023 (Chrome 120+), V8 has been migrating TurboFan's backend to **Turboshaft**—a CFG-based IR. Per the V8 team's [Land ahoy: leaving the Sea of Nodes](https://v8.dev/blog/leaving-the-sea-of-nodes) post (March 2025), Turboshaft already runs the entire JavaScript backend of TurboFan and the entire WebAssembly compilation pipeline. Two areas still ride on Sea of Nodes: the builtin pipeline (in transition) and the JavaScript frontend (the bytecode → IR phase that the optimizer consumes).
 
-**Results**: Compilation time halved. Same or better code quality.
+**Results**: Compilation time roughly halved versus the Sea of Nodes backend, with equal or better code quality.
 
-The Sea of Nodes frontend (JavaScript → IR) is being gradually replaced as well, with the emerging **Turbolev** project aiming to use Maglev's CFG-based IR as the starting point for TurboFan-level optimizations.
+The remaining JavaScript frontend will be replaced by the **Turbolev** project, which feeds Maglev's CFG/SSA graph directly into Turboshaft's optimizer instead of building a fresh Sea of Nodes graph.
 
 ### TurboFan Optimization Capabilities
 
@@ -314,9 +319,12 @@ The Sea of Nodes frontend (JavaScript → IR) is being gradually replaced as wel
 
 **Representation selection**: Choose optimal numeric representations:
 
-- Smi (tagged small integer) for values in [-2³¹, 2³¹-1]
-- HeapNumber for larger integers or floats
+- **Smi** (tagged small integer) for values in the Smi range (see Smi note below)
+- **HeapNumber** for larger integers or floats
 - Raw Int32/Float64 in registers when unboxing is profitable
+
+> [!NOTE]
+> **Smi range depends on architecture and pointer compression.** With [pointer compression](https://v8.dev/blog/pointer-compression) enabled — the default on 64-bit since V8 8.0 (2020) — Smi is a 31-bit signed integer, roughly ±2³⁰ (~±1.07B). Without pointer compression on 64-bit, Smi expands to a full 32-bit signed integer ([−2³¹, 2³¹−1]). On 32-bit builds it is always 31-bit signed.
 
 ### Pipeline Walkthrough
 
@@ -331,7 +339,9 @@ Speculative optimization is only safe because deoptimization provides a reliable
 
 Deoptimization is designed into V8's architecture, not a bug. It enables aggressive speculation—if V8 had to guarantee correctness without bailouts, it couldn't optimize nearly as aggressively.
 
-**Frequency in practice**: V8 benchmarks show 8 of 15 Octane tests have >5 deoptimization checks per 100 instructions. Real-world code typically stabilizes after warmup, with deoptimizations becoming rare.
+**Frequency in practice**: Historical V8 measurements on the Octane suite found roughly half of the benchmarks contained more than ~5 deoptimization checks per 100 optimized instructions[^octane-deopt]. Real-world code typically stabilizes after warmup, with deoptimizations becoming rare.
+
+[^octane-deopt]: See Vyacheslav Egorov's [What's up with monomorphism?](https://mrale.ph/blog/2015/01/11/whats-up-with-monomorphism.html) for deopt-density measurements; the absolute number depends on V8 version and benchmark revision and is included here as an order-of-magnitude reference.
 
 ### Common Deoptimization Reasons
 
@@ -340,7 +350,7 @@ Deoptimization is designed into V8's architecture, not a bug. It enables aggress
 | `kWrongMap`                 | Object shape changed                    | Function optimized for `{x}` receives `{y, x}` |
 | `kNotASmi`                  | Expected small integer, got heap number | `x + 1` where `x` becomes a float              |
 | `kOutOfBounds`              | Array access beyond length              | `arr[i]` where `i >= arr.length`               |
-| `kOverflow`                 | Integer arithmetic overflow             | Addition exceeds Smi range [-2³¹, 2³¹-1]       |
+| `kOverflow`                 | Integer arithmetic overflow             | Addition exceeds the Smi range (see Smi note below) |
 | `kHole`                     | Sparse array access                     | Accessing uninitialized array element          |
 | `kInsufficientTypeFeedback` | Optimized before feedback stabilized    | Polymorphic site went megamorphic              |
 
@@ -360,6 +370,9 @@ Deoptimization cannot restart from the beginning—side effects may have occurre
 2. **Translate**: Map optimized frame layout to interpreter frame layout (TurboFan pre-generates this mapping)
 3. **Replace**: Pop optimized frame, push interpreter frame, jump to bytecode offset
 
+![Deoptimization sequence from optimized check failure to interpreter resumption](./diagrams/deoptimization-flow-light.svg "Eager deopt path — failed speculation captures register state, translates to an interpreter frame, updates feedback, and resumes Ignition at the same bytecode offset.")
+![Deoptimization sequence from optimized check failure to interpreter resumption](./diagrams/deoptimization-flow-dark.svg)
+
 **Why Sparkplug's frame compatibility matters**: Sparkplug uses Ignition's frame layout, making OSR trivial. Maglev/TurboFan use different layouts, requiring full frame translation.
 
 ### Performance Impact
@@ -370,7 +383,7 @@ Deoptimization cost: ~2x to 20x slowdown for that invocation, depending on funct
 
 ## Orinoco: The Garbage Collector
 
-Orinoco is V8's garbage collection system—designed to minimize pause times while maintaining memory efficiency.
+[Orinoco](https://v8.dev/blog/trash-talk) is V8's garbage collection system—designed to minimize pause times while maintaining memory efficiency.
 
 ### The Generational Hypothesis
 
@@ -424,7 +437,7 @@ Young generation is further divided:
 
 **Remembered sets**: Track old→young pointers so young generation scavenges don't scan the entire old generation. Orinoco uses per-page granularity for parallel-friendly processing.
 
-**Idle-time GC**: Chrome signals idle periods to V8, which performs opportunistic GC work (incremental marking, deferred sweeping). This can reduce heap size by ~45% during idle with minimal user impact.
+**Idle-time GC**: Chrome signals idle periods to V8, which performs opportunistic GC work (incremental marking, deferred sweeping). On a memory-heavy app like Gmail, [V8's measurements](https://v8.dev/blog/free-garbage-collection) show idle-time collection can reclaim up to ~45% of the JavaScript heap with no user-visible jank.
 
 ### Performance Characteristics
 
@@ -511,7 +524,7 @@ The architecture's evolution—from performance cliffs to smooth gradients, from
 - **OSR (On-Stack Replacement)**: Switching between tiers mid-function-execution
 - **Polymorphic**: IC state when 2-4 shapes observed; still optimizable with shape checks
 - **Sea of Nodes**: Graph-based IR where nodes represent operations and edges represent dependencies
-- **Smi (Small Integer)**: V8's tagged integer representation for values in [-2³¹, 2³¹-1]
+- **Smi (Small Integer)**: V8's tagged integer representation. 31-bit signed (~±2³⁰) under pointer compression (default on 64-bit since V8 8.0); 32-bit signed on 64-bit builds without pointer compression
 - **SSA (Static Single-Assignment)**: IR form where each variable is assigned exactly once
 - **Turboshaft**: V8's new CFG-based backend replacing Sea of Nodes in TurboFan
 

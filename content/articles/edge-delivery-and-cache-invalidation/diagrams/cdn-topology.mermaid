@@ -1,0 +1,17 @@
+%% Diagram: CDN topology with Origin Shield collapsing edge misses into a single origin fetch
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    C1[Browser US] --> E1[Edge NYC]
+    C2[Mobile EU] --> E2[Edge London]
+    C3[API APAC] --> E3[Edge Tokyo]
+
+    E1 -- miss --> S[Origin Shield]
+    E2 -- miss --> S
+    E3 -- miss --> S
+
+    S -- coalesced miss --> O[Origin]
+    O --> S
+    S --> E1
+    S --> E2
+    S --> E3

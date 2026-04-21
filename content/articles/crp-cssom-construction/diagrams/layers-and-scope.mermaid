@@ -1,0 +1,22 @@
+%% Diagram: Cascade layers stacked with @scope proximity within a layer
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph layers["Cascade layer order (precedence increases for normal rules)"]
+        direction TB
+        L1["@layer reset"]
+        L2["@layer base"]
+        L3["@layer components"]
+        L4["@layer utilities"]
+        L5["unlayered (implicit final layer; highest for normal rules)"]
+        L1 --> L2 --> L3 --> L4 --> L5
+    end
+    subgraph scope["Within a layer: @scope adds proximity"]
+        direction TB
+        SR["Scoping root (.media-object)"]
+        SL["Scoping limit (.content > *) — optional"]
+        IN["In-scope subject element (closest root wins)"]
+        SR --> IN
+        SL -.->|excludes deeper subtree| IN
+    end
+    layers --> scope --> Win["Winning declaration (then specificity, then source order)"]

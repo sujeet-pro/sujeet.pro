@@ -1,0 +1,41 @@
+%% Diagram: Multi-tier caching hierarchy from browser to database
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CLIENT["Client (browser)"]
+        direction TB
+        MEM["Memory cache<br/>~0 ms"]
+        DISK["HTTP disk<br/>~1-5 ms"]
+        SW["Service Worker<br/>+ IndexedDB"]
+        MEM --> DISK --> SW
+    end
+
+    subgraph EDGE["Edge (CDN)"]
+        direction TB
+        POP["CDN PoP<br/>5-20 ms"]
+        EFN["Edge KV / cache API<br/>1-5 ms (in-PoP)"]
+        POP --> EFN
+    end
+
+    subgraph ORIGIN["Origin"]
+        direction TB
+        REVERSE["Reverse proxy<br/>(Varnish / nginx)<br/>1-5 ms"]
+        REDIS["Redis / Memcached<br/>0.1-1 ms"]
+        DB[("Database<br/>1-100 ms")]
+        REVERSE --> REDIS --> DB
+    end
+
+    SW --> POP
+    EFN --> REVERSE
+
+    classDef fast fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef warm fill:#fef3c7,stroke:#b45309,color:#0f172a
+    classDef cold fill:#fee2e2,stroke:#b91c1c,color:#0f172a
+    MEM:::fast
+    DISK:::fast
+    SW:::fast
+    POP:::warm
+    EFN:::warm
+    REVERSE:::warm
+    REDIS:::warm
+    DB:::cold

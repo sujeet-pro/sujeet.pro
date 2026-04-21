@@ -1,0 +1,25 @@
+%% Diagram: Why buildHeap is O(n) — work concentrates at the leaves
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  subgraph Heap["Heap with n nodes, height h = log n"]
+    direction TB
+    Root["Height log n: 1 node, O(log n) work"]
+    Mid["Height log n - 1: 2 nodes, O(log n - 1) work"]
+    Mid2["..."]
+    L1["Height 1: ~n/4 nodes, O(1) work each"]
+    L0["Height 0 (leaves): ~n/2 nodes, 0 work"]
+    Root --> Mid
+    Mid --> Mid2
+    Mid2 --> L1
+    L1 --> L0
+  end
+
+  subgraph Math["Total work bounded by a converging series"]
+    direction TB
+    F1["sum over h: (n / 2^(h+1)) * O(h)"]
+    F2["= O(n) * sum h/2^h"]
+    F3["sum h/2^h converges to 2"]
+    F4["Total = O(n)"]
+    F1 --> F2 --> F3 --> F4
+  end

@@ -1,0 +1,29 @@
+%% Diagram: Node.js runtime mental model
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  code["User JavaScript"]
+  micro["Microtask queue\nnextTick → Promise"]
+
+  subgraph Loop["libuv event loop"]
+    direction TB
+    timers["timers"]
+    poll["poll"]
+    check["check"]
+    close["close"]
+  end
+
+  pool["Thread pool\nfs, dns.lookup,\ncrypto, zlib"]
+  async["OS async I/O\nsockets, dns.resolve"]
+
+  code --> micro --> Loop
+  timers --> poll --> check --> close --> timers
+  poll --> pool
+  poll --> async
+
+  classDef js fill:#2E5A88,stroke:#1F4870,color:#ffffff
+  classDef loop fill:#1F6E68,stroke:#155752,color:#ffffff
+  classDef offload fill:#8B5E15,stroke:#6E4810,color:#ffffff
+  class code,micro js
+  class timers,poll,check,close loop
+  class pool,async offload

@@ -1,0 +1,20 @@
+%% Diagram: Page lifecycle with bfcache and analytics hooks
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Active : load
+    Active --> Passive : blur (focus loss)
+    Passive --> Active : focus
+    Active --> Hidden : visibilitychange (hidden)\nflush metrics here
+    Passive --> Hidden : visibilitychange (hidden)\nflush metrics here
+    Hidden --> Active : visibilitychange (visible)
+    Hidden --> Frozen : pagehide (persisted)\nbfcache stores DOM + JS
+    Frozen --> Active : pageshow (persisted=true)\nreset CLS / LCP windows
+    Hidden --> Terminated : pagehide (persisted=false)\nlast chance for sendBeacon
+    Terminated --> [*]
+
+    note right of Frozen
+        unload / beforeunload
+        prevent bfcache —
+        avoid them.
+    end note

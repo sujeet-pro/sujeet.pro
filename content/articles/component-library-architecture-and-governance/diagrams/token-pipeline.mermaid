@@ -1,0 +1,35 @@
+%% Diagram: Token transformation pipeline (DTCG -> Style Dictionary -> platform outputs)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph SOURCE["Source of truth"]
+        FIGMA["Figma variables<br/>(designer-owned)"]
+        TOKENS["DTCG JSON tokens<br/>(.tokens.json)"]
+        FIGMA -- "export plugin" --> TOKENS
+    end
+
+    subgraph SD["Style Dictionary pipeline"]
+        direction TB
+        PARSE["Parse + deep-merge<br/>token files"]
+        PRE["Preprocessors<br/>(tier prefixes, theme split)"]
+        TRANS["Transforms<br/>(color, dimension, name)"]
+        ALIAS["Resolve aliases<br/>{color.brand.primary}"]
+        FORMAT["Formatters<br/>(per platform)"]
+        PARSE --> PRE --> TRANS --> ALIAS --> FORMAT
+    end
+
+    subgraph OUT["Platform outputs"]
+        CSS["CSS custom properties<br/>(:root, [data-theme=dark])"]
+        TS["TypeScript const<br/>+ d.ts"]
+        IOS["iOS Swift / Android XML"]
+        TW["Tailwind / Panda config"]
+    end
+
+    TOKENS --> PARSE
+    FORMAT --> CSS
+    FORMAT --> TS
+    FORMAT --> IOS
+    FORMAT --> TW
+
+    CSS -. "consumed by" .-> LIB["Component library<br/>(theming + dark mode)"]
+    TS -. "consumed by" .-> LIB

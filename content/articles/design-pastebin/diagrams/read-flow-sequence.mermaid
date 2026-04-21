@@ -1,0 +1,37 @@
+%% Diagram: Paste read with multi-tier cache
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant CDN as CDN edge
+    participant API as Read service
+    participant R as Redis
+    participant DB as PostgreSQL
+    participant S3 as Object storage
+
+    C->>CDN: GET /aB3kF9x
+    CDN->>CDN: check edge cache
+    alt CDN hit
+        CDN-->>C: 200 (cached HTML)
+    else CDN miss
+        CDN->>API: GET /aB3kF9x
+        API->>R: GET paste:aB3kF9x
+        alt Redis hit
+            R-->>API: {metadata + decompressed content}
+        else Redis miss
+            API->>DB: SELECT * FROM pastes WHERE id = 'aB3kF9x'
+            DB-->>API: metadata
+            API->>API: check expiration / visibility
+            alt expired
+                API-->>CDN: 410 Gone
+            else valid
+                API->>S3: GET /pastes/aB3kF9x.zst
+                S3-->>API: compressed content
+                API->>API: zstd decompress
+                API->>R: SET paste:aB3kF9x (TTL 1h)
+            end
+        end
+        API-->>CDN: 200 {content + metadata}
+        CDN->>CDN: cache (TTL 300s, immutable)
+        CDN-->>C: 200 (rendered HTML)
+    end

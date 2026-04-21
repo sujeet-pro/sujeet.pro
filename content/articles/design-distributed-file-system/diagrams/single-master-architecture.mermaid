@@ -1,0 +1,19 @@
+%% Diagram: Single-master GFS-style architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Master["Single Master (in-memory metadata)"]
+        NS["Namespace tree"]
+        FCM["File → chunk mapping"]
+        CL["Chunk → server locations\n(rebuilt from heartbeats)"]
+    end
+
+    subgraph ChunkServers["Chunk servers (1000s)"]
+        CS1["Server 1"]
+        CS2["Server 2"]
+        CSN["Server N"]
+    end
+
+    Client -->|"Metadata ops"| Master
+    Client -->|"Data ops (read/write)"| CS1 & CS2 & CSN
+    CS1 & CS2 & CSN -->|"Heartbeat + chunk report"| Master

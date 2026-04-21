@@ -2,28 +2,30 @@
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 graph TB
-    subgraph "Task Queue"
+    P1[Producer]
+
+    subgraph Q["Bounded Queue (size N)"]
         T1[Task 1]
         T2[Task 2]
         T3[Task 3]
-        T4[Task 4]
-        T5[Task 5]
     end
 
-    subgraph "Executors"
-        E1[Executor 1]
-        E2[Executor 2]
-        E3[Executor 3]
+    subgraph X["Executor pool (concurrency = 3)"]
+        E1[Exec 1]
+        E2[Exec 2]
+        E3[Exec 3]
     end
 
+    P1 -->|enqueue| Q
     T1 --> E1
     T2 --> E2
     T3 --> E3
-    T4 --> E1
-    T5 --> E2
+    X -->|backpressure on full| P1
 
+    classDef producerClass fill:#5A5A5A,stroke:#000,stroke-width:2px,color:#ffffff
     classDef taskClass fill:#8B5E15,stroke:#000,stroke-width:2px,color:#ffffff
     classDef executorClass fill:#1F6E68,stroke:#000,stroke-width:2px,color:#ffffff
 
-    class T1,T2,T3,T4,T5 taskClass
+    class P1 producerClass
+    class T1,T2,T3 taskClass
     class E1,E2,E3 executorClass

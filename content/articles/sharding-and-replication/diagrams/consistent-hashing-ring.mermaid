@@ -1,0 +1,21 @@
+%% Diagram: Consistent hashing ring with virtual nodes (vnodes)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Ring["Hash ring (0 .. 2^32-1)"]
+        direction TB
+        T1["Token 0x10<br/>vnode A1 -> Node A"]
+        T2["Token 0x35<br/>vnode B1 -> Node B"]
+        T3["Token 0x52<br/>vnode C1 -> Node C"]
+        T4["Token 0x70<br/>vnode A2 -> Node A"]
+        T5["Token 0x88<br/>vnode B2 -> Node B"]
+        T6["Token 0xA1<br/>vnode C2 -> Node C"]
+        T7["Token 0xC4<br/>vnode A3 -> Node A"]
+        T8["Token 0xE2<br/>vnode B3 -> Node B"]
+        T1 --> T2 --> T3 --> T4 --> T5 --> T6 --> T7 --> T8 --> T1
+    end
+
+    K1["Key 'alice' hash=0x42"] -. "next clockwise" .-> T3
+    K2["Key 'bob' hash=0x95"] -. "next clockwise" .-> T6
+
+    NewD["Add Node D<br/>tokens 0x20, 0x60, 0xB0"] -. "only steals from neighbors" .-> Ring

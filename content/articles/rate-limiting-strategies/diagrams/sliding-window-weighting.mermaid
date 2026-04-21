@@ -1,0 +1,24 @@
+%% Diagram: Sliding window counter weighting across previous and current windows
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Windows["Two adjacent fixed windows"]
+        direction LR
+        PrevCount["Window N-1\ncount = 80"]
+        CurrCount["Window N (current)\ncount = 30"]
+    end
+
+    Now(["now() — 70% into window N"]) --> Calc
+    Windows --> Calc["Weighted estimate\n0.30 * 80 + 30 = 54"]
+    Calc --> Cmp{"Estimate\n< limit?"}
+    Cmp -->|"Yes"| Allow["Allow + increment N"]
+    Cmp -->|"No"| Reject["Reject 429"]
+
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef alert fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class PrevCount,CurrCount storage
+    class Calc,Allow primary
+    class Reject alert
+    class Cmp,Now neutral

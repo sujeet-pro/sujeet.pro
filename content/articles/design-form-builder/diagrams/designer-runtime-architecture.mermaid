@@ -1,0 +1,30 @@
+%% Diagram: Designer and runtime architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Designer["Designer (authoring app)"]
+        Palette["Field palette"]
+        Canvas["Canvas + live preview"]
+        Inspector["Field inspector<br/>(props, validation, logic)"]
+    end
+
+    subgraph Store["Schema store (versioned)"]
+        SchemaDoc["fields + validation<br/>+ UI hints + logic<br/>+ schemaVersion"]
+        History["Version history"]
+    end
+
+    subgraph Runtime["Runtime (end-user form)"]
+        Renderer["Schema renderer<br/>(same engine as preview)"]
+        State["Form state + validators"]
+        API["Submission API"]
+    end
+
+    Palette -->|drag onto| Canvas
+    Canvas -->|select field| Inspector
+    Inspector -->|edit props| Canvas
+    Canvas -->|emit| SchemaDoc
+    SchemaDoc --> History
+    SchemaDoc -.live preview.-> Renderer
+    SchemaDoc -->|fetch by id+version| Renderer
+    Renderer --> State
+    State --> API

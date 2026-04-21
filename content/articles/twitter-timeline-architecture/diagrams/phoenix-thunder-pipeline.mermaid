@@ -1,0 +1,15 @@
+%% Diagram: Phoenix Thunder 7-stage pipeline (X 2026)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    U[User opens<br/>For You feed] --> Q[1. Query hydration<br/>load engagement history]
+    Q --> CS[2. Candidate sourcing]
+    CS --> TH[Thunder<br/>in-network<br/>sub-ms]
+    CS --> PR[Phoenix Retrieval<br/>Two-Tower<br/>out-of-network]
+    TH --> CH[3. Candidate hydration<br/>parallel metadata]
+    PR --> CH
+    CH --> PF[4. Pre-scoring filter<br/>dupes, age, blocks]
+    PF --> SC[5. Scoring<br/>Phoenix Grok-1 transformer<br/>15 engagement signals]
+    SC --> SE[6. Selection<br/>top-K]
+    SE --> PS[7. Post-selection filter<br/>deletions, spam, dedup]
+    PS --> FY[For You feed]

@@ -1,27 +1,55 @@
-%% Diagram: Linkedin S Data Integration Complexity Before And After Kafka The O N Point To P
+%% Diagram: Point-to-point integration before Kafka vs unified log after Kafka
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TB
-    subgraph Before["Before Kafka: O(N²) Integration"]
-        direction TB
-        S1[App Servers] --> DB1[Oracle]
-        S1 --> H1[Hadoop]
-        S1 --> M1[Monitoring]
-        DB1 --> H1
-        DB1 --> DW[Data Warehouse]
-        H1 --> DW
-        M1 --> H1
+    subgraph Before["Before: O(N x M) point-to-point pipelines"]
+        direction LR
+        subgraph BSrc["Sources"]
+            BS1[App events]
+            BS2[Oracle OLTP]
+            BS3[Server logs]
+            BS4[Search clicks]
+        end
+        subgraph BSink["Sinks"]
+            BD1[Hadoop]
+            BD2[Data warehouse]
+            BD3[Search index]
+            BD4[Monitoring]
+        end
+        BS1 --> BD1
+        BS1 --> BD2
+        BS1 --> BD3
+        BS1 --> BD4
+        BS2 --> BD1
+        BS2 --> BD2
+        BS2 --> BD3
+        BS3 --> BD1
+        BS3 --> BD4
+        BS4 --> BD1
+        BS4 --> BD3
     end
 
-    subgraph After["After Kafka: O(N) Integration"]
-        direction TB
-        A1[App Servers] --> K[Kafka]
-        A2[Databases] --> K
-        A3[Logs] --> K
-        K --> C1[Hadoop]
-        K --> C2[Real-time]
-        K --> C3[Search]
-        K --> C4[Data Warehouse]
+    subgraph After["After: O(N + M) attachments to a shared log"]
+        direction LR
+        subgraph ASrc["Sources"]
+            AS1[App events]
+            AS2[Oracle OLTP]
+            AS3[Server logs]
+            AS4[Search clicks]
+        end
+        K[("Kafka<br/>shared log")]
+        subgraph ASink["Sinks"]
+            AD1[Hadoop]
+            AD2[Data warehouse]
+            AD3[Search index]
+            AD4[Monitoring]
+        end
+        AS1 --> K
+        AS2 --> K
+        AS3 --> K
+        AS4 --> K
+        K --> AD1
+        K --> AD2
+        K --> AD3
+        K --> AD4
     end
-
-    Before -.->|"Kafka as unified bus"| After

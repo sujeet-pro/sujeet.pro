@@ -1,0 +1,33 @@
+%% Diagram: Edge gateway (north-south) + service mesh (east-west) layered topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Internet((Internet))
+
+    subgraph Edge["North-south: Edge gateway"]
+        WAF[WAF / DDoS / TLS termination]
+        EG[API Gateway: auth, rate-limit, routing, caching]
+    end
+
+    subgraph Cluster["East-west: Service mesh data plane"]
+        direction LR
+        S1[svc A] -.- P1[(sidecar)]
+        S2[svc B] -.- P2[(sidecar)]
+        S3[svc C] -.- P3[(sidecar)]
+        S4[svc D] -.- P4[(sidecar)]
+    end
+
+    subgraph Control["Mesh control plane"]
+        Pilot[Config + xDS]
+        Citadel[mTLS identity]
+        Mixer[Telemetry]
+    end
+
+    Internet --> WAF
+    WAF --> EG
+    EG --> P1
+    EG --> P2
+    P1 -- mTLS --> P3
+    P2 -- mTLS --> P3
+    P3 -- mTLS --> P4
+    Control -.-> P1 & P2 & P3 & P4

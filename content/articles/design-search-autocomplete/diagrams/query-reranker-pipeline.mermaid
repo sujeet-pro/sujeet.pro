@@ -1,0 +1,33 @@
+%% Diagram: Two-stage candidate generation + reranker pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    Q[Prefix q]
+
+    subgraph CG["Candidate generation (cheap)"]
+        direction TB
+        TR["Trie / FST<br/>O(p) traversal"]
+        FZ["Levenshtein automaton<br/>(optional, k=1)"]
+        TR --> Cand["Top-K candidates<br/>K = 100-500"]
+        FZ --> Cand
+    end
+
+    subgraph RR["Reranker (expensive)"]
+        direction TB
+        F1["Pop / freshness / trending"]
+        F2["Per-(prefix, candidate) CTR"]
+        F3["User signals<br/>(history, locale, device)"]
+        F4["Session signals"]
+        Model["LambdaMART / DeepPLTR<br/>pairwise scorer"]
+        F1 --> Model
+        F2 --> Model
+        F3 --> Model
+        F4 --> Model
+    end
+
+    TopN["Top-N suggestions<br/>N = 10"]
+
+    Q --> CG --> Cand --> RR --> Model --> TopN
+
+    classDef stage fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+    class CG,RR stage

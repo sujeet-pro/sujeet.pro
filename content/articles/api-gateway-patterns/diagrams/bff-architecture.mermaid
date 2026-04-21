@@ -1,0 +1,36 @@
+%% Diagram: Backend for Frontend (BFF) topology
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Clients["Clients"]
+        Mobile[Mobile App]
+        Web[Web SPA]
+        Partner[Partner Integrator]
+    end
+
+    subgraph BFFs["BFF layer (per client team)"]
+        MBFF[Mobile BFF<br/>thin payloads, mobile auth]
+        WBFF[Web BFF<br/>SSR aggregation, session]
+        PBFF[Partner BFF<br/>stable contract, OAuth2]
+    end
+
+    subgraph Domain["Domain services"]
+        User[user-service]
+        Order[order-service]
+        Catalog[catalog-service]
+        Pay[payment-service]
+    end
+
+    Mobile --> MBFF
+    Web --> WBFF
+    Partner --> PBFF
+
+    MBFF --> User
+    MBFF --> Order
+    MBFF --> Catalog
+    WBFF --> User
+    WBFF --> Order
+    WBFF --> Catalog
+    WBFF --> Pay
+    PBFF --> Order
+    PBFF --> Pay

@@ -1,0 +1,18 @@
+%% Diagram: SPF / DKIM / DMARC validation decision flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    START(["Message accepted at DATA"]) --> EXTRACT["Extract<br/>RFC5321.MailFrom<br/>RFC5322.From<br/>DKIM-Signature(s)"]
+    EXTRACT --> SPF["SPF check<br/>against MAIL FROM<br/>(RFC 7208)"]
+    EXTRACT --> DKIM["DKIM verify<br/>each signature<br/>(RFC 6376)"]
+    SPF --> DMARC["DMARC eval<br/>(RFC 7489)"]
+    DKIM --> DMARC
+    DMARC --> ALIGN{"SPF aligned<br/>OR<br/>DKIM aligned<br/>with From?"}
+    ALIGN -->|No| POLICY{"DMARC policy"}
+    ALIGN -->|Yes| PASS["DMARC pass<br/>+ ARC seal<br/>(RFC 8617)"]
+    POLICY -->|p=none| MONITOR["Deliver +<br/>send aggregate<br/>report (rua)"]
+    POLICY -->|p=quarantine| SPAM["Route to<br/>spam folder"]
+    POLICY -->|p=reject| REJECT["5xx reject<br/>or silent discard"]
+    PASS --> NEXT["Continue to<br/>spam pipeline"]
+    MONITOR --> NEXT
+    SPAM --> NEXT

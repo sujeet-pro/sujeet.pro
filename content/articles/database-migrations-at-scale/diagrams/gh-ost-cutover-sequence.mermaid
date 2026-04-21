@@ -1,0 +1,22 @@
+%% Diagram: gh-ost atomic cut-over with sentry table (per github/gh-ost issue #82)
+%% Type: sequenceDiagram
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Application
+    participant C1 as gh-ost C10<br/>(holder)
+    participant C2 as gh-ost C20<br/>(renamer)
+    participant DB as MySQL primary
+
+    Note over C1,DB: Binlog applier has caught up to within<br/>the cut-over lag budget on _orders_gho
+    C1->>DB: CREATE TABLE _orders_old<br/>(id int) COMMENT='magic-be-here'
+    C1->>DB: LOCK TABLES orders WRITE,<br/>_orders_old WRITE
+    Note over App,DB: New writes on orders queue<br/>behind the metadata lock
+
+    C2->>DB: RENAME TABLE orders TO _orders_old,<br/>_orders_gho TO orders
+    Note over C2,DB: RENAME is blocked: lock + _orders_old exists<br/>but is queued ahead of any pending DML
+
+    C1->>DB: Verify C20's RENAME is in SHOW PROCESSLIST
+    C1->>DB: DROP TABLE _orders_old
+    C1->>DB: UNLOCK TABLES
+    DB-->>C2: RENAME proceeds atomically
+    Note over App,DB: Replicas see a single RENAME event;<br/>queued DML resumes against the new orders

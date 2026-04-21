@@ -1,0 +1,23 @@
+%% Diagram: Rack-aware replica placement — survives rack failure with one cross-rack hop
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Rack1["Rack 1 (writer-local)"]
+        R1A["Replica 1\n(closest to writer)"]
+    end
+
+    subgraph Rack2["Rack 2"]
+        R2A["Replica 2"]
+        R2B["Replica 3"]
+    end
+
+    subgraph Rack3["Rack 3"]
+        SPACE["unused"]
+    end
+
+    Writer((Writer)) -->|"Push (intra-rack)"| R1A
+    R1A -->|"Pipeline (cross-rack, 1 hop)"| R2A
+    R2A -->|"Pipeline (intra-rack)"| R2B
+
+    classDef ghost fill:transparent,stroke-dasharray:4 3
+    class SPACE ghost

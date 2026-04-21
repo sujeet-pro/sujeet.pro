@@ -1,0 +1,50 @@
+%% Diagram: Layer list referencing flat property trees (RenderingNG model)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Layers["cc::Layer list (flat, paint order)"]
+        L1["Layer 0<br/>xform=T0 clip=C0<br/>effect=E0 scroll=S0"]
+        L2["Layer 1<br/>xform=T2 clip=C0<br/>effect=E0 scroll=S0"]
+        L3["Layer 2<br/>xform=T2 clip=C1<br/>effect=E1 scroll=S1"]
+    end
+
+    subgraph TT["cc::TransformTree"]
+        T0["T0 root"]
+        T1["T1 sticky"]
+        T2["T2 will-change"]
+        T0 --- T1
+        T0 --- T2
+    end
+
+    subgraph CT["cc::ClipTree"]
+        C0["C0 root"]
+        C1["C1 overflow"]
+        C0 --- C1
+    end
+
+    subgraph ET["cc::EffectTree"]
+        E0["E0 root"]
+        E1["E1 backdrop-filter"]
+        E0 --- E1
+    end
+
+    subgraph ST["cc::ScrollTree"]
+        S0["S0 root"]
+        S1["S1 composited scroller"]
+        S0 --- S1
+    end
+
+    L1 -. "by id" .-> T0
+    L2 -. "by id" .-> T2
+    L3 -. "by id" .-> T2
+    L3 -. "by id" .-> C1
+    L3 -. "by id" .-> E1
+    L3 -. "by id" .-> S1
+
+    style L1 fill:#c8e6c9,stroke:#1b5e20
+    style L2 fill:#c8e6c9,stroke:#1b5e20
+    style L3 fill:#c8e6c9,stroke:#1b5e20
+    style T2 fill:#ffe0b2,stroke:#e65100
+    style C1 fill:#ffe0b2,stroke:#e65100
+    style E1 fill:#ffe0b2,stroke:#e65100
+    style S1 fill:#ffe0b2,stroke:#e65100

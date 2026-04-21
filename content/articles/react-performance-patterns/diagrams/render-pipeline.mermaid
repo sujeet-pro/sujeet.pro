@@ -1,0 +1,35 @@
+%% Diagram: React's three-phase update cycle (trigger → render → commit)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph trigger["Trigger"]
+        a["State setter\n(set / dispatch)"]
+        b["Context value\nchanged"]
+        c["Parent re-rendered"]
+    end
+
+    subgraph render["Render phase\n(interruptible in concurrent mode)"]
+        d["Call component fns"]
+        e["Build VDOM\n(work-in-progress fibers)"]
+        f["Reconcile vs current"]
+    end
+
+    subgraph commit["Commit phase\n(synchronous, runs to completion)"]
+        g["DOM mutations"]
+        h["Layout effects\n(useLayoutEffect)"]
+        i["Browser paint"]
+        j["Passive effects\n(useEffect, async)"]
+    end
+
+    a --> d
+    b --> d
+    c --> d
+    d --> e --> f
+    f --> g --> h --> i --> j
+
+    classDef phase fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef commit fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef trig fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class a,b,c trig
+    class d,e,f phase
+    class g,h,i,j commit

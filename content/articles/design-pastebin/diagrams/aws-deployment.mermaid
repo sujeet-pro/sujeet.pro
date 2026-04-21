@@ -1,0 +1,44 @@
+%% Diagram: AWS reference deployment
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Edge["CDN edge"]
+        CF["CloudFront"]
+    end
+
+    subgraph VPC["VPC"]
+        subgraph Public["Public subnet"]
+            ALB["Application Load Balancer"]
+        end
+
+        subgraph PrivateCompute["Private subnet — compute"]
+            ECS["ECS Fargate<br/>API + read services"]
+            WORKERS["Highlight workers<br/>(Fargate Spot)"]
+        end
+
+        subgraph PrivateData["Private subnet — data"]
+            RDS[("RDS PostgreSQL<br/>Multi-AZ")]
+            REDIS[("ElastiCache Redis cluster")]
+        end
+    end
+
+    subgraph Storage["Object storage"]
+        S3["S3<br/>paste bodies + highlighted HTML"]
+    end
+
+    subgraph Async["Async tier"]
+        SQS["SQS<br/>highlight jobs"]
+        LAMBDA["Lambda<br/>expiration sweep"]
+    end
+
+    CF --> ALB
+    CF --> S3
+    ALB --> ECS
+    ECS --> RDS
+    ECS --> REDIS
+    ECS --> S3
+    ECS --> SQS
+    WORKERS --> S3
+    WORKERS --> SQS
+    LAMBDA --> RDS
+    LAMBDA --> S3

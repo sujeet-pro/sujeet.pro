@@ -1,0 +1,29 @@
+%% Diagram: Choosing a CSS architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Start(["Choosing a CSS\narchitecture"]) --> Build
+
+    Build{"Modern bundler\navailable?"} -->|"no"| BEM["BEM / naming convention\n(only viable option)"]
+    Build -->|"yes"| RSC
+
+    RSC{"React Server\nComponents in scope?"} -->|"yes"| NoRuntime["Drop runtime CSS-in-JS\n(styled-components, Emotion)"]
+    RSC -->|"no"| Dynamic
+    NoRuntime --> Dynamic
+
+    Dynamic{"Heavy runtime-driven\nstyles? (themes, viz, DnD)"} -->|"yes"| Hybrid["CSS Modules + custom properties\nor zero-runtime CSS-in-JS\n(StyleX, vanilla-extract, Panda)"]
+    Dynamic -->|"no"| Authoring
+
+    Authoring{"Authoring preference"} -->|"in templates"| Util["Utility-first\n(Tailwind v4, UnoCSS)"]
+    Authoring -->|"co-located TS"| Zero["Zero-runtime CSS-in-JS\n(StyleX, vanilla-extract)"]
+    Authoring -->|"plain CSS files"| Modules["CSS Modules\n+ design tokens"]
+
+    classDef question fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef leaf fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef start fill:#2E5A88,stroke:#1F4870,color:#ffffff
+
+    class Build,RSC,Dynamic,Authoring question
+    class BEM,Util,Zero,Modules,Hybrid leaf
+    class NoRuntime warn
+    class Start start

@@ -1,0 +1,48 @@
+%% Diagram: Sequence of fetching one URL
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant F as Frontier
+    participant R as robots.txt cache
+    participant D as DNS cache
+    participant H as Fetcher
+    participant P as Parser
+    participant DD as Dedup
+    participant S as Storage
+
+    F->>F: select next URL
+    F->>D: resolve host
+    D-->>F: IP
+    F->>R: allowed?
+    R-->>F: allow / deny
+
+    alt Disallowed
+        F->>S: record blocked
+    else Allowed
+        F->>H: GET url
+        H-->>F: response
+        alt 2xx
+            F->>P: parse body
+            P->>DD: SimHash fingerprint
+            DD-->>P: new / near-duplicate
+            alt New
+                P->>S: store body + metadata
+                P->>DD: save fingerprint
+                loop extracted links
+                    P->>DD: URL seen?
+                    DD-->>P: yes / no
+                    alt new URL
+                        P->>F: enqueue
+                        P->>DD: mark seen
+                    end
+                end
+            else Near-duplicate
+                P->>S: reference only
+            end
+        else 3xx
+            F->>F: enqueue redirect target
+        else 4xx / 5xx
+            F->>S: record + schedule retry
+        end
+    end
+    F->>F: update host next-allowed-time

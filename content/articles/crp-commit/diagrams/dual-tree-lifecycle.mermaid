@@ -1,0 +1,28 @@
+%% Diagram: Pending / active / recycle tree lifecycle
+%% Type: stateDiagram
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> ActiveOnly: first frame committed<br/>(active tree displayed)
+    ActiveOnly --> Committing: ProxyImpl runs<br/>ScheduledActionCommit
+    Committing --> PendingPlusActive: pending tree populated<br/>active tree still displayed
+    PendingPlusActive --> Rastering: TileManager schedules<br/>required tiles
+    Rastering --> ActivationGated: required tiles ready
+    ActivationGated --> RecyclePlusActive: pending → active swap<br/>previous active becomes recycle
+    RecyclePlusActive --> Committing: next commit reuses<br/>recycle for allocation
+    Rastering --> Stalled: required tiles not ready
+    Stalled --> Rastering: keep rasterizing
+    Stalled --> BackPressure: next BeginMainFrame<br/>completes, NotifyReadyToCommit
+    BackPressure --> ActivationGated: previous tree<br/>finally activates
+
+    note right of PendingPlusActive
+        Active tree keeps handling
+        scroll, animations, input
+        while pending tree rasters.
+    end note
+    note right of RecyclePlusActive
+        Recycle tree is allocation
+        cache only — never drawn.
+        Mutually exclusive with
+        a fresh pending tree.
+    end note

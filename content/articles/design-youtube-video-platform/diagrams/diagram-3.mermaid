@@ -1,9 +1,0 @@
-%% Diagram: Diagram 3
-%% Type: flowchart
-%%{init: {'htmlLabels': false}}%%
-flowchart TB
-    PLAYER[Player] -->|View event| INGEST[Event Ingestion<br/>Kafka]
-    INGEST --> DEDUP[Deduplication<br/>Redis Bloom Filter]
-    DEDUP --> AGG[Aggregation<br/>Flink/Spark]
-    AGG --> DB[(View Counts<br/>Cassandra)]
-    DB --> CACHE[Cache Layer<br/>Redis]

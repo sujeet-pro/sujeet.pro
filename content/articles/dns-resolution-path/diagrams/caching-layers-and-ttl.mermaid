@@ -1,0 +1,18 @@
+%% Diagram: Caching Layers and TTL Countdown
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Path["Resolution path (forward)"]
+        direction LR
+        App["Application"] --> Stub["Stub<br/>OS cache<br/>seconds–minutes"]
+        Stub --> Rec["Recursive<br/>honors TTL<br/>+ neg + failure"]
+        Rec --> Auth["Authoritative<br/>sets TTL<br/>source of truth"]
+    end
+
+    subgraph TTL["TTL flow (response)"]
+        direction LR
+        T1["Auth: TTL stamped"] --> T2["Recursive: countdown"]
+        T2 --> T3["Stub: short reuse"]
+    end
+
+    Path --> TTL

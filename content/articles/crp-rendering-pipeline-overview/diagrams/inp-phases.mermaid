@@ -1,0 +1,21 @@
+%% Diagram: INP phases mapped to pipeline work
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant M as Main thread
+    participant C as Compositor
+    participant V as Viz / GPU
+
+    U->>M: Input event (tap, key, click)
+    Note over M: Input delay<br/>(blocked by long tasks,<br/>style, layout)
+    M->>M: Run event handler
+    Note over M: Processing time<br/>(JS in listener)
+    M->>M: Style, layout, paint for changed DOM
+    M->>C: Commit (property trees + display lists)
+    C->>C: Layerize, raster, activate
+    C->>V: Compositor frame
+    V->>V: Aggregate + draw
+    V-->>U: Next paint visible
+    Note over U,V: Presentation delay<br/>(commit through draw)

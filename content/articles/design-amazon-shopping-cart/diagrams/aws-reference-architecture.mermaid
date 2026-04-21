@@ -1,0 +1,43 @@
+%% Diagram: AWS reference architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph "Edge"
+        CF[CloudFront]
+        WAF[AWS WAF]
+    end
+
+    subgraph "Compute - VPC"
+        ALB[Application Load Balancer]
+        subgraph "ECS Cluster"
+            CartSvc["Cart Service\nFargate"]
+            CheckoutSvc["Checkout Service\nFargate"]
+            InventorySvc["Inventory Service\nFargate"]
+        end
+        StepFn["Step Functions\nStandard Workflow (Saga)"]
+    end
+
+    subgraph "Data"
+        ElastiCache[("ElastiCache\nRedis Cluster")]
+        RDS[("RDS PostgreSQL\nMulti-AZ")]
+        DynamoDB[("DynamoDB\nReservations + TTL")]
+    end
+
+    subgraph "Async"
+        SQS["SQS\nCart Events"]
+        EventBridge["EventBridge\nScheduler"]
+        Lambda["Lambda\nWorkers"]
+    end
+
+    CF --> WAF --> ALB
+    ALB --> CartSvc
+    ALB --> CheckoutSvc
+    CheckoutSvc --> StepFn
+    CartSvc --> ElastiCache
+    CartSvc --> RDS
+    InventorySvc --> RDS
+    InventorySvc --> DynamoDB
+    CartSvc --> SQS
+    SQS --> Lambda
+    EventBridge --> Lambda
+    Lambda --> RDS

@@ -1,0 +1,16 @@
+%% Diagram: HTTP/2 over TCP — TCP-level head-of-line blocking
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: HTTP/2 multiplexes streams onto one TCP byte stream
+    S->>C: Packet 1 (Stream A)
+    S->>C: Packet 2 (Stream B)
+    S--xC: Packet 3 (Stream A) — LOST
+    S->>C: Packet 4 (Stream C)
+    S->>C: Packet 5 (Stream B)
+
+    Note over C: TCP cannot deliver packets 4-5 to the app until #3 arrives
+    Note over C: Streams B and C stall even though their bytes are buffered

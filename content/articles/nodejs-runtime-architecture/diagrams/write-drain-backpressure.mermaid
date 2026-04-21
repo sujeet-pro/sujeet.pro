@@ -1,0 +1,22 @@
+%% Diagram: Writable.write / drain backpressure handshake
+%% Type: sequence
+sequenceDiagram
+  participant P as Producer
+  participant W as Writable
+  participant C as Consumer
+
+  loop While buffer below highWaterMark
+    P->>W: write(chunk)
+    W-->>P: true
+    W->>C: flush
+  end
+
+  P->>W: write(chunk)
+  W-->>P: false (buffer reached highWaterMark)
+  Note over P: Pause production.<br/>Subscribe once('drain', resume)
+  W->>C: flush remaining
+  C-->>W: ack
+  W-->>P: 'drain' event
+  Note over P: Resume writes.
+
+  Note over P,W: Ignoring the false return<br/>buffers indefinitely → OOM.

@@ -1,0 +1,26 @@
+%% Diagram: Blue/green projection rebuild from the event log
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Log[(Event log<br/>append-only)]
+
+    subgraph Live["Currently serving reads (v1)"]
+        OldProj[Projection v1 subscriber]
+        OldRead[(Read model v1)]
+        OldProj -->|live tail| OldRead
+    end
+
+    subgraph Rebuild["Background rebuild (v2)"]
+        NewProj[Projection v2 subscriber]
+        NewRead[(Read model v2)]
+        NewProj -->|fold from position 0| NewRead
+    end
+
+    Log -->|tail| OldProj
+    Log -->|catch-up scan, then tail| NewProj
+
+    NewRead --> Lag{lag(v2) &lt; SLO?}
+    Lag -->|No, keep folding| NewProj
+    Lag -->|Yes| Swap[Atomically swap reader pointer to v2]
+    Swap --> Drain[Let v1 drain in-flight reads]
+    Drain --> Retire[Retire projection v1 + read model v1]

@@ -2,63 +2,69 @@
 title: Bundle Splitting Strategies
 linkTitle: 'Bundle Splitting'
 description: >-
-  Route-based, component-level, and vendor splitting techniques for reducing initial JavaScript
-  payloads by 30-80%, with Webpack, Vite, and esbuild configurations and prefetch/preload strategies.
+  Route-based, component-level, vendor, and module-federation splitting for shrinking initial JavaScript
+  payloads, with Webpack, Vite, and esbuild configurations, resource-hint sequencing, and HTTP/2 chunk-count
+  trade-offs.
 publishedDate: 2026-02-04T00:00:00.000Z
-lastUpdatedOn: 2026-02-04T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - frontend
-  - system-design
-  - architecture
+  - performance
+  - web-vitals
+  - build-systems
+  - optimization
+  - react
 ---
 
 # Bundle Splitting Strategies
 
-Modern JavaScript applications ship megabytes of code by default. Without bundle splitting, users download, parse, and execute the entire application before seeing anything interactive—regardless of which features they'll actually use. Bundle splitting transforms monolithic builds into targeted delivery: load the code for the current route immediately, defer everything else until needed. The payoff is substantial—30-60% reduction in initial bundle size translates directly to faster Time to Interactive (TTI) and improved Core Web Vitals.
+Modern JavaScript applications ship megabytes of code by default. Without bundle splitting, users download, parse, and execute the entire application before seeing anything interactive — regardless of which features they will actually use. Bundle splitting transforms monolithic builds into targeted delivery: load the code for the current route immediately, defer everything else until needed. The payoff is substantial — a 30–60% reduction in initial bundle size cuts main-thread blocking time and improves [Core Web Vitals](https://web.dev/articles/vitals), most directly [Largest Contentful Paint (LCP)](https://web.dev/articles/lcp) and [Interaction to Next Paint (INP)](https://web.dev/articles/inp).
 
-![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c-light.svg "Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.")
-![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-reduces-initial-payload-by-loading-only-what-s-needed-for-the-c-dark.svg)
+![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-payload-comparison-light.svg "Without splitting, the browser pays the full download, parse, and execute cost up front. With splitting, only the current route's chunk is on the critical path; other routes prefetch in the background.")
+![Bundle splitting reduces initial payload by loading only what's needed for the current route, deferring the rest.](./diagrams/bundle-splitting-payload-comparison-dark.svg)
 
-## Abstract
+## Mental Model
 
-Bundle splitting is a **build-time optimization** that divides application code into separate chunks loaded on demand. The core insight: users access one route at a time, so they should only pay the download cost for that route's code.
+Bundle splitting is a **build-time partitioning** that turns one giant request into several smaller, independently cacheable ones. The core insight: users access one route at a time, so they should only pay the download, parse, and compile cost for that route's code.
 
-Three fundamental strategies exist, each addressing different optimization goals:
+Three fundamental strategies exist, each addressing a different optimization goal:
 
-1. **Entry splitting**: Create separate bundles per entry point (multi-page apps, micro-frontends). Each entry gets independent dependency resolution.
-2. **Route/component splitting**: Use dynamic `import()` to load code when users navigate or interact. The dominant pattern for SPAs.
-3. **Vendor splitting**: Isolate `node_modules` into stable chunks. Dependencies change less frequently than application code—separate chunks improve cache hit rates across deployments.
+1. **Entry splitting** — separate bundles per entry point (multi-page apps, micro-frontends). Each entry gets independent dependency resolution.
+2. **Route/component splitting** — use dynamic [`import()`](https://tc39.es/proposal-dynamic-import/) to load code when users navigate or interact. The dominant pattern for SPAs.
+3. **Vendor splitting** — isolate `node_modules` into stable chunks. Dependencies change less frequently than application code, so separate chunks raise cache hit rates across deployments.
 
-Critical constraints shape implementation:
+Four constraints shape every real implementation:
 
-- **Static analysis requirement**: Bundlers must determine chunk boundaries at build time. Fully dynamic import paths (e.g., `import(userInput)`) cannot be split.
-- **HTTP/2 sweet spot**: 10-30 chunks balance caching benefits against connection overhead. Too few chunks = poor cache utilization; too many = HTTP/2 stream saturation.
-- **Compression effectiveness**: Smaller chunks compress less efficiently than larger ones. A 10KB chunk may only compress 50%; a 100KB chunk may compress 70%.
-- **Prefetch/preload timing**: Splitting without intelligent loading creates waterfalls. Prefetching predicted routes and preloading critical resources recovers the latency cost.
+- **Static analysis** — bundlers must determine chunk boundaries at build time. A fully dynamic import path (`import(userInput)`) can't be split.
+- **HTTP/2 sweet spot** — 10–30 chunks balance caching benefits against connection overhead. Too few = poor cache utilization; too many = HTTP/2 stream saturation and runtime-resolution overhead.
+- **Compression effectiveness** — smaller chunks compress less efficiently than larger ones. A 10KB chunk may only compress 50%; a 100KB chunk often hits 70%+.
+- **Prefetch/preload timing** — splitting without intelligent loading creates waterfalls. Prefetching predicted routes and preloading critical resources recovers most of the latency cost.
 
-Build tools handle these trade-offs differently: Webpack's SplitChunksPlugin offers granular control with complex configuration; Vite/Rollup favor convention over configuration with sensible defaults; esbuild prioritizes speed with simpler splitting semantics.
+Build tools sit on a spectrum: Webpack's [SplitChunksPlugin](https://webpack.js.org/plugins/split-chunks-plugin/) offers granular control at the cost of configuration; Vite/Rollup favor convention over configuration with sensible defaults; esbuild prioritizes speed with [deliberately simpler splitting semantics](https://esbuild.github.io/api/#splitting).
 
 ## The Challenge
 
 ### Browser Constraints
 
-JavaScript execution blocks the main thread. Large bundles create measurable user experience degradation:
+JavaScript execution blocks the main thread. Large bundles create measurable user-experience degradation:
 
-**Parse time**: V8 parses JavaScript at roughly 1MB/second on mobile devices (benchmarked on mid-range Android). A 2MB bundle = 2 seconds of parse time before any code executes.
+**Parse time** — on a representative mid-tier mobile device (Moto G4-class hardware), parsing roughly 1MB of source JavaScript takes about a second of main-thread time before any code can execute. [^cost-of-js] V8 parses lazily and offloads compilation to background threads, but the dominant cost is still proportional to the bytes you ship.
 
-**Execution time**: Module initialization (top-level code, class definitions, side effects) runs synchronously. Heavy initialization chains delay interactivity.
+**Execution time** — module initialization (top-level code, class definitions, side effects) runs synchronously on the main thread. Heavy initialization chains delay interactivity even when the parse itself is cheap.
 
-**Memory pressure**: Each loaded module consumes memory for its AST, compiled bytecode, and runtime objects. On memory-constrained mobile devices, loading unused code competes with application state for limited heap.
+**Memory pressure** — each loaded module consumes memory for its AST, compiled bytecode, and runtime objects. On memory-constrained mobile devices, unused code competes with application state for the limited V8 heap.
+
+[^cost-of-js]: Addy Osmani, [The Cost of JavaScript in 2019](https://v8.dev/blog/cost-of-javascript-2019), V8 blog. Cloudflare's [BinaryAST proposal](https://blog.cloudflare.com/binary-ast/) gives a useful order-of-magnitude calibration for low-end Android.
 
 ### Performance Targets
 
-| Metric                          | Target  | Bundle Impact                                          |
-| ------------------------------- | ------- | ------------------------------------------------------ |
-| LCP (Largest Contentful Paint)  | < 2.5s  | Initial JS blocks render; smaller bundles = faster LCP |
-| INP (Interaction to Next Paint) | < 200ms | Large bundles increase main thread blocking time       |
-| TTI (Time to Interactive)       | < 3.8s  | Direct correlation with JavaScript payload size        |
+| Metric                          | Good threshold (75th pct) | Bundle impact                                                    |
+| ------------------------------- | ------------------------- | ---------------------------------------------------------------- |
+| [LCP](https://web.dev/articles/lcp)  (Largest Contentful Paint)  | ≤ 2.5s                    | A render-blocking JS bundle delays paint; smaller initial JS = faster LCP. |
+| [INP](https://web.dev/articles/inp)  (Interaction to Next Paint) | ≤ 200ms                   | Long tasks from oversized chunks block input handling; INP replaced FID as a Core Web Vital on 2024-03-12. |
+| [TBT](https://web.dev/articles/tbt) (Total Blocking Time, lab)   | ≤ 200ms                   | Lab proxy for INP; tracks total ms of long tasks during load. Use instead of TTI, which was [removed from Lighthouse 10](https://developer.chrome.com/blog/lighthouse-10-0). |
 
-**Rule of thumb**: Keep initial JavaScript under 100KB gzipped for mobile-first applications. Each additional 100KB adds roughly 1 second to TTI on 3G connections.
+**Rule of thumb**: keep initial JavaScript under ~100KB gzipped for mobile-first applications. Each additional 100KB adds roughly a second of CPU time on slow 4G + low-end Android, per the [Cost of JavaScript benchmarks](https://v8.dev/blog/cost-of-javascript-2019).
 
 ### Scale Factors
 
@@ -117,10 +123,10 @@ function App() {
 
 **Why this works:**
 
-- `import()` returns a Promise that resolves to the module
-- Bundlers perform static analysis to identify import boundaries
-- Each `import()` call becomes a separate chunk in the build output
-- React's `lazy()` integrates Promises with Suspense boundaries
+- Dynamic [`import()`](https://tc39.es/proposal-dynamic-import/) returns a Promise that resolves to the module namespace.
+- Bundlers perform static analysis on the import expression to identify chunk boundaries.
+- Each `import()` call becomes a separate chunk in the build output (or is merged into a shared chunk by `splitChunks`).
+- React's [`lazy()`](https://react.dev/reference/react/lazy) integrates that Promise with `<Suspense>` boundaries; pair it with an Error Boundary so a failed chunk fetch (network blip, deploy that invalidated old hashes) doesn't crash the route silently.
 
 **Framework implementations:**
 
@@ -155,7 +161,7 @@ function App() {
 
 **Real-world example:**
 
-Airbnb's web application uses route-based splitting extensively. Their listing search page, booking flow, and host dashboard are separate chunks. Engineers measured a 67% reduction in initial JavaScript and 20% improvement in TTI after implementing route splitting with prefetching.
+Airbnb's [frontend rearchitecture](https://medium.com/airbnb-engineering/rearchitecting-airbnbs-frontend-5e213efc24d2) moved from a Rails-served, page-by-page model to a client-routed React shell with dynamic-import boundaries per route. The team reports about **5× faster route transitions** and a goal of shipping "the bare minimum JavaScript required to make the page interactive," with the rest pulled in proactively during browser idle time. Concrete bundle-size deltas vary by surface (search vs. booking vs. host dashboard); treat the 30–60% range above as the realistic envelope, not a guarantee.
 
 ### Path 2: Component-Level Code Splitting
 
@@ -302,16 +308,18 @@ module.exports = {
 }
 ```
 
-**Webpack SplitChunksPlugin defaults (v5):**
+**Webpack SplitChunksPlugin defaults (v5):** [^split-chunks]
 
 | Option               | Default   | Effect                                                    |
 | -------------------- | --------- | --------------------------------------------------------- |
-| `chunks`             | `'async'` | Only split async imports (change to `'all'` for sync too) |
-| `minSize`            | 20000     | Only create chunks > 20KB                                 |
-| `maxSize`            | 0         | No upper limit (set to enable chunk splitting)            |
-| `minChunks`          | 1         | Module must be shared by N chunks to split                |
-| `maxAsyncRequests`   | 30        | Max parallel requests for on-demand loads                 |
-| `maxInitialRequests` | 30        | Max parallel requests for entry points                    |
+| `chunks`             | `'async'` | Only split async imports; set to `'all'` to also split sync ones. |
+| `minSize`            | 20000     | Only create chunks larger than 20KB.                      |
+| `maxSize`            | 0         | No upper limit (set a value to force a max chunk size).   |
+| `minChunks`          | 1         | A module must be shared by N chunks to be split out.      |
+| `maxAsyncRequests`   | 30        | Max parallel requests for on-demand loads.                |
+| `maxInitialRequests` | 30        | Max parallel requests for an entry point.                 |
+
+[^split-chunks]: [SplitChunksPlugin — webpack documentation](https://webpack.js.org/plugins/split-chunks-plugin/). The `maxAsyncRequests` / `maxInitialRequests` defaults were raised from `5` / `3` (v4) to `30` / `30` in [Webpack 5](https://webpack.js.org/blog/2020-10-10-webpack-5-release/), reflecting HTTP/2's lower per-request overhead.
 
 **Vite/Rollup approach:**
 
@@ -335,13 +343,18 @@ export default {
 
 **Cache efficiency math:**
 
-Assume weekly deployments with application code changes each time:
+Assume weekly deployments where application code changes every release but the vendor graph is touched roughly monthly:
 
-| Strategy        | Cache Hit Rate                    | Bandwidth Saved |
-| --------------- | --------------------------------- | --------------- |
-| Single bundle   | 0% (any change invalidates)       | 0%              |
-| App + vendors   | ~70% (vendors rarely change)      | 40-60%          |
-| Granular chunks | ~85% (only changed chunks reload) | 60-80%          |
+| Strategy        | Cache hit rate (per deploy)        | Bandwidth saved on repeat visits |
+| --------------- | ---------------------------------- | -------------------------------- |
+| Single bundle   | 0% (any change invalidates)        | 0%                               |
+| App + vendors   | ~70% (vendors rarely change)       | 40–60%                           |
+| Granular chunks | ~85% (only changed chunks re-load) | 60–80%                           |
+
+The mechanism is content-hash naming: webpack's `[contenthash]` (or Vite's default chunk hashing) keeps a chunk's filename stable as long as its bytes are stable, so the browser cache hits across deploys that didn't change those bytes.
+
+![Vendor cache lifecycle across two deploys.](./diagrams/vendor-cache-lifecycle-light.svg "When only application code changes, the app chunk's content hash flips and refetches; vendor and UI chunks keep their hashes and serve from the HTTP cache.")
+![Vendor cache lifecycle across two deploys.](./diagrams/vendor-cache-lifecycle-dark.svg)
 
 **Trade-offs:**
 
@@ -425,33 +438,67 @@ Spotify's web player uses a micro-frontend architecture where different squads o
 
 ### Decision Framework
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+![Decision tree for picking a splitting strategy.](./diagrams/splitting-strategy-decision-light.svg "Pick by deployment topology first (multi-team → Module Federation), then by app shape (SPA → route splitting), then layer vendor splitting on top to recover cache efficiency.")
+![Decision tree for picking a splitting strategy.](./diagrams/splitting-strategy-decision-dark.svg)
 
-## Resource Hints: Prefetch and Preload
+## Resource Hints: Prefetch, Preload, Modulepreload, and Early Hints
 
-Splitting code creates smaller initial bundles but introduces latency when loading subsequent chunks. Resource hints recover this latency by loading chunks before they're needed.
+Splitting code creates smaller initial bundles but introduces latency when loading subsequent chunks. Resource hints recover this latency by warming caches and the module map before the chunks are imported. Four mechanisms matter for splitting strategies; pick by where in the lifecycle you can act.
 
-### Prefetch vs Preload vs Modulepreload
+### Prefetch vs Preload vs Modulepreload vs Early Hints
 
-| Hint            | Priority | Timing                  | Use Case                          |
-| --------------- | -------- | ----------------------- | --------------------------------- |
-| `prefetch`      | Lowest   | Browser idle time       | Next navigation, predicted routes |
-| `preload`       | High     | Immediate, parallel     | Current page critical resources   |
-| `modulepreload` | High     | Immediate, with parsing | ES modules needed soon            |
+| Hint            | Where it lives                                  | Priority | What the browser does                                                                 | Use case                                          |
+| --------------- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [`prefetch`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/prefetch)      | `<link>` in HTML                                | Lowest   | Fetch during idle time, store in HTTP cache.                                          | Next navigation, predicted routes.                |
+| [`preload`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload)       | `<link>` in HTML or `Link:` HTTP header         | High     | Fetch immediately at the declared priority; **does not parse or execute**.            | Current page critical resources discovered late.  |
+| [`modulepreload`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload) | `<link>` in HTML                                | High     | Fetch, parse, compile, and store in the document's module map.                        | ES modules that will be imported soon.            |
+| [Early Hints (HTTP `103`)](https://datatracker.ietf.org/doc/html/rfc8297) | `Link:` headers in an interim `103` response    | High     | Treats the `Link:` header as `preload` / `preconnect` *before* the final response arrives. | Server think-time during DB / template work.      |
 
 ```html title="resource-hints.html"
-<!-- Prefetch: Load during idle for predicted next navigation -->
+<!-- Prefetch: load during idle for predicted next navigation -->
 <link rel="prefetch" href="/chunks/dashboard-abc123.js" />
 
-<!-- Preload: Critical for current page, load immediately -->
+<!-- Preload: critical for current page, load immediately -->
 <link rel="preload" href="/chunks/hero-image.js" as="script" />
 
-<!-- Modulepreload: ES module with dependency resolution -->
+<!-- Modulepreload: ES module — fetched, parsed, compiled, kept in the module map -->
 <link rel="modulepreload" href="/chunks/analytics-module.js" />
 ```
 
-**Key difference**: `modulepreload` also parses and compiles the module, making execution instant when needed. `preload` only fetches.
+**Key difference**: `modulepreload` is the only hint that performs parse + compile and stores the result in the module map, so a later `import()` resolves synchronously from memory. `preload` only warms the HTTP cache; the module is still parsed on first import. [^modulepreload]
+
+[^modulepreload]: MDN, [`<link rel="modulepreload">`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload); web.dev, [Preload modules](https://web.dev/articles/modulepreload). The behavior is normative in the [HTML Living Standard](https://html.spec.whatwg.org/multipage/links.html#link-type-modulepreload).
+
+![Resource hint timing comparison: preload vs modulepreload vs prefetch.](./diagrams/resource-hints-timing-light.svg "preload warms the HTTP cache only; modulepreload also parses and compiles into the module map; prefetch defers the fetch to browser idle time.")
+![Resource hint timing comparison: preload vs modulepreload vs prefetch.](./diagrams/resource-hints-timing-dark.svg)
+
+### Early Hints (HTTP 103) and the death of HTTP/2 push
+
+Early Hints, defined in [RFC 8297](https://datatracker.ietf.org/doc/html/rfc8297), let the server emit an interim `103 Early Hints` response carrying `Link:` headers (`rel=preload`, `rel=preconnect`, etc.) **before** it has produced the final `200 OK`. The browser treats those headers exactly as if they had appeared at the top of the eventual document, but the network transfer starts during what would otherwise be wasted server think-time (database queries, template rendering, edge-to-origin round-trips). [^early-hints]
+
+This matters for splitting because the *route's* critical chunks — the framework chunk, the route bundle, fonts — can begin downloading before the HTML even reaches the browser, eliminating a discovery round-trip without resorting to `<link rel="preload">` injected into a server-rendered shell.
+
+```http title="103 Early Hints (illustrative)"
+HTTP/2 103 Early Hints
+Link: </assets/framework.HASH.js>; rel=preload; as=script; crossorigin
+Link: </assets/route-dashboard.HASH.js>; rel=modulepreload
+Link: <https://fonts.gstatic.com>; rel=preconnect
+
+HTTP/2 200 OK
+Content-Type: text/html
+...
+```
+
+Production status (2026-04):
+
+- Chrome and Edge ship Early Hints by default; Firefox supports it; Safari only honors `preconnect` hints from `103` responses, ignoring `preload` / `modulepreload`.
+- Cloudflare, Fastly, and CloudFront emit `103` at the edge and synthesize hints from the final response's `Link:` headers, which is the cheapest way to adopt without origin changes.
+- Keep the hint set small — 3 to 8 truly critical chunks. The browser still has to fetch them on a cold connection, and oversized hint sets crowd out the HTML itself.
+
+> [!IMPORTANT]
+> Early Hints are the recommended replacement for HTTP/2 server push, which Chrome disabled by default in [Chrome 106 (September 2022)](https://developer.chrome.com/blog/removing-push) after measuring net-negative real-world performance. Push lost the race because the server could not know what was already in the client's HTTP cache; Early Hints sidesteps that by letting the *client* decide what to fetch.
+
+[^early-hints]: [RFC 8297 — An HTTP Status Code for Indicating Hints](https://datatracker.ietf.org/doc/html/rfc8297); MDN, [`103 Early Hints`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/103); Cloudflare, [Early Hints: How Cloudflare can improve website load times by 30%](https://blog.cloudflare.com/early-hints/). HTTP/2 push removal context: [Removing HTTP/2 Server Push from Chrome](https://developer.chrome.com/blog/removing-push).
 
 ### Webpack Magic Comments
 
@@ -479,9 +526,11 @@ import(/* webpackMode: "lazy" */ "./LazyModule") // Default
 import(/* webpackMode: "eager" */ "./EagerModule") // No separate chunk
 ```
 
-**Prefetch behavior**: Webpack injects `<link rel="prefetch">` tags after the parent chunk loads. The browser fetches during idle time with lowest priority.
+**Prefetch behavior**: webpack injects `<link rel="prefetch">` tags into `<head>` *after the parent chunk has finished loading*; the browser then fetches at lowest priority during idle time. [^webpack-prefetch]
 
-**Preload behavior**: Webpack injects `<link rel="preload">` tags alongside the parent chunk request. Use sparingly—preloading non-critical resources competes with critical ones.
+**Preload behavior**: webpack injects `<link rel="preload">` tags alongside the parent chunk request, racing the resource at high priority. Use sparingly — preloading non-critical resources competes with the actually-critical ones for bandwidth and main-thread attention.
+
+[^webpack-prefetch]: Webpack's [Prefetching/Preloading modules](https://webpack.js.org/guides/code-splitting/#prefetchingpreloading-modules) guide covers the injection rules; `webpackPreload` only takes effect for chunks reachable from a non-entry parent.
 
 ### Framework-Specific Prefetching
 
@@ -793,11 +842,14 @@ await esbuild.build({
 })
 ```
 
-**esbuild limitations:**
+**esbuild limitations:** [^esbuild-splitting]
 
-- No equivalent to Webpack's `splitChunks` cacheGroups
-- Manual chunks require separate entry points
-- Less granular control over chunk boundaries
+- Code splitting **requires** `format: 'esm'`; CJS / IIFE outputs cannot be split.
+- The feature is officially "work in progress"; expect occasional missing optimizations and treat it as production-suitable only after measuring on your build.
+- No equivalent to webpack's `splitChunks` cache groups; chunk boundaries are inferred automatically and not directly tunable.
+- Each dynamic `import()` target becomes an additional entry point, which can produce many small chunks for highly granular dynamic imports.
+
+[^esbuild-splitting]: [esbuild API — splitting](https://esbuild.github.io/api/#splitting). The `esm`-only requirement and "work in progress" labeling are still current as of esbuild 0.25.x.
 
 ### Turbopack (Next.js 15+)
 
@@ -949,19 +1001,23 @@ function SafeDashboard() {
 
 ### HTTP/2 and Chunk Count
 
-HTTP/2 multiplexes requests over a single connection, but has limits:
+HTTP/2 multiplexes requests over a single connection, but the per-connection stream cap is negotiated, not browser-fixed. The limit is the *server's* `SETTINGS_MAX_CONCURRENT_STREAMS` value advertised in the SETTINGS frame; [RFC 9113 §6.5.2](https://datatracker.ietf.org/doc/html/rfc9113#section-6.5.2) recommends a minimum of 100 but does not impose a maximum. [^h2-streams]
 
-| Browser | Max Concurrent Streams |
-| ------- | ---------------------- |
-| Chrome  | 100                    |
-| Firefox | 100                    |
-| Safari  | 100                    |
+| Source                              | Typical limit                          | Notes                                                                                              |
+| ----------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| RFC 9113 recommendation             | ≥ 100                                  | Lower bound for "endpoints that intend to participate in true multiplexing".                       |
+| nginx default                       | 128                                    | `http2_max_concurrent_streams` directive.                                                          |
+| Server defaults across the wild     | 100–1000                               | Cloudflare, AWS ALB, and most CDNs land in this range.                                             |
+| Chrome client-side internal cap     | 256                                    | Even when a server advertises higher, Chrome stalls beyond 256 concurrent streams per connection.  |
+| Firefox / Safari                    | Honor server SETTINGS                  | No tight client-side override beyond honoring server SETTINGS.                                     |
 
-**Recommendation**: Keep chunk count under 50 for initial load. The sweet spot is 10-30 chunks that balance:
+[^h2-streams]: See [RFC 9113 §6.5.2 SETTINGS_MAX_CONCURRENT_STREAMS](https://datatracker.ietf.org/doc/html/rfc9113#section-6.5.2). Chrome's 256-stream client-side cap is documented in the [Chromium net stack discussion](https://groups.google.com/a/chromium.org/g/chromium-discuss/c/I9eB4ajAXIw).
 
-- Cache granularity (more chunks = better cache utilization)
-- Connection overhead (fewer chunks = less overhead)
-- Compression efficiency (larger chunks = better compression)
+**Recommendation**: keep the **initial-load** chunk count in the 10–30 range. That balances:
+
+- **Cache granularity** — more chunks = finer-grained cache hits across deploys.
+- **Connection overhead** — every chunk costs a round-trip's worth of HEADERS, runtime registration, and module-graph wiring even on HTTP/2.
+- **Compression efficiency** — smaller chunks compress less efficiently because Brotli/Gzip dictionaries amortize over more bytes.
 
 ### Content Hash Stability
 
@@ -986,73 +1042,60 @@ module.exports = {
 
 ## Real-World Implementations
 
-### Vercel/Next.js: Zero-Config Splitting
+### Vercel / Next.js: Zero-Config Splitting
 
-**Challenge**: Make code splitting accessible without configuration.
+**Challenge**: make code splitting accessible without configuration.
 
 **Architecture**:
 
-- Each file in `pages/` or `app/` becomes a route chunk automatically
-- Shared dependencies extracted to `_app` chunk
-- Framework code (React, Next.js runtime) in separate chunks
-- Automatic prefetching via `<Link>` component
+- Each file in `pages/` or `app/` becomes a route chunk automatically.
+- Shared dependencies extracted into a common chunk; framework code (React, Next.js runtime) lives in its own chunk for cache stability.
+- Automatic prefetching via the [`<Link>`](https://nextjs.org/docs/app/api-reference/components/link) component on viewport intersection (production only).
+- React Server Components in the App Router push more rendering to the server, shrinking the client bundle further.
 
-**Key decisions**:
-
-- Convention over configuration: file system = routes = chunks
-- Aggressive prefetching by default (can disable per-link)
-- Server Components reduce client bundle by rendering on server
-
-**Outcome**: Applications using Next.js automatic splitting see 30-50% smaller initial bundles compared to manual Webpack configuration.
+**Trade-off**: convention removes a class of footguns but also removes the escape hatch — if your splitting need doesn't fit the file-system convention, you fall back to dynamic imports inside route segments.
 
 ### Shopify Hydrogen: Commerce-Optimized Splitting
 
-**Challenge**: E-commerce pages have unique splitting needs—product data, cart, checkout.
+**Challenge**: e-commerce pages have unusual constraints — product data is hot, cart logic is interactive but not initial, checkout is high-stakes.
+
+**Architecture** (per the [Hydrogen engineering post](https://shopify.engineering/high-performance-hydrogen-powered-storefronts) and [Hydrogen docs](https://shopify.dev/docs/storefronts/headless/hydrogen/fundamentals)):
+
+- Route-based splitting for pages, on a React Router 7 + streaming SSR foundation.
+- Streaming server-side rendering with React `<Suspense>` so the HTML shell flushes before all data resolves; loading states fall in via Suspense fallbacks.
+- Edge-rendered cart with a `CartProvider` abstraction that hides client/server state synchronization; cart UI typically loads on interaction rather than initial paint.
+
+**Key insight**: most users browse products before adding to cart, so deferring cart logic until first interaction is a clear win on first-paint metrics. Exact byte savings depend on which cart components you defer; treat the strategy, not a specific KB number, as the takeaway.
+
+### Differential Loading: `module` / `nomodule`
+
+**Challenge**: support old browsers without penalizing modern ones.
 
 **Architecture**:
 
-- Route-based splitting for pages
-- Component splitting for cart drawer, product variants
-- Aggressive prefetching for product navigation
-- Streaming SSR with Suspense boundaries
-
-**Key insight**: Cart functionality is loaded on interaction, not initial page load. Most users browse products before adding to cart—deferring cart code saves 50KB on initial load.
-
-### Google: Differential Loading
-
-**Challenge**: Support old browsers without penalizing modern ones.
-
-**Architecture**:
-
-- Two builds: ES2020 for modern browsers, ES5 for legacy
-- `<script type="module">` loads modern bundle
-- `<script nomodule>` loads legacy bundle
-- Modern bundle is 20-40% smaller (no polyfills, better compression)
+- Two builds: a modern ES bundle (e.g. ES2020 baseline) and a transpiled legacy bundle.
+- `<script type="module">` loads the modern bundle in module-aware browsers.
+- `<script nomodule>` loads the legacy bundle in browsers that don't understand modules — historically just IE11.
 
 ```html title="differential-loading.html"
-<!-- Modern browsers load this (smaller) -->
 <script type="module" src="/main-modern.js"></script>
-
-<!-- Only IE11 and old browsers load this -->
 <script nomodule src="/main-legacy.js"></script>
 ```
 
-**Trade-off**: Doubles build time and artifact storage, but modern users (95%+) get smaller bundles.
+**Status check (2026)**: modern bundles are commonly 20–40% smaller because they skip transforms for `class`, `async`/`await`, optional chaining, and similar already-baseline syntax. With IE11 fully retired, most teams now ship a single ES2020+ bundle and skip the `nomodule` build entirely; reach for differential loading only if you have a measured need to support an explicitly old client surface.
 
-### Airbnb: Predictive Prefetching
+### Predictive Prefetching
 
-**Challenge**: Users navigate unpredictably; guessing wrong wastes bandwidth.
+**Challenge**: users navigate unpredictably; aggressive prefetching wastes bandwidth, conservative prefetching defeats the point.
 
-**Architecture**:
+**Pattern**:
 
-- Collect navigation patterns via analytics
-- Build ML model predicting next route from current route
-- Prefetch predicted routes during idle time
-- Confidence threshold prevents over-prefetching
+- Collect navigation patterns via analytics.
+- Predict the next route from the current route — a simple Markov model is usually enough; ML is overkill for most apps.
+- Prefetch the top-K predictions during idle time.
+- Use a confidence threshold so you don't prefetch low-probability routes on data-saver clients.
 
-**Key insight**: 80% of navigations follow predictable patterns. Prefetching the top 3 predicted routes covers most users while limiting bandwidth waste.
-
-**Outcome**: 20% reduction in perceived navigation latency without significant bandwidth increase.
+[Quicklink](https://github.com/GoogleChromeLabs/quicklink) packages this: it observes in-viewport links, respects `Save-Data` and `Network Information API` hints, and prefetches only high-likelihood candidates.
 
 ## Compression Considerations
 
@@ -1073,12 +1116,12 @@ Smaller chunks compress less efficiently:
 
 | Aspect            | Gzip          | Brotli          |
 | ----------------- | ------------- | --------------- |
-| Compression ratio | Good (65-70%) | Better (70-75%) |
-| Compression speed | Fast          | Slower (3-10x)  |
-| Browser support   | 99%+          | 96%+            |
+| Compression ratio | Good (65–70%) | Better (70–75%) |
+| Compression speed | Fast          | Slower (3–10× at level 11) |
+| Browser support   | ~99% global   | ~97% global ([caniuse](https://caniuse.com/brotli)) |
 | Recommendation    | Fallback      | Primary         |
 
-**Best practice**: Pre-compress assets at build time with Brotli (level 11). Serve Brotli to supporting browsers, gzip to others via content negotiation.
+**Best practice**: pre-compress assets at build time with Brotli (level 11 — the slow CPU cost is paid once at build, not per request). Serve Brotli to supporting browsers and gzip to the rest via standard `Accept-Encoding` content negotiation.
 
 ```javascript title="compression-plugin.js"
 // webpack-compression-plugin or vite-plugin-compression
@@ -1089,20 +1132,19 @@ Smaller chunks compress less efficiently:
 }
 ```
 
-## Conclusion
+## Practical Takeaways
 
-Bundle splitting transforms application delivery from "all or nothing" to "what you need, when you need it." The strategies layer: start with route-based splitting for the largest wins, add vendor splitting for cache efficiency, then apply component splitting for heavy UI elements.
+Bundle splitting turns delivery from "all or nothing" into "what you need, when you need it." The strategies layer cleanly: start with route-based splitting for the largest wins, add vendor splitting for cache efficiency across deploys, then apply component splitting only for the heavy UI elements that are not on the initial render path.
 
-Key principles:
+Operating heuristics:
 
-1. **Measure first**: Use bundle analyzers to identify actual opportunities, not perceived ones
-2. **Route splitting is table stakes**: Every SPA should split by route
-3. **Vendor chunks maximize caching**: Dependencies change less than application code
-4. **Prefetching recovers latency**: Splitting without prefetching creates navigation delays
-5. **HTTP/2 changes the math**: More chunks are viable, but don't over-split (10-30 is optimal)
-6. **Compression efficiency decreases with chunk size**: Balance splitting benefits against compression loss
-
-The configuration complexity varies by tool—Next.js and Vite provide sensible defaults; Webpack offers granular control at the cost of configuration burden. Choose based on your team's needs and application constraints.
+1. **Measure first.** Run a bundle analyzer (`webpack-bundle-analyzer`, `rollup-plugin-visualizer`, `next/bundle-analyzer`) before and after every change. Optimize against numbers, not intuition.
+2. **Route splitting is table stakes.** Every non-trivial SPA should split per route; it's the single highest-ROI knob.
+3. **Vendor chunks maximize caching.** Dependencies churn slower than application code, so isolating them protects your repeat-visit cache.
+4. **Prefetch covers the cost of splitting.** Splitting without `prefetch` / `modulepreload` just trades initial latency for navigation latency.
+5. **HTTP/2 changes the math, but not infinitely.** 10–30 initial chunks is the sweet spot; beyond that, runtime registration and compression loss eat the gains.
+6. **Don't over-split.** A 5KB chunk that compresses to 2KB rarely beats merging it into a slightly larger neighbor.
+7. **Pick the tool that matches your team's tolerance for config.** Next.js and Vite hand you sensible defaults; webpack hands you levers and the responsibility to use them well; esbuild gives you speed at the cost of granular control.
 
 ## Appendix
 
@@ -1126,29 +1168,42 @@ The configuration complexity varies by tool—Next.js and Vite provide sensible 
 | Prefetch       | Low-priority fetch for predicted future needs           |
 | Preload        | High-priority fetch for current page needs              |
 
-### Summary
-
-- Bundle splitting reduces initial JavaScript by loading code on demand
-- Route-based splitting provides 30-60% reduction with minimal configuration
-- Vendor splitting maximizes cache hit rates across deployments
-- Prefetch/preload hints recover navigation latency from splitting
-- Bundle analyzers identify optimization opportunities before and after changes
-- HTTP/2 enables more chunks, but 10-30 is the practical sweet spot
-- Compression efficiency decreases with chunk size—don't over-split
-
 ### References
 
-- [Webpack Code Splitting Guide](https://webpack.js.org/guides/code-splitting/) - Official Webpack documentation
-- [Webpack SplitChunksPlugin](https://webpack.js.org/plugins/split-chunks-plugin/) - Detailed configuration options
-- [Vite Build Options](https://vite.dev/config/build-options.html) - Rollup-based splitting configuration
-- [Rollup Output Options](https://rollupjs.org/configuration-options/#output-manualchunks) - Manual chunk configuration
-- [esbuild Code Splitting](https://esbuild.github.io/api/#splitting) - esbuild splitting behavior
-- [React.lazy Documentation](https://react.dev/reference/react/lazy) - Official React code splitting API
-- [Next.js Automatic Code Splitting](https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming) - Next.js built-in splitting
-- [MDN: Preload](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/preload) - Preload link specification
-- [MDN: Prefetch](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/prefetch) - Prefetch link specification
-- [MDN: modulepreload](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/modulepreload) - ES module preloading
-- [web.dev: Reduce JavaScript Payloads with Code Splitting](https://web.dev/articles/reduce-javascript-payloads-with-code-splitting) - Chrome DevRel best practices
-- [Webpack Module Federation](https://webpack.js.org/concepts/module-federation/) - Micro-frontend architecture
-- [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer) - Bundle visualization tool
-- [rollup-plugin-visualizer](https://github.com/btd/rollup-plugin-visualizer) - Vite/Rollup analysis
+**Specs and standards**
+
+- [RFC 9113 — HTTP/2 (SETTINGS_MAX_CONCURRENT_STREAMS §6.5.2)](https://datatracker.ietf.org/doc/html/rfc9113#section-6.5.2)
+- [RFC 8297 — An HTTP Status Code for Indicating Hints (Early Hints / `103`)](https://datatracker.ietf.org/doc/html/rfc8297)
+- [HTML Living Standard — Link types: `modulepreload`](https://html.spec.whatwg.org/multipage/links.html#link-type-modulepreload)
+- [TC39 — Dynamic `import()` proposal](https://tc39.es/proposal-dynamic-import/)
+
+**First-party documentation**
+
+- [Webpack — Code Splitting guide](https://webpack.js.org/guides/code-splitting/) and [SplitChunksPlugin](https://webpack.js.org/plugins/split-chunks-plugin/)
+- [Webpack — Module Federation](https://webpack.js.org/concepts/module-federation/)
+- [Vite — Build options](https://vite.dev/config/build-options.html) / [Rollup `output.manualChunks`](https://rollupjs.org/configuration-options/#output-manualchunks)
+- [esbuild — splitting](https://esbuild.github.io/api/#splitting)
+- [React — `lazy()` reference](https://react.dev/reference/react/lazy)
+- [Next.js — Loading UI and Streaming](https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming) and [`optimizePackageImports`](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports)
+
+**Web platform references**
+
+- [MDN — `<link rel="preload">`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload), [`<link rel="prefetch">`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/prefetch), [`<link rel="modulepreload">`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload)
+- [MDN — `103 Early Hints`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/103)
+- [web.dev — Reduce JavaScript payloads with code splitting](https://web.dev/articles/reduce-javascript-payloads-with-code-splitting)
+- [web.dev — Preload modules](https://web.dev/articles/modulepreload), [LCP](https://web.dev/articles/lcp), [INP](https://web.dev/articles/inp), [TBT](https://web.dev/articles/tbt)
+- [Chrome for Developers — Removing HTTP/2 Server Push](https://developer.chrome.com/blog/removing-push)
+- [Cloudflare — Early Hints: How Cloudflare can improve website load times by 30%](https://blog.cloudflare.com/early-hints/)
+- [V8 blog — The Cost of JavaScript in 2019](https://v8.dev/blog/cost-of-javascript-2019)
+
+**Practitioner write-ups**
+
+- [Airbnb Engineering — Rearchitecting Airbnb's Frontend](https://medium.com/airbnb-engineering/rearchitecting-airbnbs-frontend-5e213efc24d2)
+- [Shopify Engineering — High-Performance Hydrogen-powered Storefronts](https://shopify.engineering/high-performance-hydrogen-powered-storefronts)
+- [GoogleChromeLabs — Quicklink (predictive prefetching)](https://github.com/GoogleChromeLabs/quicklink)
+
+**Tooling**
+
+- [`webpack-bundle-analyzer`](https://github.com/webpack-contrib/webpack-bundle-analyzer)
+- [`rollup-plugin-visualizer`](https://github.com/btd/rollup-plugin-visualizer)
+- [`madge`](https://github.com/pahen/madge) — circular dependency detection

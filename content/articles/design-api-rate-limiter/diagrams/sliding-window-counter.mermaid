@@ -1,0 +1,16 @@
+%% Diagram: Sliding window counter — weighted interpolation
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph WIN["Two adjacent fixed windows (w = 60s)"]
+        direction LR
+        PREV["Previous window<br/>count = 80"]
+        CURR["Current window<br/>count = 30"]
+    end
+    NOW["Now: 24s into current window"] --> CALC
+    PREV -.-> CALC
+    CURR -.-> CALC
+    CALC["weight = (60 − 24) / 60 = 0.6<br/>estimated = 80 × 0.6 + 30 = 78"]
+    CALC --> CMP{"estimated &lt; limit (100)?"}
+    CMP -->|yes| ALLOW["INCR current_window → Allow"]
+    CMP -->|no| DENY["429 Deny<br/>(no increment)"]

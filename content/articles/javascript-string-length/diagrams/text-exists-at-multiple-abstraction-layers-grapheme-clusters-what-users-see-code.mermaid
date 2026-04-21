@@ -1,36 +1,51 @@
-%% Diagram: Text Exists At Multiple Abstraction Layers Grapheme Clusters What Users See Code
+%% Diagram: Three abstraction layers of a JavaScript string, counted on the family emoji
 %% Type: flowchart
 %%{init: {'htmlLabels': false}}%%
 flowchart TD
-    subgraph "User Perception"
-        G["👨‍👩‍👧‍👦<br/>1 grapheme cluster"]
+    subgraph L1["Grapheme clusters (UAX #29) — Intl.Segmenter = 1"]
+        G["👨‍👩‍👧‍👦"]
     end
 
-    subgraph "Unicode Code Points"
-        CP1["👨 U+1F468"]
-        ZWJ1["‍ U+200D"]
-        CP2["👩 U+1F469"]
-        ZWJ2["‍ U+200D"]
-        CP3["👧 U+1F467"]
-        ZWJ3["‍ U+200D"]
-        CP4["👦 U+1F466"]
+    subgraph L2["Unicode code points — [...str].length = 7"]
+        CP1["👨\nU+1F468"]
+        ZWJ1["ZWJ\nU+200D"]
+        CP2["👩\nU+1F469"]
+        ZWJ2["ZWJ\nU+200D"]
+        CP3["👧\nU+1F467"]
+        ZWJ3["ZWJ\nU+200D"]
+        CP4["👦\nU+1F466"]
     end
 
-    subgraph "UTF-16 Code Units (string.length = 11)"
-        CU1["D83D DC68"]
+    subgraph L3["UTF-16 code units — string.length = 11"]
+        CU1a["D83D"]
+        CU1b["DC68"]
         CU2["200D"]
-        CU3["D83D DC69"]
+        CU3a["D83D"]
+        CU3b["DC69"]
         CU4["200D"]
-        CU5["D83D DC67"]
+        CU5a["D83D"]
+        CU5b["DC67"]
         CU6["200D"]
-        CU7["D83D DC66"]
+        CU7a["D83D"]
+        CU7b["DC66"]
     end
 
-    G --> CP1 & CP2 & CP3 & CP4
-    CP1 --> CU1
+    G --> CP1
+    G --> ZWJ1
+    G --> CP2
+    G --> ZWJ2
+    G --> CP3
+    G --> ZWJ3
+    G --> CP4
+
+    CP1 --> CU1a
+    CP1 --> CU1b
     ZWJ1 --> CU2
-    CP2 --> CU3
+    CP2 --> CU3a
+    CP2 --> CU3b
     ZWJ2 --> CU4
-    CP3 --> CU5
+    CP3 --> CU5a
+    CP3 --> CU5b
     ZWJ3 --> CU6
-    CP4 --> CU7
+    CP4 --> CU7a
+    CP4 --> CU7b

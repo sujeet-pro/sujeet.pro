@@ -1,0 +1,11 @@
+%% Diagram: Counter-based inventory (Path B)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph SaleTime["During the sale"]
+        WR[Waiting room] --> RL[Rate limiter]
+        RL --> INV[Inventory check - Redis counter]
+        INV --> |count > 0| CHECKOUT[Checkout]
+        INV --> |count = 0| SOLD[Sold out]
+        CHECKOUT --> DEC[Atomic decrement]
+    end

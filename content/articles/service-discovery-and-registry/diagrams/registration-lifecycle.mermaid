@@ -1,0 +1,30 @@
+%% Diagram: Registration and heartbeat lifecycle
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Service Instance
+    participant Reg as Registry
+    participant Cli as Client (cached)
+
+    Note over App,Reg: Startup
+    App->>Reg: Register {service, host, port, health}
+    Reg-->>App: Lease / Session ID
+
+    Note over App,Reg: Steady state
+    loop Every heartbeat_interval
+        App->>Reg: Heartbeat / KeepAlive
+        Reg-->>App: ack
+    end
+    Reg-->>Cli: Watch event: instance ready
+    Cli->>Cli: Update local cache
+
+    Note over App,Reg: Graceful shutdown
+    App->>Reg: Deregister
+    Reg-->>Cli: Watch event: instance removed
+    Cli->>Cli: Drain in-flight, refresh cache
+
+    Note over App,Reg: Crash path (no deregister)
+    App--xReg: Heartbeat lost
+    Reg->>Reg: Wait sessionTimeout / lease TTL
+    Reg-->>Cli: Watch event: instance expired
+    Cli->>Cli: Evict from cache

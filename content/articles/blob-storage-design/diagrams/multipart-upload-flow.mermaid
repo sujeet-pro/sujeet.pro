@@ -1,0 +1,25 @@
+%% Diagram: Multipart upload sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Storage Service
+
+    C->>S: InitiateMultipartUpload(bucket, key)
+    S-->>C: UploadId
+
+    par Upload parts in parallel
+        C->>S: UploadPart(UploadId, PartNumber=1, bytes)
+        S-->>C: ETag_1
+    and
+        C->>S: UploadPart(UploadId, PartNumber=2, bytes)
+        S-->>C: ETag_2
+    and
+        C->>S: UploadPart(UploadId, PartNumber=N, bytes)
+        S-->>C: ETag_N
+    end
+
+    C->>S: CompleteMultipartUpload(UploadId, [ETag_1..ETag_N])
+    S-->>C: 200 OK + final composite ETag
+
+    Note over C,S: Lifecycle rule AbortIncompleteMultipartUpload<br/>cleans up abandoned uploads

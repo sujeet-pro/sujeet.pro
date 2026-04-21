@@ -1,0 +1,37 @@
+%% Diagram: gen_server -> gen_factory -> gen_industry
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph GS["gen_server\nsequential"]
+        S1((in)) --> SP[Single dispatch process]
+        SP --> SOUT((handler))
+    end
+
+    subgraph GF["gen_factory\nworker pool"]
+        F1((in)) --> FP[Single dispatch process]
+        FP --> FW1[Worker 1]
+        FP --> FW2[Worker 2]
+        FP --> FWN[Worker N]
+    end
+
+    subgraph GI["gen_industry\nparallel dispatch + workers"]
+        I1((in)) --> IP1[Dispatch 1]
+        I1 --> IP2[Dispatch 2]
+        I1 --> IPM[Dispatch M]
+        IP1 --> IW1[Worker 1]
+        IP1 --> IW2[Worker 2]
+        IP2 --> IW2
+        IP2 --> IWN[Worker N]
+        IPM --> IW1
+        IPM --> IWN
+    end
+
+    GS -->|"dispatch saturates\nat high fan-in"| GF
+    GF -->|"single dispatch process\nis the new bottleneck"| GI
+
+    classDef bottleneck fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef worker fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef dispatch fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class SP,FP bottleneck
+    class IP1,IP2,IPM dispatch
+    class FW1,FW2,FWN,IW1,IW2,IWN,SOUT worker

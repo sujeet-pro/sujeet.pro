@@ -1,0 +1,27 @@
+%% Diagram: JWT validation at the gateway with cached JWKS
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Gateway as API Gateway
+    participant JWKS as IdP JWKS Endpoint
+    participant Backend
+
+    Client->>Gateway: HTTPS request + Authorization Bearer JWT
+    Note over Gateway: Decode header, read kid
+    alt kid in local cache
+        Note over Gateway: Use cached public key
+    else kid unknown (key rotation)
+        Gateway->>JWKS: GET /.well-known/jwks.json
+        JWKS-->>Gateway: JWK set (Cache-Control max-age)
+        Note over Gateway: Update cache, retry verify
+    end
+    Note over Gateway: Verify signature, exp, iss, aud, nbf
+    alt Token valid
+        Gateway->>Backend: Forward request + claims headers
+        Backend-->>Gateway: 200 OK
+        Gateway-->>Client: 200 OK
+    else Token invalid or expired
+        Gateway-->>Client: 401 Unauthorized
+    end

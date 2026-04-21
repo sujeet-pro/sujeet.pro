@@ -1,0 +1,26 @@
+%% Diagram: Optimistic update lifecycle (TanStack Query useMutation)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant C as Component
+    participant QC as Query Cache
+    participant S as Server
+
+    U->>C: Submit edit
+    C->>QC: cancelQueries(['todos'])
+    C->>QC: snapshot = getQueryData(['todos'])
+    C->>QC: setQueryData(['todos'], optimistic)
+    Note over C,QC: UI re-renders instantly with optimistic value
+    C->>S: mutationFn(payload)
+    alt Server accepts
+        S-->>C: 200 + canonical row
+        C->>QC: invalidateQueries(['todos']) on settle
+        QC->>S: background refetch
+        S-->>QC: authoritative data
+    else Server rejects
+        S-->>C: 4xx / 5xx / network
+        C->>QC: setQueryData(['todos'], snapshot)
+        Note over C,QC: Roll back to pre-mutation state
+    end

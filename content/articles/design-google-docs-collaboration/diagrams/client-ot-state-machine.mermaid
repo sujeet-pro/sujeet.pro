@@ -1,0 +1,17 @@
+%% Diagram: Client OT state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Synchronized
+
+    Synchronized --> AwaitingAck: local edit\n(send op, mark pending)
+    AwaitingAck --> Synchronized: server ack\n(no buffered ops)
+
+    AwaitingAck --> AwaitingWithBuffer: local edit\n(start buffer)
+    AwaitingWithBuffer --> AwaitingWithBuffer: local edit\n(compose into buffer)
+
+    AwaitingWithBuffer --> AwaitingAck: server ack\n(send buffer)
+
+    Synchronized --> Synchronized: remote op\n(apply directly)
+    AwaitingAck --> AwaitingAck: remote op\n(transform pending)
+    AwaitingWithBuffer --> AwaitingWithBuffer: remote op\n(transform pending and buffer)

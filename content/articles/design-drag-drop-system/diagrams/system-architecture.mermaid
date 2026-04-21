@@ -1,0 +1,34 @@
+%% Diagram: Drag and drop system architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Input["Input sources"]
+        direction TB
+        Mouse[Mouse]
+        Touch[Touch]
+        Pointer[Pointer]
+        Keyboard[Keyboard]
+    end
+
+    subgraph DragSystem["Drag system"]
+        direction TB
+        Sensor[Sensor layer]
+        DragState[Drag state manager]
+        DropTargets[Drop target registry]
+        Preview[Drag preview]
+    end
+
+    subgraph Visual["Visual feedback"]
+        direction TB
+        Ghost[Ghost element]
+        DropIndicator[Drop indicators]
+        Placeholder[Placeholder gap]
+    end
+
+    Input --> Sensor
+    Sensor --> DragState
+    DragState --> DropTargets
+    DragState --> Preview
+    DropTargets --> DropIndicator
+    Preview --> Ghost
+    DragState --> Placeholder

@@ -1,0 +1,44 @@
+%% Diagram: Event data model — master row, materialized instances, and exception linkage
+%% Type: erDiagram
+%%{init: {'htmlLabels': false}}%%
+erDiagram
+    CALENDARS ||--o{ EVENTS : owns
+    EVENTS ||--o{ EVENT_INSTANCES : "expands to"
+    EVENTS ||--o{ EVENT_ATTENDEES : "invites"
+    EVENT_INSTANCES }o--|| EVENTS : "exception overrides"
+
+    CALENDARS {
+        uuid id PK
+        uuid owner_id FK
+        string tzid
+        bigint sync_token
+    }
+
+    EVENTS {
+        uuid id PK
+        uuid calendar_id FK
+        string ical_uid
+        timestamp start_local
+        string tzid
+        string rrule "nullable"
+        text_array exdate
+        text_array rdate
+        int sequence
+    }
+
+    EVENT_INSTANCES {
+        uuid id PK
+        uuid event_id FK
+        timestamptz instance_start_utc
+        timestamptz original_start_utc "match key for exception"
+        bool is_exception
+        string status "confirmed | cancelled"
+        string summary_override "nullable"
+    }
+
+    EVENT_ATTENDEES {
+        uuid id PK
+        uuid event_id FK
+        string email
+        string partstat
+    }

@@ -292,4 +292,299 @@
     displayName: "Engineering Leadership",
     aliases: ["eng-leadership", "leadership"],
   },
+
+  // ── Caching, CDN, content delivery ────────────────────────────────────
+  caching: {
+    displayName: "Caching",
+    aliases: ["cache", "caches", "http-caching"],
+  },
+  cdn: {
+    displayName: "CDN",
+    aliases: ["content-delivery-network", "cdns", "edge-cdn"],
+  },
+  fonts: {
+    displayName: "Fonts",
+    aliases: ["typography", "web-fonts"],
+  },
+
+  // ── Observability ─────────────────────────────────────────────────────
+  observability: {
+    displayName: "Observability",
+    aliases: ["o11y"],
+  },
+  monitoring: {
+    displayName: "Monitoring",
+    aliases: ["alerting"],
+  },
+  tracing: {
+    displayName: "Tracing",
+    aliases: ["distributed-tracing"],
+  },
+  logging: {
+    displayName: "Logging",
+    aliases: ["logs"],
+  },
+  opentelemetry: {
+    displayName: "OpenTelemetry",
+    shortName: "OTel",
+    aliases: ["otel", "open-telemetry"],
+  },
+
+  // ── Messaging, streaming, event-driven ───────────────────────────────
+  messaging: {
+    displayName: "Messaging",
+    aliases: ["message-queues", "message-brokers"],
+  },
+  kafka: {
+    displayName: "Kafka",
+    aliases: ["apache-kafka"],
+  },
+  "event-driven": {
+    displayName: "Event-Driven",
+    aliases: ["event-driven-architecture", "eda"],
+  },
+  "event-sourcing": {
+    displayName: "Event Sourcing",
+    aliases: ["eventsourcing"],
+  },
+  cqrs: {
+    displayName: "CQRS",
+    aliases: ["command-query-separation"],
+  },
+  idempotency: {
+    displayName: "Idempotency",
+    aliases: ["idempotent", "idempotent-operations"],
+  },
+  "real-time": {
+    displayName: "Real-Time",
+    aliases: ["realtime", "real-time-systems", "realtime-systems"],
+  },
+
+  // ── Distributed-systems specifics ─────────────────────────────────────
+  microservices: {
+    displayName: "Microservices",
+    aliases: ["micro-services"],
+  },
+  "service-mesh": {
+    displayName: "Service Mesh",
+    aliases: ["servicemesh"],
+  },
+  "load-balancing": {
+    displayName: "Load Balancing",
+    aliases: ["loadbalancer", "load-balancers", "lb"],
+  },
+  "fault-tolerance": {
+    displayName: "Fault Tolerance",
+    aliases: ["fault-tolerant"],
+  },
+  resilience: {
+    displayName: "Resilience",
+    aliases: ["resilient-systems", "resilience-engineering"],
+  },
+  "cloud-native": {
+    displayName: "Cloud Native",
+    aliases: ["cloudnative"],
+  },
+  concurrency: {
+    displayName: "Concurrency",
+    aliases: ["parallelism", "parallel-computing"],
+  },
+  crdt: {
+    displayName: "CRDT",
+    aliases: ["crdts", "conflict-free-replicated-data-types"],
+  },
+  collaboration: {
+    displayName: "Collaboration",
+    aliases: ["collaborative-editing", "collaborative-systems"],
+  },
+  "offline-first": {
+    displayName: "Offline-First",
+    aliases: ["offline", "offline-capable"],
+  },
+  "operational-transformation": {
+    displayName: "Operational Transformation",
+    shortName: "OT",
+    aliases: ["ot"],
+  },
+
+  // ── Search and recommendations ────────────────────────────────────────
+  search: {
+    displayName: "Search",
+    aliases: ["search-engine"],
+  },
+  elasticsearch: {
+    displayName: "Elasticsearch",
+    aliases: ["elastic-search", "elastic"],
+  },
+  lucene: {
+    displayName: "Lucene",
+    aliases: ["apache-lucene"],
+  },
+  "information-retrieval": {
+    displayName: "Information Retrieval",
+    shortName: "IR",
+    aliases: ["ir"],
+  },
+  "recommendation-systems": {
+    displayName: "Recommendation Systems",
+    aliases: ["recommender-systems", "recommendation", "recommenders", "recsys"],
+  },
+
+  // ── Geospatial ────────────────────────────────────────────────────────
+  geospatial: {
+    displayName: "Geospatial",
+    aliases: ["geo", "geo-systems", "geosystems"],
+  },
+  routing: {
+    displayName: "Routing",
+    aliases: ["route-planning"],
+  },
+
+  // ── Storage and data — additions ──────────────────────────────────────
+  redis: {
+    displayName: "Redis",
+    aliases: ["redis-stack"],
+  },
+  memcached: {
+    displayName: "Memcached",
+    aliases: ["memcache"],
+  },
+  postgresql: {
+    displayName: "PostgreSQL",
+    shortName: "Postgres",
+    aliases: ["postgres", "psql"],
+  },
+
+  // ── Security additions ────────────────────────────────────────────────
+  csp: {
+    displayName: "Content Security Policy",
+    shortName: "CSP",
+    aliases: ["content-security-policy"],
+  },
+  privacy: {
+    displayName: "Privacy",
+    aliases: ["data-privacy", "privacy-engineering"],
+  },
+  "fraud-detection": {
+    displayName: "Fraud Detection",
+    aliases: ["fraud", "anti-fraud"],
+  },
+  "pci-dss": {
+    displayName: "PCI DSS",
+    aliases: ["pci"],
+  },
+  compliance: {
+    displayName: "Compliance",
+    aliases: ["regulatory-compliance"],
+  },
+
+  // ── Frontend additions ────────────────────────────────────────────────
+  "service-worker": {
+    displayName: "Service Worker",
+    aliases: ["service-workers", "sw"],
+  },
+  pwa: {
+    displayName: "PWA",
+    aliases: ["progressive-web-app", "progressive-web-apps"],
+  },
+  forms: {
+    displayName: "Forms",
+    aliases: ["form-builders"],
+  },
+  validation: {
+    displayName: "Validation",
+    aliases: ["data-validation"],
+  },
+  "file-upload": {
+    displayName: "File Upload",
+    aliases: ["uploads", "file-uploads"],
+  },
+  "server-components": {
+    displayName: "Server Components",
+    aliases: ["react-server-components", "rsc"],
+  },
+  "functional-programming": {
+    displayName: "Functional Programming",
+    shortName: "FP",
+    aliases: ["fp"],
+  },
+
+  // ── E-commerce, payments ──────────────────────────────────────────────
+  "e-commerce": {
+    displayName: "E-Commerce",
+    aliases: ["ecommerce", "online-shopping"],
+  },
+  payments: {
+    displayName: "Payments",
+    aliases: ["payment-systems", "payment-processing"],
+  },
+
+  // ── API and protocol ──────────────────────────────────────────────────
+  "api-design": {
+    displayName: "API Design",
+    aliases: ["apidesign", "api-architecture"],
+  },
+
+  // ── Languages and runtimes — additions ────────────────────────────────
+  rust: {
+    displayName: "Rust",
+    aliases: ["rust-lang"],
+  },
+  go: {
+    displayName: "Go",
+    aliases: ["golang", "go-lang"],
+  },
+  erlang: {
+    displayName: "Erlang",
+    aliases: ["erlang-otp"],
+  },
+  libuv: {
+    displayName: "libuv",
+    aliases: ["uv"],
+  },
+  "garbage-collection": {
+    displayName: "Garbage Collection",
+    shortName: "GC",
+    aliases: ["gc"],
+  },
+  unicode: {
+    displayName: "Unicode",
+    aliases: ["utf", "utf-8", "utf-16"],
+  },
+  "ecma-262": {
+    displayName: "ECMA-262",
+    aliases: ["ecma262", "ecmascript-spec"],
+  },
+
+  // ── Notifications ─────────────────────────────────────────────────────
+  notifications: {
+    displayName: "Notifications",
+    aliases: ["push-notifications", "messaging-and-notifications"],
+  },
+
+  // ── Platform additions ────────────────────────────────────────────────
+  "task-scheduler": {
+    displayName: "Task Scheduler",
+    aliases: ["job-scheduler", "schedulers"],
+  },
+  governance: {
+    displayName: "Governance",
+    aliases: ["technical-governance"],
+  },
+  "multi-tenancy": {
+    displayName: "Multi-Tenancy",
+    aliases: ["multitenancy", "multi-tenant"],
+  },
+  extensibility: {
+    displayName: "Extensibility",
+    aliases: ["plugin-architecture"],
+  },
+  experimentation: {
+    displayName: "Experimentation",
+    aliases: ["ab-testing", "a-b-testing"],
+  },
+  "feature-flags": {
+    displayName: "Feature Flags",
+    aliases: ["feature-toggles", "featureflags"],
+  },
 }

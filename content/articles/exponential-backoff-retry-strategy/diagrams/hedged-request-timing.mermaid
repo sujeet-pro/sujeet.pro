@@ -1,0 +1,26 @@
+%% Diagram: Hedged Request Timing (Dean & Barroso, 2013)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant A as Replica A (primary)
+    participant B as Replica B (hedge)
+
+    Note over C, B: hedgingDelay = p95 latency budget
+
+    C->>A: request (t = 0)
+    activate A
+    Note over A: GC pause / cold cache /\nhot shard - slow this time
+
+    Note over C: t = p95 - primary still pending\nfire the hedge
+    C->>B: duplicate request (t = p95)
+    activate B
+
+    B-->>C: response (t = p95 + median)
+    deactivate B
+    Note over C: first response wins
+    C--xA: cancel primary
+    deactivate A
+
+    Note over C, B: Trigger at p95 keeps the extra\nload at roughly 5 percent of requests\nwhile collapsing the p99/p99.9 tail.
+    Note over C, B: gRFC A6: an RPC may have a\nretryPolicy OR a hedgingPolicy,\nnever both at the same time.

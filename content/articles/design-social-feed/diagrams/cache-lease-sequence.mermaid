@@ -1,0 +1,24 @@
+%% Diagram: Cache lease coordination prevents thundering herd
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client A (miss first)
+    participant C2 as Client B (concurrent miss)
+    participant MC as Memcache
+    participant DB as MySQL / TAO
+
+    C1->>MC: get(key)
+    MC-->>C1: MISS + lease token L1
+    Note over MC: Issue lease for key,<br/>rate-limited 1 per 10s
+
+    C2->>MC: get(key)
+    MC-->>C2: MISS + "wait" hint<br/>(no new lease)
+
+    C1->>DB: SELECT ...
+    DB-->>C1: row
+    C1->>MC: set(key, value, L1)
+    MC->>MC: validate L1 still active
+    MC-->>C1: OK
+
+    C2->>MC: get(key) (retry)
+    MC-->>C2: HIT (value)

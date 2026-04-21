@@ -1,0 +1,28 @@
+%% Diagram: Compound Component Context Flow
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph CONSUMER["Consumer JSX"]
+        ROOT["Dialog.Root (provider)"]
+        TRIG["Dialog.Trigger"]
+        PORTAL["Dialog.Portal"]
+        OVERLAY["Dialog.Overlay"]
+        CONTENT["Dialog.Content"]
+        TITLE["Dialog.Title"]
+        CLOSE["Dialog.Close"]
+    end
+
+    subgraph CTX["Shared React Context"]
+        STATE["open / setOpen"]
+        IDS["aria ids"]
+        REFS["focus refs"]
+    end
+
+    ROOT -- "provides" --> CTX
+    TRIG -- "useDialogContext" --> CTX
+    OVERLAY -- "useDialogContext" --> CTX
+    CONTENT -- "useDialogContext" --> CTX
+    TITLE -- "useDialogContext" --> CTX
+    CLOSE -- "useDialogContext" --> CTX
+
+    PORTAL -- "renders into document.body" --> CONTENT

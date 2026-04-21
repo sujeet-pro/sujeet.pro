@@ -1,0 +1,32 @@
+%% Diagram: Write-path comparison — Cassandra Java engine vs Rocksandra RocksDB engine
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Java["Cassandra write path (Java engine)"]
+        direction TB
+        JW["Client write<br/>(INSERT / UPDATE)"] --> JCL["Append to commit log<br/>(disk)"]
+        JCL --> JMT["Insert into memtable<br/>(on Java heap,<br/>concurrent skip list of<br/>Java row objects)"]
+        JMT -- "threshold reached" --> JFlush["Flush to SSTable<br/>(serialize Java objects<br/>through heap buffers)"]
+        JFlush --> JSST[("SSTable on disk")]
+        JSST --> JComp["Compaction<br/>(deserialize → merge → reserialize<br/>all on the Java heap)"]
+        JComp --> JSST
+        JGC{{"Each step allocates<br/>short-lived Java objects<br/>→ Young GC pressure<br/>→ stop-the-world stalls"}}
+        JMT -. "row + cell objects" .-> JGC
+        JFlush -. "buffer churn" .-> JGC
+        JComp -. "iterator + buffer churn" .-> JGC
+    end
+
+    subgraph Rocks["Rocksandra write path (RocksDB engine)"]
+        direction TB
+        RW["Client write<br/>(INSERT / UPDATE)"] --> RAPI[["StorageEngine API<br/>encode row → bytes"]]
+        RAPI --> RWAL["Append to RocksDB WAL<br/>(disk, C++)"]
+        RWAL --> RMT["Insert into RocksDB memtable<br/>(off-heap, C++ skip list,<br/>arena-allocated)"]
+        RMT -- "threshold reached" --> RFlush["Flush to SST file<br/>(C++ writer,<br/>no Java allocation)"]
+        RFlush --> RSST[("SST file on disk")]
+        RSST --> RComp["Compaction<br/>(C++ background threads,<br/>off-heap iterators)"]
+        RComp --> RSST
+        RGC{{"Hot path stays in C++<br/>→ no Java garbage<br/>→ no stop-the-world stalls<br/>on storage operations"}}
+        RMT -. "no Java objects" .-> RGC
+        RFlush -. "no Java objects" .-> RGC
+        RComp -. "no Java objects" .-> RGC
+    end

@@ -1,0 +1,33 @@
+%% Diagram: DNS cache layers and time-to-evict after a backend crash
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant App as Client App
+    participant RT as Language Runtime Cache
+    participant OS as OS Stub Resolver
+    participant Up as Recursive Resolver
+    participant Reg as Authoritative DNS / Registry
+    participant B as Backend A
+
+    Note over Reg: TTL = 30s
+    App->>RT: resolve service.local
+    RT->>OS: lookup
+    OS->>Up: query
+    Up->>Reg: query
+    Reg-->>Up: A 10.0.0.5 TTL=30
+    Up-->>OS: cached
+    OS-->>RT: cached
+    RT-->>App: 10.0.0.5
+
+    App->>B: HTTP request
+    B-->>App: 200 OK
+
+    Note over B: Backend A crashes at T=5s
+    Reg->>Reg: Health check fails, A removed at T=15s
+
+    loop Until each cache layer expires
+        App->>B: more requests on existing connection
+        B--xApp: connection refused / timeout
+    end
+
+    Note over App,Reg: Worst-case time-to-evict =\nrecursive_TTL + os_ttl + runtime_ttl + connection_lifetime

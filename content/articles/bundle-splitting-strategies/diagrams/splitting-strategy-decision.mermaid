@@ -1,0 +1,17 @@
+%% Diagram: Diagram 1
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    A[Need bundle splitting] --> B{Multiple teams or independent deploys?}
+    B -->|Yes| C[Module Federation]
+    B -->|No| D{App type}
+    D -->|SPA| E[Route-based splitting]
+    D -->|MPA| F[Entry point splitting]
+    E --> G{Heavy components on some routes?}
+    G -->|Yes| H[Add component splitting]
+    G -->|No| I[Route splitting only]
+    F --> J{Large shared deps?}
+    J -->|Yes| K[Add vendor splitting]
+    J -->|No| L[Entry splitting only]
+    H --> K
+    I --> K

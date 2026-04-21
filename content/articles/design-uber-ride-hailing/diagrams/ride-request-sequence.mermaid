@@ -1,0 +1,25 @@
+%% Diagram: Ride Request Sequence
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant R as Rider
+    participant Ride as Ride Svc
+    participant Px as Pricing
+    participant DISCO
+    participant Loc as Location
+    participant ETA as DeepETA
+    participant D as Driver
+
+    R->>Ride: POST /rides
+    Ride->>Px: getUpfrontFare
+    Px-->>Ride: fare + surge
+    Ride->>DISCO: enqueue(rideId)
+    Note over DISCO: buffer ~150ms
+    DISCO->>Loc: k-ring(pickup, ~3km)
+    Loc-->>DISCO: nearby drivers
+    DISCO->>ETA: predict ETA per pair
+    ETA-->>DISCO: ETAs (sub-5ms)
+    Note over DISCO: bipartite assign
+    DISCO-->>Ride: matched driver + ETA
+    Ride-->>R: 201 Created
+    Ride->>D: dispatch(rideId, pickup)

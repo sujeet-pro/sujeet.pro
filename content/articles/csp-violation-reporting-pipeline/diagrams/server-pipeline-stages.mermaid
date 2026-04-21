@@ -1,0 +1,25 @@
+%% Diagram: Generic server-side ingestion pipeline stages
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Edge["Edge"]
+        IN["1. Ingest<br/>fire-and-forget 204"]
+    end
+    subgraph Stream["Streaming buffer"]
+        VAL["2. Schema validate<br/>(legacy + modern)"]
+        ENR["3. Enrich<br/>UA parse, host extract,<br/>geo, deploy correlation"]
+        RT["4. Route<br/>per-property, per-team,<br/>dedup window"]
+    end
+    subgraph Sinks["Sinks"]
+        AN["5. Analytics store<br/>(OLAP)"]
+        AL["6. Alerting<br/>(spike, regression,<br/>drop-rate)"]
+        DL["Dead-letter<br/>(unparseable)"]
+    end
+
+    IN --> VAL
+    VAL -- ok --> ENR
+    VAL -- bad --> DL
+    ENR --> RT
+    RT -- novel --> AN
+    RT -- duplicate --> X(("drop"))
+    AN --> AL

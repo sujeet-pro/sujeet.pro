@@ -1,0 +1,18 @@
+%% Diagram: CI quality-gate pipeline for a component library PR
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    PR["Pull request"] --> LINT["Lint + types<br/>(eslint + tsc)"]
+    LINT --> UNIT["Unit tests<br/>(vitest / jest)"]
+    UNIT --> A11Y["A11y tests<br/>(jest-axe per story)"]
+    A11Y --> VR["Visual regression<br/>(Chromatic / Percy)"]
+    VR --> SIZE["Bundle size budget<br/>(size-limit)"]
+    SIZE --> DOCS["Storybook build<br/>+ autodocs check"]
+    DOCS --> REVIEW{"Human review<br/>+ owner approval"}
+    REVIEW -- "approve" --> MERGE["Merge to main"]
+    MERGE --> PUB["Changesets release<br/>+ codemod (if breaking)"]
+
+    REVIEW -- "block" --> PR
+    A11Y -- "fail" --> PR
+    VR -- "needs approval" --> REVIEW
+    SIZE -- "fail" --> PR

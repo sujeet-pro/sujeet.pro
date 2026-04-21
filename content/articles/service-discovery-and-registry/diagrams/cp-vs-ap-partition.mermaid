@@ -1,0 +1,25 @@
+%% Diagram: CP vs AP registry behavior under a 3+2 network partition
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Before["Before partition: 5 nodes, 1 cluster"]
+
+    subgraph CP["CP registry (etcd / ZooKeeper)"]
+        direction TB
+        CPM["Majority (3 nodes)<br/>• Accepts writes<br/>• Linearizable reads"]
+        CPm["Minority (2 nodes)<br/>• Read-only<br/>• Bounded-stale reads<br/>• Registrations rejected"]
+        CPM ---|partition| CPm
+    end
+
+    subgraph AP["AP registry (Eureka)"]
+        direction TB
+        APA["Partition A (3 nodes)<br/>• Accepts writes<br/>• Local view diverges"]
+        APB["Partition B (2 nodes)<br/>• Accepts writes<br/>• Local view diverges"]
+        APA ---|partition| APB
+        APR["On heal: reconcile by lastDirtyTimestamp"]
+        APA -.->|heal| APR
+        APB -.->|heal| APR
+    end
+
+    Before --> CP
+    Before --> AP

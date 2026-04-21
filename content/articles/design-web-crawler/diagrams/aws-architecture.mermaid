@@ -1,0 +1,45 @@
+%% Diagram: AWS reference deployment
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Coord["Coordination"]
+        MSK[Amazon MSK<br/>Kafka]
+        ZK[ZooKeeper<br/>built into MSK]
+    end
+
+    subgraph Compute["Compute (VPC)"]
+        subgraph CrawlerASG["Crawler ASG"]
+            C1[c6i.2xlarge]
+            C2[c6i.2xlarge]
+            CN[...]
+        end
+        subgraph ParserASG["Parser ASG"]
+            P1[c6i.xlarge]
+            P2[c6i.xlarge]
+        end
+        subgraph RendererASG["Renderer ASG"]
+            R1[c6i.4xlarge<br/>Chromium spot]
+        end
+    end
+
+    subgraph Data["Data layer"]
+        RDS[(RDS PostgreSQL<br/>URL metadata)]
+        Cache[(ElastiCache Redis<br/>Bloom + robots cache)]
+        S3[(S3 Standard-IA<br/>page archive)]
+    end
+
+    subgraph Mon["Monitoring"]
+        CW[CloudWatch metrics]
+        G[Grafana]
+    end
+
+    MSK <--> CrawlerASG
+    MSK <--> ParserASG
+    MSK <--> RendererASG
+    ZK --> CrawlerASG
+    CrawlerASG --> Cache
+    CrawlerASG --> RDS
+    CrawlerASG --> S3
+    ParserASG --> Cache
+    ParserASG --> S3
+    CrawlerASG --> CW --> G

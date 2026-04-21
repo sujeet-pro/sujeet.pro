@@ -1,0 +1,18 @@
+%% Diagram: Circuit breaker state machine
+%% Type: state
+%%{init: {'htmlLabels': false}}%%
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Closed: success\nreset failure count
+    Closed --> Open: failures >= threshold
+    Open --> Open: request\nfail fast (no call)
+    Open --> HalfOpen: cooldown elapsed
+    HalfOpen --> Closed: trial succeeds
+    HalfOpen --> Open: trial fails
+
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class Closed ok
+    class Open bad
+    class HalfOpen warn

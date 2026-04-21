@@ -1,0 +1,30 @@
+%% Diagram: Flannel edge cache — boot path and pub/sub freshness
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph CL["Clients (same workspace)"]
+        C1["Client 1"]
+        C2["Client 2"]
+        C3["Client 3"]
+    end
+
+    subgraph EdgePoP["Edge PoP"]
+        FlannelHost["Flannel host<br/>workspace-pinned via consistent hash"]
+    end
+
+    subgraph Backend["Backend (origin)"]
+        Webapp["Webapp / APIs"]
+        WS["Backend WebSocket<br/>real-time event stream"]
+    end
+
+    C1 -- "boot: slim payload (7–44x smaller)" --> FlannelHost
+    C2 -- "lazy: profile, channel detail" --> FlannelHost
+    C3 -- "presence (filtered)" --> FlannelHost
+
+    FlannelHost -- "cache miss / write-through" --> Webapp
+    WS -- "subscribe: members, channels, presence" --> FlannelHost
+    FlannelHost -- "proactive prefetch on @mention" --> C1
+
+    style FlannelHost fill:#818cf8,stroke:#4338ca,color:#ffffff
+    style Webapp fill:#34d399,stroke:#1E5A1E,color:#ffffff
+    style WS fill:#fb923c,stroke:#c2410c,color:#ffffff

@@ -1,0 +1,26 @@
+%% Diagram: Permission resolution — global → project (RBAC) → issue-level security
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    REQ["Request\nuser, action, issueId"]
+    G{"Global perm?\n(e.g. SYS_ADMIN)"}
+    P{"Project perm?\nrole has action\nin permission scheme"}
+    I{"Issue security level?\nuser in level members\n(role, group, user)"}
+    ALLOW["Allow"]
+    DENY["Deny"]
+
+    REQ --> G
+    G -->|yes| ALLOW
+    G -->|no| P
+    P -->|deny| DENY
+    P -->|allow| I
+    I -->|no level| ALLOW
+    I -->|in level| ALLOW
+    I -->|not in level| DENY
+
+    classDef allow fill:#1F6F4A,stroke:#0E4A2E,color:#ffffff
+    classDef deny fill:#8C2A2A,stroke:#5A1A1A,color:#ffffff
+    classDef gate fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class ALLOW allow
+    class DENY deny
+    class G,P,I gate

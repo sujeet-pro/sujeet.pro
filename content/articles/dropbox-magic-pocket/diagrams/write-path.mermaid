@@ -1,0 +1,25 @@
+%% Diagram: Magic Pocket write path
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C as Client
+    participant FE as Frontend
+    participant BI as Block Index
+    participant RT as Repl Table
+    participant O as OSDs
+    participant CZ as Cross-Zone
+
+    C->>FE: PUT(hash, block)
+    FE->>BI: lookup hash
+    alt block exists
+        BI-->>FE: cell, bucket
+        FE-->>C: 200 OK (deduped)
+    else new block
+        FE->>RT: pick open volume
+        RT-->>FE: volume + OSDs
+        FE->>O: store to all OSDs
+        O-->>FE: fsync ack from each
+        FE->>BI: insert mapping
+        FE-->>C: 200 OK
+        FE-)CZ: enqueue (~1s to second zone)
+    end

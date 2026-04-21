@@ -1,0 +1,36 @@
+%% Diagram: CSS architecture strategies overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Problem["The CSS Scaling Problem"]
+        S["Specificity\nConflicts"]
+        N["Naming\nCollisions"]
+        D["Dead Code\nAccumulation"]
+        C["Markup-Style\nCoupling"]
+    end
+
+    subgraph Strategies["Architecture Strategies"]
+        BEM["Naming Conventions\nBEM, OOCSS, ITCSS"]
+        UF["Utility-First\nTailwind, UnoCSS"]
+        RT["Runtime CSS-in-JS\nstyled-components, Emotion"]
+        ZR["Zero-Runtime CSS-in-JS\nvanilla-extract, StyleX, Panda"]
+        CM["CSS Modules"]
+    end
+
+    subgraph Platform["Modern CSS Platform"]
+        L["@layer Cascade Layers"]
+        NS["Native Nesting"]
+        SP["@scope"]
+        H[":has() and custom properties"]
+    end
+
+    Problem --> Strategies
+    Platform -.->|"reshape"| Strategies
+
+    classDef problem fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef strategy fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef platform fill:#1F6E68,stroke:#155752,color:#ffffff
+
+    class S,N,D,C problem
+    class BEM,UF,RT,ZR,CM strategy
+    class L,NS,SP,H platform

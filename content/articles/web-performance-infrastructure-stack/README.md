@@ -1,210 +1,217 @@
 ---
-title: 'Web Performance Infrastructure: DNS, CDN, Caching, and Edge'
+title: 'Web Performance Infrastructure: DNS, HTTP/3, CDN, Compression, Origin'
 linkTitle: 'Perf: Infrastructure'
 description: >-
-  How DNS, HTTP/3 and QUIC, CDN edge networks, compression, and caching strategies work together to reduce TTFB by 85-95% and offload 80%+ of traffic from origin servers.
+  How DNS service binding, HTTP/3 + QUIC, CDN edge caching, compression, and origin caching combine to put TTFB under 200 ms and keep 80%+ of bytes off origin — with the trade-offs that decide each lever.
 publishedDate: 2026-02-03T00:00:00.000Z
-lastUpdatedOn: 2026-02-03T00:00:00.000Z
+lastUpdatedOn: 2026-04-21T00:00:00.000Z
 tags:
   - performance
   - web-vitals
   - optimization
+  - networking
+  - http
+  - dns
+  - tls
+  - infrastructure
 ---
 
-# Web Performance Infrastructure: DNS, CDN, Caching, and Edge
+# Web Performance Infrastructure: DNS, HTTP/3, CDN, Compression, Origin
 
-Infrastructure optimization addresses the foundation of web performance—the layers between a user's request and your application's response. This article covers DNS as a performance lever, HTTP/3 and QUIC for eliminating protocol-level bottlenecks, CDN and edge computing for geographic proximity, compression strategies for payload reduction, and caching patterns that can reduce Time to First Byte (TTFB) by 85-95% while offloading 80%+ of traffic from origin servers.
+Infrastructure sets the floor for every other web-performance metric. No amount of code-splitting, font tuning, or image optimization can rescue a page whose TTFB is 800 ms because the connection negotiated TLS twice, missed the edge cache, and hit a cold database connection. This article walks the stack from the moment a browser resolves a hostname to the moment your origin returns bytes — DNS, the connection (HTTP/3 + TLS 1.3), the CDN edge, payload compression, and origin caching — and surfaces the trade-offs that decide each knob.
 
-![Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB](./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to-light.svg "Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB")
-![Infrastructure optimization layers: connection, edge, payload, and origin working together for sub-100ms TTFB](./diagrams/infrastructure-optimization-layers-connection-edge-payload-and-origin-working-to-dark.svg)
+It is the infrastructure entry of the [web performance series](../web-performance-overview/README.md). The hand-offs are explicit: the connection layer feeds the [JavaScript optimization](../web-performance-javascript-optimization/README.md), [CSS & typography](../web-performance-css-typography/README.md), and [image optimization](../web-performance-image-optimization/README.md) work that follow.
 
-## Abstract
+![Infrastructure performance layers — connection, edge, payload, origin — with TTFB targets per layer](./diagrams/infrastructure-layers-light.svg "Infrastructure performance layers — connection, edge, payload, origin — and the TTFB / offload targets each layer must hit.")
+![Infrastructure performance layers — connection, edge, payload, origin — with TTFB targets per layer](./diagrams/infrastructure-layers-dark.svg)
 
-Infrastructure performance follows a layered model where each layer multiplies the impact of the one below it:
+## Mental model
 
-![Diagram](./diagrams/diagram-1-light.svg)
-![Diagram](./diagrams/diagram-1-dark.svg)
+Every navigation traverses four stages: **DNS → connection → edge → origin**. Each stage either succeeds quickly (and the next stage gets a budget) or burns the page's TTFB budget all by itself. Three structural ideas drive the entire stack:
 
-**Core mental model**: Every request traverses DNS → Connection → Edge → Origin. Optimization means either eliminating layers entirely (edge caching bypasses origin), reducing round trips within layers (HTTP/3 merges crypto and transport handshakes), or moving computation closer to the user (edge functions).
+1. **Eliminate round trips.** TCP needs three handshakes (TCP, TLS, often application-level redirects). QUIC fuses the TCP and TLS handshakes; HTTPS DNS records eliminate the Alt-Svc upgrade hop; 0-RTT removes the handshake entirely for return visits.
+2. **Move bytes closer to the user.** A CDN PoP in the user's metro area shortens RTT from ~150 ms (Sydney → us-east-1) to <10 ms. Edge functions extend that proximity from cached objects to dynamic logic.
+3. **Don't recompute what you already computed.** Multi-layer caching (browser → service worker → edge → reverse proxy → in-memory store → DB query plan cache) means most bytes never touch a database, and many never touch an origin.
 
-**Key trade-offs to understand**:
+![Request lifecycle through DNS, connection, edge, and origin with the optimization lever per stage](./diagrams/request-lifecycle-light.svg "Request lifecycle: DNS, connection (QUIC + TLS 1.3), edge cache, edge function, then VPC into origin.")
+![Request lifecycle through DNS, connection, edge, and origin with the optimization lever per stage](./diagrams/request-lifecycle-dark.svg)
 
-| Optimization                | What it buys                                           | What it costs                                                       |
-| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------- |
-| HTTP/3 (QUIC over UDP)      | Eliminates TCP head-of-line blocking, 0-RTT resumption | UDP may be blocked/throttled, requires infrastructure changes       |
-| Edge computing              | Sub-10ms latency to users, origin offload              | Limited runtime (no filesystem, constrained memory), vendor lock-in |
-| Aggressive caching          | 90%+ origin offload, instant responses                 | Cache invalidation complexity, stale data risk                      |
-| Pre-compression (Brotli 11) | 15-27% smaller than gzip                               | Build time cost, storage for multiple variants                      |
+The corollary is a budget: if connection + edge fits inside ~50 ms, origin has ~150 ms to render an HTML response and still pass [TTFB <200 ms](https://web.dev/articles/ttfb). Most "slow site" investigations resolve to one of: DNS not advertising HTTP/3, edge cache key not matching, origin not pooling DB connections.
 
-**Performance targets** (2025 benchmarks):
+### Targets
 
-- DNS: <20ms excellent, <50ms acceptable
-- Connection (HTTP/3): <100ms, with 0-RTT resumption for return visitors
-- TTFB: <100ms excellent, <200ms good
-- Origin offload: >80% of bytes from edge
+| Layer        | Target                                                       | Failure signal                              |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------- |
+| DNS          | <20 ms excellent, <50 ms acceptable                          | Visitor logs show >100 ms `dns_lookup`      |
+| Connection   | 1-RTT new connection; 0-RTT for return visits                | Lots of TCP/TLS time in WebPageTest filmstrip |
+| Edge         | >80% origin offload **by bytes** (not just by request count) | High origin egress bill; cache-hit ratio lies |
+| Compression  | Brotli on the wire for HTML/CSS/JS, AVIF/WebP for images     | `Content-Encoding: identity` for text       |
+| Origin TTFB  | <100 ms p50, <200 ms p75                                     | LCP regressions traced to server-timing     |
+| Cache        | <1 ms hit on Redis/Memcached for hot keys                    | DB CPU saturated by repeated identical queries |
 
-## Part 1: The Connection Layer
+## Connection layer
 
-The initial moments of a user's interaction with a website are defined by the speed and efficiency of the network connection. Latency introduced during DNS lookup, protocol negotiation, and security handshake can significantly delay TTFB.
+The first three round trips between browser and edge — DNS lookup, transport handshake, TLS handshake — are the cheapest milliseconds you'll ever buy. They have no business logic in them and you can shave most of them with configuration alone.
 
-### 1.1 DNS as a Performance Lever
+### DNS as a performance lever
 
-Modern DNS has evolved from a simple directory into a sophisticated signaling mechanism through SVCB and HTTPS record types ([RFC 9460](https://datatracker.ietf.org/doc/html/rfc9460), published November 2023).
+DNS used to mean "hostname → IP". [RFC 9460](https://datatracker.ietf.org/doc/html/rfc9460) (November 2023) added two record types — `SVCB` and `HTTPS` — that let DNS hand back protocol negotiation hints in the same response as the IP, eliminating the Alt-Svc upgrade hop that used to delay first-time HTTP/3 connections by 1-2 RTTs ([Cloudflare: Speeding up HTTPS and HTTP/3 negotiation with DNS](https://blog.cloudflare.com/speeding-up-https-and-http-3-negotiation-with-dns/)).
 
-**Why HTTPS records exist**: Before RFC 9460, browsers discovered HTTP/3 support only after connecting via HTTP/2, receiving an `Alt-Svc` header, and then upgrading on subsequent requests. This added 1-2 RTTs to the first HTTP/3 connection. HTTPS records move protocol negotiation into DNS, enabling direct HTTP/3 connections on the first request.
+```dns title="example.com zone"
+; HTTPS RR — advertises HTTP/3 + HTTP/2 and an IPv4 hint in one DNS response
+example.com.        300 IN HTTPS 1 . alpn="h3,h2" port="443" ipv4hint="192.0.2.1"
 
-**HTTPS Record Benefits:**
-
-- **alpn parameter**: Advertises HTTP/3 support (`alpn="h3"`), allowing browsers to skip protocol upgrade negotiation
-- **ipv4hint/ipv6hint**: Provides IP addresses, potentially saving additional DNS lookups
-- **Saves 100-300ms**: By enabling direct HTTP/3 connection attempts
-
-**Adoption (2025)**: ~15% of top 1M domains have HTTPS records, with Cloudflare's automatic deployment driving ~80% of that adoption. Browser support: Chrome 96+, Firefox 78+ (DoH only), Safari 14+ (most complete implementation).
-
-```dns
-; HTTPS record enabling HTTP/3 discovery
-example.com. 300 IN HTTPS 1 . alpn="h3,h2" port="443" ipv4hint="192.0.2.1"
-
-; SVCB record for service binding
-_service.example.com. 300 IN SVCB 1 svc.example.net. alpn="h3" port="8443"
+; SVCB RR — same idea for non-HTTP services
+_8443._foo.example. 300 IN SVCB  1 svc.example.net. alpn="h3" port="8443"
 ```
 
-**Measurement:**
+The interesting service parameters:
+
+- `alpn="h3,h2"` — tells the client which ALPN tokens to attempt, in preference order, before any handshake. Skips Alt-Svc.
+- `ipv4hint`, `ipv6hint` — short-circuit the second `A` / `AAAA` lookup when the resolver returns the HTTPS record.
+- `ech` — Encrypted Client Hello configuration; lets the client send the SNI under encryption.
+
+**Adoption**. As of mid-2023 the [first large-scale measurement study](https://arxiv.org/abs/2309.10344) (IMC 2023) found ~10.5 M HTTPS records and ~4 K SVCB records on the open internet, with Cloudflare hosting the overwhelming majority — its automatic deployment for customer zones is what lit up the long tail. Independent operators outside the major CDNs are still rare. Browser support: Chrome 96+, Firefox 78+ (DNS-over-HTTPS only), Safari 14+ (most aggressive consumer of the record).
+
+> [!TIP]
+> If you front your zone with Cloudflare, the HTTPS record is free. If you run your own authoritative DNS, deploying it is a one-time zone edit and immediately saves the Alt-Svc round trip on the first HTTP/3 connection.
 
 ```javascript title="dns-timing.js"
-const measureDNSTiming = () => {
-  const navigation = performance.getEntriesByType("navigation")[0]
-  const dnsTime = navigation.domainLookupEnd - navigation.domainLookupStart
-
+const measureDnsTiming = () => {
+  const nav = performance.getEntriesByType("navigation")[0]
+  const dns = nav.domainLookupEnd - nav.domainLookupStart
   return {
-    timing: dnsTime,
-    status: dnsTime < 20 ? "excellent" : dnsTime < 50 ? "good" : "needs-improvement",
+    timing: dns,
+    bucket: dns < 20 ? "excellent" : dns < 50 ? "good" : "needs-improvement",
   }
 }
 ```
 
-### 1.2 HTTP/3 and QUIC
+### HTTP/3 and QUIC
 
-HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114), June 2022) abandons TCP for QUIC ([RFC 9000](https://datatracker.ietf.org/doc/html/rfc9000)), providing transformative benefits ([HTTP/3 Explained](https://http3-explained.haxx.se/)):
+HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114), June 2022) drops TCP for [QUIC](https://datatracker.ietf.org/doc/html/rfc9000) (RFC 9000, May 2021). The redesign is not a small one: QUIC pushes streams down into the transport layer and merges the TLS 1.3 handshake into the transport handshake.
 
-**Why QUIC exists**: TCP's design predates the modern web. Its head-of-line blocking (a single lost packet blocks all streams), 2-RTT handshake, and IP-bound connections create latency that can't be fixed at the application layer. QUIC redesigns the transport layer with web workloads in mind.
+**What QUIC fixes that you can't fix at the application layer:**
 
-**Elimination of Head-of-Line Blocking**: QUIC implements streams as first-class citizens. Packet loss in one stream doesn't impact others—critical for complex web pages loading dozens of parallel resources. Research shows HTTP/3 can achieve up to 81.5% improvement in extreme loss scenarios.
+1. **TCP head-of-line blocking.** HTTP/2's stream multiplex was an application-layer fiction over a single TCP byte stream. One lost packet stalls every stream. QUIC implements streams in the transport itself, so a lost packet on `/main.js` does not block `/styles.css`.
+2. **Slow handshake.** TCP needs 1 RTT to open, then TLS 1.3 needs another. QUIC fuses both into 1 RTT, and 0 RTT for resumed connections.
+3. **Connection migration.** TCP identifies a connection by the 4-tuple `(srcIP, srcPort, dstIP, dstPort)`; switching from Wi-Fi to cellular kills it. QUIC identifies a connection by an opaque Connection ID and survives the move.
 
-**Faster Connection Establishment**: QUIC integrates cryptographic and transport handshakes into a single RTT. Combined with 0-RTT resumption for returning visitors, this can eliminate handshake latency entirely.
+![HTTP/2 over TCP versus HTTP/3 over QUIC under packet loss — TCP head-of-line blocking versus QUIC stream independence](./diagrams/http3-vs-http2-hol-light.svg "HTTP/2 (TCP) versus HTTP/3 (QUIC) under packet loss — independent QUIC streams keep /b and /c moving while /a is retransmitted.")
+![HTTP/2 over TCP versus HTTP/3 over QUIC under packet loss — TCP head-of-line blocking versus QUIC stream independence](./diagrams/http3-vs-http2-hol-dark.svg)
 
-**Connection Migration**: Uses Connection ID (CID) instead of IP/port tuple, allowing seamless network switching (Wi-Fi to cellular) without reconnection. This addresses a pain point that TCP fundamentally cannot solve.
+**Adoption**. As of April 2026 [W3Techs reports HTTP/3 advertised by 39% of all websites](https://w3techs.com/technologies/details/ce-http3) (typically via Alt-Svc or HTTPS records). Cloudflare Radar measures actual request-level use closer to **21%** ([Cloudflare 2025 Year in Review](https://blog.cloudflare.com/radar-2025-year-in-review/)) — the gap is bots and first-visit page loads that haven't yet discovered the protocol. Browser support is mature: Chrome 87+, Firefox 88+, Safari 16+ (default-on by Safari 17), Edge 87+.
 
-**Adoption (2025)**: 37% of websites globally support HTTP/3 (W3Techs), with 21% of actual requests using HTTP/3 (Cloudflare Radar). Browser support is mature: Chrome 87+, Firefox 88+, Safari 16+ (enabled by default September 2024), Edge 87+.
+**Where HTTP/3 actually wins, and where it loses:**
 
-![Diagram](./diagrams/diagram-2-light.svg)
-![Diagram](./diagrams/diagram-2-dark.svg)
+| Scenario                  | HTTP/3 vs HTTP/2     | Notes                                                                                       |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| Lossy mobile / Wi-Fi      | 30%+ faster          | Stream-level loss recovery wins decisively                                                 |
+| Stable broadband, small page | Comparable        | Handshake savings show up on first connection only                                          |
+| Stable broadband, fast link (≥1 Gbps) | HTTP/3 can lose | "[QUIC is not Quick Enough over Fast Internet](https://dl.acm.org/doi/10.1145/3589334.3645323)" (WWW 2024): user-space ACK handling and missing UDP GRO support cap throughput |
+| Repeated visits           | 0-RTT eliminates handshake | Application must enforce idempotency on 0-RTT requests                                |
 
-**Performance Impact (2025 benchmarks):**
+> [!IMPORTANT]
+> HTTP/3 is not always faster. On a clean fixed-line connection at >1 Gbps, kernel-bypass cost and missing UDP segmentation offload can leave QUIC trailing TCP. Enable HTTP/3 by default but keep TCP as a healthy fallback path.
 
-| Scenario               | HTTP/3 vs HTTP/2       | Notes                            |
-| ---------------------- | ---------------------- | -------------------------------- |
-| TTFB (average)         | 12.4% faster           | 176ms vs 201ms                   |
-| High packet loss (15%) | 55% faster             | QUIC's stream independence       |
-| Extreme loss scenarios | 81-88% faster          | TCP completely stalls            |
-| Small pages (15KB)     | ~3% faster             | Marginal gain                    |
-| Large pages (1MB)      | HTTP/2 slightly faster | Congestion algorithm differences |
+### TLS 1.3 and 0-RTT
 
-**Why HTTP/3 doesn't always win**: Current HTTP/3 implementations often use CUBIC congestion control while HTTP/2 uses BBR. Cloudflare's research shows HTTP/3 trails by 1-4% on average in stable network conditions due to these algorithm differences, not protocol overhead.
+TLS 1.3 ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446), August 2018) was redesigned with the explicit goal of cutting the handshake to a single round trip.
 
-### 1.3 TLS 1.3 Optimization
+![TLS 1.2 (2-RTT) versus TLS 1.3 (1-RTT) versus TLS 1.3 0-RTT handshake comparison](./diagrams/tls-handshake-comparison-light.svg "TLS 1.2 vs TLS 1.3 vs 0-RTT handshakes — application data moves from 'after 2 RTT' to 'in the first flight' for resumed connections.")
+![TLS 1.2 (2-RTT) versus TLS 1.3 (1-RTT) versus TLS 1.3 0-RTT handshake comparison](./diagrams/tls-handshake-comparison-dark.svg)
 
-TLS 1.3 ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446), August 2018; revision draft-ietf-tls-rfc8446bis in AUTH48 as of September 2025) was redesigned with performance as a core feature.
+The mechanism: TLS 1.2 negotiated cipher suites, exchanged certificates, and ran key exchange in three flights. TLS 1.3 strips the legacy ciphers, mandates ephemeral Diffie-Hellman, and fuses everything into one flight. The client sends `key_share` in `ClientHello`; the server can reply with the certificate, key, and `Finished` in the very next message; encrypted application data follows in the client's second flight.
 
-**Why TLS 1.3 is faster**: TLS 1.2 required 2 RTTs because the client and server exchanged multiple messages sequentially (ClientHello → ServerHello → Certificate → KeyExchange → Finished). TLS 1.3 merges these into a single flight by using ephemeral Diffie-Hellman exclusively and sending encrypted data immediately after the first round trip.
+**0-RTT resumption** lets a returning client send encrypted application data inside its first flight, using a pre-shared key from the previous session. Latency win: an entire round trip.
 
-**1-RTT Handshake**: Streamlined negotiation requires only a single round trip (vs 2 RTT for TLS 1.2), reducing latency by 30-50%.
+> [!WARNING]
+> 0-RTT data is replayable. An attacker who captures the first flight can replay it; the server cannot distinguish the replay from the original. Use 0-RTT only for **idempotent** operations (`GET`, conditional `HEAD`); never for anything that mutates state. Cloudflare keeps 0-RTT off by default for Business and Enterprise zones for this reason ([Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/)).
 
-**0-RTT Resumption**: Returning visitors can send encrypted data in the first packet, eliminating handshake latency for ~40% of connections that are resumptions.
+**Adoption**. TLS 1.3 is now the default on the modern web. Cloudflare reports ~93% of its connections negotiate TLS 1.3 ([SSLreminder check-in, April 2025](https://blog.sslreminder.pro/posts/ssl-tls-world-in-2025-quick-check-in/)); F5 Labs' top-million sweep finds ~75% of websites support it ([F5 Labs: State of PQC on the Web, 2025](https://www.f5.com/labs/articles/the-state-of-pqc-on-the-web)). Qualys SSL Labs caps the grade at A- for any server that doesn't.
 
-**0-RTT Security Trade-off**: 0-RTT data is vulnerable to replay attacks—an attacker can capture and resend the encrypted request. Mitigations: use 0-RTT only for idempotent requests (GET), implement server-side replay detection, or disable 0-RTT for sensitive operations. Cloudflare keeps 0-RTT disabled by default for Business/Enterprise zones due to this risk.
+**Post-quantum is rolling in**. By the end of 2025, [over half of human-initiated TLS traffic on Cloudflare uses the X25519MLKEM768 hybrid key agreement](https://blog.cloudflare.com/pq-2025/) (classical X25519 + NIST ML-KEM-768). The hybrid scheme adds a few hundred bytes to the `ClientHello` but no extra round trip — there is no perf reason to delay enabling it on supported infrastructure.
 
-**Adoption (2025)**: 62-70% of websites support TLS 1.3 (SSL Labs). Browser support: Chrome 70+, Firefox 63+, Safari 12.2+, Edge 79+. Post-quantum cryptography with TLS 1.3 is emerging: 43% of Cloudflare connections use hybrid post-quantum key exchange (September 2025).
+### Connection layer trade-offs
 
-![Diagram](./diagrams/diagram-3-light.svg)
-![Diagram](./diagrams/diagram-3-dark.svg)
+| Lever                  | Buys                                              | Costs                                                                | Adoption (early 2026)              |
+| ---------------------- | ------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
+| HTTPS DNS records       | Skip Alt-Svc upgrade; protocol hints in DNS       | Authoritative DNS must support; client implementations vary          | ~Cloudflare-default; rare elsewhere |
+| HTTP/3 (QUIC over UDP) | No TCP HOL blocking; 0-RTT; connection migration  | UDP often blocked/throttled; loss at very high bandwidth             | 39% sites support / 21% requests    |
+| TLS 1.3 1-RTT          | Half the TLS handshake time                       | Drops legacy ciphers; some old middleboxes break                     | ~93% of Cloudflare TLS connections  |
+| TLS 1.3 0-RTT          | Zero handshake on return visits                   | Replay-vulnerable; idempotent requests only                          | Selectively enabled                 |
+| Hybrid PQ (X25519MLKEM768) | Future-proofs against record-now-decrypt-later | A few hundred bytes in `ClientHello`; no extra RTT                   | >50% of Cloudflare human traffic    |
 
-### 1.4 Connection Layer Trade-offs
+## Edge network
 
-| Optimization           | Benefits                                         | Trade-offs                                                       | Adoption (2025)        |
-| ---------------------- | ------------------------------------------------ | ---------------------------------------------------------------- | ---------------------- |
-| **SVCB/HTTPS Records** | Faster protocol discovery, skip Alt-Svc upgrade  | DNS infrastructure changes, mixed browser implementation quality | ~15% of top 1M domains |
-| **HTTP/3 Adoption**    | No TCP HOL blocking, 0-RTT, connection migration | UDP may be blocked/throttled, infrastructure changes             | 37% of websites        |
-| **TLS 1.3 Migration**  | 1-RTT handshake (50% faster than TLS 1.2)        | Certificate/infrastructure updates                               | 62-70% of websites     |
-| **0-RTT Resumption**   | Zero handshake latency for return visitors       | Replay attack vulnerability, requires idempotent operations      | Selectively enabled    |
+CDNs started as static file caches. They are now the application perimeter — the place where caching, request termination, security policy, and increasingly business logic live. The single most useful mental shift is from "how do we make origin faster" to "how much can we keep from ever hitting origin".
 
-## Part 2: The Edge Network
+### CDN architecture
 
-By bringing content and computation closer to end-users, edge networks dramatically reduce latency, absorb traffic spikes, and improve overall application performance.
+A CDN reduces latency three ways: geographic proximity (PoP near the user), TLS termination at the edge (no transcontinental handshake), and cache absorption (most bytes never reach origin).
 
-### 2.1 CDN Architecture
+**Origin offload, not cache-hit ratio.** A 95% cache-hit ratio sounds excellent — until the missing 5% are 50 MB API responses and 95% of bytes are still leaving origin. Always measure offload **by bytes**:
 
-A CDN's primary goal is to reduce latency by serving content from geographically proximate Points of Presence (PoPs).
+\[ \text{Origin offload} = 1 - \frac{\text{bytes served by origin}}{\text{total bytes served}} \]
 
-**Why CDNs work**: Speed of light limits latency to ~1ms per 200km of fiber. A user in Sydney connecting to a San Francisco origin faces ~150ms minimum latency. A CDN PoP in Sydney reduces this to <10ms for cached content.
+Targets vary by workload, but an 80%+ byte offload on a content site and 50%+ on a logged-in app are realistic.
 
-**Core Principles:**
+![CDN edge cache decision flow with hit, stale-while-revalidate, and miss paths](./diagrams/cdn-cache-flow-light.svg "Edge cache decision flow — fresh hit serves immediately; stale + SWR serves stale and refreshes in the background; miss falls back to origin with a cacheability gate.")
+![CDN edge cache decision flow with hit, stale-while-revalidate, and miss paths](./diagrams/cdn-cache-flow-dark.svg)
 
-- **Geographic Distribution**: Minimizes physical distance, reducing round-trip time
-- **Static Asset Caching**: Delivers images, CSS, JS from edge cache—orders of magnitude faster than origin
-- **DDoS Protection**: Distributed infrastructure absorbs attacks
+The four cache states a CDN works through:
 
-**Origin Offload vs Cache-Hit Ratio:**
-
-Cache-hit ratio treats all requests equally. **Origin offload** measures percentage of bytes from cache—a more meaningful Key Performance Indicator (KPI) that reflects actual infrastructure savings. A 95% cache-hit ratio with 5% of requests being large API responses could mean only 50% origin offload by bytes.
+1. **Fresh hit** — object in cache, under `max-age`. Serve from PoP, ~5-20 ms.
+2. **Stale hit + SWR** — object in cache, past `max-age`, within `stale-while-revalidate` window. Serve stale immediately; revalidate in background. Defined in [RFC 5861](https://datatracker.ietf.org/doc/html/rfc5861); see also [web.dev: stale-while-revalidate](https://web.dev/articles/stale-while-revalidate).
+3. **Miss** — fetch from origin (ideally over private interconnect), apply `Cache-Control` rules, store and serve.
+4. **Bypass** — `Cache-Control: private`, `no-store`, or non-cacheable status; pass through.
 
 ```javascript title="cdn-strategy.js"
 const cdnStrategy = {
   static: {
-    maxAge: 31536000, // 1 year
     types: ["images", "fonts", "css", "js"],
-    headers: {
-      "Cache-Control": "public, max-age=31536000, immutable",
-    },
+    headers: { "Cache-Control": "public, max-age=31536000, immutable" },
   },
   dynamic: {
-    maxAge: 300, // 5 minutes
     types: ["api", "html"],
-    headers: {
-      "Cache-Control": "public, max-age=300, stale-while-revalidate=60",
-    },
+    headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
   },
   micro: {
-    maxAge: 5, // 5 seconds
     types: ["inventory", "pricing", "news"],
-    headers: {
-      "Cache-Control": "public, max-age=5, stale-while-revalidate=30",
-    },
+    headers: { "Cache-Control": "public, max-age=5, stale-while-revalidate=30" },
   },
 }
 ```
 
-### 2.2 Edge Computing
+`immutable` is the easy case: build artifacts get a content hash in the URL and are cached forever. The interesting cases are dynamic and micro: you trade a few seconds of staleness for orders-of-magnitude origin offload. Even a 5-second `max-age` on a hot product page collapses thousands of identical requests into one origin hit per PoP per 5 seconds.
 
-Edge computing extends CDNs from content delivery to distributed application platforms.
+### Edge computing
 
-**Why edge computing matters**: Traditional CDNs cache static content but still require origin round-trips for any dynamic logic. Edge computing runs code at the PoP, enabling personalization, authentication, and business logic at <10ms latency vs 100-300ms for origin requests.
+Cached objects only solve half the problem; the other half is the dynamic logic — auth checks, A/B variants, geo-personalization — that you used to round-trip to origin. Edge computing platforms run that logic at the PoP.
 
-**Platform landscape (2025)**:
+**Platform landscape (early 2026):**
 
-| Platform               | Runtime        | Cold Start              | Key Strength                  |
-| ---------------------- | -------------- | ----------------------- | ----------------------------- |
-| Cloudflare Workers     | V8 isolates    | ~5ms (effectively zero) | 99.99% warm request rate      |
-| Vercel Edge Functions  | V8 isolates    | 9x faster than Lambda   | Fluid Compute pricing         |
-| Netlify Edge Functions | Deno           | Faster than Node.js     | Netlify ecosystem integration |
-| Fastly Compute         | WebAssembly    | Microseconds            | Multi-language support        |
-| AWS Lambda@Edge        | Node.js/Python | Seconds                 | AWS ecosystem                 |
+| Platform                | Runtime          | Cold start             | Notable property                                                |
+| ----------------------- | ---------------- | ---------------------- | --------------------------------------------------------------- |
+| Cloudflare Workers      | V8 isolate       | <5 ms; 99.99% warm     | "Shard and conquer" routing keeps requests on warm isolates ([Cloudflare](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/)) |
+| Vercel Edge Functions   | V8 isolate       | ~5 ms                  | Same isolate model; tightly integrated with Vercel deploys      |
+| Vercel Fluid Compute    | Node.js / Python | Near-zero (warm reuse) | Long-running serverless context shared across requests          |
+| Netlify Edge Functions  | Deno             | ~10 ms                 | Standard web APIs, TypeScript-native                            |
+| Fastly Compute          | WebAssembly      | Sub-millisecond        | Polyglot via WASM; the most isolation-strict of the four        |
+| AWS Lambda@Edge         | Node.js / Python | Hundreds of ms         | Tied to CloudFront; container-class cold starts; deepest AWS integration |
 
-**Key Use Cases:**
+V8 isolates achieve their cold-start numbers by sharing a single OS process across many tenants and reusing a pre-warmed JS context. The trade-off is the runtime: no filesystem, no raw TCP/UDP, ~128 MB memory cap, ~30 ms CPU per request. Lambda@Edge gives you a real Node/Python container — and pays for it in cold-start latency.
 
-- **Dynamic Content Acceleration**: Perform personalization logic closer to users
-- **A/B Testing**: Execute variant selection at edge without origin round-trip
-- **Edge Authentication**: Block invalid requests immediately, protecting origin
+![Decision tree for where to run code: edge worker, BFF in VPC, or origin service](./diagrams/edge-vs-origin-decision-light.svg "Where to run code — V8 isolates and WASM at the edge; BFFs near data; origin services for stateful workloads or anything that needs filesystem / TCP / native deps.")
+![Decision tree for where to run code: edge worker, BFF in VPC, or origin service](./diagrams/edge-vs-origin-decision-dark.svg)
+
+**Useful at the edge:**
+
+- Auth token validation (reject early; protect origin)
+- Geo-routing (`cf-ipcountry`, `x-vercel-ip-country`)
+- A/B variant assignment and cookie stamping
+- Simple rate limiting (per-IP, per-token)
+- HTML rewrites (header / footer / banners)
 
 ```javascript title="edge-worker.js" collapse={1-3}
 addEventListener("fetch", (event) => {
@@ -214,12 +221,10 @@ addEventListener("fetch", (event) => {
 async function handleRequest(request) {
   const url = new URL(request.url)
 
-  // A/B testing at the edge
   if (url.pathname === "/homepage") {
     const variant = getABTestVariant(request)
-    const content = await generatePersonalizedContent(request, variant)
-
-    return new Response(content, {
+    const html = await renderPersonalized(request, variant)
+    return new Response(html, {
       headers: {
         "content-type": "text/html",
         "cache-control": "public, max-age=300",
@@ -228,466 +233,318 @@ async function handleRequest(request) {
     })
   }
 
-  // Geo-routing and localized caching
   const country = request.headers.get("cf-ipcountry")
-  const localizedContent = await getLocalizedContent(country)
-
-  return new Response(localizedContent, {
-    headers: {
-      "content-type": "text/html",
-      "cache-control": "public, max-age=600",
-    },
+  return new Response(await getLocalizedContent(country), {
+    headers: { "content-type": "text/html", "cache-control": "public, max-age=600" },
   })
 }
 ```
 
-**Architecture Shift**: The CDN evolves from cache to application perimeter. The question changes from "How do we make the origin faster?" to "How much can we prevent from ever hitting the origin?"
+> [!CAUTION]
+> Edge runtimes are a different platform, not "Node.js with a CDN in front". Anything that touches `fs`, raw TCP, native modules, or `eval` belongs in a regular origin service or a [BFF](#backend-for-frontend-bff). Plan the boundary before you start porting routes.
 
-**Edge computing limitations**: No filesystem access, no TCP/UDP sockets (except Deno Deploy), constrained memory (2MB-3GB depending on platform), no dynamic code execution (eval/new Function), limited execution time (1ms-30s). These constraints exist because edge runtimes prioritize isolation and fast cold starts over flexibility.
+## Payload optimization
 
-## Part 3: Payload Optimization
+Bytes you didn't send are the cheapest bytes. Compression sits between the application and the wire and is one of the highest-leverage configuration changes in the stack.
 
-### 3.1 Compression Strategy
+### Compression strategy
 
-The choice of algorithm involves a trade-off between compression ratio and speed, requiring different strategies for static and dynamic content.
+Three algorithms matter today:
 
-**Why multiple algorithms exist**: Gzip (1992) optimized for the hardware of its era. Brotli (2015) was designed by Google specifically for web content, achieving 15-27% better compression than gzip by using a pre-defined dictionary of common web strings. Zstandard (2016) from Facebook prioritizes compression speed while matching Brotli's ratios.
+- **Gzip** (1992, [RFC 1952](https://datatracker.ietf.org/doc/html/rfc1952)) — universal floor.
+- **Brotli** (2015, [RFC 7932](https://datatracker.ietf.org/doc/html/rfc7932)) — Google-designed for web payloads, ships with a static dictionary of common web tokens.
+- **Zstandard** (2016, [RFC 8878](https://datatracker.ietf.org/doc/html/rfc8878)) — Facebook-designed, prioritizes speed at gzip-class ratios.
 
-**Static Content (Pre-compression):**
-Use the most effective algorithm at highest quality since compression time doesn't affect users:
+The right choice depends on whether the bytes are pre-compressed once at build time or compressed on the fly per request:
 
-- Brotli level 11 produces smallest files (15-27% smaller than gzip)
-- Pre-compress during build: `.js.br`, `.css.br`
-- Server serves appropriate pre-compressed file based on Accept-Encoding
+| Algorithm     | Static (build-time) | Dynamic (per request) | Browser support (Mar 2026, [caniuse](https://caniuse.com/brotli)) | When to reach for it                                  |
+| ------------- | ------------------- | --------------------- | ----------------------------------------------------------------- | ----------------------------------------------------- |
+| **Gzip**       | Level 6-9          | Level 6               | ~99%                                                              | Universal fallback                                    |
+| **Brotli**     | Level 11           | Level 4-5             | ~96%                                                              | Default for static text; dynamic when CPU allows      |
+| **Zstandard**  | Level 19           | Level 3-12            | ~83% ([caniuse](https://caniuse.com/zstd))                        | Dynamic content where Brotli's encoder is too slow    |
 
-**Dynamic Content (On-the-fly):**
-Compression happens in real-time, so speed matters ([compression benchmarks](https://paulcalvano.com/2024-03-19-choosing-between-gzip-brotli-and-zstandard-compression/)):
+Brotli typically produces 15-25% smaller output than gzip for HTML/CSS/JS ([benchmarks](https://paulcalvano.com/2024-03-19-choosing-between-gzip-brotli-and-zstandard-compression/)); Zstandard matches gzip on ratio while compressing meaningfully faster. **Brotli level 11 is for pre-compression only** — its encoder is far too CPU-heavy for the request path. For dynamic responses, Brotli 4-5 (or Zstandard) tends to be the right balance.
 
-- Brotli level 4-5: Better than gzip at similar speed
-- Zstandard level 3-12: 42% faster than Brotli at similar ratios
+**Wire reality** ([HTTP Archive Web Almanac 2025 — CDN](https://almanac.httparchive.org/en/2025/cdn)):
 
-**Edge Compression:**
-Offload compression to CDN to free origin CPU. CDNs can cache compressed variants and serve the appropriate one based on client support.
+- **CDN-served bytes**: Brotli 46%, gzip 42%, Zstandard 12% (Zstandard quadrupled in one year).
+- **Origin-served bytes**: gzip 61%, Brotli 39%, Zstandard rounding error.
 
-**Browser support (2025)**: Brotli has 96% global support (all modern browsers). Zstandard has 76% support (Chrome 123+, Firefox 126+, Edge 123+; Safari can decompress but doesn't request it).
+Origins lag the edge by years. The fastest one-line win in many stacks is enabling `brotli_static on` and shipping pre-compressed `.br` artifacts:
 
-### 3.2 Compression Algorithm Matrix
-
-| Algorithm     | Static    | Dynamic    | Browser Support (2025) | Trade-off                                         |
-| ------------- | --------- | ---------- | ---------------------- | ------------------------------------------------- |
-| **Gzip**      | Level 6-9 | Level 6    | 99%+                   | Universal fallback, ~30% worse than Brotli        |
-| **Brotli**    | Level 11  | Level 4-5  | 96%                    | Best ratio, slow at high levels                   |
-| **Zstandard** | Level 19  | Level 3-12 | 76%                    | 42% faster compression than Brotli, similar ratio |
-
-**CDN adoption (2025)**: CDN servers use Brotli (46%), gzip (42%), Zstandard (12%). Origin servers lag behind: gzip (61%), Brotli (39%), Zstandard minimal. ~30% of sites still use gzip level 1, leaving 25-30% compression gains on the table.
-
-**Nginx Configuration:**
-
-```nginx
+```nginx title="nginx.conf"
 http {
-    # Brotli compression
     brotli on;
-    brotli_comp_level 6;
+    brotli_static on;            # serve pre-compressed .br files when present
+    brotli_comp_level 5;         # dynamic responses only
     brotli_types
         application/javascript
         application/json
         text/css
-        text/html;
+        text/html
+        image/svg+xml;
 
-    # Gzip fallback
     gzip on;
+    gzip_static on;
     gzip_vary on;
     gzip_types
         application/javascript
+        application/json
         text/css
         text/html;
-
-    # Static pre-compressed files
-    gzip_static on;
-    brotli_static on;
 }
 ```
 
-## Part 4: Origin Infrastructure
+> [!TIP]
+> Pre-compress at build time and let the server pick. `gzip_static on` + `brotli_static on` mean Nginx will serve `app.js.br` to a Brotli-capable client, `app.js.gz` to a gzip-only client, and the raw `app.js` if neither is acceptable — without re-encoding on the request path.
 
-### 4.1 Load Balancing Algorithms
+Safari is the awkward case for Zstandard: until iOS 26.3 it does not advertise `zstd` in `Accept-Encoding`, so falling back to Brotli for Safari clients is automatic and lossless ([WebKit standards-positions #168](https://github.com/WebKit/standards-positions/issues/168)).
 
-**Why algorithm choice matters**: The wrong algorithm can create hot spots (overloaded servers while others idle) or break session state. The right choice depends on your traffic pattern and statefulness requirements.
+## Origin infrastructure
 
-**Static Algorithms:**
+Once a request escapes the CDN, the origin's job is to answer in <100 ms p50. That budget breaks down into TLS termination (negligible if reused), routing (load balancer), business logic (app tier), and data access (caches, then DB).
 
-- **Round Robin**: Simple sequential distribution; best for homogeneous servers with stateless workloads
-- **Weighted Round Robin**: Assigns weight based on server capacity; use when servers have different specs
+### Load balancing
 
-**Dynamic Algorithms:**
+The choice of algorithm is a function of how stateful your traffic is and how homogeneous your fleet is.
 
-- **Least Connections**: Routes to server with fewest active connections; better for long-lived connections (WebSocket, streaming)
-- **Least Response Time**: Routes to fastest-responding server; best for latency optimization when backend performance varies
+**Static algorithms** (no per-server state):
 
-**Session Persistence:**
+- **Round robin** — homogeneous fleet, stateless workloads. Simple, fair, oblivious to actual load.
+- **Weighted round robin** — heterogeneous instance types; assign weight in proportion to capacity.
 
-- **Source IP Hash**: Maps client IP to specific server for session continuity; breaks when users are behind NAT or proxies
-- **Cookie-based**: More reliable than IP hash but requires cookie support
+**Dynamic algorithms** (look at server state):
 
-### 4.2 In-Memory Caching
+- **Least connections** — best for long-lived connections (WebSocket, streaming, long polling). A round-robin LB will pile new connections on already-saturated servers.
+- **Least response time** — favors fast-responding nodes; useful when backend variance is high (e.g., heterogeneous DB shards behind a thin app tier).
 
-An in-memory caching layer (Redis, Memcached) stores expensive query results, serving subsequent requests from RAM (Random Access Memory).
+**Session persistence** (for stateful apps):
 
-**Why in-memory caching works**: RAM access is ~100,000x faster than SSD (~100ns vs ~10ms). For read-heavy workloads, caching database query results in RAM can reduce p99 latency from 100ms to <1ms.
+- **Source-IP hash** — cheap, but breaks behind NAT or corporate proxies (whole offices appear as one IP).
+- **Cookie-based** — LB stamps a cookie, routes by cookie. Resilient to client-IP changes; preferred for sticky sessions.
 
-**Redis vs Memcached:**
+> [!WARNING]
+> Session persistence is a leak abstraction. Every server that holds session state is a single point of failure for those users. Prefer stateless app tiers + a shared session store (Redis) so the LB can route freely.
+
+### In-memory caching
+
+A Redis or Memcached layer lets you serve repeated reads from RAM instead of re-running a query plan against the database. The latency math is brutal in your favor: RAM access is on the order of 100 ns per Jeff Dean's [Latency Numbers Every Programmer Should Know](https://gist.github.com/jboner/2841832); an SSD random read is ~100 µs (1000× slower), and a query on a large table that misses the buffer pool is milliseconds at minimum.
 
 | Aspect          | Memcached                          | Redis                                       |
 | --------------- | ---------------------------------- | ------------------------------------------- |
-| **Data model**  | Key-value only                     | Strings, hashes, lists, sets, sorted sets   |
-| **Threading**   | Multi-threaded                     | Single-threaded (+ I/O threads in Redis 6+) |
+| **Data model**  | Key → opaque blob                  | Strings, hashes, lists, sets, sorted sets, streams |
+| **Threading**   | Multi-threaded                     | Single-threaded core (+ I/O threads in Redis 6+, optional cluster) |
 | **Persistence** | None (volatile)                    | RDB snapshots, AOF logging                  |
 | **Replication** | None built-in                      | Primary-replica, Redis Cluster              |
-| **Use case**    | Simple caching, maximum throughput | Complex caching, data structures, pub/sub   |
+| **Use case**    | Pure cache; max throughput         | Cache + data structures + pub/sub + streams |
 
-**When to use Memcached**: Pure caching with simple key-value access, maximum multi-core utilization, no persistence requirements.
-
-**When to use Redis**: Need data structures (leaderboards with sorted sets, rate limiting with atomic increments), persistence, replication, or pub/sub.
+Reach for Memcached for the simplest case: opaque blobs, ephemeral, throughput-bound. Reach for Redis when you need the data structures (rate limiting via `INCR` + `EXPIRE`, leaderboards via sorted sets, token buckets, queues) or when you need persistence and replication.
 
 ```javascript title="cache-helper.js"
-const getCachedData = async (key, fetchFunction, ttl = 3600) => {
+async function getCached(key, fetchFn, ttlSeconds = 3600) {
   try {
     const cached = await redis.get(key)
-    if (cached) {
-      return JSON.parse(cached)
-    }
+    if (cached) return JSON.parse(cached)
 
-    const data = await fetchFunction()
-    await redis.setex(key, ttl, JSON.stringify(data))
+    const data = await fetchFn()
+    await redis.setex(key, ttlSeconds, JSON.stringify(data))
     return data
-  } catch (error) {
-    return await fetchFunction()
+  } catch {
+    return fetchFn()
   }
 }
 ```
 
-### 4.3 Database Optimization
+> [!IMPORTANT]
+> The cache must never become a hard dependency for correctness. The `catch` block above degrades gracefully to the origin call when Redis is unavailable. Treat the cache as a performance optimization, not a database.
 
-**Why database optimization matters**: Database queries are often the largest contributor to TTFB. A single unindexed query can take 100ms+ while the same query with proper indexing takes <1ms.
+### Database optimization
 
-**Query Optimization:**
+Under the cache layer, three classic levers move the needle:
 
-- Never use `SELECT *`; request only needed columns (reduces I/O and network transfer)
-- Use `EXPLAIN` (PostgreSQL) or `EXPLAIN ANALYZE` to inspect execution plans
-- Ensure JOIN columns are indexed; missing indexes on JOIN columns cause full table scans
+- **Stop using `SELECT *`.** Wide row reads waste I/O, network, and parser time. Project only the columns you need; index-only scans become possible.
+- **`EXPLAIN ANALYZE` every hot query** before declaring it done. The plan's row estimate against the actual row count is the fastest way to spot a missing index, a stale statistic, or a join order bug.
+- **Index for `WHERE`, `JOIN`, and `ORDER BY` predicates.** Each new index slows writes — partial indexes (`WHERE status = 'active'`) and covering indexes (include the projected columns) often beat broad indexes.
 
-**Strategic Indexing:**
+**Read replicas** scale read throughput at the cost of replication lag. Routing read traffic to replicas is fine when the application can tolerate "eventually consistent" reads (product detail pages, search results); use the primary for read-after-write paths (just-saved cart, just-edited profile).
 
-- Index columns in WHERE, JOIN, ORDER BY clauses
-- Avoid over-indexing: each index slows writes and consumes storage
-- Consider partial indexes for filtered queries (e.g., `WHERE status = 'active'`)
+**Connection pooling** is non-negotiable at any scale: opening a Postgres connection costs ~10-50 ms (TCP + auth + session setup) and consumes ~10 MB on the server side. Pool with [PgBouncer](https://www.pgbouncer.org/) (transaction-mode for OLTP) or [ProxySQL](https://proxysql.com/) for MySQL.
 
-**Read Replicas:**
+### Caching tiers
 
-- Direct writes to primary, distribute reads across replicas
-- Replication lag trade-off: replicas may be milliseconds to seconds behind primary
-- Use for read-heavy workloads where eventual consistency is acceptable
+Putting it together, a request that misses the browser cache might still serve from any of half a dozen tiers before reaching the database:
 
-**Connection Pooling:**
+![Multi-tier caching hierarchy from browser memory through service worker, CDN, reverse proxy, in-memory store, to database](./diagrams/caching-tiers-light.svg "Caching tiers — browser memory, HTTP disk, Service Worker / IndexedDB, CDN PoP, edge KV, reverse proxy, Redis / Memcached, then database. Latency widens by 10-1000× per layer descended.")
+![Multi-tier caching hierarchy from browser memory through service worker, CDN, reverse proxy, in-memory store, to database](./diagrams/caching-tiers-dark.svg)
 
-- Maintain pool of connections for reuse; creating new connections takes 10-50ms
-- Size pool appropriately: too small causes queueing, too large wastes memory
-- Tools: PgBouncer (PostgreSQL), ProxySQL (MySQL)
+The number on each tier is the median read latency once warm. Each descent is roughly an order of magnitude slower, which is why the engineering question is rarely "should we cache this" and usually "at which tier".
 
-## Part 5: Modern Architectural Patterns
+For a deeper treatment of cache invalidation strategies (LRU vs LFU, write-through vs write-back, stampede control), see the [caching fundamentals article](../caching-fundamentals-and-strategies/README.md).
 
-### 5.1 Islands Architecture
+## Application architecture levers
 
-Renders pages as static HTML by default, hydrating only interactive components (islands) on demand ([Astro Islands](https://docs.astro.build/en/concepts/islands/)).
+Two patterns sit at the boundary between infrastructure and application code and matter enough to mention here: BFFs and private VPC routing.
 
-**Why islands exist**: Traditional Single Page Applications (SPAs) ship the entire application as JavaScript, even for mostly-static content. Islands architecture recognizes that most content doesn't need interactivity—only specific "islands" (search boxes, comment sections, shopping carts) need JavaScript.
+### Backend for Frontend (BFF)
 
-**Core Principles:**
+In a microservices system, a single page often needs data from 5-10 services. Letting the browser make all of those calls produces three failures:
 
-- **Static by Default**: No JavaScript required for initial display
-- **Selective Hydration**: Interactive components hydrate based on triggers (`client:load`, `client:visible`, `client:idle`)
-- **Progressive Enhancement**: Functionality adds incrementally; content is accessible without JavaScript
+1. **Waterfall latency** — calls often depend on each other; serialized request chains compound RTT.
+2. **Over-fetching** — every service returns its full response model; the browser discards most of it.
+3. **Partial-failure handling** — every call can fail independently; the UI has to reason about a combinatorial state space.
 
-```astro title="index.astro"
----
-const posts = await getPosts()
----
+A BFF is a thin server-side aggregator owned by the same team as the frontend. It runs colocated with the services it calls (same VPC, ideally same region), composes responses, and returns one optimized payload. See the [API gateway patterns article](../api-gateway-patterns/README.md) for where BFFs fit alongside gateways and meshes.
 
-<html>
-  <body>
-    <!-- Static HTML - no JavaScript -->
-    <main>
-      {
-        posts.map((post) => (
-          <article>
-            <h2>{post.title}</h2>
-            <p>{post.excerpt}</p>
-          </article>
-        ))
-      }
-    </main>
-
-    <!-- Interactive islands - hydrated on demand -->
-    <SearchComponent client:load />
-    <NewsletterSignup client:visible />
-    <CommentsSection client:idle />
-  </body>
-</html>
-```
-
-**Performance Benefits:**
-
-- Initial bundle size: 50-80% reduction
-- Near-instant TTI for static content
-- Full SSR for SEO
-
-### 5.2 Resumability (Qwik)
-
-Zero-hydration approach: serializes execution state into HTML and resumes exactly where server left off on user interaction ([Qwik Resumability](https://qwik.dev/docs/concepts/resumable/)).
-
-**Why resumability matters**: Hydration requires downloading, parsing, and executing JavaScript to rebuild the component tree—even for components the user never interacts with. Resumability skips this entirely by serializing the application state into the HTML, loading component code only when the user interacts with that specific component.
-
-**Key Advantages:**
-
-- Zero JavaScript execution on initial load
-- Instant interactivity on first interaction (no hydration delay)
-- Time to Interactive (TTI) doesn't degrade with application size
-
-**Trade-off**: Serializing state increases HTML size. Works best for content-heavy sites with occasional interactivity; less suited for highly interactive applications where most components will be used.
-
-### 5.3 Backend for Frontend (BFF)
-
-Creates specialized backend services that aggregate data from multiple microservices into optimized responses.
-
-**Why BFF exists**: In microservices architectures, a single page may require data from 5-10 services. Having the frontend make all these calls creates: (1) waterfall latency as calls often depend on each other, (2) over-fetching as each service returns its full response, (3) complexity in handling partial failures. A BFF aggregates these calls server-side, returning a single optimized payload.
-
-**Performance Impact:**
-
-| Metric             | Without BFF  | With BFF     | Improvement        |
-| ------------------ | ------------ | ------------ | ------------------ |
-| **Payload Size**   | 150-200KB    | 80-120KB     | 30-50% reduction   |
-| **API Requests**   | 5-8 requests | 1-2 requests | 60-80% reduction   |
-| **Response Time**  | 800-1200ms   | 200-400ms    | 60-75% faster      |
-| **Cache Hit Rate** | 30-40%       | 70-85%       | 40-45% improvement |
-
-```javascript title="product-bff.js"
+```javascript title="product-page-bff.js"
 class ProductPageBFF {
-  async getProductPageData(productId, userId) {
+  async getPageData(productId, userId) {
     const [product, reviews, inventory, recommendations] = await Promise.all([
       this.productService.getProduct(productId),
       this.reviewService.getReviews(productId),
       this.inventoryService.getStock(productId),
       this.recommendationService.getRecommendations(productId, userId),
     ])
-
     return {
-      product: this.transformProduct(product),
-      reviews: this.optimizeReviews(reviews),
-      availability: this.formatAvailability(inventory),
-      recommendations: this.filterRecommendations(recommendations),
+      product: shape(product),
+      reviews: shape(reviews),
+      availability: shape(inventory),
+      recommendations: shape(recommendations),
     }
   }
 }
 ```
 
-### 5.4 Private VPC Routing
+Typical BFF wins on a many-service page: 60-80% fewer browser-initiated requests, 30-50% smaller payload over the wire (because the BFF only returns the fields the page uses), and noticeably better cache hit rates on the aggregated response. Exact numbers depend heavily on how chatty the underlying services are.
 
-Differentiate network paths for client-side and server-side data fetching.
+### Private VPC routing for server-side fetches
 
-**Why private routing matters**: Client-side API calls traverse the public internet (100-300ms latency, egress costs, exposure to attacks). Server-side calls within a Virtual Private Cloud (VPC) use internal networking (5-20ms latency, no egress costs, isolated from internet).
+A server-side fetch from a Next.js / Remix / Astro server to your own API has two paths:
 
-| Fetching Context | Network Path                   | Performance | Security |
-| ---------------- | ------------------------------ | ----------- | -------- |
-| **Client-Side**  | Public Internet → CDN → Origin | 100-300ms   | Standard |
-| **Server-Side**  | Private VPC → Internal Network | 5-20ms      | Enhanced |
+1. **Public path** — `https://api.example.com` resolves to the CDN, traverses the public internet, terminates TLS at the edge, and reaches origin. Round trip: 100-300 ms, billable egress.
+2. **Private path** — `https://api.internal.example.com` resolves to a VPC-internal address; both endpoints are in the same VPC. Round trip: 5-20 ms, no public egress.
 
-**Implementation:**
+Use the public path for client-side fetches (browsers can't see your VPC); use the private path for server-rendered pages.
 
 ```javascript title="api-client.js"
-class APIClient {
+class ApiClient {
   constructor() {
     this.publicUrl = process.env.NEXT_PUBLIC_API_URL
     this.privateUrl = process.env.API_URL_PRIVATE
   }
 
-  // Client-side API calls (public internet)
-  async clientFetch(endpoint, options = {}) {
-    return fetch(`${this.publicUrl}${endpoint}`, options)
+  clientFetch(path, init) {
+    return fetch(`${this.publicUrl}${path}`, init)
   }
 
-  // Server-side API calls (private VPC)
-  async serverFetch(endpoint, options = {}) {
-    return fetch(`${this.privateUrl}${endpoint}`, {
-      ...options,
-      headers: {
-        "X-Internal-Request": "true",
-        ...options.headers,
-      },
+  serverFetch(path, init) {
+    return fetch(`${this.privateUrl}${path}`, {
+      ...init,
+      headers: { "X-Internal-Request": "true", ...init?.headers },
     })
   }
 }
 ```
 
-**Performance Impact:**
+The win is large (often an order of magnitude on TTFB for SSR) but only available if both the renderer and the API live inside the same network boundary.
 
-- TTFB: 85-95% faster (5-20ms vs 150-300ms)
-- Cost: 60-80% savings on egress
-- Security: VPC isolation
+### Modern rendering patterns
 
-## Part 6: Multi-Layer Caching
+Two architectural choices sit further upstream and shape how much work the connection layer is even responsible for:
 
-### 6.1 Service Worker Caching
+- **Islands architecture** ([Astro Islands](https://docs.astro.build/en/concepts/islands/)) ships static HTML by default and hydrates only marked components. For content sites this typically removes a large majority of the JavaScript that would otherwise traverse the connection layer. See [bundle splitting strategies](../bundle-splitting-strategies/README.md) for the broader story.
+- **Resumability** ([Qwik](https://qwik.dev/docs/concepts/resumable/)) serializes execution state into the HTML and skips hydration entirely, lazy-loading component code only on first interaction. The trade-off is a heavier HTML payload; it works best for content-heavy sites with sparse interactivity.
+
+Both patterns are out of scope for this article; pick them up alongside the [JavaScript optimization](../web-performance-javascript-optimization/README.md) entry of the series.
+
+## Multi-layer client caching
+
+Three browser-side tiers extend the multi-layer model into the user's device:
+
+- **HTTP cache** — controlled by `Cache-Control`. Free, default, lives across tabs and sessions.
+- **Service Worker cache** — programmatic. Lets you intercept requests, choose strategies (cache-first for assets, network-first for API, stale-while-revalidate for everything else), and ship offline experiences.
+- **IndexedDB** — for structured data larger than `localStorage`'s 5-10 MB cap (the [storage estimate](https://developer.mozilla.org/docs/Web/API/StorageManager/estimate) varies by browser and origin storage pressure).
 
 ```javascript title="service-worker.js" collapse={1-4}
 import { registerRoute } from "workbox-routing"
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies"
 import { ExpirationPlugin } from "workbox-expiration"
 
-// Cache-first for static assets
 registerRoute(
   ({ request }) => request.destination === "image" || request.destination === "font",
   new CacheFirst({
     cacheName: "static-assets",
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 100,
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-      }),
-    ],
+    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 })],
   }),
 )
 
-// Stale-while-revalidate for CSS/JS
 registerRoute(
   ({ request }) => request.destination === "script" || request.destination === "style",
-  new StaleWhileRevalidate({
-    cacheName: "bundles",
-  }),
+  new StaleWhileRevalidate({ cacheName: "bundles" }),
 )
 
-// Network-first for API responses
 registerRoute(
   ({ url }) => url.pathname.startsWith("/api/"),
   new NetworkFirst({
     cacheName: "api-cache",
     networkTimeoutSeconds: 3,
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 5 * 60,
-      }),
-    ],
+    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 5 * 60 })],
   }),
 )
 ```
 
-### 6.2 IndexedDB for Large Data
+> [!CAUTION]
+> Service Workers are sticky. A bad service worker can pin a broken version of your site for users until they manually clear storage. Always ship a kill-switch route and version your caches.
 
-```javascript title="data-cache.js"
-class DataCache {
-  async cacheApiResponse(url, data, ttl = 300000) {
-    const transaction = this.db.transaction(["apiResponses"], "readwrite")
-    const store = transaction.objectStore("apiResponses")
+## Measuring the stack
 
-    await store.put({
-      url,
-      data,
-      timestamp: Date.now(),
-      ttl,
-    })
-  }
+Tuning without measurement is guesswork. Two sources of truth, paired:
 
-  async getCachedApiResponse(url) {
-    const result = await this.db.get("apiResponses", url)
-
-    if (result && Date.now() - result.timestamp < result.ttl) {
-      return result.data
-    }
-    return null
-  }
-}
-```
-
-## Part 7: Performance Monitoring
-
-### 7.1 RUM-Based Monitoring
+- **Real User Monitoring (RUM)** — what actual users experienced. Use [`PerformanceObserver`](https://developer.mozilla.org/docs/Web/API/PerformanceObserver) for [LCP](https://web.dev/articles/lcp), [INP](https://web.dev/articles/inp), [CLS](https://web.dev/articles/cls), [TTFB](https://web.dev/articles/ttfb). Sample at least the 75th percentile (the bar Core Web Vitals is graded against).
+- **Lab synthetics** — [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) on every PR, run from a known device profile and network throttling. Catches regressions before they ship.
 
 ```javascript title="rum-monitor.js" collapse={1-14, 46-56}
-class RUMBudgetMonitor {
+class RumBudgetMonitor {
   constructor() {
-    this.budgets = {
-      lcp: 2500,
-      fcp: 1800,
-      inp: 200,
-      cls: 0.1,
-      ttfb: 600,
-    }
-
+    this.budgets = { lcp: 2500, fcp: 1800, inp: 200, cls: 0.1, ttfb: 600 }
     this.violations = []
-    this.initMonitoring()
+    this.init()
   }
 
-  initMonitoring() {
-    if ("PerformanceObserver" in window) {
-      // LCP monitoring
-      const lcpObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries()
-        const lastEntry = entries[entries.length - 1]
+  init() {
+    if (!("PerformanceObserver" in window)) return
 
-        if (lastEntry.startTime > this.budgets.lcp) {
-          this.recordViolation("LCP", lastEntry.startTime, this.budgets.lcp)
-        }
-      })
-      lcpObserver.observe({ entryTypes: ["largest-contentful-paint"] })
+    new PerformanceObserver((list) => {
+      const last = list.getEntries().at(-1)
+      if (last && last.startTime > this.budgets.lcp) {
+        this.record("LCP", last.startTime, this.budgets.lcp)
+      }
+    }).observe({ entryTypes: ["largest-contentful-paint"] })
 
-      // INP monitoring
-      const inpObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries()
-        const maxInp = Math.max(...entries.map((entry) => entry.value))
+    new PerformanceObserver((list) => {
+      const max = Math.max(...list.getEntries().map((e) => e.value))
+      if (max > this.budgets.inp) this.record("INP", max, this.budgets.inp)
+    }).observe({ entryTypes: ["interaction"] })
 
-        if (maxInp > this.budgets.inp) {
-          this.recordViolation("INP", maxInp, this.budgets.inp)
-        }
-      })
-      inpObserver.observe({ entryTypes: ["interaction"] })
-
-      // CLS monitoring
-      const clsObserver = new PerformanceObserver((list) => {
-        let clsValue = 0
-        for (const entry of list.getEntries()) {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value
-          }
-        }
-
-        if (clsValue > this.budgets.cls) {
-          this.recordViolation("CLS", clsValue, this.budgets.cls)
-        }
-      })
-      clsObserver.observe({ entryTypes: ["layout-shift"] })
-    }
+    new PerformanceObserver((list) => {
+      let cls = 0
+      for (const entry of list.getEntries()) {
+        if (!entry.hadRecentInput) cls += entry.value
+      }
+      if (cls > this.budgets.cls) this.record("CLS", cls, this.budgets.cls)
+    }).observe({ entryTypes: ["layout-shift"] })
   }
 
-  recordViolation(metric, actual, budget) {
-    this.violations.push({
-      metric,
-      actual,
-      budget,
-      timestamp: Date.now(),
-      url: window.location.href,
-    })
-
-    this.sendViolation({ metric, actual, budget })
+  record(metric, actual, budget) {
+    const violation = { metric, actual, budget, ts: Date.now(), url: location.href }
+    this.violations.push(violation)
+    this.send(violation)
   }
 }
 ```
 
-### 7.2 CI/CD Integration
+For end-to-end RUM, the `web-vitals` library handles the metric definitions and edge cases for you; see [client-side performance monitoring](../performance-monitoring-client/README.md).
 
-**Lighthouse CI:**
-
-```yaml
-# .github/workflows/performance.yml
+```yaml title=".github/workflows/performance.yml"
 name: Performance Audit
 on: [pull_request, push]
 
@@ -695,138 +552,128 @@ jobs:
   lighthouse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
+      - uses: actions/checkout@v4
       - name: Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v10
+        uses: treosh/lighthouse-ci-action@v12
         with:
-          configPath: "./lighthouserc.json"
+          configPath: ./lighthouserc.json
           uploadArtifacts: true
 ```
 
-**Bundle Size Monitoring:**
-
-```javascript
-// .size-limit.js
+```javascript title=".size-limit.js"
 module.exports = [
-  {
-    name: "Main Bundle",
-    path: "dist/main.js",
-    limit: "150 KB",
-    gzip: true,
-  },
-  {
-    name: "CSS Bundle",
-    path: "dist/styles.css",
-    limit: "50 KB",
-    gzip: true,
-  },
+  { name: "Main Bundle", path: "dist/main.js", limit: "150 KB", gzip: true },
+  { name: "CSS Bundle", path: "dist/styles.css", limit: "50 KB", gzip: true },
 ]
 ```
 
-## Implementation Checklist
+A bundle-size budget enforced in CI is the cheapest way to keep the JS work in [the JavaScript optimization article](../web-performance-javascript-optimization/README.md) from regressing.
 
-### Connection Layer
+## Implementation checklist
 
-- [ ] Configure HTTPS DNS records with `alpn="h3"`
-- [ ] Enable HTTP/3 on CDN/origin
-- [ ] Upgrade to TLS 1.3 with 0-RTT resumption
-- [ ] Implement DNS prefetching for third-party domains
+### Connection layer
 
-### Edge Network
+- [ ] Publish HTTPS DNS records with `alpn="h3,h2"` and IP hints.
+- [ ] Enable HTTP/3 on CDN and origin; keep TCP fallback healthy.
+- [ ] Negotiate TLS 1.3 by default; enable hybrid post-quantum (X25519MLKEM768) where supported.
+- [ ] Allow 0-RTT for idempotent endpoints only; verify replay handling.
 
-- [ ] Configure CDN with appropriate TTLs
-- [ ] Implement edge functions for dynamic personalization
-- [ ] Set up micro-caching for semi-dynamic content
-- [ ] Monitor origin offload percentage
+### Edge network
+
+- [ ] Set `Cache-Control` deliberately per route (`immutable` for hashed assets, `s-maxage` + `stale-while-revalidate` for HTML/API).
+- [ ] Track origin offload **by bytes** in CDN dashboards, not just hit ratio.
+- [ ] Move latency-sensitive logic (auth, geo, A/B, simple rewrites) to edge functions.
+- [ ] Document the edge runtime constraint set so teams don't ship code that won't run there.
 
 ### Compression
 
-- [ ] Pre-compress static assets with Brotli level 11
-- [ ] Configure dynamic compression at level 4-5
-- [ ] Offload compression to CDN where possible
-- [ ] Verify compression headers in responses
+- [ ] Pre-compress static assets with Brotli 11 at build time.
+- [ ] Configure dynamic compression at Brotli 4-5 (or Zstandard 3-12 where supported).
+- [ ] Verify `Content-Encoding: br` (or `zstd`) in production responses.
+- [ ] Confirm Safari fallback to Brotli when serving Zstandard.
 
-### Origin Infrastructure
+### Origin infrastructure
 
-- [ ] Implement Redis/Memcached caching layer
-- [ ] Configure read replicas for databases
-- [ ] Set up connection pooling
-- [ ] Optimize database queries and indexes
+- [ ] Match LB algorithm to traffic shape (least-conns for long-lived; weighted RR for heterogeneous).
+- [ ] Front databases with Redis/Memcached for hot reads; degrade gracefully on cache miss.
+- [ ] Use connection pooling (PgBouncer / ProxySQL); never open a new DB connection per request.
+- [ ] Route SSR fetches over the private VPC; reserve the public path for browser clients.
 
-### Architecture
+### Measurement
 
-- [ ] Evaluate Islands Architecture for content sites
-- [ ] Implement BFF pattern for microservices aggregation
-- [ ] Configure private VPC routing for server-side fetches
-- [ ] Set up multi-layer caching (SW + IndexedDB + CDN)
-
-### Monitoring
-
-- [ ] Deploy RUM for real-user metrics
-- [ ] Integrate Lighthouse CI in pipelines
-- [ ] Set up performance budgets with size-limit
-- [ ] Configure automated alerting
+- [ ] RUM with `PerformanceObserver` or `web-vitals`, sampled at p75.
+- [ ] Lighthouse CI on every PR with throttled profiles.
+- [ ] Bundle-size budgets enforced in CI.
+- [ ] Server-Timing headers emitted by the BFF / origin so RUM can attribute TTFB to the right tier.
 
 ## Appendix
 
 ### Prerequisites
 
-- Understanding of HTTP request/response lifecycle
-- Familiarity with DNS, TCP/IP, and TLS concepts
-- Basic knowledge of caching principles (TTL, cache invalidation)
-- Experience with CDN configuration
+- Comfort with the HTTP request/response lifecycle.
+- Familiarity with DNS, TCP/IP, and TLS at the protocol-mechanism level.
+- Working knowledge of caching primitives (TTL, invalidation, stampede control).
+- Experience configuring at least one CDN (Cloudflare, Fastly, CloudFront, Akamai).
 
 ### Terminology
 
-- **TTFB (Time to First Byte)**: Time from request initiation to receiving the first byte of response
-- **RTT (Round-Trip Time)**: Time for a packet to travel to a destination and back
-- **PoP (Point of Presence)**: CDN edge location that serves content to nearby users
-- **QUIC**: UDP-based transport protocol designed by Google, now standardized as RFC 9000
-- **HOL Blocking (Head-of-Line Blocking)**: When a single slow/lost packet delays all subsequent packets
-- **0-RTT**: Zero round-trip time resumption, allowing encrypted data in the first packet for returning connections
-- **BFF (Backend for Frontend)**: A specialized backend service that aggregates data for a specific frontend client
-- **VPC (Virtual Private Cloud)**: Isolated cloud network with private IP addressing
+- **TTFB (Time to First Byte)** — interval from request initiation to the first byte of the response.
+- **RTT (Round-Trip Time)** — time for a packet to travel to a destination and back.
+- **PoP (Point of Presence)** — CDN edge location.
+- **QUIC** — UDP-based transport ([RFC 9000](https://datatracker.ietf.org/doc/html/rfc9000)) underlying HTTP/3.
+- **HOL blocking** — head-of-line blocking; one slow/lost packet stalls all subsequent ones in the same logical stream.
+- **0-RTT** — TLS 1.3 resumption mode that lets a client send encrypted data in its first flight.
+- **BFF** — Backend for Frontend; thin server-side aggregator dedicated to one frontend.
+- **VPC** — Virtual Private Cloud; isolated cloud network with private addressing.
+- **SVCB / HTTPS RR** — DNS resource records ([RFC 9460](https://datatracker.ietf.org/doc/html/rfc9460)) that ship protocol negotiation hints in the DNS response.
 
-### Summary
+### Series navigation
 
-- **Connection layer**: HTTPS DNS records enable direct HTTP/3 connections (saving 100-300ms), HTTP/3 eliminates TCP head-of-line blocking (55-88% faster under packet loss), TLS 1.3 reduces handshake to 1-RTT (0-RTT for return visitors)
-- **Edge network**: CDNs reduce latency via geographic proximity; measure origin offload (bytes) not just cache-hit ratio; edge computing runs code at PoPs with <10ms latency
-- **Compression**: Pre-compress static assets with Brotli 11 (15-27% smaller than gzip); use Brotli 4-5 or Zstandard for dynamic content; 96% browser support for Brotli, 76% for Zstandard
-- **Origin infrastructure**: In-memory caching (Redis/Memcached) reduces database load; read replicas scale read capacity; connection pooling eliminates connection overhead
-- **Architectural patterns**: Islands architecture reduces JavaScript by 50-80%; BFF pattern cuts payload 30-50% and requests 60-80%; private VPC routing improves TTFB by 85-95%
-- **Performance targets**: TTFB <100ms excellent, DNS <20ms excellent, origin offload >80%
+- [Web Performance: Overview and Playbook](../web-performance-overview/README.md) — the parent
+- **You are here:** Infrastructure
+- [JavaScript Optimization](../web-performance-javascript-optimization/README.md)
+- [CSS & Typography](../web-performance-css-typography/README.md)
+- [Image Optimization](../web-performance-image-optimization/README.md)
 
 ### References
 
-**Specifications (Primary Sources)**
+**Specifications**
 
-- [RFC 9460 - SVCB and HTTPS Records](https://datatracker.ietf.org/doc/html/rfc9460) - DNS service binding specification (November 2023)
-- [RFC 9114 - HTTP/3](https://datatracker.ietf.org/doc/html/rfc9114) - HTTP/3 specification (June 2022)
-- [RFC 9000 - QUIC Transport Protocol](https://datatracker.ietf.org/doc/html/rfc9000) - QUIC specification (May 2021)
-- [RFC 8446 - TLS 1.3](https://datatracker.ietf.org/doc/html/rfc8446) - TLS 1.3 specification (August 2018)
+- [RFC 9460 — SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/rfc9460) (Nov 2023)
+- [RFC 9114 — HTTP/3](https://datatracker.ietf.org/doc/html/rfc9114) (Jun 2022)
+- [RFC 9000 — QUIC](https://datatracker.ietf.org/doc/html/rfc9000) (May 2021)
+- [RFC 8446 — TLS 1.3](https://datatracker.ietf.org/doc/html/rfc8446) (Aug 2018)
+- [RFC 5861 — `stale-while-revalidate` and `stale-if-error`](https://datatracker.ietf.org/doc/html/rfc5861)
+- [RFC 7932 — Brotli](https://datatracker.ietf.org/doc/html/rfc7932)
+- [RFC 8878 — Zstandard](https://datatracker.ietf.org/doc/html/rfc8878)
+- [RFC 9111 — HTTP caching](https://datatracker.ietf.org/doc/html/rfc9111)
 
-**Official Documentation**
+**Official documentation**
 
-- [HTTP/3 Explained](https://http3-explained.haxx.se/) - Comprehensive HTTP/3 and QUIC guide by Daniel Stenberg
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/) - Edge computing platform
-- [Vercel Edge Functions](https://vercel.com/docs/functions/runtimes/edge) - Edge computing documentation
-- [Astro Islands Architecture](https://docs.astro.build/en/concepts/islands/) - Partial hydration
-- [Qwik Resumability](https://qwik.dev/docs/concepts/resumable/) - Zero-hydration approach
-- [Redis Documentation](https://redis.io/docs/) - In-memory caching guide
-- [Workbox](https://developer.chrome.com/docs/workbox) - Service worker caching library
+- [HTTP/3 Explained](https://http3-explained.haxx.se/) — Daniel Stenberg
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [Vercel Edge Functions](https://vercel.com/docs/functions/runtimes/edge)
+- [Astro Islands](https://docs.astro.build/en/concepts/islands/)
+- [Qwik resumability](https://qwik.dev/docs/concepts/resumable/)
+- [Redis docs](https://redis.io/docs/)
+- [Workbox](https://developer.chrome.com/docs/workbox)
 
-**Core Maintainer Content**
+**Primary-source maintainer content**
 
-- [Cloudflare: Eliminating Cold Starts](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/) - V8 isolate architecture (October 2025)
-- [Cloudflare: HTTP/3 vs HTTP/2](https://blog.cloudflare.com/http-3-vs-http-2/) - Performance benchmarks
-- [Cloudflare: Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/) - 0-RTT security considerations
-- [Cloudflare Radar 2025 Year in Review](https://blog.cloudflare.com/radar-2025-year-in-review/) - Protocol adoption statistics
+- [Cloudflare: Eliminating cold starts (Shard and Conquer)](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/)
+- [Cloudflare: Speeding up HTTPS and HTTP/3 negotiation with DNS](https://blog.cloudflare.com/speeding-up-https-and-http-3-negotiation-with-dns/)
+- [Cloudflare: Introducing 0-RTT](https://blog.cloudflare.com/introducing-0-rtt/)
+- [Cloudflare: State of the post-quantum Internet 2025](https://blog.cloudflare.com/pq-2025/)
+- [Cloudflare 2025 Year in Review](https://blog.cloudflare.com/radar-2025-year-in-review/)
 
-**Industry Expert Blogs**
+**Industry references and benchmarks**
 
-- [Choosing Between gzip, Brotli and Zstandard](https://paulcalvano.com/2024-03-19-choosing-between-gzip-brotli-and-zstandard-compression/) - Compression algorithm benchmarks
-- [HTTP Archive 2025 CDN Report](https://almanac.httparchive.org/en/2025/cdn) - CDN adoption statistics
-- [Can I Use: HTTP/3](https://caniuse.com/http3) - Browser support data
-- [Can I Use: Brotli](https://caniuse.com/brotli) - Compression browser support
-- [SSL Labs SSL Pulse](https://www.ssllabs.com/ssl-pulse/) - TLS adoption statistics
+- [HTTP Archive Web Almanac 2025 — CDN](https://almanac.httparchive.org/en/2025/cdn)
+- [F5 Labs: State of PQC on the Web (2025)](https://www.f5.com/labs/articles/the-state-of-pqc-on-the-web)
+- [Paul Calvano: Choosing between gzip, Brotli and Zstandard](https://paulcalvano.com/2024-03-19-choosing-between-gzip-brotli-and-zstandard-compression/)
+- [QUIC is not Quick Enough over Fast Internet (WWW 2024)](https://dl.acm.org/doi/10.1145/3589334.3645323)
+- [A First Look at SVCB and HTTPS DNS Resource Records in the Wild (IMC 2023)](https://arxiv.org/abs/2309.10344)
+- [Latency Numbers Every Programmer Should Know](https://gist.github.com/jboner/2841832)
+- [Can I Use: HTTP/3](https://caniuse.com/http3)
+- [Can I Use: Brotli](https://caniuse.com/brotli)
+- [Can I Use: Zstandard](https://caniuse.com/zstd)

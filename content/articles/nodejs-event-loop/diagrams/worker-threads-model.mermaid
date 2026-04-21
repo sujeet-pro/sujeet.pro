@@ -1,0 +1,34 @@
+%% Diagram: Node.js worker_threads execution model
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  subgraph Process[Node.js process]
+    direction TB
+    subgraph Main[Main thread]
+      MainJS["V8 isolate (main)\nJS code + microtask queue"]
+      MainLoop["libuv event loop (main)\nphases: timers / poll / check / ..."]
+      MainJS --- MainLoop
+    end
+    subgraph W1[Worker thread #1]
+      W1JS["V8 isolate (worker)\nJS code + microtask queue"]
+      W1Loop["libuv event loop (worker)\nsame phase order"]
+      W1JS --- W1Loop
+    end
+    subgraph W2[Worker thread #2]
+      W2JS["V8 isolate (worker)\nJS code + microtask queue"]
+      W2Loop["libuv event loop (worker)\nsame phase order"]
+      W2JS --- W2Loop
+    end
+    Pool[("Process-global libuv thread pool\nUV_THREADPOOL_SIZE (default 4)\nfs / dns.lookup / async crypto / async zlib")]
+  end
+  MainLoop <-->|"MessagePort\n(structured clone +\nuv_async wakeup)"| W1Loop
+  MainLoop <-->|"MessagePort"| W2Loop
+  W1Loop <-->|"MessageChannel\n(workers can talk\ndirectly)"| W2Loop
+  MainLoop <-->|queue work / wake| Pool
+  W1Loop <-->|queue work / wake| Pool
+  W2Loop <-->|queue work / wake| Pool
+  Shared[("SharedArrayBuffer\n+ Atomics")]:::shared
+  MainJS -.->|optional shared memory| Shared
+  W1JS -.-> Shared
+  W2JS -.-> Shared
+  classDef shared stroke-dasharray: 4 4

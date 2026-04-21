@@ -1,0 +1,23 @@
+%% Diagram: Atomic record append — primary-chosen offset, at-least-once
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant C1 as Client 1
+    participant C2 as Client 2
+    participant P as Primary CS
+    participant S as Secondary CS
+
+    Note over C1,S: Both clients append concurrently to the same chunk
+    C1->>P: AppendChunk(data1)
+    C2->>P: AppendChunk(data2)
+
+    P->>P: If chunk would exceed 64 MB →\npad to chunk boundary, return ChunkFull
+    P->>P: Assign offset1, offset2 in serial order
+
+    P->>S: Apply data1 @ offset1
+    P->>S: Apply data2 @ offset2
+    S-->>P: Acks
+    P-->>C1: Success @ offset1
+    P-->>C2: Success @ offset2
+
+    Note over C1,S: Failure mid-pipeline → at-least-once retry,\nresulting in defined regions + inconsistent padding

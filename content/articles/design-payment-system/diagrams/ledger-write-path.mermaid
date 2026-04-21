@@ -1,0 +1,35 @@
+%% Diagram: Ledger write path with transactional outbox
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Trigger["Operation"]
+        AUTH["Authorization (POST /payments)"]
+        CAP["Capture (POST /capture)"]
+        SET["Settlement webhook (payout.paid)"]
+        REF["Refund (POST /refunds)"]
+    end
+
+    subgraph Atomic["Single ACID transaction"]
+        ROW["1. Update payments row (status, amounts)"]
+        LEDGER["2. Insert balanced ledger entries (DR + CR per currency, same transaction_id)"]
+        OUTBOX["3. Insert outbox row (domain event payload)"]
+    end
+
+    subgraph Async["Async publish + read paths"]
+        RELAY["Outbox relay (poll or Postgres logical CDC)"]
+        STREAM["Kafka event stream"]
+        CONSUMERS["Consumers: analytics, fraud, reconciliation, search"]
+    end
+
+    AUTH  -->|DR Accounts Receivable / CR Authorization Hold| ROW
+    CAP   -->|DR Authorization Hold / CR Revenue| ROW
+    SET   -->|DR Cash + DR Processing Fees / CR Accounts Receivable| ROW
+    REF   -->|DR Revenue / CR Accounts Receivable| ROW
+
+    ROW --> LEDGER
+    LEDGER --> OUTBOX
+    OUTBOX --> RELAY
+    RELAY --> STREAM
+    STREAM --> CONSUMERS
+
+    LEDGER -.->|invariant: SUM debits = SUM credits per transaction_id, per currency| LEDGER

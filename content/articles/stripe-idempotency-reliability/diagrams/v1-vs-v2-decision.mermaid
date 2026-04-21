@@ -1,0 +1,21 @@
+%% Diagram: Stripe v1 vs v2 idempotency replay
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    R([Retry with same\nIdempotency-Key]) --> Q{Original outcome}
+
+    Q -->|2xx success| S[Return cached body\nv1 + v2 identical]
+    Q -->|4xx client error| C[Return cached error\nv1 + v2 identical]
+    Q -->|5xx / partial failure| V
+
+    V{API version} -->|v1\nPOST only, 24h| V1[Return cached 5xx\nclient must rotate key]
+    V -->|v2\nPOST + DELETE, 30d| V2[Re-execute the request\nidempotently, return new result]
+
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef err fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef api fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class R api
+    class S,V2 ok
+    class C,V1 err
+    class Q,V neutral

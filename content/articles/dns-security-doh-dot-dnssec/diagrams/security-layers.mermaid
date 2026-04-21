@@ -1,0 +1,49 @@
+%% Diagram: DNS security layers — authenticity vs confidentiality
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph traditional["Traditional DNS — Insecure"]
+        direction LR
+        T1["Stub Resolver"]
+        T2["Recursive Resolver"]
+        T3["Authoritative Server"]
+        T1 -->|"UDP/53\nplaintext, spoofable"| T2
+        T2 -->|"UDP/53\nplaintext, spoofable"| T3
+    end
+
+    subgraph encrypted["Confidentiality only — DoH/DoT/DoQ"]
+        direction LR
+        E1["Stub Resolver"]
+        E2["Recursive Resolver"]
+        E3["Authoritative Server"]
+        E1 -->|"DoH 443 / DoT 853\nTLS or QUIC"| E2
+        E2 -->|"UDP/53\nstill plaintext"| E3
+    end
+
+    subgraph signed["Authenticity only — DNSSEC"]
+        direction LR
+        S1["Stub Resolver"]
+        S2["Validating Resolver"]
+        S3["Signed Authoritative"]
+        S1 -->|"any transport"| S2
+        S2 -->|"query + DO bit"| S3
+        S3 -->|"answer + RRSIG"| S2
+        S2 -->|"AD flag if valid\nSERVFAIL if bogus"| S1
+    end
+
+    subgraph combined["Full stack — DNSSEC + DoH/DoT + ECH"]
+        direction LR
+        C1["Stub Resolver"]
+        C2["Validating Resolver"]
+        C3["Signed Authoritative"]
+        C1 -->|"DoH/DoT\nencrypted"| C2
+        C2 -->|"validates RRSIGs"| C3
+    end
+
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef pri fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class T1,T2,T3 warn
+    class E1,E2,S1,S2,C1,C2 pri
+    class E3 warn
+    class S3,C3 ok

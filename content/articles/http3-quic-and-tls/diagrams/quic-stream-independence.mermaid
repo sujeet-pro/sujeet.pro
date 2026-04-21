@@ -1,0 +1,21 @@
+%% Diagram: QUIC per-stream loss recovery (no cross-stream HOL)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TD
+    subgraph Conn["Single QUIC connection"]
+        S0["Stream 0 — Control"]
+        S4["Stream 4 — Request A"]
+        S8["Stream 8 — Request B"]
+        S12["Stream 12 — Request C"]
+    end
+
+    subgraph Loss["Packet loss only on Stream 4"]
+        L1["Stream 4: awaiting per-stream retransmit"]
+        L2["Stream 8: continues delivering bytes"]
+        L3["Stream 12: continues delivering bytes"]
+    end
+
+    S0 --> L0["Control unaffected"]
+    S4 --> L1
+    S8 --> L2
+    S12 --> L3

@@ -1,0 +1,12 @@
+%% Diagram: Single-fragment reconstruction reads under RS(12,4) vs LRC(12,2,2)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    RS["Reed-Solomon (12, 4)<br/>16 fragments · 1.33x overhead<br/><br/>Single-fragment loss<br/>↓<br/>read 12 surviving fragments<br/>(any k=12 of k+m=16) to rebuild"]
+
+    LRC["LRC (12, 2, 2)<br/>16 fragments · 1.33x overhead<br/>2 local groups of 6 + 1 local parity each + 2 global parities<br/><br/>Single-fragment loss in group 1<br/>↓<br/>read 6 fragments inside group 1<br/>(5 surviving data + 1 local parity) to rebuild"]
+
+    RS --> LRC
+
+    style RS fill:#ffebee
+    style LRC fill:#e8f5e9

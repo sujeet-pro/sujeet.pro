@@ -1,0 +1,38 @@
+%% Diagram: Composition decision tree — pick strategy from primary constraint
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    start([Need to split a frontend])
+    q1{One team and\none product?}
+    q2{SEO and TTFB\nare top priority?}
+    q3{Need legacy\nor untrusted\nisolation?}
+    q4{Global audience\nand cacheable\nfragments?}
+    q5{Heavy interactive\nshared state?}
+
+    mod[Modular monolith\nNo MFE]
+    iframe[Iframes\nor sandboxed\nWeb Components]
+    edge[Edge composition\nWorkers · ESI · Web Fragments]
+    server[Server composition\nSSR · Tailor · Podium]
+    client[Client composition\nModule Federation ·\nNative Federation · single-spa]
+
+    start --> q1
+    q1 -- yes --> mod
+    q1 -- no --> q3
+    q3 -- yes --> iframe
+    q3 -- no --> q2
+    q2 -- yes --> q4
+    q4 -- yes --> edge
+    q4 -- no --> server
+    q2 -- no --> q5
+    q5 -- yes --> client
+    q5 -- no --> server
+
+    classDef start fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef decision fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef result fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+
+    class start start
+    class q1,q2,q3,q4,q5 decision
+    class iframe,edge,server,client result
+    class mod warn

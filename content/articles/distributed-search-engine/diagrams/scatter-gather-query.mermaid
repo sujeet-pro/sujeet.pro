@@ -1,0 +1,36 @@
+%% Diagram: Scatter-Gather Query (Query-then-Fetch)
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant CO as Coordinator
+    participant S1 as Shard 1
+    participant S2 as Shard 2
+    participant S3 as Shard 3
+
+    C->>CO: search size=10
+
+    Note over CO,S3: Phase 1: Query
+    par scatter
+        CO->>S1: query (top 10)
+        CO->>S2: query (top 10)
+        CO->>S3: query (top 10)
+    end
+    par local execute
+        S1-->>CO: 10 (doc_id, score)
+        S2-->>CO: 10 (doc_id, score)
+        S3-->>CO: 10 (doc_id, score)
+    end
+
+    CO->>CO: Merge 30 -> global top 10
+
+    Note over CO,S3: Phase 2: Fetch
+    CO->>S1: fetch [doc_a, doc_d]
+    CO->>S2: fetch [doc_e]
+    CO->>S3: fetch [doc_f, doc_g]
+    S1-->>CO: full docs
+    S2-->>CO: full doc
+    S3-->>CO: full docs
+
+    CO-->>C: 10 ranked documents

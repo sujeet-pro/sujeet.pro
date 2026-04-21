@@ -1,0 +1,23 @@
+%% Diagram: Retry with exponential backoff and DLQ
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    participant W as Worker
+    participant P as Provider (FCM/APNs/SES)
+    participant RS as Retry Scheduler
+    participant DLQ as Dead Letter Queue
+    participant M as Metrics
+
+    W->>P: Send notification (attempt 1)
+    P-->>W: 5xx / 429 / transient
+    W->>RS: Schedule retry @ t+1s ±jitter
+    RS->>W: Re-deliver (attempt 2)
+    W->>P: Send (attempt 2)
+    P-->>W: 5xx / 429 / transient
+    W->>RS: Schedule retry @ t+2s ±jitter
+    Note over W,RS: Backoff: 1s, 2s, 4s, 8s, ... cap 5min
+    RS->>W: Re-deliver (attempt N)
+    W->>P: Send (attempt N)
+    P-->>W: 5xx / 429 / transient
+    W->>DLQ: Enqueue (max attempts exceeded)
+    W->>M: Increment notifications.dlq.count

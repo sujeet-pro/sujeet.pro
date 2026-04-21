@@ -1,0 +1,29 @@
+%% Diagram: Sequence CRDT interleaving problem
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph Start["Initial state"]
+        S0["Hello | World"]
+    end
+
+    subgraph Concurrent["Concurrent edits at the same position"]
+        direction LR
+        A["User A types: foo"]
+        B["User B types: bar"]
+    end
+
+    subgraph Outcomes["Merge outcomes"]
+        direction TB
+        BAD["Naive / Logoot worst case:<br/><b>Hellofboaor World</b><br/>characters interleaved"]
+        OK1["RGA (timestamp-ordered):<br/><b>HellofoobarWorld</b> or<br/><b>HellobarfooWorld</b>"]
+        BEST["Fugue / Eg-walker:<br/>provably never interleaves<br/>distinct concurrent runs"]
+    end
+
+    S0 --> A
+    S0 --> B
+    A --> BAD
+    B --> BAD
+    A --> OK1
+    B --> OK1
+    A --> BEST
+    B --> BEST

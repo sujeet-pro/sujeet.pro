@@ -1,0 +1,38 @@
+%% Diagram: Ranking pipeline
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Retrieval["Retrieval (recall)"]
+        Geo["geo_distance + bbox prune"]
+        Filt["Attribute filters: category, price, open_now"]
+        Pre["Quality prefilter: rating >= 3.0, reviews >= 5"]
+        Cap["Per-shard cap: top 1000 candidates"]
+    end
+
+    subgraph Scoring["Scoring (precision)"]
+        Dist["f_distance: gauss decay, scale 2km"]
+        Rate["f_rating: Bayesian-shrunk avg"]
+        Vol["f_reviews: log1p(review_count)"]
+        Rec["f_recency: exp decay on last review"]
+        Pers["f_personal: user history, contextual bandit"]
+        Blend["weighted sum -> score"]
+    end
+
+    subgraph Postproc["Post-processing"]
+        Diversify["Category and brand diversification"]
+        Dedup["Chain dedup (same operator, nearby)"]
+        Page["Cursor pagination"]
+    end
+
+    Geo --> Filt --> Pre --> Cap
+    Cap --> Dist
+    Cap --> Rate
+    Cap --> Vol
+    Cap --> Rec
+    Cap --> Pers
+    Dist --> Blend
+    Rate --> Blend
+    Vol --> Blend
+    Rec --> Blend
+    Pers --> Blend
+    Blend --> Diversify --> Dedup --> Page

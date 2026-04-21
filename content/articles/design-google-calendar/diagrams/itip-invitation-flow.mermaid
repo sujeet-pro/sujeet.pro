@@ -1,0 +1,27 @@
+%% Diagram: iTIP / iMIP invitation and RSVP flow
+%% Type: sequence
+%%{init: {'htmlLabels': false}}%%
+sequenceDiagram
+    autonumber
+    participant O as Organizer
+    participant CS as Calendar service
+    participant Q as Message queue
+    participant Mail as Email worker
+    participant A as Attendee MUA
+
+    O->>CS: create event with attendees
+    CS->>CS: persist VEVENT (status=confirmed)
+    CS->>CS: persist attendees (PARTSTAT=NEEDS-ACTION)
+    CS->>Q: enqueue iTIP REQUEST per attendee
+
+    loop per attendee
+        Q->>Mail: process job
+        Mail->>Mail: build iMIP message - text/calendar method=REQUEST
+        Mail->>A: send invitation email
+    end
+
+    A->>CS: RSVP - PARTSTAT=ACCEPTED
+    CS->>CS: update attendee row, bump SEQUENCE
+    CS->>Q: enqueue iTIP REPLY to organizer
+    Q->>Mail: deliver REPLY
+    Mail->>O: email with response

@@ -1,0 +1,35 @@
+%% Diagram: Specialized hooks overview
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart TB
+    subgraph concurrent["Concurrent Rendering"]
+        direction TB
+        useTransition["useTransition\nNon-blocking state updates"]
+        useDeferredValue["useDeferredValue\nDefer non-critical values"]
+    end
+
+    subgraph timing["Effect Timing"]
+        direction TB
+        useInsertionEffect["useInsertionEffect\nBefore layout (CSS injection)"]
+        useLayoutEffect["useLayoutEffect\nBefore paint (DOM measurement)"]
+    end
+
+    subgraph external["External Integration"]
+        direction TB
+        useSyncExternalStore["useSyncExternalStore\nExternal store subscription"]
+        use["use\nPromises and Context (React 19)"]
+    end
+
+    subgraph ssr["SSR and Accessibility"]
+        direction TB
+        useId["useId\nStable IDs across server and client"]
+    end
+
+    classDef domain fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    class useTransition,useDeferredValue domain
+    classDef effect fill:#1F6E68,stroke:#155752,color:#ffffff
+    class useInsertionEffect,useLayoutEffect effect
+    classDef ext fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class useSyncExternalStore,use ext
+    classDef acc fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    class useId acc

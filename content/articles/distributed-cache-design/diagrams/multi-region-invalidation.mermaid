@@ -1,0 +1,47 @@
+%% Diagram: Multi-region cache replication and invalidation broadcast
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph regionA["Region A (write region)"]
+        AppA["App"]
+        CacheA["Local cache cluster"]
+        DBA[("Primary DB")]
+        WALA["Write-ahead log\n(Kafka / mcsqueal)"]
+        AppA -->|"1. write"| DBA
+        AppA -->|"2. DEL key"| CacheA
+        DBA -->|"3. row change"| WALA
+    end
+
+    subgraph regionB["Region B (read replica region)"]
+        AppB["App"]
+        CacheB["Local cache cluster"]
+        DBB[("Read replica DB")]
+        RelayB["Replication\nrelay"]
+        AppB -->|"read"| CacheB
+        CacheB -.->|"miss"| DBB
+        RelayB -->|"5. DEL key\nor SET key"| CacheB
+    end
+
+    subgraph regionC["Region C (read replica region)"]
+        AppC["App"]
+        CacheC["Local cache cluster"]
+        DBC[("Read replica DB")]
+        RelayC["Replication\nrelay"]
+        AppC -->|"read"| CacheC
+        CacheC -.->|"miss"| DBC
+        RelayC -->|"5'. DEL key\nor SET key"| CacheC
+    end
+
+    WALA -->|"4. async stream"| RelayB
+    WALA -->|"4'. async stream"| RelayC
+    DBA -.->|"async DB replication"| DBB
+    DBA -.->|"async DB replication"| DBC
+
+    classDef app fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef cache fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef stream fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef db fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class AppA,AppB,AppC app
+    class CacheA,CacheB,CacheC cache
+    class WALA,RelayB,RelayC stream
+    class DBA,DBB,DBC db

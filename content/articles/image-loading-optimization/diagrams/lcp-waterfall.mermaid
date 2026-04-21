@@ -1,0 +1,26 @@
+%% Diagram: LCP image waterfall with vs. without preload + fetchpriority.
+%% Compares two timelines: in the baseline the LCP image is discovered
+%% by the preload scanner only after the parser reaches a deep <img>,
+%% so the GET fires late; with <link rel=preload as=image
+%% fetchpriority=high> in <head> the request kicks off during the
+%% initial HTML parse and lands well before first contentful paint.
+%%{init: {'htmlLabels': false}}%%
+gantt
+    title LCP image waterfall: baseline vs. preload + fetchpriority=high
+    dateFormat  X
+    axisFormat  %Lms
+    section Baseline (no preload)
+    HTML download           :done,    h1, 0, 200
+    HTML parse              :active,  p1, 200, 600
+    CSS download + parse    :done,    c1, 250, 550
+    LCP <img> discovered    :milestone, m1, 600, 0
+    Hero image GET          :crit,    i1, 600, 1200
+    LCP paint               :milestone, lcp1, 1200, 0
+
+    section Preload + fetchpriority=high
+    HTML download           :done,    h2, 0, 200
+    HTML parse              :active,  p2, 200, 600
+    CSS download + parse    :done,    c2, 250, 550
+    Preload scanner picks <link>  :milestone, m2, 220, 0
+    Hero image GET (high prio)    :crit,    i2, 220, 700
+    LCP paint               :milestone, lcp2, 700, 0

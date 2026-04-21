@@ -1,0 +1,50 @@
+%% Diagram: Build-time vs run-time composition (client / server / edge)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    user((User Request))
+
+    subgraph buildtime["Build-Time Integration (anti-pattern at scale)"]
+        direction TB
+        bt[Container app installs each MFE\nas an npm dependency]
+        bt --> single[Single bundle ·\nCoordinated release train]
+    end
+
+    subgraph runtime["Run-Time Composition"]
+        direction TB
+        subgraph client["Client-Side"]
+            direction TB
+            b[Browser Shell]
+            b --> mf[Module Federation /\nNative Federation]
+            b --> wc[Web Components]
+            b --> ifr[Iframes]
+        end
+
+        subgraph server["Server-Side"]
+            direction TB
+            origin[Origin Server]
+            origin --> ssr[SSR Framework\nNext.js / Nuxt]
+            origin --> ssi[SSI · Tailor · Podium]
+        end
+
+        subgraph edge["Edge-Side"]
+            direction TB
+            cdn[CDN PoP]
+            cdn --> hr[HTMLRewriter Workers]
+            cdn --> esi[ESI 1.0 Note]
+            cdn --> wf[Web Fragments / Piercing]
+        end
+    end
+
+    user --> buildtime
+    user --> runtime
+
+    classDef actor fill:#5A5A5A,stroke:#3D3D3D,color:#ffffff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#ffffff
+    classDef warn fill:#B43A3A,stroke:#8E2828,color:#ffffff
+
+    class user actor
+    class b,origin,cdn primary
+    class mf,wc,ifr,ssr,ssi,hr,esi,wf secondary
+    class bt,single warn

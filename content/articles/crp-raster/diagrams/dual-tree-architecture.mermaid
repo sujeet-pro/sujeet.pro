@@ -1,0 +1,25 @@
+%% Diagram: Dual-tree (pending / active / recycle) lifecycle in cc
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    Main["Main thread<br/>property tree (authoritative)"]
+
+    subgraph Compositor[Compositor thread]
+        Pending["Pending tree<br/>receives commit"]
+        Active["Active tree<br/>currently displayed"]
+        Recycle["Recycle tree<br/>cached buffers"]
+    end
+
+    Workers["Raster worker pool<br/>fills NOW tiles on pending"]
+    Display["Display compositor<br/>draws active tree"]
+
+    Main -- "commit" --> Pending
+    Pending -- "raster requests" --> Workers
+    Workers -- "tiles ready" --> Pending
+    Pending -- "activate (NOW tiles ready)" --> Active
+    Active -- "retired on next activation" --> Recycle
+    Recycle -- "buffers reused" --> Pending
+    Active --> Display
+
+    Note["Activation is gated:<br/>visible (NOW) tiles must be rasterized first.<br/>This prevents checkerboard on every commit."]
+    Pending -.-> Note

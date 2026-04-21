@@ -1,0 +1,33 @@
+%% Diagram: DOMA Layered Architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    subgraph edge["Edge layer"]
+        direction LR
+        E1[API gateway] --- E2[Partner APIs]
+    end
+
+    subgraph presentation["Presentation layer"]
+        direction LR
+        P1[Mobile screens] --- P2[Web views]
+    end
+
+    subgraph product["Product layer"]
+        direction LR
+        PR1[Rides] --- PR2[Eats] --- PR3[Freight]
+    end
+
+    subgraph business["Business layer"]
+        direction LR
+        B1[Maps] --- B2[Payments] --- B3[Identity]
+    end
+
+    subgraph infra["Infrastructure layer"]
+        direction LR
+        I1[Storage] --- I2[Networking] --- I3[Compute]
+    end
+
+    edge --> presentation
+    presentation --> product
+    product --> business
+    business --> infra

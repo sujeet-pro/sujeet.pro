@@ -1,0 +1,23 @@
+%% Diagram: Kafka Consumer Groups and Partitions
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+    P["Producer\nkey = order_id"]:::producer
+    T{{"Topic: orders\n4 partitions"}}:::broker
+    P --> T
+
+    F["Group fulfillment\n(work distribution)\nF1: P0, P1\nF2: P2, P3"]:::consumer
+    A["Group analytics\n(separate stream)\nA1: P0, P1, P2, P3"]:::consumer
+    FD["Group fraud-detection\n(separate stream)\nFD1: P0, P1\nFD2: P2, P3"]:::consumer
+
+    T --> F
+    T --> A
+    T --> FD
+
+    note["Within a group: each partition maps to one consumer.\nAcross groups: every group sees every message."]:::neutral
+    FD -.-> note
+
+    classDef producer fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef broker fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef consumer fill:#1F6E68,stroke:#155752,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff

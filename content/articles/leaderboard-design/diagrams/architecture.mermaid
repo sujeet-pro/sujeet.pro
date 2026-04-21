@@ -1,0 +1,44 @@
+%% Diagram: Leaderboard architecture (write path + read path + push)
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+    subgraph Clients["Clients"]
+        C[Player apps]
+    end
+
+    subgraph Edge["Edge"]
+        GW[API gateway]
+        WS[WebSocket fanout]
+    end
+
+    subgraph Service["Leaderboard service"]
+        SS[Score writer]
+        RS[Rank reader]
+    end
+
+    subgraph Cache["Redis (in-memory tier)"]
+        Z1["ZSET game:lb:alltime"]
+        Z2["ZSET game:lb:weekly:YYYYWW"]
+        Z3["ZSET game:lb:friends:user_id"]
+    end
+
+    DB[(Postgres / Cassandra<br/>score history + audit)]
+
+    C -- "POST /scores" --> GW
+    C <-- "subscribe" --> WS
+
+    GW --> SS
+    GW --> RS
+
+    SS -- "ZINCRBY (pipelined)" --> Z1
+    SS -- "ZINCRBY" --> Z2
+    SS -- "ZADD" --> Z3
+    SS -- "append-only writes" --> DB
+
+    RS -- "ZREVRANGE / ZREVRANK" --> Z1
+    RS -- "ZRANGEBYSCORE" --> Z2
+
+    WS -- "rank delta events" --> C
+
+    style Cache fill:#e1f5fe,stroke:#0369a1,color:#0c4a6e
+    style Service fill:#fff3e0,stroke:#b45309,color:#7c2d12
