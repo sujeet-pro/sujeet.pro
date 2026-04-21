@@ -4,23 +4,23 @@
 > writing deep technical guides on frontend architecture, web performance,
 > distributed systems, and system design.
 
-This document enumerates the top-level content surfaces on projects.sujeet.pro/v5.sujeet.pro
+This document enumerates the top-level content surfaces on sujeet.pro
 so AI assistants can locate relevant material without crawling. Individual
 article bodies are available at the corresponding HTML URLs or in the Pagefind
-index at `/v5.sujeet.pro/pagefind/`.
+index at `/pagefind/`.
 
 Source of truth lives in `content/articles/*/README.md` and
-`content/blogs/*/README.md` in the sujeet-pro/v5.sujeet.pro GitHub repository.
+`content/blogs/*/README.md` in the sujeet-pro/sujeet.pro GitHub repository.
 
 ## Top-level routes
 
-- /v5.sujeet.pro/             — Home, featured articles, series overview.
-- /v5.sujeet.pro/articles     — Article index, grouped by series.
-- /v5.sujeet.pro/blogs        — Blog index, reverse-chronological.
-- /v5.sujeet.pro/articles/<slug> — Individual article (see content/articles/).
-- /v5.sujeet.pro/blogs/<slug>    — Individual blog post (see content/blogs/).
-- /v5.sujeet.pro/404.html     — Not-found fallback.
-- /v5.sujeet.pro/sitemap.xml  — Machine-readable sitemap.
+- /             — Home, featured articles, series overview.
+- /articles     — Article index, grouped by series.
+- /blogs        — Blog index, reverse-chronological.
+- /articles/<slug> — Individual article (see content/articles/).
+- /blogs/<slug>    — Individual blog post (see content/blogs/).
+- /404.html     — Not-found fallback.
+- /sitemap.xml  — Machine-readable sitemap.
 
 ## Article series (190+ articles across 22 topics)
 
@@ -50,6 +50,6 @@ Source of truth lives in `content/articles/*/README.md` and
 ## Maintenance
 
 - Maintainer: Sujeet Jaiswal, https://sujeet.pro.
-- Repository: https://github.com/sujeet-pro/v5.sujeet.pro.
+- Repository: https://github.com/sujeet-pro/sujeet.pro.
 - Build system: Vite + `@pagesmith/core` + `@pagesmith/site` (no `@pagesmith/docs`).
 - Diagrams are rendered via diagramkit (see `content/**/.diagramkit/`).

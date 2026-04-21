@@ -20,7 +20,7 @@ export const SiteConfigSchema = z
     description: z.string().min(1),
     origin: z.string().url(),
     language: z.string().min(2).default("en-US"),
-    basePath: BasePathSchema.default("/"),
+    basePath: BasePathSchema.default(""),
     homeLink: z.string().min(1).optional(),
     trailingSlash: z.boolean().default(false),
     contentDir: z.string().min(1).default("./content"),

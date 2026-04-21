@@ -7,8 +7,8 @@ import {
   copyFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { normalizeBasePath, withBasePath } from "@pagesmith/site";
-import { loadSiteConfig } from "../lib/site-config.ts";
+import { withBasePath } from "@pagesmith/site";
+import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 import { getArticleListing, getBlogListing } from "../theme/lib/content.ts";
 
 const siteConfig = loadSiteConfig();
@@ -71,7 +71,7 @@ function toRoutePath(htmlPath: string, basePath: string): string | null {
 }
 
 function writeSitemap(): void {
-  const basePath = normalizeBasePath(siteConfig.basePath);
+  const basePath = resolveBasePath();
   const pages = walkFiles(distDir, ".html")
     .filter((filePath) => !isRedirectHtml(readFileSync(filePath, "utf-8")))
     .map((filePath) => toRoutePath(filePath, basePath))
@@ -87,7 +87,7 @@ function writeSitemap(): void {
 }
 
 function writeRss(): void {
-  const basePath = normalizeBasePath(siteConfig.basePath);
+  const basePath = resolveBasePath();
   const articleListing = getArticleListing(basePath);
   const articles = articleListing.series
     .flatMap((group) => group.articles)

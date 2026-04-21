@@ -14,7 +14,7 @@ This repo uses `@pagesmith/core` + `@pagesmith/site` directly. It should not dep
 
 ```bash
 git clone <repo-url>
-cd v5.sujeet.pro
+cd sujeet.pro
 vp install
 vp config
 npx playwright install chromium

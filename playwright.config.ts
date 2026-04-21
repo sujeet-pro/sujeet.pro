@@ -1,15 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
-import { normalizeBasePath, withBasePath } from "@pagesmith/site";
-import { loadSiteConfig } from "./lib/site-config.ts";
+import { withBasePath } from "@pagesmith/site";
+import { resolveBasePath } from "./lib/site-config.ts";
 
-const siteConfig = loadSiteConfig();
-const e2eBasePath = normalizeBasePath(process.env.BASE_PATH ?? siteConfig.basePath);
+const e2eBasePath = resolveBasePath();
 const deployed = !!process.env.DEPLOYED_URL;
 const previewPort = Number(process.env.PLAYWRIGHT_PREVIEW_PORT ?? 4173);
 const previewOrigin = `http://127.0.0.1:${previewPort}`;
 // `withBasePath(bp, "/")` returns the base path without a trailing slash
-// (e.g. `/v5.sujeet.pro`). `vite preview` only serves the index at the
-// trailing-slash form, so explicitly append `/` for the health-check URL.
+// (empty string when no base path is set). `vite preview` only serves the
+// index at the trailing-slash form, so explicitly append `/` for the
+// health-check URL and collapse any duplicated slashes.
 const previewUrl = `${previewOrigin}${withBasePath(e2eBasePath, "/")}/`.replace(/\/+$/, "/");
 const baseURL = process.env.DEPLOYED_URL || previewOrigin;
 
@@ -18,7 +18,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // CI runners (ubuntu-latest) have 4 vCPUs; `undefined` lets Playwright use
+  // half by default and keeps the three device projects parallelised.
+  workers: process.env.CI ? "50%" : undefined,
   reporter: "html",
   timeout: deployed ? 60_000 : 30_000,
   use: {

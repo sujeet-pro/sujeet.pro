@@ -6,7 +6,7 @@ import blogs from "virtual:content/blogs";
 import articleIndex from "virtual:content/articleIndex";
 import articles from "virtual:content/articles";
 import homePage from "virtual:content/homePage";
-import { loadSiteConfig } from "../lib/site-config";
+import { loadSiteConfig, resolveBasePath } from "../lib/site-config";
 import {
   getSiteChrome,
   getArticleContext,
@@ -66,6 +66,7 @@ function normalizeMarkdownEntry<TFrontmatter>(
 }
 
 const siteConfig = loadSiteConfig();
+const runtimeBasePath = resolveBasePath();
 const redirectConfig = loadRedirectConfig();
 const homeData = loadHomeData();
 
@@ -96,7 +97,7 @@ function toHtml(node: unknown, includeDoctype: boolean): string {
 function resolveRoute(url: string, config: SsgRenderConfig): string {
   const [rawPath] = url.split(/[?#]/, 1);
   let path = rawPath || "/";
-  const normalizedBase = normalizeBasePath(config.base ?? siteConfig.basePath);
+  const normalizedBase = config.base !== undefined ? normalizeBasePath(config.base) : runtimeBasePath;
 
   if (normalizedBase && path.startsWith(normalizedBase)) {
     path = path.slice(normalizedBase.length) || "/";
@@ -110,7 +111,7 @@ function resolveRoute(url: string, config: SsgRenderConfig): string {
 }
 
 function buildSite(config: SsgRenderConfig): SiteDocumentData {
-  const basePath = normalizeBasePath(config.base ?? siteConfig.basePath);
+  const basePath = config.base !== undefined ? normalizeBasePath(config.base) : runtimeBasePath;
   const chrome = getSiteChrome(basePath);
 
   return {

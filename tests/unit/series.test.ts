@@ -1,3 +1,4 @@
+import { resolveBasePath } from "../../lib/site-config";
 import {
   getArticleListing,
   getFeaturedArticles,
@@ -6,9 +7,11 @@ import {
 } from "../../theme/lib/content";
 import { describe, expect, it } from "vitest";
 
+const BASE_PATH = resolveBasePath();
+
 describe("article listing helpers", () => {
   it("groups articles by configured series order", () => {
-    const listing = getArticleListing("/v5.sujeet.pro");
+    const listing = getArticleListing(BASE_PATH);
     const series = listing.series.find((entry) => entry.slug === "critical-rendering-path");
 
     expect(series).toBeDefined();
@@ -17,11 +20,11 @@ describe("article listing helpers", () => {
   });
 
   it("resolves featured articles and series from home config slugs", () => {
-    const featuredArticles = getFeaturedArticles("/v5.sujeet.pro", [
+    const featuredArticles = getFeaturedArticles(BASE_PATH, [
       "design-uber-ride-hailing",
       "v8-engine-architecture",
     ]);
-    const featuredSeries = getFeaturedSeries("/v5.sujeet.pro", [
+    const featuredSeries = getFeaturedSeries(BASE_PATH, [
       "system-design-scenarios",
       "critical-rendering-path",
     ]);

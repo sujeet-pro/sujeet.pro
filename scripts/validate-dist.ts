@@ -1,11 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, extname, relative } from "node:path";
-import { normalizeBasePath } from "@pagesmith/site";
-import { loadSiteConfig } from "../lib/site-config.ts";
+import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 
 const siteConfig = loadSiteConfig();
 const DIST = process.env.DIST_DIR || siteConfig.outDir;
-const basePath = normalizeBasePath(siteConfig.basePath);
+const basePath = resolveBasePath();
 const trailingSlash = siteConfig.trailingSlash ?? false;
 
 type Issue = { file: string; message: string };

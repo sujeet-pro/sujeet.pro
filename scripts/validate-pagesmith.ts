@@ -1,11 +1,11 @@
 /**
- * v5.sujeet.pro project validation.
+ * sujeet.pro project validation.
  *
  * Strategy: do not re-implement the generic "do my links resolve / are my
  * images themed correctly / does my output have the standard files" rules.
  * Import the published validators from `@pagesmith/site` (they re-export
  * `@pagesmith/core`'s content rules), point them at this project's
- * `content.config.ts`, then layer on v5-specific cross-reference checks
+ * `content.config.ts`, then layer on project-specific cross-reference checks
  * that no other Pagesmith user needs:
  *
  *   - `meta.json5` series → article/blog slug references
@@ -19,13 +19,12 @@ import { dirname, resolve } from "node:path";
 import {
   formatContentValidationReport,
   loadContentSchemaMap,
-  normalizeBasePath,
   validateContent,
   withBasePath,
   type FileSchemaEntry,
 } from "@pagesmith/site";
 import { validateBuildOutput } from "@pagesmith/site/build-validator";
-import { loadSiteConfig } from "../lib/site-config.ts";
+import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 import {
   loadHomeData,
   loadRedirectConfig,
@@ -35,7 +34,7 @@ import {
 
 const projectRoot = resolve(import.meta.dirname, "..");
 const siteConfig = loadSiteConfig();
-const basePath = normalizeBasePath(siteConfig.basePath);
+const basePath = resolveBasePath();
 const trailingSlash = siteConfig.trailingSlash ?? false;
 const contentDir = resolve(projectRoot, siteConfig.contentDir ?? "content");
 const outDir = resolve(projectRoot, siteConfig.outDir ?? "dist");
@@ -71,7 +70,7 @@ if (checkContent) {
 
   const summary = await validateContent({
     contentDir,
-    collectionName: "v5",
+    collectionName: "sujeet.pro",
     resolveFrontmatterSchema: schemaByFile
       ? (filePath) => schemaByFile.get(filePath)?.schema
       : undefined,
@@ -79,9 +78,9 @@ if (checkContent) {
       rootDir: contentDir,
       basePath,
       additionalRoots,
-      // v5 deliberately wants the strict "links must resolve to markdown"
-      // rule because the article/blog content tree is the only first-class
-      // navigation surface here.
+      // sujeet.pro deliberately wants the strict "links must resolve to
+      // markdown" rule because the article/blog content tree is the only
+      // first-class navigation surface here.
       internalLinksMustBeMarkdown: true,
       requireAltText: true,
       forbidHtmlImgTag: true,
@@ -133,7 +132,7 @@ if (checkBuild) {
 
 // ── 3. Project-specific cross-reference checks ──────────────────────
 if (checkContent) {
-  console.log(`\n[v5-cross-references]`);
+  console.log(`\n[cross-references]`);
   const articles = loadSectionEntries("articles", basePath);
   const blogs = loadSectionEntries("blogs", basePath);
   const articleMeta = loadSectionMeta("articles");

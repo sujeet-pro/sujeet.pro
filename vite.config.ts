@@ -1,11 +1,10 @@
-import { normalizeBasePath } from "@pagesmith/site";
 import { pagesmithContent, pagesmithSsg, sharedAssetsPlugin } from "@pagesmith/site/vite";
 import { defineConfig } from "vite-plus";
 import collections, { pagesmithMarkdown } from "./content.config.ts";
-import { loadSiteConfig } from "./lib/site-config.ts";
+import { loadSiteConfig, resolveBasePath } from "./lib/site-config.ts";
 
 const siteConfig = loadSiteConfig();
-const basePath = normalizeBasePath(siteConfig.basePath);
+const basePath = resolveBasePath();
 
 export default defineConfig({
   base: basePath ? `${basePath}/` : "/",

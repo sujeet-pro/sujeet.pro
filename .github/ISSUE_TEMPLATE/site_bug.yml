@@ -1,5 +1,5 @@
 name: Site Bug
-description: Something on v5.sujeet.pro is not working — broken layout, broken interactive element, search broken, page won't load, etc.
+description: Something on sujeet.pro is not working — broken layout, broken interactive element, search broken, page won't load, etc.
 title: "[site bug]: "
 labels: ["bug", "site", "needs-triage"]
 body:
@@ -10,7 +10,7 @@ body:
 
         Before opening this issue please:
 
-        - [Search existing issues](https://github.com/sujeet-pro/v5.sujeet.pro/issues?q=is%3Aissue) to avoid duplicates.
+        - [Search existing issues](https://github.com/sujeet-pro/sujeet.pro/issues?q=is%3Aissue) to avoid duplicates.
         - Try a hard refresh (Cmd/Ctrl+Shift+R) and an incognito window — many transient bugs are CDN cache issues.
 
         For **content problems** (typos, missing info, wrong facts) use the Content Issue template instead.
@@ -48,7 +48,7 @@ body:
     attributes:
       label: Affected page URL
       description: Full URL where the bug occurs.
-      placeholder: https://v5.sujeet.pro/articles/some-article/
+      placeholder: https://sujeet.pro/articles/some-article/
     validations:
       required: true
 
@@ -99,7 +99,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Open https://v5.sujeet.pro/…
+        1. Open https://sujeet.pro/…
         2. Click on …
         3. …
     validations:

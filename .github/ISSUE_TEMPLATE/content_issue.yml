@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve v5.sujeet.pro!
+        Thanks for helping improve sujeet.pro!
 
         Use this template to report:
 
@@ -55,8 +55,8 @@ body:
     id: page-url
     attributes:
       label: Page URL
-      description: Full URL of the affected page on https://v5.sujeet.pro/, or the path under `content/` if you are reporting a source-only issue.
-      placeholder: https://v5.sujeet.pro/articles/some-article/
+      description: Full URL of the affected page on https://sujeet.pro/, or the path under `content/` if you are reporting a source-only issue.
+      placeholder: https://sujeet.pro/articles/some-article/
     validations:
       required: true
 

@@ -8,10 +8,10 @@ Built on `@pagesmith/core` + `@pagesmith/site`.
 
 ## Sections
 
-- [Articles](https://projects.sujeet.pro/v5.sujeet.pro/articles): In-depth
+- [Articles](https://sujeet.pro/articles): In-depth
   long-form technical guides covering frontend internals, web performance,
   JavaScript runtime details, and system design scenarios.
-- [Blogs](https://projects.sujeet.pro/v5.sujeet.pro/blogs): Shorter
+- [Blogs](https://sujeet.pro/blogs): Shorter
   commentary, notes, and project retrospectives.
 - [Projects](https://projects.sujeet.pro/): Cross-referenced portfolio at
   `projects.sujeet.pro` listing open source tools and libraries.

@@ -1,7 +1,7 @@
-import { createContentLayer, normalizeBasePath, withBasePath } from "@pagesmith/site";
+import { createContentLayer, withBasePath } from "@pagesmith/site";
 import { contentLayerConfig } from "../content.config.ts";
 import { loadDiagramkitConfig } from "../lib/diagramkit-config.ts";
-import { loadSiteConfig } from "../lib/site-config.ts";
+import { resolveBasePath } from "../lib/site-config.ts";
 import {
   loadHomeData,
   loadRedirectConfig,
@@ -9,7 +9,6 @@ import {
   loadSectionMeta,
 } from "../theme/lib/content.ts";
 
-const siteConfig = loadSiteConfig();
 loadDiagramkitConfig();
 
 const layer = createContentLayer(contentLayerConfig);
@@ -33,7 +32,7 @@ for (const collectionName of Object.keys(contentLayerConfig.collections)) {
   }
 }
 
-const basePath = normalizeBasePath(siteConfig.basePath);
+const basePath = resolveBasePath();
 const articles = loadSectionEntries("articles", basePath);
 const blogs = loadSectionEntries("blogs", basePath);
 const articleMeta = loadSectionMeta("articles");

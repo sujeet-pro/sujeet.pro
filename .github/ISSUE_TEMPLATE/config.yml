@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 🌐 Visit the site
-    url: https://v5.sujeet.pro/
+    url: https://sujeet.pro/
     about: Browse articles, blogs, and projects.
   - name: 💬 GitHub Discussions
-    url: https://github.com/sujeet-pro/v5.sujeet.pro/discussions
+    url: https://github.com/sujeet-pro/sujeet.pro/discussions
     about: Ask questions, share ideas, or start a conversation.
   - name: 🔒 Report a security vulnerability
-    url: https://github.com/sujeet-pro/v5.sujeet.pro/security/advisories/new
+    url: https://github.com/sujeet-pro/sujeet.pro/security/advisories/new
     about: Privately disclose a security issue. Please do NOT open a public issue for security bugs.

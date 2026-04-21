@@ -1,5 +1,9 @@
 import { expect } from "@playwright/test";
-import { test, withBase } from "./helpers";
+import { BASE_PATH, test, withBase } from "./helpers";
+
+// Expected value for the home-page anchor (`site.homeLink`), which
+// falls back to `/` when the site is hosted at the apex.
+const HOME_LINK = BASE_PATH || "/";
 
 const SERIES_ARTICLE = "/articles/crp-rendering-pipeline-overview/";
 const BLOG_SLUG = "/blogs/chrome-developer-setup/";
@@ -157,10 +161,7 @@ test.describe("404 page", () => {
 
   test("has a home action", async ({ page }) => {
     await page.goto("/this-page-does-not-exist/");
-    await expect(page.locator(".site-action-primary")).toHaveAttribute(
-      "href",
-      /\/v5\.sujeet\.pro\/?$/,
-    );
+    await expect(page.locator(".site-action-primary")).toHaveAttribute("href", HOME_LINK);
   });
 });
 
@@ -169,7 +170,7 @@ test.describe("Header navigation", () => {
     await page.goto("/articles/");
     const logo = page.locator(".doc-logo");
     await expect(logo).toBeVisible();
-    await expect(logo).toHaveAttribute("href", /\/v5\.sujeet\.pro\/?$/);
+    await expect(logo).toHaveAttribute("href", HOME_LINK);
   });
 
   test("nav links are present and work", async ({ page }) => {

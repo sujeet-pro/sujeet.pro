@@ -1,9 +1,7 @@
 import { test as base } from "@playwright/test";
-import { normalizeBasePath } from "@pagesmith/site";
-import { loadSiteConfig } from "../../lib/site-config.ts";
+import { resolveBasePath } from "../../lib/site-config.ts";
 
-const siteConfig = loadSiteConfig();
-export const BASE_PATH = normalizeBasePath(process.env.BASE_PATH ?? siteConfig.basePath);
+export const BASE_PATH = resolveBasePath();
 
 export function withBase(path: string): string {
   if (!path.startsWith("/")) {
