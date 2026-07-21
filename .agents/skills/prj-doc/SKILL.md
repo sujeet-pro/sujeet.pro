@@ -17,15 +17,14 @@ These three files describe the project surface and must be loaded before routing
 
 ## Routing table
 
-| User intent                                                                                                                           | Route to                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Create / update / review an article under `content/articles/...`                                                                      | `.agents/skills/prj-article/SKILL.md`                            |
-| Create / update / review a blog under `content/blogs/...`                                                                             | `.agents/skills/prj-blog/SKILL.md`                               |
-| Create / update a diagram (any engine)                                                                                                | `.agents/skills/prj-diagrams/SKILL.md`                           |
-| Author or revise prose-shape content (markdown features, frontmatter, captions, tables, alerts, code blocks) inside an existing entry | `.agents/skills/prj-content/SKILL.md`                            |
-| Run validation (content, build output, diagrams)                                                                                      | `.agents/skills/prj-validate/SKILL.md`                           |
-| Refresh `ai-guidelines/`, `AGENTS.md`, `CLAUDE.md`, or any skill wrapper                                                              | `.agents/skills/prj-sync/SKILL.md`                               |
-| Project / portfolio entry under `content/projects/...`                                                                                | Decline unless the user explicitly asks — `projects/` is legacy. |
+| User intent                                                                                                                           | Route to                               |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Create / update / review an article under `content/articles/...`                                                                      | `.agents/skills/prj-article/SKILL.md`  |
+| Create / update / review a blog under `content/blogs/...`                                                                             | `.agents/skills/prj-blog/SKILL.md`     |
+| Create / update a diagram (any engine)                                                                                                | `.agents/skills/prj-diagrams/SKILL.md` |
+| Author or revise prose-shape content (markdown features, frontmatter, captions, tables, alerts, code blocks) inside an existing entry | `.agents/skills/prj-content/SKILL.md`  |
+| Run validation (content, build output, diagrams)                                                                                      | `.agents/skills/prj-validate/SKILL.md` |
+| Refresh `ai-guidelines/`, `AGENTS.md`, `CLAUDE.md`, or any skill wrapper                                                              | `.agents/skills/prj-sync/SKILL.md`     |
 
 ## Project guard rails (apply to every route)
 

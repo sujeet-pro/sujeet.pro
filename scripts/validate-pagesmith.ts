@@ -20,17 +20,11 @@ import {
   formatContentValidationReport,
   loadContentSchemaMap,
   validateContent,
-  withBasePath,
   type FileSchemaEntry,
 } from "@pagesmith/site";
 import { validateBuildOutput } from "@pagesmith/site/build-validator";
+import { collectCrossReferenceErrors } from "../lib/cross-references.ts";
 import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
-import {
-  loadHomeData,
-  loadRedirectConfig,
-  loadSectionEntries,
-  loadSectionMeta,
-} from "../theme/lib/content.ts";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 const siteConfig = loadSiteConfig();
@@ -133,67 +127,11 @@ if (checkBuild) {
 // ── 3. Project-specific cross-reference checks ──────────────────────
 if (checkContent) {
   console.log(`\n[cross-references]`);
-  const articles = loadSectionEntries("articles", basePath);
-  const blogs = loadSectionEntries("blogs", basePath);
-  const articleMeta = loadSectionMeta("articles");
-  const blogMeta = loadSectionMeta("blogs");
-  const homeData = loadHomeData();
-  const redirects = loadRedirectConfig();
-
-  const articleSlugs = new Set(articles.map((entry) => entry.slug));
-  const blogSlugs = new Set(blogs.map((entry) => entry.slug));
-  const articleSeriesSlugs = new Set((articleMeta?.series ?? []).map((series) => series.slug));
-  const knownRoutes = new Set<string>([
-    withBasePath(basePath, "/"),
-    withBasePath(basePath, "/articles"),
-    withBasePath(basePath, "/blogs"),
-    ...articles.map((entry) => entry.path),
-    ...blogs.map((entry) => entry.path),
-  ]);
-
-  const projectErrors: string[] = [];
-
-  for (const series of articleMeta?.series ?? []) {
-    for (const slug of series.articles) {
-      if (!articleSlugs.has(slug)) {
-        projectErrors.push(
-          `content/articles/meta.json5 references missing article slug "${slug}" in "${series.slug}".`,
-        );
-      }
-    }
-  }
-  for (const series of blogMeta?.series ?? []) {
-    for (const slug of series.articles) {
-      if (!blogSlugs.has(slug)) {
-        projectErrors.push(
-          `content/blogs/meta.json5 references missing blog slug "${slug}" in "${series.slug}".`,
-        );
-      }
-    }
-  }
-  for (const slug of homeData.featuredArticles) {
-    if (!articleSlugs.has(slug)) {
-      projectErrors.push(`content/home.json5 references unknown featured article "${slug}".`);
-    }
-  }
-  for (const slug of homeData.featuredSeries) {
-    if (!articleSeriesSlugs.has(slug)) {
-      projectErrors.push(`content/home.json5 references unknown featured series "${slug}".`);
-    }
-  }
-  for (const redirect of redirects.redirects) {
-    if (!redirect.to.startsWith("/")) continue;
-    const target = withBasePath(basePath, redirect.to);
-    if (!knownRoutes.has(target)) {
-      projectErrors.push(
-        `content/redirects.json5 points to unknown internal target "${redirect.to}".`,
-      );
-    }
-  }
+  const { errors: projectErrors, articleCount, blogCount } = collectCrossReferenceErrors(basePath);
 
   if (projectErrors.length === 0) {
     console.log(
-      `  meta/home/redirects all reference live content (${articles.length} articles, ${blogs.length} blogs).`,
+      `  meta/home/redirects all reference live content (${articleCount} articles, ${blogCount} blogs).`,
     );
   } else {
     for (const message of projectErrors) console.log(`  ✗ ${message}`);

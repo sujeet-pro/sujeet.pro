@@ -1,13 +1,8 @@
-import { createContentLayer, withBasePath } from "@pagesmith/site";
+import { createContentLayer } from "@pagesmith/site";
 import { contentLayerConfig } from "../content.config.ts";
+import { collectCrossReferenceErrors } from "../lib/cross-references.ts";
 import { loadDiagramkitConfig } from "../lib/diagramkit-config.ts";
 import { resolveBasePath } from "../lib/site-config.ts";
-import {
-  loadHomeData,
-  loadRedirectConfig,
-  loadSectionEntries,
-  loadSectionMeta,
-} from "../theme/lib/content.ts";
 
 loadDiagramkitConfig();
 
@@ -33,63 +28,7 @@ for (const collectionName of Object.keys(contentLayerConfig.collections)) {
 }
 
 const basePath = resolveBasePath();
-const articles = loadSectionEntries("articles", basePath);
-const blogs = loadSectionEntries("blogs", basePath);
-const articleMeta = loadSectionMeta("articles");
-const blogMeta = loadSectionMeta("blogs");
-const homeData = loadHomeData();
-const redirects = loadRedirectConfig();
-
-const articleSlugs = new Set(articles.map((entry) => entry.slug));
-const blogSlugs = new Set(blogs.map((entry) => entry.slug));
-const articleSeriesSlugs = new Set((articleMeta?.series ?? []).map((series) => series.slug));
-const knownRoutes = new Set<string>([
-  withBasePath(basePath, "/"),
-  withBasePath(basePath, "/articles"),
-  withBasePath(basePath, "/blogs"),
-  ...articles.map((entry) => entry.path),
-  ...blogs.map((entry) => entry.path),
-]);
-
-for (const series of articleMeta?.series ?? []) {
-  for (const slug of series.articles) {
-    if (!articleSlugs.has(slug)) {
-      errors.push(
-        `content/articles/meta.json5 references missing article slug "${slug}" in "${series.slug}".`,
-      );
-    }
-  }
-}
-
-for (const series of blogMeta?.series ?? []) {
-  for (const slug of series.articles) {
-    if (!blogSlugs.has(slug)) {
-      errors.push(
-        `content/blogs/meta.json5 references missing blog slug "${slug}" in "${series.slug}".`,
-      );
-    }
-  }
-}
-
-for (const slug of homeData.featuredArticles) {
-  if (!articleSlugs.has(slug)) {
-    errors.push(`content/home.json5 references unknown featured article "${slug}".`);
-  }
-}
-
-for (const slug of homeData.featuredSeries) {
-  if (!articleSeriesSlugs.has(slug)) {
-    errors.push(`content/home.json5 references unknown featured series "${slug}".`);
-  }
-}
-
-for (const redirect of redirects.redirects) {
-  if (!redirect.to.startsWith("/")) continue;
-  const target = withBasePath(basePath, redirect.to);
-  if (!knownRoutes.has(target)) {
-    errors.push(`content/redirects.json5 points to unknown internal target "${redirect.to}".`);
-  }
-}
+errors.push(...collectCrossReferenceErrors(basePath).errors);
 
 if (errors.length > 0) {
   console.error(`Validation failed with ${errors.length} issue(s):`);

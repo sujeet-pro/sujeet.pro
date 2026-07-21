@@ -4,10 +4,10 @@ Canonical package reference map for the tooling that powers `sujeet.pro`.
 
 Use the installed package docs as the source of truth. This local file tells repo-local skills what to read and highlights the current integration points in this repo.
 
-<!-- Last synced: 2026-04-20 -->
-<!-- @pagesmith/core: node_modules/@pagesmith/core (^0.x — read REFERENCE.md for the live version) -->
-<!-- @pagesmith/site: node_modules/@pagesmith/site (^0.9.8) -->
-<!-- diagramkit: node_modules/diagramkit (^0.3.2) -->
+The live installed versions are whatever `node_modules/<pkg>/package.json`
+reports (`@pagesmith/core`, `@pagesmith/site`, `diagramkit`). Read those files
+for exact versions rather than trusting a hardcoded banner here — the range in
+the root `package.json` only pins the accepted floor.
 
 ## @pagesmith/core
 
@@ -52,7 +52,6 @@ Rules for this repo:
 - Do not reintroduce `@pagesmith/docs`, `pagesmith.config.json5`, or the `pagesmith-docs` CLI.
 - Keep collection and config validation in `schemas/frontmatter.ts`, `schemas/content-data.ts`, `schemas/site.ts`, and `schemas/diagramkit.ts`.
 - Treat `ai-guidelines/markdown.md` as the local supplement, not a replacement for the upstream file.
-- Treat project content as legacy unless the user explicitly asks to work on it.
 - When editing content, update companion metadata (`content/articles/meta.json5`, `content/blogs/meta.json5`, `content/home.json5`, `content/redirects.json5`) in the same change when needed.
 
 ## @pagesmith/site

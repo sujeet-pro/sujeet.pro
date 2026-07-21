@@ -35,8 +35,15 @@ jobs:
       - uses: voidzero-dev/setup-vp@v1
       - name: Check (format + lint + types)
         run: vp check
-      - name: Validate content
+      - name: Validate config, collections, and cross-file refs
         run: npm run validate
+      - name: Validate content (@pagesmith/site content validators)
+        run: npm run validate:content
+      # `diagramkit validate` is a static SVG structure + WCAG audit of the
+      # already-committed `-light.svg` / `-dark.svg` outputs — no Chromium,
+      # no re-render — so it belongs in the fast, browser-free check job.
+      - name: Validate diagrams (SVG structure + WCAG 2.2 AA)
+        run: npm run validate:diagrams
 
   unit-test:
     name: Unit Tests
@@ -44,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: voidzero-dev/setup-vp@v1
-      - run: vp test
+      - run: vp test run
 
   build-and-e2e:
     name: Build & E2E
@@ -96,7 +103,12 @@ jobs:
 
       - name: Build
         run: npm run build
-      - name: Validate build output
+      # After the build, `dist/` exists, so the full validator's build-output
+      # checks (themed-image pairs, in-page anchors, base-path correctness)
+      # run for real alongside the content + cross-reference validators.
+      - name: Validate full (content + build validators + cross-refs)
+        run: npm run validate:full
+      - name: Validate dist integrity
         run: npm run validate:dist
 
       - name: E2E tests

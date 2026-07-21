@@ -3,6 +3,7 @@ import type { SiteDocumentData, SiteSidebarSection } from "@pagesmith/site/compo
 import { PageShell } from "@pagesmith/site/layouts";
 import type { Heading } from "@pagesmith/site/ssg-utils";
 import { EntryCardList } from "../components/EntryCardList";
+import { FontPreload } from "../components/FontPreload";
 import { getBlogListing } from "../lib/content";
 
 type Props = {
@@ -49,6 +50,7 @@ export default function BlogListing(props: Props) {
       description={pageDescription ?? meta?.description ?? site.description}
       url={slug}
       site={site}
+      headChildren={<FontPreload basePath={site.basePath} />}
     >
       <PageShell
         site={site}

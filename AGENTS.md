@@ -8,16 +8,23 @@ This repo should stay on a core-native setup. Do not reintroduce `@pagesmith/doc
 
 ```bash
 vp install
-npm run dev
-npm run build
+npm run dev                # Vite dev server (port 3000)
+npm run build              # Render diagrams, run Vite SSG, and write postbuild assets
+npm run preview            # Preview built output (port 4000)
 npm run validate           # config + collections + cross-file refs
+npm run validate:content   # @pagesmith/site content validators only
 npm run validate:full      # @pagesmith/site content + build validators + project cross-refs
 npm run validate:diagrams  # diagramkit validate (SVG structure + WCAG 2.2 AA)
 npm run validate:dist      # repo-local dist integrity
 npm run validate:all       # validate + validate:diagrams + validate:full
-vp check
-vp test
-npm run test:e2e
+npm run check-orphans      # find unreferenced assets in content/
+vp check                   # format + lint + type-check
+vp check --fix             # auto-fix formatting and lint issues
+vp test                    # unit tests
+npm run test:e2e           # E2E tests
+npm run diagrams           # render changed diagrams
+npm run diagrams:force     # re-render all diagrams
+npm run diagrams:doctor    # diagramkit environment + config sanity check
 ```
 
 `scripts/validate-pagesmith.ts` (run by `npm run validate:full` and friends) is
@@ -67,7 +74,12 @@ are thin pointers to the canonical body — never edit them directly.
 - `content.config.ts` defines the `@pagesmith/core` collections and markdown behavior.
 - `vite.config.ts` keeps `pagesmithContent(...)` on `@pagesmith/core/vite` and wires `sharedAssetsPlugin()` plus `...pagesmithSsg(...)` from `@pagesmith/site/vite`.
 - `schemas/` contains Zod schemas for site config, frontmatter, content metadata, and diagramkit config.
-- `content/` holds markdown plus companion JSON5 metadata: root nav/footer, section metadata, homepage curation, and redirects.
+- `content/` holds markdown plus companion JSON5 metadata:
+  - `content/meta.json5` — top-level nav and footer links
+  - `content/articles/meta.json5` — article listing behavior, manual order, and series definitions
+  - `content/blogs/meta.json5` — blog listing behavior and ordering
+  - `content/home.json5` — homepage hero and featured content
+  - `content/redirects.json5` — vanity URLs and legacy redirects
 - `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
 - `src/entry-server.tsx` is the SSG entry that renders `virtual:content/*` payloads through `theme/layouts/*`.
 - `theme/lib/content.ts` composes listings, series navigation, breadcrumbs, prev/next links, homepage featured content, and redirects from the markdown-plus-metadata model.
@@ -89,11 +101,23 @@ are thin pointers to the canonical body — never edit them directly.
 
 - Articles live at `content/articles/<slug>/README.md`.
 - Blogs live at `content/blogs/<slug>/README.md`.
-- Projects are legacy. Do not create new project content unless explicitly asked.
 - Article and blog frontmatter must include `title`, `description`, `publishedDate`, `lastUpdatedOn`, and `tags`.
 - Do not set `layout` or `category` in article or blog frontmatter.
 - The visible page title comes from the markdown `# H1`.
 - Content edits are metadata-aware: when a slug, series membership, homepage feature, or canonical path changes, update the coordinating `meta.json5`, `home.json5`, and `redirects.json5` files in the same change.
+
+Article and blog frontmatter uses this shape:
+
+```yaml
+---
+title: "Article Title"
+description: "One-line description for meta tags and listing cards"
+publishedDate: 2026-03-15
+lastUpdatedOn: 2026-03-20
+tags: [distributed-systems, cap-theorem]
+draft: true # Optional
+---
+```
 
 ## Diagrams
 
@@ -108,6 +132,15 @@ Preferred embed pattern (consecutive light/dark markdown images are auto-merged 
 ![Description](./diagrams/name-light.svg)
 ![Description](./diagrams/name-dark.svg)
 ```
+
+## Toolchain
+
+- `@pagesmith/core` — content layer, markdown pipeline, schemas/loaders, and `pagesmithContent`
+- `@pagesmith/site` — JSX runtime, site CSS/runtime bundles, and Vite SSG helpers
+- `diagramkit` — Mermaid, Excalidraw, Draw.io, and Graphviz rendering
+- `tsx` — TypeScript script runner
+- Vite+ (`vp`) — `vp check`, `vp test`, commit hooks
+- Playwright — diagram rendering runtime and E2E tests
 
 ## Package References
 

@@ -46,7 +46,7 @@ content/articles/<slug>/
     request-flow-dark.svg
 ```
 
-Same shape under `content/blogs/<slug>/diagrams/` and (legacy) `content/projects/<slug>/diagrams/`.
+Same shape under `content/blogs/<slug>/diagrams/`.
 
 Rules:
 

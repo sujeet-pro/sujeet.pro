@@ -9,7 +9,6 @@ Read this file first, then load only the task-specific docs you need. Keep repo 
 - The primary output of this repo is long-form technical `articles` and shorter `blogs`.
 - Articles are research-backed documents for senior engineers. They should be practical, technically deep, and diagram-heavy.
 - Blogs are shorter, more personal, and opinionated, but they still need factual and technical correctness.
-- The `projects` collection still exists in the codebase, but it is legacy. Do not create new project content unless the user explicitly asks.
 
 ## Repo-aware content model
 

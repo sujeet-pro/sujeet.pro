@@ -8,6 +8,7 @@ import {
   buildSidebarModalSections,
 } from "@pagesmith/site/components";
 import type { SiteAction, SiteDocumentData } from "@pagesmith/site/components";
+import { FontPreload } from "../components/FontPreload";
 import { getFeaturedArticles, getFeaturedSeries, getSiteStats } from "../lib/content";
 
 type Props = {
@@ -102,6 +103,7 @@ export default function Home({ content, frontmatter, slug, site }: Props) {
           : undefined
       }
       site={site}
+      headChildren={<FontPreload basePath={site.basePath} />}
     >
       <SiteHeader
         siteName={site.name}

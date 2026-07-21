@@ -18,7 +18,7 @@
     "validate:orphans": "tsx scripts/check-orphans.ts",
     "check-orphans": "tsx scripts/check-orphans.ts",
     "validate:all": "npm run validate && npm run validate:diagrams && npm run validate:full",
-    "test": "vp test",
+    "test": "vp test run",
     "test:e2e": "npx playwright test",
     "test:e2e:deployed": "DEPLOYED_URL=https://sujeet.pro npx playwright test",
     "diagrams": "tsx scripts/diagrams.ts",
@@ -38,8 +38,11 @@
     "pagefind": "^1.5.2",
     "tsx": "^4.21.0",
     "vite": "^8.0.8",
-    "vite-plus": "latest",
+    "vite-plus": "^0.1.19",
     "vitest": "^4.1.4"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "packageManager": "npm@11.12.1"
 }

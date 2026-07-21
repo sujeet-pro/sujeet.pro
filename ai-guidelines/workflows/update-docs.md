@@ -86,7 +86,6 @@ Do not update wrappers first. They should reflect the canonical guidance, not de
 - The repo's current commands and folder layout
 - The fact that this repo uses `@pagesmith/core` + `@pagesmith/site` directly and should not drift back toward `@pagesmith/docs`
 - The repo's metadata companions: `content/meta.json5`, section `meta.json5`, `content/home.json5`, and `content/redirects.json5`
-- The decision that `projects` is legacy and should not receive new guidance unless explicitly requested
 - Thin wrappers that point back into `ai-guidelines/`
 
 ## What to avoid

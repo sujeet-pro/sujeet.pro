@@ -22,6 +22,12 @@
   seo: {
     locale: "en_US",
   },
+  // Icon assets served from `public/`. `@pagesmith/site` emits the matching
+  // <link rel> tags only when these keys are set (there are no built-in
+  // defaults). All three reference files that exist under `public/`.
+  favicon: "/favicon.svg",
+  faviconFallback: "/favicon.ico",
+  appleTouchIcon: "/favicons/apple-icon-180x180.png",
   maintainer: {
     name: "Sujeet Jaiswal",
     link: "https://sujeet.pro",

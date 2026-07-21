@@ -2,7 +2,7 @@
 
 Canonical content model for `sujeet.pro`.
 
-This repo is primarily for `articles` and `blogs`. The `projects` collection still exists in the codebase, but it is being phased out. Do not create new project entries unless the user explicitly asks.
+This repo is for `articles` and `blogs`.
 
 ## Editorial bar
 
@@ -255,12 +255,3 @@ Use a series when:
 - readers benefit from ordered navigation
 
 Do not force every article into a series.
-
-## Legacy projects
-
-The repo still contains:
-
-- `content/projects/`
-- existing project pages
-
-Treat these as legacy until the repo is fully cleaned up. Do not expand project guidance in new skills or docs unless the user asks for that work explicitly.

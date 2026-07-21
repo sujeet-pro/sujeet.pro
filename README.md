@@ -1,6 +1,6 @@
 # sujeet.pro
 
-Personal engineering blog and portfolio. Built with [@pagesmith/core](https://github.com/nicholasgriffintn/pagesmith) for the content layer, [@pagesmith/site](https://github.com/nicholasgriffintn/pagesmith) for the site shell and Vite SSG/runtime, and [diagramkit](https://github.com/nicholasgriffintn/diagramkit) for diagram generation.
+Personal engineering blog and portfolio. Built with [@pagesmith/core](https://github.com/sujeet-pro/pagesmith) for the content layer, [@pagesmith/site](https://github.com/sujeet-pro/pagesmith) for the site shell and Vite SSG/runtime, and [diagramkit](https://github.com/sujeet-pro/diagramkit) for diagram generation.
 
 This repo uses `@pagesmith/core` + `@pagesmith/site` directly. It should not depend on `@pagesmith/docs`.
 
@@ -71,7 +71,6 @@ content/
       README.md
       diagrams/
       assets/
-  projects/            # Legacy content, do not expand unless explicitly asked
 theme/
   components/
   layouts/
@@ -123,19 +122,19 @@ See [ai-guidelines/content-structure.md](ai-guidelines/content-structure.md) for
 
 ## Toolchain
 
-| Tool                                                              | Purpose                                                                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Vite+](https://viteplus.dev/)                                    | `vp check`, `vp test`, `vp staged`, dependency/runtime management         |
-| [Node.js 24](https://nodejs.org/)                                 | Runtime                                                                   |
-| [tsx](https://tsx.is/)                                            | TypeScript script runner                                                  |
-| [@pagesmith/core](https://github.com/nicholasgriffintn/pagesmith) | Content layer, markdown pipeline, schemas/loaders, and `pagesmithContent` |
-| [@pagesmith/site](https://github.com/nicholasgriffintn/pagesmith) | JSX runtime, site CSS/runtime bundles, and Vite SSG helpers               |
-| [diagramkit](https://github.com/nicholasgriffintn/diagramkit)     | Diagram rendering for Mermaid, Excalidraw, Draw.io, and Graphviz          |
-| [Playwright](https://playwright.dev/)                             | Browser automation for tests and diagram rendering                        |
+| Tool                                                       | Purpose                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Vite+](https://viteplus.dev/)                             | `vp check`, `vp test`, `vp staged`, dependency/runtime management         |
+| [Node.js 24](https://nodejs.org/)                          | Runtime                                                                   |
+| [tsx](https://tsx.is/)                                     | TypeScript script runner                                                  |
+| [@pagesmith/core](https://github.com/sujeet-pro/pagesmith) | Content layer, markdown pipeline, schemas/loaders, and `pagesmithContent` |
+| [@pagesmith/site](https://github.com/sujeet-pro/pagesmith) | JSX runtime, site CSS/runtime bundles, and Vite SSG helpers               |
+| [diagramkit](https://github.com/sujeet-pro/diagramkit)     | Diagram rendering for Mermaid, Excalidraw, Draw.io, and Graphviz          |
+| [Playwright](https://playwright.dev/)                      | Browser automation for tests and diagram rendering                        |
 
 ## CI/CD
 
-Deploys to GitHub Pages via `.github/workflows/gh-pages.yml`.
+Lint, validate, build, and deploy to GitHub Pages run via `.github/workflows/ci.yml`.
 
 ## AI Agent Support
 
@@ -143,8 +142,8 @@ This repo provides AI guidance and project-local skills for Claude Code, Cursor,
 
 - `ai-guidelines/README.md` — canonical entrypoint for content and docs work
 - `ai-guidelines/` — shared content authoring guidelines and workflows
-- `CLAUDE.md` — Claude Code project context
-- `AGENTS.md` — Cursor / Codex project context
+- `AGENTS.md` — canonical agent project context (Cursor, Codex, and others)
+- `CLAUDE.md` — imports `AGENTS.md` for Claude Code
 - `.claude/skills/` — Claude Code skills
 - `.cursor/skills/` — Cursor project skills
 - `.cursor/rules/` — Cursor rules that point back to `ai-guidelines/`

@@ -58,7 +58,6 @@ Do NOT set `layout` or `category` — resolved from `meta.json5`.
 
 - Articles: `content/articles/<slug>/README.md` — research-backed, staff-level, diagram-heavy
 - Blogs: `content/blogs/<slug>/README.md` — shorter, personal, still technically correct
-- Projects: legacy only for now; do not create new project content unless explicitly asked
 
 ### Diagrams
 

@@ -10,6 +10,7 @@ import type {
 import { PageShell } from "@pagesmith/site/layouts";
 import type { Heading } from "@pagesmith/site/ssg-utils";
 import { ContentMeta } from "../components/ContentMeta";
+import { FontPreload } from "../components/FontPreload";
 import { resolveTags } from "../lib/content";
 
 export type PostPageProps = {
@@ -87,6 +88,7 @@ export function PostPage(props: PostPageProps) {
       }
       site={site}
       meta={meta}
+      headChildren={<FontPreload basePath={site.basePath} />}
     >
       <PageShell
         site={site}
