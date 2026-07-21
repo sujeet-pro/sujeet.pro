@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "diagrams": {
+    "fiber-double-buffering.mermaid": {
+      "hash": "sha256:cfac050dab28d4bc",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "fiber-double-buffering-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 467.96875,
+          "height": 642.4000244140625
+        },
+        {
+          "file": "fiber-double-buffering-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 467.96875,
+          "height": 642.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286252.2034,
+      "size": 897,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "render-pipeline.mermaid": {
+      "hash": "sha256:92dde11e5049e42a",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "render-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 714.640625,
+          "height": 978.4000244140625
+        },
+        {
+          "file": "render-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 714.640625,
+          "height": 978.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286252.4775,
+      "size": 1060,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "transition-vs-deferred-decision.mermaid": {
+      "hash": "sha256:294404fce2217a07",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "transition-vs-deferred-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 564.5148315429688,
+          "height": 944.1655883789062
+        },
+        {
+          "file": "transition-vs-deferred-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 564.5148315429688,
+          "height": 944.1655883789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286253.0251,
+      "size": 981,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "virtualization-window.mermaid": {
+      "hash": "sha256:4852c6e7cc3b12da",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "virtualization-window-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 565,
+          "height": 887.5999755859375
+        },
+        {
+          "file": "virtualization-window-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 565,
+          "height": 887.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286253.2861,
+      "size": 1090,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -67,6 +67,27 @@ are thin pointers to the canonical body — never edit them directly.
 | `prj-validate` | Run the full validation suite (content, diagrams, build, dist).                                                                          |
 | `prj-sync`     | Refresh `ai-guidelines/`, root docs, rules, and wrapper files after a package upgrade or convention change.                              |
 
+### Upstream skill stubs (distinct from `prj-*`)
+
+`@pagesmith/site` and `diagramkit` ship their own skills as versioned-pointer
+stubs, installed via their bundled CLIs and kept separate from the `prj-*`
+skills above:
+
+```bash
+npx pagesmith skills install      # pagesmith-core-* + pagesmith-site-* stubs
+npx diagramkit skills install     # diagramkit-* stubs (auto, mermaid, review, …)
+```
+
+These generate `.agents/skills/<pagesmith-*|diagramkit-*>/SKILL.md` pointers
+plus `.claude/` and `.cursor/` mirrors that point back into the installed
+package body. The installers never touch the `prj-*` skills. Do not edit the
+generated stubs by hand — rerun the installer.
+
+> Not yet installed on this branch: while the packages are consumed through
+> `npm link`, the installers emit pointers that resolve outside the repo into
+> the sibling checkouts. Install (and wire `skills install --check` into CI)
+> once the packages are published and installed normally under `node_modules/`.
+
 ## Architecture
 
 - `site.config.json5` is the site-level config for origin, base path, theme, search, analytics, edit links, and server ports.
@@ -83,10 +104,11 @@ are thin pointers to the canonical body — never edit them directly.
 - `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
 - `src/entry-server.tsx` is the SSG entry that renders `virtual:content/*` payloads through `theme/layouts/*`.
 - `theme/lib/content.ts` composes listings, series navigation, breadcrumbs, prev/next links, homepage featured content, and redirects from the markdown-plus-metadata model.
-- `scripts/postbuild.ts` writes repo-specific post-build artifacts such as `sitemap.xml` and `rss.xml`.
+- `scripts/postbuild.ts` is thin: it flattens `404/index.html` → `404.html` and feeds repo-derived routes/entries into the upstream `generateSitemap` / `generateFeed` serializers from `@pagesmith/site/ssg-utils`. It no longer hand-rolls sitemap/RSS XML.
 - `scripts/validate.ts` validates config, content schemas, and cross-file references.
 - `scripts/validate-pagesmith.ts` composes `@pagesmith/site` validators with the project cross-ref checks.
-- `scripts/validate-dist.ts` walks the built `dist/` for required files, link integrity, and base-path correctness.
+- `scripts/validate-dist.ts` delegates dist integrity to `validateBuildOutput` (`@pagesmith/site/build-validator`) with `checkSitemap` + `checkBundledAssets`, and keeps only the repo-specific HTML document-shape and Pagefind-directory checks.
+- `scripts/diagrams.ts` / `scripts/validate-diagrams.ts` are thin wrappers over the `diagramkit render` / `diagramkit validate` CLIs, scoped with `--scope-dir diagrams` (validation adds `--recursive` and a `--fail-on` fatal-code policy).
 
 ## Code Flow
 

@@ -1,0 +1,136 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cardinality-explosion.mermaid": {
+      "hash": "sha256:20dbd1a246cdd5c9",
+      "generatedAt": "2026-07-21T22:01:10.774Z",
+      "outputs": [
+        {
+          "file": "cardinality-explosion-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 671.671875,
+          "height": 1226.153076171875
+        },
+        {
+          "file": "cardinality-explosion-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 671.671875,
+          "height": 1226.153076171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286207.0315,
+      "size": 1030,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "otel-pipeline.mermaid": {
+      "hash": "sha256:900dbe6c99153321",
+      "generatedAt": "2026-07-21T22:01:10.774Z",
+      "outputs": [
+        {
+          "file": "otel-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 715,
+          "height": 908.9999389648438
+        },
+        {
+          "file": "otel-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 715,
+          "height": 908.9999389648438
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286207.2673,
+      "size": 1115,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "otel-unified-model.mermaid": {
+      "hash": "sha256:28e316f724765383",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "otel-unified-model-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 545.9650268554688,
+          "height": 589.5999755859375
+        },
+        {
+          "file": "otel-unified-model-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 545.9650268554688,
+          "height": 589.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286207.5327,
+      "size": 660,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sampling-strategies.mermaid": {
+      "hash": "sha256:5b0535d217dcf071",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "sampling-strategies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 596.546875,
+          "height": 952.5125122070312
+        },
+        {
+          "file": "sampling-strategies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 596.546875,
+          "height": 952.5125122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286207.83,
+      "size": 661,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "trace-context-propagation.mermaid": {
+      "hash": "sha256:49e0a6d77d3c5979",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "trace-context-propagation-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "trace-context-propagation-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286208.0713,
+      "size": 764,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

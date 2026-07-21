@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cwv-bottleneck-decision-tree.mermaid": {
+      "hash": "sha256:8b4fe02d0335dc07",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "cwv-bottleneck-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 937.5414428710938,
+          "height": 1084.6187744140625
+        },
+        {
+          "file": "cwv-bottleneck-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 937.5414428710938,
+          "height": 1084.6187744140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286336.0715,
+      "size": 1108,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "web-performance-optimization-layers-and-their-impact-on-core-web-vitals.mermaid": {
+      "hash": "sha256:cff2cb73adc2f759",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "web-performance-optimization-layers-and-their-impact-on-core-web-vitals-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 796.7578125,
+          "height": 666.5999755859375
+        },
+        {
+          "file": "web-performance-optimization-layers-and-their-impact-on-core-web-vitals-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 796.7578125,
+          "height": 666.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286336.3474,
+      "size": 766,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

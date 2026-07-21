@@ -13,9 +13,9 @@ flowchart TB
     Q4 -- "edit + delete" --> Restore["Restore the edited side, drop delete"]
     Q4 -- "edit + edit" --> Conflict["Keep remote at original path<br/>Move local to '... (Computer's conflicted copy YYYY-MM-DD).ext'"]
 
-    classDef ok fill:#e5f5e5,stroke:#44aa44
-    classDef warn fill:#fff5e5,stroke:#cc8844
-    classDef bad fill:#ffe5e5,stroke:#cc4444
+    classDef ok fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef warn fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef bad fill:#B43A3A,stroke:#8E2828,color:#ffffff
     class ApplyR,ApplyL,Skip,SkipD ok
     class Restore warn
     class Conflict bad

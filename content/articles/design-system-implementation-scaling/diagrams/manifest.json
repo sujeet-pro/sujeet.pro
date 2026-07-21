@@ -1,0 +1,248 @@
+{
+  "version": 2,
+  "diagrams": {
+    "ci-pipeline-stages.mermaid": {
+      "hash": "sha256:d474c0d6141ec405",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "ci-pipeline-stages-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 884.984375,
+          "height": 934.871826171875
+        },
+        {
+          "file": "ci-pipeline-stages-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 884.984375,
+          "height": 934.871826171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286037.0022,
+      "size": 1062,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "deprecation-timeline.mermaid": {
+      "hash": "sha256:651a69e40a7c80b8",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "deprecation-timeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 253.78125,
+          "height": 502.79998779296875
+        },
+        {
+          "file": "deprecation-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 253.78125,
+          "height": 502.79998779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286037.244,
+      "size": 801,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu.mermaid": {
+      "hash": "sha256:4e14f996f1a85d1a",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1098.3046875,
+          "height": 496
+        },
+        {
+          "file": "design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1098.3046875,
+          "height": 496
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286037.7305,
+      "size": 1306,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "package-topology.mermaid": {
+      "hash": "sha256:e5fcf0d5bf76a54a",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "package-topology-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 356.15625,
+          "height": 1000.7999877929688
+        },
+        {
+          "file": "package-topology-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 356.15625,
+          "height": 1000.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286038.2341,
+      "size": 1046,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo.mermaid": {
+      "hash": "sha256:d778e575ba56064e",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 770.71875,
+          "height": 660
+        },
+        {
+          "file": "repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 770.71875,
+          "height": 660
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286038.5017,
+      "size": 487,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "strangler-fig-migration.mermaid": {
+      "hash": "sha256:daedf7236cb6b337",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "strangler-fig-migration-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 660.703125,
+          "height": 633.1468505859375
+        },
+        {
+          "file": "strangler-fig-migration-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 660.703125,
+          "height": 633.1468505859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286038.8057,
+      "size": 874,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr.mermaid": {
+      "hash": "sha256:d1c0c8a4eda7bab1",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1093.63671875,
+          "height": 551.5999755859375
+        },
+        {
+          "file": "the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1093.63671875,
+          "height": 551.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286039.073,
+      "size": 1152,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "theming-pipeline.mermaid": {
+      "hash": "sha256:b1dd2a9f51cc5f92",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "theming-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 835.984375,
+          "height": 532.3999633789062
+        },
+        {
+          "file": "theming-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 835.984375,
+          "height": 532.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286039.3225,
+      "size": 1028,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "token-tier-architecture.mermaid": {
+      "hash": "sha256:c4acbcdfd77a2638",
+      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "outputs": [
+        {
+          "file": "token-tier-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 726.953125,
+          "height": 413
+        },
+        {
+          "file": "token-tier-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 726.953125,
+          "height": 413
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286039.6108,
+      "size": 1063,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

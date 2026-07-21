@@ -1,0 +1,221 @@
+{
+  "version": 2,
+  "diagrams": {
+    "anti-cheat-write-path.mermaid": {
+      "hash": "sha256:959e3b51954373b6",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "anti-cheat-write-path-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 993.953125,
+          "height": 1384.137451171875
+        },
+        {
+          "file": "anti-cheat-write-path-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 993.953125,
+          "height": 1384.137451171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286190.834,
+      "size": 1500,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "architecture.mermaid": {
+      "hash": "sha256:221032bb5017c56a",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1399.125,
+          "height": 509.075439453125
+        },
+        {
+          "file": "architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1399.125,
+          "height": 509.075439453125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286191.2595,
+      "size": 1068,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "composite-score-encoding.mermaid": {
+      "hash": "sha256:a28b768b0346a939",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "composite-score-encoding-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 581.203125,
+          "height": 631.3999633789062
+        },
+        {
+          "file": "composite-score-encoding-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 581.203125,
+          "height": 631.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286191.8086,
+      "size": 817,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "friend-leaderboard-intersect.mermaid": {
+      "hash": "sha256:d002334dc1e6aceb",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "friend-leaderboard-intersect-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 556.03125,
+          "height": 611
+        },
+        {
+          "file": "friend-leaderboard-intersect-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 556.03125,
+          "height": 611
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286192.1294,
+      "size": 945,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hybrid-exact-approximate.mermaid": {
+      "hash": "sha256:66983b791d7343d0",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "hybrid-exact-approximate-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 657.90234375,
+          "height": 727.340576171875
+        },
+        {
+          "file": "hybrid-exact-approximate-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 657.90234375,
+          "height": 727.340576171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286192.4473,
+      "size": 978,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "score-range-partitioning.mermaid": {
+      "hash": "sha256:8a3eb0975677da92",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "score-range-partitioning-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 899.28125,
+          "height": 806.6499633789062
+        },
+        {
+          "file": "score-range-partitioning-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 899.28125,
+          "height": 806.6499633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286192.761,
+      "size": 1040,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sharded-aggregator.mermaid": {
+      "hash": "sha256:ef1070882a39da9b",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "sharded-aggregator-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 615.328125,
+          "height": 876.5999755859375
+        },
+        {
+          "file": "sharded-aggregator-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 615.328125,
+          "height": 876.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286193.024,
+      "size": 1105,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "skiplist-hashtable.mermaid": {
+      "hash": "sha256:499de29ed1f3e1dd",
+      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "outputs": [
+        {
+          "file": "skiplist-hashtable-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1085.328125,
+          "height": 1009
+        },
+        {
+          "file": "skiplist-hashtable-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1085.328125,
+          "height": 1009
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286193.268,
+      "size": 1127,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

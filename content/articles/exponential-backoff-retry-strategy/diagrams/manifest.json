@@ -1,0 +1,182 @@
+{
+  "version": 2,
+  "diagrams": {
+    "circuit-breaker-states.mermaid": {
+      "hash": "sha256:0d63991db76ecc3f",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "circuit-breaker-states-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 685.3125,
+          "height": 720
+        },
+        {
+          "file": "circuit-breaker-states-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 685.3125,
+          "height": 720
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286121.666,
+      "size": 891,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hedged-request-timing.mermaid": {
+      "hash": "sha256:489a53fc16d5bc65",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "hedged-request-timing-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "hedged-request-timing-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286121.918,
+      "size": 897,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "jitter-strategies.mermaid": {
+      "hash": "sha256:f9c4757d7a017d3e",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "jitter-strategies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1129.921875,
+          "height": 605.3999633789062
+        },
+        {
+          "file": "jitter-strategies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1129.921875,
+          "height": 605.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286122.2136,
+      "size": 1811,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "retry-amplification.mermaid": {
+      "hash": "sha256:0f3db21eb37d2bbf",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "retry-amplification-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 908.328125,
+          "height": 929
+        },
+        {
+          "file": "retry-amplification-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 908.328125,
+          "height": 929
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286122.536,
+      "size": 1390,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "retry-circuit-breaker-sequence.mermaid": {
+      "hash": "sha256:93220eb0c469de93",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "retry-circuit-breaker-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "retry-circuit-breaker-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286123.046,
+      "size": 1338,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "retry-evolution.mermaid": {
+      "hash": "sha256:c288ec1aeae6931d",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "retry-evolution-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 716.84375,
+          "height": 886.3999633789062
+        },
+        {
+          "file": "retry-evolution-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 716.84375,
+          "height": 886.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286123.3882,
+      "size": 1474,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "thundering-herd-timeline.mermaid": {
+      "hash": "sha256:30a97af1f676a364",
+      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "outputs": [
+        {
+          "file": "thundering-herd-timeline-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "thundering-herd-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286123.6462,
+      "size": 1101,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

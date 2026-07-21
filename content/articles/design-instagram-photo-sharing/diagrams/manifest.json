@@ -1,0 +1,267 @@
+{
+  "version": 2,
+  "diagrams": {
+    "dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p.mermaid": {
+      "hash": "sha256:bd04ece61f24ad9f",
+      "generatedAt": "2026-07-21T22:01:10.719Z",
+      "outputs": [
+        {
+          "file": "dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285979.9531,
+      "size": 689,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid.mermaid": {
+      "hash": "sha256:4fc75cf93e378a61",
+      "generatedAt": "2026-07-21T22:01:10.719Z",
+      "outputs": [
+        {
+          "file": "high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 895.818359375,
+          "height": 510.6873779296875
+        },
+        {
+          "file": "high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 895.818359375,
+          "height": 510.6873779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285980.2126,
+      "size": 714,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto.mermaid": {
+      "hash": "sha256:36a0b73a44dfc615",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 691.59375,
+          "height": 1031.2242431640625
+        },
+        {
+          "file": "hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 691.59375,
+          "height": 1031.2242431640625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285980.5054,
+      "size": 668,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c.mermaid": {
+      "hash": "sha256:423c5a8e951f3252",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 880.546875,
+          "height": 1143.960693359375
+        },
+        {
+          "file": "multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 880.546875,
+          "height": 1143.960693359375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285980.8262,
+      "size": 885,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "photo-storage-tiers.mermaid": {
+      "hash": "sha256:b550e8a0c4024fdd",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "photo-storage-tiers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 449.1015625,
+          "height": 809.5927734375
+        },
+        {
+          "file": "photo-storage-tiers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 449.1015625,
+          "height": 809.5927734375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285981.1597,
+      "size": 704,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "service-architecture-read-and-realtime.mermaid": {
+      "hash": "sha256:30a3c8a3ee1c704f",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "service-architecture-read-and-realtime-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 760.734375,
+          "height": 591.3711547851562
+        },
+        {
+          "file": "service-architecture-read-and-realtime-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 760.734375,
+          "height": 591.3711547851562
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285981.7085,
+      "size": 696,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "service-architecture-write-path.mermaid": {
+      "hash": "sha256:1f791867bf2669c6",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "service-architecture-write-path-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 780.25,
+          "height": 707.3269653320312
+        },
+        {
+          "file": "service-architecture-write-path-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 780.25,
+          "height": 707.3269653320312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285982.185,
+      "size": 752,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin.mermaid": {
+      "hash": "sha256:469d4470d2afc4a0",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 995.109375,
+          "height": 697.62646484375
+        },
+        {
+          "file": "stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 995.109375,
+          "height": 697.62646484375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285982.4583,
+      "size": 636,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu.mermaid": {
+      "hash": "sha256:2358dfea8db0b84c",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 498.4375,
+          "height": 1127.39990234375
+        },
+        {
+          "file": "three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 498.4375,
+          "height": 1127.39990234375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285982.7205,
+      "size": 828,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr.mermaid": {
+      "hash": "sha256:3f4e59a9150fe54e",
+      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "outputs": [
+        {
+          "file": "two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285983.031,
+      "size": 831,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

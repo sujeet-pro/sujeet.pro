@@ -1,0 +1,359 @@
+{
+  "version": 2,
+  "diagrams": {
+    "aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros.mermaid": {
+      "hash": "sha256:4b7bee0f07fa5e05",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 650.40625,
+          "height": 815.5999755859375
+        },
+        {
+          "file": "aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 650.40625,
+          "height": 815.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285989.6301,
+      "size": 713,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "compaction-strategies.mermaid": {
+      "hash": "sha256:c9df926ed7736906",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "compaction-strategies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1414.75,
+          "height": 669
+        },
+        {
+          "file": "compaction-strategies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1414.75,
+          "height": 669
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285989.8938,
+      "size": 952,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "component-interactions-coordinator-routes-requests-gossip-maintains-membership-s.mermaid": {
+      "hash": "sha256:ff7c7d38c77a7e9d",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "component-interactions-coordinator-routes-requests-gossip-maintains-membership-s-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1095.9296875,
+          "height": 989.5999755859375
+        },
+        {
+          "file": "component-interactions-coordinator-routes-requests-gossip-maintains-membership-s-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1095.9296875,
+          "height": 989.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285990.4512,
+      "size": 997,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "consistent-hashing-ring.mermaid": {
+      "hash": "sha256:01151be74e5de15f",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "consistent-hashing-ring-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 986.3671875,
+          "height": 1834.4000244140625
+        },
+        {
+          "file": "consistent-hashing-ring-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 986.3671875,
+          "height": 1834.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285990.8103,
+      "size": 1125,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "gossip-membership.mermaid": {
+      "hash": "sha256:d3f1fdaf67f0ab32",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "gossip-membership-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "gossip-membership-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285991.2256,
+      "size": 855,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to-.mermaid": {
+      "hash": "sha256:3d2a6f2ea3b6b8be",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to--light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 931.1875,
+          "height": 853.4000244140625
+        },
+        {
+          "file": "high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to--dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 931.1875,
+          "height": 853.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285991.5498,
+      "size": 851,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma.mermaid": {
+      "hash": "sha256:c1d00c44363b77e7",
+      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "outputs": [
+        {
+          "file": "merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 685.875,
+          "height": 362
+        },
+        {
+          "file": "merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 685.875,
+          "height": 362
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285991.9817,
+      "size": 495,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "quorum-overlap.mermaid": {
+      "hash": "sha256:b53c930fa6dcfba8",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "quorum-overlap-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 891.515625,
+          "height": 373
+        },
+        {
+          "file": "quorum-overlap-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 891.515625,
+          "height": 373
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285992.3906,
+      "size": 588,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "read-path-lsm.mermaid": {
+      "hash": "sha256:a652c47eb3a40875",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "read-path-lsm-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 938.33203125,
+          "height": 983.7531127929688
+        },
+        {
+          "file": "read-path-lsm-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 938.33203125,
+          "height": 983.7531127929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285992.712,
+      "size": 735,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "read-path-quorum.mermaid": {
+      "hash": "sha256:f5641a6449f00816",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "read-path-quorum-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "read-path-quorum-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285992.976,
+      "size": 902,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit.mermaid": {
+      "hash": "sha256:20d465cca6367a7c",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285993.2898,
+      "size": 764,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "vector-clock-divergence.mermaid": {
+      "hash": "sha256:b318c5c0ef49e997",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "vector-clock-divergence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "vector-clock-divergence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285993.8418,
+      "size": 910,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "write-path-quorum.mermaid": {
+      "hash": "sha256:0b846d1f0d2142d0",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "write-path-quorum-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "write-path-quorum-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285994.271,
+      "size": 870,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im.mermaid": {
+      "hash": "sha256:4ef9a71d0aef19ee",
+      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "outputs": [
+        {
+          "file": "write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285994.5833,
+      "size": 488,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "version": 2,
+  "diagrams": {
+    "anti-patterns.mermaid": {
+      "hash": "sha256:91232cb819f0442e",
+      "generatedAt": "2026-07-21T22:01:10.766Z",
+      "outputs": [
+        {
+          "file": "anti-patterns-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 726.4375,
+          "height": 625.5999755859375
+        },
+        {
+          "file": "anti-patterns-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 726.4375,
+          "height": 625.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286163.3,
+      "size": 1023,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "b-plus-tree-structure.mermaid": {
+      "hash": "sha256:cf5a362a0dc377bb",
+      "generatedAt": "2026-07-21T22:01:10.766Z",
+      "outputs": [
+        {
+          "file": "b-plus-tree-structure-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 761.4609375,
+          "height": 1432.599853515625
+        },
+        {
+          "file": "b-plus-tree-structure-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 761.4609375,
+          "height": 1432.599853515625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286163.8218,
+      "size": 1082,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "composite-leftmost-prefix.mermaid": {
+      "hash": "sha256:1a66106f76650a6a",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "composite-leftmost-prefix-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 999.8828125,
+          "height": 1269.293701171875
+        },
+        {
+          "file": "composite-leftmost-prefix-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 999.8828125,
+          "height": 1269.293701171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286164.226,
+      "size": 953,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hot-update-mechanism.mermaid": {
+      "hash": "sha256:bdb833d570777bcf",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "hot-update-mechanism-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 559.171875,
+          "height": 997.5812377929688
+        },
+        {
+          "file": "hot-update-mechanism-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 559.171875,
+          "height": 997.5812377929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286164.4873,
+      "size": 811,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "index-only-scan-flow.mermaid": {
+      "hash": "sha256:b077e5d35780ac1b",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "index-only-scan-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 673.43359375,
+          "height": 1237.5062255859375
+        },
+        {
+          "file": "index-only-scan-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 673.43359375,
+          "height": 1237.5062255859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286164.752,
+      "size": 796,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "join-algorithms.mermaid": {
+      "hash": "sha256:82413f339cf8289f",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "join-algorithms-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "join-algorithms-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286165.052,
+      "size": 900,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lsm-tree-paths.mermaid": {
+      "hash": "sha256:2bf22a2cc7f205cb",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "lsm-tree-paths-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 856.015625,
+          "height": 1109.2562255859375
+        },
+        {
+          "file": "lsm-tree-paths-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 856.015625,
+          "height": 1109.2562255859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286165.3247,
+      "size": 891,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "planner-scan-decision.mermaid": {
+      "hash": "sha256:0ac36a68d89e0144",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "planner-scan-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1091.257080078125,
+          "height": 1270.8280029296875
+        },
+        {
+          "file": "planner-scan-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1091.257080078125,
+          "height": 1270.8280029296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286165.987,
+      "size": 976,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "query-execution-overview.mermaid": {
+      "hash": "sha256:6c37346dd2bbfa49",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "query-execution-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 710.609375,
+          "height": 881.28857421875
+        },
+        {
+          "file": "query-execution-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 710.609375,
+          "height": 881.28857421875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286166.3035,
+      "size": 663,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

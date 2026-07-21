@@ -1,0 +1,155 @@
+{
+  "version": 2,
+  "diagrams": {
+    "architecture-overview.mermaid": {
+      "hash": "sha256:87fac3d72e1fc331",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "architecture-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 865.0859375,
+          "height": 933
+        },
+        {
+          "file": "architecture-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 865.0859375,
+          "height": 933
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286116.839,
+      "size": 712,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "crypto-shredding-flow.mermaid": {
+      "hash": "sha256:856e5ffb122df7b0",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "crypto-shredding-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "crypto-shredding-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286117.1133,
+      "size": 948,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "decision-framework.mermaid": {
+      "hash": "sha256:1f7a7c2aca832f48",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "decision-framework-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 811.1242065429688,
+          "height": 1482.4373779296875
+        },
+        {
+          "file": "decision-framework-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 811.1242065429688,
+          "height": 1482.4373779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286117.3875,
+      "size": 707,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "projection-rebuild-flow.mermaid": {
+      "hash": "sha256:f6b4b390f6f0e863",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "projection-rebuild-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 734.20703125,
+          "height": 971.097900390625
+        },
+        {
+          "file": "projection-rebuild-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 734.20703125,
+          "height": 971.097900390625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286117.6665,
+      "size": 840,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "snapshot-replay-flow.mermaid": {
+      "hash": "sha256:ef4ebc4b86887cb4",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "snapshot-replay-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "snapshot-replay-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286117.9253,
+      "size": 881,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sync-vs-async-projections.mermaid": {
+      "hash": "sha256:3fddb03b1eaacc48",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "sync-vs-async-projections-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "sync-vs-async-projections-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286118.1646,
+      "size": 1002,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

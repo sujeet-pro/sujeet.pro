@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "diagrams": {
+    "fanout-on-write-pipeline.mermaid": {
+      "hash": "sha256:506578ca2f8f7c8c",
+      "generatedAt": "2026-07-21T22:01:10.802Z",
+      "outputs": [
+        {
+          "file": "fanout-on-write-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 896.234375,
+          "height": 1174.39990234375
+        },
+        {
+          "file": "fanout-on-write-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 896.234375,
+          "height": 1174.39990234375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286305.8167,
+      "size": 828,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "phoenix-thunder-pipeline.mermaid": {
+      "hash": "sha256:452a450a9d9b97c3",
+      "generatedAt": "2026-07-21T22:01:10.802Z",
+      "outputs": [
+        {
+          "file": "phoenix-thunder-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 453.65625,
+          "height": 1096.800048828125
+        },
+        {
+          "file": "phoenix-thunder-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 453.65625,
+          "height": 1096.800048828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286306.096,
+      "size": 703,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "recommendation-pipeline-2023.mermaid": {
+      "hash": "sha256:491ac64b6736252e",
+      "generatedAt": "2026-07-21T22:01:10.802Z",
+      "outputs": [
+        {
+          "file": "recommendation-pipeline-2023-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1253.53125,
+          "height": 1242.199951171875
+        },
+        {
+          "file": "recommendation-pipeline-2023-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1253.53125,
+          "height": 1242.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286306.7222,
+      "size": 1306,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "three-eras-overview.mermaid": {
+      "hash": "sha256:b738014ca34f2637",
+      "generatedAt": "2026-07-21T22:01:10.802Z",
+      "outputs": [
+        {
+          "file": "three-eras-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 822.30859375,
+          "height": 2240.7998046875
+        },
+        {
+          "file": "three-eras-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 822.30859375,
+          "height": 2240.7998046875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286307.0278,
+      "size": 1279,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

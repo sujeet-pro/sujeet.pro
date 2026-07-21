@@ -1,0 +1,163 @@
+{
+  "version": 2,
+  "diagrams": {
+    "chaos-engineering-pipeline.mermaid": {
+      "hash": "sha256:b22531945d6780e2",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "chaos-engineering-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 274.453125,
+          "height": 975.800048828125
+        },
+        {
+          "file": "chaos-engineering-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 274.453125,
+          "height": 975.800048828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286221.4026,
+      "size": 704,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "eureka-vs-zookeeper-partition.mermaid": {
+      "hash": "sha256:61dc02b59e401e86",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "eureka-vs-zookeeper-partition-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 932.03125,
+          "height": 734.7999877929688
+        },
+        {
+          "file": "eureka-vs-zookeeper-partition-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 932.03125,
+          "height": 734.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286221.747,
+      "size": 867,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hystrix-bulkhead-isolation.mermaid": {
+      "hash": "sha256:273ab19db8859daa",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "hystrix-bulkhead-isolation-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 898.140625,
+          "height": 997.5999755859375
+        },
+        {
+          "file": "hystrix-bulkhead-isolation-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 898.140625,
+          "height": 997.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286222.1016,
+      "size": 1049,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "netflix-s-7-year-journey-from-a-monolithic-java-oracle-stack-to-700-microservice.mermaid": {
+      "hash": "sha256:2b18bb1c376286e3",
+      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "outputs": [
+        {
+          "file": "netflix-s-7-year-journey-from-a-monolithic-java-oracle-stack-to-700-microservice-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1083.8125,
+          "height": 1223.800048828125
+        },
+        {
+          "file": "netflix-s-7-year-journey-from-a-monolithic-java-oracle-stack-to-700-microservice-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1083.8125,
+          "height": 1223.800048828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286222.3352,
+      "size": 1098,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "oss-stack-lifecycle.mermaid": {
+      "hash": "sha256:0799344019cbea51",
+      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "outputs": [
+        {
+          "file": "oss-stack-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "oss-stack-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286222.5833,
+      "size": 1261,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "strangler-fig-migration.mermaid": {
+      "hash": "sha256:acc6a318438423be",
+      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "outputs": [
+        {
+          "file": "strangler-fig-migration-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 827.53125,
+          "height": 840
+        },
+        {
+          "file": "strangler-fig-migration-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 827.53125,
+          "height": 840
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286222.904,
+      "size": 1032,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

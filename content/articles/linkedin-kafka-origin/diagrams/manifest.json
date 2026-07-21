@@ -1,0 +1,163 @@
+{
+  "version": 2,
+  "diagrams": {
+    "isr-replication-flow.mermaid": {
+      "hash": "sha256:70e4f3e29f726736",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "isr-replication-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "isr-replication-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286197.8535,
+      "size": 1160,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently.mermaid": {
+      "hash": "sha256:6527df394cc26d57",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 870.40625,
+          "height": 413
+        },
+        {
+          "file": "kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 870.40625,
+          "height": 413
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286198.1228,
+      "size": 693,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "kafka-evolution-timeline.mermaid": {
+      "hash": "sha256:99168f5d61a89bea",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "kafka-evolution-timeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1205.421875,
+          "height": 664
+        },
+        {
+          "file": "kafka-evolution-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1205.421875,
+          "height": 664
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286198.455,
+      "size": 1317,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p.mermaid": {
+      "hash": "sha256:947891bc1cece329",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1482.734375,
+          "height": 591.25
+        },
+        {
+          "file": "linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1482.734375,
+          "height": 591.25
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286198.7764,
+      "size": 1375,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "log-with-consumer-offsets.mermaid": {
+      "hash": "sha256:40458898ca8242cd",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "log-with-consumer-offsets-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1119.5625,
+          "height": 373.6000061035156
+        },
+        {
+          "file": "log-with-consumer-offsets-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1119.5625,
+          "height": 373.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286199.01,
+      "size": 643,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me.mermaid": {
+      "hash": "sha256:3e2e2265caeb4216",
+      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "outputs": [
+        {
+          "file": "partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1038.359375,
+          "height": 385.79998779296875
+        },
+        {
+          "file": "partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1038.359375,
+          "height": 385.79998779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286199.2795,
+      "size": 729,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

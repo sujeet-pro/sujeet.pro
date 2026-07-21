@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "diagrams": {
+    "hook-call-order-slots.mermaid": {
+      "hash": "sha256:1bf8bbfb25d1ec98",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "hook-call-order-slots-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1362.453125,
+          "height": 569.0999755859375
+        },
+        {
+          "file": "hook-call-order-slots-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1362.453125,
+          "height": 569.0999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286250.5464,
+      "size": 1084,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hook-categories.mermaid": {
+      "hash": "sha256:9565d81ce9015585",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "hook-categories-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1392.703125,
+          "height": 507
+        },
+        {
+          "file": "hook-categories-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1392.703125,
+          "height": 507
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286250.8247,
+      "size": 987,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "useeffect-sync-lifecycle.mermaid": {
+      "hash": "sha256:f7b17bef60a9f1d6",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "useeffect-sync-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "useeffect-sync-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286251.0564,
+      "size": 779,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "usefetch-race-cancellation.mermaid": {
+      "hash": "sha256:89c2eadde556e203",
+      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "outputs": [
+        {
+          "file": "usefetch-race-cancellation-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "usefetch-race-cancellation-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286251.3037,
+      "size": 772,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

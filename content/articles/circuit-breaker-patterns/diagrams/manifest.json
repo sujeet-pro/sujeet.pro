@@ -1,0 +1,140 @@
+{
+  "version": 2,
+  "diagrams": {
+    "partial-failure.mermaid": {
+      "hash": "sha256:b892a4e694871cab",
+      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "outputs": [
+        {
+          "file": "partial-failure-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 592.21875,
+          "height": 365.79998779296875
+        },
+        {
+          "file": "partial-failure-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 592.21875,
+          "height": 365.79998779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285835.9917,
+      "size": 755,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "request-flow.mermaid": {
+      "hash": "sha256:fb08acb4b38f10d8",
+      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "outputs": [
+        {
+          "file": "request-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 389.98046875,
+          "height": 871.109375
+        },
+        {
+          "file": "request-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 389.98046875,
+          "height": 871.109375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285836.8467,
+      "size": 770,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "resilience-pipeline.mermaid": {
+      "hash": "sha256:df4c627a7a803645",
+      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "outputs": [
+        {
+          "file": "resilience-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 766.9296875,
+          "height": 1191.2138671875
+        },
+        {
+          "file": "resilience-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 766.9296875,
+          "height": 1191.2138671875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285837.365,
+      "size": 1035,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sliding-window.mermaid": {
+      "hash": "sha256:cfc01fb05d48483a",
+      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "outputs": [
+        {
+          "file": "sliding-window-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 708.015625,
+          "height": 528.7999877929688
+        },
+        {
+          "file": "sliding-window-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 708.015625,
+          "height": 528.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285837.6504,
+      "size": 1187,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "state-machine.mermaid": {
+      "hash": "sha256:79dd9c4671d7cce4",
+      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "outputs": [
+        {
+          "file": "state-machine-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 508.1912841796875,
+          "height": 489.4000244140625
+        },
+        {
+          "file": "state-machine-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 508.1912841796875,
+          "height": 489.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285838.0706,
+      "size": 898,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

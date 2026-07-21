@@ -1,0 +1,298 @@
+{
+  "version": 2,
+  "diagrams": {
+    "abr-quality-selection.mermaid": {
+      "hash": "sha256:01cdbe4b675f5a60",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "abr-quality-selection-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1058.81298828125,
+          "height": 839.8499755859375
+        },
+        {
+          "file": "abr-quality-selection-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1058.81298828125,
+          "height": 839.8499755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285995.4714,
+      "size": 808,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf.mermaid": {
+      "hash": "sha256:13fd52cde8293121",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 378.0859375,
+          "height": 1401.40185546875
+        },
+        {
+          "file": "cosmos-encoding-pipeline-analysis-encoding-quality-control-packaging-failed-vmaf-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 378.0859375,
+          "height": 1401.40185546875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285995.8572,
+      "size": 936,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license.mermaid": {
+      "hash": "sha256:2666551e18c6588e",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "drm-flow-player-requests-encrypted-content-cdm-generates-license-request-license-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285996.1975,
+      "size": 650,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "encoding-strategy-comparison.mermaid": {
+      "hash": "sha256:40eebbf59e811c84",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "encoding-strategy-comparison-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1049.5625,
+          "height": 476
+        },
+        {
+          "file": "encoding-strategy-comparison-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1049.5625,
+          "height": 476
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285996.4878,
+      "size": 953,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "fill-pipeline.mermaid": {
+      "hash": "sha256:6acdfffd950c1f6d",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "fill-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 839.71875,
+          "height": 955.199951171875
+        },
+        {
+          "file": "fill-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 839.71875,
+          "height": 955.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285996.836,
+      "size": 1029,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "high-level-architecture-content-preparation-proactive-distribution-to-open-conne.mermaid": {
+      "hash": "sha256:0f5513312da51e86",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "high-level-architecture-content-preparation-proactive-distribution-to-open-conne-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1061.609375,
+          "height": 1102.417724609375
+        },
+        {
+          "file": "high-level-architecture-content-preparation-proactive-distribution-to-open-conne-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1061.609375,
+          "height": 1102.417724609375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285997.4402,
+      "size": 1107,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global.mermaid": {
+      "hash": "sha256:36799a0e0589abe3",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1095.2734375,
+          "height": 481.83355712890625
+        },
+        {
+          "file": "netflix-operates-in-4-aws-regions-for-control-plane-open-connect-provides-global-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1095.2734375,
+          "height": 481.83355712890625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285997.737,
+      "size": 750,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c.mermaid": {
+      "hash": "sha256:c13f19a71a3f965b",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 901.15234375,
+          "height": 704.4887084960938
+        },
+        {
+          "file": "open-connect-topology-isp-embedded-ocas-serve-most-traffic-ixp-clusters-handle-c-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 901.15234375,
+          "height": 704.4887084960938
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285998.0598,
+      "size": 1080,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "system-architecture-content-delivery.mermaid": {
+      "hash": "sha256:d20775cdb19dda4f",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "system-architecture-content-delivery-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 570.68359375,
+          "height": 840.5791015625
+        },
+        {
+          "file": "system-architecture-content-delivery-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 570.68359375,
+          "height": 840.5791015625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285998.4688,
+      "size": 715,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "system-architecture-control-plane.mermaid": {
+      "hash": "sha256:322d0f701e3b24a3",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "system-architecture-control-plane-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 761.578125,
+          "height": 468.56378173828125
+        },
+        {
+          "file": "system-architecture-control-plane-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 761.578125,
+          "height": 468.56378173828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285998.9521,
+      "size": 671,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with-.mermaid": {
+      "hash": "sha256:78bf20ffb2b68501",
+      "generatedAt": "2026-07-21T22:01:10.724Z",
+      "outputs": [
+        {
+          "file": "two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 836.9375,
+          "height": 846.9999389648438
+        },
+        {
+          "file": "two-stage-recommendation-retrieve-candidates-via-embedding-similarity-rank-with--dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 836.9375,
+          "height": 846.9999389648438
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285999.3103,
+      "size": 705,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

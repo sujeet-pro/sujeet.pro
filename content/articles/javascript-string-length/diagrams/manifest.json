@@ -1,0 +1,82 @@
+{
+  "version": 2,
+  "diagrams": {
+    "api-selection-decision-tree.mermaid": {
+      "hash": "sha256:a6fbde6b87aa1b95",
+      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "outputs": [
+        {
+          "file": "api-selection-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 778.8812255859375,
+          "height": 1165.887451171875
+        },
+        {
+          "file": "api-selection-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 778.8812255859375,
+          "height": 1165.887451171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286181.0903,
+      "size": 775,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "string-abstraction-layers.mermaid": {
+      "hash": "sha256:1cabcdb0eb5f2902",
+      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "outputs": [
+        {
+          "file": "string-abstraction-layers-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "string-abstraction-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286181.3726,
+      "size": 1131,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "surrogate-pair-encoding.mermaid": {
+      "hash": "sha256:e6cc69b795212d80",
+      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "outputs": [
+        {
+          "file": "surrogate-pair-encoding-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 578.1484375,
+          "height": 684.2000122070312
+        },
+        {
+          "file": "surrogate-pair-encoding-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 578.1484375,
+          "height": 684.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286181.6663,
+      "size": 704,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

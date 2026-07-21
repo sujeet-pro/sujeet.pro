@@ -1,0 +1,128 @@
+{
+  "version": 2,
+  "diagrams": {
+    "lamport-clock-trace.mermaid": {
+      "hash": "sha256:7225032c2057b2b3",
+      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "outputs": [
+        {
+          "file": "lamport-clock-trace-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "lamport-clock-trace-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286296.0352,
+      "size": 615,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "ordering-hierarchy.mermaid": {
+      "hash": "sha256:0d88d006cddc70dd",
+      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "outputs": [
+        {
+          "file": "ordering-hierarchy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 194.234375,
+          "height": 432.4000244140625
+        },
+        {
+          "file": "ordering-hierarchy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 194.234375,
+          "height": 432.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286296.3376,
+      "size": 498,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "spanner-commit-wait.mermaid": {
+      "hash": "sha256:e3b7334c404f9ea9",
+      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "outputs": [
+        {
+          "file": "spanner-commit-wait-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "spanner-commit-wait-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286296.6506,
+      "size": 601,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "time-spectrum.mermaid": {
+      "hash": "sha256:c9e403deca55e8a3",
+      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "outputs": [
+        {
+          "file": "time-spectrum-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 993.61328125,
+          "height": 339.79998779296875
+        },
+        {
+          "file": "time-spectrum-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 993.61328125,
+          "height": 339.79998779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286297.3389,
+      "size": 1155,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "vector-clock-trace.mermaid": {
+      "hash": "sha256:9c063c9739edfb9c",
+      "generatedAt": "2026-07-21T22:01:10.800Z",
+      "outputs": [
+        {
+          "file": "vector-clock-trace-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "vector-clock-trace-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286297.7542,
+      "size": 466,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

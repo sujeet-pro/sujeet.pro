@@ -1,0 +1,186 @@
+{
+  "version": 2,
+  "diagrams": {
+    "expand-contract-phases.mermaid": {
+      "hash": "sha256:e7469c332a8519eb",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "expand-contract-phases-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 308.109375,
+          "height": 798
+        },
+        {
+          "file": "expand-contract-phases-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 308.109375,
+          "height": 798
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285906.1821,
+      "size": 575,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "expand-contract-rollback-sequence.mermaid": {
+      "hash": "sha256:e2b49fbaa2ca829c",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "expand-contract-rollback-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "expand-contract-rollback-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285906.4446,
+      "size": 1160,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "figma-dbproxy-architecture.mermaid": {
+      "hash": "sha256:cc5088c5cb68e24b",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "figma-dbproxy-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 715.296875,
+          "height": 623
+        },
+        {
+          "file": "figma-dbproxy-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 715.296875,
+          "height": 623
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285906.6853,
+      "size": 550,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "gh-ost-cutover-sequence.mermaid": {
+      "hash": "sha256:c6f45cf04f86ccaf",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "gh-ost-cutover-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "gh-ost-cutover-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285906.973,
+      "size": 1089,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "migration-decision-tree.mermaid": {
+      "hash": "sha256:bb71d33961437e80",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "migration-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 869.9343872070312,
+          "height": 971.2218627929688
+        },
+        {
+          "file": "migration-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 869.9343872070312,
+          "height": 971.2218627929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285907.3306,
+      "size": 868,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "shadow-table-mechanism.mermaid": {
+      "hash": "sha256:946ee58d849d06b0",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "shadow-table-mechanism-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1126.21484375,
+          "height": 700.3999633789062
+        },
+        {
+          "file": "shadow-table-mechanism-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1126.21484375,
+          "height": 700.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285907.81,
+      "size": 749,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "slack-vitess-architecture.mermaid": {
+      "hash": "sha256:2ba5d4e61ca57829",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "slack-vitess-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 654.66796875,
+          "height": 504.3999938964844
+        },
+        {
+          "file": "slack-vitess-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 654.66796875,
+          "height": 504.3999938964844
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285908.2617,
+      "size": 573,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

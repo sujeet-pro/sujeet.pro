@@ -1,0 +1,140 @@
+{
+  "version": 2,
+  "diagrams": {
+    "dependency-cascade.mermaid": {
+      "hash": "sha256:83a63cdb8063a40f",
+      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "outputs": [
+        {
+          "file": "dependency-cascade-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 865.765625,
+          "height": 888.9000244140625
+        },
+        {
+          "file": "dependency-cascade-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 865.765625,
+          "height": 888.9000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285803.0945,
+      "size": 1107,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "failure-chain.mermaid": {
+      "hash": "sha256:175cbfdca21c5981",
+      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "outputs": [
+        {
+          "file": "failure-chain-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 859.28125,
+          "height": 1472
+        },
+        {
+          "file": "failure-chain-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 859.28125,
+          "height": 1472
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285803.7964,
+      "size": 1402,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "kinesis-architecture.mermaid": {
+      "hash": "sha256:07a01209aa2a6bf8",
+      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "outputs": [
+        {
+          "file": "kinesis-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 906.84375,
+          "height": 746.3499755859375
+        },
+        {
+          "file": "kinesis-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 906.84375,
+          "height": 746.3499755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285804.376,
+      "size": 1315,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "thread-scaling.mermaid": {
+      "hash": "sha256:1da648fe5321eb7b",
+      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "outputs": [
+        {
+          "file": "thread-scaling-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1002.203125,
+          "height": 476
+        },
+        {
+          "file": "thread-scaling-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1002.203125,
+          "height": 476
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285804.8613,
+      "size": 1055,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "thundering-herd-loop.mermaid": {
+      "hash": "sha256:f32819c33626e585",
+      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "outputs": [
+        {
+          "file": "thundering-herd-loop-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 244.98828125,
+          "height": 566.5999755859375
+        },
+        {
+          "file": "thundering-herd-loop-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 244.98828125,
+          "height": 566.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285805.4165,
+      "size": 413,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

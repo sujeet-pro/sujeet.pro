@@ -14,7 +14,11 @@ flowchart TB
     DBLoad -- "self-reinforcing loop" --> DBLoad
     DBLoad --> Throttle --> Rewrite --> Recovery
 
-    style Trigger fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style DBLoad fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style Throttle fill:#2E5A88,stroke:#1F4870,color:#ffffff
-    style Recovery fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class Trigger accent
+    class DBLoad storage
+    class Throttle primary
+    class Recovery success

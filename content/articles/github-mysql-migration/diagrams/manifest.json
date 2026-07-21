@@ -1,0 +1,159 @@
+{
+  "version": 2,
+  "diagrams": {
+    "dual-write-cutover.mermaid": {
+      "hash": "sha256:3c25d40d42ee61b0",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "dual-write-cutover-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dual-write-cutover-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286142.1472,
+      "size": 1140,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "gh-ost-migration-flow.mermaid": {
+      "hash": "sha256:b80c225c8c196dff",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "gh-ost-migration-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 693.37109375,
+          "height": 619
+        },
+        {
+          "file": "gh-ost-migration-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 693.37109375,
+          "height": 619
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286142.4033,
+      "size": 989,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica.mermaid": {
+      "hash": "sha256:3a55bd8be09860a7",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286142.6768,
+      "size": 613,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas.mermaid": {
+      "hash": "sha256:9bee30997f31ab13",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 505.21875,
+          "height": 1452.39990234375
+        },
+        {
+          "file": "github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 505.21875,
+          "height": 1452.39990234375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286142.9443,
+      "size": 1137,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "mysql-8-rolling-upgrade.mermaid": {
+      "hash": "sha256:3994194cdd45a7a1",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "mysql-8-rolling-upgrade-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 669,
+          "height": 1009.3999633789062
+        },
+        {
+          "file": "mysql-8-rolling-upgrade-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 669,
+          "height": 1009.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286144.069,
+      "size": 1286,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "schema-domain-partitioning.mermaid": {
+      "hash": "sha256:bc7fae875b693853",
+      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "outputs": [
+        {
+          "file": "schema-domain-partitioning-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1185.9453125,
+          "height": 698.7999877929688
+        },
+        {
+          "file": "schema-domain-partitioning-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1185.9453125,
+          "height": 698.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286144.3616,
+      "size": 1246,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

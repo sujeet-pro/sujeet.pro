@@ -1,0 +1,182 @@
+{
+  "version": 2,
+  "diagrams": {
+    "akkio-microshard-placement.mermaid": {
+      "hash": "sha256:10e8f879c25f1827",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "akkio-microshard-placement-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "akkio-microshard-placement-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286166.8052,
+      "size": 1192,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "architecture-before-after-rocksandra.mermaid": {
+      "hash": "sha256:77e45cdd3f55737b",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "architecture-before-after-rocksandra-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1119.140625,
+          "height": 959.1076049804688
+        },
+        {
+          "file": "architecture-before-after-rocksandra-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1119.140625,
+          "height": 959.1076049804688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286167.0652,
+      "size": 1389,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cassandra-journey-timeline.mermaid": {
+      "hash": "sha256:d6a1caef1797f5bb",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "cassandra-journey-timeline-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cassandra-journey-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286167.349,
+      "size": 1068,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "feed-fan-out-hybrid.mermaid": {
+      "hash": "sha256:84d773fd73b7687c",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "feed-fan-out-hybrid-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1020.8038940429688,
+          "height": 997.5656127929688
+        },
+        {
+          "file": "feed-fan-out-hybrid-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1020.8038940429688,
+          "height": 997.5656127929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286167.6912,
+      "size": 1124,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "gc-pause-tail-latency.mermaid": {
+      "hash": "sha256:7458437dd1fecd82",
+      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "outputs": [
+        {
+          "file": "gc-pause-tail-latency-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "gc-pause-tail-latency-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286168.3318,
+      "size": 1309,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rocksandra-architecture.mermaid": {
+      "hash": "sha256:48939d9ae7e79077",
+      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "outputs": [
+        {
+          "file": "rocksandra-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 566.859375,
+          "height": 927.4186401367188
+        },
+        {
+          "file": "rocksandra-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 566.859375,
+          "height": 927.4186401367188
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286168.618,
+      "size": 962,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "write-path-comparison.mermaid": {
+      "hash": "sha256:d19f39e9e3a46ef4",
+      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "outputs": [
+        {
+          "file": "write-path-comparison-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1137.3968505859375,
+          "height": 1298.0213623046875
+        },
+        {
+          "file": "write-path-comparison-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1137.3968505859375,
+          "height": 1298.0213623046875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286168.9333,
+      "size": 1878,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

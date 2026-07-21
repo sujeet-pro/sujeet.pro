@@ -1,0 +1,82 @@
+{
+  "version": 2,
+  "diagrams": {
+    "dnssec-chain-of-trust.dot": {
+      "hash": "sha256:41868a33b7033dde",
+      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "outputs": [
+        {
+          "file": "dnssec-chain-of-trust-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 700,
+          "height": 596
+        },
+        {
+          "file": "dnssec-chain-of-trust-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 700,
+          "height": 596
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286085.0903,
+      "size": 1915,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "dns-cache-layers.mermaid": {
+      "hash": "sha256:5c52ccc9fd41e122",
+      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "outputs": [
+        {
+          "file": "dns-cache-layers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 628.03515625,
+          "height": 652.7999877929688
+        },
+        {
+          "file": "dns-cache-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 628.03515625,
+          "height": 652.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286084.4158,
+      "size": 833,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "dns-resolution-flow.mermaid": {
+      "hash": "sha256:aae1636e24d0b6e7",
+      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "outputs": [
+        {
+          "file": "dns-resolution-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dns-resolution-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286084.692,
+      "size": 577,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

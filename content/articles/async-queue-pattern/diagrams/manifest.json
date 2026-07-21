@@ -1,0 +1,217 @@
+{
+  "version": 2,
+  "diagrams": {
+    "asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded.mermaid": {
+      "hash": "sha256:6030e6b667115548",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 671.265625,
+          "height": 386
+        },
+        {
+          "file": "asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 671.265625,
+          "height": 386
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285796.5088,
+      "size": 831,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa.mermaid": {
+      "hash": "sha256:b3c36f1bfc1e93ed",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 630.18359375,
+          "height": 618.12939453125
+        },
+        {
+          "file": "distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 630.18359375,
+          "height": 618.12939453125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285797.0662,
+      "size": 1119,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue.mermaid": {
+      "hash": "sha256:fe9940abe6b3abb3",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285797.6694,
+      "size": 640,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r.mermaid": {
+      "hash": "sha256:09fbd5a24f1d096a",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 620.625,
+          "height": 575.8782958984375
+        },
+        {
+          "file": "event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 620.625,
+          "height": 575.8782958984375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285798.1162,
+      "size": 824,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes.mermaid": {
+      "hash": "sha256:0858afeeaf2785bf",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 301.5,
+          "height": 512
+        },
+        {
+          "file": "exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 301.5,
+          "height": 512
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285798.595,
+      "size": 477,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase.mermaid": {
+      "hash": "sha256:b4f36175a97f0d90",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 502.859375,
+          "height": 782
+        },
+        {
+          "file": "node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 502.859375,
+          "height": 782
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285799.0796,
+      "size": 784,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio.mermaid": {
+      "hash": "sha256:a548e09e3940396f",
+      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "outputs": [
+        {
+          "file": "saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 575.37109375,
+          "height": 683
+        },
+        {
+          "file": "saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 575.37109375,
+          "height": 683
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285799.533,
+      "size": 736,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro.mermaid": {
+      "hash": "sha256:7663957ebfeeeeef",
+      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "outputs": [
+        {
+          "file": "transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 656.859375,
+          "height": 237
+        },
+        {
+          "file": "transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 656.859375,
+          "height": 237
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285799.9521,
+      "size": 770,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -2,7 +2,6 @@ node_modules/
 dist/
 dev/
 .DS_Store
-**/diagrams/manifest.json
 test-results/
 playwright-report/
 .temp/

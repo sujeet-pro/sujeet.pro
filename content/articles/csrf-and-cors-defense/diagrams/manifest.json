@@ -1,0 +1,155 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cors-preflight-sequence.mermaid": {
+      "hash": "sha256:fe2f10257b87bf19",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "cors-preflight-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cors-preflight-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285893.1152,
+      "size": 1377,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "csrf-attack-flow.mermaid": {
+      "hash": "sha256:351b5c419ebe28bb",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "csrf-attack-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "csrf-attack-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285893.4194,
+      "size": 673,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "defense-in-depth-layers.mermaid": {
+      "hash": "sha256:f0dbdfe491586db1",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "defense-in-depth-layers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 608.11328125,
+          "height": 1180
+        },
+        {
+          "file": "defense-in-depth-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 608.11328125,
+          "height": 1180
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285894.0012,
+      "size": 1217,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "defense-surface.mermaid": {
+      "hash": "sha256:f0d366e4e0286554",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "defense-surface-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1260.7734375,
+          "height": 483.39996337890625
+        },
+        {
+          "file": "defense-surface-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1260.7734375,
+          "height": 483.39996337890625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285894.4465,
+      "size": 939,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "samesite-decision.mermaid": {
+      "hash": "sha256:a754716e31fd4b84",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "samesite-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 839.6812744140625,
+          "height": 1241.0281982421875
+        },
+        {
+          "file": "samesite-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 839.6812744140625,
+          "height": 1241.0281982421875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285894.7783,
+      "size": 998,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "signed-double-submit-flow.mermaid": {
+      "hash": "sha256:931c25256cd40e80",
+      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "outputs": [
+        {
+          "file": "signed-double-submit-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "signed-double-submit-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285895.0808,
+      "size": 1095,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

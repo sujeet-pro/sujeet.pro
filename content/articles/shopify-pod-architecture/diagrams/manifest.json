@@ -1,0 +1,147 @@
+{
+  "version": 2,
+  "diagrams": {
+    "ghostferry-three-phase.mermaid": {
+      "hash": "sha256:4687d63c6b278948",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "ghostferry-three-phase-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "ghostferry-three-phase-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286273.2695,
+      "size": 1058,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "pod-failover.mermaid": {
+      "hash": "sha256:d0f6fc6b45fe6a43",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "pod-failover-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "pod-failover-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286273.5093,
+      "size": 790,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "pod-overview.mermaid": {
+      "hash": "sha256:24591f0c6a02a295",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "pod-overview-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "pod-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286273.8237,
+      "size": 852,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "post-pod-architecture.mermaid": {
+      "hash": "sha256:5d923e7beed0cd80",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "post-pod-architecture-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "post-pod-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286274.089,
+      "size": 627,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "pre-pod-architecture.mermaid": {
+      "hash": "sha256:76676606f5464db9",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "pre-pod-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 751.546875,
+          "height": 690.5
+        },
+        {
+          "file": "pre-pod-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 751.546875,
+          "height": 690.5
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286274.3323,
+      "size": 506,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sorting-hat-routing.mermaid": {
+      "hash": "sha256:5952f793371330b2",
+      "generatedAt": "2026-07-21T22:01:10.793Z",
+      "outputs": [
+        {
+          "file": "sorting-hat-routing-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "sorting-hat-routing-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286274.6692,
+      "size": 745,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

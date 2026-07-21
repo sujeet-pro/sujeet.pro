@@ -1,13 +1,33 @@
+/**
+ * Post-build artifacts for the built `dist/`.
+ *
+ * Sitemap and RSS serialization now come from `@pagesmith/site/ssg-utils`
+ * (`generateSitemap` / `generateFeed`); this script only supplies the
+ * repo-specific inputs those pure serializers need:
+ *
+ *   - `ensureNotFoundPage()` — flatten `404/index.html` to `404.html` for
+ *     GitHub Pages. Not covered upstream.
+ *   - sitemap routes — derived from the emitted `dist/` HTML (walk + redirect
+ *     and 404 exclusion) so the sitemap reflects exactly what was built.
+ *   - feed entries — pulled from the article/blog content listings.
+ *
+ * Deltas vs the previous hand-rolled writers (see upgrade report):
+ *   - Home `<loc>` is now `origin` (no trailing slash) instead of `origin/`.
+ *     `generateSitemap` canonicalizes the home route to the base URL. The
+ *     build validator normalizes both forms to "/", so no consumer regresses.
+ *   - `sitemap.xml` no longer ends with a trailing newline.
+ *   - `rss.xml` output is byte-identical (aside from the timestamp).
+ */
 import {
+  copyFileSync,
   existsSync,
   readFileSync,
   readdirSync,
   statSync,
   writeFileSync,
-  copyFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { withBasePath } from "@pagesmith/site";
+import { generateFeed, generateSitemap, type FeedEntry } from "@pagesmith/site/ssg-utils";
 import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 import { getArticleListing, getBlogListing } from "../theme/lib/content.ts";
 
@@ -49,40 +69,30 @@ function isRedirectHtml(content: string): boolean {
   return /http-equiv=["']?refresh["']?/i.test(content);
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function toRoutePath(htmlPath: string, basePath: string): string | null {
+/**
+ * Map a built HTML file to a base-path-relative route. `generateSitemap`
+ * joins the route onto `origin` + `basePath` itself, so routes here stay
+ * bare (no base-path prefix). Returns `null` for the 404 page.
+ */
+function toRoute(htmlPath: string): string | null {
   const relPath = relative(distDir, htmlPath).replace(/\\/g, "/");
   if (relPath === "404.html") return null;
-
-  const route =
-    relPath === "index.html"
-      ? "/"
-      : `/${relPath.replace(/\/index\.html$/, "").replace(/\.html$/, "")}`.replace(/\/+/g, "/");
-
-  return withBasePath(basePath, route);
+  if (relPath === "index.html") return "/";
+  return `/${relPath.replace(/\/index\.html$/, "").replace(/\.html$/, "")}`.replace(/\/+/g, "/");
 }
 
 function writeSitemap(): void {
-  const basePath = resolveBasePath();
-  const pages = walkFiles(distDir, ".html")
+  const routes = walkFiles(distDir, ".html")
     .filter((filePath) => !isRedirectHtml(readFileSync(filePath, "utf-8")))
-    .map((filePath) => toRoutePath(filePath, basePath))
-    .filter((path): path is string => !!path);
+    .map((filePath) => toRoute(filePath))
+    .filter((route): route is string => route !== null);
 
-  const urls = Array.from(new Set(pages))
-    .sort()
-    .map((path) => `  <url><loc>${escapeXml(`${siteConfig.origin}${path}`)}</loc></url>`)
-    .join("\n");
+  const uniqueSorted = Array.from(new Set(routes)).sort();
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+  const xml = generateSitemap(uniqueSorted, {
+    origin: siteConfig.origin,
+    basePath: resolveBasePath(),
+  });
   writeFileSync(join(distDir, "sitemap.xml"), xml);
 }
 
@@ -93,39 +103,26 @@ function writeRss(): void {
     .flatMap((group) => group.articles)
     .concat(articleListing.other);
   const blogs = getBlogListing(basePath).entries;
-  const items = [...articles, ...blogs]
-    .filter((entry) => !!entry.publishedDate)
-    .sort(
-      (left, right) =>
-        new Date(right.publishedDate!).getTime() - new Date(left.publishedDate!).getTime(),
-    )
-    .slice(0, 50);
 
-  const channelLink = `${siteConfig.origin}${withBasePath(basePath, "/")}`;
-  const feedItems = items
-    .map((entry) => {
-      const url = `${siteConfig.origin}${entry.path}`;
-      const pubDate = new Date(entry.publishedDate!).toUTCString();
-      const categories = entry.tags
-        .map((tag) => `    <category>${escapeXml(tag.name)}</category>`)
-        .join("\n");
-      return [
-        "  <item>",
-        `    <title>${escapeXml(entry.title)}</title>`,
-        `    <link>${escapeXml(url)}</link>`,
-        `    <guid>${escapeXml(url)}</guid>`,
-        `    <pubDate>${escapeXml(pubDate)}</pubDate>`,
-        `    <description>${escapeXml(entry.description ?? entry.title)}</description>`,
-        categories,
-        "  </item>",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    })
-    .join("\n");
+  // `generateFeed` filters to valid publish dates, sorts newest-first, and
+  // caps at `limit` (default 50) internally — the same policy the previous
+  // hand-rolled writer applied.
+  const entries: FeedEntry[] = [...articles, ...blogs].map((entry) => ({
+    title: entry.title,
+    path: entry.path,
+    publishedDate: entry.publishedDate,
+    description: entry.description,
+    tags: entry.tags.map((tag) => tag.name),
+  }));
 
-  const rss = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n  <title>${escapeXml(siteConfig.title)}</title>\n  <link>${escapeXml(channelLink)}</link>\n  <description>${escapeXml(siteConfig.description)}</description>\n  <language>${escapeXml(siteConfig.language)}</language>\n  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>\n${feedItems}\n</channel>\n</rss>\n`;
-  writeFileSync(join(distDir, "rss.xml"), rss);
+  const xml = generateFeed(entries, {
+    origin: siteConfig.origin,
+    basePath,
+    title: siteConfig.title,
+    description: siteConfig.description,
+    language: siteConfig.language,
+  });
+  writeFileSync(join(distDir, "rss.xml"), xml);
 }
 
 if (!existsSync(distDir) || !statSync(distDir).isDirectory()) {

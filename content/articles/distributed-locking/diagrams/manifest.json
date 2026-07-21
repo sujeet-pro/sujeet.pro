@@ -1,0 +1,232 @@
+{
+  "version": 2,
+  "diagrams": {
+    "consensus-leader-lock.mermaid": {
+      "hash": "sha256:c93595575c9907de",
+      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "outputs": [
+        {
+          "file": "consensus-leader-lock-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1028.3570556640625,
+          "height": 498.7021789550781
+        },
+        {
+          "file": "consensus-leader-lock-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1028.3570556640625,
+          "height": 498.7021789550781
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286072.173,
+      "size": 796,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "distributed-lock-overview.mermaid": {
+      "hash": "sha256:ee5e8d0ebbf29ea3",
+      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "outputs": [
+        {
+          "file": "distributed-lock-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 932.171875,
+          "height": 854.4085693359375
+        },
+        {
+          "file": "distributed-lock-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 932.171875,
+          "height": 854.4085693359375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286072.4146,
+      "size": 824,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "fencing-token-flow.mermaid": {
+      "hash": "sha256:0ce8999b2e8a5a59",
+      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "outputs": [
+        {
+          "file": "fencing-token-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "fencing-token-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286072.685,
+      "size": 608,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lease-lifecycle.mermaid": {
+      "hash": "sha256:7e92af516423661b",
+      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "outputs": [
+        {
+          "file": "lease-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "lease-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286072.956,
+      "size": 623,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lock-decision-tree.mermaid": {
+      "hash": "sha256:1b5a719e90270453",
+      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "outputs": [
+        {
+          "file": "lock-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1449.83203125,
+          "height": 967.121826171875
+        },
+        {
+          "file": "lock-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1449.83203125,
+          "height": 967.121826171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286073.2366,
+      "size": 851,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "queue-based-serialization.mermaid": {
+      "hash": "sha256:0952c33ce3a229cc",
+      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "outputs": [
+        {
+          "file": "queue-based-serialization-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 481.9375,
+          "height": 424.8531494140625
+        },
+        {
+          "file": "queue-based-serialization-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 481.9375,
+          "height": 424.8531494140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286073.8577,
+      "size": 401,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "redlock-clock-jump.mermaid": {
+      "hash": "sha256:c669a95fa7dad67e",
+      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "outputs": [
+        {
+          "file": "redlock-clock-jump-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "redlock-clock-jump-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286074.1409,
+      "size": 967,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "stale-write-without-fencing.mermaid": {
+      "hash": "sha256:e92ab127ce724c14",
+      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "outputs": [
+        {
+          "file": "stale-write-without-fencing-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "stale-write-without-fencing-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286074.42,
+      "size": 682,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "zookeeper-lock-recipe.mermaid": {
+      "hash": "sha256:38f9080e08a21cd2",
+      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "outputs": [
+        {
+          "file": "zookeeper-lock-recipe-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 338.703125,
+          "height": 479.6875
+        },
+        {
+          "file": "zookeeper-lock-recipe-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 338.703125,
+          "height": 479.6875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286074.714,
+      "size": 444,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

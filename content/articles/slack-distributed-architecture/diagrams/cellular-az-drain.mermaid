@@ -37,8 +37,9 @@ flowchart TB
     Rotor -- "1% steps" --> RTDS
     RTDS -- "no Envoy restart" --> EdgeLB
 
-    style C_GS fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style C_WA fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style C_DB fill:#B43A3A,stroke:#8E2828,color:#ffffff
-    style EdgeLB fill:#2E5A88,stroke:#1F4870,color:#ffffff
-    style Rotor fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#ffffff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    class C_GS,C_WA,C_DB accent
+    class EdgeLB primary
+    class Rotor storage

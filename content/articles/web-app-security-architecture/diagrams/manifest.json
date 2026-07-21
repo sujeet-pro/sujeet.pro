@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "diagrams": {
+    "csp-nonce-flow.mermaid": {
+      "hash": "sha256:9c8df1a0b9e36b42",
+      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "outputs": [
+        {
+          "file": "csp-nonce-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "csp-nonce-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286323.7798,
+      "size": 804,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "defense-in-depth-layers.mermaid": {
+      "hash": "sha256:ebda421ef4d38a1c",
+      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "outputs": [
+        {
+          "file": "defense-in-depth-layers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 331.57421875,
+          "height": 703.3999633789062
+        },
+        {
+          "file": "defense-in-depth-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 331.57421875,
+          "height": 703.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286324.087,
+      "size": 538,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "ssrf-defense-decision.mermaid": {
+      "hash": "sha256:bebf2cc8623d189b",
+      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "outputs": [
+        {
+          "file": "ssrf-defense-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 2149.538818359375,
+          "height": 499.72186279296875
+        },
+        {
+          "file": "ssrf-defense-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 2149.538818359375,
+          "height": 499.72186279296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286324.813,
+      "size": 940,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "webauthn-registration.mermaid": {
+      "hash": "sha256:f7e9d3814f29c651",
+      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "outputs": [
+        {
+          "file": "webauthn-registration-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "webauthn-registration-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286325.1184,
+      "size": 860,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

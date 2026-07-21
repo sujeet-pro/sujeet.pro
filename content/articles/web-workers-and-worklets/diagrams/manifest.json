@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "diagrams": {
+    "clone-vs-transfer-sequence.mermaid": {
+      "hash": "sha256:3733bdf90c82daf2",
+      "generatedAt": "2026-07-21T22:01:10.812Z",
+      "outputs": [
+        {
+          "file": "clone-vs-transfer-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "clone-vs-transfer-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286338.9683,
+      "size": 640,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "decision-matrix.mermaid": {
+      "hash": "sha256:654025b8d652d8fb",
+      "generatedAt": "2026-07-21T22:01:10.812Z",
+      "outputs": [
+        {
+          "file": "decision-matrix-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 991.9351806640625,
+          "height": 1064.6875
+        },
+        {
+          "file": "decision-matrix-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 991.9351806640625,
+          "height": 1064.6875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286339.2073,
+      "size": 1525,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "service-worker-lifecycle.mermaid": {
+      "hash": "sha256:cd8f06b4b51028c6",
+      "generatedAt": "2026-07-21T22:01:10.812Z",
+      "outputs": [
+        {
+          "file": "service-worker-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 631.04296875,
+          "height": 1180.4000244140625
+        },
+        {
+          "file": "service-worker-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 631.04296875,
+          "height": 1180.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286339.4194,
+      "size": 940,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "workers-vs-worklets-overview.mermaid": {
+      "hash": "sha256:99bddf8077c59887",
+      "generatedAt": "2026-07-21T22:01:10.812Z",
+      "outputs": [
+        {
+          "file": "workers-vs-worklets-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 639.765625,
+          "height": 754.9534912109375
+        },
+        {
+          "file": "workers-vs-worklets-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 639.765625,
+          "height": 754.9534912109375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286339.672,
+      "size": 1242,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

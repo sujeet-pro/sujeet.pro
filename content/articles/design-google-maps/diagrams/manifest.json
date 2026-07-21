@@ -1,0 +1,240 @@
+{
+  "version": 2,
+  "diagrams": {
+    "aws-reference-architecture-with-regional-routing-service-instances-and-global-ti.mermaid": {
+      "hash": "sha256:176c675aeb2e030b",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "aws-reference-architecture-with-regional-routing-service-instances-and-global-ti-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1361.68359375,
+          "height": 562
+        },
+        {
+          "file": "aws-reference-architecture-with-regional-routing-service-instances-and-global-ti-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1361.68359375,
+          "height": 562
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285967.1865,
+      "size": 954,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s.mermaid": {
+      "hash": "sha256:a2ee90e3299f5002",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1152.859375,
+          "height": 779
+        },
+        {
+          "file": "contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1152.859375,
+          "height": 779
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285967.4475,
+      "size": 753,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "geo-index-decision.mermaid": {
+      "hash": "sha256:b18b65c236472588",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "geo-index-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 995.1515502929688,
+          "height": 1623.5687255859375
+        },
+        {
+          "file": "geo-index-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 995.1515502929688,
+          "height": 1623.5687255859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285968.0403,
+      "size": 1432,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod.mermaid": {
+      "hash": "sha256:5370bdfb1150da73",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1069.1953125,
+          "height": 1213.5999755859375
+        },
+        {
+          "file": "high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1069.1953125,
+          "height": 1213.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285968.3616,
+      "size": 1197,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hmm-map-matching.mermaid": {
+      "hash": "sha256:e71396a726226a80",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "hmm-map-matching-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "hmm-map-matching-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285968.6438,
+      "size": 1023,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier.mermaid": {
+      "hash": "sha256:0807ced2c21e583c",
+      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "outputs": [
+        {
+          "file": "node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 772.625,
+          "height": 1110.7999267578125
+        },
+        {
+          "file": "node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 772.625,
+          "height": 1110.7999267578125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285969.3472,
+      "size": 699,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "routing-data-flow.mermaid": {
+      "hash": "sha256:c72993d79c02a7cf",
+      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "outputs": [
+        {
+          "file": "routing-data-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "routing-data-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285969.6238,
+      "size": 1156,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "spatial-cell-hierarchy.mermaid": {
+      "hash": "sha256:eb488a0c1cf81c90",
+      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "outputs": [
+        {
+          "file": "spatial-cell-hierarchy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1128.09375,
+          "height": 848
+        },
+        {
+          "file": "spatial-cell-hierarchy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1128.09375,
+          "height": 848
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285969.8926,
+      "size": 1028,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tile-pyramid.mermaid": {
+      "hash": "sha256:2ba40cf3108db30e",
+      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "outputs": [
+        {
+          "file": "tile-pyramid-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 613.625,
+          "height": 713.7999877929688
+        },
+        {
+          "file": "tile-pyramid-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 613.625,
+          "height": 713.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285970.525,
+      "size": 763,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

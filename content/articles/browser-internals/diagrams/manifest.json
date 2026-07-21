@@ -1,0 +1,167 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cache-lookup-priority.mermaid": {
+      "hash": "sha256:bdd807c3803f6ce8",
+      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "outputs": [
+        {
+          "file": "cache-lookup-priority-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 547.139892578125,
+          "height": 1543.4281005859375
+        },
+        {
+          "file": "cache-lookup-priority-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 547.139892578125,
+          "height": 1543.4281005859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285810.6213,
+      "size": 887,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "content-script-injection-timing.mermaid": {
+      "hash": "sha256:1d8eccbb1ac9dfb1",
+      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "outputs": [
+        {
+          "file": "content-script-injection-timing-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 753.0836181640625,
+          "height": 1444.246826171875
+        },
+        {
+          "file": "content-script-injection-timing-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 753.0836181640625,
+          "height": 1444.246826171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285810.9504,
+      "size": 1091,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-process-architecture.mermaid": {
+      "hash": "sha256:74436bd63865b6fa",
+      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "outputs": [
+        {
+          "file": "multi-process-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1014.51953125,
+          "height": 605.7999877929688
+        },
+        {
+          "file": "multi-process-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1014.51953125,
+          "height": 605.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285811.3403,
+      "size": 893,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "render-pipeline-overview.mermaid": {
+      "hash": "sha256:9d093c95a461221b",
+      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "outputs": [
+        {
+          "file": "render-pipeline-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 647.984375,
+          "height": 1214.199951171875
+        },
+        {
+          "file": "render-pipeline-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 647.984375,
+          "height": 1214.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285811.7866,
+      "size": 965,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "service-worker-lifecycle.mermaid": {
+      "hash": "sha256:0c078c4f5412f5d4",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "service-worker-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 459.5234375,
+          "height": 867.5999755859375
+        },
+        {
+          "file": "service-worker-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 459.5234375,
+          "height": 867.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285812.298,
+      "size": 606,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "site-isolation-oopif.mermaid": {
+      "hash": "sha256:aa6161c2684e583d",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "site-isolation-oopif-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 830.44921875,
+          "height": 738.4000244140625
+        },
+        {
+          "file": "site-isolation-oopif-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 830.44921875,
+          "height": 738.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285812.8167,
+      "size": 961,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}
