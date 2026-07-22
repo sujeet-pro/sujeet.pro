@@ -1,9 +1,39 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, dirname, extname, relative } from "node:path";
+/**
+ * Repo-local `dist/` integrity check.
+ *
+ * The bulk of this script now delegates to `@pagesmith/site`'s
+ * `validateBuildOutput`, which supersedes the previously hand-rolled
+ * link-resolution, bundled-asset, sitemap-consistency, and required-file
+ * logic. Only the checks the upstream validator does NOT cover remain here:
+ *
+ *   KEPT (repo-specific, not in build-validator):
+ *     - HTML document integrity: empty-file, <!DOCTYPE html> presence /
+ *       uniqueness / first-node, and <html>/<head>/<body> element presence.
+ *       build-validator validates links and assets but not document shape.
+ *     - Pagefind search-output directory presence (a directory, not a file,
+ *       so it can't ride `requiredFiles`).
+ *
+ *   DELEGATED to validateBuildOutput:
+ *     - required files (index.html, 404.html, sitemap.xml, rss.xml,
+ *       robots.txt, .nojekyll)          → `requiredFiles`
+ *     - bundled CSS/JS discovery + resolution → `checkBundledAssets`
+ *     - sitemap ↔ HTML cross-check      → `checkSitemap`
+ *     - internal link / srcset resolution, "exists in assets/" mismatch
+ *       warnings, asset content-hash enforcement, SVG well-formedness (all
+ *       on by default in the upstream validator).
+ *
+ *   DROPPED:
+ *     - the old `checkBasePath` absolute-path-prefix warning. It was a no-op
+ *       at this repo's `basePath: ""`, and the upstream link resolver already
+ *       resolves base-path-prefixed hrefs correctly.
+ */
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { extname, join, relative, resolve } from "node:path";
+import { validateBuildOutput } from "@pagesmith/site/build-validator";
 import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 
 const siteConfig = loadSiteConfig();
-const DIST = process.env.DIST_DIR || siteConfig.outDir;
+const DIST = resolve(process.env.DIST_DIR || siteConfig.outDir);
 const basePath = resolveBasePath();
 const trailingSlash = siteConfig.trailingSlash ?? false;
 
@@ -11,102 +41,31 @@ type Issue = { file: string; message: string };
 const errors: Issue[] = [];
 const warnings: Issue[] = [];
 
-function walkFiles(dir: string, ext?: string): string[] {
+// ── Repo-specific checks ──────────────────────────────────────────────
+
+function walkHtml(dir: string): string[] {
   const results: string[] = [];
   if (!existsSync(dir)) return results;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      results.push(...walkFiles(full, ext));
-    } else if (!ext || extname(entry.name) === ext) {
+      if (entry.name === "pagefind") continue;
+      results.push(...walkHtml(full));
+    } else if (extname(entry.name) === ".html") {
       results.push(full);
     }
   }
   return results;
 }
 
-function fileExists(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-}
-
 function isRedirect(content: string): boolean {
   return /http-equiv=["']?refresh["']?/i.test(content);
 }
 
-/**
- * Check whether a resolved path corresponds to an existing file.
- * Handles both trailing-slash (path/index.html) and flat (path.html) modes.
- * Mirrors @pagesmith/site build-validator's resolvedPathExists.
- */
-function resolvedPathExists(resolved: string): boolean {
-  if (fileExists(resolved)) return true;
-  if (fileExists(join(resolved, "index.html"))) return true;
-  if (!trailingSlash && !extname(resolved) && fileExists(`${resolved}.html`)) return true;
-  return false;
-}
-
-// ── 1. Required files ────────────────────────────────────────────────
-
-const REQUIRED_FILES = [
-  "index.html",
-  "404.html",
-  "sitemap.xml",
-  "rss.xml",
-  "robots.txt",
-  ".nojekyll",
-];
-
-function checkRequiredFiles(): void {
-  for (const file of REQUIRED_FILES) {
-    if (!fileExists(join(DIST, file))) {
-      errors.push({ file, message: "Required file missing" });
-    }
-  }
-
-  if (siteConfig.search.enabled && !existsSync(join(DIST, "pagefind"))) {
-    errors.push({ file: "pagefind/", message: "Search output missing" });
-  }
-}
-
-function checkBundledAssets(): void {
-  const entryHtmlPath = join(DIST, "index.html");
-  if (!fileExists(entryHtmlPath)) {
-    return;
-  }
-
-  const html = readFileSync(entryHtmlPath, "utf-8");
-  const assetRefs = Array.from(html.matchAll(/\b(?:href|src)=["']([^"']+\.(?:css|js))["']/gi)).map(
-    (match) => match[1]!,
-  );
-  const cssRefs = assetRefs.filter((ref) => /\.css(?:[?#].*)?$/i.test(ref));
-  const jsRefs = assetRefs.filter((ref) => /\.js(?:[?#].*)?$/i.test(ref));
-
-  if (cssRefs.length === 0) {
-    errors.push({ file: "index.html", message: "No bundled CSS asset discovered" });
-  }
-
-  if (jsRefs.length === 0) {
-    errors.push({ file: "index.html", message: "No bundled JS asset discovered" });
-  }
-
-  for (const ref of [...cssRefs, ...jsRefs]) {
-    const resolved = resolveLocalHref(ref, entryHtmlPath);
-    if (!resolved) continue;
-
-    if (!resolvedPathExists(resolved)) {
-      errors.push({ file: "index.html", message: `Bundled asset missing: ${ref}` });
-    }
-  }
-}
-
-// ── 2. HTML integrity ────────────────────────────────────────────────
-
-function checkHtmlIntegrity(files: Map<string, string>): void {
-  for (const [path, content] of files) {
+/** Document-shape checks the upstream build-validator does not perform. */
+function checkHtmlIntegrity(): void {
+  for (const path of walkHtml(DIST)) {
+    const content = readFileSync(path, "utf-8");
     const rel = relative(DIST, path);
     if (content.trim().length === 0) {
       errors.push({ file: rel, message: "Empty HTML file" });
@@ -128,122 +87,14 @@ function checkHtmlIntegrity(files: Map<string, string>): void {
   }
 }
 
-// ── 3. Internal link resolution ──────────────────────────────────────
-
-function resolveLocalHref(href: string, htmlFile: string): string | null {
-  if (/^(https?:|\/\/|#|data:|mailto:|tel:|javascript:)/i.test(href)) return null;
-  if (href.trim() === "") return null;
-
-  const clean = href.split(/[?#]/)[0];
-
-  if (clean.startsWith("/")) {
-    let local = clean;
-    if (basePath && local.startsWith(basePath + "/")) {
-      local = local.slice(basePath.length);
-    } else if (basePath && local === basePath) {
-      local = "/";
-    }
-    return join(DIST, local);
-  }
-
-  return join(dirname(htmlFile), clean);
-}
-
-function stripCodeContent(html: string): string {
-  return html.replace(/<(pre|code)[\s>][\s\S]*?<\/\1>/gi, "");
-}
-
-function checkLinks(files: Map<string, string>): void {
-  const assetsDir = join(DIST, "assets");
-  for (const [path, content] of files) {
-    if (isRedirect(content)) continue;
-    const rel = relative(DIST, path);
-    const stripped = stripCodeContent(content);
-    const pattern = /\b(?:href|src)=["']([^"'\s]+)["']/gi;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(stripped)) !== null) {
-      const href = m[1];
-      if (href === "..." || href === "…") continue;
-      const resolved = resolveLocalHref(href, path);
-      if (!resolved) continue;
-
-      if (!resolvedPathExists(resolved)) {
-        const basename = resolved.split("/").pop()!;
-        if (fileExists(join(assetsDir, basename))) {
-          warnings.push({ file: rel, message: `Asset path mismatch: ${href} (exists in assets/)` });
-        } else {
-          errors.push({ file: rel, message: `Broken link: ${href}` });
-        }
-      }
-    }
+/** Pagefind emits a directory, so it cannot ride build-validator's requiredFiles. */
+function checkSearchOutput(): void {
+  if (siteConfig.search.enabled && !existsSync(join(DIST, "pagefind"))) {
+    errors.push({ file: "pagefind/", message: "Search output missing" });
   }
 }
 
-// ── 4. BasePath correctness ──────────────────────────────────────────
-
-function checkBasePath(files: Map<string, string>): void {
-  if (!basePath) return;
-  for (const [path, content] of files) {
-    if (isRedirect(content)) continue;
-    const rel = relative(DIST, path);
-    const stripped = stripCodeContent(content);
-    const pattern = /\b(?:href|src)=["'](\/[^"']*?)["']/gi;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(stripped)) !== null) {
-      const href = m[1];
-      if (!href.startsWith(basePath + "/") && href !== basePath) {
-        warnings.push({ file: rel, message: `Absolute path missing basePath prefix: ${href}` });
-      }
-    }
-  }
-}
-
-// ── 5. Sitemap consistency ───────────────────────────────────────────
-
-function checkSitemap(files: Map<string, string>): void {
-  const sitemapPath = join(DIST, "sitemap.xml");
-  if (!fileExists(sitemapPath)) return;
-
-  const sitemap = readFileSync(sitemapPath, "utf-8");
-  const locPattern = /<loc>([^<]+)<\/loc>/g;
-  const sitemapPaths = new Set<string>();
-
-  let m: RegExpExecArray | null;
-  while ((m = locPattern.exec(sitemap)) !== null) {
-    try {
-      const parsed = new URL(m[1]);
-      let p = parsed.pathname.replace(/\/+$/, "") || "/";
-      if (basePath && p.startsWith(basePath)) {
-        p = p.slice(basePath.length) || "/";
-      }
-      sitemapPaths.add(p);
-    } catch {
-      warnings.push({ file: "sitemap.xml", message: `Invalid URL: ${m[1]}` });
-    }
-  }
-
-  for (const p of sitemapPaths) {
-    const indexPath = p === "/" ? join(DIST, "index.html") : join(DIST, p, "index.html");
-    const flatPath = p === "/" ? null : join(DIST, `${p}.html`);
-    if (!fileExists(indexPath) && !(flatPath && fileExists(flatPath))) {
-      errors.push({ file: "sitemap.xml", message: `No file for sitemap entry: ${p}` });
-    }
-  }
-
-  for (const [path, content] of files) {
-    if (isRedirect(content)) continue;
-    if (path === join(DIST, "404.html")) continue;
-
-    const rel = relative(DIST, path);
-    const slug =
-      rel === "index.html" ? "/" : "/" + rel.replace(/\/index\.html$/, "").replace(/\.html$/, "");
-    if (!sitemapPaths.has(slug)) {
-      warnings.push({ file: rel, message: `HTML file not in sitemap: ${slug}` });
-    }
-  }
-}
-
-// ── Run ──────────────────────────────────────────────────────────────
+// ── Run ────────────────────────────────────────────────────────────────
 
 console.log(`Validating dist: ${DIST}`);
 if (basePath) console.log(`BasePath: ${basePath}`);
@@ -255,20 +106,22 @@ if (!existsSync(DIST)) {
   process.exit(1);
 }
 
-checkRequiredFiles();
-checkBundledAssets();
+const result = validateBuildOutput({
+  outDir: DIST,
+  basePath,
+  trailingSlash,
+  requiredFiles: ["index.html", "404.html", "sitemap.xml", "rss.xml", "robots.txt", ".nojekyll"],
+  checkBundledAssets: true,
+  checkSitemap: true,
+});
 
-const htmlPaths = walkFiles(DIST, ".html");
-const htmlFiles = new Map<string, string>();
-for (const p of htmlPaths) {
-  htmlFiles.set(p, readFileSync(p, "utf-8"));
-}
-console.log(`Found ${htmlFiles.size} HTML files`);
+for (const e of result.errors) errors.push({ file: e.file, message: e.message });
+for (const w of result.warnings) warnings.push({ file: w.file, message: w.message });
 
-checkHtmlIntegrity(htmlFiles);
-checkLinks(htmlFiles);
-checkBasePath(htmlFiles);
-checkSitemap(htmlFiles);
+console.log(`Found ${result.htmlFileCount} HTML files`);
+
+checkHtmlIntegrity();
+checkSearchOutput();
 
 const assetMismatches = warnings.filter((w) => w.message.startsWith("Asset path mismatch"));
 const otherWarnings = warnings.filter((w) => !w.message.startsWith("Asset path mismatch"));
@@ -277,7 +130,6 @@ if (assetMismatches.length > 0) {
   const byFile = new Map<string, number>();
   for (const w of assetMismatches) byFile.set(w.file, (byFile.get(w.file) ?? 0) + 1);
   console.log(`\n${assetMismatches.length} asset path mismatch(es) across ${byFile.size} file(s):`);
-  console.log("  These files exist in assets/ but are referenced via relative ./diagrams/ paths.");
   for (const [file, count] of byFile) console.log(`  ⚠ ${file} (${count})`);
 }
 

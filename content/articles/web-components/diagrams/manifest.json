@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "diagrams": {
+    "custom-element-lifecycle.mermaid": {
+      "hash": "sha256:cda17df2a54d9e80",
+      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "outputs": [
+        {
+          "file": "custom-element-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 884.2867431640625,
+          "height": 458.6000061035156
+        },
+        {
+          "file": "custom-element-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 884.2867431640625,
+          "height": 458.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286325.6885,
+      "size": 591,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "shadow-dom-encapsulation.mermaid": {
+      "hash": "sha256:d77ed1aaef3984d5",
+      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "outputs": [
+        {
+          "file": "shadow-dom-encapsulation-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 750.015625,
+          "height": 586.75
+        },
+        {
+          "file": "shadow-dom-encapsulation-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 750.015625,
+          "height": 586.75
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286326.0415,
+      "size": 500,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "wc-boundaries-and-interop.mermaid": {
+      "hash": "sha256:606f144d93b3e4c8",
+      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "outputs": [
+        {
+          "file": "wc-boundaries-and-interop-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 836.4375,
+          "height": 529.5999755859375
+        },
+        {
+          "file": "wc-boundaries-and-interop-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 836.4375,
+          "height": 529.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286326.63,
+      "size": 611,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

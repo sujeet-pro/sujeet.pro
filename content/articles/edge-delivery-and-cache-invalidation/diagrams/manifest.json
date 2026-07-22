@@ -1,0 +1,178 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cache-stampede.mermaid": {
+      "hash": "sha256:7653dd151f746f65",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "cache-stampede-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cache-stampede-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286109.156,
+      "size": 744,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cdn-topology.mermaid": {
+      "hash": "sha256:489d67265ee64e83",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "cdn-topology-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 579.6953125,
+          "height": 408
+        },
+        {
+          "file": "cdn-topology-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 579.6953125,
+          "height": 408
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286109.5647,
+      "size": 439,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "content-addressed-asset-lifecycle.mermaid": {
+      "hash": "sha256:174ca1fff8a537de",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "content-addressed-asset-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 630.9140625,
+          "height": 1211.5999755859375
+        },
+        {
+          "file": "content-addressed-asset-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 630.9140625,
+          "height": 1211.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286110.07,
+      "size": 916,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "invalidation-decision-tree.mermaid": {
+      "hash": "sha256:a45f563aa6504dfb",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "invalidation-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 850.90625,
+          "height": 890.2280883789062
+        },
+        {
+          "file": "invalidation-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 850.90625,
+          "height": 890.2280883789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286110.4048,
+      "size": 625,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "soft-vs-hard-purge.mermaid": {
+      "hash": "sha256:ece08549a1e17676",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "soft-vs-hard-purge-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "soft-vs-hard-purge-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286110.658,
+      "size": 906,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "stale-while-revalidate.mermaid": {
+      "hash": "sha256:09ec917920b5dcc7",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "stale-while-revalidate-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "stale-while-revalidate-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286110.894,
+      "size": 607,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tag-based-purge-flow.mermaid": {
+      "hash": "sha256:7bf5ecbba701de55",
+      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "outputs": [
+        {
+          "file": "tag-based-purge-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "tag-based-purge-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286111.1526,
+      "size": 816,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

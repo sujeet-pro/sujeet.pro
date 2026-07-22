@@ -1,0 +1,132 @@
+{
+  "version": 2,
+  "diagrams": {
+    "tao-architecture-overview.mermaid": {
+      "hash": "sha256:d59bdf345bdad1e3",
+      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "outputs": [
+        {
+          "file": "tao-architecture-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 804.203125,
+          "height": 970.0188598632812
+        },
+        {
+          "file": "tao-architecture-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 804.203125,
+          "height": 970.0188598632812
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286126.8838,
+      "size": 1042,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tao-critical-read-and-failover.mermaid": {
+      "hash": "sha256:6789a3b4329ca64d",
+      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "outputs": [
+        {
+          "file": "tao-critical-read-and-failover-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 728.52734375,
+          "height": 487.05535888671875
+        },
+        {
+          "file": "tao-critical-read-and-failover-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 728.52734375,
+          "height": 487.05535888671875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286127.213,
+      "size": 722,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tao-data-model.mermaid": {
+      "hash": "sha256:c72c8791ce9ad496",
+      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "outputs": [
+        {
+          "file": "tao-data-model-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 714.2890625,
+          "height": 397
+        },
+        {
+          "file": "tao-data-model-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 714.2890625,
+          "height": 397
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286127.551,
+      "size": 671,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tao-invalidation-versioning.mermaid": {
+      "hash": "sha256:a7bc97dcc4eecf8b",
+      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "outputs": [
+        {
+          "file": "tao-invalidation-versioning-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "tao-invalidation-versioning-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286128.2683,
+      "size": 800,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tao-read-write-paths.mermaid": {
+      "hash": "sha256:fe7508a0c4a62ec9",
+      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "outputs": [
+        {
+          "file": "tao-read-write-paths-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "tao-read-write-paths-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286128.5486,
+      "size": 943,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

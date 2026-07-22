@@ -1,0 +1,163 @@
+{
+  "version": 2,
+  "diagrams": {
+    "ci-cd-pipeline-stages.mermaid": {
+      "hash": "sha256:98a70d38e4f13b43",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "ci-cd-pipeline-stages-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 924.41015625,
+          "height": 1761.6248779296875
+        },
+        {
+          "file": "ci-cd-pipeline-stages-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 924.41015625,
+          "height": 1761.6248779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285813.4854,
+      "size": 909,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "deployment-strategies-overview.mermaid": {
+      "hash": "sha256:167e449cd41a3d20",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "deployment-strategies-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1036.78125,
+          "height": 547.2000122070312
+        },
+        {
+          "file": "deployment-strategies-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1036.78125,
+          "height": 547.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285813.801,
+      "size": 718,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "fan-out-parallelism.mermaid": {
+      "hash": "sha256:56da98206d3106c2",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "fan-out-parallelism-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1545.8125,
+          "height": 659
+        },
+        {
+          "file": "fan-out-parallelism-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1545.8125,
+          "height": 659
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285814.1704,
+      "size": 708,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "reproducibility-cache-artifacts.mermaid": {
+      "hash": "sha256:833c5721851dea82",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "reproducibility-cache-artifacts-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 575.390625,
+          "height": 1025.2000732421875
+        },
+        {
+          "file": "reproducibility-cache-artifacts-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 575.390625,
+          "height": 1025.2000732421875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285814.4749,
+      "size": 626,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "supply-chain-attestation.mermaid": {
+      "hash": "sha256:35da0731fe0dbf0d",
+      "generatedAt": "2026-07-21T22:01:10.672Z",
+      "outputs": [
+        {
+          "file": "supply-chain-attestation-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "supply-chain-attestation-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285814.849,
+      "size": 927,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "test-evidence-layers.mermaid": {
+      "hash": "sha256:ff5f25f5f6aeabb8",
+      "generatedAt": "2026-07-21T22:01:10.673Z",
+      "outputs": [
+        {
+          "file": "test-evidence-layers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 477.703125,
+          "height": 859.199951171875
+        },
+        {
+          "file": "test-evidence-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 477.703125,
+          "height": 859.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285815.3062,
+      "size": 752,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

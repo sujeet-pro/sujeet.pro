@@ -1,0 +1,159 @@
+{
+  "version": 2,
+  "diagrams": {
+    "migration-ttl-timeline.mermaid": {
+      "hash": "sha256:18aea74c7843ae33",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "migration-ttl-timeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 681.84375,
+          "height": 882.199951171875
+        },
+        {
+          "file": "migration-ttl-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 681.84375,
+          "height": 882.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286085.8948,
+      "size": 1382,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "negative-caching-flow.mermaid": {
+      "hash": "sha256:e2837e32efe2b0f2",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "negative-caching-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "negative-caching-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286086.1614,
+      "size": 680,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "record-type-taxonomy.mermaid": {
+      "hash": "sha256:6cede62fac6dc658",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "record-type-taxonomy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 788.84375,
+          "height": 1167.199951171875
+        },
+        {
+          "file": "record-type-taxonomy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 788.84375,
+          "height": 1167.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286086.4365,
+      "size": 1856,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "resolver-cache-chain.mermaid": {
+      "hash": "sha256:94990c9f0397773c",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "resolver-cache-chain-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 274.953125,
+          "height": 513.8000183105469
+        },
+        {
+          "file": "resolver-cache-chain-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 274.953125,
+          "height": 513.8000183105469
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286086.695,
+      "size": 798,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "serve-stale-fallback.mermaid": {
+      "hash": "sha256:d91e28d15802f9bd",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "serve-stale-fallback-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "serve-stale-fallback-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286086.95,
+      "size": 521,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "split-horizon-flow.mermaid": {
+      "hash": "sha256:a47a234c0e85c61f",
+      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "outputs": [
+        {
+          "file": "split-horizon-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 545.296875,
+          "height": 871.1618041992188
+        },
+        {
+          "file": "split-horizon-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 545.296875,
+          "height": 871.1618041992188
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286087.4612,
+      "size": 1345,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

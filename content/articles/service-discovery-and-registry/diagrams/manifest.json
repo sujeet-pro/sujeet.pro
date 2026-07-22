@@ -1,0 +1,128 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cascading-liveness-failure.mermaid": {
+      "hash": "sha256:2c4dd34e9b6919b2",
+      "generatedAt": "2026-07-21T22:01:10.790Z",
+      "outputs": [
+        {
+          "file": "cascading-liveness-failure-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cascading-liveness-failure-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286264.7163,
+      "size": 905,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cp-vs-ap-partition.mermaid": {
+      "hash": "sha256:2abb0514efa64c34",
+      "generatedAt": "2026-07-21T22:01:10.790Z",
+      "outputs": [
+        {
+          "file": "cp-vs-ap-partition-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 757.6171875,
+          "height": 638.5999755859375
+        },
+        {
+          "file": "cp-vs-ap-partition-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 757.6171875,
+          "height": 638.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286264.9734,
+      "size": 916,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "discovery-overview.mermaid": {
+      "hash": "sha256:dcf60cde9262dd54",
+      "generatedAt": "2026-07-21T22:01:10.790Z",
+      "outputs": [
+        {
+          "file": "discovery-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1320.265625,
+          "height": 581
+        },
+        {
+          "file": "discovery-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1320.265625,
+          "height": 581
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286265.5093,
+      "size": 652,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "dns-caching-timeline.mermaid": {
+      "hash": "sha256:1708a4f316a14596",
+      "generatedAt": "2026-07-21T22:01:10.790Z",
+      "outputs": [
+        {
+          "file": "dns-caching-timeline-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dns-caching-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286265.8796,
+      "size": 1009,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "registration-lifecycle.mermaid": {
+      "hash": "sha256:16cae24ffa30657c",
+      "generatedAt": "2026-07-21T22:01:10.790Z",
+      "outputs": [
+        {
+          "file": "registration-lifecycle-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "registration-lifecycle-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286266.15,
+      "size": 937,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

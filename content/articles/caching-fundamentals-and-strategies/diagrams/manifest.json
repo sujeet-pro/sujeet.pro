@@ -1,0 +1,82 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cache-stampede-mitigation.mermaid": {
+      "hash": "sha256:fe6207bbd4af6426",
+      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "outputs": [
+        {
+          "file": "cache-stampede-mitigation-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1227.9375,
+          "height": 1285.800048828125
+        },
+        {
+          "file": "cache-stampede-mitigation-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1227.9375,
+          "height": 1285.800048828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285818.1877,
+      "size": 1777,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "caching-hierarchy.mermaid": {
+      "hash": "sha256:a320d3eaf7f4a2f5",
+      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "outputs": [
+        {
+          "file": "caching-hierarchy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 287.484375,
+          "height": 806.199951171875
+        },
+        {
+          "file": "caching-hierarchy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 287.484375,
+          "height": 806.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285818.6023,
+      "size": 837,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "write-policies.mermaid": {
+      "hash": "sha256:251bb0e0aaf4b452",
+      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "outputs": [
+        {
+          "file": "write-policies-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "write-policies-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285819.064,
+      "size": 786,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

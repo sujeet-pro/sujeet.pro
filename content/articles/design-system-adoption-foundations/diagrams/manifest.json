@@ -1,0 +1,248 @@
+{
+  "version": 2,
+  "diagrams": {
+    "adoption-maturity-ladder.mermaid": {
+      "hash": "sha256:272cfbc332701ae5",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "adoption-maturity-ladder-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 245.859375,
+          "height": 637
+        },
+        {
+          "file": "adoption-maturity-ladder-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 245.859375,
+          "height": 637
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286033.6973,
+      "size": 697,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "centralized-model-a-dedicated-team-with-clear-hierarchy-owns-all-design-system-d.mermaid": {
+      "hash": "sha256:96a6456e1d207f13",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "centralized-model-a-dedicated-team-with-clear-hierarchy-owns-all-design-system-d-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 857.421875,
+          "height": 504
+        },
+        {
+          "file": "centralized-model-a-dedicated-team-with-clear-hierarchy-owns-all-design-system-d-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 857.421875,
+          "height": 504
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286033.9785,
+      "size": 814,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "federated-model-a-small-core-team-coordinates-champions-embedded-in-each-product.mermaid": {
+      "hash": "sha256:f727606205acdf3c",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "federated-model-a-small-core-team-coordinates-champions-embedded-in-each-product-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 703.921875,
+          "height": 407
+        },
+        {
+          "file": "federated-model-a-small-core-team-coordinates-champions-embedded-in-each-product-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 703.921875,
+          "height": 407
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286034.2688,
+      "size": 796,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "governance-models-comparison.mermaid": {
+      "hash": "sha256:7797dbb8e5edb274",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "governance-models-comparison-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 784.46875,
+          "height": 994
+        },
+        {
+          "file": "governance-models-comparison-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 784.46875,
+          "height": 994
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286034.551,
+      "size": 1360,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hybrid-model-core-team-owns-foundations-while-product-teams-contribute-specializ.mermaid": {
+      "hash": "sha256:2abfdae9a93a3c68",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "hybrid-model-core-team-owns-foundations-while-product-teams-contribute-specializ-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1040.4375,
+          "height": 690.8787231445312
+        },
+        {
+          "file": "hybrid-model-core-team-owns-foundations-while-product-teams-contribute-specializ-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1040.4375,
+          "height": 690.8787231445312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286034.8303,
+      "size": 917,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "the-governance-model-must-match-organizational-scale-start-centralized-evolve-to.mermaid": {
+      "hash": "sha256:f69e050f08f39bd2",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "the-governance-model-must-match-organizational-scale-start-centralized-evolve-to-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 568.875,
+          "height": 995.3125
+        },
+        {
+          "file": "the-governance-model-must-match-organizational-scale-start-centralized-evolve-to-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 568.875,
+          "height": 995.3125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286035.1184,
+      "size": 678,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "the-iterative-roi-calculation-process-from-audit-through-stakeholder-presentatio.mermaid": {
+      "hash": "sha256:828f447b2ba76977",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "the-iterative-roi-calculation-process-from-audit-through-stakeholder-presentatio-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 489.6328125,
+          "height": 1049.015625
+        },
+        {
+          "file": "the-iterative-roi-calculation-process-from-audit-through-stakeholder-presentatio-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 489.6328125,
+          "height": 1049.015625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286035.8022,
+      "size": 534,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas.mermaid": {
+      "hash": "sha256:30a873ccff785855",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 830.859375,
+          "height": 334.3999938964844
+        },
+        {
+          "file": "the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 830.859375,
+          "height": 334.3999938964844
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286036.08,
+      "size": 999,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "token-cascade.mermaid": {
+      "hash": "sha256:0a9d41b29f928825",
+      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "outputs": [
+        {
+          "file": "token-cascade-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 860.515625,
+          "height": 749.199951171875
+        },
+        {
+          "file": "token-cascade-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 860.515625,
+          "height": 749.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286036.394,
+      "size": 1295,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

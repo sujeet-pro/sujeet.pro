@@ -1,113 +1,119 @@
 /**
- * Repo-local wrapper around `diagramkit validate` that scopes the audit to
- * actual `**\/diagrams/` folders under `content/`. The bare CLI (`diagramkit
- * validate ./content --recursive`) also walks `assets/` SVGs (hand-authored,
- * legacy drawio exports), which produces false-positive `CONTAINS_FOREIGN_OBJECT`
- * and `EXTERNAL_RESOURCE` warnings unrelated to the diagramkit render pipeline.
+ * Repo-local wrapper around `diagramkit validate`.
  *
- * This script:
- *   - finds every `content/<...>/diagrams/` folder
- *   - calls the locally installed `diagramkit validate <dir> --recursive --json`
- *     once per folder, collecting results
- *   - emits a single summary (and JSON when `--json` is passed)
- *   - exits non-zero on any structural error (the same severity policy
- *     `diagramkit validate` enforces)
+ * Collapsed onto the diagramkit CLI's native directory walk: a single
+ *
+ *   diagramkit validate . --recursive --scope-dir diagrams --fail-on <codes>
+ *
+ * `--scope-dir diagrams` restricts the audit to SVGs under `diagrams/`
+ * folders, skipping hand-authored / legacy `assets/` SVGs that would
+ * otherwise raise false-positive CONTAINS_FOREIGN_OBJECT / EXTERNAL_RESOURCE
+ * warnings. This replaces the previous hand-rolled per-folder loop.
+ *
+ * `--json` passes through (`validate:diagrams:json`); the CLI's JSON payload
+ * is emitted verbatim. The CLI's `--fail-on` policy sets the process exit
+ * code (nonzero when a fatal code is present), so this wrapper just inherits
+ * it.
  */
-import { spawnSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { spawn } from "node:child_process";
+import { resolve } from "node:path";
 
-const ROOT = resolve("content");
+// ── Fatal-code policy ────────────────────────────────────────────────
+//
+// Ecosystem embed-safety set: these codes indicate an SVG that is unsafe or
+// broken to inline as an <img> and must never ship. Always fatal.
+const FATAL_CODES = ["CONTAINS_FOREIGN_OBJECT", "CONTAINS_SCRIPT", "EXTERNAL_RESOURCE"];
+
+// LOW_CONTRAST_TEXT policy (Render phase). ENFORCED as fatal: a fresh
+// `validate:diagrams` over the full 2602-SVG corpus returns 0 LOW_CONTRAST_TEXT
+// findings, so the gate is on (FAIL_ON_LOW_CONTRAST = true).
+//
+// LOW_CONTRAST_TEXT history on the full 2602-SVG corpus:
+//   - Baseline (pre-fix):                                   84 findings / 72 SVGs
+//   - After diagramkit RENDER_PIPELINE_VERSION 3 re-render: 24 findings / 16 SVGs
+//   - After per-source tail fixes + diagramkit v4:           8 findings /  6 SVGs
+//   - After diagramkit scanner fix + crit-bar source fixes:  0 findings /  0 SVGs
+//
+// ROOT CAUSES FIXED UPSTREAM (in the linked diagramkit, released via the
+// ecosystem upgrade — see diagramkit CHANGELOG [Unreleased]):
+//   - v3: injected Mermaid sequence-autonumber + xychart-beta text colors
+//     (light + dark), and the dark post-processor stopped *darkening*
+//     `<text>`/`<tspan>` glyph fills. Cleared the ~48 systematic
+//     sequence/xychart findings.
+//   - v4: the dark post-processor now also *lightens* near-black glyph fills
+//     (luminance < 0.15). Cleared the gantt/timeline dark-mode axis-tick
+//     labels, which Mermaid hardcodes as `fill="#000"` (no theme variable
+//     overrides them) — invisible on the `#111111` canvas.
+//   - Scanner background resolution (`src/color/wcag.ts`, validation-only, no
+//     pipeline bump): the contrast walker no longer mis-attributes gantt
+//     off-bar labels (`taskTextOutside*`/`sectionTitle*`/`milestoneText`/
+//     `titleText`) to the last dark task rect, resolves timeline section labels
+//     against their section block (painted in a sibling subtree), and parses
+//     multi-ancestor descendant CSS (`.edgeLabel .label text/rect`) so ER
+//     edge/entity labels stop self-matching. Cleared the 8 former
+//     false-positives below.
+//
+// FIXED PER-SOURCE (all preserve each diagram's design intent):
+//   - Dropbox flowcharts (cdc-vs-fixed-chunking, chunk-dedup-flow,
+//     conflict-resolution-decision): pastel classDef fills (#ffe5e5 / #e5f5e5 /
+//     #fff5e5) that dark mode kept light -> AA mid-tone palette + white text
+//     (#B43A3A / #2D7A2D / #8B5E15). Semantic red/green/amber preserved.
+//   - Slack flowcharts (architecture-overview, cellular-az-drain,
+//     feb-2022-cascade, flannel-edge-flow): per-node `style` directives ->
+//     `classDef` (the diagramkit-mermaid SKILL best practice).
+//   - Gantt (auth-capture-settle-timeline, defer-async-module-timeline,
+//     freebusy-intersection): `%%{init: themeVariables}%%` for the flagged task
+//     fills (taskBkgColor #1F6E68, doneTaskBkgColor #5A5A5A). All three also set
+//     critBkgColor #B43A3A / critBorderColor #8E2828 so white in-bar task text
+//     on crit bars is a genuine 5.82:1 (Mermaid's default red crit bar rendered
+//     #fff-on-#ff0000 = 3.99:1, a real sub-AA failure the old scanner masked by
+//     mis-resolving in-bar text against a neighbouring task rect).
+//   - Timeline (vitess-migration-timeline): cScale* mid-tone section fills +
+//     white cScaleLabel* so year/event labels are AA in both modes.
+//
+// GATE STATE: fatal (merge-blocking). Every genuine low-contrast defect is fixed
+// at source or upstream, and the former scanner false-positives are fixed in the
+// diagramkit scanner itself — so enforcement rests on an accurate scan, not on
+// suppressing non-issues. If a future audit regresses a diagram, `validate:all`
+// now fails until it is fixed. The fatal embed-safety codes above stay enforced
+// unconditionally alongside this.
+const FAIL_ON_LOW_CONTRAST = true;
+
+const failOnCodes = [...FATAL_CODES];
+if (FAIL_ON_LOW_CONTRAST) {
+  failOnCodes.push("LOW_CONTRAST_TEXT");
+}
+
 const DK_BIN = resolve("node_modules/.bin/diagramkit");
 const wantJson = process.argv.includes("--json");
 
-function findDiagramDirs(start: string, out: string[] = []): string[] {
-  let entries;
-  try {
-    entries = readdirSync(start, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    const full = join(start, e.name);
-    if (e.name === "diagrams") {
-      out.push(full);
-    } else {
-      findDiagramDirs(full, out);
-    }
-  }
-  return out;
-}
-
-const dirs = findDiagramDirs(ROOT);
-if (!dirs.length) {
-  console.log("No diagrams folders under content/.");
-  process.exit(0);
-}
-
-let totalFiles = 0;
-let totalValid = 0;
-let totalInvalid = 0;
-const issueCounts: Record<string, number> = {};
-const allResults: unknown[] = [];
-
-for (const dir of dirs) {
-  const r = spawnSync(DK_BIN, ["validate", dir, "--recursive", "--json"], {
-    encoding: "utf8",
-  });
-  if (r.status !== 0 && r.status !== 1) {
-    // diagramkit exits 1 when invalid files are found — that is normal here;
-    // any other non-zero code is an unexpected failure.
-    console.error(`diagramkit failed for ${dir}: code ${r.status}`);
-    if (r.stderr) console.error(r.stderr);
-    process.exit(2);
-  }
-  let payload;
-  try {
-    payload = JSON.parse(r.stdout);
-  } catch {
-    console.error(`Could not parse JSON for ${dir}`);
-    process.exit(2);
-  }
-  totalFiles += payload.files ?? 0;
-  totalValid += payload.valid ?? 0;
-  totalInvalid += payload.invalid ?? 0;
-  for (const result of payload.results ?? []) {
-    allResults.push(result);
-    for (const issue of result.issues ?? []) {
-      issueCounts[issue.code] = (issueCounts[issue.code] ?? 0) + 1;
-    }
-  }
-}
-
+const cliArgs = [
+  "validate",
+  ".",
+  "--recursive",
+  "--scope-dir",
+  "diagrams",
+  "--fail-on",
+  failOnCodes.join(","),
+];
 if (wantJson) {
-  console.log(
-    JSON.stringify(
-      {
-        files: totalFiles,
-        valid: totalValid,
-        invalid: totalInvalid,
-        issueCounts,
-        results: allResults,
-      },
-      null,
-      2,
-    ),
-  );
-  process.exit(totalInvalid > 0 ? 1 : 0);
+  cliArgs.push("--json");
 }
 
-console.log(`Validated ${totalFiles} SVG file(s) across ${dirs.length} diagrams folder(s).`);
-console.log(`  valid: ${totalValid}`);
-console.log(`  invalid: ${totalInvalid}`);
-const codes = Object.entries(issueCounts).sort((a, b) => b[1] - a[1]);
-if (codes.length) {
-  console.log("Issue counts:");
-  for (const [code, n] of codes) console.log(`  ${code}: ${n}`);
-} else {
-  console.log("No issues.");
-}
-process.exit(totalInvalid > 0 ? 1 : 0);
+const child = spawn(DK_BIN, cliArgs, {
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
 
-void statSync;
+child.on("error", (error) => {
+  console.error(`Failed to launch diagramkit: ${error.message}`);
+  process.exit(1);
+});
+
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 0);
+});

@@ -1,0 +1,190 @@
+{
+  "version": 2,
+  "diagrams": {
+    "blue-green-deployment-sequence.mermaid": {
+      "hash": "sha256:eb7d9664c3a691f6",
+      "generatedAt": "2026-07-21T22:01:10.699Z",
+      "outputs": [
+        {
+          "file": "blue-green-deployment-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "blue-green-deployment-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285908.7917,
+      "size": 699,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "canary-progression-gates.mermaid": {
+      "hash": "sha256:1fb84270d1e17677",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "canary-progression-gates-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 408.55078125,
+          "height": 1522.1875
+        },
+        {
+          "file": "canary-progression-gates-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 408.55078125,
+          "height": 1522.1875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285909.317,
+      "size": 557,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "deployment-strategy-landscape.mermaid": {
+      "hash": "sha256:2c8969f296cbaa62",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "deployment-strategy-landscape-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 954.984375,
+          "height": 433.3999938964844
+        },
+        {
+          "file": "deployment-strategy-landscape-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 954.984375,
+          "height": 433.3999938964844
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285909.6228,
+      "size": 840,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "expand-contract-migration-phases.mermaid": {
+      "hash": "sha256:60b6007afb56f589",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "expand-contract-migration-phases-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1078.734375,
+          "height": 405.6000061035156
+        },
+        {
+          "file": "expand-contract-migration-phases-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1078.734375,
+          "height": 405.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285910.1372,
+      "size": 779,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "feature-flag-deploy-vs-release.mermaid": {
+      "hash": "sha256:2e41d92ba174ab11",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "feature-flag-deploy-vs-release-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1323.875,
+          "height": 512
+        },
+        {
+          "file": "feature-flag-deploy-vs-release-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1323.875,
+          "height": 512
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285910.5332,
+      "size": 793,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "kayenta-canary-analysis-loop.mermaid": {
+      "hash": "sha256:2f16d3cbb3f16f52",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "kayenta-canary-analysis-loop-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 739.765625,
+          "height": 738.5999755859375
+        },
+        {
+          "file": "kayenta-canary-analysis-loop-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 739.765625,
+          "height": 738.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285910.8262,
+      "size": 896,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "shadow-vs-dark-launch.mermaid": {
+      "hash": "sha256:4dd95b3d07e93810",
+      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "outputs": [
+        {
+          "file": "shadow-vs-dark-launch-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 816.09375,
+          "height": 438.1999816894531
+        },
+        {
+          "file": "shadow-vs-dark-launch-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 816.09375,
+          "height": 438.1999816894531
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285911.0757,
+      "size": 706,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -46,7 +46,9 @@ flowchart TB
     Consul --> Rotor --> Envoy
     CHARM -.manages.-> CS
 
-    style Envoy fill:#2E5A88,stroke:#1F4870,color:#ffffff
-    style Flannel fill:#2E5A88,stroke:#1F4870,color:#ffffff
-    style Vitess fill:#8B5E15,stroke:#6E4810,color:#ffffff
-    style Webapp fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#ffffff
+    classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#ffffff
+    class Envoy,Flannel primary
+    class Vitess storage
+    class Webapp success

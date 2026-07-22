@@ -1,0 +1,159 @@
+{
+  "version": 2,
+  "diagrams": {
+    "abr-decision-loop.mermaid": {
+      "hash": "sha256:94707b455350ce4a",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "abr-decision-loop-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1078.383056640625,
+          "height": 1293.199951171875
+        },
+        {
+          "file": "abr-decision-loop-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1078.383056640625,
+          "height": 1293.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286336.9011,
+      "size": 860,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cmaf-unified-packaging.mermaid": {
+      "hash": "sha256:7055dddb24e15d64",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "cmaf-unified-packaging-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 972.3984375,
+          "height": 547.2000122070312
+        },
+        {
+          "file": "cmaf-unified-packaging-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 972.3984375,
+          "height": 547.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286337.1362,
+      "size": 980,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "eme-license-flow.mermaid": {
+      "hash": "sha256:60de28f9afc2777a",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "eme-license-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "eme-license-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286337.3906,
+      "size": 888,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "end-to-end-pipeline.mermaid": {
+      "hash": "sha256:8513504eb7b5604c",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "end-to-end-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 586.125,
+          "height": 1397.599365234375
+        },
+        {
+          "file": "end-to-end-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 586.125,
+          "height": 1397.599365234375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286337.6382,
+      "size": 1435,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "ll-hls-sequence.mermaid": {
+      "hash": "sha256:1963252f9ad0d7c0",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "ll-hls-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "ll-hls-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286338.194,
+      "size": 985,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "webrtc-vs-cdn-fanout.mermaid": {
+      "hash": "sha256:22a0e6c1492c1f55",
+      "generatedAt": "2026-07-21T22:01:10.811Z",
+      "outputs": [
+        {
+          "file": "webrtc-vs-cdn-fanout-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1125.375,
+          "height": 951.5999755859375
+        },
+        {
+          "file": "webrtc-vs-cdn-fanout-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1125.375,
+          "height": 951.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286338.4968,
+      "size": 1036,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -1,0 +1,247 @@
+{
+  "version": 2,
+  "diagrams": {
+    "auth-code-interception-attack.mermaid": {
+      "hash": "sha256:09ea03aed368eb32",
+      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "outputs": [
+        {
+          "file": "auth-code-interception-attack-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "auth-code-interception-attack-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286228.858,
+      "size": 646,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "auth-code-pkce-oidc-overview.mermaid": {
+      "hash": "sha256:19f0e95b379eb098",
+      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "outputs": [
+        {
+          "file": "auth-code-pkce-oidc-overview-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "auth-code-pkce-oidc-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286229.1755,
+      "size": 777,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "bff-pattern-architecture.mermaid": {
+      "hash": "sha256:528c25490232e80e",
+      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "outputs": [
+        {
+          "file": "bff-pattern-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 850.09375,
+          "height": 453.876953125
+        },
+        {
+          "file": "bff-pattern-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 850.09375,
+          "height": 453.876953125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286229.442,
+      "size": 476,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "client-credentials-flow.mermaid": {
+      "hash": "sha256:7df323279a909383",
+      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "outputs": [
+        {
+          "file": "client-credentials-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "client-credentials-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286229.712,
+      "size": 733,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "device-code-flow.mermaid": {
+      "hash": "sha256:ad41d805029891fc",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "device-code-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "device-code-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286229.994,
+      "size": 1057,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "dpop-flow.mermaid": {
+      "hash": "sha256:4bf36f0ab30a032a",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "dpop-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dpop-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286230.2256,
+      "size": 738,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "flow-selection-decision.mermaid": {
+      "hash": "sha256:b5d4660e879694fb",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "flow-selection-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1047.379638671875,
+          "height": 1053.5718994140625
+        },
+        {
+          "file": "flow-selection-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1047.379638671875,
+          "height": 1053.5718994140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286230.7646,
+      "size": 1124,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "refresh-token-reuse-detection.mermaid": {
+      "hash": "sha256:bdd140e6a9969144",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "refresh-token-reuse-detection-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "refresh-token-reuse-detection-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286231.1216,
+      "size": 680,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "refresh-token-rotation.mermaid": {
+      "hash": "sha256:0cd56506c4d4dc4b",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "refresh-token-rotation-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "refresh-token-rotation-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286231.3855,
+      "size": 606,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "token-types-relationships.mermaid": {
+      "hash": "sha256:75654a6bf36445bb",
+      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "outputs": [
+        {
+          "file": "token-types-relationships-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 899.8671875,
+          "height": 384
+        },
+        {
+          "file": "token-types-relationships-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 899.8671875,
+          "height": 384
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286231.6785,
+      "size": 491,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

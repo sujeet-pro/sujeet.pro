@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "diagrams": {
+    "axe-result-buckets.mermaid": {
+      "hash": "sha256:84e5148b2bbc6fe4",
+      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "outputs": [
+        {
+          "file": "axe-result-buckets-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 908.65625,
+          "height": 333.39996337890625
+        },
+        {
+          "file": "axe-result-buckets-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 908.65625,
+          "height": 333.39996337890625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285788.2344,
+      "size": 877,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "ci-pipeline-stages.mermaid": {
+      "hash": "sha256:87cc4073a3274324",
+      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "outputs": [
+        {
+          "file": "ci-pipeline-stages-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1305.203125,
+          "height": 423.1999816894531
+        },
+        {
+          "file": "ci-pipeline-stages-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1305.203125,
+          "height": 423.1999816894531
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285788.9126,
+      "size": 1334,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "testing-layers.mermaid": {
+      "hash": "sha256:a0b653c4fc9747a2",
+      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "outputs": [
+        {
+          "file": "testing-layers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 822.578125,
+          "height": 582.3999633789062
+        },
+        {
+          "file": "testing-layers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 822.578125,
+          "height": 582.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285789.589,
+      "size": 911,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

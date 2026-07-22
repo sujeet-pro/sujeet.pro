@@ -1,0 +1,286 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cache-aside-sequence.mermaid": {
+      "hash": "sha256:b682351d7719bfcd",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "cache-aside-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cache-aside-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286064.4429,
+      "size": 614,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cdc-invalidation-flow.mermaid": {
+      "hash": "sha256:444d585e8ddb06a7",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "cdc-invalidation-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 685.88671875,
+          "height": 1037.281494140625
+        },
+        {
+          "file": "cdc-invalidation-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 685.88671875,
+          "height": 1037.281494140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286064.8174,
+      "size": 1216,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cluster-topology.mermaid": {
+      "hash": "sha256:9ef6cc47d81c7cec",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "cluster-topology-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 888.53125,
+          "height": 969.4000244140625
+        },
+        {
+          "file": "cluster-topology-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 888.53125,
+          "height": 969.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286065.0588,
+      "size": 1465,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "consistent-hashing-ring.mermaid": {
+      "hash": "sha256:a3eeec04cf9bb71c",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "consistent-hashing-ring-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 762.84765625,
+          "height": 936.3999633789062
+        },
+        {
+          "file": "consistent-hashing-ring-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 762.84765625,
+          "height": 936.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286065.3865,
+      "size": 1060,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hot-key-fanout.mermaid": {
+      "hash": "sha256:fd705c8fd477f136",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "hot-key-fanout-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1159.8125,
+          "height": 496.20001220703125
+        },
+        {
+          "file": "hot-key-fanout-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1159.8125,
+          "height": 496.20001220703125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286065.6663,
+      "size": 1067,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "leases-stampede-prevention.mermaid": {
+      "hash": "sha256:8b65b91d14ef73d2",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "leases-stampede-prevention-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "leases-stampede-prevention-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286065.9187,
+      "size": 669,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-region-invalidation.mermaid": {
+      "hash": "sha256:66aa1f2a6a7b3d15",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "multi-region-invalidation-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1129.671875,
+          "height": 867.78271484375
+        },
+        {
+          "file": "multi-region-invalidation-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1129.671875,
+          "height": 867.78271484375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286066.5981,
+      "size": 1649,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-tier-architecture.mermaid": {
+      "hash": "sha256:91822f0504c7c31f",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "multi-tier-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 560.0625,
+          "height": 834.8814697265625
+        },
+        {
+          "file": "multi-tier-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 560.0625,
+          "height": 834.8814697265625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286066.8962,
+      "size": 1202,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "redis-cluster-slot-migration.mermaid": {
+      "hash": "sha256:6729971d5687692f",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "redis-cluster-slot-migration-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "redis-cluster-slot-migration-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286067.275,
+      "size": 833,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "request-coalescing.mermaid": {
+      "hash": "sha256:9bb9bd0d526ee0de",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "request-coalescing-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "request-coalescing-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286067.5486,
+      "size": 739,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "topology-decision-tree.mermaid": {
+      "hash": "sha256:b9f7dc7fd4f16a87",
+      "generatedAt": "2026-07-21T22:01:10.743Z",
+      "outputs": [
+        {
+          "file": "topology-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 925.640625,
+          "height": 991.078125
+        },
+        {
+          "file": "topology-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 925.640625,
+          "height": 991.078125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286067.9766,
+      "size": 1041,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

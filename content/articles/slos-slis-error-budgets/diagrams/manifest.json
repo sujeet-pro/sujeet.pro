@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "diagrams": {
+    "burn-rate-alert-tiers.mermaid": {
+      "hash": "sha256:74bd5d5f147b9d3f",
+      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "outputs": [
+        {
+          "file": "burn-rate-alert-tiers-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1466.96875,
+          "height": 593.5999755859375
+        },
+        {
+          "file": "burn-rate-alert-tiers-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1466.96875,
+          "height": 593.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286277.632,
+      "size": 1677,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "error-budget-policy-decision.mermaid": {
+      "hash": "sha256:45b32a6ab0271573",
+      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "outputs": [
+        {
+          "file": "error-budget-policy-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1079,
+          "height": 1256.721923828125
+        },
+        {
+          "file": "error-budget-policy-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1079,
+          "height": 1256.721923828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286278.2024,
+      "size": 1548,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sli-measurement-points.mermaid": {
+      "hash": "sha256:4da0a2fda2eb9a47",
+      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "outputs": [
+        {
+          "file": "sli-measurement-points-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1447.25390625,
+          "height": 695.1795654296875
+        },
+        {
+          "file": "sli-measurement-points-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1447.25390625,
+          "height": 695.1795654296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286278.5107,
+      "size": 1152,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "slo-framework-overview.mermaid": {
+      "hash": "sha256:86e9d06cde1b1e20",
+      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "outputs": [
+        {
+          "file": "slo-framework-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 528.96875,
+          "height": 997
+        },
+        {
+          "file": "slo-framework-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 528.96875,
+          "height": 997
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286278.7656,
+      "size": 960,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

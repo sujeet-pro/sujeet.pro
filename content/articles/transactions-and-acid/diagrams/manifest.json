@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "diagrams": {
+    "2pc-sequence.mermaid": {
+      "hash": "sha256:c739925ba03190fa",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "2pc-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "2pc-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286300.9294,
+      "size": 775,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "acid-overview.mermaid": {
+      "hash": "sha256:5ea9afcd25f5a634",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "acid-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 744.609375,
+          "height": 1019.2000122070312
+        },
+        {
+          "file": "acid-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 744.609375,
+          "height": 1019.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286301.151,
+      "size": 1000,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "mvcc-visibility.mermaid": {
+      "hash": "sha256:1f606702fdbb3a63",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "mvcc-visibility-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "mvcc-visibility-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286301.3699,
+      "size": 805,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "outbox-pattern.mermaid": {
+      "hash": "sha256:e477a5ffbc8fc024",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "outbox-pattern-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 534.328125,
+          "height": 718
+        },
+        {
+          "file": "outbox-pattern-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 534.328125,
+          "height": 718
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286301.6345,
+      "size": 931,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "saga-orchestration.mermaid": {
+      "hash": "sha256:968dd11e001aa4fd",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "saga-orchestration-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "saga-orchestration-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286302.1917,
+      "size": 621,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "spanner-commit-wait.mermaid": {
+      "hash": "sha256:2305c7654be9c3a8",
+      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "outputs": [
+        {
+          "file": "spanner-commit-wait-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "spanner-commit-wait-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286302.4648,
+      "size": 718,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

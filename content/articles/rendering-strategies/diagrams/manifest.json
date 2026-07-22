@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "diagrams": {
+    "hydration-vs-resumability.mermaid": {
+      "hash": "sha256:a7acd791c752c078",
+      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "outputs": [
+        {
+          "file": "hydration-vs-resumability-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1056.390625,
+          "height": 688.7999877929688
+        },
+        {
+          "file": "hydration-vs-resumability-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1056.390625,
+          "height": 688.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286259.2656,
+      "size": 922,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "modern-rendering-pipeline.mermaid": {
+      "hash": "sha256:e8e1445c86d009a9",
+      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "outputs": [
+        {
+          "file": "modern-rendering-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1055.96875,
+          "height": 582.3999633789062
+        },
+        {
+          "file": "modern-rendering-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1055.96875,
+          "height": 582.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286259.5154,
+      "size": 978,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rsc-payload-flow.mermaid": {
+      "hash": "sha256:20e27d3ef6a34265",
+      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "outputs": [
+        {
+          "file": "rsc-payload-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "rsc-payload-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286259.7595,
+      "size": 880,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "strategy-decision-tree.mermaid": {
+      "hash": "sha256:d7f12f222994753a",
+      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "outputs": [
+        {
+          "file": "strategy-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1553.609375,
+          "height": 682.003173828125
+        },
+        {
+          "file": "strategy-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1553.609375,
+          "height": 682.003173828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286260.057,
+      "size": 872,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

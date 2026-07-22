@@ -1,0 +1,132 @@
+{
+  "version": 2,
+  "diagrams": {
+    "all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy.mermaid": {
+      "hash": "sha256:bed7c210f64ba070",
+      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "outputs": [
+        {
+          "file": "all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 852.5234375,
+          "height": 698.9999389648438
+        },
+        {
+          "file": "all-rendering-models-csr-ssr-rsc-use-the-fiber-reconciler-ssr-and-rsc-require-hy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 852.5234375,
+          "height": 698.9999389648438
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286253.7847,
+      "size": 783,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter.mermaid": {
+      "hash": "sha256:cedf08695bfc9c91",
+      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "outputs": [
+        {
+          "file": "fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 630.890625,
+          "height": 632.3999633789062
+        },
+        {
+          "file": "fiber-enables-interruptible-work-lanes-determine-priority-execution-models-deter-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 630.890625,
+          "height": 632.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286254.0408,
+      "size": 729,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lane-preemption-sequence.mermaid": {
+      "hash": "sha256:0e0c7bd5071c6964",
+      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "outputs": [
+        {
+          "file": "lane-preemption-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "lane-preemption-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286254.3794,
+      "size": 635,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rendering-strategy-decision.mermaid": {
+      "hash": "sha256:160ff93af013f763",
+      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "outputs": [
+        {
+          "file": "rendering-strategy-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 938.2093505859375,
+          "height": 1069.503173828125
+        },
+        {
+          "file": "rendering-strategy-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 938.2093505859375,
+          "height": 1069.503173828125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286254.715,
+      "size": 781,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rsc-flight-stream-sequence.mermaid": {
+      "hash": "sha256:2b1c33c44a1c72b8",
+      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "outputs": [
+        {
+          "file": "rsc-flight-stream-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "rsc-flight-stream-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286255.0054,
+      "size": 660,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

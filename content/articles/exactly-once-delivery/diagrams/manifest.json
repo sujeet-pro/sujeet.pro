@@ -1,0 +1,205 @@
+{
+  "version": 2,
+  "diagrams": {
+    "dedup-window-vs-retry.mermaid": {
+      "hash": "sha256:2794acf7ee3a846f",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "dedup-window-vs-retry-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "dedup-window-vs-retry-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286118.7004,
+      "size": 830,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "exactly-once-composition.mermaid": {
+      "hash": "sha256:4c424491f3a3d214",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "exactly-once-composition-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 419.7578125,
+          "height": 870.5855102539062
+        },
+        {
+          "file": "exactly-once-composition-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 419.7578125,
+          "height": 870.5855102539062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286119.0447,
+      "size": 676,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "kafka-idempotent-producer.mermaid": {
+      "hash": "sha256:f2dc6ac4473f2714",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "kafka-idempotent-producer-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 812.3671875,
+          "height": 1075.028076171875
+        },
+        {
+          "file": "kafka-idempotent-producer-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 812.3671875,
+          "height": 1075.028076171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286119.3118,
+      "size": 968,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "path-decision-tree.mermaid": {
+      "hash": "sha256:8a93a907d71b577e",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "path-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1207.15234375,
+          "height": 1647.840576171875
+        },
+        {
+          "file": "path-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1207.15234375,
+          "height": 1647.840576171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286119.6477,
+      "size": 817,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "stripe-idempotency-key-flow.mermaid": {
+      "hash": "sha256:55bf1b25e1a30c99",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "stripe-idempotency-key-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "stripe-idempotency-key-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286119.9285,
+      "size": 850,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "transactional-outbox-flow.mermaid": {
+      "hash": "sha256:125cf1dc589ed02d",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "transactional-outbox-flow-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 553.53125,
+          "height": 793.4459838867188
+        },
+        {
+          "file": "transactional-outbox-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 553.53125,
+          "height": 793.4459838867188
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286120.196,
+      "size": 1001,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "transactional-sink-2pc.mermaid": {
+      "hash": "sha256:078a2487cf8301df",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "transactional-sink-2pc-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "transactional-sink-2pc-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286120.7666,
+      "size": 985,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "two-generals-reduction.mermaid": {
+      "hash": "sha256:dfe85991b3522c62",
+      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "outputs": [
+        {
+          "file": "two-generals-reduction-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "two-generals-reduction-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286121.1077,
+      "size": 864,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

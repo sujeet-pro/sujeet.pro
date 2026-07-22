@@ -1,0 +1,244 @@
+{
+  "version": 2,
+  "diagrams": {
+    "active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data-.mermaid": {
+      "hash": "sha256:66ac9f245bdc6d23",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data--light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 521.66796875,
+          "height": 630.359130859375
+        },
+        {
+          "file": "active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data--dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 521.66796875,
+          "height": 630.359130859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286217.435,
+      "size": 506,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da.mermaid": {
+      "hash": "sha256:29d1ef077376b01a",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 404.5546875,
+          "height": 542.5751342773438
+        },
+        {
+          "file": "active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 404.5546875,
+          "height": 542.5751342773438
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286217.731,
+      "size": 514,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "active-passive-failover-sequence.mermaid": {
+      "hash": "sha256:05ef6dc9d7fccb60",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "active-passive-failover-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "active-passive-failover-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286218.044,
+      "size": 871,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s.mermaid": {
+      "hash": "sha256:245f1810f4613ae7",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 660.515625,
+          "height": 386.3994445800781
+        },
+        {
+          "file": "cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 660.515625,
+          "height": 386.3994445800781
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286218.5808,
+      "size": 691,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "data-residency-overlay.mermaid": {
+      "hash": "sha256:255e8a2df872d47c",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "data-residency-overlay-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 854.19921875,
+          "height": 724.553955078125
+        },
+        {
+          "file": "data-residency-overlay-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 854.19921875,
+          "height": 724.553955078125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286219.097,
+      "size": 878,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c.mermaid": {
+      "hash": "sha256:82ae59b80ca3cb0d",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 718.578125,
+          "height": 1065.015625
+        },
+        {
+          "file": "decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 718.578125,
+          "height": 1065.015625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286219.4614,
+      "size": 638,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re.mermaid": {
+      "hash": "sha256:953fab118ef40bb3",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1430.6875,
+          "height": 716.55908203125
+        },
+        {
+          "file": "multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1430.6875,
+          "height": 716.55908203125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286219.8167,
+      "size": 986,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "replication-topologies.mermaid": {
+      "hash": "sha256:98efc2cea9bb02e9",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "replication-topologies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1289.890625,
+          "height": 375.8989562988281
+        },
+        {
+          "file": "replication-topologies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1289.890625,
+          "height": 375.8989562988281
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286220.1323,
+      "size": 499,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "spanner-multi-region-topology.mermaid": {
+      "hash": "sha256:158f1ae95ae96bae",
+      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "outputs": [
+        {
+          "file": "spanner-multi-region-topology-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1091.875,
+          "height": 419.20001220703125
+        },
+        {
+          "file": "spanner-multi-region-topology-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1091.875,
+          "height": 419.20001220703125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286220.4346,
+      "size": 646,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

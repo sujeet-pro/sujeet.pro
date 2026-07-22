@@ -1,0 +1,263 @@
+{
+  "version": 2,
+  "diagrams": {
+    "aws-reference-architecture.mermaid": {
+      "hash": "sha256:4f4cf40c31dc891e",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "aws-reference-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1274.15625,
+          "height": 736.4215087890625
+        },
+        {
+          "file": "aws-reference-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1274.15625,
+          "height": 736.4215087890625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285958.9812,
+      "size": 1089,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "calendar-view-query-flow.mermaid": {
+      "hash": "sha256:20bc81099a48886e",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "calendar-view-query-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "calendar-view-query-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285959.3696,
+      "size": 969,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "create-recurring-event-flow.mermaid": {
+      "hash": "sha256:35ba55006d0edb29",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "create-recurring-event-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "create-recurring-event-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285959.6685,
+      "size": 698,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "event-data-model.mermaid": {
+      "hash": "sha256:8f84bb278d3f6a75",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "event-data-model-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 881.3125,
+          "height": 1090.25
+        },
+        {
+          "file": "event-data-model-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 881.3125,
+          "height": 1090.25
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285960.234,
+      "size": 1110,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "freebusy-intersection.mermaid": {
+      "hash": "sha256:8e5a0076e0ad9f8d",
+      "generatedAt": "2026-07-21T22:38:06.023Z",
+      "outputs": [
+        {
+          "file": "freebusy-intersection-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1264,
+          "height": 412
+        },
+        {
+          "file": "freebusy-intersection-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1264,
+          "height": 412
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784673466306.335,
+      "size": 1079,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "high-level-architecture.mermaid": {
+      "hash": "sha256:23f1b5fbe3bbee10",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "high-level-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1492.6484375,
+          "height": 1093.12451171875
+        },
+        {
+          "file": "high-level-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1492.6484375,
+          "height": 1093.12451171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285960.8018,
+      "size": 1435,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "hybrid-recurrence-storage.mermaid": {
+      "hash": "sha256:587cc7f7b05668d8",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "hybrid-recurrence-storage-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1415.375,
+          "height": 525.7999877929688
+        },
+        {
+          "file": "hybrid-recurrence-storage-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1415.375,
+          "height": 525.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285961.4404,
+      "size": 837,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "itip-invitation-flow.mermaid": {
+      "hash": "sha256:74f2ce0f9b060e04",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "itip-invitation-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "itip-invitation-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285961.8865,
+      "size": 861,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "push-fanout.mermaid": {
+      "hash": "sha256:50ff703c2b3b0615",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "push-fanout-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1461.03125,
+          "height": 619
+        },
+        {
+          "file": "push-fanout-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1461.03125,
+          "height": 619
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285962.2124,
+      "size": 1018,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rrule-expansion-pipeline.mermaid": {
+      "hash": "sha256:529ca08d96bafd1b",
+      "generatedAt": "2026-07-21T22:01:10.714Z",
+      "outputs": [
+        {
+          "file": "rrule-expansion-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 771.17578125,
+          "height": 689.7999267578125
+        },
+        {
+          "file": "rrule-expansion-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 771.17578125,
+          "height": 689.7999267578125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285962.466,
+      "size": 852,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

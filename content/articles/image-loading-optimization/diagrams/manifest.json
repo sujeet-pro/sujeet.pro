@@ -1,0 +1,163 @@
+{
+  "version": 2,
+  "diagrams": {
+    "cls-with-vs-without-dimensions.mermaid": {
+      "hash": "sha256:41dff7bdc8a79a85",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "cls-with-vs-without-dimensions-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "cls-with-vs-without-dimensions-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286157.2537,
+      "size": 1134,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "format-decision-tree.mermaid": {
+      "hash": "sha256:22215636a2bf9402",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "format-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 746.7867431640625,
+          "height": 849.4000244140625
+        },
+        {
+          "file": "format-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 746.7867431640625,
+          "height": 849.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286157.5967,
+      "size": 1227,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "image-loading-pipeline.mermaid": {
+      "hash": "sha256:be32262e10843f02",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "image-loading-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 405.875,
+          "height": 925.7999877929688
+        },
+        {
+          "file": "image-loading-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 405.875,
+          "height": 925.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286157.8677,
+      "size": 796,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lcp-loading-decision.mermaid": {
+      "hash": "sha256:3ab666d9c20e26f5",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "lcp-loading-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1137.7906494140625,
+          "height": 590.5999755859375
+        },
+        {
+          "file": "lcp-loading-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1137.7906494140625,
+          "height": 590.5999755859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286158.112,
+      "size": 889,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lcp-waterfall.mermaid": {
+      "hash": "sha256:c8ccaa3fb873eb25",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "lcp-waterfall-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 964.609375,
+          "height": 715.4000244140625
+        },
+        {
+          "file": "lcp-waterfall-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 964.609375,
+          "height": 715.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286158.7468,
+      "size": 1868,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "srcset-sizes-resolution.mermaid": {
+      "hash": "sha256:56eca23d56000084",
+      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "outputs": [
+        {
+          "file": "srcset-sizes-resolution-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 296.64453125,
+          "height": 931
+        },
+        {
+          "file": "srcset-sizes-resolution-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 296.64453125,
+          "height": 931
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286159.2285,
+      "size": 711,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

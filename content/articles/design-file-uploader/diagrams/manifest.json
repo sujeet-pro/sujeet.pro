@@ -1,0 +1,201 @@
+{
+  "version": 2,
+  "diagrams": {
+    "background-fetch-handoff.mermaid": {
+      "hash": "sha256:bf692b9beda87104",
+      "generatedAt": "2026-07-21T22:01:10.710Z",
+      "outputs": [
+        {
+          "file": "background-fetch-handoff-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "background-fetch-handoff-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285945.5676,
+      "size": 873,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "direct-to-storage-flow.mermaid": {
+      "hash": "sha256:40042268d2717d32",
+      "generatedAt": "2026-07-21T22:01:10.710Z",
+      "outputs": [
+        {
+          "file": "direct-to-storage-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "direct-to-storage-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285945.8345,
+      "size": 547,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multipart-parallel-flow.mermaid": {
+      "hash": "sha256:f382120e8f1d167b",
+      "generatedAt": "2026-07-21T22:01:10.710Z",
+      "outputs": [
+        {
+          "file": "multipart-parallel-flow-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "multipart-parallel-flow-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285946.4998,
+      "size": 928,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "resumable-state-machine.mermaid": {
+      "hash": "sha256:a383f7bc414b09cb",
+      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "outputs": [
+        {
+          "file": "resumable-state-machine-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1153.281494140625,
+          "height": 742.2000122070312
+        },
+        {
+          "file": "resumable-state-machine-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1153.281494140625,
+          "height": 742.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285946.8535,
+      "size": 821,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "retry-backoff-timeline.mermaid": {
+      "hash": "sha256:3be9324a37ce9bc3",
+      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "outputs": [
+        {
+          "file": "retry-backoff-timeline-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "retry-backoff-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285947.1475,
+      "size": 775,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "tus-resumable-sequence.mermaid": {
+      "hash": "sha256:f3333b03daa36358",
+      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "outputs": [
+        {
+          "file": "tus-resumable-sequence-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "tus-resumable-sequence-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285947.4458,
+      "size": 1119,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "upload-overview.mermaid": {
+      "hash": "sha256:47d9777f1023634a",
+      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "outputs": [
+        {
+          "file": "upload-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 800.4296875,
+          "height": 1426.824951171875
+        },
+        {
+          "file": "upload-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 800.4296875,
+          "height": 1426.824951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285947.7266,
+      "size": 804,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "upload-strategy-decision.mermaid": {
+      "hash": "sha256:0ac4ad08b35d991d",
+      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "outputs": [
+        {
+          "file": "upload-strategy-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 723.7109375,
+          "height": 1302.7999267578125
+        },
+        {
+          "file": "upload-strategy-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 723.7109375,
+          "height": 1302.7999267578125
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285948.4043,
+      "size": 745,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

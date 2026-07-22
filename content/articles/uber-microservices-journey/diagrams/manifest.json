@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "diagrams": {
+    "death-star-vs-gateway.mermaid": {
+      "hash": "sha256:0911868b40f7e850",
+      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "outputs": [
+        {
+          "file": "death-star-vs-gateway-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 659.109375,
+          "height": 1205
+        },
+        {
+          "file": "death-star-vs-gateway-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 659.109375,
+          "height": 1205
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286307.5056,
+      "size": 842,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "doma-layered-architecture.mermaid": {
+      "hash": "sha256:fd814f3b3b77a6df",
+      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "outputs": [
+        {
+          "file": "doma-layered-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 620.59375,
+          "height": 811
+        },
+        {
+          "file": "doma-layered-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 620.59375,
+          "height": 811
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286307.7769,
+      "size": 804,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "domain-anatomy.mermaid": {
+      "hash": "sha256:a62d8f6a82a280cb",
+      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "outputs": [
+        {
+          "file": "domain-anatomy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 802.515625,
+          "height": 651.4063110351562
+        },
+        {
+          "file": "domain-anatomy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 802.515625,
+          "height": 651.4063110351562
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286308.032,
+      "size": 618,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous-.mermaid": {
+      "hash": "sha256:97cc2524bd17d6b5",
+      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "outputs": [
+        {
+          "file": "uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous--light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 270.53125,
+          "height": 537.7999877929688
+        },
+        {
+          "file": "uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous--dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 270.53125,
+          "height": 537.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286308.3154,
+      "size": 565,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

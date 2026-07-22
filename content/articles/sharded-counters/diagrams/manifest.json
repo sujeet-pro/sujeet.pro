@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "diagrams": {
+    "aggregation-timing-strategies.mermaid": {
+      "hash": "sha256:8c5dee7055522e5e",
+      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "outputs": [
+        {
+          "file": "aggregation-timing-strategies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1584.90234375,
+          "height": 587.7999877929688
+        },
+        {
+          "file": "aggregation-timing-strategies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1584.90234375,
+          "height": 587.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286268.6233,
+      "size": 1006,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "counter-strategy-decision-tree.mermaid": {
+      "hash": "sha256:4ae1a5c54a5bf833",
+      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "outputs": [
+        {
+          "file": "counter-strategy-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1523.8515625,
+          "height": 1500.4156494140625
+        },
+        {
+          "file": "counter-strategy-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1523.8515625,
+          "height": 1500.4156494140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286269.1233,
+      "size": 1162,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "netflix-counter-architecture.mermaid": {
+      "hash": "sha256:aa223a247611e445",
+      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "outputs": [
+        {
+          "file": "netflix-counter-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 920.296875,
+          "height": 822
+        },
+        {
+          "file": "netflix-counter-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 920.296875,
+          "height": 822
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286269.4678,
+      "size": 1178,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention.mermaid": {
+      "hash": "sha256:e9e0afefe950683c",
+      "generatedAt": "2026-07-21T22:01:10.792Z",
+      "outputs": [
+        {
+          "file": "sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 640.1875,
+          "height": 756
+        },
+        {
+          "file": "sharded-counter-architecture-writes-distribute-across-shards-to-avoid-contention-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 640.1875,
+          "height": 756
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286269.79,
+      "size": 691,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

@@ -42,9 +42,12 @@ Current integration points:
 - `vite.config.ts` keeps `pagesmithContent` on `@pagesmith/core/vite`.
 - `src/entry-server.tsx` consumes `virtual:content/<collection>` payloads and maps them into `theme/layouts/*`.
 - `theme/lib/content.ts` merges frontmatter with `content/meta.json5`, section `meta.json5`, `content/home.json5`, and `content/redirects.json5` to build listings, sidebars, breadcrumbs, series navigation, and featured content.
-- `scripts/postbuild.ts` writes repo-specific post-build artifacts such as `sitemap.xml` and `rss.xml`.
+- `scripts/postbuild.ts` is now thin: it flattens `404/index.html` → `404.html` and feeds repo-derived routes/entries into the upstream `generateSitemap` / `generateFeed` serializers (from `@pagesmith/site/ssg-utils`). It no longer hand-rolls XML.
 - `scripts/validate.ts` validates site config, diagramkit config, content collections, and cross-file references.
 - `scripts/validate-pagesmith.ts` composes `@pagesmith/site` validators with the project cross-ref checks.
+- `scripts/validate-dist.ts` now delegates the bulk of dist integrity to `validateBuildOutput` (`@pagesmith/site/build-validator`) with `checkSitemap` + `checkBundledAssets`, keeping only repo-specific document-shape and Pagefind-directory checks.
+
+Lazy-image loading is now handled upstream in the `@pagesmith/core` markdown pipeline (`markdown.images.lazyLoading` default `true`, `eagerCount` default `1`: the LCP hero gets `fetchpriority="high"`, the rest get `loading="lazy" decoding="async"`). Do not re-implement lazy attributes in the repo.
 
 Rules for this repo:
 
@@ -78,7 +81,27 @@ The published validators this repo composes via `scripts/validate-pagesmith.ts`:
 - `loadContentSchemaMap`, `formatContentValidationReport`
 - `normalizeBasePath`, `withBasePath`
 
+`validateBuildOutput` now covers what `scripts/validate-dist.ts` used to hand-roll. Notable options this repo uses: `requiredFiles` (file presence), `checkBundledAssets` (entry CSS/JS discovery + on-disk resolution), and `checkSitemap` (sitemap ↔ HTML cross-check). It also validates internal links/srcset, `assets/` content-hash naming (`requireAssetHash`, default on), and SVG well-formedness by default. Optional `requireThemeVariants` / `requireRasterModernFormats` are available but not enabled here. It does **not** check HTML document shape (DOCTYPE/`<html>`/`<head>`/`<body>`) — that stays repo-local in `validate-dist.ts`.
+
+SSG serialization helpers now live in `@pagesmith/site/ssg-utils`: `generateSitemap(routes, config)` and `generateFeed(entries, config)`. `generateSitemap` canonicalizes the home route to the bare origin (no trailing slash) and emits no trailing newline; `generateFeed` filters to valid publish dates, sorts newest-first, and caps at `limit` (default 50). `postbuild.ts` supplies routes/entries; it does not build XML.
+
+Structured data (JSON-LD) is emitted upstream by `SiteDocument` (schema.org `Article`/`BlogPosting`/`WebSite`, gated by `seo.jsonLd`, default `true`), with standalone builders `buildArticleStructuredData`, `buildWebsiteStructuredData`, and `serializeJsonLd` exported from the package root.
+
 The `pagesmith-site validate` CLI also exists; this repo bypasses it because there is no `pagesmith.config.*` file (Vite is wired directly).
+
+### Upstream skill stubs (`skills install`)
+
+Both packages ship versioned-pointer skill stubs installable via their bundled CLIs:
+
+```bash
+npx pagesmith skills install      # pagesmith-core-* + pagesmith-site-* stubs
+npx diagramkit skills install     # diagramkit-* stubs
+# --check verifies stubs are up to date (CI drift guard, browser-free)
+```
+
+These write `.agents/skills/<name>/SKILL.md` pointer stubs plus `.claude/` and `.cursor/` mirrors, and are **distinct from the repo's own `prj-*` skills** (the installers never touch `prj-*`). The stubs point at the installed package body and auto-upgrade on reinstall.
+
+> Caveat (current branch): while `@pagesmith/site` and `diagramkit` are consumed through `npm link`, the installers emit pointers that resolve **outside the repo** into the sibling working copies (`../pagesmith/...`, `../diagramkit/...`). Those would dangle in a fresh clone / CI. Defer committing the generated stubs (and wiring `--check` into CI) until the packages are published and installed normally under `node_modules/` — see the upgrade report's open questions.
 
 ### Current repo integration
 
@@ -116,18 +139,20 @@ Read these files when the task touches diagrams. `diagramkit` keeps the top-leve
 ### Current repo integration
 
 - `diagramkit.config.json5` is validated by `schemas/diagramkit.ts` and loaded via `lib/diagramkit-config.ts`.
-- `scripts/diagrams.ts` validates the repo-local config and then delegates to the official `diagramkit render` CLI so the repo keeps the full diagramkit flag surface.
-- Repo defaults are `sameFolder: true`, `defaultFormats: ["svg"]`, `defaultTheme: "both"`, and manifest-backed incremental rendering.
+- `scripts/diagrams.ts` validates the repo-local config and then delegates to the official `diagramkit render` CLI. With no explicit target it renders `. --scope-dir diagrams` (whole repo, restricted to `diagrams/` folders); an explicit target (e.g. the staged single-file hook) passes straight through. `--watch` / `--force` pass through in both modes.
+- `scripts/validate-diagrams.ts` is a thin wrapper over `diagramkit validate . --recursive --scope-dir diagrams --fail-on <codes>`. `--scope-dir diagrams` replaces the old hand-rolled per-folder loop and skips hand-authored `assets/` SVGs. `--json` passes through (`validate:diagrams:json`).
+- Fatal-code policy lives in `scripts/validate-diagrams.ts`: the ecosystem embed-safety set `CONTAINS_FOREIGN_OBJECT,CONTAINS_SCRIPT,EXTERNAL_RESOURCE` is always fatal; `LOW_CONTRAST_TEXT` is fatal behind the `FAIL_ON_LOW_CONTRAST` constant, now **on** (merge-blocking) because a fresh `validate:diagrams` returns 0. The audit drove it 84/72 → 24/16 → 8/6 → 0/0: the systematic sequence/xychart pairs and gantt/timeline black axis ticks were fixed upstream in the linked diagramkit (`RENDER_PIPELINE_VERSION` 2→3→4 — injected sequence/xychart theme colors, no-darken glyph fills, and near-black glyph-fill _lightening_); the tail was fixed per-source (dropbox mid-tone `classDef`s, slack `style`→`classDef`, gantt/timeline `themeVariables`, plus `critBkgColor #B43A3A` on all gantts so white in-bar text on crit bars is a real 5.82:1); and the final 8 were diagramkit _scanner_ background-resolution false-positives (gantt off-bar/flat-sibling, timeline sibling-subtree section blocks, ER multi-ancestor `.edgeLabel .label` CSS) now fixed in the scanner itself (`src/color/wcag.ts`, validation-only). See `ai-guidelines/diagrams.md` and the constant's comment in `scripts/validate-diagrams.ts`.
+- Repo defaults are `sameFolder: true`, `defaultFormats: ["svg"]`, `defaultTheme: "both"`, and manifest-backed incremental rendering. Render manifests (`**/diagrams/manifest.json`) are now committed, so fresh clones with unchanged sources skip re-rendering (no Chromium needed).
 - Source files live in sibling `diagrams/` folders next to the content entry, and rendered `-light.svg` / `-dark.svg` files are written into that same folder.
 
 Primary commands:
 
 ```bash
-npm run diagrams                 # render only changed sources
+npm run diagrams                 # render changed sources under diagrams/ folders (. --scope-dir diagrams)
 npm run diagrams:force           # ignore manifest cache
 npm run diagrams:watch           # watch mode
 npm run diagrams:doctor          # diagramkit doctor (env + config sanity)
-npm run validate:diagrams        # diagramkit validate ./content --recursive
+npm run validate:diagrams        # validate . --recursive --scope-dir diagrams --fail-on <policy>
 npm run validate:diagrams:json   # JSON form for CI / programmatic post-processing
 ```
 

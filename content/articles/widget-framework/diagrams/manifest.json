@@ -1,0 +1,190 @@
+{
+  "version": 2,
+  "diagrams": {
+    "decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s.mermaid": {
+      "hash": "sha256:d447f7f573d694dc",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 902.234375,
+          "height": 1102.731201171875
+        },
+        {
+          "file": "decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 902.234375,
+          "height": 1102.731201171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286341.8289,
+      "size": 648,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme.mermaid": {
+      "hash": "sha256:5f4424356932ddca",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 482.375,
+          "height": 409
+        },
+        {
+          "file": "iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 482.375,
+          "height": 409
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286342.2039,
+      "size": 500,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti.mermaid": {
+      "hash": "sha256:dbf02a1885439726",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 718.828125,
+          "height": 472
+        },
+        {
+          "file": "module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 718.828125,
+          "height": 472
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286342.5847,
+      "size": 575,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re.mermaid": {
+      "hash": "sha256:e1e9a5866d60ab8c",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286342.8584,
+      "size": 719,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex.mermaid": {
+      "hash": "sha256:7b3e8c1baedd8de9",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 473.625,
+          "height": 483.6000061035156
+        },
+        {
+          "file": "shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 473.625,
+          "height": 483.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286343.123,
+      "size": 456,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic.mermaid": {
+      "hash": "sha256:bd01b9bc3506bafe",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 293.640625,
+          "height": 680
+        },
+        {
+          "file": "wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 293.640625,
+          "height": 680
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286343.3706,
+      "size": 557,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "widget-framework-architecture-tenant-configuration-determines-which-widgets-load.mermaid": {
+      "hash": "sha256:66fb44071c6ad6f3",
+      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "outputs": [
+        {
+          "file": "widget-framework-architecture-tenant-configuration-determines-which-widgets-load-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 553.640625,
+          "height": 425.6000061035156
+        },
+        {
+          "file": "widget-framework-architecture-tenant-configuration-determines-which-widgets-load-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 553.640625,
+          "height": 425.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286343.6306,
+      "size": 498,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

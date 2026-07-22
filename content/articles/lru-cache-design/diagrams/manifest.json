@@ -1,0 +1,248 @@
+{
+  "version": 2,
+  "diagrams": {
+    "algorithm-decision.mermaid": {
+      "hash": "sha256:9013a5834a66e6dc",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "algorithm-decision-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1072.7288818359375,
+          "height": 555.3999633789062
+        },
+        {
+          "file": "algorithm-decision-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1072.7288818359375,
+          "height": 555.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286208.6912,
+      "size": 1180,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "arc-four-lists.mermaid": {
+      "hash": "sha256:307881013e29edfa",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "arc-four-lists-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1053.3486328125,
+          "height": 499.6000061035156
+        },
+        {
+          "file": "arc-four-lists-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1053.3486328125,
+          "height": 499.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286209.4956,
+      "size": 1379,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives.mermaid": {
+      "hash": "sha256:8812078321d83e87",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1113.5,
+          "height": 491.3999938964844
+        },
+        {
+          "file": "evolution-of-cache-replacement-algorithms-from-basic-lru-to-modern-alternatives-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1113.5,
+          "height": 491.3999938964844
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286209.7812,
+      "size": 1126,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "lru-data-structure-hashmap-with-doubly-linked-list.mermaid": {
+      "hash": "sha256:808a8e829f1dcccc",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "lru-data-structure-hashmap-with-doubly-linked-list-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 936.59375,
+          "height": 836
+        },
+        {
+          "file": "lru-data-structure-hashmap-with-doubly-linked-list-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 936.59375,
+          "height": 836
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286210.2568,
+      "size": 1263,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "scan-pollution.mermaid": {
+      "hash": "sha256:2ee0ba3adaf6ded8",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "scan-pollution-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1087.28125,
+          "height": 512
+        },
+        {
+          "file": "scan-pollution-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1087.28125,
+          "height": 512
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286210.5723,
+      "size": 1280,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sharded-lru.mermaid": {
+      "hash": "sha256:5328cd49c92d0bd2",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "sharded-lru-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 940.199462890625,
+          "height": 572.7999877929688
+        },
+        {
+          "file": "sharded-lru-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 940.199462890625,
+          "height": 572.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286212.0813,
+      "size": 1084,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "sieve-hand-sweep.mermaid": {
+      "hash": "sha256:516b11ff930b551e",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "sieve-hand-sweep-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 709.0167846679688,
+          "height": 479.6000061035156
+        },
+        {
+          "file": "sieve-hand-sweep-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 709.0167846679688,
+          "height": 479.6000061035156
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286213.1558,
+      "size": 986,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "two-queue-architecture.mermaid": {
+      "hash": "sha256:845a1b83cb6f2c36",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "two-queue-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 836.7172241210938,
+          "height": 670
+        },
+        {
+          "file": "two-queue-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 836.7172241210938,
+          "height": 670
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286213.6533,
+      "size": 1126,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "wtinylfu-admission.mermaid": {
+      "hash": "sha256:1bf385b271e58621",
+      "generatedAt": "2026-07-21T22:01:10.775Z",
+      "outputs": [
+        {
+          "file": "wtinylfu-admission-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 537.7334594726562,
+          "height": 842.4000244140625
+        },
+        {
+          "file": "wtinylfu-admission-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 537.7334594726562,
+          "height": 842.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286214.433,
+      "size": 1267,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

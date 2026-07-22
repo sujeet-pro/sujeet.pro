@@ -1,0 +1,182 @@
+{
+  "version": 2,
+  "diagrams": {
+    "consistency-hierarchy.mermaid": {
+      "hash": "sha256:6032d13365d6dc5b",
+      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "outputs": [
+        {
+          "file": "consistency-hierarchy-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 265.234375,
+          "height": 619.4000244140625
+        },
+        {
+          "file": "consistency-hierarchy-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 265.234375,
+          "height": 619.4000244140625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285849.7507,
+      "size": 643,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "linearizable-timeline.mermaid": {
+      "hash": "sha256:cb10306393c7b4ba",
+      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "outputs": [
+        {
+          "file": "linearizable-timeline-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "linearizable-timeline-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285850.0864,
+      "size": 682,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "pacelc-quadrants.mermaid": {
+      "hash": "sha256:d360e6d1b066ba1d",
+      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "outputs": [
+        {
+          "file": "pacelc-quadrants-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 581.734375,
+          "height": 818.6000366210938
+        },
+        {
+          "file": "pacelc-quadrants-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 581.734375,
+          "height": 818.6000366210938
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285850.4985,
+      "size": 1024,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "partition-scenario.mermaid": {
+      "hash": "sha256:9c23515d925a0404",
+      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "outputs": [
+        {
+          "file": "partition-scenario-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "partition-scenario-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285850.8306,
+      "size": 578,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "quorum-overlap.mermaid": {
+      "hash": "sha256:4d62a525aa74b5e0",
+      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "outputs": [
+        {
+          "file": "quorum-overlap-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 603.234375,
+          "height": 404.45623779296875
+        },
+        {
+          "file": "quorum-overlap-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 603.234375,
+          "height": 404.45623779296875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285851.3665,
+      "size": 909,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "replication-topologies.mermaid": {
+      "hash": "sha256:2dff7189b1c43e06",
+      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "outputs": [
+        {
+          "file": "replication-topologies-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 677.4375,
+          "height": 906.90625
+        },
+        {
+          "file": "replication-topologies-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 677.4375,
+          "height": 906.90625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285852.1248,
+      "size": 1279,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "spanner-truetime-commit-wait.mermaid": {
+      "hash": "sha256:d3c973547fdc0b2a",
+      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "outputs": [
+        {
+          "file": "spanner-truetime-commit-wait-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "spanner-truetime-commit-wait-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285852.5066,
+      "size": 740,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

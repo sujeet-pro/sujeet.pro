@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "diagrams": {
+    "effect-timing-pipeline.mermaid": {
+      "hash": "sha256:a887ec900e8cdc1b",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "effect-timing-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 245.71875,
+          "height": 560
+        },
+        {
+          "file": "effect-timing-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 245.71875,
+          "height": 560
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286248.9312,
+      "size": 553,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "specialized-hooks-overview.mermaid": {
+      "hash": "sha256:109a75c62c02f2ac",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "specialized-hooks-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 628,
+          "height": 785.199951171875
+        },
+        {
+          "file": "specialized-hooks-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 628,
+          "height": 785.199951171875
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286249.22,
+      "size": 1323,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "usedeferredvalue-two-phase.mermaid": {
+      "hash": "sha256:995ae4664c005fb3",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "usedeferredvalue-two-phase-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "usedeferredvalue-two-phase-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286249.661,
+      "size": 707,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "usesyncexternalstore-tearing.mermaid": {
+      "hash": "sha256:890326d9bd17041a",
+      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "outputs": [
+        {
+          "file": "usesyncexternalstore-tearing-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "usesyncexternalstore-tearing-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286250.1213,
+      "size": 729,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

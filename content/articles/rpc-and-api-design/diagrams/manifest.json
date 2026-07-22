@@ -1,0 +1,155 @@
+{
+  "version": 2,
+  "diagrams": {
+    "architecture-overview.mermaid": {
+      "hash": "sha256:bb88b694b1a1f868",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "architecture-overview-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 782.59375,
+          "height": 793.2000122070312
+        },
+        {
+          "file": "architecture-overview-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 782.59375,
+          "height": 793.2000122070312
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286260.6191,
+      "size": 781,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "grpc-streaming-modes.mermaid": {
+      "hash": "sha256:17dfa834910583d5",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "grpc-streaming-modes-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "grpc-streaming-modes-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286261.2483,
+      "size": 658,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "n-plus-one-dataloader.mermaid": {
+      "hash": "sha256:7694e0c66b070197",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "n-plus-one-dataloader-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "n-plus-one-dataloader-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286261.4985,
+      "size": 718,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "pagination-strategies.mermaid": {
+      "hash": "sha256:c6abd7729de8370c",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "pagination-strategies-light.svg",
+          "format": "svg",
+          "theme": "light"
+        },
+        {
+          "file": "pagination-strategies-dark.svg",
+          "format": "svg",
+          "theme": "dark"
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286261.7432,
+      "size": 867,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "protocol-decision-tree.mermaid": {
+      "hash": "sha256:2dbc4150499fd54d",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "protocol-decision-tree-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 988.0797119140625,
+          "height": 1320.1468505859375
+        },
+        {
+          "file": "protocol-decision-tree-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 988.0797119140625,
+          "height": 1320.1468505859375
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286262.148,
+      "size": 853,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "rate-limit-buckets.mermaid": {
+      "hash": "sha256:d502bd2663482ca8",
+      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "outputs": [
+        {
+          "file": "rate-limit-buckets-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 837.359375,
+          "height": 821.9400634765625
+        },
+        {
+          "file": "rate-limit-buckets-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 837.359375,
+          "height": 821.9400634765625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558286262.4055,
+      "size": 827,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}

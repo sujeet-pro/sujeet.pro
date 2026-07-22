@@ -1,0 +1,140 @@
+{
+  "version": 2,
+  "diagrams": {
+    "composite-after-paint-architecture.mermaid": {
+      "hash": "sha256:40109d799cb3de03",
+      "generatedAt": "2026-07-21T22:01:10.689Z",
+      "outputs": [
+        {
+          "file": "composite-after-paint-architecture-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 668.34375,
+          "height": 812.7999877929688
+        },
+        {
+          "file": "composite-after-paint-architecture-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 668.34375,
+          "height": 812.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285877.0503,
+      "size": 831,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "paint-artifact-structure.mermaid": {
+      "hash": "sha256:d7765407382ecd82",
+      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "outputs": [
+        {
+          "file": "paint-artifact-structure-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1315.484375,
+          "height": 458.3999938964844
+        },
+        {
+          "file": "paint-artifact-structure-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1315.484375,
+          "height": 458.3999938964844
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285877.3928,
+      "size": 1153,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "paint-properties-matrix.mermaid": {
+      "hash": "sha256:d59db99a177e1bbc",
+      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "outputs": [
+        {
+          "file": "paint-properties-matrix-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 1195.09375,
+          "height": 639.7999877929688
+        },
+        {
+          "file": "paint-properties-matrix-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 1195.09375,
+          "height": 639.7999877929688
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285877.7214,
+      "size": 1159,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "paint-stage-pipeline.mermaid": {
+      "hash": "sha256:59ba83076b825269",
+      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "outputs": [
+        {
+          "file": "paint-stage-pipeline-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 384.234375,
+          "height": 1003.515625
+        },
+        {
+          "file": "paint-stage-pipeline-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 384.234375,
+          "height": 1003.515625
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285877.9993,
+      "size": 783,
+      "optimizeKey": "opt:4872ca36c0ca"
+    },
+    "stacking-context-paint-order.mermaid": {
+      "hash": "sha256:877ceabd34d14e20",
+      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "outputs": [
+        {
+          "file": "stacking-context-paint-order-light.svg",
+          "format": "svg",
+          "theme": "light",
+          "width": 680.703125,
+          "height": 965.3999633789062
+        },
+        {
+          "file": "stacking-context-paint-order-dark.svg",
+          "format": "svg",
+          "theme": "dark",
+          "width": 680.703125,
+          "height": 965.3999633789062
+        }
+      ],
+      "formats": [
+        "svg"
+      ],
+      "theme": "both",
+      "mtimeMs": 1784558285878.325,
+      "size": 1014,
+      "optimizeKey": "opt:4872ca36c0ca"
+    }
+  }
+}
