@@ -8,6 +8,7 @@ Managed surfaces:
 - `AGENTS.md`
 - `CLAUDE.md`
 - `.claude/skills/`
+- `.claude/agents/` — dedicated subagents (article pipeline). The agent frontmatter (name, model, tools) is the canonical source; the roster tables in `AGENTS.md`, `ai-guidelines/README.md`, and `.agents/skills/prj-article/SKILL.md` are regenerated from it.
 - `.cursor/skills/`
 - `.cursor/rules/`
 - `.agents/`
@@ -100,6 +101,7 @@ Do not update wrappers first. They should reflect the canonical guidance, not de
 - Are the upstream file references still correct?
 - Does `ai-guidelines/` reflect the installed package behavior?
 - Do all wrappers point to `ai-guidelines/` instead of duplicating it?
+- Do the agent roster tables (`AGENTS.md`, `ai-guidelines/README.md`, `.agents/skills/prj-article/SKILL.md`) match the frontmatter in `.claude/agents/`?
 - Do root docs describe the repo primarily as an articles-and-blogs site?
 - Are commands still real and repo-native?
 

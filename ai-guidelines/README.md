@@ -68,7 +68,7 @@ Pick the smallest relevant command set for the change. For article and blog edit
 The repo-local skills are folder-shaped at `.agents/skills/<name>/SKILL.md`. The `.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files are thin pointers to the canonical body — never edit them directly.
 
 - `prj-doc`: route to the right project skill (article, blog, content, diagrams, validate, sync).
-- `prj-article`: create, update, or review `content/articles/...`.
+- `prj-article`: create, update, refactor, or review `content/articles/...`. Design-space topics use the solution-evolution spine; refactors to it are per-slug and on-request only. Research, drafting, and the mandatory fact-check gate are delegated to the `prj-article-*` agents in `.claude/agents/`.
 - `prj-blog`: create, update, or review `content/blogs/...`.
 - `prj-content`: author or revise the prose / markdown body of an existing entry (markdown features, frontmatter, code blocks, themed images, citations).
 - `prj-diagrams`: author, render, embed, and audit diagrams (delegates to the `diagramkit-*` skills under `node_modules/diagramkit/skills/`).

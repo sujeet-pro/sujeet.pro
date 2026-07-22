@@ -60,12 +60,24 @@ are thin pointers to the canonical body — never edit them directly.
 | Skill          | Use for                                                                                                                                  |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `prj-doc`      | Route an unclear task to the right project skill.                                                                                        |
-| `prj-article`  | Create / update / review articles under `content/articles/`.                                                                             |
+| `prj-article`  | Create / update / refactor / review articles under `content/articles/` (solution-evolution format, case studies, fact-check gate).       |
 | `prj-blog`     | Create / update / review blogs under `content/blogs/`.                                                                                   |
 | `prj-content`  | Author or revise the prose / markdown body of an existing entry (markdown features, frontmatter, code blocks, themed images, citations). |
 | `prj-diagrams` | Author, render, embed, and audit diagrams (delegates to `diagramkit-*` skills).                                                          |
 | `prj-validate` | Run the full validation suite (content, diagrams, build, dist).                                                                          |
 | `prj-sync`     | Refresh `ai-guidelines/`, root docs, rules, and wrapper files after a package upgrade or convention change.                              |
+
+### Repo-local agents (article pipeline)
+
+Dedicated subagents for article work live in `.claude/agents/` and are
+orchestrated by the `prj-article` skill (harnesses without subagents perform
+the same roles inline, sequentially):
+
+| Agent                    | Model | Role                                                                                          |
+| ------------------------ | ----- | --------------------------------------------------------------------------------------------- |
+| `prj-article-researcher` | opus  | Claim ledger + real-company case-study dossier under `.temp/article-research/<slug>/`.        |
+| `prj-article-writer`     | fable | Drafts or refactors one article per the `prj-article` skill.                                  |
+| `prj-article-reviewer`   | fable | Mandatory read-only fact-check gate: claims vs sources, arithmetic, references, case studies. |
 
 ### Upstream skill stubs (distinct from `prj-*`)
 

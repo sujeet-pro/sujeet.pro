@@ -34,14 +34,15 @@ If a `node_modules/<pkg>/REFERENCE.md` file is missing, the package install is b
 
 ## Authoritative directories
 
-| Directory                       | Purpose                                                                                                                 | Edit policy                                                            |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `ai-guidelines/`                | Repo-local source of truth for routing, content rules, markdown supplement, diagram supplement, package map, workflows. | **Edit here first.** Everything else is downstream.                    |
-| `AGENTS.md`, `CLAUDE.md`        | Agent-readable repo entry points. Thin pointers into `ai-guidelines/` and the installed package references.             | Edit after `ai-guidelines/` updates.                                   |
-| `.cursor/rules/*.mdc`           | Cursor-specific rules (always-on, file-pattern, agent-requestable).                                                     | Edit after `ai-guidelines/`.                                           |
-| `.agents/skills/prj-*/SKILL.md` | Canonical project skills (folder-per-skill with `SKILL.md` inside).                                                     | Edit here. **Do not duplicate** content into `.claude/` or `.cursor/`. |
-| `.claude/skills/prj-*/SKILL.md` | Thin wrappers pointing at `.agents/skills/prj-*/SKILL.md`.                                                              | Regenerate from a template. Never write content here.                  |
-| `.cursor/skills/prj-*/SKILL.md` | Same — thin wrappers pointing at `.agents/skills/prj-*/SKILL.md`.                                                       | Regenerate from a template.                                            |
+| Directory                         | Purpose                                                                                                                 | Edit policy                                                                                                                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ai-guidelines/`                  | Repo-local source of truth for routing, content rules, markdown supplement, diagram supplement, package map, workflows. | **Edit here first.** Everything else is downstream.                                                                             |
+| `AGENTS.md`, `CLAUDE.md`          | Agent-readable repo entry points. Thin pointers into `ai-guidelines/` and the installed package references.             | Edit after `ai-guidelines/` updates.                                                                                            |
+| `.cursor/rules/*.mdc`             | Cursor-specific rules (always-on, file-pattern, agent-requestable).                                                     | Edit after `ai-guidelines/`.                                                                                                    |
+| `.agents/skills/prj-*/SKILL.md`   | Canonical project skills (folder-per-skill with `SKILL.md` inside).                                                     | Edit here. **Do not duplicate** content into `.claude/` or `.cursor/`.                                                          |
+| `.claude/skills/prj-*/SKILL.md`   | Thin wrappers pointing at `.agents/skills/prj-*/SKILL.md`.                                                              | Regenerate from a template. Never write content here.                                                                           |
+| `.cursor/skills/prj-*/SKILL.md`   | Same — thin wrappers pointing at `.agents/skills/prj-*/SKILL.md`.                                                       | Regenerate from a template.                                                                                                     |
+| `.claude/agents/prj-article-*.md` | Dedicated article-pipeline subagents (researcher / writer / reviewer). Frontmatter (name, model, tools) is canonical.   | Edit here; then re-sync the roster tables in `AGENTS.md`, `ai-guidelines/README.md`, and `.agents/skills/prj-article/SKILL.md`. |
 
 ## Wrapper templates
 
