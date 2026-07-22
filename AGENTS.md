@@ -83,10 +83,9 @@ plus `.claude/` and `.cursor/` mirrors that point back into the installed
 package body. The installers never touch the `prj-*` skills. Do not edit the
 generated stubs by hand — rerun the installer.
 
-> Not yet installed on this branch: while the packages are consumed through
-> `npm link`, the installers emit pointers that resolve outside the repo into
-> the sibling checkouts. Install (and wire `skills install --check` into CI)
-> once the packages are published and installed normally under `node_modules/`.
+Both installers' `--check` modes run in CI (`validate:skills` npm script) so a
+package upgrade that adds, renames, or removes a shipped skill fails the build
+until the stubs are regenerated.
 
 ## Architecture
 

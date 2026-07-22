@@ -25,7 +25,8 @@
     "diagrams:watch": "tsx scripts/diagrams.ts --watch",
     "diagrams:force": "tsx scripts/diagrams.ts --force",
     "diagrams:doctor": "diagramkit doctor",
-    "check:ci": "npm run check && npm run validate:all && npm run test && npm run build && npm run validate:dist && npm run test:e2e"
+    "check:ci": "npm run check && npm run validate:skills && npm run validate:all && npm run test && npm run build && npm run validate:dist && npm run test:e2e",
+    "validate:skills": "npx pagesmith skills install --check && npx diagramkit skills install --check"
   },
   "dependencies": {
     "@pagesmith/site": "^0.11.0",

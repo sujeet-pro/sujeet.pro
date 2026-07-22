@@ -44,6 +44,10 @@ jobs:
       # no re-render — so it belongs in the fast, browser-free check job.
       - name: Validate diagrams (SVG structure + WCAG 2.2 AA)
         run: npm run validate:diagrams
+      # Versioned-pointer skill stubs must match the skills shipped by the
+      # installed @pagesmith/* and diagramkit packages.
+      - name: Validate package skill stubs
+        run: npm run validate:skills
 
   unit-test:
     name: Unit Tests

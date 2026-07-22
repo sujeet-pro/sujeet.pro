@@ -7,9 +7,7 @@ const BasePathSchema = z
     "basePath must be empty or start with '/'",
   );
 
-function defaultObject<TSchema extends z.ZodTypeAny>(
-  schema: TSchema,
-): z.ZodPipe<z.ZodTransform<{}, unknown>, TSchema> {
+function defaultObject<TSchema extends z.ZodTypeAny>(schema: TSchema) {
   return z.preprocess((value) => value ?? {}, schema);
 }
 
