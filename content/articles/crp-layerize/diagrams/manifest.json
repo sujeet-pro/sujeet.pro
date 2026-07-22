@@ -3,7 +3,7 @@
   "diagrams": {
     "layer-list-and-property-trees.mermaid": {
       "hash": "sha256:39010f46bb0d5b33",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.786Z",
       "outputs": [
         {
           "file": "layer-list-and-property-trees-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285871.9294,
       "size": 1347,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "layerize-decision-tree.mermaid": {
       "hash": "sha256:4e3f03df13dd4870",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.786Z",
       "outputs": [
         {
           "file": "layerize-decision-tree-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285873.3718,
       "size": 1247,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "layerize-pipeline-overview.mermaid": {
       "hash": "sha256:f1a867eb946bfb63",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.786Z",
       "outputs": [
         {
           "file": "layerize-pipeline-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285873.67,
       "size": 644,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pending-layer-merge.mermaid": {
       "hash": "sha256:43c1dd6403e2e7ef",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.786Z",
       "outputs": [
         {
           "file": "pending-layer-merge-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285874.1372,
       "size": 973,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "promotion-cost-tradeoff.mermaid": {
       "hash": "sha256:21441e0acfb71957",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.786Z",
       "outputs": [
         {
           "file": "promotion-cost-tradeoff-light.svg",
@@ -134,7 +134,7 @@
       "theme": "both",
       "mtimeMs": 1784558285874.4688,
       "size": 814,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "bootstrap-flow.mermaid": {
       "hash": "sha256:c5d25dff2ad6deed",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.984Z",
       "outputs": [
         {
           "file": "bootstrap-flow-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286346.9004,
       "size": 1270,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "git-identity-resolution.mermaid": {
       "hash": "sha256:3a6c0da4596bae4c",
-      "generatedAt": "2026-07-21T22:01:10.815Z",
+      "generatedAt": "2026-07-22T15:35:28.984Z",
       "outputs": [
         {
           "file": "git-identity-resolution-light.svg",
@@ -53,7 +53,7 @@
       "theme": "both",
       "mtimeMs": 1784558286347.2449,
       "size": 988,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

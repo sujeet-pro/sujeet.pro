@@ -3,7 +3,7 @@
   "diagrams": {
     "dedup-window-vs-retry.mermaid": {
       "hash": "sha256:2794acf7ee3a846f",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.889Z",
       "outputs": [
         {
           "file": "dedup-window-vs-retry-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286118.7004,
       "size": 830,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "exactly-once-composition.mermaid": {
       "hash": "sha256:4c424491f3a3d214",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.889Z",
       "outputs": [
         {
           "file": "exactly-once-composition-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286119.0447,
       "size": 676,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kafka-idempotent-producer.mermaid": {
       "hash": "sha256:f2dc6ac4473f2714",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.889Z",
       "outputs": [
         {
           "file": "kafka-idempotent-producer-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286119.3118,
       "size": 968,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-decision-tree.mermaid": {
       "hash": "sha256:8a93a907d71b577e",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "path-decision-tree-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286119.6477,
       "size": 817,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "stripe-idempotency-key-flow.mermaid": {
       "hash": "sha256:55bf1b25e1a30c99",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "stripe-idempotency-key-flow-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286119.9285,
       "size": 850,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transactional-outbox-flow.mermaid": {
       "hash": "sha256:125cf1dc589ed02d",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "transactional-outbox-flow-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286120.196,
       "size": 1001,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transactional-sink-2pc.mermaid": {
       "hash": "sha256:078a2487cf8301df",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "transactional-sink-2pc-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558286120.7666,
       "size": 985,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "two-generals-reduction.mermaid": {
       "hash": "sha256:dfe85991b3522c62",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "two-generals-reduction-light.svg",
@@ -199,7 +199,7 @@
       "theme": "both",
       "mtimeMs": 1784558286121.1077,
       "size": 864,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

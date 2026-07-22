@@ -3,7 +3,7 @@
   "diagrams": {
     "document-model-comparison.mermaid": {
       "hash": "sha256:6a076028a41fcc8c",
-      "generatedAt": "2026-07-21T22:01:10.730Z",
+      "generatedAt": "2026-07-22T15:35:28.846Z",
       "outputs": [
         {
           "file": "document-model-comparison-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286020.6316,
       "size": 901,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "editor-architecture.mermaid": {
       "hash": "sha256:09ef3bcb1a042680",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.846Z",
       "outputs": [
         {
           "file": "editor-architecture-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286020.9177,
       "size": 650,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "framework-decision.mermaid": {
       "hash": "sha256:063fb70d7d7602af",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.847Z",
       "outputs": [
         {
           "file": "framework-decision-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286021.226,
       "size": 1117,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ime-composition-sequence.mermaid": {
       "hash": "sha256:3ea913513401853f",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.847Z",
       "outputs": [
         {
           "file": "ime-composition-sequence-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286021.494,
       "size": 780,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ot-vs-crdt-concurrent-insert.mermaid": {
       "hash": "sha256:d3115d997e6740af",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.847Z",
       "outputs": [
         {
           "file": "ot-vs-crdt-concurrent-insert-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286021.7708,
       "size": 950,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "paste-sanitizer-pipeline.mermaid": {
       "hash": "sha256:cf9e4ae675812fde",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.847Z",
       "outputs": [
         {
           "file": "paste-sanitizer-pipeline-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286022.0767,
       "size": 1044,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transaction-pipeline.mermaid": {
       "hash": "sha256:a7638c2af28539ef",
-      "generatedAt": "2026-07-21T22:01:10.731Z",
+      "generatedAt": "2026-07-22T15:35:28.847Z",
       "outputs": [
         {
           "file": "transaction-pipeline-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286022.5771,
       "size": 722,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

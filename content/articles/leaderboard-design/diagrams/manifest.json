@@ -3,7 +3,7 @@
   "diagrams": {
     "anti-cheat-write-path.mermaid": {
       "hash": "sha256:959e3b51954373b6",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.917Z",
       "outputs": [
         {
           "file": "anti-cheat-write-path-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286190.834,
       "size": 1500,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "architecture.mermaid": {
       "hash": "sha256:221032bb5017c56a",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.917Z",
       "outputs": [
         {
           "file": "architecture-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286191.2595,
       "size": 1068,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "composite-score-encoding.mermaid": {
       "hash": "sha256:a28b768b0346a939",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.917Z",
       "outputs": [
         {
           "file": "composite-score-encoding-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286191.8086,
       "size": 817,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "friend-leaderboard-intersect.mermaid": {
       "hash": "sha256:d002334dc1e6aceb",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.917Z",
       "outputs": [
         {
           "file": "friend-leaderboard-intersect-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286192.1294,
       "size": 945,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-exact-approximate.mermaid": {
       "hash": "sha256:66983b791d7343d0",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.917Z",
       "outputs": [
         {
           "file": "hybrid-exact-approximate-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286192.4473,
       "size": 978,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "score-range-partitioning.mermaid": {
       "hash": "sha256:8a3eb0975677da92",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "score-range-partitioning-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286192.761,
       "size": 1040,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sharded-aggregator.mermaid": {
       "hash": "sha256:ef1070882a39da9b",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "sharded-aggregator-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286193.024,
       "size": 1105,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "skiplist-hashtable.mermaid": {
       "hash": "sha256:499de29ed1f3e1dd",
-      "generatedAt": "2026-07-21T22:01:10.771Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "skiplist-hashtable-light.svg",
@@ -215,7 +215,7 @@
       "theme": "both",
       "mtimeMs": 1784558286193.268,
       "size": 1127,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

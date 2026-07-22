@@ -3,7 +3,7 @@
   "diagrams": {
     "context-vs-selective-store-rerender.mermaid": {
       "hash": "sha256:54af7b422741a409",
-      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "context-vs-selective-store-rerender-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285839.099,
       "size": 1226,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hydration-timeline.mermaid": {
       "hash": "sha256:52b2931a2e2cd8c5",
-      "generatedAt": "2026-07-21T22:01:10.678Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "hydration-timeline-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285839.4915,
       "size": 1037,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "optimistic-update-flow.mermaid": {
       "hash": "sha256:c515b635a275fea8",
-      "generatedAt": "2026-07-21T22:01:10.679Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "optimistic-update-flow-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558285839.849,
       "size": 883,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rsc-client-boundary.mermaid": {
       "hash": "sha256:bd8485c2277a365f",
-      "generatedAt": "2026-07-21T22:01:10.679Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "rsc-client-boundary-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558285840.2314,
       "size": 786,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "state-categories-overview.mermaid": {
       "hash": "sha256:6411f7106cfec7e2",
-      "generatedAt": "2026-07-21T22:01:10.679Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "state-categories-overview-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558285840.5867,
       "size": 885,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tanstack-query-cache-lifecycle.mermaid": {
       "hash": "sha256:2d0d1b4d1f773572",
-      "generatedAt": "2026-07-21T22:01:10.679Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "tanstack-query-cache-lifecycle-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558285841.0142,
       "size": 950,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "xstate-fetch-machine.mermaid": {
       "hash": "sha256:327b7c2a8f85d199",
-      "generatedAt": "2026-07-21T22:01:10.679Z",
+      "generatedAt": "2026-07-22T15:35:28.771Z",
       "outputs": [
         {
           "file": "xstate-fetch-machine-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558285841.659,
       "size": 655,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

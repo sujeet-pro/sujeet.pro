@@ -3,7 +3,7 @@
   "diagrams": {
     "admission-funnel.mermaid": {
       "hash": "sha256:7c2c8e663f448911",
-      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "generatedAt": "2026-07-22T15:35:28.818Z",
       "outputs": [
         {
           "file": "admission-funnel-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285949.9001,
       "size": 684,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:f7907fb1af8798ad",
-      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "generatedAt": "2026-07-22T15:35:28.818Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285950.2124,
       "size": 866,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "bot-defense-layers.mermaid": {
       "hash": "sha256:847c1f14a3da6850",
-      "generatedAt": "2026-07-21T22:01:10.711Z",
+      "generatedAt": "2026-07-22T15:35:28.818Z",
       "outputs": [
         {
           "file": "bot-defense-layers-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285950.487,
       "size": 677,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "counter-based-architecture.mermaid": {
       "hash": "sha256:814f9d82eab622aa",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.818Z",
       "outputs": [
         {
           "file": "counter-based-architecture-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285950.7249,
       "size": 391,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "inventory-reservation-flow.mermaid": {
       "hash": "sha256:5ab0bc9145c4d57c",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.818Z",
       "outputs": [
         {
           "file": "inventory-reservation-flow-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285950.9849,
       "size": 1259,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-flow-sequence.mermaid": {
       "hash": "sha256:909631626ebe3cb1",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "request-flow-sequence-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558285951.6604,
       "size": 1384,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "reservation-state-machine.mermaid": {
       "hash": "sha256:f9b754b62a7ea489",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "reservation-state-machine-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558285951.9585,
       "size": 369,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sale-day-timeline.mermaid": {
       "hash": "sha256:d3407c4fa119c96e",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "sale-day-timeline-light.svg",
@@ -207,11 +207,11 @@
       "theme": "both",
       "mtimeMs": 1784558285952.5652,
       "size": 1690,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sharded-hot-key.mermaid": {
       "hash": "sha256:d75a7f6536eae407",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "sharded-hot-key-light.svg",
@@ -234,11 +234,11 @@
       "theme": "both",
       "mtimeMs": 1784558285952.867,
       "size": 1150,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "system-overview.mermaid": {
       "hash": "sha256:7efe558fbe2e545c",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "system-overview-light.svg",
@@ -261,11 +261,11 @@
       "theme": "both",
       "mtimeMs": 1784558285953.1846,
       "size": 1164,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-based-architecture.mermaid": {
       "hash": "sha256:caf6fe73436e6814",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "token-based-architecture-light.svg",
@@ -288,11 +288,11 @@
       "theme": "both",
       "mtimeMs": 1784558285953.4465,
       "size": 436,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "waiting-room-architecture.mermaid": {
       "hash": "sha256:d30140f0a1f77d32",
-      "generatedAt": "2026-07-21T22:01:10.712Z",
+      "generatedAt": "2026-07-22T15:35:28.819Z",
       "outputs": [
         {
           "file": "waiting-room-architecture-light.svg",
@@ -315,7 +315,7 @@
       "theme": "both",
       "mtimeMs": 1784558285953.974,
       "size": 461,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

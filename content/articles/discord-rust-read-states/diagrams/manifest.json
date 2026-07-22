@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-before-after.mermaid": {
       "hash": "sha256:63ea087a791c09d0",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.865Z",
       "outputs": [
         {
           "file": "architecture-before-after-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286062.6035,
       "size": 1114,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "go-sawtooth-latency.mermaid": {
       "hash": "sha256:8a8a5ceb82a3b6f3",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.865Z",
       "outputs": [
         {
           "file": "go-sawtooth-latency-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286063.0415,
       "size": 444,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-states-architecture.mermaid": {
       "hash": "sha256:3236041aa5b7234f",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.866Z",
       "outputs": [
         {
           "file": "read-states-architecture-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286063.329,
       "size": 1219,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-write-paths.mermaid": {
       "hash": "sha256:1a5a44733de9969e",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.866Z",
       "outputs": [
         {
           "file": "read-write-paths-light.svg",
@@ -103,7 +103,7 @@
       "theme": "both",
       "mtimeMs": 1784558286063.6267,
       "size": 1100,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories.mermaid": {
       "hash": "sha256:0395eccfac54b59d",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.937Z",
       "outputs": [
         {
           "file": "defense-in-depth-model-mapped-to-owasp-top-10-2025-vulnerability-categories-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286237.7786,
       "size": 478,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "position-shifts-2021-to-2025.mermaid": {
       "hash": "sha256:1bab5932d15c640a",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.937Z",
       "outputs": [
         {
           "file": "position-shifts-2021-to-2025-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286238.1094,
       "size": 1984,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "supply-chain-attack-surface.mermaid": {
       "hash": "sha256:ebaca9f75608c880",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.937Z",
       "outputs": [
         {
           "file": "supply-chain-attack-surface-light.svg",
@@ -80,7 +80,7 @@
       "theme": "both",
       "mtimeMs": 1784558286238.3904,
       "size": 1066,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

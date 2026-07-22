@@ -3,7 +3,7 @@
   "diagrams": {
     "algorithm-selection.mermaid": {
       "hash": "sha256:987937d0b01b6187",
-      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "algorithm-selection-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286279.3325,
       "size": 928,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cache-access-patterns.mermaid": {
       "hash": "sha256:33d39132edee254b",
-      "generatedAt": "2026-07-21T22:01:10.795Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "cache-access-patterns-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286279.753,
       "size": 786,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sorting-taxonomy.mermaid": {
       "hash": "sha256:86793f0e68b5a267",
-      "generatedAt": "2026-07-21T22:01:10.795Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "sorting-taxonomy-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286280.3071,
       "size": 951,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sorting-tradeoffs.mermaid": {
       "hash": "sha256:d212a7f35cfca6c5",
-      "generatedAt": "2026-07-21T22:01:10.795Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "sorting-tradeoffs-light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286280.6138,
       "size": 771,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

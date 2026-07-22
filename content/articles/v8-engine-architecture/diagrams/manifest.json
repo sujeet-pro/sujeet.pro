@@ -3,7 +3,7 @@
   "diagrams": {
     "deoptimization-flow.mermaid": {
       "hash": "sha256:98a0b1b2674bc95d",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "deoptimization-flow-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286316.652,
       "size": 1071,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "four-tier-pipeline.mermaid": {
       "hash": "sha256:660543f25bf761c5",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "four-tier-pipeline-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286316.953,
       "size": 1100,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ic-state-lifecycle.mermaid": {
       "hash": "sha256:eff56210dade1232",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "ic-state-lifecycle-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286317.2031,
       "size": 812,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lazy-parsing.mermaid": {
       "hash": "sha256:b3b245a50feef32b",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "lazy-parsing-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286317.4443,
       "size": 494,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "map-transition-tree.mermaid": {
       "hash": "sha256:63850d034aaaae16",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "map-transition-tree-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286317.7344,
       "size": 507,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "object-memory-layout.mermaid": {
       "hash": "sha256:5a22dbf65f59a184",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "object-memory-layout-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286317.9944,
       "size": 586,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "orinoco-heap-structure.mermaid": {
       "hash": "sha256:c95b904ad97b5419",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "orinoco-heap-structure-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286318.2625,
       "size": 903,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "turbofan-pipeline.mermaid": {
       "hash": "sha256:093e2998d6f96466",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.973Z",
       "outputs": [
         {
           "file": "turbofan-pipeline-light.svg",
@@ -215,7 +215,7 @@
       "theme": "both",
       "mtimeMs": 1784558286318.9114,
       "size": 650,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

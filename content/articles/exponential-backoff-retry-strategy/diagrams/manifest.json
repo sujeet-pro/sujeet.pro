@@ -3,7 +3,7 @@
   "diagrams": {
     "circuit-breaker-states.mermaid": {
       "hash": "sha256:0d63991db76ecc3f",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.890Z",
       "outputs": [
         {
           "file": "circuit-breaker-states-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286121.666,
       "size": 891,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hedged-request-timing.mermaid": {
       "hash": "sha256:489a53fc16d5bc65",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "hedged-request-timing-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286121.918,
       "size": 897,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "jitter-strategies.mermaid": {
       "hash": "sha256:f9c4757d7a017d3e",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "jitter-strategies-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286122.2136,
       "size": 1811,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "retry-amplification.mermaid": {
       "hash": "sha256:0f3db21eb37d2bbf",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "retry-amplification-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286122.536,
       "size": 1390,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "retry-circuit-breaker-sequence.mermaid": {
       "hash": "sha256:93220eb0c469de93",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "retry-circuit-breaker-sequence-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286123.046,
       "size": 1338,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "retry-evolution.mermaid": {
       "hash": "sha256:c288ec1aeae6931d",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "retry-evolution-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286123.3882,
       "size": 1474,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "thundering-herd-timeline.mermaid": {
       "hash": "sha256:30a97af1f676a364",
-      "generatedAt": "2026-07-21T22:01:10.756Z",
+      "generatedAt": "2026-07-22T15:35:28.891Z",
       "outputs": [
         {
           "file": "thundering-herd-timeline-light.svg",
@@ -176,7 +176,7 @@
       "theme": "both",
       "mtimeMs": 1784558286123.6462,
       "size": 1101,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

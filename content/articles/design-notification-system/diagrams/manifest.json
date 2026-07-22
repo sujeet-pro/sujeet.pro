@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:c804450870a20afe",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.838Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285999.9292,
       "size": 1131,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "component-overview-delivery.mermaid": {
       "hash": "sha256:11e86027589c00bc",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.838Z",
       "outputs": [
         {
           "file": "component-overview-delivery-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286000.4165,
       "size": 1293,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "component-overview-ingress.mermaid": {
       "hash": "sha256:a8a0c3d8a3f34061",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "component-overview-ingress-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286000.7244,
       "size": 1145,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "delivery-receipts.mermaid": {
       "hash": "sha256:b3fb82c272f751ca",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "delivery-receipts-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286000.9988,
       "size": 1069,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "device-token-lifecycle.mermaid": {
       "hash": "sha256:5f2d25334eb64c69",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "device-token-lifecycle-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286001.3064,
       "size": 643,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture-delivery.mermaid": {
       "hash": "sha256:997b8190610ab8c2",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "high-level-architecture-delivery-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286001.8723,
       "size": 543,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture-ingress.mermaid": {
       "hash": "sha256:53284ae200d87c35",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "high-level-architecture-ingress-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286002.2449,
       "size": 425,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-priority-flow.mermaid": {
       "hash": "sha256:3d576586b52f3cab",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "hybrid-priority-flow-light.svg",
@@ -211,11 +211,11 @@
       "theme": "both",
       "mtimeMs": 1784558286002.5837,
       "size": 543,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "preference-resolution.mermaid": {
       "hash": "sha256:9adccc9e05840bdd",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "preference-resolution-light.svg",
@@ -238,11 +238,11 @@
       "theme": "both",
       "mtimeMs": 1784558286003.5586,
       "size": 1275,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "push-based-flow.mermaid": {
       "hash": "sha256:fec6c858a318b7b0",
-      "generatedAt": "2026-07-21T22:01:10.725Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "push-based-flow-light.svg",
@@ -261,11 +261,11 @@
       "theme": "both",
       "mtimeMs": 1784558286003.86,
       "size": 574,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "queue-based-flow.mermaid": {
       "hash": "sha256:caecd5ed33d697b9",
-      "generatedAt": "2026-07-21T22:01:10.726Z",
+      "generatedAt": "2026-07-22T15:35:28.839Z",
       "outputs": [
         {
           "file": "queue-based-flow-light.svg",
@@ -288,11 +288,11 @@
       "theme": "both",
       "mtimeMs": 1784558286004.143,
       "size": 616,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "retry-with-backoff.mermaid": {
       "hash": "sha256:c9627b6f9fc110f2",
-      "generatedAt": "2026-07-21T22:01:10.726Z",
+      "generatedAt": "2026-07-22T15:35:28.840Z",
       "outputs": [
         {
           "file": "retry-with-backoff-light.svg",
@@ -311,11 +311,11 @@
       "theme": "both",
       "mtimeMs": 1784558286004.4414,
       "size": 804,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "router-decision-flow.mermaid": {
       "hash": "sha256:17ecd300d2d14339",
-      "generatedAt": "2026-07-21T22:01:10.726Z",
+      "generatedAt": "2026-07-22T15:35:28.840Z",
       "outputs": [
         {
           "file": "router-decision-flow-light.svg",
@@ -338,7 +338,7 @@
       "theme": "both",
       "mtimeMs": 1784558286004.7131,
       "size": 1032,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

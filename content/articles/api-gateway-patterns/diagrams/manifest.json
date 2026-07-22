@@ -3,7 +3,7 @@
   "diagrams": {
     "bff-architecture.mermaid": {
       "hash": "sha256:7ddd3e8fe1c788d1",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.750Z",
       "outputs": [
         {
           "file": "bff-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285790.522,
       "size": 852,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "circuit-breaker-states.mermaid": {
       "hash": "sha256:8694e61d737720e0",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.750Z",
       "outputs": [
         {
           "file": "circuit-breaker-states-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285790.95,
       "size": 720,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "edge-mesh-layered.mermaid": {
       "hash": "sha256:cf5536507bf3481e",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.751Z",
       "outputs": [
         {
           "file": "edge-mesh-layered-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285791.4983,
       "size": 867,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "gateway-overview.mermaid": {
       "hash": "sha256:0daf92bc39cdfaf8",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.751Z",
       "outputs": [
         {
           "file": "gateway-overview-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285792.0452,
       "size": 1092,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "jwt-validation-sequence.mermaid": {
       "hash": "sha256:ca3b57ec37c8a28d",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.751Z",
       "outputs": [
         {
           "file": "jwt-validation-sequence-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558285792.506,
       "size": 943,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

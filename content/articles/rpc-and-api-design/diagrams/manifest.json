@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:bb88b694b1a1f868",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286260.6191,
       "size": 781,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "grpc-streaming-modes.mermaid": {
       "hash": "sha256:17dfa834910583d5",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "grpc-streaming-modes-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286261.2483,
       "size": 658,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "n-plus-one-dataloader.mermaid": {
       "hash": "sha256:7694e0c66b070197",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "n-plus-one-dataloader-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286261.4985,
       "size": 718,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pagination-strategies.mermaid": {
       "hash": "sha256:c6abd7729de8370c",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "pagination-strategies-light.svg",
@@ -95,11 +95,11 @@
       "theme": "both",
       "mtimeMs": 1784558286261.7432,
       "size": 867,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "protocol-decision-tree.mermaid": {
       "hash": "sha256:2dbc4150499fd54d",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "protocol-decision-tree-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558286262.148,
       "size": 853,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rate-limit-buckets.mermaid": {
       "hash": "sha256:d502bd2663482ca8",
-      "generatedAt": "2026-07-21T22:01:10.789Z",
+      "generatedAt": "2026-07-22T15:35:28.949Z",
       "outputs": [
         {
           "file": "rate-limit-buckets-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558286262.4055,
       "size": 827,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "burn-rate-alert-tiers.mermaid": {
       "hash": "sha256:74bd5d5f147b9d3f",
-      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "generatedAt": "2026-07-22T15:35:28.956Z",
       "outputs": [
         {
           "file": "burn-rate-alert-tiers-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286277.632,
       "size": 1677,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "error-budget-policy-decision.mermaid": {
       "hash": "sha256:45b32a6ab0271573",
-      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "generatedAt": "2026-07-22T15:35:28.956Z",
       "outputs": [
         {
           "file": "error-budget-policy-decision-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286278.2024,
       "size": 1548,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sli-measurement-points.mermaid": {
       "hash": "sha256:4da0a2fda2eb9a47",
-      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "sli-measurement-points-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286278.5107,
       "size": 1152,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "slo-framework-overview.mermaid": {
       "hash": "sha256:86e9d06cde1b1e20",
-      "generatedAt": "2026-07-21T22:01:10.794Z",
+      "generatedAt": "2026-07-22T15:35:28.957Z",
       "outputs": [
         {
           "file": "slo-framework-overview-light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286278.7656,
       "size": 960,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

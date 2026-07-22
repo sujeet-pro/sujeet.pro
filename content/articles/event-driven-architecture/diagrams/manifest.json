@@ -3,7 +3,7 @@
   "diagrams": {
     "choreography-services-react-to-events-each-triggering-the-next-step-without-cent.mermaid": {
       "hash": "sha256:5fab9f8fc93f1904",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.886Z",
       "outputs": [
         {
           "file": "choreography-services-react-to-events-each-triggering-the-next-step-without-cent-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286112.0464,
       "size": 440,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "choreography-vs-orchestration-topology.mermaid": {
       "hash": "sha256:821ba7600d80971c",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.886Z",
       "outputs": [
         {
           "file": "choreography-vs-orchestration-topology-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286112.3342,
       "size": 914,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch.mermaid": {
       "hash": "sha256:e4091405bae84396",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.886Z",
       "outputs": [
         {
           "file": "cqrs-separates-write-command-and-read-query-paths-events-synchronize-them-asynch-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286112.5786,
       "size": 491,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "eda-decision-tree.mermaid": {
       "hash": "sha256:0fc625e88a06380b",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.886Z",
       "outputs": [
         {
           "file": "eda-decision-tree-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286113.0728,
       "size": 1312,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-taxonomy-quadrant.mermaid": {
       "hash": "sha256:a36e14ad91412cb9",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "event-taxonomy-quadrant-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286113.3438,
       "size": 968,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "orchestration-central-orchestrator-commands-services-and-handles-the-workflow.mermaid": {
       "hash": "sha256:28cc2c1bf7cf15f8",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "orchestration-central-orchestrator-commands-services-and-handles-the-workflow-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286113.6526,
       "size": 617,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "outbox-cdc-pattern.mermaid": {
       "hash": "sha256:6171cd5a2e5bd5d9",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "outbox-cdc-pattern-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558286114.0664,
       "size": 691,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-your-writes.mermaid": {
       "hash": "sha256:ce9a1bf5c3f96a82",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "read-your-writes-light.svg",
@@ -199,11 +199,11 @@
       "theme": "both",
       "mtimeMs": 1784558286114.5464,
       "size": 1138,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro.mermaid": {
       "hash": "sha256:c3cd1ff0a4451927",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "request-driven-synchronous-call-chains-with-tight-coupling-event-driven-asynchro-light.svg",
@@ -226,11 +226,11 @@
       "theme": "both",
       "mtimeMs": 1784558286114.8608,
       "size": 589,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "saga-compensation-flow.mermaid": {
       "hash": "sha256:d4600bf7ed85800c",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "saga-compensation-flow-light.svg",
@@ -249,11 +249,11 @@
       "theme": "both",
       "mtimeMs": 1784558286115.1543,
       "size": 908,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "schema-evolution-lifecycle.mermaid": {
       "hash": "sha256:4ca4f32e323d18f2",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "schema-evolution-lifecycle-light.svg",
@@ -276,11 +276,11 @@
       "theme": "both",
       "mtimeMs": 1784558286115.4443,
       "size": 800,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "schema-evolution-strategies.mermaid": {
       "hash": "sha256:d1fbc05791e6def8",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.887Z",
       "outputs": [
         {
           "file": "schema-evolution-strategies-light.svg",
@@ -303,11 +303,11 @@
       "theme": "both",
       "mtimeMs": 1784558286115.7324,
       "size": 1091,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state.mermaid": {
       "hash": "sha256:bb62bd335133f9e9",
-      "generatedAt": "2026-07-21T22:01:10.754Z",
+      "generatedAt": "2026-07-22T15:35:28.888Z",
       "outputs": [
         {
           "file": "transactional-outbox-events-written-to-outbox-table-in-same-transaction-as-state-light.svg",
@@ -330,7 +330,7 @@
       "theme": "both",
       "mtimeMs": 1784558286115.9915,
       "size": 425,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

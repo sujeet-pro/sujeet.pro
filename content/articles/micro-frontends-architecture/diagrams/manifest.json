@@ -3,7 +3,7 @@
   "diagrams": {
     "communication-topology.mermaid": {
       "hash": "sha256:6a9c5a910869309a",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.926Z",
       "outputs": [
         {
           "file": "communication-topology-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286215.0835,
       "size": 1347,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "composition-decision-tree.mermaid": {
       "hash": "sha256:ef2aabbe8dd65db3",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "composition-decision-tree-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286215.3306,
       "size": 1293,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "composition-strategies.mermaid": {
       "hash": "sha256:4d88b5576514f43e",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "composition-strategies-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286215.601,
       "size": 1580,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fragment-piercing-flow.mermaid": {
       "hash": "sha256:6a98f369bf34139c",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "fragment-piercing-flow-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286215.894,
       "size": 818,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "independent-pipelines.mermaid": {
       "hash": "sha256:5a0b8cfdc34b1661",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "independent-pipelines-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286216.1843,
       "size": 1168,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "module-federation-runtime.mermaid": {
       "hash": "sha256:94fde24a9f0fb104",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "module-federation-runtime-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286216.6396,
       "size": 835,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "monolith-vs-mfe.mermaid": {
       "hash": "sha256:6287724627afd81e",
-      "generatedAt": "2026-07-21T22:01:10.776Z",
+      "generatedAt": "2026-07-22T15:35:28.927Z",
       "outputs": [
         {
           "file": "monolith-vs-mfe-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286216.923,
       "size": 980,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

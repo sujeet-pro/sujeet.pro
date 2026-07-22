@@ -3,7 +3,7 @@
   "diagrams": {
     "consensus-leader-lock.mermaid": {
       "hash": "sha256:c93595575c9907de",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.869Z",
       "outputs": [
         {
           "file": "consensus-leader-lock-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286072.173,
       "size": 796,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "distributed-lock-overview.mermaid": {
       "hash": "sha256:ee5e8d0ebbf29ea3",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.869Z",
       "outputs": [
         {
           "file": "distributed-lock-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286072.4146,
       "size": 824,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fencing-token-flow.mermaid": {
       "hash": "sha256:0ce8999b2e8a5a59",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.869Z",
       "outputs": [
         {
           "file": "fencing-token-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286072.685,
       "size": 608,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lease-lifecycle.mermaid": {
       "hash": "sha256:7e92af516423661b",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "lease-lifecycle-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286072.956,
       "size": 623,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lock-decision-tree.mermaid": {
       "hash": "sha256:1b5a719e90270453",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "lock-decision-tree-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286073.2366,
       "size": 851,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "queue-based-serialization.mermaid": {
       "hash": "sha256:0952c33ce3a229cc",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "queue-based-serialization-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286073.8577,
       "size": 401,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "redlock-clock-jump.mermaid": {
       "hash": "sha256:c669a95fa7dad67e",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "redlock-clock-jump-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558286074.1409,
       "size": 967,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "stale-write-without-fencing.mermaid": {
       "hash": "sha256:e92ab127ce724c14",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "stale-write-without-fencing-light.svg",
@@ -199,11 +199,11 @@
       "theme": "both",
       "mtimeMs": 1784558286074.42,
       "size": 682,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "zookeeper-lock-recipe.mermaid": {
       "hash": "sha256:38f9080e08a21cd2",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.870Z",
       "outputs": [
         {
           "file": "zookeeper-lock-recipe-light.svg",
@@ -226,7 +226,7 @@
       "theme": "both",
       "mtimeMs": 1784558286074.714,
       "size": 444,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

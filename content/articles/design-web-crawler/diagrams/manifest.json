@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-architecture.mermaid": {
       "hash": "sha256:2bb7b3a026483e7c",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "aws-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286047.8167,
       "size": 1131,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "crawl-url-sequence.mermaid": {
       "hash": "sha256:eb4cddaf7be1f044",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "crawl-url-sequence-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286048.3625,
       "size": 1326,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "crawler-architecture.mermaid": {
       "hash": "sha256:b1ff8cbd2d314174",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "crawler-architecture-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286048.751,
       "size": 1432,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fetch-parse-dedup-pipeline.mermaid": {
       "hash": "sha256:6331a382982ce2ac",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "fetch-parse-dedup-pipeline-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286049.1523,
       "size": 1660,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "frontier-dual-queue.mermaid": {
       "hash": "sha256:ff0897630745945f",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "frontier-dual-queue-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286049.449,
       "size": 906,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "js-render-pool.mermaid": {
       "hash": "sha256:b647ff02c3a2763c",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.859Z",
       "outputs": [
         {
           "file": "js-render-pool-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286050.072,
       "size": 1315,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kafka-distribution.mermaid": {
       "hash": "sha256:2de0e954a61e1358",
-      "generatedAt": "2026-07-21T22:01:10.739Z",
+      "generatedAt": "2026-07-22T15:35:28.860Z",
       "outputs": [
         {
           "file": "kafka-distribution-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286050.3955,
       "size": 863,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

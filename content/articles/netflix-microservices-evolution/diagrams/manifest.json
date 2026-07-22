@@ -3,7 +3,7 @@
   "diagrams": {
     "chaos-engineering-pipeline.mermaid": {
       "hash": "sha256:b22531945d6780e2",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.929Z",
       "outputs": [
         {
           "file": "chaos-engineering-pipeline-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286221.4026,
       "size": 704,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "eureka-vs-zookeeper-partition.mermaid": {
       "hash": "sha256:61dc02b59e401e86",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.929Z",
       "outputs": [
         {
           "file": "eureka-vs-zookeeper-partition-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286221.747,
       "size": 867,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hystrix-bulkhead-isolation.mermaid": {
       "hash": "sha256:273ab19db8859daa",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.929Z",
       "outputs": [
         {
           "file": "hystrix-bulkhead-isolation-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286222.1016,
       "size": 1049,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "netflix-s-7-year-journey-from-a-monolithic-java-oracle-stack-to-700-microservice.mermaid": {
       "hash": "sha256:2b18bb1c376286e3",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.930Z",
       "outputs": [
         {
           "file": "netflix-s-7-year-journey-from-a-monolithic-java-oracle-stack-to-700-microservice-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286222.3352,
       "size": 1098,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "oss-stack-lifecycle.mermaid": {
       "hash": "sha256:0799344019cbea51",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.930Z",
       "outputs": [
         {
           "file": "oss-stack-lifecycle-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286222.5833,
       "size": 1261,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "strangler-fig-migration.mermaid": {
       "hash": "sha256:acc6a318438423be",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.930Z",
       "outputs": [
         {
           "file": "strangler-fig-migration-light.svg",
@@ -157,7 +157,7 @@
       "theme": "both",
       "mtimeMs": 1784558286222.904,
       "size": 1032,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

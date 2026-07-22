@@ -3,7 +3,7 @@
   "diagrams": {
     "bulkhead-cell-isolation.mermaid": {
       "hash": "sha256:f27137ef140b6d94",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.894Z",
       "outputs": [
         {
           "file": "bulkhead-cell-isolation-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286129.1675,
       "size": 1210,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "circuit-breaker-states.mermaid": {
       "hash": "sha256:9faf2c8d210f24b3",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.894Z",
       "outputs": [
         {
           "file": "circuit-breaker-states-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286129.4785,
       "size": 294,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "failure-mode-taxonomy.mermaid": {
       "hash": "sha256:7716d9a20cb3d011",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.894Z",
       "outputs": [
         {
           "file": "failure-mode-taxonomy-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286129.734,
       "size": 947,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hedged-request-timing.mermaid": {
       "hash": "sha256:2a3604922d19b100",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.894Z",
       "outputs": [
         {
           "file": "hedged-request-timing-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286130.032,
       "size": 645,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "resilience-defense-layers.mermaid": {
       "hash": "sha256:8bceec7d12e9d993",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.894Z",
       "outputs": [
         {
           "file": "resilience-defense-layers-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286130.34,
       "size": 985,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "retry-storm-feedback-loop.mermaid": {
       "hash": "sha256:7697d671a7a2bb33",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.895Z",
       "outputs": [
         {
           "file": "retry-storm-feedback-loop-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286130.8003,
       "size": 811,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "shuffle-vs-traditional-sharding.mermaid": {
       "hash": "sha256:05b6de5ac4e0d93b",
-      "generatedAt": "2026-07-21T22:01:10.758Z",
+      "generatedAt": "2026-07-22T15:35:28.895Z",
       "outputs": [
         {
           "file": "shuffle-vs-traditional-sharding-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286131.1584,
       "size": 1134,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

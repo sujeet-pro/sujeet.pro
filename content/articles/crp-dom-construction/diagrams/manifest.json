@@ -3,7 +3,7 @@
   "diagrams": {
     "defer-async-module-timeline.mermaid": {
       "hash": "sha256:4fff7f1c2cd36348",
-      "generatedAt": "2026-07-21T22:38:06.023Z",
+      "generatedAt": "2026-07-22T15:35:28.783Z",
       "outputs": [
         {
           "file": "defer-async-module-timeline-light.svg",
@@ -24,13 +24,13 @@
         "svg"
       ],
       "theme": "both",
-      "mtimeMs": 1784673461066.1936,
+      "mtimeMs": 1784705273870.2197,
       "size": 1074,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "insertion-mode-state.mermaid": {
       "hash": "sha256:60ebf6594f4011f9",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.783Z",
       "outputs": [
         {
           "file": "insertion-mode-state-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285867.01,
       "size": 1804,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "parsing-pipeline-overview.mermaid": {
       "hash": "sha256:3cd8a22c86b3a497",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.783Z",
       "outputs": [
         {
           "file": "parsing-pipeline-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285867.3296,
       "size": 493,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "preload-scanner-timeline.mermaid": {
       "hash": "sha256:025d785458108465",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.784Z",
       "outputs": [
         {
           "file": "preload-scanner-timeline-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285867.6453,
       "size": 777,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "script-css-blocking-chain.mermaid": {
       "hash": "sha256:6bd6353a140f3869",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.784Z",
       "outputs": [
         {
           "file": "script-css-blocking-chain-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558285868.2793,
       "size": 794,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "script-loading-decision.mermaid": {
       "hash": "sha256:678fc197c9927bc6",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.784Z",
       "outputs": [
         {
           "file": "script-loading-decision-light.svg",
@@ -153,7 +153,7 @@
       "theme": "both",
       "mtimeMs": 1784558285868.7183,
       "size": 895,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

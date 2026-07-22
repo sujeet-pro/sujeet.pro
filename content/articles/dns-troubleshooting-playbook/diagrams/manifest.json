@@ -3,7 +3,7 @@
   "diagrams": {
     "dig-response-anatomy.mermaid": {
       "hash": "sha256:d14c6d261b2921c6",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.878Z",
       "outputs": [
         {
           "file": "dig-response-anatomy-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286093.4126,
       "size": 1129,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dnssec-servfail-decision.mermaid": {
       "hash": "sha256:6b8e1c762da8e866",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.878Z",
       "outputs": [
         {
           "file": "dnssec-servfail-decision-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286094.0403,
       "size": 1389,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "edns-udp-tcp-fallback.mermaid": {
       "hash": "sha256:55fbb1badf3461f0",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.879Z",
       "outputs": [
         {
           "file": "edns-udp-tcp-fallback-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286094.5457,
       "size": 972,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ksk-rollover-timeline.mermaid": {
       "hash": "sha256:2ffc24338fa3603e",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.879Z",
       "outputs": [
         {
           "file": "ksk-rollover-timeline-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286094.8784,
       "size": 1020,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "trace-failure-points.mermaid": {
       "hash": "sha256:2c2c8df408427792",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.879Z",
       "outputs": [
         {
           "file": "trace-failure-points-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286095.2004,
       "size": 932,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "triage-flow.mermaid": {
       "hash": "sha256:055b5c18d63f711f",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.879Z",
       "outputs": [
         {
           "file": "triage-flow-light.svg",
@@ -153,7 +153,7 @@
       "theme": "both",
       "mtimeMs": 1784558286095.472,
       "size": 1423,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

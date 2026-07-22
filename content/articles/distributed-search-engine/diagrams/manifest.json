@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:21c369403820e1f5",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.873Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286081.5688,
       "size": 598,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "document-vs-term-partitioning.mermaid": {
       "hash": "sha256:fdd74007ba652a39",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.873Z",
       "outputs": [
         {
           "file": "document-vs-term-partitioning-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286081.9114,
       "size": 946,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-retrieval.mermaid": {
       "hash": "sha256:e6cdd31c00fa9243",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.874Z",
       "outputs": [
         {
           "file": "hybrid-retrieval-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286082.2004,
       "size": 885,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "inverted-index-structure.mermaid": {
       "hash": "sha256:d30e586d0e14ba13",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.874Z",
       "outputs": [
         {
           "file": "inverted-index-structure-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286082.4783,
       "size": 573,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "nrt-refresh-flush-commit.mermaid": {
       "hash": "sha256:bb58e199d487a16d",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.874Z",
       "outputs": [
         {
           "file": "nrt-refresh-flush-commit-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286083.1445,
       "size": 857,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "scatter-gather-query.mermaid": {
       "hash": "sha256:6b1f5824def2b035",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.874Z",
       "outputs": [
         {
           "file": "scatter-gather-query-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286083.561,
       "size": 875,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "segment-merge-tiered.mermaid": {
       "hash": "sha256:07f87e5827abc0df",
-      "generatedAt": "2026-07-21T22:01:10.747Z",
+      "generatedAt": "2026-07-22T15:35:28.874Z",
       "outputs": [
         {
           "file": "segment-merge-tiered-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286083.8608,
       "size": 867,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

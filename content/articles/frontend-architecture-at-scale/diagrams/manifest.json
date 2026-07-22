@@ -3,7 +3,7 @@
   "diagrams": {
     "composition-topologies.mermaid": {
       "hash": "sha256:0e554b643ccffc3f",
-      "generatedAt": "2026-07-21T22:01:10.760Z",
+      "generatedAt": "2026-07-22T15:35:28.898Z",
       "outputs": [
         {
           "file": "composition-topologies-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286137.6482,
       "size": 1701,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "contract-and-release-flow.mermaid": {
       "hash": "sha256:9d192b7e311a49c8",
-      "generatedAt": "2026-07-21T22:01:10.760Z",
+      "generatedAt": "2026-07-22T15:35:28.898Z",
       "outputs": [
         {
           "file": "contract-and-release-flow-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286137.9382,
       "size": 753,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "domain-boundary-ownership.mermaid": {
       "hash": "sha256:0177bbf2b35b456e",
-      "generatedAt": "2026-07-21T22:01:10.760Z",
+      "generatedAt": "2026-07-22T15:35:28.898Z",
       "outputs": [
         {
           "file": "domain-boundary-ownership-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286138.208,
       "size": 1706,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "monorepo-dependency-graph.mermaid": {
       "hash": "sha256:a28ffd9bafe4285c",
-      "generatedAt": "2026-07-21T22:01:10.760Z",
+      "generatedAt": "2026-07-22T15:35:28.899Z",
       "outputs": [
         {
           "file": "monorepo-dependency-graph-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286138.5264,
       "size": 1370,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "perf-budget-governance.mermaid": {
       "hash": "sha256:3f262e375985e9ea",
-      "generatedAt": "2026-07-21T22:01:10.760Z",
+      "generatedAt": "2026-07-22T15:35:28.899Z",
       "outputs": [
         {
           "file": "perf-budget-governance-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286138.7712,
       "size": 1331,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "release-model-decision.mermaid": {
       "hash": "sha256:74220545f1cf210c",
-      "generatedAt": "2026-07-21T22:01:10.761Z",
+      "generatedAt": "2026-07-22T15:35:28.899Z",
       "outputs": [
         {
           "file": "release-model-decision-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286140.0054,
       "size": 1425,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "repo-shape-governance.mermaid": {
       "hash": "sha256:20ab31fb757f085b",
-      "generatedAt": "2026-07-21T22:01:10.761Z",
+      "generatedAt": "2026-07-22T15:35:28.899Z",
       "outputs": [
         {
           "file": "repo-shape-governance-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558286140.6414,
       "size": 518,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "strangler-fig-migration.mermaid": {
       "hash": "sha256:1f5b53a59599a7ff",
-      "generatedAt": "2026-07-21T22:01:10.761Z",
+      "generatedAt": "2026-07-22T15:35:28.899Z",
       "outputs": [
         {
           "file": "strangler-fig-migration-light.svg",
@@ -207,7 +207,7 @@
       "theme": "both",
       "mtimeMs": 1784558286141.67,
       "size": 1297,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

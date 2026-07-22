@@ -3,7 +3,7 @@
   "diagrams": {
     "active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data-.mermaid": {
       "hash": "sha256:66ac9f245bdc6d23",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "active-active-both-regions-serve-traffic-simultaneously-with-bidirectional-data--light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286217.435,
       "size": 506,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da.mermaid": {
       "hash": "sha256:29d1ef077376b01a",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "active-passive-all-traffic-goes-to-primary-region-standby-receives-replicated-da-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286217.731,
       "size": 514,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "active-passive-failover-sequence.mermaid": {
       "hash": "sha256:05ef6dc9d7fccb60",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "active-passive-failover-sequence-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286218.044,
       "size": 871,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s.mermaid": {
       "hash": "sha256:245f1810f4613ae7",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "cell-based-architecture-each-cell-is-an-isolated-complete-deployment-serving-a-s-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286218.5808,
       "size": 691,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "data-residency-overlay.mermaid": {
       "hash": "sha256:255e8a2df872d47c",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "data-residency-overlay-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286219.097,
       "size": 878,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c.mermaid": {
       "hash": "sha256:82ae59b80ca3cb0d",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "decision-tree-for-multi-region-architecture-patterns-based-on-rto-requirements-c-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286219.4614,
       "size": 638,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re.mermaid": {
       "hash": "sha256:953fab118ef40bb3",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.928Z",
       "outputs": [
         {
           "file": "multi-region-architecture-with-cell-based-isolation-traffic-routes-to-nearest-re-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286219.8167,
       "size": 986,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "replication-topologies.mermaid": {
       "hash": "sha256:98efc2cea9bb02e9",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.929Z",
       "outputs": [
         {
           "file": "replication-topologies-light.svg",
@@ -211,11 +211,11 @@
       "theme": "both",
       "mtimeMs": 1784558286220.1323,
       "size": 499,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "spanner-multi-region-topology.mermaid": {
       "hash": "sha256:158f1ae95ae96bae",
-      "generatedAt": "2026-07-21T22:01:10.777Z",
+      "generatedAt": "2026-07-22T15:35:28.929Z",
       "outputs": [
         {
           "file": "spanner-multi-region-topology-light.svg",
@@ -238,7 +238,7 @@
       "theme": "both",
       "mtimeMs": 1784558286220.4346,
       "size": 646,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

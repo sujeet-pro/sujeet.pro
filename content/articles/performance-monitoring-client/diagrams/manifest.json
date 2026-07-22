@@ -3,7 +3,7 @@
   "diagrams": {
     "cls-session-windows.mermaid": {
       "hash": "sha256:1537654b56095823",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.938Z",
       "outputs": [
         {
           "file": "cls-session-windows-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286238.8872,
       "size": 732,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "inp-phases.mermaid": {
       "hash": "sha256:46652b74162a1451",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.938Z",
       "outputs": [
         {
           "file": "inp-phases-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286239.122,
       "size": 371,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "page-lifecycle-bfcache.mermaid": {
       "hash": "sha256:66cad23e9b3183b5",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.938Z",
       "outputs": [
         {
           "file": "page-lifecycle-bfcache-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286239.4211,
       "size": 785,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rum-architecture.mermaid": {
       "hash": "sha256:76b74925ea0afabc",
-      "generatedAt": "2026-07-21T22:01:10.782Z",
+      "generatedAt": "2026-07-22T15:35:28.938Z",
       "outputs": [
         {
           "file": "rum-architecture-light.svg",
@@ -103,7 +103,7 @@
       "theme": "both",
       "mtimeMs": 1784558286239.964,
       "size": 1564,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

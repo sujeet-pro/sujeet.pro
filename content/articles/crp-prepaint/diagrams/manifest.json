@@ -3,7 +3,7 @@
   "diagrams": {
     "dirty-bit-walk.mermaid": {
       "hash": "sha256:9f00974cbe3d4096",
-      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "generatedAt": "2026-07-22T15:35:28.789Z",
       "outputs": [
         {
           "file": "dirty-bit-walk-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285879.395,
       "size": 877,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "paint-invalidation-walk.mermaid": {
       "hash": "sha256:487ff20d2374a6c9",
-      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "generatedAt": "2026-07-22T15:35:28.789Z",
       "outputs": [
         {
           "file": "paint-invalidation-walk-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285879.7495,
       "size": 956,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "prepaint-overview.mermaid": {
       "hash": "sha256:fa0e9a78b173e466",
-      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "generatedAt": "2026-07-22T15:35:28.789Z",
       "outputs": [
         {
           "file": "prepaint-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285880.1372,
       "size": 1079,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "property-tree-shape.mermaid": {
       "hash": "sha256:638cdeec1de1181d",
-      "generatedAt": "2026-07-21T22:01:10.690Z",
+      "generatedAt": "2026-07-22T15:35:28.789Z",
       "outputs": [
         {
           "file": "property-tree-shape-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285880.5903,
       "size": 1410,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quick-update-path.mermaid": {
       "hash": "sha256:1bc3c9113a5bfc46",
-      "generatedAt": "2026-07-21T22:01:10.691Z",
+      "generatedAt": "2026-07-22T15:35:28.789Z",
       "outputs": [
         {
           "file": "quick-update-path-light.svg",
@@ -134,7 +134,7 @@
       "theme": "both",
       "mtimeMs": 1784558285881.4995,
       "size": 844,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

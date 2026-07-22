@@ -3,7 +3,7 @@
   "diagrams": {
     "csp-nonce-flow.mermaid": {
       "hash": "sha256:9c8df1a0b9e36b42",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "csp-nonce-flow-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286323.7798,
       "size": 804,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "defense-in-depth-layers.mermaid": {
       "hash": "sha256:ebda421ef4d38a1c",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "defense-in-depth-layers-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286324.087,
       "size": 538,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ssrf-defense-decision.mermaid": {
       "hash": "sha256:bebf2cc8623d189b",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "ssrf-defense-decision-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286324.813,
       "size": 940,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "webauthn-registration.mermaid": {
       "hash": "sha256:f7e9d3814f29c651",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "webauthn-registration-light.svg",
@@ -99,7 +99,7 @@
       "theme": "both",
       "mtimeMs": 1784558286325.1184,
       "size": 860,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

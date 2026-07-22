@@ -3,7 +3,7 @@
   "diagrams": {
     "bucket-mechanisms.mermaid": {
       "hash": "sha256:3a2576f97b452be3",
-      "generatedAt": "2026-07-21T22:01:10.784Z",
+      "generatedAt": "2026-07-22T15:35:28.942Z",
       "outputs": [
         {
           "file": "bucket-mechanisms-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286246.6423,
       "size": 1195,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "distributed-coordination-patterns.mermaid": {
       "hash": "sha256:b02e57484f53e978",
-      "generatedAt": "2026-07-21T22:01:10.784Z",
+      "generatedAt": "2026-07-22T15:35:28.942Z",
       "outputs": [
         {
           "file": "distributed-coordination-patterns-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286247.345,
       "size": 1392,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fixed-window-boundary-exploit.mermaid": {
       "hash": "sha256:4e3025c2ea35208e",
-      "generatedAt": "2026-07-21T22:01:10.784Z",
+      "generatedAt": "2026-07-22T15:35:28.942Z",
       "outputs": [
         {
           "file": "fixed-window-boundary-exploit-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286247.8992,
       "size": 886,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rate-limiting-overview.mermaid": {
       "hash": "sha256:487cf1315cb45860",
-      "generatedAt": "2026-07-21T22:01:10.784Z",
+      "generatedAt": "2026-07-22T15:35:28.942Z",
       "outputs": [
         {
           "file": "rate-limiting-overview-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286248.1785,
       "size": 1125,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sliding-window-weighting.mermaid": {
       "hash": "sha256:e083be28ab69babf",
-      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "generatedAt": "2026-07-22T15:35:28.942Z",
       "outputs": [
         {
           "file": "sliding-window-weighting-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286248.452,
       "size": 930,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

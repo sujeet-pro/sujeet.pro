@@ -19,6 +19,7 @@ Read `.agents/skills/prj-article/SKILL.md` first — the source hierarchy, citat
 6. **Conflicts.** Where authoritative sources disagree, the article must surface the disagreement; silently picking a side is a finding.
 7. **Version/date sensitivity.** Version- or year-sensitive claims must be scoped in prose; stale claims presented as current are findings.
 8. **Spine compliance** (editorial, secondary). For solution-evolution articles: stages causally chained, every stage has a costs paragraph, the operating-regime map exists with real thresholds, the synthesis names surviving pieces. Report gaps as editorial notes, not blockers.
+9. **Diagram readability.** Every embedded diagram is readable in light AND dark: run `npm run validate:diagrams` (must be clean) and confirm labels, boxes, lines, and arrows are visible in both themes.
 
 ## Verdicts and report
 

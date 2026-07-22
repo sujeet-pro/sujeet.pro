@@ -3,7 +3,7 @@
   "diagrams": {
     "esm-loader-pipeline.mermaid": {
       "hash": "sha256:98f918147c170655",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.931Z",
       "outputs": [
         {
           "file": "esm-loader-pipeline-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286225.848,
       "size": 893,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-loop-phases.mermaid": {
       "hash": "sha256:64157c9b2d4b3236",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.931Z",
       "outputs": [
         {
           "file": "event-loop-phases-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286226.0754,
       "size": 969,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "mental-model.mermaid": {
       "hash": "sha256:a1c36fc21561e558",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.931Z",
       "outputs": [
         {
           "file": "mental-model-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286226.7185,
       "size": 789,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "runtime-layering.mermaid": {
       "hash": "sha256:6c6325b89902e64b",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.932Z",
       "outputs": [
         {
           "file": "runtime-layering-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286226.971,
       "size": 977,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "thread-pool-dispatch.mermaid": {
       "hash": "sha256:1dfc30409a739901",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.932Z",
       "outputs": [
         {
           "file": "thread-pool-dispatch-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286227.295,
       "size": 904,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "threading-model.mermaid": {
       "hash": "sha256:95a68f752a004492",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.932Z",
       "outputs": [
         {
           "file": "threading-model-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286227.5486,
       "size": 883,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "v8-tiering.mermaid": {
       "hash": "sha256:9ceb54fc6ed6efc6",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.932Z",
       "outputs": [
         {
           "file": "v8-tiering-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286227.909,
       "size": 848,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-drain-backpressure.mermaid": {
       "hash": "sha256:0328588b0f01f5a2",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.932Z",
       "outputs": [
         {
           "file": "write-drain-backpressure-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558286228.1724,
       "size": 591,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

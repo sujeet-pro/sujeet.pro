@@ -3,7 +3,7 @@
   "diagrams": {
     "cors-preflight-sequence.mermaid": {
       "hash": "sha256:fe2f10257b87bf19",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "cors-preflight-sequence-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558285893.1152,
       "size": 1377,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "csrf-attack-flow.mermaid": {
       "hash": "sha256:351b5c419ebe28bb",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "csrf-attack-flow-light.svg",
@@ -45,11 +45,11 @@
       "theme": "both",
       "mtimeMs": 1784558285893.4194,
       "size": 673,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "defense-in-depth-layers.mermaid": {
       "hash": "sha256:f0dbdfe491586db1",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "defense-in-depth-layers-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558285894.0012,
       "size": 1217,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "defense-surface.mermaid": {
       "hash": "sha256:f0d366e4e0286554",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "defense-surface-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558285894.4465,
       "size": 939,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "samesite-decision.mermaid": {
       "hash": "sha256:a754716e31fd4b84",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "samesite-decision-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558285894.7783,
       "size": 998,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "signed-double-submit-flow.mermaid": {
       "hash": "sha256:931c25256cd40e80",
-      "generatedAt": "2026-07-21T22:01:10.695Z",
+      "generatedAt": "2026-07-22T15:35:28.795Z",
       "outputs": [
         {
           "file": "signed-double-submit-flow-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558285895.0808,
       "size": 1095,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

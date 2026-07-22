@@ -3,7 +3,7 @@
   "diagrams": {
     "ci-pipeline-stages.mermaid": {
       "hash": "sha256:d474c0d6141ec405",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.854Z",
       "outputs": [
         {
           "file": "ci-pipeline-stages-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286037.0022,
       "size": 1062,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "deprecation-timeline.mermaid": {
       "hash": "sha256:651a69e40a7c80b8",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.854Z",
       "outputs": [
         {
           "file": "deprecation-timeline-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286037.244,
       "size": 801,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu.mermaid": {
       "hash": "sha256:4e14f996f1a85d1a",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.854Z",
       "outputs": [
         {
           "file": "design-system-implementation-lifecycle-architecture-decisions-flow-into-distribu-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286037.7305,
       "size": 1306,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "package-topology.mermaid": {
       "hash": "sha256:e5fcf0d5bf76a54a",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.854Z",
       "outputs": [
         {
           "file": "package-topology-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286038.2341,
       "size": 1046,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo.mermaid": {
       "hash": "sha256:d778e575ba56064e",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.854Z",
       "outputs": [
         {
           "file": "repository-scanner-pipeline-discover-repos-analyze-dependencies-feed-into-dashbo-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286038.5017,
       "size": 487,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "strangler-fig-migration.mermaid": {
       "hash": "sha256:daedf7236cb6b337",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.855Z",
       "outputs": [
         {
           "file": "strangler-fig-migration-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286038.8057,
       "size": 874,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr.mermaid": {
       "hash": "sha256:d1c0c8a4eda7bab1",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.855Z",
       "outputs": [
         {
           "file": "the-mental-model-architecture-enables-change-automation-reduces-friction-data-dr-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286039.073,
       "size": 1152,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "theming-pipeline.mermaid": {
       "hash": "sha256:b1dd2a9f51cc5f92",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.855Z",
       "outputs": [
         {
           "file": "theming-pipeline-light.svg",
@@ -215,11 +215,11 @@
       "theme": "both",
       "mtimeMs": 1784558286039.3225,
       "size": 1028,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-tier-architecture.mermaid": {
       "hash": "sha256:c4acbcdfd77a2638",
-      "generatedAt": "2026-07-21T22:01:10.736Z",
+      "generatedAt": "2026-07-22T15:35:28.855Z",
       "outputs": [
         {
           "file": "token-tier-architecture-light.svg",
@@ -242,7 +242,7 @@
       "theme": "both",
       "mtimeMs": 1784558286039.6108,
       "size": 1063,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

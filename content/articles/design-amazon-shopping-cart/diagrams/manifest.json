@@ -3,7 +3,7 @@
   "diagrams": {
     "add-to-cart-sequence.mermaid": {
       "hash": "sha256:092b80379b12906b",
-      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "generatedAt": "2026-07-22T15:35:28.802Z",
       "outputs": [
         {
           "file": "add-to-cart-sequence-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558285911.5664,
       "size": 781,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:18a5c0767edc4221",
-      "generatedAt": "2026-07-21T22:01:10.700Z",
+      "generatedAt": "2026-07-22T15:35:28.802Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285911.8542,
       "size": 1108,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cart-merge-flow.mermaid": {
       "hash": "sha256:caa36dffd686b41a",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.802Z",
       "outputs": [
         {
           "file": "cart-merge-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285912.2178,
       "size": 789,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "checkout-saga-sequence.mermaid": {
       "hash": "sha256:b8b7616b4258d1cc",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "checkout-saga-sequence-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558285912.6667,
       "size": 1859,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dynamo-write-path-sibling-merge.mermaid": {
       "hash": "sha256:a7d6f43f08a0e73d",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "dynamo-write-path-sibling-merge-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558285913.0164,
       "size": 1405,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:4acd8fa5104bad16",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558285913.3184,
       "size": 1088,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-device-cart-sync.mermaid": {
       "hash": "sha256:d5f1e472dd2b50a5",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "multi-device-cart-sync-light.svg",
@@ -172,11 +172,11 @@
       "theme": "both",
       "mtimeMs": 1784558285913.5571,
       "size": 1504,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-region-failover.mermaid": {
       "hash": "sha256:431c8757de81a8cf",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "multi-region-failover-light.svg",
@@ -199,11 +199,11 @@
       "theme": "both",
       "mtimeMs": 1784558285913.816,
       "size": 614,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "reservation-state-machine.mermaid": {
       "hash": "sha256:b03f0632fa13d4ad",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "reservation-state-machine-light.svg",
@@ -226,11 +226,11 @@
       "theme": "both",
       "mtimeMs": 1784558285914.305,
       "size": 484,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "service-architecture.mermaid": {
       "hash": "sha256:b7adab3fe2fcddae",
-      "generatedAt": "2026-07-21T22:01:10.701Z",
+      "generatedAt": "2026-07-22T15:35:28.803Z",
       "outputs": [
         {
           "file": "service-architecture-light.svg",
@@ -253,7 +253,7 @@
       "theme": "both",
       "mtimeMs": 1784558285914.6277,
       "size": 646,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

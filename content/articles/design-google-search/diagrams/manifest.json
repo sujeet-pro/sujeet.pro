@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:5c7180fc826e0a67",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285971.051,
       "size": 1129,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "aws-reference.mermaid": {
       "hash": "sha256:281cb9208e54f7c7",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "aws-reference-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285971.302,
       "size": 1021,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "caffeine-percolator.mermaid": {
       "hash": "sha256:de22c348a4b5b654",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "caffeine-percolator-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285971.5942,
       "size": 716,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "crawl-pipeline.mermaid": {
       "hash": "sha256:e08f004528b5d2b8",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "crawl-pipeline-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285971.858,
       "size": 1206,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-retrieval.mermaid": {
       "hash": "sha256:3f1cca60819ffaea",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "hybrid-retrieval-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558285972.4673,
       "size": 1113,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "index-build-batch.mermaid": {
       "hash": "sha256:726713275ec10be9",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.827Z",
       "outputs": [
         {
           "file": "index-build-batch-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558285972.8206,
       "size": 827,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-a-monolithic.mermaid": {
       "hash": "sha256:712dd60da5825f57",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "path-a-monolithic-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558285973.139,
       "size": 347,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-b-sharded.mermaid": {
       "hash": "sha256:ca2229418dbd9da4",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "path-b-sharded-light.svg",
@@ -215,11 +215,11 @@
       "theme": "both",
       "mtimeMs": 1784558285973.4392,
       "size": 761,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-c-tiered.mermaid": {
       "hash": "sha256:c69768828badb195",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "path-c-tiered-light.svg",
@@ -242,11 +242,11 @@
       "theme": "both",
       "mtimeMs": 1784558285973.6824,
       "size": 332,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "query-fanout.mermaid": {
       "hash": "sha256:67ecc2430731f38a",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "query-fanout-light.svg",
@@ -269,11 +269,11 @@
       "theme": "both",
       "mtimeMs": 1784558285973.971,
       "size": 1111,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "query-pipeline-pre-understand.mermaid": {
       "hash": "sha256:de61b0fb00d72b5d",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "query-pipeline-pre-understand-light.svg",
@@ -296,11 +296,11 @@
       "theme": "both",
       "mtimeMs": 1784558285974.394,
       "size": 628,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "query-pipeline-retrieve-rank.mermaid": {
       "hash": "sha256:8fb2098cc1223566",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "query-pipeline-retrieve-rank-light.svg",
@@ -323,11 +323,11 @@
       "theme": "both",
       "mtimeMs": 1784558285974.7695,
       "size": 602,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ranking-system.mermaid": {
       "hash": "sha256:f35ccb55edd7bd0d",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "ranking-system-light.svg",
@@ -350,11 +350,11 @@
       "theme": "both",
       "mtimeMs": 1784558285975.0503,
       "size": 856,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-flow.mermaid": {
       "hash": "sha256:c680db0e1ec16855",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.828Z",
       "outputs": [
         {
           "file": "request-flow-light.svg",
@@ -373,11 +373,11 @@
       "theme": "both",
       "mtimeMs": 1784558285975.3186,
       "size": 674,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sharding-doc-vs-term.mermaid": {
       "hash": "sha256:4f764ed84093cda2",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.829Z",
       "outputs": [
         {
           "file": "sharding-doc-vs-term-light.svg",
@@ -400,11 +400,11 @@
       "theme": "both",
       "mtimeMs": 1784558285975.6228,
       "size": 710,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "two-stage-ranker.mermaid": {
       "hash": "sha256:50c6ac3b770818d9",
-      "generatedAt": "2026-07-21T22:01:10.718Z",
+      "generatedAt": "2026-07-22T15:35:28.829Z",
       "outputs": [
         {
           "file": "two-stage-ranker-light.svg",
@@ -427,7 +427,7 @@
       "theme": "both",
       "mtimeMs": 1784558285975.8909,
       "size": 1145,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

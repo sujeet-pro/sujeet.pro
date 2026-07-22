@@ -3,7 +3,7 @@
   "diagrams": {
     "custom-element-lifecycle.mermaid": {
       "hash": "sha256:cda17df2a54d9e80",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "custom-element-lifecycle-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286325.6885,
       "size": 591,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "shadow-dom-encapsulation.mermaid": {
       "hash": "sha256:d77ed1aaef3984d5",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "shadow-dom-encapsulation-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286326.0415,
       "size": 500,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "wc-boundaries-and-interop.mermaid": {
       "hash": "sha256:606f144d93b3e4c8",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.976Z",
       "outputs": [
         {
           "file": "wc-boundaries-and-interop-light.svg",
@@ -80,7 +80,7 @@
       "theme": "both",
       "mtimeMs": 1784558286326.63,
       "size": 611,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

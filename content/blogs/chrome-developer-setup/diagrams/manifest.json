@@ -3,7 +3,7 @@
   "diagrams": {
     "mv2-vs-mv3-capabilities.mermaid": {
       "hash": "sha256:cb062e2fe4d5fe74",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.984Z",
       "outputs": [
         {
           "file": "mv2-vs-mv3-capabilities-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286345.4255,
       "size": 636,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "omnibox-keyword-expansion.mermaid": {
       "hash": "sha256:129c705ba58a4bc6",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.984Z",
       "outputs": [
         {
           "file": "omnibox-keyword-expansion-light.svg",
@@ -49,7 +49,7 @@
       "theme": "both",
       "mtimeMs": 1784558286345.6892,
       "size": 416,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

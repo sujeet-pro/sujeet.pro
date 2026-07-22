@@ -3,7 +3,7 @@
   "diagrams": {
     "dashboard-layering.mermaid": {
       "hash": "sha256:aca72158d4bf1d19",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.872Z",
       "outputs": [
         {
           "file": "dashboard-layering-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286078.3042,
       "size": 1169,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "global-view-topology.mermaid": {
       "hash": "sha256:9098cf11f0727c4e",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.872Z",
       "outputs": [
         {
           "file": "global-view-topology-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286078.7917,
       "size": 1820,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "monitoring-architecture-overview.mermaid": {
       "hash": "sha256:ec9388623d919752",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.872Z",
       "outputs": [
         {
           "file": "monitoring-architecture-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286079.0886,
       "size": 1631,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-window-burn-rate.mermaid": {
       "hash": "sha256:3d7dcc951f333731",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.872Z",
       "outputs": [
         {
           "file": "multi-window-burn-rate-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286079.5007,
       "size": 947,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "prometheus-tsdb-write-path.mermaid": {
       "hash": "sha256:dcf0c06d8d63b31a",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.872Z",
       "outputs": [
         {
           "file": "prometheus-tsdb-write-path-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286079.8125,
       "size": 893,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pull-vs-push-flow.mermaid": {
       "hash": "sha256:3ba82aaac8ac2743",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.873Z",
       "outputs": [
         {
           "file": "pull-vs-push-flow-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286080.0942,
       "size": 950,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tail-sampling-routing.mermaid": {
       "hash": "sha256:ffa66765f1599b8f",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.873Z",
       "outputs": [
         {
           "file": "tail-sampling-routing-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286080.6394,
       "size": 1055,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "what-to-monitor-tree.mermaid": {
       "hash": "sha256:0ae708f6c47ccec0",
-      "generatedAt": "2026-07-21T22:01:10.746Z",
+      "generatedAt": "2026-07-22T15:35:28.873Z",
       "outputs": [
         {
           "file": "what-to-monitor-tree-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558286081.0723,
       "size": 1102,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

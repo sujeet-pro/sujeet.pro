@@ -3,7 +3,7 @@
   "diagrams": {
     "isr-replication-flow.mermaid": {
       "hash": "sha256:70e4f3e29f726736",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.919Z",
       "outputs": [
         {
           "file": "isr-replication-flow-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286197.8535,
       "size": 1160,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently.mermaid": {
       "hash": "sha256:6527df394cc26d57",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.919Z",
       "outputs": [
         {
           "file": "kafka-architecture-producers-publish-to-topics-consumers-subscribe-independently-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286198.1228,
       "size": 693,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kafka-evolution-timeline.mermaid": {
       "hash": "sha256:99168f5d61a89bea",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.920Z",
       "outputs": [
         {
           "file": "kafka-evolution-timeline-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286198.455,
       "size": 1317,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p.mermaid": {
       "hash": "sha256:947891bc1cece329",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.920Z",
       "outputs": [
         {
           "file": "linkedin-s-data-integration-complexity-before-and-after-kafka-the-o-n-point-to-p-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286198.7764,
       "size": 1375,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "log-with-consumer-offsets.mermaid": {
       "hash": "sha256:40458898ca8242cd",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.920Z",
       "outputs": [
         {
           "file": "log-with-consumer-offsets-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286199.01,
       "size": 643,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me.mermaid": {
       "hash": "sha256:3e2e2265caeb4216",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.920Z",
       "outputs": [
         {
           "file": "partitioning-enables-parallelism-consumer-group-distributes-partitions-across-me-light.svg",
@@ -157,7 +157,7 @@
       "theme": "both",
       "mtimeMs": 1784558286199.2795,
       "size": 729,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

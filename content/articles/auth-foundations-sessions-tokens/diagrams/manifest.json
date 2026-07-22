@@ -3,7 +3,7 @@
   "diagrams": {
     "aaa-framework.mermaid": {
       "hash": "sha256:579f52f4033b280f",
-      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "generatedAt": "2026-07-22T15:35:28.755Z",
       "outputs": [
         {
           "file": "aaa-framework-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285800.8982,
       "size": 785,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "refresh-token-rotation.mermaid": {
       "hash": "sha256:f53bd0b43217d714",
-      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "generatedAt": "2026-07-22T15:35:28.755Z",
       "outputs": [
         {
           "file": "refresh-token-rotation-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285801.327,
       "size": 1082,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "session-vs-jwt-flow.mermaid": {
       "hash": "sha256:28f6f4fad5dc4894",
-      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "generatedAt": "2026-07-22T15:35:28.755Z",
       "outputs": [
         {
           "file": "session-vs-jwt-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285801.9033,
       "size": 878,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "webauthn-registration-flow.mermaid": {
       "hash": "sha256:ba16ce4753cd537c",
-      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "generatedAt": "2026-07-22T15:35:28.756Z",
       "outputs": [
         {
           "file": "webauthn-registration-flow-light.svg",
@@ -99,7 +99,7 @@
       "theme": "both",
       "mtimeMs": 1784558285802.3743,
       "size": 1354,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "tao-architecture-overview.mermaid": {
       "hash": "sha256:d59bdf345bdad1e3",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.893Z",
       "outputs": [
         {
           "file": "tao-architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286126.8838,
       "size": 1042,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tao-critical-read-and-failover.mermaid": {
       "hash": "sha256:6789a3b4329ca64d",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.893Z",
       "outputs": [
         {
           "file": "tao-critical-read-and-failover-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286127.213,
       "size": 722,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tao-data-model.mermaid": {
       "hash": "sha256:c72c8791ce9ad496",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.893Z",
       "outputs": [
         {
           "file": "tao-data-model-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286127.551,
       "size": 671,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tao-invalidation-versioning.mermaid": {
       "hash": "sha256:a7bc97dcc4eecf8b",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.893Z",
       "outputs": [
         {
           "file": "tao-invalidation-versioning-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286128.2683,
       "size": 800,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tao-read-write-paths.mermaid": {
       "hash": "sha256:fe7508a0c4a62ec9",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.893Z",
       "outputs": [
         {
           "file": "tao-read-write-paths-light.svg",
@@ -126,7 +126,7 @@
       "theme": "both",
       "mtimeMs": 1784558286128.5486,
       "size": 943,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

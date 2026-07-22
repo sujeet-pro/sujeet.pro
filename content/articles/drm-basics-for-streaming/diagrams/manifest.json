@@ -3,7 +3,7 @@
   "diagrams": {
     "cbcs-pattern-encryption.mermaid": {
       "hash": "sha256:c4045606e05d2ff3",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "cbcs-pattern-encryption-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286099.7625,
       "size": 750,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "drm-pipeline-overview.mermaid": {
       "hash": "sha256:8c60e7573995412b",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "drm-pipeline-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286100.1265,
       "size": 1328,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "eme-license-flow.mermaid": {
       "hash": "sha256:d6d2050c2b1b2686",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "eme-license-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286100.4731,
       "size": 898,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fairplay-spc-ckc-flow.mermaid": {
       "hash": "sha256:c6897cf340c904d1",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "fairplay-spc-ckc-flow-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286100.7832,
       "size": 704,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "key-hierarchy.mermaid": {
       "hash": "sha256:c0fa9df8e3324a9c",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "key-hierarchy-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286101.1016,
       "size": 1336,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "license-server-architecture.mermaid": {
       "hash": "sha256:6fda3bff8ff7f9d2",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.881Z",
       "outputs": [
         {
           "file": "license-server-architecture-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286101.3845,
       "size": 1073,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-drm-fanout.mermaid": {
       "hash": "sha256:2322bc37e63b8fb3",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.882Z",
       "outputs": [
         {
           "file": "multi-drm-fanout-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286101.7634,
       "size": 1065,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

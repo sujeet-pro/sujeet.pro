@@ -3,7 +3,7 @@
   "diagrams": {
     "epoll-readiness-emulation.mermaid": {
       "hash": "sha256:665e0827910620b5",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "epoll-readiness-emulation-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286195.931,
       "size": 1003,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-loop-phases.mermaid": {
       "hash": "sha256:4956c479be1c24bb",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "event-loop-phases-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286196.1936,
       "size": 892,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "io-dual-strategy.mermaid": {
       "hash": "sha256:bfb91d1bd9f92f84",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.918Z",
       "outputs": [
         {
           "file": "io-dual-strategy-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286196.4746,
       "size": 557,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "io-uring-modes.mermaid": {
       "hash": "sha256:79c90a4f611da563",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.919Z",
       "outputs": [
         {
           "file": "io-uring-modes-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286196.7683,
       "size": 793,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "thread-pool-lifecycle.mermaid": {
       "hash": "sha256:5cf2c9e54e02ad0a",
-      "generatedAt": "2026-07-21T22:01:10.772Z",
+      "generatedAt": "2026-07-22T15:35:28.919Z",
       "outputs": [
         {
           "file": "thread-pool-lifecycle-light.svg",
@@ -126,7 +126,7 @@
       "theme": "both",
       "mtimeMs": 1784558286197.0247,
       "size": 865,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

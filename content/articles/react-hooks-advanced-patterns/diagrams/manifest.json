@@ -3,7 +3,7 @@
   "diagrams": {
     "effect-timing-pipeline.mermaid": {
       "hash": "sha256:a887ec900e8cdc1b",
-      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "generatedAt": "2026-07-22T15:35:28.943Z",
       "outputs": [
         {
           "file": "effect-timing-pipeline-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286248.9312,
       "size": 553,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "specialized-hooks-overview.mermaid": {
       "hash": "sha256:109a75c62c02f2ac",
-      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "generatedAt": "2026-07-22T15:35:28.943Z",
       "outputs": [
         {
           "file": "specialized-hooks-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286249.22,
       "size": 1323,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "usedeferredvalue-two-phase.mermaid": {
       "hash": "sha256:995ae4664c005fb3",
-      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "generatedAt": "2026-07-22T15:35:28.943Z",
       "outputs": [
         {
           "file": "usedeferredvalue-two-phase-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286249.661,
       "size": 707,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "usesyncexternalstore-tearing.mermaid": {
       "hash": "sha256:890326d9bd17041a",
-      "generatedAt": "2026-07-21T22:01:10.785Z",
+      "generatedAt": "2026-07-22T15:35:28.943Z",
       "outputs": [
         {
           "file": "usesyncexternalstore-tearing-light.svg",
@@ -99,7 +99,7 @@
       "theme": "both",
       "mtimeMs": 1784558286250.1213,
       "size": 729,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

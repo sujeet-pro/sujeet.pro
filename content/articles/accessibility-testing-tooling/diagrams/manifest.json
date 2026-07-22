@@ -3,7 +3,7 @@
   "diagrams": {
     "axe-result-buckets.mermaid": {
       "hash": "sha256:84e5148b2bbc6fe4",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.749Z",
       "outputs": [
         {
           "file": "axe-result-buckets-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285788.2344,
       "size": 877,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ci-pipeline-stages.mermaid": {
       "hash": "sha256:87cc4073a3274324",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.749Z",
       "outputs": [
         {
           "file": "ci-pipeline-stages-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285788.9126,
       "size": 1334,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "testing-layers.mermaid": {
       "hash": "sha256:a0b653c4fc9747a2",
-      "generatedAt": "2026-07-21T22:01:10.665Z",
+      "generatedAt": "2026-07-22T15:35:28.750Z",
       "outputs": [
         {
           "file": "testing-layers-light.svg",
@@ -80,7 +80,7 @@
       "theme": "both",
       "mtimeMs": 1784558285789.589,
       "size": 911,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

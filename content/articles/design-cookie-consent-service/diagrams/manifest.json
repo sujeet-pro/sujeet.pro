@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:76b833f45bb51d8a",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.806Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285920.473,
       "size": 1054,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "audit-trail.mermaid": {
       "hash": "sha256:8896a8e641b32fab",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.806Z",
       "outputs": [
         {
           "file": "audit-trail-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285920.9575,
       "size": 624,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:721802a65306a5f8",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.806Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285921.257,
       "size": 925,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cache-invalidation-layers.mermaid": {
       "hash": "sha256:dd89968a41879f4c",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.806Z",
       "outputs": [
         {
           "file": "cache-invalidation-layers-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285921.5156,
       "size": 334,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "consent-check-sequence.mermaid": {
       "hash": "sha256:eca51178b6d21407",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.806Z",
       "outputs": [
         {
           "file": "consent-check-sequence-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285921.7764,
       "size": 914,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "consent-update-sequence.mermaid": {
       "hash": "sha256:ea2ccb49d3649ae5",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "consent-update-sequence-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558285922.0513,
       "size": 621,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "identity-migration-sequence.mermaid": {
       "hash": "sha256:7666876bb2c95fb1",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "identity-migration-sequence-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558285922.3057,
       "size": 853,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-region-deployment.mermaid": {
       "hash": "sha256:080b0c9a6f502e1e",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "multi-region-deployment-light.svg",
@@ -203,11 +203,11 @@
       "theme": "both",
       "mtimeMs": 1784558285922.84,
       "size": 634,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-a-edge-first.mermaid": {
       "hash": "sha256:343002442e703da5",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "path-a-edge-first-light.svg",
@@ -230,11 +230,11 @@
       "theme": "both",
       "mtimeMs": 1784558285923.258,
       "size": 459,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-b-server-side.mermaid": {
       "hash": "sha256:86039682ca9ad28b",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "path-b-server-side-light.svg",
@@ -257,11 +257,11 @@
       "theme": "both",
       "mtimeMs": 1784558285923.5535,
       "size": 409,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "region-aware-policy-decision.mermaid": {
       "hash": "sha256:16deb3e60f7eeda2",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "region-aware-policy-decision-light.svg",
@@ -284,11 +284,11 @@
       "theme": "both",
       "mtimeMs": 1784558285923.8477,
       "size": 784,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tenant-config-hierarchy.mermaid": {
       "hash": "sha256:c06901f081ee7412",
-      "generatedAt": "2026-07-21T22:01:10.704Z",
+      "generatedAt": "2026-07-22T15:35:28.807Z",
       "outputs": [
         {
           "file": "tenant-config-hierarchy-light.svg",
@@ -311,7 +311,7 @@
       "theme": "both",
       "mtimeMs": 1784558285924.1042,
       "size": 469,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

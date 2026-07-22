@@ -3,7 +3,7 @@
   "diagrams": {
     "caching-strategy-decision-tree.mermaid": {
       "hash": "sha256:e06098947777e96b",
-      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "generatedAt": "2026-07-22T15:35:28.951Z",
       "outputs": [
         {
           "file": "caching-strategy-decision-tree-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286266.7761,
       "size": 776,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "design-principles-tradeoffs.mermaid": {
       "hash": "sha256:f80591da57d714d8",
-      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "generatedAt": "2026-07-22T15:35:28.952Z",
       "outputs": [
         {
           "file": "design-principles-tradeoffs-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286267.0361,
       "size": 679,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "fetch-interception-overview.mermaid": {
       "hash": "sha256:d094beb45c8c10ab",
-      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "generatedAt": "2026-07-22T15:35:28.952Z",
       "outputs": [
         {
           "file": "fetch-interception-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286267.3015,
       "size": 758,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lifecycle-state-machine.mermaid": {
       "hash": "sha256:35ea307b58c26c24",
-      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "generatedAt": "2026-07-22T15:35:28.952Z",
       "outputs": [
         {
           "file": "lifecycle-state-machine-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286267.8218,
       "size": 681,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "navigation-preload-sequence.mermaid": {
       "hash": "sha256:d9a5944b0b6948f3",
-      "generatedAt": "2026-07-21T22:01:10.791Z",
+      "generatedAt": "2026-07-22T15:35:28.952Z",
       "outputs": [
         {
           "file": "navigation-preload-sequence-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286268.1506,
       "size": 625,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

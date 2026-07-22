@@ -3,7 +3,7 @@
   "diagrams": {
     "decision-framework.mermaid": {
       "hash": "sha256:c2d8ec0101a4e687",
-      "generatedAt": "2026-07-21T22:01:10.806Z",
+      "generatedAt": "2026-07-22T15:35:28.974Z",
       "outputs": [
         {
           "file": "decision-framework-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286320.965,
       "size": 473,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dom-cost-comparison.mermaid": {
       "hash": "sha256:a062fe4c57762487",
-      "generatedAt": "2026-07-21T22:01:10.806Z",
+      "generatedAt": "2026-07-22T15:35:28.974Z",
       "outputs": [
         {
           "file": "dom-cost-comparison-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286321.275,
       "size": 503,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "variable-height-measurement-flow.mermaid": {
       "hash": "sha256:bd438bd3c23553de",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.974Z",
       "outputs": [
         {
           "file": "variable-height-measurement-flow-light.svg",
@@ -76,7 +76,7 @@
       "theme": "both",
       "mtimeMs": 1784558286321.5288,
       "size": 502,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "abr-decision.mermaid": {
       "hash": "sha256:d5b6e9653b64bab5",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "abr-decision-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286054.4429,
       "size": 908,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "aws-reference-deployment.mermaid": {
       "hash": "sha256:1b72f99224277342",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "aws-reference-deployment-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286054.8608,
       "size": 864,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cache-tiering.mermaid": {
       "hash": "sha256:5af163589296acf1",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "cache-tiering-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286055.154,
       "size": 628,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cmaf-shared-segments.mermaid": {
       "hash": "sha256:2d39b67120806ffb",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "cmaf-shared-segments-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286055.4224,
       "size": 444,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "content-id-flow.mermaid": {
       "hash": "sha256:f7a8b5b7fc47c276",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "content-id-flow-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286055.7861,
       "size": 1379,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:18037cb853a03deb",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286056.2942,
       "size": 1224,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "live-vs-vod-pipelines.mermaid": {
       "hash": "sha256:3744aa7dd0b1e534",
-      "generatedAt": "2026-07-21T22:01:10.740Z",
+      "generatedAt": "2026-07-22T15:35:28.862Z",
       "outputs": [
         {
           "file": "live-vs-vod-pipelines-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286056.6326,
       "size": 1064,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-cdn-failover.mermaid": {
       "hash": "sha256:a960a90cfa0b206b",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "multi-cdn-failover-light.svg",
@@ -215,11 +215,11 @@
       "theme": "both",
       "mtimeMs": 1784558286056.9377,
       "size": 479,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "recommendation-two-stage.mermaid": {
       "hash": "sha256:3a2695ea147a3163",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "recommendation-two-stage-light.svg",
@@ -242,11 +242,11 @@
       "theme": "both",
       "mtimeMs": 1784558286057.3696,
       "size": 700,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "resumable-upload-sequence.mermaid": {
       "hash": "sha256:aefa41889e39b70c",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "resumable-upload-sequence-light.svg",
@@ -265,11 +265,11 @@
       "theme": "both",
       "mtimeMs": 1784558286057.7507,
       "size": 858,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "storage-tiering-lifecycle.mermaid": {
       "hash": "sha256:14972013f079efb4",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "storage-tiering-lifecycle-light.svg",
@@ -292,11 +292,11 @@
       "theme": "both",
       "mtimeMs": 1784558286058.0972,
       "size": 571,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "system-components.mermaid": {
       "hash": "sha256:48407a4680e14301",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "system-components-light.svg",
@@ -319,11 +319,11 @@
       "theme": "both",
       "mtimeMs": 1784558286058.348,
       "size": 763,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transcoding-pipeline.mermaid": {
       "hash": "sha256:7aeb229ef670f0cb",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "transcoding-pipeline-light.svg",
@@ -346,11 +346,11 @@
       "theme": "both",
       "mtimeMs": 1784558286058.6228,
       "size": 969,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "upload-processing-pipeline.mermaid": {
       "hash": "sha256:9fdd8e1d8b1191bd",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.863Z",
       "outputs": [
         {
           "file": "upload-processing-pipeline-light.svg",
@@ -373,11 +373,11 @@
       "theme": "both",
       "mtimeMs": 1784558286058.916,
       "size": 629,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "view-count-pipeline.mermaid": {
       "hash": "sha256:ea436928f12ca33c",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.864Z",
       "outputs": [
         {
           "file": "view-count-pipeline-light.svg",
@@ -400,7 +400,7 @@
       "theme": "both",
       "mtimeMs": 1784558286059.179,
       "size": 638,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

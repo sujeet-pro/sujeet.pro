@@ -3,7 +3,7 @@
   "diagrams": {
     "block-lifecycle.mermaid": {
       "hash": "sha256:5b798158975f28df",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.882Z",
       "outputs": [
         {
           "file": "block-lifecycle-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286102.4014,
       "size": 688,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cell-topology.mermaid": {
       "hash": "sha256:6b6ed445a3ae68aa",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.882Z",
       "outputs": [
         {
           "file": "cell-topology-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286102.6748,
       "size": 1107,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh.mermaid": {
       "hash": "sha256:20aee170a7d59051",
-      "generatedAt": "2026-07-21T22:01:10.751Z",
+      "generatedAt": "2026-07-22T15:35:28.882Z",
       "outputs": [
         {
           "file": "magic-pocket-s-core-architecture-clients-interact-with-edgestore-for-metadata-wh-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286102.9822,
       "size": 1091,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes.mermaid": {
       "hash": "sha256:924f392b04dbd636",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.882Z",
       "outputs": [
         {
           "file": "magic-pocket-s-data-hierarchy-blocks-aggregate-into-buckets-buckets-into-volumes-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286103.303,
       "size": 547,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "migration-timeline.mermaid": {
       "hash": "sha256:db352c59a0419173",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.883Z",
       "outputs": [
         {
           "file": "migration-timeline-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286104.965,
       "size": 1233,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m.mermaid": {
       "hash": "sha256:68a21fa2d1fb879a",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.883Z",
       "outputs": [
         {
           "file": "pocket-watch-s-five-verification-subsystems-each-targeting-a-different-failure-m-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286105.2595,
       "size": 691,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-path.mermaid": {
       "hash": "sha256:1b717e8e34c92f8f",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.883Z",
       "outputs": [
         {
           "file": "read-path-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286105.5435,
       "size": 636,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "repair-pipeline.mermaid": {
       "hash": "sha256:e0f61f659b6efd6c",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.883Z",
       "outputs": [
         {
           "file": "repair-pipeline-light.svg",
@@ -207,11 +207,11 @@
       "theme": "both",
       "mtimeMs": 1784558286105.806,
       "size": 995,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-path.mermaid": {
       "hash": "sha256:f6ea4f5b05452f0a",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.883Z",
       "outputs": [
         {
           "file": "write-path-light.svg",
@@ -230,7 +230,7 @@
       "theme": "both",
       "mtimeMs": 1784558286106.0498,
       "size": 695,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

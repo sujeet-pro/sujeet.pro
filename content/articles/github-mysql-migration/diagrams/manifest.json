@@ -3,7 +3,7 @@
   "diagrams": {
     "dual-write-cutover.mermaid": {
       "hash": "sha256:3c25d40d42ee61b0",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "dual-write-cutover-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286142.1472,
       "size": 1140,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "gh-ost-migration-flow.mermaid": {
       "hash": "sha256:b80c225c8c196dff",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "gh-ost-migration-flow-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286142.4033,
       "size": 989,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica.mermaid": {
       "hash": "sha256:3a55bd8be09860a7",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "github-s-mysql-failover-sequence-orchestrator-detects-failure-promotes-a-replica-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286142.6768,
       "size": 613,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas.mermaid": {
       "hash": "sha256:9bee30997f31ab13",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "github-s-mysql-infrastructure-evolution-across-four-phases-from-a-single-databas-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286142.9443,
       "size": 1137,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "mysql-8-rolling-upgrade.mermaid": {
       "hash": "sha256:3994194cdd45a7a1",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "mysql-8-rolling-upgrade-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286144.069,
       "size": 1286,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "schema-domain-partitioning.mermaid": {
       "hash": "sha256:bc7fae875b693853",
-      "generatedAt": "2026-07-21T22:01:10.762Z",
+      "generatedAt": "2026-07-22T15:35:28.900Z",
       "outputs": [
         {
           "file": "schema-domain-partitioning-light.svg",
@@ -153,7 +153,7 @@
       "theme": "both",
       "mtimeMs": 1784558286144.3616,
       "size": 1246,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

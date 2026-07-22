@@ -3,7 +3,7 @@
   "diagrams": {
     "dnssec-chain-of-trust.dot": {
       "hash": "sha256:41868a33b7033dde",
-      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "generatedAt": "2026-07-22T15:35:28.746Z",
       "outputs": [
         {
           "file": "dnssec-chain-of-trust-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286085.0903,
       "size": 1915,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dns-cache-layers.mermaid": {
       "hash": "sha256:5c52ccc9fd41e122",
-      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "generatedAt": "2026-07-22T15:35:28.747Z",
       "outputs": [
         {
           "file": "dns-cache-layers-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286084.4158,
       "size": 833,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dns-resolution-flow.mermaid": {
       "hash": "sha256:aae1636e24d0b6e7",
-      "generatedAt": "2026-07-21T22:01:10.663Z",
+      "generatedAt": "2026-07-22T15:35:28.747Z",
       "outputs": [
         {
           "file": "dns-resolution-flow-light.svg",
@@ -76,7 +76,7 @@
       "theme": "both",
       "mtimeMs": 1784558286084.692,
       "size": 577,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

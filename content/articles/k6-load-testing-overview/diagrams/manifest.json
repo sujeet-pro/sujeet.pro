@@ -3,7 +3,7 @@
   "diagrams": {
     "distributed-topology.mermaid": {
       "hash": "sha256:8aa8577ba479e664",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.916Z",
       "outputs": [
         {
           "file": "distributed-topology-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286189.0718,
       "size": 752,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "k6-execution-architecture.mermaid": {
       "hash": "sha256:00170b2178a02765",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.916Z",
       "outputs": [
         {
           "file": "k6-execution-architecture-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286189.495,
       "size": 606,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "k6-workload-models.mermaid": {
       "hash": "sha256:26cef65767745a20",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.916Z",
       "outputs": [
         {
           "file": "k6-workload-models-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286189.8445,
       "size": 1029,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "metrics-pipeline.mermaid": {
       "hash": "sha256:7a7857e42b736503",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.916Z",
       "outputs": [
         {
           "file": "metrics-pipeline-light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286190.1853,
       "size": 873,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

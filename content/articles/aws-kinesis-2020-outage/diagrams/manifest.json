@@ -3,7 +3,7 @@
   "diagrams": {
     "dependency-cascade.mermaid": {
       "hash": "sha256:83a63cdb8063a40f",
-      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "generatedAt": "2026-07-22T15:35:28.756Z",
       "outputs": [
         {
           "file": "dependency-cascade-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285803.0945,
       "size": 1107,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "failure-chain.mermaid": {
       "hash": "sha256:175cbfdca21c5981",
-      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "generatedAt": "2026-07-22T15:35:28.756Z",
       "outputs": [
         {
           "file": "failure-chain-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285803.7964,
       "size": 1402,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kinesis-architecture.mermaid": {
       "hash": "sha256:07a01209aa2a6bf8",
-      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "generatedAt": "2026-07-22T15:35:28.757Z",
       "outputs": [
         {
           "file": "kinesis-architecture-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285804.376,
       "size": 1315,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "thread-scaling.mermaid": {
       "hash": "sha256:1da648fe5321eb7b",
-      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "generatedAt": "2026-07-22T15:35:28.757Z",
       "outputs": [
         {
           "file": "thread-scaling-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285804.8613,
       "size": 1055,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "thundering-herd-loop.mermaid": {
       "hash": "sha256:f32819c33626e585",
-      "generatedAt": "2026-07-21T22:01:10.669Z",
+      "generatedAt": "2026-07-22T15:35:28.757Z",
       "outputs": [
         {
           "file": "thundering-herd-loop-light.svg",
@@ -134,7 +134,7 @@
       "theme": "both",
       "mtimeMs": 1784558285805.4165,
       "size": 413,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

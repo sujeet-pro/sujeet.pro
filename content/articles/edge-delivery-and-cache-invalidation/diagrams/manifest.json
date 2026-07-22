@@ -3,7 +3,7 @@
   "diagrams": {
     "cache-stampede.mermaid": {
       "hash": "sha256:7653dd151f746f65",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "cache-stampede-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286109.156,
       "size": 744,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cdn-topology.mermaid": {
       "hash": "sha256:489d67265ee64e83",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "cdn-topology-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286109.5647,
       "size": 439,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "content-addressed-asset-lifecycle.mermaid": {
       "hash": "sha256:174ca1fff8a537de",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "content-addressed-asset-lifecycle-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286110.07,
       "size": 916,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "invalidation-decision-tree.mermaid": {
       "hash": "sha256:a45f563aa6504dfb",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "invalidation-decision-tree-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286110.4048,
       "size": 625,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "soft-vs-hard-purge.mermaid": {
       "hash": "sha256:ece08549a1e17676",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "soft-vs-hard-purge-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286110.658,
       "size": 906,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "stale-while-revalidate.mermaid": {
       "hash": "sha256:09ec917920b5dcc7",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "stale-while-revalidate-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558286110.894,
       "size": 607,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tag-based-purge-flow.mermaid": {
       "hash": "sha256:7bf5ecbba701de55",
-      "generatedAt": "2026-07-21T22:01:10.753Z",
+      "generatedAt": "2026-07-22T15:35:28.885Z",
       "outputs": [
         {
           "file": "tag-based-purge-flow-light.svg",
@@ -172,7 +172,7 @@
       "theme": "both",
       "mtimeMs": 1784558286111.1526,
       "size": 816,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

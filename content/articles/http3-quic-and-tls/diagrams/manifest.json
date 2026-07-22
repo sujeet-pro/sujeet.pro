@@ -3,7 +3,7 @@
   "diagrams": {
     "alt-svc-upgrade-flow.mermaid": {
       "hash": "sha256:bac00ba228f4c6a4",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.904Z",
       "outputs": [
         {
           "file": "alt-svc-upgrade-flow-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286152.9512,
       "size": 399,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "browser-protocol-selection.mermaid": {
       "hash": "sha256:4981cb235a58121b",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.904Z",
       "outputs": [
         {
           "file": "browser-protocol-selection-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286153.2537,
       "size": 429,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "connection-migration-flow.mermaid": {
       "hash": "sha256:434c97dc9b24934d",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.904Z",
       "outputs": [
         {
           "file": "connection-migration-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286154.0325,
       "size": 590,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "handshake-rtt-comparison.mermaid": {
       "hash": "sha256:94f1503e65d1d681",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "handshake-rtt-comparison-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286154.3787,
       "size": 793,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "http2-tcp-hol-blocking.mermaid": {
       "hash": "sha256:c88eff8c88b9e4a8",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "http2-tcp-hol-blocking-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558286154.6946,
       "size": 577,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "packet-frame-structure.mermaid": {
       "hash": "sha256:5411f5a8b657d867",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "packet-frame-structure-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558286155.0146,
       "size": 869,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "protocol-stack-overview.mermaid": {
       "hash": "sha256:3595e2bb057b01d4",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "protocol-stack-overview-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558286155.3503,
       "size": 611,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "qpack-stream-blocking.mermaid": {
       "hash": "sha256:b26afc9ed648edfa",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "qpack-stream-blocking-light.svg",
@@ -199,11 +199,11 @@
       "theme": "both",
       "mtimeMs": 1784558286155.729,
       "size": 630,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quic-encryption-levels.mermaid": {
       "hash": "sha256:ec6b44173b57c726",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "quic-encryption-levels-light.svg",
@@ -226,11 +226,11 @@
       "theme": "both",
       "mtimeMs": 1784558286156.3877,
       "size": 951,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quic-stream-independence.mermaid": {
       "hash": "sha256:d167596f61d6d78e",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.905Z",
       "outputs": [
         {
           "file": "quic-stream-independence-light.svg",
@@ -253,7 +253,7 @@
       "theme": "both",
       "mtimeMs": 1784558286156.756,
       "size": 627,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

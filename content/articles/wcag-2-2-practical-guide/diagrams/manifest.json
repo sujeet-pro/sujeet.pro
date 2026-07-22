@@ -3,7 +3,7 @@
   "diagrams": {
     "testing-coverage-layers.mermaid": {
       "hash": "sha256:0f28722087f15e02",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.975Z",
       "outputs": [
         {
           "file": "testing-coverage-layers-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286321.9978,
       "size": 499,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "wcag-2-2-deltas.mermaid": {
       "hash": "sha256:85fdeb92f89427ef",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.975Z",
       "outputs": [
         {
           "file": "wcag-2-2-deltas-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286322.2783,
       "size": 794,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "wcag-2-2-structure.mermaid": {
       "hash": "sha256:2579ad30e04b7729",
-      "generatedAt": "2026-07-21T22:01:10.807Z",
+      "generatedAt": "2026-07-22T15:35:28.975Z",
       "outputs": [
         {
           "file": "wcag-2-2-structure-light.svg",
@@ -80,7 +80,7 @@
       "theme": "both",
       "mtimeMs": 1784558286322.602,
       "size": 796,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

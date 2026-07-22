@@ -3,7 +3,7 @@
   "diagrams": {
     "block-sync-protocol.mermaid": {
       "hash": "sha256:94c57aa5ef81abcc",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "block-sync-protocol-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558285936.6433,
       "size": 952,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cdc-vs-fixed-chunking.mermaid": {
       "hash": "sha256:bbedc79717bacd27",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "cdc-vs-fixed-chunking-light.svg",
@@ -47,13 +47,13 @@
         "svg"
       ],
       "theme": "both",
-      "mtimeMs": 1784669419770.5208,
+      "mtimeMs": 1784705274039.1738,
       "size": 821,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "chunk-dedup-flow.mermaid": {
       "hash": "sha256:def5f6d520fe8b74",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "chunk-dedup-flow-light.svg",
@@ -74,13 +74,13 @@
         "svg"
       ],
       "theme": "both",
-      "mtimeMs": 1784669421803.7976,
+      "mtimeMs": 1784705274040.159,
       "size": 1182,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "conflict-resolution-decision.mermaid": {
       "hash": "sha256:2aa2d88e6823d4b3",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "conflict-resolution-decision-light.svg",
@@ -101,13 +101,13 @@
         "svg"
       ],
       "theme": "both",
-      "mtimeMs": 1784669424125.875,
+      "mtimeMs": 1784705274041.3362,
       "size": 1041,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:57c630485a8191ef",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285938.1658,
       "size": 951,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lan-sync-discovery.mermaid": {
       "hash": "sha256:7d24090c9a4f94fd",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.813Z",
       "outputs": [
         {
           "file": "lan-sync-discovery-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558285938.526,
       "size": 938,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "magic-pocket-zones.mermaid": {
       "hash": "sha256:baf6abd4c5d839ca",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.814Z",
       "outputs": [
         {
           "file": "magic-pocket-zones-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558285938.777,
       "size": 1115,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "notification-fanout.mermaid": {
       "hash": "sha256:15cab86d14c28eea",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.814Z",
       "outputs": [
         {
           "file": "notification-fanout-light.svg",
@@ -203,11 +203,11 @@
       "theme": "both",
       "mtimeMs": 1784558285939.1091,
       "size": 981,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "resumable-upload-state-machine.mermaid": {
       "hash": "sha256:edfb26b9606febb3",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.814Z",
       "outputs": [
         {
           "file": "resumable-upload-state-machine-light.svg",
@@ -230,11 +230,11 @@
       "theme": "both",
       "mtimeMs": 1784558285939.634,
       "size": 1577,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "three-tree-merge-base.mermaid": {
       "hash": "sha256:10a60875ea0641f4",
-      "generatedAt": "2026-07-21T22:01:10.708Z",
+      "generatedAt": "2026-07-22T15:35:28.814Z",
       "outputs": [
         {
           "file": "three-tree-merge-base-light.svg",
@@ -257,7 +257,7 @@
       "theme": "both",
       "mtimeMs": 1784558285939.9412,
       "size": 913,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "akkio-microshard-placement.mermaid": {
       "hash": "sha256:10e8f879c25f1827",
-      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "generatedAt": "2026-07-22T15:35:28.910Z",
       "outputs": [
         {
           "file": "akkio-microshard-placement-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286166.8052,
       "size": 1192,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "architecture-before-after-rocksandra.mermaid": {
       "hash": "sha256:77e45cdd3f55737b",
-      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "architecture-before-after-rocksandra-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286167.0652,
       "size": 1389,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cassandra-journey-timeline.mermaid": {
       "hash": "sha256:d6a1caef1797f5bb",
-      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "cassandra-journey-timeline-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286167.349,
       "size": 1068,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "feed-fan-out-hybrid.mermaid": {
       "hash": "sha256:84d773fd73b7687c",
-      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "feed-fan-out-hybrid-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286167.6912,
       "size": 1124,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "gc-pause-tail-latency.mermaid": {
       "hash": "sha256:7458437dd1fecd82",
-      "generatedAt": "2026-07-21T22:01:10.767Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "gc-pause-tail-latency-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558286168.3318,
       "size": 1309,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rocksandra-architecture.mermaid": {
       "hash": "sha256:48939d9ae7e79077",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "rocksandra-architecture-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558286168.618,
       "size": 962,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-path-comparison.mermaid": {
       "hash": "sha256:d19f39e9e3a46ef4",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.911Z",
       "outputs": [
         {
           "file": "write-path-comparison-light.svg",
@@ -176,7 +176,7 @@
       "theme": "both",
       "mtimeMs": 1784558286168.9333,
       "size": 1878,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

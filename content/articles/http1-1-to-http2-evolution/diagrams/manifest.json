@@ -3,7 +3,7 @@
   "diagrams": {
     "alpn-negotiation.mermaid": {
       "hash": "sha256:63c04f362717cbf7",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.903Z",
       "outputs": [
         {
           "file": "alpn-negotiation-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286150.525,
       "size": 775,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hpack-encoding-decision.mermaid": {
       "hash": "sha256:1e369bf5cde92308",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.903Z",
       "outputs": [
         {
           "file": "hpack-encoding-decision-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286151.6099,
       "size": 1169,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multiplexed-streams.mermaid": {
       "hash": "sha256:bf5d89e4667b9ce3",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.903Z",
       "outputs": [
         {
           "file": "multiplexed-streams-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286151.8777,
       "size": 901,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "protocol-evolution-overview.mermaid": {
       "hash": "sha256:3d95fc915564db8d",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.904Z",
       "outputs": [
         {
           "file": "protocol-evolution-overview-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286152.1265,
       "size": 953,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tcp-hol-blocking.mermaid": {
       "hash": "sha256:4902961491c4dbbf",
-      "generatedAt": "2026-07-21T22:01:10.764Z",
+      "generatedAt": "2026-07-22T15:35:28.904Z",
       "outputs": [
         {
           "file": "tcp-hol-blocking-light.svg",
@@ -122,7 +122,7 @@
       "theme": "both",
       "mtimeMs": 1784558286152.3682,
       "size": 669,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

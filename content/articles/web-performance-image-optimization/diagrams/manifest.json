@@ -3,7 +3,7 @@
   "diagrams": {
     "format-decision-tree.mermaid": {
       "hash": "sha256:7d6e1832c6490b8a",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.978Z",
       "outputs": [
         {
           "file": "format-decision-tree-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286328.9583,
       "size": 1132,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "image-pipeline-overview.mermaid": {
       "hash": "sha256:15192fa8918a8f4b",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.978Z",
       "outputs": [
         {
           "file": "image-pipeline-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286329.2288,
       "size": 930,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lcp-attribute-matrix.mermaid": {
       "hash": "sha256:7716b005136b9eae",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.978Z",
       "outputs": [
         {
           "file": "lcp-attribute-matrix-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286329.493,
       "size": 872,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lcp-image-discovery.mermaid": {
       "hash": "sha256:5d910d0d3f9c337a",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.978Z",
       "outputs": [
         {
           "file": "lcp-image-discovery-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286329.727,
       "size": 846,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "picture-source-selection.mermaid": {
       "hash": "sha256:d4f3b0fde7a9a510",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.978Z",
       "outputs": [
         {
           "file": "picture-source-selection-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286330.0112,
       "size": 1206,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

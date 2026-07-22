@@ -3,7 +3,7 @@
   "diagrams": {
     "asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded.mermaid": {
       "hash": "sha256:6030e6b667115548",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.753Z",
       "outputs": [
         {
           "file": "asynchronous-task-queue-distributing-work-across-multiple-executors-with-bounded-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285796.5088,
       "size": 831,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa.mermaid": {
       "hash": "sha256:b3c36f1bfc1e93ed",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.753Z",
       "outputs": [
         {
           "file": "distributed-queue-with-producers-redis-broker-competing-consumers-and-dlq-for-fa-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285797.0662,
       "size": 1119,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue.mermaid": {
       "hash": "sha256:fe9940abe6b3abb3",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "dlq-isolates-poison-messages-allowing-main-queue-processing-to-continue-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285797.6694,
       "size": 640,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r.mermaid": {
       "hash": "sha256:09fbd5a24f1d096a",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "event-sourcing-with-cqrs-events-flow-from-write-side-through-queue-to-multiple-r-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285798.1162,
       "size": 824,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes.mermaid": {
       "hash": "sha256:0858afeeaf2785bf",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "exponential-backoff-with-jitter-desynchronizes-retries-preventing-load-spikes-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285798.595,
       "size": 477,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase.mermaid": {
       "hash": "sha256:b4f36175a97f0d90",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "node-js-event-loop-phases-with-microtask-queues-processed-between-each-phase-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285799.0796,
       "size": 784,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio.mermaid": {
       "hash": "sha256:a548e09e3940396f",
-      "generatedAt": "2026-07-21T22:01:10.667Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "saga-with-compensating-transactions-each-step-has-a-corresponding-rollback-actio-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558285799.533,
       "size": 736,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro.mermaid": {
       "hash": "sha256:7663957ebfeeeeef",
-      "generatedAt": "2026-07-21T22:01:10.668Z",
+      "generatedAt": "2026-07-22T15:35:28.754Z",
       "outputs": [
         {
           "file": "transactional-outbox-ensures-atomic-db-writes-and-event-publishing-via-relay-pro-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558285799.9521,
       "size": 770,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

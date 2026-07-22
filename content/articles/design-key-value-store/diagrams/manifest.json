@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros.mermaid": {
       "hash": "sha256:4b7bee0f07fa5e05",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.834Z",
       "outputs": [
         {
           "file": "aws-deployment-i3-instances-with-local-nvme-for-low-latency-storage-spread-acros-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285989.6301,
       "size": 713,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "compaction-strategies.mermaid": {
       "hash": "sha256:c9df926ed7736906",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.834Z",
       "outputs": [
         {
           "file": "compaction-strategies-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285989.8938,
       "size": 952,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "component-interactions-coordinator-routes-requests-gossip-maintains-membership-s.mermaid": {
       "hash": "sha256:ff7c7d38c77a7e9d",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "component-interactions-coordinator-routes-requests-gossip-maintains-membership-s-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285990.4512,
       "size": 997,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "consistent-hashing-ring.mermaid": {
       "hash": "sha256:01151be74e5de15f",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "consistent-hashing-ring-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285990.8103,
       "size": 1125,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "gossip-membership.mermaid": {
       "hash": "sha256:d3f1fdaf67f0ab32",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "gossip-membership-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285991.2256,
       "size": 855,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to-.mermaid": {
       "hash": "sha256:3d2a6f2ea3b6b8be",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "high-level-architecture-clients-contact-any-node-as-coordinator-which-routes-to--light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285991.5498,
       "size": 851,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma.mermaid": {
       "hash": "sha256:c1d00c44363b77e7",
-      "generatedAt": "2026-07-21T22:01:10.722Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "merkle-tree-comparing-root-hashes-identifies-if-replicas-differ-traversing-misma-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558285991.9817,
       "size": 495,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quorum-overlap.mermaid": {
       "hash": "sha256:b53c930fa6dcfba8",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "quorum-overlap-light.svg",
@@ -211,11 +211,11 @@
       "theme": "both",
       "mtimeMs": 1784558285992.3906,
       "size": 588,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-path-lsm.mermaid": {
       "hash": "sha256:a652c47eb3a40875",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "read-path-lsm-light.svg",
@@ -238,11 +238,11 @@
       "theme": "both",
       "mtimeMs": 1784558285992.712,
       "size": 735,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-path-quorum.mermaid": {
       "hash": "sha256:f5641a6449f00816",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "read-path-quorum-light.svg",
@@ -261,11 +261,11 @@
       "theme": "both",
       "mtimeMs": 1784558285992.976,
       "size": 902,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit.mermaid": {
       "hash": "sha256:20d465cca6367a7c",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.835Z",
       "outputs": [
         {
           "file": "sloppy-quorum-when-replica-b-is-unavailable-the-coordinator-writes-to-node-d-wit-light.svg",
@@ -284,11 +284,11 @@
       "theme": "both",
       "mtimeMs": 1784558285993.2898,
       "size": 764,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "vector-clock-divergence.mermaid": {
       "hash": "sha256:b318c5c0ef49e997",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.836Z",
       "outputs": [
         {
           "file": "vector-clock-divergence-light.svg",
@@ -307,11 +307,11 @@
       "theme": "both",
       "mtimeMs": 1784558285993.8418,
       "size": 910,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-path-quorum.mermaid": {
       "hash": "sha256:0b846d1f0d2142d0",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.836Z",
       "outputs": [
         {
           "file": "write-path-quorum-light.svg",
@@ -330,11 +330,11 @@
       "theme": "both",
       "mtimeMs": 1784558285994.271,
       "size": 870,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im.mermaid": {
       "hash": "sha256:4ef9a71d0aef19ee",
-      "generatedAt": "2026-07-21T22:01:10.723Z",
+      "generatedAt": "2026-07-22T15:35:28.836Z",
       "outputs": [
         {
           "file": "write-path-wal-ensures-durability-memtable-provides-fast-writes-flush-creates-im-light.svg",
@@ -353,7 +353,7 @@
       "theme": "both",
       "mtimeMs": 1784558285994.5833,
       "size": 488,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

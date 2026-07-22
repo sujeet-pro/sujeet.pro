@@ -3,7 +3,7 @@
   "diagrams": {
     "bucketed-partitioning.mermaid": {
       "hash": "sha256:5dd5bb8c2e1f530c",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.864Z",
       "outputs": [
         {
           "file": "bucketed-partitioning-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286060.0747,
       "size": 1369,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dual-write-topology.mermaid": {
       "hash": "sha256:42dc7518415526c5",
-      "generatedAt": "2026-07-21T22:01:10.741Z",
+      "generatedAt": "2026-07-22T15:35:28.864Z",
       "outputs": [
         {
           "file": "dual-write-topology-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286060.346,
       "size": 1366,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hot-partition-before-after.mermaid": {
       "hash": "sha256:e7a7d2f18f51c4ca",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.864Z",
       "outputs": [
         {
           "file": "hot-partition-before-after-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286060.6216,
       "size": 1621,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-coalescing-sequence.mermaid": {
       "hash": "sha256:f8104dc1f97b554d",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.864Z",
       "outputs": [
         {
           "file": "request-coalescing-sequence-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286060.8567,
       "size": 518,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "shard-per-core.mermaid": {
       "hash": "sha256:ee24866efc4b63c1",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.865Z",
       "outputs": [
         {
           "file": "shard-per-core-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286061.1638,
       "size": 1433,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "storage-evolution.mermaid": {
       "hash": "sha256:075e4b4054787d57",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.865Z",
       "outputs": [
         {
           "file": "storage-evolution-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286061.4077,
       "size": 1635,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "super-disk-raid.mermaid": {
       "hash": "sha256:14e2b6c7dfac8bc3",
-      "generatedAt": "2026-07-21T22:01:10.742Z",
+      "generatedAt": "2026-07-22T15:35:28.865Z",
       "outputs": [
         {
           "file": "super-disk-raid-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286061.9705,
       "size": 1140,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

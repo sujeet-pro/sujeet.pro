@@ -3,7 +3,7 @@
   "diagrams": {
     "abortsignal-propagation.mermaid": {
       "hash": "sha256:9623e2b1b4de35e4",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.879Z",
       "outputs": [
         {
           "file": "abortsignal-propagation-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286096.0227,
       "size": 825,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dom-essentials-overview.mermaid": {
       "hash": "sha256:eab3ec4c3442fb35",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "dom-essentials-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286096.863,
       "size": 1503,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-flow.mermaid": {
       "hash": "sha256:ee7076e8e5bd8bad",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "event-flow-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286097.1577,
       "size": 1164,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "interface-hierarchy.mermaid": {
       "hash": "sha256:484b7cc70816f46f",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "interface-hierarchy-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286097.4365,
       "size": 760,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "live-vs-static-collections.mermaid": {
       "hash": "sha256:37f07495f7bdb5a4",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "live-vs-static-collections-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286097.7656,
       "size": 993,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "mutationobserver-microtask-delivery.mermaid": {
       "hash": "sha256:9dc0bb0d76c7c424",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "mutationobserver-microtask-delivery-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286098.0862,
       "size": 776,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "observer-lifecycle.mermaid": {
       "hash": "sha256:23cf5aeb48691a70",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "observer-lifecycle-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286098.4053,
       "size": 1106,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "resizeobserver-pipeline-timing.mermaid": {
       "hash": "sha256:25e08a0bff674a37",
-      "generatedAt": "2026-07-21T22:01:10.750Z",
+      "generatedAt": "2026-07-22T15:35:28.880Z",
       "outputs": [
         {
           "file": "resizeobserver-pipeline-timing-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558286098.7327,
       "size": 842,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

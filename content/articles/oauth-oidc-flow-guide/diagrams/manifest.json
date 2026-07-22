@@ -3,7 +3,7 @@
   "diagrams": {
     "auth-code-interception-attack.mermaid": {
       "hash": "sha256:09ea03aed368eb32",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "auth-code-interception-attack-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286228.858,
       "size": 646,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "auth-code-pkce-oidc-overview.mermaid": {
       "hash": "sha256:19f0e95b379eb098",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "auth-code-pkce-oidc-overview-light.svg",
@@ -45,11 +45,11 @@
       "theme": "both",
       "mtimeMs": 1784558286229.1755,
       "size": 777,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "bff-pattern-architecture.mermaid": {
       "hash": "sha256:528c25490232e80e",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "bff-pattern-architecture-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286229.442,
       "size": 476,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "client-credentials-flow.mermaid": {
       "hash": "sha256:7df323279a909383",
-      "generatedAt": "2026-07-21T22:01:10.779Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "client-credentials-flow-light.svg",
@@ -95,11 +95,11 @@
       "theme": "both",
       "mtimeMs": 1784558286229.712,
       "size": 733,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "device-code-flow.mermaid": {
       "hash": "sha256:ad41d805029891fc",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "device-code-flow-light.svg",
@@ -118,11 +118,11 @@
       "theme": "both",
       "mtimeMs": 1784558286229.994,
       "size": 1057,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dpop-flow.mermaid": {
       "hash": "sha256:4bf36f0ab30a032a",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "dpop-flow-light.svg",
@@ -141,11 +141,11 @@
       "theme": "both",
       "mtimeMs": 1784558286230.2256,
       "size": 738,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "flow-selection-decision.mermaid": {
       "hash": "sha256:b5d4660e879694fb",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.933Z",
       "outputs": [
         {
           "file": "flow-selection-decision-light.svg",
@@ -168,11 +168,11 @@
       "theme": "both",
       "mtimeMs": 1784558286230.7646,
       "size": 1124,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "refresh-token-reuse-detection.mermaid": {
       "hash": "sha256:bdd140e6a9969144",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.934Z",
       "outputs": [
         {
           "file": "refresh-token-reuse-detection-light.svg",
@@ -191,11 +191,11 @@
       "theme": "both",
       "mtimeMs": 1784558286231.1216,
       "size": 680,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "refresh-token-rotation.mermaid": {
       "hash": "sha256:0cd56506c4d4dc4b",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.934Z",
       "outputs": [
         {
           "file": "refresh-token-rotation-light.svg",
@@ -214,11 +214,11 @@
       "theme": "both",
       "mtimeMs": 1784558286231.3855,
       "size": 606,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-types-relationships.mermaid": {
       "hash": "sha256:75654a6bf36445bb",
-      "generatedAt": "2026-07-21T22:01:10.780Z",
+      "generatedAt": "2026-07-22T15:35:28.934Z",
       "outputs": [
         {
           "file": "token-types-relationships-light.svg",
@@ -241,7 +241,7 @@
       "theme": "both",
       "mtimeMs": 1784558286231.6785,
       "size": 491,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

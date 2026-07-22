@@ -3,7 +3,7 @@
   "diagrams": {
     "anycast-resolver-routing.mermaid": {
       "hash": "sha256:94b92f928301a6b6",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "anycast-resolver-routing-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286088.149,
       "size": 873,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "caching-layers-and-ttl.mermaid": {
       "hash": "sha256:e40d426b0cc25318",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "caching-layers-and-ttl-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286088.4482,
       "size": 594,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ecs-geo-dns.mermaid": {
       "hash": "sha256:f4060f8e45a35c97",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "ecs-geo-dns-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286088.7556,
       "size": 761,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver.mermaid": {
       "hash": "sha256:b48a9e8a9ff62b40",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "end-to-end-dns-resolution-flow-showing-iterative-queries-from-recursive-resolver-light.svg",
@@ -95,11 +95,11 @@
       "theme": "both",
       "mtimeMs": 1784558286089.0623,
       "size": 822,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "failure-mode-decision-tree.mermaid": {
       "hash": "sha256:5be579ff1e8a324a",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "failure-mode-decision-tree-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558286089.7888,
       "size": 815,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pre-resolution-cache-chain.mermaid": {
       "hash": "sha256:af29274d4dcd2b4f",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.876Z",
       "outputs": [
         {
           "file": "pre-resolution-cache-chain-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558286090.219,
       "size": 820,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

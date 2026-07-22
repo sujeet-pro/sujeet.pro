@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:8c983c76d5de1ee7",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286312.6216,
       "size": 1313,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "backing-services.mermaid": {
       "hash": "sha256:95ff555dad34e7ec",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "backing-services-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286312.9077,
       "size": 715,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "counter-based-shortening.mermaid": {
       "hash": "sha256:2bd8b3def14d7a07",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "counter-based-shortening-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286313.1523,
       "size": 363,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hash-based-shortening.mermaid": {
       "hash": "sha256:9cf17da8ecd189f1",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "hash-based-shortening-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286313.3818,
       "size": 338,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:9d51815829bb6976",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286313.8909,
       "size": 1310,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kgs-internals.mermaid": {
       "hash": "sha256:b953537336ca9e5f",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "kgs-internals-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286314.2234,
       "size": 584,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "kgs-lifecycle.mermaid": {
       "hash": "sha256:3431ad5cbb4a2c5c",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "kgs-lifecycle-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558286314.492,
       "size": 497,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "redirect-sequence.mermaid": {
       "hash": "sha256:87941deb2e04ee1a",
-      "generatedAt": "2026-07-21T22:01:10.804Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "redirect-sequence-light.svg",
@@ -207,11 +207,11 @@
       "theme": "both",
       "mtimeMs": 1784558286314.7427,
       "size": 856,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-path.mermaid": {
       "hash": "sha256:93061801ee6f2f96",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "request-path-light.svg",
@@ -234,11 +234,11 @@
       "theme": "both",
       "mtimeMs": 1784558286315.0356,
       "size": 846,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "snowflake-id-generation.mermaid": {
       "hash": "sha256:bd5150f9d07671cf",
-      "generatedAt": "2026-07-21T22:01:10.805Z",
+      "generatedAt": "2026-07-22T15:35:28.972Z",
       "outputs": [
         {
           "file": "snowflake-id-generation-light.svg",
@@ -261,7 +261,7 @@
       "theme": "both",
       "mtimeMs": 1784558286315.2905,
       "size": 540,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

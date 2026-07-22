@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-comparison.mermaid": {
       "hash": "sha256:536a6d663c46a6c3",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "architecture-comparison-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286106.6292,
       "size": 856,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cache-invalidation-paths.mermaid": {
       "hash": "sha256:fe74f5e6b598b171",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "cache-invalidation-paths-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286107.0974,
       "size": 951,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "edge-bucketing-architecture.mermaid": {
       "hash": "sha256:5bc1194f2dcc071f",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "edge-bucketing-architecture-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286107.6472,
       "size": 997,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "migration-recipe.mermaid": {
       "hash": "sha256:ed4ef813f410ea82",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "migration-recipe-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286108.0193,
       "size": 296,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rendering-mode-decision.mermaid": {
       "hash": "sha256:99a4c068a6334382",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "rendering-mode-decision-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286108.4045,
       "size": 729,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "strangler-rollout-timeline.mermaid": {
       "hash": "sha256:11f80079c03bdb49",
-      "generatedAt": "2026-07-21T22:01:10.752Z",
+      "generatedAt": "2026-07-22T15:35:28.884Z",
       "outputs": [
         {
           "file": "strangler-rollout-timeline-light.svg",
@@ -153,7 +153,7 @@
       "theme": "both",
       "mtimeMs": 1784558286108.681,
       "size": 660,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

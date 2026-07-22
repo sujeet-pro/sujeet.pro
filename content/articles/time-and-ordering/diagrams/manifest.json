@@ -3,7 +3,7 @@
   "diagrams": {
     "lamport-clock-trace.mermaid": {
       "hash": "sha256:7225032c2057b2b3",
-      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "generatedAt": "2026-07-22T15:35:28.965Z",
       "outputs": [
         {
           "file": "lamport-clock-trace-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286296.0352,
       "size": 615,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ordering-hierarchy.mermaid": {
       "hash": "sha256:0d88d006cddc70dd",
-      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "generatedAt": "2026-07-22T15:35:28.965Z",
       "outputs": [
         {
           "file": "ordering-hierarchy-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286296.3376,
       "size": 498,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "spanner-commit-wait.mermaid": {
       "hash": "sha256:e3b7334c404f9ea9",
-      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "generatedAt": "2026-07-22T15:35:28.965Z",
       "outputs": [
         {
           "file": "spanner-commit-wait-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286296.6506,
       "size": 601,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "time-spectrum.mermaid": {
       "hash": "sha256:c9e403deca55e8a3",
-      "generatedAt": "2026-07-21T22:01:10.799Z",
+      "generatedAt": "2026-07-22T15:35:28.965Z",
       "outputs": [
         {
           "file": "time-spectrum-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286297.3389,
       "size": 1155,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "vector-clock-trace.mermaid": {
       "hash": "sha256:9c063c9739edfb9c",
-      "generatedAt": "2026-07-21T22:01:10.800Z",
+      "generatedAt": "2026-07-22T15:35:28.965Z",
       "outputs": [
         {
           "file": "vector-clock-trace-light.svg",
@@ -122,7 +122,7 @@
       "theme": "both",
       "mtimeMs": 1784558286297.7542,
       "size": 466,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

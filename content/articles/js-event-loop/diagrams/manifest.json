@@ -3,7 +3,7 @@
   "diagrams": {
     "browser-vs-node-diff.mermaid": {
       "hash": "sha256:2de20d58791c0e34",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.915Z",
       "outputs": [
         {
           "file": "browser-vs-node-diff-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286182.6902,
       "size": 1796,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "engine-host-contract.mermaid": {
       "hash": "sha256:6918c9df6f9ec1c7",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.915Z",
       "outputs": [
         {
           "file": "engine-host-contract-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286182.9321,
       "size": 1532,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-loop-iteration.mermaid": {
       "hash": "sha256:ff687355bbd75efd",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.915Z",
       "outputs": [
         {
           "file": "event-loop-iteration-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286184.0615,
       "size": 1093,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "js-loop-common.mermaid": {
       "hash": "sha256:40cc65423218289e",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.915Z",
       "outputs": [
         {
           "file": "js-loop-common-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286184.304,
       "size": 1146,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "promise-reaction-lifecycle.mermaid": {
       "hash": "sha256:d6afabd6dcad48ad",
-      "generatedAt": "2026-07-21T22:01:10.770Z",
+      "generatedAt": "2026-07-22T15:35:28.915Z",
       "outputs": [
         {
           "file": "promise-reaction-lifecycle-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286184.5457,
       "size": 1078,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

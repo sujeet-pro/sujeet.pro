@@ -3,7 +3,7 @@
   "diagrams": {
     "invalidation-propagation.mermaid": {
       "hash": "sha256:fc2760629a3d9ce3",
-      "generatedAt": "2026-07-21T22:01:10.693Z",
+      "generatedAt": "2026-07-22T15:35:28.792Z",
       "outputs": [
         {
           "file": "invalidation-propagation-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285887.0586,
       "size": 1305,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "parallel-rule-matching.mermaid": {
       "hash": "sha256:cb9928930853c6a0",
-      "generatedAt": "2026-07-21T22:01:10.693Z",
+      "generatedAt": "2026-07-22T15:35:28.792Z",
       "outputs": [
         {
           "file": "parallel-rule-matching-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285887.3882,
       "size": 1327,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "recalc-pipeline.mermaid": {
       "hash": "sha256:89dbc99b40cdc71d",
-      "generatedAt": "2026-07-21T22:01:10.693Z",
+      "generatedAt": "2026-07-22T15:35:28.792Z",
       "outputs": [
         {
           "file": "recalc-pipeline-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285887.7947,
       "size": 1123,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "selector-matching-bloom.mermaid": {
       "hash": "sha256:7d8affe715eb0a06",
-      "generatedAt": "2026-07-21T22:01:10.693Z",
+      "generatedAt": "2026-07-22T15:35:28.792Z",
       "outputs": [
         {
           "file": "selector-matching-bloom-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285888.5105,
       "size": 1346,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "style-thrashing.mermaid": {
       "hash": "sha256:c8070e72332db50a",
-      "generatedAt": "2026-07-21T22:01:10.693Z",
+      "generatedAt": "2026-07-22T15:35:28.793Z",
       "outputs": [
         {
           "file": "style-thrashing-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558285888.8496,
       "size": 740,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

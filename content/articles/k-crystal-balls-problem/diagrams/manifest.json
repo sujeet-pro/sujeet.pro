@@ -3,7 +3,7 @@
   "diagrams": {
     "egg-budget-overview.dot": {
       "hash": "sha256:5445954f08013e85",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.748Z",
       "outputs": [
         {
           "file": "egg-budget-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286185.5093,
       "size": 781,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "k2-search-trace.dot": {
       "hash": "sha256:3c6aa2627c0d998d",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.748Z",
       "outputs": [
         {
           "file": "k2-search-trace-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286186.3796,
       "size": 1036,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dp-recurrence.mermaid": {
       "hash": "sha256:83e2365b2fb2a4c6",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.748Z",
       "outputs": [
         {
           "file": "dp-recurrence-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286185.18,
       "size": 643,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "k2-decision-tree.mermaid": {
       "hash": "sha256:2ef188fabd6b14ac",
-      "generatedAt": "2026-07-21T22:01:10.664Z",
+      "generatedAt": "2026-07-22T15:35:28.748Z",
       "outputs": [
         {
           "file": "k2-decision-tree-light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286186.0977,
       "size": 611,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -90,6 +90,7 @@ Before editing:
 - Add section-level diagrams for hard-to-visualize mechanisms; for solution-evolution, diagram the stages whose fix changes the system's shape, and consider a quadrant for the regime map.
 - Create source files in `./diagrams/`.
 - Re-render with `npm run diagrams` after changing diagram sources.
+- Run `npm run validate:diagrams` and eyeball the light and dark render so every label, box, line, and arrow is readable in both themes.
 
 ### 5. Fact-check gate
 
@@ -182,6 +183,7 @@ Review questions:
 - Is the right spine used — and for solution-evolution: are stages causally chained, does every stage state its costs, is the regime map present with thresholds, does the synthesis name surviving pieces?
 - Is there an overview diagram when one is warranted?
 - Do the major sections have enough diagrams, tables, or examples?
+- Is every diagram readable in light AND dark — labels legible, boxes, lines, and arrows visible in both themes?
 - Are the trade-offs and practical constraints explicit?
 - Are all important claims grounded in sources, and do the references actually back the data?
 - Are real-company examples present where they exist, accurate to their primary sources?

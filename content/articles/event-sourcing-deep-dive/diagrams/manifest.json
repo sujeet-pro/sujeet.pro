@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:87fac3d72e1fc331",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.888Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286116.839,
       "size": 712,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "crypto-shredding-flow.mermaid": {
       "hash": "sha256:856e5ffb122df7b0",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.888Z",
       "outputs": [
         {
           "file": "crypto-shredding-flow-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286117.1133,
       "size": 948,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "decision-framework.mermaid": {
       "hash": "sha256:1f7a7c2aca832f48",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.888Z",
       "outputs": [
         {
           "file": "decision-framework-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286117.3875,
       "size": 707,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "projection-rebuild-flow.mermaid": {
       "hash": "sha256:f6b4b390f6f0e863",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.888Z",
       "outputs": [
         {
           "file": "projection-rebuild-flow-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286117.6665,
       "size": 840,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "snapshot-replay-flow.mermaid": {
       "hash": "sha256:ef4ebc4b86887cb4",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.889Z",
       "outputs": [
         {
           "file": "snapshot-replay-flow-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286117.9253,
       "size": 881,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sync-vs-async-projections.mermaid": {
       "hash": "sha256:3fddb03b1eaacc48",
-      "generatedAt": "2026-07-21T22:01:10.755Z",
+      "generatedAt": "2026-07-22T15:35:28.889Z",
       "outputs": [
         {
           "file": "sync-vs-async-projections-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558286118.1646,
       "size": 1002,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

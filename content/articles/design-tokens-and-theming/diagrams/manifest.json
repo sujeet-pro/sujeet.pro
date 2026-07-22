@@ -3,7 +3,7 @@
   "diagrams": {
     "design-token-pipeline-tokens-defined-once-transformed-per-platform.mermaid": {
       "hash": "sha256:805290679357584b",
-      "generatedAt": "2026-07-21T22:01:10.737Z",
+      "generatedAt": "2026-07-22T15:35:28.857Z",
       "outputs": [
         {
           "file": "design-token-pipeline-tokens-defined-once-transformed-per-platform-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286043.4724,
       "size": 634,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "theme-swap-flow.mermaid": {
       "hash": "sha256:27d964f1f6c35060",
-      "generatedAt": "2026-07-21T22:01:10.737Z",
+      "generatedAt": "2026-07-22T15:35:28.857Z",
       "outputs": [
         {
           "file": "theme-swap-flow-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286043.7876,
       "size": 623,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-tier-hierarchy.mermaid": {
       "hash": "sha256:1c45b0e2499862c5",
-      "generatedAt": "2026-07-21T22:01:10.737Z",
+      "generatedAt": "2026-07-22T15:35:28.857Z",
       "outputs": [
         {
           "file": "token-tier-hierarchy-light.svg",
@@ -80,7 +80,7 @@
       "theme": "both",
       "mtimeMs": 1784558286044.0918,
       "size": 782,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

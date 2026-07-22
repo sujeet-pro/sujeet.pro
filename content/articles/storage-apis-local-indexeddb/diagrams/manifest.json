@@ -3,7 +3,7 @@
   "diagrams": {
     "idb-transaction-lifecycle.mermaid": {
       "hash": "sha256:6333a1a89dc1df56",
-      "generatedAt": "2026-07-21T22:01:10.797Z",
+      "generatedAt": "2026-07-22T15:35:28.961Z",
       "outputs": [
         {
           "file": "idb-transaction-lifecycle-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286288.0146,
       "size": 829,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "indexeddb-data-model.mermaid": {
       "hash": "sha256:aec2761b9dea1704",
-      "generatedAt": "2026-07-21T22:01:10.797Z",
+      "generatedAt": "2026-07-22T15:35:28.961Z",
       "outputs": [
         {
           "file": "indexeddb-data-model-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286288.2852,
       "size": 609,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "storage-apis-overview.mermaid": {
       "hash": "sha256:e5595697410f0e26",
-      "generatedAt": "2026-07-21T22:01:10.797Z",
+      "generatedAt": "2026-07-22T15:35:28.961Z",
       "outputs": [
         {
           "file": "storage-apis-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286288.5754,
       "size": 925,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sync-vs-async-storage.mermaid": {
       "hash": "sha256:403ad663a2cd8f00",
-      "generatedAt": "2026-07-21T22:01:10.797Z",
+      "generatedAt": "2026-07-22T15:35:28.961Z",
       "outputs": [
         {
           "file": "sync-vs-async-storage-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286288.8403,
       "size": 818,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "version-upgrade-sequence.mermaid": {
       "hash": "sha256:cd2106ad66a84491",
-      "generatedAt": "2026-07-21T22:01:10.797Z",
+      "generatedAt": "2026-07-22T15:35:28.961Z",
       "outputs": [
         {
           "file": "version-upgrade-sequence-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286289.08,
       "size": 674,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

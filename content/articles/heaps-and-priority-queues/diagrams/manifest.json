@@ -3,7 +3,7 @@
   "diagrams": {
     "array-to-tree-mapping.mermaid": {
       "hash": "sha256:17e126c21f0c8c9f",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.902Z",
       "outputs": [
         {
           "file": "array-to-tree-mapping-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286147.811,
       "size": 799,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "build-heap-work-distribution.mermaid": {
       "hash": "sha256:afb7adb4fdeab119",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.902Z",
       "outputs": [
         {
           "file": "build-heap-work-distribution-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286148.115,
       "size": 736,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dijkstra-heap-usage.mermaid": {
       "hash": "sha256:c42d94bbd5124103",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.902Z",
       "outputs": [
         {
           "file": "dijkstra-heap-usage-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286148.6047,
       "size": 885,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "extract-min-bubble-down.mermaid": {
       "hash": "sha256:a32a9b207847ab60",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.902Z",
       "outputs": [
         {
           "file": "extract-min-bubble-down-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286148.9065,
       "size": 858,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "implementation-decision-tree.mermaid": {
       "hash": "sha256:2d6eaf7158cf09c5",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.902Z",
       "outputs": [
         {
           "file": "implementation-decision-tree-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286149.445,
       "size": 1455,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "insert-bubble-up.mermaid": {
       "hash": "sha256:6686e148e8a7ad85",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.903Z",
       "outputs": [
         {
           "file": "insert-bubble-up-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286149.7493,
       "size": 1517,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "k-way-merge.mermaid": {
       "hash": "sha256:69cd9982683e3ad5",
-      "generatedAt": "2026-07-21T22:01:10.763Z",
+      "generatedAt": "2026-07-22T15:35:28.903Z",
       "outputs": [
         {
           "file": "k-way-merge-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286150.0398,
       "size": 1030,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

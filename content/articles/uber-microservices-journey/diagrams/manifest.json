@@ -3,7 +3,7 @@
   "diagrams": {
     "death-star-vs-gateway.mermaid": {
       "hash": "sha256:0911868b40f7e850",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "death-star-vs-gateway-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286307.5056,
       "size": 842,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "doma-layered-architecture.mermaid": {
       "hash": "sha256:fd814f3b3b77a6df",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "doma-layered-architecture-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286307.7769,
       "size": 804,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "domain-anatomy.mermaid": {
       "hash": "sha256:a62d8f6a82a280cb",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "domain-anatomy-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286308.032,
       "size": 618,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous-.mermaid": {
       "hash": "sha256:97cc2524bd17d6b5",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "uber-s-three-architectural-phases-each-transition-was-triggered-by-the-previous--light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286308.3154,
       "size": 565,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

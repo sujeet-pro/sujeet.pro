@@ -3,7 +3,7 @@
   "diagrams": {
     "dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p.mermaid": {
       "hash": "sha256:bd04ece61f24ad9f",
-      "generatedAt": "2026-07-21T22:01:10.719Z",
+      "generatedAt": "2026-07-22T15:35:28.830Z",
       "outputs": [
         {
           "file": "dm-flow-mutation-manager-ensures-durability-before-ack-mqtt-delivers-real-time-p-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558285979.9531,
       "size": 689,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid.mermaid": {
       "hash": "sha256:4fc75cf93e378a61",
-      "generatedAt": "2026-07-21T22:01:10.719Z",
+      "generatedAt": "2026-07-22T15:35:28.830Z",
       "outputs": [
         {
           "file": "high-level-architecture-upload-process-store-deliver-feed-generation-uses-hybrid-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285980.2126,
       "size": 714,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto.mermaid": {
       "hash": "sha256:36a0b73a44dfc615",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "hybrid-fan-out-regular-users-trigger-push-to-follower-caches-celebrity-posts-sto-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285980.5054,
       "size": 668,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c.mermaid": {
       "hash": "sha256:423c5a8e951f3252",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "multi-region-deployment-primary-in-us-east-with-read-replicas-in-other-regions-c-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285980.8262,
       "size": 885,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "photo-storage-tiers.mermaid": {
       "hash": "sha256:b550e8a0c4024fdd",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "photo-storage-tiers-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285981.1597,
       "size": 704,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "service-architecture-read-and-realtime.mermaid": {
       "hash": "sha256:30a3c8a3ee1c704f",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "service-architecture-read-and-realtime-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285981.7085,
       "size": 696,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "service-architecture-write-path.mermaid": {
       "hash": "sha256:1f791867bf2669c6",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "service-architecture-write-path-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558285982.185,
       "size": 752,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin.mermaid": {
       "hash": "sha256:469d4470d2afc4a0",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "stories-architecture-aggressive-client-side-prefetch-with-ttl-synced-caching-rin-light.svg",
@@ -211,11 +211,11 @@
       "theme": "both",
       "mtimeMs": 1784558285982.4583,
       "size": 636,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu.mermaid": {
       "hash": "sha256:2358dfea8db0b84c",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "three-stage-pipeline-retrieval-narrows-billions-to-thousands-early-ranking-to-hu-light.svg",
@@ -238,11 +238,11 @@
       "theme": "both",
       "mtimeMs": 1784558285982.7205,
       "size": 828,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr.mermaid": {
       "hash": "sha256:3f4e59a9150fe54e",
-      "generatedAt": "2026-07-21T22:01:10.720Z",
+      "generatedAt": "2026-07-22T15:35:28.831Z",
       "outputs": [
         {
           "file": "two-phase-upload-media-upload-returns-immediately-with-media-id-post-creation-tr-light.svg",
@@ -261,7 +261,7 @@
       "theme": "both",
       "mtimeMs": 1784558285983.031,
       "size": 831,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-overview.mermaid": {
       "hash": "sha256:3207c75118e5685a",
-      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "generatedAt": "2026-07-22T15:35:28.946Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286255.5642,
       "size": 994,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "client-prediction-server-reconciliation.mermaid": {
       "hash": "sha256:e3a8360f9b70c988",
-      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "generatedAt": "2026-07-22T15:35:28.946Z",
       "outputs": [
         {
           "file": "client-prediction-server-reconciliation-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286255.7957,
       "size": 998,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "connection-lifecycle.mermaid": {
       "hash": "sha256:debb3af841c4b25b",
-      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "generatedAt": "2026-07-22T15:35:28.946Z",
       "outputs": [
         {
           "file": "connection-lifecycle-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286256.1194,
       "size": 978,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "optimistic-update-rollback.mermaid": {
       "hash": "sha256:f11e735018b59892",
-      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "generatedAt": "2026-07-22T15:35:28.946Z",
       "outputs": [
         {
           "file": "optimistic-update-rollback-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286256.7332,
       "size": 878,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transport-decision-tree.mermaid": {
       "hash": "sha256:dced28aa5fb1597d",
-      "generatedAt": "2026-07-21T22:01:10.787Z",
+      "generatedAt": "2026-07-22T15:35:28.947Z",
       "outputs": [
         {
           "file": "transport-decision-tree-light.svg",
@@ -126,7 +126,7 @@
       "theme": "both",
       "mtimeMs": 1784558286257.0564,
       "size": 768,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "callback-timing.mermaid": {
       "hash": "sha256:d257c106a5bc3380",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.912Z",
       "outputs": [
         {
           "file": "callback-timing-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286169.3833,
       "size": 472,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "intersection-computation.mermaid": {
       "hash": "sha256:177d9173ba70f6f7",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.912Z",
       "outputs": [
         {
           "file": "intersection-computation-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286169.6184,
       "size": 703,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "observer-lifecycle.mermaid": {
       "hash": "sha256:48325b90be3107e8",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.912Z",
       "outputs": [
         {
           "file": "observer-lifecycle-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286169.89,
       "size": 393,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "threshold-transitions.mermaid": {
       "hash": "sha256:9f9f36c158b7d7e9",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.912Z",
       "outputs": [
         {
           "file": "threshold-transitions-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286170.5022,
       "size": 897,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "v1-vs-v2.mermaid": {
       "hash": "sha256:4981ffc204e66b95",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.912Z",
       "outputs": [
         {
           "file": "v1-vs-v2-light.svg",
@@ -134,7 +134,7 @@
       "theme": "both",
       "mtimeMs": 1784558286170.8423,
       "size": 1125,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

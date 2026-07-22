@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-multi-region.mermaid": {
       "hash": "sha256:ddee42854b9e14a5",
-      "generatedAt": "2026-07-21T22:01:10.737Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "aws-multi-region-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286045.0115,
       "size": 1371,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "disco-batch-matching.mermaid": {
       "hash": "sha256:196b3ede6248319e",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "disco-batch-matching-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286045.3198,
       "size": 1056,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:59b501d8c6fc4586",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286045.6567,
       "size": 1053,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "location-update-flow.mermaid": {
       "hash": "sha256:b5e5ece755b9bc38",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "location-update-flow-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286045.93,
       "size": 567,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ride-request-sequence.mermaid": {
       "hash": "sha256:0a204a72010cf0b2",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "ride-request-sequence-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286046.4976,
       "size": 746,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "surge-pricing-pipeline.mermaid": {
       "hash": "sha256:543f949505c02199",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "surge-pricing-pipeline-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286046.9097,
       "size": 1186,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "trip-state-machine.mermaid": {
       "hash": "sha256:356230d4dbb575be",
-      "generatedAt": "2026-07-21T22:01:10.738Z",
+      "generatedAt": "2026-07-22T15:35:28.858Z",
       "outputs": [
         {
           "file": "trip-state-machine-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286047.2515,
       "size": 656,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

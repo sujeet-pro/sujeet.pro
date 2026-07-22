@@ -3,7 +3,7 @@
   "diagrams": {
     "fiber-double-buffering.mermaid": {
       "hash": "sha256:cfac050dab28d4bc",
-      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "generatedAt": "2026-07-22T15:35:28.944Z",
       "outputs": [
         {
           "file": "fiber-double-buffering-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286252.2034,
       "size": 897,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "render-pipeline.mermaid": {
       "hash": "sha256:92dde11e5049e42a",
-      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "generatedAt": "2026-07-22T15:35:28.944Z",
       "outputs": [
         {
           "file": "render-pipeline-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286252.4775,
       "size": 1060,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transition-vs-deferred-decision.mermaid": {
       "hash": "sha256:294404fce2217a07",
-      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "generatedAt": "2026-07-22T15:35:28.944Z",
       "outputs": [
         {
           "file": "transition-vs-deferred-decision-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286253.0251,
       "size": 981,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "virtualization-window.mermaid": {
       "hash": "sha256:4852c6e7cc3b12da",
-      "generatedAt": "2026-07-21T22:01:10.786Z",
+      "generatedAt": "2026-07-22T15:35:28.944Z",
       "outputs": [
         {
           "file": "virtualization-window-light.svg",
@@ -107,7 +107,7 @@
       "theme": "both",
       "mtimeMs": 1784558286253.2861,
       "size": 1090,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

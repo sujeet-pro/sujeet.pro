@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:7db71a52e67f87e5",
-      "generatedAt": "2026-07-21T22:01:10.732Z",
+      "generatedAt": "2026-07-22T15:35:28.849Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286025.7922,
       "size": 1316,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cache-lease-sequence.mermaid": {
       "hash": "sha256:a64db67802bcd8ad",
-      "generatedAt": "2026-07-21T22:01:10.732Z",
+      "generatedAt": "2026-07-22T15:35:28.849Z",
       "outputs": [
         {
           "file": "cache-lease-sequence-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286026.0518,
       "size": 676,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "component-tier-flow.mermaid": {
       "hash": "sha256:e3d46fa0f1641433",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.849Z",
       "outputs": [
         {
           "file": "component-tier-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286026.459,
       "size": 595,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-fanout-routing.mermaid": {
       "hash": "sha256:0768783d212f7904",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.849Z",
       "outputs": [
         {
           "file": "hybrid-fanout-routing-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286026.9858,
       "size": 557,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-region-deployment.mermaid": {
       "hash": "sha256:c167806735ce6dbb",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "multi-region-deployment-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286027.2505,
       "size": 841,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pull-fanout-flow.mermaid": {
       "hash": "sha256:1ca62e31bf6b8c02",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "pull-fanout-flow-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286027.5276,
       "size": 575,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "push-fanout-sequence.mermaid": {
       "hash": "sha256:eea081809a14c34e",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "push-fanout-sequence-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558286027.784,
       "size": 659,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ranking-funnel-stages.mermaid": {
       "hash": "sha256:7c023b2aaaf4cdd4",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "ranking-funnel-stages-light.svg",
@@ -207,11 +207,11 @@
       "theme": "both",
       "mtimeMs": 1784558286028.0571,
       "size": 441,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "system-overview.mermaid": {
       "hash": "sha256:e461349b92a64e48",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "system-overview-light.svg",
@@ -234,11 +234,11 @@
       "theme": "both",
       "mtimeMs": 1784558286028.3223,
       "size": 734,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tao-data-model.mermaid": {
       "hash": "sha256:e2ab0038c8f50359",
-      "generatedAt": "2026-07-21T22:01:10.733Z",
+      "generatedAt": "2026-07-22T15:35:28.850Z",
       "outputs": [
         {
           "file": "tao-data-model-light.svg",
@@ -261,7 +261,7 @@
       "theme": "both",
       "mtimeMs": 1784558286028.9463,
       "size": 505,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

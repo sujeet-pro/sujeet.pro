@@ -3,7 +3,7 @@
   "diagrams": {
     "cascade-sort-order.mermaid": {
       "hash": "sha256:757ac74c02b7ea04",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "cascade-sort-order-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285863.8345,
       "size": 628,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "css-js-blocking-chain.mermaid": {
       "hash": "sha256:2c4486c2f2c5c5aa",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "css-js-blocking-chain-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285864.2188,
       "size": 748,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "css-parsing-pipeline.mermaid": {
       "hash": "sha256:fac497f1ef99ac35",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "css-parsing-pipeline-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285864.5088,
       "size": 515,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cssom-vs-dom-timeline.mermaid": {
       "hash": "sha256:203ed8c16e003980",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "cssom-vs-dom-timeline-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558285864.8992,
       "size": 688,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "layers-and-scope.mermaid": {
       "hash": "sha256:f8ce46c7efaf81c3",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "layers-and-scope-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558285865.2402,
       "size": 877,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "render-blocking-waterfall.mermaid": {
       "hash": "sha256:c1eeb4a006248117",
-      "generatedAt": "2026-07-21T22:01:10.686Z",
+      "generatedAt": "2026-07-22T15:35:28.782Z",
       "outputs": [
         {
           "file": "render-blocking-waterfall-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558285865.5447,
       "size": 745,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

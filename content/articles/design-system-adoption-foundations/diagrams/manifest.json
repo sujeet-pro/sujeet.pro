@@ -3,7 +3,7 @@
   "diagrams": {
     "adoption-maturity-ladder.mermaid": {
       "hash": "sha256:272cfbc332701ae5",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.852Z",
       "outputs": [
         {
           "file": "adoption-maturity-ladder-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286033.6973,
       "size": 697,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "centralized-model-a-dedicated-team-with-clear-hierarchy-owns-all-design-system-d.mermaid": {
       "hash": "sha256:96a6456e1d207f13",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "centralized-model-a-dedicated-team-with-clear-hierarchy-owns-all-design-system-d-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286033.9785,
       "size": 814,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "federated-model-a-small-core-team-coordinates-champions-embedded-in-each-product.mermaid": {
       "hash": "sha256:f727606205acdf3c",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "federated-model-a-small-core-team-coordinates-champions-embedded-in-each-product-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286034.2688,
       "size": 796,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "governance-models-comparison.mermaid": {
       "hash": "sha256:7797dbb8e5edb274",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "governance-models-comparison-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286034.551,
       "size": 1360,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hybrid-model-core-team-owns-foundations-while-product-teams-contribute-specializ.mermaid": {
       "hash": "sha256:2abfdae9a93a3c68",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "hybrid-model-core-team-owns-foundations-while-product-teams-contribute-specializ-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286034.8303,
       "size": 917,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "the-governance-model-must-match-organizational-scale-start-centralized-evolve-to.mermaid": {
       "hash": "sha256:f69e050f08f39bd2",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "the-governance-model-must-match-organizational-scale-start-centralized-evolve-to-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558286035.1184,
       "size": 678,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "the-iterative-roi-calculation-process-from-audit-through-stakeholder-presentatio.mermaid": {
       "hash": "sha256:828f447b2ba76977",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "the-iterative-roi-calculation-process-from-audit-through-stakeholder-presentatio-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558286035.8022,
       "size": 534,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas.mermaid": {
       "hash": "sha256:30a873ccff785855",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "the-six-phase-framework-for-design-system-programs-from-proving-the-business-cas-light.svg",
@@ -215,11 +215,11 @@
       "theme": "both",
       "mtimeMs": 1784558286036.08,
       "size": 999,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-cascade.mermaid": {
       "hash": "sha256:0a9d41b29f928825",
-      "generatedAt": "2026-07-21T22:01:10.735Z",
+      "generatedAt": "2026-07-22T15:35:28.853Z",
       "outputs": [
         {
           "file": "token-cascade-light.svg",
@@ -242,7 +242,7 @@
       "theme": "both",
       "mtimeMs": 1784558286036.394,
       "size": 1295,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

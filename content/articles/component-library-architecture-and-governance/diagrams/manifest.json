@@ -3,7 +3,7 @@
   "diagrams": {
     "centralized-vs-federated.mermaid": {
       "hash": "sha256:53ba469a951dc226",
-      "generatedAt": "2026-07-21T22:01:10.680Z",
+      "generatedAt": "2026-07-22T15:35:28.773Z",
       "outputs": [
         {
           "file": "centralized-vs-federated-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285845.5732,
       "size": 1054,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "compound-component-context-flow.mermaid": {
       "hash": "sha256:d9911946db9cee74",
-      "generatedAt": "2026-07-21T22:01:10.680Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "compound-component-context-flow-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285845.989,
       "size": 810,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "controlled-vs-uncontrolled-state.mermaid": {
       "hash": "sha256:d8afffd8a19f8e15",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "controlled-vs-uncontrolled-state-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285846.3347,
       "size": 709,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "deprecation-timeline.mermaid": {
       "hash": "sha256:f89ea0c33aa03fdb",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "deprecation-timeline-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285847.1372,
       "size": 545,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "library-as-product-overview.mermaid": {
       "hash": "sha256:5200a0714a788ff3",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "library-as-product-overview-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558285847.467,
       "size": 681,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "packaging-topologies.mermaid": {
       "hash": "sha256:5aeeba9743400e5a",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "packaging-topologies-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558285847.981,
       "size": 1309,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quality-gate-pipeline.mermaid": {
       "hash": "sha256:37d79a3f4679a6d0",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "quality-gate-pipeline-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558285848.3633,
       "size": 776,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-pipeline.mermaid": {
       "hash": "sha256:1b184c84a2ab7419",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.774Z",
       "outputs": [
         {
           "file": "token-pipeline-light.svg",
@@ -215,7 +215,7 @@
       "theme": "both",
       "mtimeMs": 1784558285848.683,
       "size": 1202,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

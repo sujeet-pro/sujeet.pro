@@ -3,7 +3,7 @@
   "diagrams": {
     "critical-css-delivery.mermaid": {
       "hash": "sha256:7b3023fa75bb43d4",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.977Z",
       "outputs": [
         {
           "file": "critical-css-delivery-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286327.1086,
       "size": 880,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "font-display-strategies.mermaid": {
       "hash": "sha256:bdd0533db22e70a5",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.977Z",
       "outputs": [
         {
           "file": "font-display-strategies-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286327.366,
       "size": 868,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "font-swap-cls-mitigation.mermaid": {
       "hash": "sha256:00b6bca4a78c1389",
-      "generatedAt": "2026-07-21T22:01:10.808Z",
+      "generatedAt": "2026-07-22T15:35:28.977Z",
       "outputs": [
         {
           "file": "font-swap-cls-mitigation-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286327.656,
       "size": 839,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "optimization-layers.mermaid": {
       "hash": "sha256:52a1f552c5d9085f",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.977Z",
       "outputs": [
         {
           "file": "optimization-layers-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286327.8992,
       "size": 687,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "optimization-pipeline.mermaid": {
       "hash": "sha256:deb27d0af45824b9",
-      "generatedAt": "2026-07-21T22:01:10.809Z",
+      "generatedAt": "2026-07-22T15:35:28.977Z",
       "outputs": [
         {
           "file": "optimization-pipeline-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286328.2964,
       "size": 730,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

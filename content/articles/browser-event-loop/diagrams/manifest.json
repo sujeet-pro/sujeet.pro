@@ -3,7 +3,7 @@
   "diagrams": {
     "detailed-event-loop-main.mermaid": {
       "hash": "sha256:d438ee8c7b96f3f6",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.759Z",
       "outputs": [
         {
           "file": "detailed-event-loop-main-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285808.2603,
       "size": 1479,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "detailed-event-loop-microtask.mermaid": {
       "hash": "sha256:a399ae8ae551f6f3",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.759Z",
       "outputs": [
         {
           "file": "detailed-event-loop-microtask-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285808.7085,
       "size": 844,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "detailed-event-loop-rendering.mermaid": {
       "hash": "sha256:4f8e135e4ee36d96",
-      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "generatedAt": "2026-07-22T15:35:28.759Z",
       "outputs": [
         {
           "file": "detailed-event-loop-rendering-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285809.2332,
       "size": 1225,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks.mermaid": {
       "hash": "sha256:52923bbbc99f7e7a",
-      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "generatedAt": "2026-07-22T15:35:28.759Z",
       "outputs": [
         {
           "file": "event-loop-iteration-one-task-drain-microtasks-optional-rendering-idle-callbacks-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285809.6113,
       "size": 477,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r.mermaid": {
       "hash": "sha256:2df4e009e996ad2b",
-      "generatedAt": "2026-07-21T22:01:10.671Z",
+      "generatedAt": "2026-07-22T15:35:28.759Z",
       "outputs": [
         {
           "file": "event-loop-iteration-with-a-parallel-rendering-opportunity-watcher-that-queues-r-light.svg",
@@ -134,7 +134,7 @@
       "theme": "both",
       "mtimeMs": 1784558285809.936,
       "size": 451,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

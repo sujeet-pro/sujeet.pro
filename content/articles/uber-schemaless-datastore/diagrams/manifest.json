@@ -3,7 +3,7 @@
   "diagrams": {
     "buffered-writes.mermaid": {
       "hash": "sha256:1b027a6a6a6c46af",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "buffered-writes-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286309.2117,
       "size": 750,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cell-write-path.mermaid": {
       "hash": "sha256:d9e401af5cb23faa",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.970Z",
       "outputs": [
         {
           "file": "cell-write-path-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286309.4302,
       "size": 452,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "mezzanine-dual-write.mermaid": {
       "hash": "sha256:f73c6945b3e07372",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.971Z",
       "outputs": [
         {
           "file": "mezzanine-dual-write-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286309.682,
       "size": 980,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "schemaless-overview.mermaid": {
       "hash": "sha256:d45a3ac4ffd4ef1a",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.971Z",
       "outputs": [
         {
           "file": "schemaless-overview-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286309.9226,
       "size": 690,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "trigger-architecture.mermaid": {
       "hash": "sha256:ffa795ca6cc7c02a",
-      "generatedAt": "2026-07-21T22:01:10.803Z",
+      "generatedAt": "2026-07-22T15:35:28.971Z",
       "outputs": [
         {
           "file": "trigger-architecture-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558286310.1882,
       "size": 812,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

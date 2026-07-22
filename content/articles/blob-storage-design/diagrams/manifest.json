@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture.mermaid": {
       "hash": "sha256:f057fa1949038dfe",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.758Z",
       "outputs": [
         {
           "file": "architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285806.0642,
       "size": 920,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cdc-vs-fixed-chunking.mermaid": {
       "hash": "sha256:15d873ff11842492",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.758Z",
       "outputs": [
         {
           "file": "cdc-vs-fixed-chunking-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285806.5525,
       "size": 609,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lrc-vs-rs-reconstruction.mermaid": {
       "hash": "sha256:1dc8a488122688bb",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.758Z",
       "outputs": [
         {
           "file": "lrc-vs-rs-reconstruction-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285807.101,
       "size": 651,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multipart-upload-flow.mermaid": {
       "hash": "sha256:efcdf9d05d8e678a",
-      "generatedAt": "2026-07-21T22:01:10.670Z",
+      "generatedAt": "2026-07-22T15:35:28.758Z",
       "outputs": [
         {
           "file": "multipart-upload-flow-light.svg",
@@ -103,7 +103,7 @@
       "theme": "both",
       "mtimeMs": 1784558285807.4648,
       "size": 743,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

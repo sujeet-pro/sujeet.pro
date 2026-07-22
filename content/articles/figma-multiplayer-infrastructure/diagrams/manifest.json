@@ -3,7 +3,7 @@
   "diagrams": {
     "fractional-indexing.mermaid": {
       "hash": "sha256:1d9bfd71e6f931ac",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "fractional-indexing-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286134.121,
       "size": 988,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "livegraph-100x.mermaid": {
       "hash": "sha256:079e96548e24133c",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "livegraph-100x-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286134.4302,
       "size": 925,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multiplayer-architecture-overview.mermaid": {
       "hash": "sha256:ea79ca4c6ff69475",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "multiplayer-architecture-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286134.953,
       "size": 798,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multiplayer-message-flow.mermaid": {
       "hash": "sha256:f7141deabe0cd2a1",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "multiplayer-message-flow-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286135.331,
       "size": 746,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "optimistic-update-sequence.mermaid": {
       "hash": "sha256:fa6d49695509b187",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "optimistic-update-sequence-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286135.6045,
       "size": 875,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "persistence-flow.mermaid": {
       "hash": "sha256:caadba564d888231",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "persistence-flow-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558286135.894,
       "size": 785,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "presence-pipeline.mermaid": {
       "hash": "sha256:78fbb8431a580e08",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "presence-pipeline-light.svg",
@@ -176,11 +176,11 @@
       "theme": "both",
       "mtimeMs": 1784558286136.1519,
       "size": 1125,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "undo-per-author.mermaid": {
       "hash": "sha256:1a9427eb1dde1199",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.897Z",
       "outputs": [
         {
           "file": "undo-per-author-light.svg",
@@ -199,11 +199,11 @@
       "theme": "both",
       "mtimeMs": 1784558286136.4236,
       "size": 973,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "wasm-renderer.mermaid": {
       "hash": "sha256:31f5f131b5ac6ac5",
-      "generatedAt": "2026-07-21T22:01:10.759Z",
+      "generatedAt": "2026-07-22T15:35:28.898Z",
       "outputs": [
         {
           "file": "wasm-renderer-light.svg",
@@ -226,7 +226,7 @@
       "theme": "both",
       "mtimeMs": 1784558286136.7031,
       "size": 848,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

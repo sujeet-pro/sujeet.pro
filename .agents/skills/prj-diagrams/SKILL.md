@@ -94,7 +94,7 @@ Caption goes on the **light** image's title attribute. Both variants must be pre
 For a pre-merge or pre-release pass, follow `node_modules/diagramkit/skills/diagramkit-review/SKILL.md` end-to-end. The shortcut:
 
 ```bash
-npm run validate:diagrams              # diagramkit validate ./content --recursive
+npm run validate:diagrams              # diagramkit validate . --recursive --scope-dir diagrams --fail-on <codes>
 npm run validate:diagrams:json         # JSON form for CI
 ```
 
@@ -106,9 +106,11 @@ The validator reports issue codes; the most common in this repo:
 | `MISSING_SVG_CLOSE`       | error    | Render crashed mid-output.                                                             |
 | `EMPTY_FILE`              | error    | Zero bytes — re-render, check `npx diagramkit warmup`.                                 |
 | `CONTAINS_SCRIPT`         | error    | `<script>` inside SVG — won't work in `<img>` embed.                                   |
-| `CONTAINS_FOREIGN_OBJECT` | warning  | Mermaid HTML labels — silently degrade in `<img>` / Markdown. Set `htmlLabels: false`. |
+| `CONTAINS_FOREIGN_OBJECT` | fatal    | Mermaid HTML labels — silently degrade in `<img>` / Markdown. Set `htmlLabels: false`. |
 | `EXTERNAL_RESOURCE`       | warning  | SVG references external URL — blocked in `<img>`.                                      |
 | `LOW_CONTRAST_TEXT`       | warning  | Fails WCAG 2.2 AA (< 4.5:1 normal, < 3:1 large). **Always fix.**                       |
+| `LOW_CONTRAST_SHAPE`      | warning  | Box/node invisible against the canvas. **Always fix.**                                 |
+| `LOW_CONTRAST_STROKE`     | warning  | Line/edge/arrow invisible against the canvas. **Always fix.**                          |
 
 For per-engine fix tactics, hand off to that engine's SKILL.md `## Review Mode` section. Cap any per-source fix loop at 8 iterations (the upstream `diagramkit-review` convention).
 
@@ -135,5 +137,6 @@ If you change repo-wide diagram behavior, update **both** in the same change:
 - Always `npx diagramkit ...` (or `npm run diagrams ...`), never a global `diagramkit`.
 - Edit sources, not SVGs. Re-render after every source change.
 - Always render with both themes (`defaultTheme: "both"` is the project default; do not override per-entry).
+- After a validate pass, render the light and dark PNGs and eyeball them — every box, line, and arrow must be visible against the canvas in both themes, not just the text (`LOW_CONTRAST_SHAPE` / `LOW_CONTRAST_STROKE`).
 - Use `<picture>`-style auto-merging via consecutive markdown images, not raw `<picture>` HTML.
 - For audits, follow `diagramkit-review` end-to-end and write the report into `.temp/diagram-review/<timestamp>/report.md`.

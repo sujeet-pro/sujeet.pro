@@ -3,7 +3,7 @@
   "diagrams": {
     "beginframe-sequence.mermaid": {
       "hash": "sha256:42e75b9840731851",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.785Z",
       "outputs": [
         {
           "file": "beginframe-sequence-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558285869.3262,
       "size": 1123,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "draw-quad-pipeline.mermaid": {
       "hash": "sha256:299c255c3fb3240d",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.785Z",
       "outputs": [
         {
           "file": "draw-quad-pipeline-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285870.0315,
       "size": 1104,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "frame-stage-timeline.mermaid": {
       "hash": "sha256:43e675fbfe7aeb73",
-      "generatedAt": "2026-07-21T22:01:10.687Z",
+      "generatedAt": "2026-07-22T15:35:28.785Z",
       "outputs": [
         {
           "file": "frame-stage-timeline-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285870.3687,
       "size": 1112,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "os-compositor-handoff.mermaid": {
       "hash": "sha256:bbcf999e6d5681e5",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.785Z",
       "outputs": [
         {
           "file": "os-compositor-handoff-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285870.831,
       "size": 1220,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "viz-architecture-overview.mermaid": {
       "hash": "sha256:d3811abf4bce530e",
-      "generatedAt": "2026-07-21T22:01:10.688Z",
+      "generatedAt": "2026-07-22T15:35:28.785Z",
       "outputs": [
         {
           "file": "viz-architecture-overview-light.svg",
@@ -130,7 +130,7 @@
       "theme": "both",
       "mtimeMs": 1784558285871.3267,
       "size": 1564,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

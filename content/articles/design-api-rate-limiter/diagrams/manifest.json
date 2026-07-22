@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-production-deployment.mermaid": {
       "hash": "sha256:01f54fd1fd13fc3c",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.804Z",
       "outputs": [
         {
           "file": "aws-production-deployment-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285915.2537,
       "size": 935,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "circuit-breaker-states.mermaid": {
       "hash": "sha256:56c30e7b8b4df51b",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.804Z",
       "outputs": [
         {
           "file": "circuit-breaker-states-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285915.562,
       "size": 650,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "distributed-counter-sync.mermaid": {
       "hash": "sha256:0aaf654eb9687836",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.804Z",
       "outputs": [
         {
           "file": "distributed-counter-sync-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285915.8176,
       "size": 898,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:d9939f742ac7fd76",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.804Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285916.2231,
       "size": 1277,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-tier-quota-resolution.mermaid": {
       "hash": "sha256:1fa6f13992757055",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.804Z",
       "outputs": [
         {
           "file": "multi-tier-quota-resolution-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285916.7634,
       "size": 511,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-a-local-sidecar.mermaid": {
       "hash": "sha256:429924247ad19c57",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "path-a-local-sidecar-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285917.0974,
       "size": 202,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-b-centralized.mermaid": {
       "hash": "sha256:6ad4703c77e20b20",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "path-b-centralized-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558285917.4297,
       "size": 260,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "path-c-hybrid.mermaid": {
       "hash": "sha256:b707127e2ea54700",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "path-c-hybrid-light.svg",
@@ -211,11 +211,11 @@
       "theme": "both",
       "mtimeMs": 1784558285917.6404,
       "size": 244,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quota-and-observability.mermaid": {
       "hash": "sha256:a1ed42e5bd47c1f6",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "quota-and-observability-light.svg",
@@ -238,11 +238,11 @@
       "theme": "both",
       "mtimeMs": 1784558285917.888,
       "size": 678,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rate-limiter-data-path.mermaid": {
       "hash": "sha256:5e0971e7dfb63a38",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "rate-limiter-data-path-light.svg",
@@ -265,11 +265,11 @@
       "theme": "both",
       "mtimeMs": 1784558285918.1797,
       "size": 813,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-flow-allowed.mermaid": {
       "hash": "sha256:a173dad347f9a11a",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "request-flow-allowed-light.svg",
@@ -288,11 +288,11 @@
       "theme": "both",
       "mtimeMs": 1784558285918.5957,
       "size": 329,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "request-flow-denied.mermaid": {
       "hash": "sha256:f1f6fe6fea27bd2a",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "request-flow-denied-light.svg",
@@ -311,11 +311,11 @@
       "theme": "both",
       "mtimeMs": 1784558285918.9937,
       "size": 568,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "sliding-window-counter.mermaid": {
       "hash": "sha256:6c6ff8cc5d6d5fa3",
-      "generatedAt": "2026-07-21T22:01:10.702Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "sliding-window-counter-light.svg",
@@ -338,11 +338,11 @@
       "theme": "both",
       "mtimeMs": 1784558285919.2717,
       "size": 630,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "token-bucket.mermaid": {
       "hash": "sha256:b4b10a4dc87efbc6",
-      "generatedAt": "2026-07-21T22:01:10.703Z",
+      "generatedAt": "2026-07-22T15:35:28.805Z",
       "outputs": [
         {
           "file": "token-bucket-light.svg",
@@ -365,7 +365,7 @@
       "theme": "both",
       "mtimeMs": 1784558285919.5417,
       "size": 641,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

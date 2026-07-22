@@ -3,7 +3,7 @@
   "diagrams": {
     "agent-topology.mermaid": {
       "hash": "sha256:8d2f9377acd99023",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "agent-topology-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286075.264,
       "size": 946,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "indexing-strategies.mermaid": {
       "hash": "sha256:19637104b1f093e7",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "indexing-strategies-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286075.7808,
       "size": 1135,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pipeline-overview.mermaid": {
       "hash": "sha256:825b9037785f7c22",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "pipeline-overview-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286076.042,
       "size": 1247,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "query-fan-out.mermaid": {
       "hash": "sha256:a908d63936903bc9",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "query-fan-out-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558286076.3623,
       "size": 945,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tiered-storage-lifecycle.mermaid": {
       "hash": "sha256:e3bae6cb5bf2cbd0",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "tiered-storage-lifecycle-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558286076.6152,
       "size": 1194,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "trace-correlation-sequence.mermaid": {
       "hash": "sha256:1446e95b42326d2e",
-      "generatedAt": "2026-07-21T22:01:10.745Z",
+      "generatedAt": "2026-07-22T15:35:28.871Z",
       "outputs": [
         {
           "file": "trace-correlation-sequence-light.svg",
@@ -157,7 +157,7 @@
       "theme": "both",
       "mtimeMs": 1784558286076.9075,
       "size": 964,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

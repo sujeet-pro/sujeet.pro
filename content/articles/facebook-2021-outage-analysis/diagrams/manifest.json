@@ -3,7 +3,7 @@
   "diagrams": {
     "dns-dependency-map.mermaid": {
       "hash": "sha256:ffb5716f29c6d887",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "dns-dependency-map-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286124.2444,
       "size": 1466,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "failure-cascade-sequence.mermaid": {
       "hash": "sha256:869379b39d4481f7",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "failure-cascade-sequence-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286124.552,
       "size": 955,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "failure-chain.mermaid": {
       "hash": "sha256:056ab5f733f38107",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "failure-chain-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286124.8462,
       "size": 1779,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "outage-timeline.mermaid": {
       "hash": "sha256:7ad05453d5964e9d",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "outage-timeline-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286125.4734,
       "size": 1773,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "recovery-sequence.mermaid": {
       "hash": "sha256:1689c74531f72bdb",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "recovery-sequence-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286125.9578,
       "size": 994,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "shared-fate-recovery-paths.mermaid": {
       "hash": "sha256:875515f7dfc3faa4",
-      "generatedAt": "2026-07-21T22:01:10.757Z",
+      "generatedAt": "2026-07-22T15:35:28.892Z",
       "outputs": [
         {
           "file": "shared-fate-recovery-paths-light.svg",
@@ -149,7 +149,7 @@
       "theme": "both",
       "mtimeMs": 1784558286126.2793,
       "size": 812,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "bft-message-pattern.mermaid": {
       "hash": "sha256:24494693587b8d42",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "bft-message-pattern-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286068.6729,
       "size": 1071,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "flexible-paxos-quorums.mermaid": {
       "hash": "sha256:39cdf5f3fc65a092",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "flexible-paxos-quorums-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286069.2817,
       "size": 946,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "flp-bivalency.mermaid": {
       "hash": "sha256:dddb238fe8d9bd5d",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "flp-bivalency-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286069.6147,
       "size": 1108,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "leader-based-replication.mermaid": {
       "hash": "sha256:477a700e805b7528",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "leader-based-replication-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286069.9207,
       "size": 1025,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "paxos-two-phase.mermaid": {
       "hash": "sha256:651cc4da7cdcb6e3",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "paxos-two-phase-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286070.2603,
       "size": 832,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "raft-log-replication.mermaid": {
       "hash": "sha256:187ff53f97765d7e",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.868Z",
       "outputs": [
         {
           "file": "raft-log-replication-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558286070.644,
       "size": 1487,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "raft-states.mermaid": {
       "hash": "sha256:7adb137e67c29304",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.869Z",
       "outputs": [
         {
           "file": "raft-states-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558286071.0251,
       "size": 690,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "readindex-linearizable-read.mermaid": {
       "hash": "sha256:50833f0bacb5a526",
-      "generatedAt": "2026-07-21T22:01:10.744Z",
+      "generatedAt": "2026-07-22T15:35:28.869Z",
       "outputs": [
         {
           "file": "readindex-linearizable-read-light.svg",
@@ -203,7 +203,7 @@
       "theme": "both",
       "mtimeMs": 1784558286071.622,
       "size": 935,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "hydration-vs-resumability.mermaid": {
       "hash": "sha256:a7acd791c752c078",
-      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "generatedAt": "2026-07-22T15:35:28.947Z",
       "outputs": [
         {
           "file": "hydration-vs-resumability-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286259.2656,
       "size": 922,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "modern-rendering-pipeline.mermaid": {
       "hash": "sha256:e8e1445c86d009a9",
-      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "generatedAt": "2026-07-22T15:35:28.947Z",
       "outputs": [
         {
           "file": "modern-rendering-pipeline-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286259.5154,
       "size": 978,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rsc-payload-flow.mermaid": {
       "hash": "sha256:20e27d3ef6a34265",
-      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "generatedAt": "2026-07-22T15:35:28.947Z",
       "outputs": [
         {
           "file": "rsc-payload-flow-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286259.7595,
       "size": 880,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "strategy-decision-tree.mermaid": {
       "hash": "sha256:d7f12f222994753a",
-      "generatedAt": "2026-07-21T22:01:10.788Z",
+      "generatedAt": "2026-07-22T15:35:28.947Z",
       "outputs": [
         {
           "file": "strategy-decision-tree-light.svg",
@@ -103,7 +103,7 @@
       "theme": "both",
       "mtimeMs": 1784558286260.057,
       "size": 872,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

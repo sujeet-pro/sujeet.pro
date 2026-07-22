@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-reference-architecture.mermaid": {
       "hash": "sha256:f78985adfab47141",
-      "generatedAt": "2026-07-21T22:01:10.705Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285928.8577,
       "size": 820,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "component-overview.mermaid": {
       "hash": "sha256:af0f7e24c620e65b",
-      "generatedAt": "2026-07-21T22:01:10.705Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "component-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285929.1677,
       "size": 1111,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "distributed-metadata-architecture.mermaid": {
       "hash": "sha256:739270547c8bce12",
-      "generatedAt": "2026-07-21T22:01:10.705Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "distributed-metadata-architecture-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285929.7356,
       "size": 601,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "erasure-coding-reconstruction.mermaid": {
       "hash": "sha256:c89792f593a39385",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "erasure-coding-reconstruction-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285930.2769,
       "size": 1142,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "federated-namenodes.mermaid": {
       "hash": "sha256:5e20162e11d0b747",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "federated-namenodes-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558285930.5847,
       "size": 580,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture.mermaid": {
       "hash": "sha256:566aa87a50a0e95d",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.810Z",
       "outputs": [
         {
           "file": "high-level-architecture-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558285930.897,
       "size": 801,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rack-aware-placement.mermaid": {
       "hash": "sha256:17c521b237366d0d",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "rack-aware-placement-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558285931.1655,
       "size": 625,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "re-replication-flow.mermaid": {
       "hash": "sha256:29bb9ce7b460e510",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "re-replication-flow-light.svg",
@@ -215,11 +215,11 @@
       "theme": "both",
       "mtimeMs": 1784558285931.4834,
       "size": 863,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "read-flow-sequence.mermaid": {
       "hash": "sha256:a648a6bd16f4f7fe",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "read-flow-sequence-light.svg",
@@ -238,11 +238,11 @@
       "theme": "both",
       "mtimeMs": 1784558285931.8687,
       "size": 1048,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "record-append-sequence.mermaid": {
       "hash": "sha256:60050650a20469b1",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "record-append-sequence-light.svg",
@@ -261,11 +261,11 @@
       "theme": "both",
       "mtimeMs": 1784558285932.5544,
       "size": 806,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "single-master-architecture.mermaid": {
       "hash": "sha256:13a717904d77d535",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "single-master-architecture-light.svg",
@@ -288,11 +288,11 @@
       "theme": "both",
       "mtimeMs": 1784558285932.8438,
       "size": 602,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-pipeline-sequence.mermaid": {
       "hash": "sha256:057b551dfb0322f8",
-      "generatedAt": "2026-07-21T22:01:10.706Z",
+      "generatedAt": "2026-07-22T15:35:28.811Z",
       "outputs": [
         {
           "file": "write-pipeline-sequence-light.svg",
@@ -311,7 +311,7 @@
       "theme": "both",
       "mtimeMs": 1784558285933.1243,
       "size": 1091,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

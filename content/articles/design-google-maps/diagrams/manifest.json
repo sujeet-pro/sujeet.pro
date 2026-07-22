@@ -3,7 +3,7 @@
   "diagrams": {
     "aws-reference-architecture-with-regional-routing-service-instances-and-global-ti.mermaid": {
       "hash": "sha256:176c675aeb2e030b",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.825Z",
       "outputs": [
         {
           "file": "aws-reference-architecture-with-regional-routing-service-instances-and-global-ti-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285967.1865,
       "size": 954,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s.mermaid": {
       "hash": "sha256:a2ee90e3299f5002",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.825Z",
       "outputs": [
         {
           "file": "contraction-hierarchies-offline-preprocessing-creates-shortcuts-online-queries-s-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285967.4475,
       "size": 753,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "geo-index-decision.mermaid": {
       "hash": "sha256:b18b65c236472588",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.825Z",
       "outputs": [
         {
           "file": "geo-index-decision-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285968.0403,
       "size": 1432,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod.mermaid": {
       "hash": "sha256:5370bdfb1150da73",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "high-level-architecture-cdn-cached-tiles-specialized-services-for-routing-geocod-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285968.3616,
       "size": 1197,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "hmm-map-matching.mermaid": {
       "hash": "sha256:e71396a726226a80",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "hmm-map-matching-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285968.6438,
       "size": 1023,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier.mermaid": {
       "hash": "sha256:0807ced2c21e583c",
-      "generatedAt": "2026-07-21T22:01:10.716Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "node-ordering-determines-preprocessing-quality-lower-priority-contracted-earlier-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285969.3472,
       "size": 699,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "routing-data-flow.mermaid": {
       "hash": "sha256:c72993d79c02a7cf",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "routing-data-flow-light.svg",
@@ -180,11 +180,11 @@
       "theme": "both",
       "mtimeMs": 1784558285969.6238,
       "size": 1156,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "spatial-cell-hierarchy.mermaid": {
       "hash": "sha256:eb488a0c1cf81c90",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "spatial-cell-hierarchy-light.svg",
@@ -207,11 +207,11 @@
       "theme": "both",
       "mtimeMs": 1784558285969.8926,
       "size": 1028,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "tile-pyramid.mermaid": {
       "hash": "sha256:2ba40cf3108db30e",
-      "generatedAt": "2026-07-21T22:01:10.717Z",
+      "generatedAt": "2026-07-22T15:35:28.826Z",
       "outputs": [
         {
           "file": "tile-pyramid-light.svg",
@@ -234,7 +234,7 @@
       "theme": "both",
       "mtimeMs": 1784558285970.525,
       "size": 763,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

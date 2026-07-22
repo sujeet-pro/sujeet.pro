@@ -3,7 +3,7 @@
   "diagrams": {
     "io-dispatch.mermaid": {
       "hash": "sha256:ad63aefa6fe36e85",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.930Z",
       "outputs": [
         {
           "file": "io-dispatch-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286224.5654,
       "size": 881,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "phase-order.mermaid": {
       "hash": "sha256:b27c074ec2e51acc",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.930Z",
       "outputs": [
         {
           "file": "phase-order-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286224.8792,
       "size": 791,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "setimmediate-vs-settimeout.mermaid": {
       "hash": "sha256:8ccd96766239c723",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.931Z",
       "outputs": [
         {
           "file": "setimmediate-vs-settimeout-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286225.126,
       "size": 912,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "worker-threads-model.mermaid": {
       "hash": "sha256:0e062a6836a51d8f",
-      "generatedAt": "2026-07-21T22:01:10.778Z",
+      "generatedAt": "2026-07-22T15:35:28.931Z",
       "outputs": [
         {
           "file": "worker-threads-model-light.svg",
@@ -103,7 +103,7 @@
       "theme": "both",
       "mtimeMs": 1784558286225.352,
       "size": 1381,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

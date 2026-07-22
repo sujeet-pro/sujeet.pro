@@ -3,7 +3,7 @@
   "diagrams": {
     "client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope.mermaid": {
       "hash": "sha256:c65eb16714e2cb12",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "client-server-ot-server-assigns-canonical-ordering-clients-transform-against-ope-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286234.9087,
       "size": 502,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "decision-tree-for-ot-variant-selection-client-server-dominates-production-use.mermaid": {
       "hash": "sha256:6f6c55c1d496388c",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "decision-tree-for-ot-variant-selection-client-server-dominates-production-use-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286235.376,
       "size": 826,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "implementation-decision-tree-building-ot-from-scratch-is-rarely-justified.mermaid": {
       "hash": "sha256:a75801313188cb0b",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "implementation-decision-tree-building-ot-from-scratch-is-rarely-justified-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286235.8452,
       "size": 548,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv.mermaid": {
       "hash": "sha256:9127a737397ed470",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "ot-core-flow-concurrent-operations-are-transformed-against-each-other-to-preserv-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286236.1177,
       "size": 780,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ot-vs-crdt-matrix.mermaid": {
       "hash": "sha256:761ab03811fc07d3",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "ot-vs-crdt-matrix-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286236.359,
       "size": 1423,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "transform-pair-example.mermaid": {
       "hash": "sha256:cb32657ac4b570e4",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "transform-pair-example-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286236.6055,
       "size": 914,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "undo-with-concurrent-ops.mermaid": {
       "hash": "sha256:9f25172357f17ad9",
-      "generatedAt": "2026-07-21T22:01:10.781Z",
+      "generatedAt": "2026-07-22T15:35:28.936Z",
       "outputs": [
         {
           "file": "undo-with-concurrent-ops-light.svg",
@@ -180,7 +180,7 @@
       "theme": "both",
       "mtimeMs": 1784558286236.8699,
       "size": 909,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

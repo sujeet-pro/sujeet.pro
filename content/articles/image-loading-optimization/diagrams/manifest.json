@@ -3,7 +3,7 @@
   "diagrams": {
     "cls-with-vs-without-dimensions.mermaid": {
       "hash": "sha256:41dff7bdc8a79a85",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "cls-with-vs-without-dimensions-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286157.2537,
       "size": 1134,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "format-decision-tree.mermaid": {
       "hash": "sha256:22215636a2bf9402",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "format-decision-tree-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286157.5967,
       "size": 1227,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "image-loading-pipeline.mermaid": {
       "hash": "sha256:be32262e10843f02",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "image-loading-pipeline-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286157.8677,
       "size": 796,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lcp-loading-decision.mermaid": {
       "hash": "sha256:3ab666d9c20e26f5",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "lcp-loading-decision-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286158.112,
       "size": 889,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "lcp-waterfall.mermaid": {
       "hash": "sha256:c8ccaa3fb873eb25",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "lcp-waterfall-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286158.7468,
       "size": 1868,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "srcset-sizes-resolution.mermaid": {
       "hash": "sha256:56eca23d56000084",
-      "generatedAt": "2026-07-21T22:01:10.765Z",
+      "generatedAt": "2026-07-22T15:35:28.906Z",
       "outputs": [
         {
           "file": "srcset-sizes-resolution-light.svg",
@@ -157,7 +157,7 @@
       "theme": "both",
       "mtimeMs": 1784558286159.2285,
       "size": 711,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

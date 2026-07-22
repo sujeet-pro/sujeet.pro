@@ -22,7 +22,20 @@ import { resolve } from "node:path";
 //
 // Ecosystem embed-safety set: these codes indicate an SVG that is unsafe or
 // broken to inline as an <img> and must never ship. Always fatal.
-const FATAL_CODES = ["CONTAINS_FOREIGN_OBJECT", "CONTAINS_SCRIPT", "EXTERNAL_RESOURCE"];
+//
+// Non-text visibility (LOW_CONTRAST_SHAPE / LOW_CONTRAST_STROKE): a box, line,
+// or arrow effectively invisible against the canvas — a readability regression
+// just like LOW_CONTRAST_TEXT. diagramkit's scanner is calibrated so the
+// accepted corpus is clean, so these are safe to enforce as fatal. Text
+// readability plus box/line/arrow visibility must both hold before a diagram
+// ships (light AND dark) — see ai-guidelines/diagrams.md § Rendering.
+const FATAL_CODES = [
+  "CONTAINS_FOREIGN_OBJECT",
+  "CONTAINS_SCRIPT",
+  "EXTERNAL_RESOURCE",
+  "LOW_CONTRAST_SHAPE",
+  "LOW_CONTRAST_STROKE",
+];
 
 // LOW_CONTRAST_TEXT policy (Render phase). ENFORCED as fatal: a fresh
 // `validate:diagrams` over the full 2602-SVG corpus returns 0 LOW_CONTRAST_TEXT

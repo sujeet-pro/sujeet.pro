@@ -3,7 +3,7 @@
   "diagrams": {
     "cc-architecture.mermaid": {
       "hash": "sha256:fd629e807ebd497a",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.780Z",
       "outputs": [
         {
           "file": "cc-architecture-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285860.411,
       "size": 915,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "compositing-pipeline-overview.mermaid": {
       "hash": "sha256:54e6f026aeb96c0c",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.780Z",
       "outputs": [
         {
           "file": "compositing-pipeline-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285860.6802,
       "size": 868,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "compositor-frame-anatomy.mermaid": {
       "hash": "sha256:6ac155d5a56c7e1f",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.780Z",
       "outputs": [
         {
           "file": "compositor-frame-anatomy-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285861.1099,
       "size": 985,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "frame-sink-sequence.mermaid": {
       "hash": "sha256:20aeb8ce1e8dcee2",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.781Z",
       "outputs": [
         {
           "file": "frame-sink-sequence-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558285861.4558,
       "size": 846,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "gpu-upload-pipeline.mermaid": {
       "hash": "sha256:fb0d72d4f944834f",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.781Z",
       "outputs": [
         {
           "file": "gpu-upload-pipeline-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558285861.7673,
       "size": 785,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "layer-promotion-triggers.mermaid": {
       "hash": "sha256:2d8f2708cc62b166",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.781Z",
       "outputs": [
         {
           "file": "layer-promotion-triggers-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558285862.263,
       "size": 1441,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "property-trees-overview.mermaid": {
       "hash": "sha256:5e1a948df8626b80",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.781Z",
       "outputs": [
         {
           "file": "property-trees-overview-light.svg",
@@ -184,11 +184,11 @@
       "theme": "both",
       "mtimeMs": 1784558285862.8584,
       "size": 1092,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "surface-aggregation.mermaid": {
       "hash": "sha256:0d6e38d8df538c16",
-      "generatedAt": "2026-07-21T22:01:10.685Z",
+      "generatedAt": "2026-07-22T15:35:28.781Z",
       "outputs": [
         {
           "file": "surface-aggregation-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558285863.1577,
       "size": 580,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

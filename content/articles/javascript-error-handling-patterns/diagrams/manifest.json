@@ -3,7 +3,7 @@
   "diagrams": {
     "async-error-propagation.mermaid": {
       "hash": "sha256:f24e5968cb8310b8",
-      "generatedAt": "2026-07-21T22:01:10.768Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "async-error-propagation-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286171.3276,
       "size": 907,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "error-handling-decision-tree.mermaid": {
       "hash": "sha256:d41cb84657c62c7e",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "error-handling-decision-tree-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286171.8599,
       "size": 769,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "error-handling-spectrum.mermaid": {
       "hash": "sha256:41d21689bf590802",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "error-handling-spectrum-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558286172.1406,
       "size": 653,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "railway-oriented-programming.mermaid": {
       "hash": "sha256:7902ad374832af4a",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "railway-oriented-programming-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286172.392,
       "size": 352,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "react-error-boundary-tree.mermaid": {
       "hash": "sha256:891137ee828f6df5",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "react-error-boundary-tree-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286172.8428,
       "size": 894,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "result-vs-tuple-state-space.mermaid": {
       "hash": "sha256:5308a1add81cb55e",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "result-vs-tuple-state-space-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286173.179,
       "size": 605,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "runtime-error-pipeline.mermaid": {
       "hash": "sha256:95d156aeabd4a8b7",
-      "generatedAt": "2026-07-21T22:01:10.769Z",
+      "generatedAt": "2026-07-22T15:35:28.913Z",
       "outputs": [
         {
           "file": "runtime-error-pipeline-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286173.459,
       "size": 905,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

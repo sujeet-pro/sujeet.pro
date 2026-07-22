@@ -3,7 +3,7 @@
   "diagrams": {
     "vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq.mermaid": {
       "hash": "sha256:fc09b082aa9aebdd",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "vitess-s-three-tier-architecture-vtgate-routes-queries-vttablet-manages-per-mysq-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286344.2048,
       "size": 981,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "vreplication-resharding-workflow.mermaid": {
       "hash": "sha256:29bfceeafa31b876",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "vreplication-resharding-workflow-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286344.5776,
       "size": 940,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "youtube-s-database-architecture-evolution-from-application-level-sharding-with-d.mermaid": {
       "hash": "sha256:559b026c1834c122",
-      "generatedAt": "2026-07-21T22:01:10.814Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "youtube-s-database-architecture-evolution-from-application-level-sharding-with-d-light.svg",
@@ -76,7 +76,7 @@
       "theme": "both",
       "mtimeMs": 1784558286344.845,
       "size": 661,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

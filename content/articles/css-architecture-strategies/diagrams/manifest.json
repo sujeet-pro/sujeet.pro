@@ -3,7 +3,7 @@
   "diagrams": {
     "architecture-decision.mermaid": {
       "hash": "sha256:f32fd6167fe6e04c",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "architecture-decision-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285896.03,
       "size": 1335,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "architecture-overview.mermaid": {
       "hash": "sha256:0a39c513e7373497",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "architecture-overview-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285896.3281,
       "size": 1158,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "cascade-order.mermaid": {
       "hash": "sha256:9ed0ac1597e5e62a",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "cascade-order-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558285896.6956,
       "size": 1138,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "dependency-direction.mermaid": {
       "hash": "sha256:0470de26065e8a44",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "dependency-direction-light.svg",
@@ -107,11 +107,11 @@
       "theme": "both",
       "mtimeMs": 1784558285897.0464,
       "size": 1306,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "design-token-pipeline.mermaid": {
       "hash": "sha256:b9f740acb7796418",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "design-token-pipeline-light.svg",
@@ -134,11 +134,11 @@
       "theme": "both",
       "mtimeMs": 1784558285897.2876,
       "size": 1084,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "methodology-lattice.mermaid": {
       "hash": "sha256:5d28d22151c9a25e",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "methodology-lattice-light.svg",
@@ -161,11 +161,11 @@
       "theme": "both",
       "mtimeMs": 1784558285897.5876,
       "size": 1560,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "rsc-style-boundary.mermaid": {
       "hash": "sha256:70af8def3cbf8689",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "rsc-style-boundary-light.svg",
@@ -188,11 +188,11 @@
       "theme": "both",
       "mtimeMs": 1784558285897.9688,
       "size": 1227,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "runtime-cssinjs-render.mermaid": {
       "hash": "sha256:cb2b8fa4fe70ce60",
-      "generatedAt": "2026-07-21T22:01:10.696Z",
+      "generatedAt": "2026-07-22T15:35:28.796Z",
       "outputs": [
         {
           "file": "runtime-cssinjs-render-light.svg",
@@ -211,7 +211,7 @@
       "theme": "both",
       "mtimeMs": 1784558285898.2798,
       "size": 748,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

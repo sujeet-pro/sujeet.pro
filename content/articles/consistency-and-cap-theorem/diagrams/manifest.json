@@ -3,7 +3,7 @@
   "diagrams": {
     "consistency-hierarchy.mermaid": {
       "hash": "sha256:6032d13365d6dc5b",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.775Z",
       "outputs": [
         {
           "file": "consistency-hierarchy-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285849.7507,
       "size": 643,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "linearizable-timeline.mermaid": {
       "hash": "sha256:cb10306393c7b4ba",
-      "generatedAt": "2026-07-21T22:01:10.681Z",
+      "generatedAt": "2026-07-22T15:35:28.775Z",
       "outputs": [
         {
           "file": "linearizable-timeline-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558285850.0864,
       "size": 682,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "pacelc-quadrants.mermaid": {
       "hash": "sha256:d360e6d1b066ba1d",
-      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "generatedAt": "2026-07-22T15:35:28.775Z",
       "outputs": [
         {
           "file": "pacelc-quadrants-light.svg",
@@ -76,11 +76,11 @@
       "theme": "both",
       "mtimeMs": 1784558285850.4985,
       "size": 1024,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "partition-scenario.mermaid": {
       "hash": "sha256:9c23515d925a0404",
-      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "generatedAt": "2026-07-22T15:35:28.775Z",
       "outputs": [
         {
           "file": "partition-scenario-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558285850.8306,
       "size": 578,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "quorum-overlap.mermaid": {
       "hash": "sha256:4d62a525aa74b5e0",
-      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "generatedAt": "2026-07-22T15:35:28.776Z",
       "outputs": [
         {
           "file": "quorum-overlap-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558285851.3665,
       "size": 909,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "replication-topologies.mermaid": {
       "hash": "sha256:2dff7189b1c43e06",
-      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "generatedAt": "2026-07-22T15:35:28.776Z",
       "outputs": [
         {
           "file": "replication-topologies-light.svg",
@@ -153,11 +153,11 @@
       "theme": "both",
       "mtimeMs": 1784558285852.1248,
       "size": 1279,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "spanner-truetime-commit-wait.mermaid": {
       "hash": "sha256:d3c973547fdc0b2a",
-      "generatedAt": "2026-07-21T22:01:10.682Z",
+      "generatedAt": "2026-07-22T15:35:28.776Z",
       "outputs": [
         {
           "file": "spanner-truetime-commit-wait-light.svg",
@@ -176,7 +176,7 @@
       "theme": "both",
       "mtimeMs": 1784558285852.5066,
       "size": 740,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

@@ -3,7 +3,7 @@
   "diagrams": {
     "2pc-sequence.mermaid": {
       "hash": "sha256:c739925ba03190fa",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "2pc-sequence-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286300.9294,
       "size": 775,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "acid-overview.mermaid": {
       "hash": "sha256:5ea9afcd25f5a634",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "acid-overview-light.svg",
@@ -49,11 +49,11 @@
       "theme": "both",
       "mtimeMs": 1784558286301.151,
       "size": 1000,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "mvcc-visibility.mermaid": {
       "hash": "sha256:1f606702fdbb3a63",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "mvcc-visibility-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286301.3699,
       "size": 805,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "outbox-pattern.mermaid": {
       "hash": "sha256:e477a5ffbc8fc024",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "outbox-pattern-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286301.6345,
       "size": 931,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "saga-orchestration.mermaid": {
       "hash": "sha256:968dd11e001aa4fd",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "saga-orchestration-light.svg",
@@ -122,11 +122,11 @@
       "theme": "both",
       "mtimeMs": 1784558286302.1917,
       "size": 621,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "spanner-commit-wait.mermaid": {
       "hash": "sha256:2305c7654be9c3a8",
-      "generatedAt": "2026-07-21T22:01:10.801Z",
+      "generatedAt": "2026-07-22T15:35:28.967Z",
       "outputs": [
         {
           "file": "spanner-commit-wait-light.svg",
@@ -145,7 +145,7 @@
       "theme": "both",
       "mtimeMs": 1784558286302.4648,
       "size": 718,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

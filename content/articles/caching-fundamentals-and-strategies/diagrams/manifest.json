@@ -3,7 +3,7 @@
   "diagrams": {
     "cache-stampede-mitigation.mermaid": {
       "hash": "sha256:fe6207bbd4af6426",
-      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "generatedAt": "2026-07-22T15:35:28.763Z",
       "outputs": [
         {
           "file": "cache-stampede-mitigation-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558285818.1877,
       "size": 1777,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "caching-hierarchy.mermaid": {
       "hash": "sha256:a320d3eaf7f4a2f5",
-      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "generatedAt": "2026-07-22T15:35:28.763Z",
       "outputs": [
         {
           "file": "caching-hierarchy-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558285818.6023,
       "size": 837,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "write-policies.mermaid": {
       "hash": "sha256:251bb0e0aaf4b452",
-      "generatedAt": "2026-07-21T22:01:10.674Z",
+      "generatedAt": "2026-07-22T15:35:28.764Z",
       "outputs": [
         {
           "file": "write-policies-light.svg",
@@ -76,7 +76,7 @@
       "theme": "both",
       "mtimeMs": 1784558285819.064,
       "size": 786,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

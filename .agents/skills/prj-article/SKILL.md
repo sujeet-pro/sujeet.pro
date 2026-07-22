@@ -380,7 +380,7 @@ The full cross-reference check runs in `scripts/validate.ts` (and again, more st
 2. **Research.** Delegate to `prj-article-researcher`: it runs the research protocol and writes the claim ledger to `.temp/article-research/<slug>/claims.md` (each claim, source URL, tier, bucket), the case-study dossier to `.temp/article-research/<slug>/case-studies.md`, and the deduplicated source list to `.temp/article-research/<slug>/sources.md`.
 3. **Outline the spine.** Headings only — no prose. For the evolution spine: the stage ladder, the driving parameters, and where the regime map and adoption plan land. Mark each section as skim-weight or deep-weight. Mark which sections need diagrams; queue the diagram list for `prj-diagrams`.
 4. **Draft.** Delegate to `prj-article-writer` with the outline and the research paths. Citations go in as the prose is written, not after. Tables and diagrams the moment a paragraph starts enumerating dimensions.
-5. **Diagram.** Hand off each queued diagram to [`../prj-diagrams/SKILL.md`](../prj-diagrams/SKILL.md). Re-render with `npm run diagrams`. Verify that every section flagged in step 3 has its diagram embedded with a caption.
+5. **Diagram.** Hand off each queued diagram to [`../prj-diagrams/SKILL.md`](../prj-diagrams/SKILL.md). Re-render with `npm run diagrams`. Verify that every section flagged in step 3 has its diagram embedded with a caption — then run `npm run validate:diagrams` and eyeball the light and dark render so every label, box, line, and arrow is readable in both.
 6. **Fact-check gate.** Run `prj-article-reviewer`; fix findings via the writer; re-review changed sections until `unsupported` and `contradicted` are zero.
 7. **Self-review.** Use the review checklist below for the editorial pass the gate does not cover (structure, voice, depth placement).
 8. **Update companion metadata** (see list above).
@@ -407,7 +407,7 @@ Use the same bar for both new articles and updates.
 - **Case studies.** Present per the case-study protocol; numbers match the primary source; characterization fair.
 - **Audience fit.** Is depth applied where it matters? Are common items short and clear? Could a senior engineer skim the simple parts and still trust the deep parts?
 - **Structure.** One coherent subtopic. Sequential heading depth. Right spine for the topic. For the evolution spine: stages causally chained, every stage has a costs paragraph, regime map present with thresholds, staged adoption plan present, synthesis says which earlier pieces survive.
-- **Diagrams.** Overview diagram present where warranted. Each substantial section either has a diagram or has a clear reason not to. Both `-light` and `-dark` variants present.
+- **Diagrams.** Overview diagram present where warranted. Each substantial section either has a diagram or has a clear reason not to. Both `-light` and `-dark` variants present, and readable in light AND dark — no unreadable labels, no invisible boxes/lines/arrows.
 - **Trade-offs.** Real engineering criteria, failure modes, and operational implications are present and explicit.
 - **Voice.** No throat-clearing, no marketing verbs, no padding. Evolution spine: discussion, not lecture; questions posed before answers; myths killed by name.
 

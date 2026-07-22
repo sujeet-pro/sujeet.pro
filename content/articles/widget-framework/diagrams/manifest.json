@@ -3,7 +3,7 @@
   "diagrams": {
     "decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s.mermaid": {
       "hash": "sha256:d447f7f573d694dc",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "decision-tree-for-selecting-widget-isolation-strategy-based-on-trust-level-and-s-light.svg",
@@ -26,11 +26,11 @@
       "theme": "both",
       "mtimeMs": 1784558286341.8289,
       "size": 648,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme.mermaid": {
       "hash": "sha256:5f4424356932ddca",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "iframe-sandbox-widget-runs-in-isolated-browsing-context-communication-via-postme-light.svg",
@@ -53,11 +53,11 @@
       "theme": "both",
       "mtimeMs": 1784558286342.2039,
       "size": 500,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti.mermaid": {
       "hash": "sha256:dbf02a1885439726",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "module-federation-host-and-remotes-share-dependencies-react-via-singleton-negoti-light.svg",
@@ -80,11 +80,11 @@
       "theme": "both",
       "mtimeMs": 1784558286342.5847,
       "size": 575,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re.mermaid": {
       "hash": "sha256:e1e9a5866d60ab8c",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "multi-tenant-widget-loading-flow-tenant-config-determines-widget-ids-registry-re-light.svg",
@@ -103,11 +103,11 @@
       "theme": "both",
       "mtimeMs": 1784558286342.8584,
       "size": 719,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex.mermaid": {
       "hash": "sha256:7b3e8c1baedd8de9",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "shadow-dom-css-isolation-via-encapsulated-dom-tree-javascript-shares-host-contex-light.svg",
@@ -130,11 +130,11 @@
       "theme": "both",
       "mtimeMs": 1784558286343.123,
       "size": 456,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic.mermaid": {
       "hash": "sha256:bd01b9bc3506bafe",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "wasm-sandbox-javascript-engine-quickjs-compiled-to-webassembly-runs-plugin-logic-light.svg",
@@ -157,11 +157,11 @@
       "theme": "both",
       "mtimeMs": 1784558286343.3706,
       "size": 557,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "widget-framework-architecture-tenant-configuration-determines-which-widgets-load.mermaid": {
       "hash": "sha256:66fb44071c6ad6f3",
-      "generatedAt": "2026-07-21T22:01:10.813Z",
+      "generatedAt": "2026-07-22T15:35:28.983Z",
       "outputs": [
         {
           "file": "widget-framework-architecture-tenant-configuration-determines-which-widgets-load-light.svg",
@@ -184,7 +184,7 @@
       "theme": "both",
       "mtimeMs": 1784558286343.6306,
       "size": 498,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }

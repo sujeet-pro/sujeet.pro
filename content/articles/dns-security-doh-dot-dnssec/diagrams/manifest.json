@@ -3,7 +3,7 @@
   "diagrams": {
     "dnssec-chain-of-trust.mermaid": {
       "hash": "sha256:015fc3d24ac4aa2c",
-      "generatedAt": "2026-07-21T22:01:10.748Z",
+      "generatedAt": "2026-07-22T15:35:28.877Z",
       "outputs": [
         {
           "file": "dnssec-chain-of-trust-light.svg",
@@ -22,11 +22,11 @@
       "theme": "both",
       "mtimeMs": 1784558286090.726,
       "size": 1121,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "ech-clienthello-flow.mermaid": {
       "hash": "sha256:65c33ca2f7e92de5",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.877Z",
       "outputs": [
         {
           "file": "ech-clienthello-flow-light.svg",
@@ -45,11 +45,11 @@
       "theme": "both",
       "mtimeMs": 1784558286090.9875,
       "size": 1035,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "encrypted-transport-stacks.mermaid": {
       "hash": "sha256:0f7b1ff73dfa8cac",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.877Z",
       "outputs": [
         {
           "file": "encrypted-transport-stacks-light.svg",
@@ -72,11 +72,11 @@
       "theme": "both",
       "mtimeMs": 1784558286091.229,
       "size": 2098,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "enterprise-decision-tree.mermaid": {
       "hash": "sha256:af30b53645cf0036",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.877Z",
       "outputs": [
         {
           "file": "enterprise-decision-tree-light.svg",
@@ -99,11 +99,11 @@
       "theme": "both",
       "mtimeMs": 1784558286091.5579,
       "size": 970,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "nsec-vs-nsec3.mermaid": {
       "hash": "sha256:762be6fcacf222de",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.878Z",
       "outputs": [
         {
           "file": "nsec-vs-nsec3-light.svg",
@@ -126,11 +126,11 @@
       "theme": "both",
       "mtimeMs": 1784558286092.2246,
       "size": 1683,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "odoh-unlinkability.mermaid": {
       "hash": "sha256:8295e3a63b9ad264",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.878Z",
       "outputs": [
         {
           "file": "odoh-unlinkability-light.svg",
@@ -149,11 +149,11 @@
       "theme": "both",
       "mtimeMs": 1784558286092.5913,
       "size": 912,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     },
     "security-layers.mermaid": {
       "hash": "sha256:8c2716e8f8446e44",
-      "generatedAt": "2026-07-21T22:01:10.749Z",
+      "generatedAt": "2026-07-22T15:35:28.878Z",
       "outputs": [
         {
           "file": "security-layers-light.svg",
@@ -176,7 +176,7 @@
       "theme": "both",
       "mtimeMs": 1784558286092.9001,
       "size": 1584,
-      "optimizeKey": "opt:4872ca36c0ca"
+      "optimizeKey": "opt:9fed79a301b4"
     }
   }
 }
