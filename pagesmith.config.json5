@@ -1,0 +1,71 @@
+{
+  $schema: "./node_modules/@pagesmith/presets/schemas/pagesmith-config.schema.json",
+  preset: "profile",
+  name: "Sujeet Jaiswal",
+  title: "Sujeet Jaiswal - Principal Software Engineer",
+  description: "Personal blog and portfolio of Sujeet Jaiswal, a Principal Software Engineer crafting exceptional user experiences through innovative frontend architecture and scalable design systems.",
+  origin: "https://sujeet.pro",
+  language: "en-US",
+  basePath: "",
+  homeLink: "/",
+  trailingSlash: false,
+  contentDir: "./content",
+  dataDir: "./content",
+  outDir: "./dist",
+  publicDir: "./public",
+  cssEntry: "./src/theme.css",
+  theme: {
+    lightColor: "#f8fafc",
+    darkColor: "#020617",
+    defaultColorScheme: "auto",
+    defaultTheme: "paper",
+  },
+  analytics: {
+    googleAnalytics: "G-1Z2TP5LG65",
+  },
+  seo: {
+    locale: "en_US",
+  },
+  favicon: "/favicon.svg",
+  faviconFallback: "/favicon.ico",
+  appleTouchIcon: "/favicons/apple-icon-180x180.png",
+  maintainer: {
+    name: "Sujeet Jaiswal",
+    link: "https://sujeet.pro",
+  },
+  copyright: {
+    projectName: "Sujeet Jaiswal",
+    startYear: 2024,
+    endYear: null,
+  },
+  sidebar: {
+    collapsible: false,
+  },
+  search: {
+    enabled: true,
+    showImages: false,
+    showSubResults: true,
+  },
+  editLink: {
+    repo: "https://github.com/sujeet-pro/sujeet.pro",
+    branch: "main",
+    label: "Edit this page",
+  },
+  lastUpdated: true,
+  server: {
+    devPort: 3000,
+    previewPort: 4000,
+  },
+  profile: {
+    author: "Sujeet Jaiswal",
+    feeds: {
+      enabled: true,
+      formats: ["rss", "atom"],
+      limit: 50,
+    },
+    taxonomy: {
+      tags: true,
+      series: true,
+    },
+  },
+}

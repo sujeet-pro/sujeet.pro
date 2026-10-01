@@ -1,10 +1,5 @@
 import { withBasePath } from "@pagesmith/site";
-import {
-  loadHomeData,
-  loadRedirectConfig,
-  loadSectionEntries,
-  loadSectionMeta,
-} from "../theme/lib/content.ts";
+import { loadProfileContentModel } from "@pagesmith/presets/profile";
 
 export type CrossReferenceResult = {
   errors: string[];
@@ -25,29 +20,50 @@ export type CrossReferenceResult = {
  * Returns the collected error strings plus the live entry counts so callers can
  * render their own success summaries.
  */
-export function collectCrossReferenceErrors(basePath: string): CrossReferenceResult {
-  const articles = loadSectionEntries("articles", basePath);
-  const blogs = loadSectionEntries("blogs", basePath);
-  const articleMeta = loadSectionMeta("articles");
-  const blogMeta = loadSectionMeta("blogs");
-  const homeData = loadHomeData();
-  const redirects = loadRedirectConfig();
+export async function collectCrossReferenceErrors(
+  basePath: string,
+  projectRoot = process.cwd(),
+): Promise<CrossReferenceResult> {
+  const model = await loadProfileContentModel(
+    {
+      siteConfig: { basePath },
+      contentDir: "content",
+      dataDir: "content",
+    },
+    projectRoot,
+  );
+  const articles = model.index.getCollection("articles");
+  const blogs = model.index.getCollection("blogs");
+  const blogMeta = model.data.sections.get("blogs") ?? {};
+  const homeData = model.data.home;
+  const redirects = model.data.redirects;
 
   const articleSlugs = new Set(articles.map((entry) => entry.slug));
   const blogSlugs = new Set(blogs.map((entry) => entry.slug));
-  const articleSeriesSlugs = new Set((articleMeta?.series ?? []).map((series) => series.slug));
+  const articleSeries = model.data.series;
+  const blogSeries = Array.isArray(blogMeta.series)
+    ? blogMeta.series.flatMap((value) => {
+        const series = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+        const slug = typeof series.slug === "string" ? series.slug : undefined;
+        const entries = Array.isArray(series.articles)
+          ? series.articles.filter((entry): entry is string => typeof entry === "string")
+          : [];
+        return slug ? [{ slug, entries }] : [];
+      })
+    : [];
+  const articleSeriesSlugs = new Set(articleSeries.map((series) => series.slug));
   const knownRoutes = new Set<string>([
     withBasePath(basePath, "/"),
     withBasePath(basePath, "/articles"),
     withBasePath(basePath, "/blogs"),
-    ...articles.map((entry) => entry.path),
-    ...blogs.map((entry) => entry.path),
+    ...articles.map((entry) => withBasePath(basePath, entry.routePath)),
+    ...blogs.map((entry) => withBasePath(basePath, entry.routePath)),
   ]);
 
   const errors: string[] = [];
 
-  for (const series of articleMeta?.series ?? []) {
-    for (const slug of series.articles) {
+  for (const series of articleSeries) {
+    for (const slug of series.entries) {
       if (!articleSlugs.has(slug)) {
         errors.push(
           `content/articles/meta.json5 references missing article slug "${slug}" in "${series.slug}".`,
@@ -55,8 +71,8 @@ export function collectCrossReferenceErrors(basePath: string): CrossReferenceRes
       }
     }
   }
-  for (const series of blogMeta?.series ?? []) {
-    for (const slug of series.articles) {
+  for (const series of blogSeries) {
+    for (const slug of series.entries) {
       if (!blogSlugs.has(slug)) {
         errors.push(
           `content/blogs/meta.json5 references missing blog slug "${slug}" in "${series.slug}".`,
@@ -64,17 +80,23 @@ export function collectCrossReferenceErrors(basePath: string): CrossReferenceRes
       }
     }
   }
-  for (const slug of homeData.featuredArticles) {
+  const featuredArticles = Array.isArray(homeData.featuredArticles)
+    ? homeData.featuredArticles.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  for (const slug of featuredArticles) {
     if (!articleSlugs.has(slug)) {
       errors.push(`content/home.json5 references unknown featured article "${slug}".`);
     }
   }
-  for (const slug of homeData.featuredSeries) {
+  const featuredSeries = Array.isArray(homeData.featuredSeries)
+    ? homeData.featuredSeries.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  for (const slug of featuredSeries) {
     if (!articleSeriesSlugs.has(slug)) {
       errors.push(`content/home.json5 references unknown featured series "${slug}".`);
     }
   }
-  for (const redirect of redirects.redirects) {
+  for (const redirect of redirects) {
     if (!redirect.to.startsWith("/")) continue;
     const target = withBasePath(basePath, redirect.to);
     if (!knownRoutes.has(target)) {

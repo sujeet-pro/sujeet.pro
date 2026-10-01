@@ -13,15 +13,9 @@
     "noEmit": true
   },
   "include": [
-    "content.config.ts",
     "lib/**/*.ts",
     "schemas/**/*.ts",
-    "src/**/*.ts",
-    "src/**/*.tsx",
     "scripts/**/*.ts",
-    "theme/**/*.ts",
-    "theme/**/*.tsx",
-    "vite.config.ts",
     "playwright.config.ts",
     "tests/**/*.ts"
   ],

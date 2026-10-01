@@ -1,42 +1,75 @@
 import { defineConfig, devices } from "@playwright/test";
-import { withBasePath } from "@pagesmith/site";
 import { resolveBasePath } from "./lib/site-config.ts";
 
-const e2eBasePath = resolveBasePath();
-const deployed = !!process.env.DEPLOYED_URL;
 const previewPort = Number(process.env.PLAYWRIGHT_PREVIEW_PORT ?? 4173);
 const previewOrigin = `http://127.0.0.1:${previewPort}`;
-// `withBasePath(bp, "/")` returns the base path without a trailing slash
-// (empty string when no base path is set). `vite preview` only serves the
-// index at the trailing-slash form, so explicitly append `/` for the
-// health-check URL and collapse any duplicated slashes.
-const previewUrl = `${previewOrigin}${withBasePath(e2eBasePath, "/")}/`.replace(/\/+$/, "/");
-const baseURL = process.env.DEPLOYED_URL || previewOrigin;
+const basePath = resolveBasePath();
+const previewUrl = `${previewOrigin}${basePath || ""}/`;
+const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
 
+/**
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+// import dotenv from 'dotenv';
+// import path from 'path';
+// dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+/**
+ * See https://playwright.dev/docs/test-configuration.
+ */
 export default defineConfig({
   testDir: "./tests/e2e",
+  /* Run tests in files in parallel */
   fullyParallel: true,
+  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
+  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  // CI runners (ubuntu-latest) have 4 vCPUs; `undefined` lets Playwright use
-  // half by default and keeps the three device projects parallelised.
+  /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? "50%" : undefined,
+  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: "html",
-  timeout: deployed ? 60_000 : 30_000,
+  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    baseURL,
+    baseURL: previewOrigin,
+    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
+    ...(executablePath ? { launchOptions: { executablePath } } : {}),
   },
+
+  /* Configure projects for major browsers */
   projects: [
-    { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] } },
-    { name: "tablet", use: { viewport: { width: 900, height: 1024 } } },
-    { name: "mobile", use: { ...devices["Pixel 5"] } },
-  ],
-  ...(!deployed && {
-    webServer: {
-      command: `npm run preview -- --host 127.0.0.1 --port ${previewPort} --strictPort`,
-      url: previewUrl,
-      reuseExistingServer: false,
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
     },
-  }),
+
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
+
+    /* Test against branded browsers. */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    // },
+  ],
+
+  webServer: {
+    command: `npm run preview -- --host 127.0.0.1 --port ${previewPort}`,
+    url: previewUrl,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

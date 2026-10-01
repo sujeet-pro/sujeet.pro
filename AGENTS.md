@@ -1,17 +1,17 @@
 # sujeet.pro — Agent Guide
 
-Personal engineering blog and portfolio at sujeet.pro. Built directly on `@pagesmith/core`, `@pagesmith/site`, and `diagramkit`.
+Personal engineering blog and portfolio at sujeet.pro. Built with the `profile` preset from `@pagesmith/presets`, `@pagesmith/site`, and `diagramkit`.
 
-This repo should stay on a core-native setup. Do not reintroduce `@pagesmith/docs`.
+This repo should stay on the preset setup. Do not reintroduce `@pagesmith/docs` or an app-owned route dispatcher.
 
 ## Quick Start
 
 ```bash
 vp install
-npm run dev                # Vite dev server (port 3000)
-npm run build              # Render diagrams, run Vite SSG, and write postbuild assets
+npm run dev                # Profile preset dev server (port 3000)
+npm run build              # Render diagrams and build the profile preset
 npm run preview            # Preview built output (port 4000)
-npm run validate           # config + collections + cross-file refs
+npm run validate           # profile index + cross-file refs
 npm run validate:content   # @pagesmith/site content validators only
 npm run validate:full      # @pagesmith/site content + build validators + project cross-refs
 npm run validate:diagrams  # diagramkit validate (SVG structure + WCAG 2.2 AA)
@@ -101,34 +101,29 @@ until the stubs are regenerated.
 
 ## Architecture
 
-- `site.config.json5` is the site-level config for origin, base path, theme, search, analytics, edit links, and server ports.
+- `pagesmith.config.json5` selects the `profile` preset and owns origin, base path, theme, search, analytics, paths, and server ports.
 - `diagramkit.config.json5` is the diagram rendering config. It is validated by `schemas/diagramkit.ts`.
-- `content.config.ts` defines the `@pagesmith/core` collections and markdown behavior.
-- `vite.config.ts` keeps `pagesmithContent(...)` on `@pagesmith/core/vite` and wires `sharedAssetsPlugin()` plus `...pagesmithSsg(...)` from `@pagesmith/site/vite`.
-- `schemas/` contains Zod schemas for site config, frontmatter, content metadata, and diagramkit config.
+- `@pagesmith/presets/profile` discovers the content/data roots, builds one cached content index, and renders the site.
+- `schemas/` contains the compatibility site schema and diagramkit config schema.
 - `content/` holds markdown plus companion JSON5 metadata:
   - `content/meta.json5` — top-level nav and footer links
   - `content/articles/meta.json5` — article listing behavior, manual order, and series definitions
   - `content/blogs/meta.json5` — blog listing behavior and ordering
   - `content/home.json5` — homepage hero and featured content
   - `content/redirects.json5` — vanity URLs and legacy redirects
-- `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
-- `src/entry-server.tsx` is the SSG entry that renders `virtual:content/*` payloads through `theme/layouts/*`.
-- `theme/lib/content.ts` composes listings, series navigation, breadcrumbs, prev/next links, homepage featured content, and redirects from the markdown-plus-metadata model.
-- `scripts/postbuild.ts` is thin: it flattens `404/index.html` → `404.html` and feeds repo-derived routes/entries into the upstream `generateSitemap` / `generateFeed` serializers from `@pagesmith/site/ssg-utils`. It no longer hand-rolls sitemap/RSS XML.
-- `scripts/validate.ts` validates config, content schemas, and cross-file references.
+- `src/theme.css` is the optional profile CSS override passed through `cssEntry`.
+- `scripts/diagrams.ts` renders Diagramkit sources before the preset build.
+- `scripts/validate.ts` validates the cached profile model and cross-file references.
 - `scripts/validate-pagesmith.ts` composes `@pagesmith/site` validators with the project cross-ref checks.
 - `scripts/validate-dist.ts` delegates dist integrity to `validateBuildOutput` (`@pagesmith/site/build-validator`) with `checkSitemap` + `checkBundledAssets`, and keeps only the repo-specific HTML document-shape and Pagefind-directory checks.
 - `scripts/diagrams.ts` / `scripts/validate-diagrams.ts` are thin wrappers over the `diagramkit render` / `diagramkit validate` CLIs, scoped with `--scope-dir diagrams` (validation adds `--recursive` and a `--fail-on` fatal-code policy).
 
 ## Code Flow
 
-1. `content.config.ts` defines collections for pages, entries, and JSON5 metadata.
-2. `vite.config.ts` keeps `pagesmithContent(...)` on `@pagesmith/core/vite` and wires `sharedAssetsPlugin()` plus `...pagesmithSsg(...)` from `@pagesmith/site/vite`.
-3. `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
-4. `src/entry-server.tsx` imports the serialized virtual modules and renders routes.
-5. `theme/layouts/*` and `theme/components/*` render the final HTML shell.
-6. `scripts/postbuild.ts` adds sitemap/RSS artifacts after `vite build`.
+1. `scripts/diagrams.ts` renders changed Diagramkit sources before the site build.
+2. `pagesmith-presets profile build` resolves `pagesmith.config.json5` and loads content/data into one cached profile model.
+3. The profile preset renders static routes and emits the CSS/runtime, Pagefind index, feeds, sitemap, redirects, and GitHub Pages 404 output.
+4. `scripts/validate.ts` and `scripts/validate-pagesmith.ts` validate the same content roots and generated output.
 
 ## Content Rules
 
@@ -168,7 +163,8 @@ Preferred embed pattern (consecutive light/dark markdown images are auto-merged 
 
 ## Toolchain
 
-- `@pagesmith/core` — content layer, markdown pipeline, schemas/loaders, and `pagesmithContent`
+- `@pagesmith/presets` — profile preset, cached content index, routes, layouts, feeds, and profile CLI
+- `@pagesmith/core` — content layer, markdown pipeline, schemas, and loaders
 - `@pagesmith/site` — JSX runtime, site CSS/runtime bundles, and Vite SSG helpers
 - `diagramkit` — Mermaid, Excalidraw, Draw.io, and Graphviz rendering
 - `tsx` — TypeScript script runner

@@ -32,18 +32,15 @@ Read these files when the task touches markdown behavior, frontmatter, collectio
 
 ### Current repo integration
 
-This repo uses `@pagesmith/core` + `@pagesmith/site` directly, not `@pagesmith/docs`.
+This repo uses the `profile` mode from `@pagesmith/presets`, backed by `@pagesmith/site` and `@pagesmith/core`; it does not use `@pagesmith/docs`.
 
 Current integration points:
 
-- `site.config.json5` is the site-level config. It is validated by `schemas/site.ts` and loaded through `lib/site-config.ts`.
-- `content.config.ts` defines the `homePage`, `articleIndex`, `blogIndex`, `articles`, `blogs`, `rootMeta`, `articleMeta`, `blogMeta`, `homeData`, and `redirects` collections.
-- `content.config.ts` also owns the repo-local Shiki aliases such as `redis`, `promql`, `dns`, and `asciidoc`.
-- `vite.config.ts` keeps `pagesmithContent` on `@pagesmith/core/vite`.
-- `src/entry-server.tsx` consumes `virtual:content/<collection>` payloads and maps them into `theme/layouts/*`.
-- `theme/lib/content.ts` merges frontmatter with `content/meta.json5`, section `meta.json5`, `content/home.json5`, and `content/redirects.json5` to build listings, sidebars, breadcrumbs, series navigation, and featured content.
-- `scripts/postbuild.ts` is now thin: it flattens `404/index.html` → `404.html` and feeds repo-derived routes/entries into the upstream `generateSitemap` / `generateFeed` serializers (from `@pagesmith/site/ssg-utils`). It no longer hand-rolls XML.
-- `scripts/validate.ts` validates site config, diagramkit config, content collections, and cross-file references.
+- `pagesmith.config.json5` selects the profile preset, paths, branding, feeds, search, and deployment settings; it is loaded through `lib/site-config.ts` and the preset resolver.
+- `@pagesmith/presets/profile` loads Markdown and companion JSON5 data into one cached `ContentIndex` and owns routes, layouts, navigation, feeds, redirects, and structured data.
+- `src/theme.css` is an optional app-owned CSS override passed through `cssEntry`.
+- `scripts/diagrams.ts` invokes Diagramkit before `pagesmith-presets profile build`.
+- `scripts/validate.ts` validates the cached profile model and cross-file references.
 - `scripts/validate-pagesmith.ts` composes `@pagesmith/site` validators with the project cross-ref checks.
 - `scripts/validate-dist.ts` now delegates the bulk of dist integrity to `validateBuildOutput` (`@pagesmith/site/build-validator`) with `checkSitemap` + `checkBundledAssets`, keeping only repo-specific document-shape and Pagefind-directory checks.
 
@@ -52,8 +49,8 @@ Lazy-image loading is now handled upstream in the `@pagesmith/core` markdown pip
 Rules for this repo:
 
 - Do not invent Pagesmith behavior. Read the installed docs first.
-- Do not reintroduce `@pagesmith/docs`, `pagesmith.config.json5`, or the `pagesmith-docs` CLI.
-- Keep collection and config validation in `schemas/frontmatter.ts`, `schemas/content-data.ts`, `schemas/site.ts`, and `schemas/diagramkit.ts`.
+- Do not reintroduce `@pagesmith/docs` or an app-owned route dispatcher.
+- Keep compatibility site validation in `schemas/site.ts` and diagram validation in `schemas/diagramkit.ts`; profile content contracts belong to `@pagesmith/presets`.
 - Treat `ai-guidelines/markdown.md` as the local supplement, not a replacement for the upstream file.
 - When editing content, update companion metadata (`content/articles/meta.json5`, `content/blogs/meta.json5`, `content/home.json5`, `content/redirects.json5`) in the same change when needed.
 
@@ -61,33 +58,33 @@ Rules for this repo:
 
 Read these files when the task touches Vite SSG, JSX rendering, runtime JS, CSS bundles, or the site shell. As with core, every guideline now lives inside the matching skill folder.
 
-| File                                                                                     | Why it matters                                                    |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `node_modules/@pagesmith/site/REFERENCE.md`                                              | Full site toolkit reference and SSG / runtime contract            |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/SKILL.md`                      | Bootstrap a custom (non-docs-preset) Pagesmith site               |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/setup-site.md`      | Canonical bootstrap + retrofit workflow                           |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/usage.md`           | Agent-facing usage patterns and package-split rules               |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/site-guidelines.md` | Package responsibilities and non-negotiables                      |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/recipes.md`         | Targeted recipes for Vite SSG and runtime adoption                |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/migration.md`       | Upgrade workflow and compatibility checks                         |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-customize-theme/SKILL.md`            | Swap CSS bundles, runtime JS, layouts, or components              |
-| `node_modules/@pagesmith/site/skills/pagesmith-site-use-preset/SKILL.md`                 | Consume a preset (e.g. `@pagesmith/docs`) — not used by this repo |
-| `node_modules/@pagesmith/site/llms.txt`, `node_modules/@pagesmith/site/llms-full.txt`    | AI context indexes                                                |
+| File                                                                                     | Why it matters                                             |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `node_modules/@pagesmith/site/REFERENCE.md`                                              | Full site toolkit reference and SSG / runtime contract     |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/SKILL.md`                      | Bootstrap a custom (non-docs-preset) Pagesmith site        |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/setup-site.md`      | Canonical bootstrap + retrofit workflow                    |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/usage.md`           | Agent-facing usage patterns and package-split rules        |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/site-guidelines.md` | Package responsibilities and non-negotiables               |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/recipes.md`         | Targeted recipes for Vite SSG and runtime adoption         |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-setup/references/migration.md`       | Upgrade workflow and compatibility checks                  |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-customize-theme/SKILL.md`            | Swap CSS bundles, runtime JS, layouts, or components       |
+| `node_modules/@pagesmith/site/skills/pagesmith-site-use-preset/SKILL.md`                 | Understand preset consumption and the site/preset boundary |
+| `node_modules/@pagesmith/site/llms.txt`, `node_modules/@pagesmith/site/llms-full.txt`    | AI context indexes                                         |
 
 The published validators this repo composes via `scripts/validate-pagesmith.ts`:
 
 - `validateContent` (frontmatter schema, links, alt text, themed-image pairs)
 - `validateBuildOutput` (`@pagesmith/site/build-validator`)
-- `loadContentSchemaMap`, `formatContentValidationReport`
+- `formatContentValidationReport`
 - `normalizeBasePath`, `withBasePath`
 
 `validateBuildOutput` now covers what `scripts/validate-dist.ts` used to hand-roll. Notable options this repo uses: `requiredFiles` (file presence), `checkBundledAssets` (entry CSS/JS discovery + on-disk resolution), and `checkSitemap` (sitemap ↔ HTML cross-check). It also validates internal links/srcset, `assets/` content-hash naming (`requireAssetHash`, default on), and SVG well-formedness by default. Optional `requireThemeVariants` / `requireRasterModernFormats` are available but not enabled here. It does **not** check HTML document shape (DOCTYPE/`<html>`/`<head>`/`<body>`) — that stays repo-local in `validate-dist.ts`.
 
-SSG serialization helpers now live in `@pagesmith/site/ssg-utils`: `generateSitemap(routes, config)` and `generateFeed(entries, config)`. `generateSitemap` canonicalizes the home route to the bare origin (no trailing slash) and emits no trailing newline; `generateFeed` filters to valid publish dates, sorts newest-first, and caps at `limit` (default 50). `postbuild.ts` supplies routes/entries; it does not build XML.
+SSG serialization helpers now live in `@pagesmith/site/ssg-utils`; the profile preset supplies routes and entries directly while the repository keeps only its validation and Diagramkit scripts.
 
 Structured data (JSON-LD) is emitted upstream by `SiteDocument` (schema.org `Article`/`BlogPosting`/`WebSite`, gated by `seo.jsonLd`, default `true`), with standalone builders `buildArticleStructuredData`, `buildWebsiteStructuredData`, and `serializeJsonLd` exported from the package root.
 
-The `pagesmith-site validate` CLI also exists; this repo bypasses it because there is no `pagesmith.config.*` file (Vite is wired directly).
+The `pagesmith-presets profile validate` command is the canonical site validation entry point; the repository scripts add Diagramkit and corpus-specific checks.
 
 ### Upstream skill stubs (`skills install`)
 
@@ -105,17 +102,15 @@ These write `.agents/skills/<name>/SKILL.md` pointer stubs plus `.claude/` and `
 
 ### Current repo integration
 
-- `vite.config.ts` wires `pagesmithSsg` and `sharedAssetsPlugin` from `@pagesmith/site/vite` while keeping `pagesmithContent` on `@pagesmith/core/vite`.
-- `index.html` declares the Vite-managed `src/theme.css` and `src/client.ts` entry points used by the site plugin to discover built CSS and JS assets.
-- `src/theme.css` imports the shipped standalone Pagesmith site CSS bundles. `public/site-theme.css` remains the repo-local visual override layer.
-- `src/client.ts` loads `@pagesmith/site/runtime/standalone` and only keeps the repo-specific browser enhancements that the package does not yet ship.
-- `theme/components/Html.tsx` consumes the SSG-provided `cssPath` and `jsPath` instead of hardcoding runtime asset filenames.
+- `pagesmith-presets profile build` emits the SSG HTML, hashed CSS, self-contained standalone runtime, Pagefind index, feeds, sitemap, and 404 output.
+- `src/theme.css` imports the shipped standalone Pagesmith site CSS bundles and remains the repo-local visual override layer.
+- The preset uses the generic `@pagesmith/site` document, layout, and runtime contracts; no Vite app entry or app-owned `Html.tsx` is required.
 
 Rules for this repo:
 
-- Keep collections, schemas, markdown rendering, and `pagesmithContent` on `@pagesmith/core`.
-- Keep Vite SSG, the JSX runtime, shared CSS bundles, and shared browser runtime modules on `@pagesmith/site`.
-- Do not replace the repo's Vite command set with `pagesmith-site` unless the project adopts a preset-defined workflow.
+- Keep content loading and Markdown processing behind `@pagesmith/presets/profile` and its `@pagesmith/core` dependency.
+- Keep the generic SSG, JSX runtime, shared CSS bundles, and browser runtime modules on `@pagesmith/site`.
+- Keep `npm run dev`, `npm run build`, and `npm run preview` mapped to the profile preset commands.
 
 ## diagramkit
 
@@ -171,20 +166,13 @@ When updating repo guidance or skill wrappers (this is exactly what `prj-sync` d
 1. Read the upstream `@pagesmith/core` and `@pagesmith/site` files listed above.
 2. Read the diagramkit references listed above.
 3. Read the local integration surfaces that define the current behavior:
-   - `site.config.json5`
-   - `vite.config.ts`
-   - `index.html`
+   - `pagesmith.config.json5`
    - `src/theme.css`
-   - `src/client.ts`
    - `diagramkit.config.json5`
-   - `content.config.ts`
    - `schemas/`
-   - `src/entry-server.tsx`
-   - `theme/lib/content.ts`
    - `scripts/validate.ts`
    - `scripts/validate-pagesmith.ts`
    - `scripts/validate-dist.ts`
-   - `scripts/postbuild.ts`
 4. Update `ai-guidelines/` first.
 5. Then update `AGENTS.md`, `CLAUDE.md`, `.claude/skills/`, `.cursor/skills/`, `.agents/skills/`, and `.cursor/rules/`.
 6. Keep wrapper files thin and point them back into `.agents/skills/<name>/SKILL.md`.

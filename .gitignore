@@ -5,3 +5,9 @@ dev/
 test-results/
 playwright-report/
 .temp/
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

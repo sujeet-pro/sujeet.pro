@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { loadProfileContentModel } from "@pagesmith/presets/profile";
 import { describe, expect, it } from "vitest";
-import { contentLayerConfig } from "../../content.config";
 import { loadSiteConfig } from "../../lib/site-config";
 
 describe("project config files", () => {
@@ -9,7 +9,7 @@ describe("project config files", () => {
   const contentDir = join(root, "content");
 
   it("writes the site config and home metadata files", () => {
-    expect(existsSync(join(root, "site.config.json5"))).toBe(true);
+    expect(existsSync(join(root, "pagesmith.config.json5"))).toBe(true);
     expect(existsSync(join(contentDir, "meta.json5"))).toBe(true);
     expect(existsSync(join(contentDir, "home.json5"))).toBe(true);
   });
@@ -32,19 +32,15 @@ describe("project config files", () => {
     expect(siteConfig.server.previewPort).toBe(4000);
   });
 
-  it("registers content and data collections for the site model", () => {
-    expect(Object.keys(contentLayerConfig.collections)).toEqual([
-      "homePage",
-      "articleIndex",
-      "blogIndex",
-      "articles",
-      "blogs",
-      "rootMeta",
-      "articleMeta",
-      "blogMeta",
-      "homeData",
-      "redirects",
-      "tags",
-    ]);
-  });
+  it("registers content and data through the profile preset model", async () => {
+    const model = await loadProfileContentModel({
+      siteConfig: {},
+      contentDir: "content",
+      dataDir: "content",
+    });
+
+    expect(model.index.getSection("articles").length).toBeGreaterThan(100);
+    expect(model.index.getSection("blogs").length).toBe(2);
+    expect(model.data.meta.headerLinks).toBeDefined();
+  }, 30_000);
 });

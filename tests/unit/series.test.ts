@@ -1,49 +1,52 @@
-import { resolveBasePath } from "../../lib/site-config";
-import {
-  getArticleListing,
-  getFeaturedArticles,
-  getFeaturedSeries,
-  getSiteStats,
-} from "../../theme/lib/content";
+import { loadProfileContentModel } from "@pagesmith/presets/profile";
 import { describe, expect, it } from "vitest";
 
-const BASE_PATH = resolveBasePath();
-
 describe("article listing helpers", () => {
-  it("groups articles by configured series order", () => {
-    const listing = getArticleListing(BASE_PATH);
-    const series = listing.series.find((entry) => entry.slug === "critical-rendering-path");
+  it("groups articles by configured series order", async () => {
+    const model = await loadProfileContentModel({
+      siteConfig: {},
+      contentDir: "content",
+      dataDir: "content",
+    });
+    const series = model.series.get("critical-rendering-path");
 
     expect(series).toBeDefined();
-    expect(series?.articles[0]?.slug).toBe("crp-rendering-pipeline-overview");
-    expect(series?.articles.at(-1)?.slug).toBe("crp-draw");
-  });
+    expect(series?.records[0]?.slug).toBe("crp-rendering-pipeline-overview");
+    expect(series?.records.at(-1)?.slug).toBe("crp-draw");
+  }, 30_000);
 
-  it("resolves featured articles and series from home config slugs", () => {
-    const featuredArticles = getFeaturedArticles(BASE_PATH, [
+  it("resolves featured articles and series from home config slugs", async () => {
+    const model = await loadProfileContentModel({
+      siteConfig: {},
+      contentDir: "content",
+      dataDir: "content",
+    });
+    const featuredArticles = ["design-uber-ride-hailing", "v8-engine-architecture"].map((slug) =>
+      model.index.getEntry(`articles:${slug}`),
+    );
+    const featuredSeries = ["system-design-scenarios", "critical-rendering-path"].map((slug) =>
+      model.series.get(slug),
+    );
+
+    expect(featuredArticles.map((entry) => entry?.slug)).toEqual([
       "design-uber-ride-hailing",
       "v8-engine-architecture",
     ]);
-    const featuredSeries = getFeaturedSeries(BASE_PATH, [
+    expect(featuredSeries.map((entry) => entry?.slug)).toEqual([
       "system-design-scenarios",
       "critical-rendering-path",
     ]);
+  }, 30_000);
 
-    expect(featuredArticles.map((entry) => entry.slug)).toEqual([
-      "design-uber-ride-hailing",
-      "v8-engine-architecture",
-    ]);
-    expect(featuredSeries.map((entry) => entry.slug)).toEqual([
-      "system-design-scenarios",
-      "critical-rendering-path",
-    ]);
-  });
+  it("reports article and blog counts for the home page", async () => {
+    const model = await loadProfileContentModel({
+      siteConfig: {},
+      contentDir: "content",
+      dataDir: "content",
+    });
 
-  it("reports article and blog counts for the home page", () => {
-    const stats = getSiteStats();
-
-    expect(stats.articleCount).toBeGreaterThan(100);
-    expect(stats.blogCount).toBe(2);
-    expect(stats.seriesCount).toBeGreaterThan(0);
-  });
+    expect(model.index.getSection("articles").length).toBeGreaterThan(100);
+    expect(model.index.getSection("blogs").length).toBe(2);
+    expect(model.series.size).toBeGreaterThan(0);
+  }, 30_000);
 });

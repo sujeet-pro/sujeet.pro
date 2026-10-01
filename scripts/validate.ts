@@ -1,34 +1,27 @@
-import { createContentLayer } from "@pagesmith/site";
-import { contentLayerConfig } from "../content.config.ts";
+import { loadProfileContentModel } from "@pagesmith/presets/profile";
 import { collectCrossReferenceErrors } from "../lib/cross-references.ts";
 import { loadDiagramkitConfig } from "../lib/diagramkit-config.ts";
-import { resolveBasePath } from "../lib/site-config.ts";
+import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 
 loadDiagramkitConfig();
 
-const layer = createContentLayer(contentLayerConfig);
 const errors: string[] = [];
-const markdownCollections = new Set(["homePage", "articleIndex", "blogIndex", "articles", "blogs"]);
-
-for (const collectionName of Object.keys(contentLayerConfig.collections)) {
-  try {
-    const entries = await layer.getCollection(
-      collectionName as keyof typeof contentLayerConfig.collections,
-    );
-    if (markdownCollections.has(collectionName)) {
-      for (const entry of entries) {
-        await entry.render();
-      }
-    }
-  } catch (error) {
-    errors.push(
-      `Collection "${collectionName}" failed validation: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+const siteConfig = loadSiteConfig();
+try {
+  const model = await loadProfileContentModel({
+    siteConfig: siteConfig as Record<string, unknown>,
+    contentDir: siteConfig.contentDir,
+    dataDir: siteConfig.dataDir,
+  });
+  for (const entry of model.index.entries) await entry.renderedContent();
+} catch (error) {
+  errors.push(
+    `Profile content model failed validation: ${error instanceof Error ? error.message : String(error)}`,
+  );
 }
 
 const basePath = resolveBasePath();
-errors.push(...collectCrossReferenceErrors(basePath).errors);
+errors.push(...(await collectCrossReferenceErrors(basePath)).errors);
 
 if (errors.length > 0) {
   console.error(`Validation failed with ${errors.length} issue(s):`);

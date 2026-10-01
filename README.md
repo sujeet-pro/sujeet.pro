@@ -1,8 +1,8 @@
 # sujeet.pro
 
-Personal engineering blog and portfolio. Built with [@pagesmith/core](https://github.com/sujeet-pro/pagesmith) for the content layer, [@pagesmith/site](https://github.com/sujeet-pro/pagesmith) for the site shell and Vite SSG/runtime, and [diagramkit](https://github.com/sujeet-pro/diagramkit) for diagram generation.
+Personal engineering blog and portfolio. Built with the `profile` mode of [@pagesmith/presets](https://github.com/sujeet-pro/pagesmith), [@pagesmith/site](https://github.com/sujeet-pro/pagesmith) for the site shell/runtime, and [diagramkit](https://github.com/sujeet-pro/diagramkit) for diagram generation.
 
-This repo uses `@pagesmith/core` + `@pagesmith/site` directly. It should not depend on `@pagesmith/docs`.
+The normal application surface is content, data, assets, diagrams, and `pagesmith.config.json5`; it does not need an app-owned route dispatcher, content index, or theme.
 
 ## Prerequisites
 
@@ -23,10 +23,10 @@ npx playwright install chromium
 ## Daily DX
 
 ```bash
-npm run dev            # Vite dev server on port 3000
-npm run build          # Render diagrams, run Vite SSG, and postbuild assets
-npm run preview        # Preview built output on port 4000
-npm run validate       # Validate config, collections, and cross-file references
+npm run dev            # Build and serve the profile preset on port 3000
+npm run build          # Render diagrams and build the profile preset
+npm run preview        # Serve built output on port 4000
+npm run validate       # Validate the profile index and cross-file references
 npm run check-orphans  # Find unreferenced assets in content/
 vp check               # Format + lint + type-check
 vp check --fix         # Auto-fix formatting and lint issues
@@ -36,10 +36,9 @@ npm run test:e2e       # Playwright end-to-end tests
 
 ## Core Config Surfaces
 
-- `site.config.json5` — site-level config for origin, base path, theme, search, analytics, edit links, and ports
+- `pagesmith.config.json5` — profile preset, paths, origin, base path, theme, search, analytics, and ports
 - `diagramkit.config.json5` — diagram rendering defaults and manifest behavior
-- `content.config.ts` — `@pagesmith/core` collections plus markdown configuration
-- `schemas/` — Zod schemas for site config, frontmatter, content metadata, and diagramkit config
+- `schemas/` — Zod schemas for the compatibility config and diagramkit config
 - `content/meta.json5` — top-level nav and footer chrome
 - `content/articles/meta.json5` — article listing behavior, ordering, and series definitions
 - `content/blogs/meta.json5` — blog listing behavior and ordering
@@ -49,9 +48,8 @@ npm run test:e2e       # Playwright end-to-end tests
 ## Content Structure
 
 ```text
-site.config.json5
+pagesmith.config.json5
 diagramkit.config.json5
-content.config.ts
 content/
   README.md
   meta.json5
@@ -71,17 +69,10 @@ content/
       README.md
       diagrams/
       assets/
-theme/
-  components/
-  layouts/
-  lib/content.ts
 src/
-  client.ts
-  entry-server.tsx
   theme.css
 scripts/
   diagrams.ts
-  postbuild.ts
   validate.ts
 ```
 
@@ -89,13 +80,10 @@ Article and blog entries use folder-based markdown. Companion metadata lives in 
 
 ## Build And Render Flow
 
-1. `content.config.ts` defines the Pagesmith collections and markdown behavior.
-2. `vite.config.ts` keeps `pagesmithContent(...)` on `@pagesmith/core/vite` and wires `sharedAssetsPlugin()` plus `...pagesmithSsg(...)` from `@pagesmith/site/vite`.
-3. `index.html`, `src/theme.css`, and `src/client.ts` define the Vite-managed CSS and browser runtime entry points for the site layer.
-4. `src/entry-server.tsx` imports `virtual:content/<collection>` payloads and renders them through `theme/layouts/*`.
-5. `theme/lib/content.ts` combines entry frontmatter with section metadata, homepage data, and redirects to build navigation, listings, breadcrumbs, prev/next links, and featured content.
-6. `scripts/postbuild.ts` writes `sitemap.xml` and `rss.xml` after the Vite + Pagesmith site build.
-7. `scripts/validate.ts` validates site config, diagramkit config, collections, and cross-file integrity.
+1. `scripts/diagrams.ts` renders changed Diagramkit sources and writes themed assets beside their content.
+2. `pagesmith-presets profile build` resolves `pagesmith.config.json5`, loads the content/data roots once, builds the cached profile index, and renders static routes.
+3. The profile preset emits the document shell, CSS, standalone runtime, Pagefind index, sitemap, RSS/Atom feeds, redirects, and GitHub Pages-compatible `404.html` output.
+4. `scripts/validate.ts` validates the profile model, Diagramkit config, and cross-file integrity.
 
 ## Diagrams
 
@@ -122,15 +110,16 @@ See [ai-guidelines/content-structure.md](ai-guidelines/content-structure.md) for
 
 ## Toolchain
 
-| Tool                                                       | Purpose                                                                   |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Vite+](https://viteplus.dev/)                             | `vp check`, `vp test`, `vp staged`, dependency/runtime management         |
-| [Node.js 24](https://nodejs.org/)                          | Runtime                                                                   |
-| [tsx](https://tsx.is/)                                     | TypeScript script runner                                                  |
-| [@pagesmith/core](https://github.com/sujeet-pro/pagesmith) | Content layer, markdown pipeline, schemas/loaders, and `pagesmithContent` |
-| [@pagesmith/site](https://github.com/sujeet-pro/pagesmith) | JSX runtime, site CSS/runtime bundles, and Vite SSG helpers               |
-| [diagramkit](https://github.com/sujeet-pro/diagramkit)     | Diagram rendering for Mermaid, Excalidraw, Draw.io, and Graphviz          |
-| [Playwright](https://playwright.dev/)                      | Browser automation for tests and diagram rendering                        |
+| Tool                                                          | Purpose                                                               |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [Vite+](https://viteplus.dev/)                                | `vp check`, `vp test`, `vp staged`, dependency/runtime management     |
+| [Node.js 24](https://nodejs.org/)                             | Runtime                                                               |
+| [tsx](https://tsx.is/)                                        | TypeScript script runner                                              |
+| [@pagesmith/presets](https://github.com/sujeet-pro/pagesmith) | Profile preset, cached content index, routes, layouts, feeds, and CLI |
+| [@pagesmith/core](https://github.com/sujeet-pro/pagesmith)    | Content layer, markdown pipeline, schemas, and loaders                |
+| [@pagesmith/site](https://github.com/sujeet-pro/pagesmith)    | JSX runtime, site CSS/runtime bundles, and Vite SSG helpers           |
+| [diagramkit](https://github.com/sujeet-pro/diagramkit)        | Diagram rendering for Mermaid, Excalidraw, Draw.io, and Graphviz      |
+| [Playwright](https://playwright.dev/)                         | Browser automation for tests and diagram rendering                    |
 
 ## CI/CD
 
@@ -138,13 +127,9 @@ Lint, validate, build, and deploy to GitHub Pages run via `.github/workflows/ci.
 
 ## AI Agent Support
 
-This repo provides AI guidance and project-local skills for Claude Code, Cursor, and other agents:
+This repo provides project guidance and local skills for Junie:
 
 - `ai-guidelines/README.md` — canonical entrypoint for content and docs work
 - `ai-guidelines/` — shared content authoring guidelines and workflows
-- `AGENTS.md` — canonical agent project context (Cursor, Codex, and others)
-- `CLAUDE.md` — imports `AGENTS.md` for Claude Code
-- `.claude/skills/` — Claude Code skills
-- `.cursor/skills/` — Cursor project skills
-- `.cursor/rules/` — Cursor rules that point back to `ai-guidelines/`
-- `.agents/` — neutral markdown entrypoints for other agent runtimes
+- `AGENTS.md` — canonical project context
+- `.junie/` — Junie project configuration and skills

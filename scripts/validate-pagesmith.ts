@@ -4,8 +4,8 @@
  * Strategy: do not re-implement the generic "do my links resolve / are my
  * images themed correctly / does my output have the standard files" rules.
  * Import the published validators from `@pagesmith/site` (they re-export
- * `@pagesmith/core`'s content rules), point them at this project's
- * `content.config.ts`, then layer on project-specific cross-reference checks
+ * `@pagesmith/core`'s content rules), point them at this project's profile
+ * content directory, then layer on project-specific cross-reference checks
  * that no other Pagesmith user needs:
  *
  *   - `meta.json5` series → article/blog slug references
@@ -16,13 +16,9 @@
  */
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import {
-  formatContentValidationReport,
-  loadContentSchemaMap,
-  validateContent,
-  type FileSchemaEntry,
-} from "@pagesmith/site";
+import { formatContentValidationReport, validateContent } from "@pagesmith/site";
 import { validateBuildOutput } from "@pagesmith/site/build-validator";
+import { loadProfileContentModel } from "@pagesmith/presets/profile";
 import { collectCrossReferenceErrors } from "../lib/cross-references.ts";
 import { loadSiteConfig, resolveBasePath } from "../lib/site-config.ts";
 
@@ -51,23 +47,20 @@ if (checkContent) {
     if (basePath) additionalRoots.push({ prefix: basePath, dir: outDir });
   }
 
-  const loaded = await loadContentSchemaMap([projectRoot]);
-  const schemaByFile: Map<string, FileSchemaEntry> | undefined = loaded?.schemaByFile;
-  if (loaded) {
-    console.log(
-      `  loaded content.config from ${loaded.configPath} ` +
-        `(${schemaByFile?.size} markdown files mapped across ${
-          Object.keys(loaded.collections).length
-        } collections)`,
-    );
-  }
+  const model = await loadProfileContentModel(
+    {
+      siteConfig: siteConfig as Record<string, unknown>,
+      contentDir: siteConfig.contentDir,
+      dataDir: siteConfig.dataDir,
+    },
+    projectRoot,
+  );
+  for (const entry of model.index.entries) await entry.renderedContent();
+  console.log(`  profile index loaded (${model.index.entries.length} markdown entries)`);
 
   const summary = await validateContent({
     contentDir,
     collectionName: "sujeet.pro",
-    resolveFrontmatterSchema: schemaByFile
-      ? (filePath) => schemaByFile.get(filePath)?.schema
-      : undefined,
     linkValidator: {
       rootDir: contentDir,
       basePath,
@@ -127,7 +120,11 @@ if (checkBuild) {
 // ── 3. Project-specific cross-reference checks ──────────────────────
 if (checkContent) {
   console.log(`\n[cross-references]`);
-  const { errors: projectErrors, articleCount, blogCount } = collectCrossReferenceErrors(basePath);
+  const {
+    errors: projectErrors,
+    articleCount,
+    blogCount,
+  } = await collectCrossReferenceErrors(basePath);
 
   if (projectErrors.length === 0) {
     console.log(

@@ -2,10 +2,14 @@
   "name": "sujeet.pro",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "npm@11.13.0",
   "scripts": {
-    "dev": "vite",
-    "preview": "vite preview",
-    "build": "tsx scripts/diagrams.ts && vite build && tsx scripts/postbuild.ts",
+    "dev": "pagesmith-presets profile dev",
+    "preview": "pagesmith-presets profile preview",
+    "build": "tsx scripts/diagrams.ts && pagesmith-presets profile build",
     "check": "vp check",
     "check:fix": "vp check --fix",
     "validate": "tsx scripts/validate.ts",
@@ -18,23 +22,25 @@
     "validate:orphans": "tsx scripts/check-orphans.ts",
     "check-orphans": "tsx scripts/check-orphans.ts",
     "validate:all": "npm run validate && npm run validate:diagrams && npm run validate:full",
-    "test": "vp test run",
+    "test": "vp test run tests/unit",
     "test:e2e": "npx playwright test",
     "test:e2e:deployed": "DEPLOYED_URL=https://sujeet.pro npx playwright test",
     "diagrams": "tsx scripts/diagrams.ts",
     "diagrams:watch": "tsx scripts/diagrams.ts --watch",
     "diagrams:force": "tsx scripts/diagrams.ts --force",
     "diagrams:doctor": "diagramkit doctor",
-    "check:ci": "npm run check && npm run validate:skills && npm run validate:all && npm run test && npm run build && npm run validate:dist && npm run test:e2e",
-    "validate:skills": "npx pagesmith skills install --check && npx diagramkit skills install --check"
+    "check:ci": "npm run check && npm run validate:skills && npm run validate:policy && npm run validate:all && npm run test && npm run build && npm run validate:dist && npm run test:e2e",
+    "validate:skills": "tsx scripts/validate-junie-skills.ts",
+    "validate:policy": "tsx scripts/validate-agent-policy.ts"
   },
   "dependencies": {
+    "@pagesmith/presets": "file:../pagesmith/packages/presets",
     "@pagesmith/site": "^0.11.0",
     "diagramkit": "^0.5.0",
     "json5": "^2.2.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^25.6.0",
     "pagefind": "^1.5.2",
     "tsx": "^4.21.0",

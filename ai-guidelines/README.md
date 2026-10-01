@@ -2,7 +2,7 @@
 
 Canonical guidance for writing and updating content in `sujeet.pro`.
 
-Read this file first, then load only the task-specific docs you need. Keep repo knowledge here and keep skill wrappers in `.claude/`, `.cursor/`, and `.agents/` thin.
+Read this file first, then load only the task-specific docs you need. Keep repo knowledge here and keep Junie skills under `.junie/` thin.
 
 ## Editorial focus
 
@@ -14,13 +14,13 @@ Read this file first, then load only the task-specific docs you need. Keep repo 
 
 This repo is content-plus-metadata, not markdown-only:
 
-- `site.config.json5` defines site-level runtime, SEO, search, theme, and server settings.
-- `content.config.ts` defines the `@pagesmith/core` collections, markdown behavior, and repo-local language aliases.
+- `pagesmith.config.json5` selects the profile preset and defines site paths, runtime, SEO, search, theme, and server settings.
+- `@pagesmith/presets/profile` defines the cached content index, profile routes, and Markdown-backed page rendering.
 - `content/meta.json5` defines top-level nav and footer chrome.
 - `content/articles/meta.json5` and `content/blogs/meta.json5` define listing behavior, order, and article series.
 - `content/home.json5` defines homepage hero and featured content.
 - `content/redirects.json5` defines vanity links and legacy URL redirects.
-- `schemas/` validates site config, frontmatter, content metadata, and diagramkit config.
+- `schemas/` validates compatibility site settings and Diagramkit config; preset content contracts live in `@pagesmith/presets`.
 
 Treat a single content edit as incomplete until you check whether one or more of those companion files also need to change.
 
@@ -50,13 +50,13 @@ Use repo-native commands only:
 
 ```bash
 npm run diagrams           # Re-render changed diagrams when diagram sources change
-npm run validate           # Validate site config, diagramkit config, collections, and cross-file references
+npm run validate           # Validate profile index, diagramkit config, and cross-file references
 npm run validate:content   # @pagesmith/site content validators only
 npm run validate:full      # @pagesmith/site content + build validators + project cross-refs
 npm run validate:diagrams  # diagramkit validate ./content --recursive (SVG + WCAG 2.2 AA)
 npm run validate:dist      # Repo-local dist integrity (links, sitemap, base path)
 npm run validate:all       # validate + validate:diagrams + validate:full
-npm run build              # Render diagrams, run Vite SSG, and write postbuild assets
+npm run build              # Render diagrams and build the profile preset
 vp check                   # Format, lint, and type-check code and config changes
 vp test                    # Unit tests
 ```
@@ -65,7 +65,7 @@ Pick the smallest relevant command set for the change. For article and blog edit
 
 ## Skill map
 
-The repo-local skills are folder-shaped at `.agents/skills/<name>/SKILL.md`. The `.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` files are thin pointers to the canonical body — never edit them directly.
+The repo-local skills are folder-shaped at `.junie/skills/<name>/SKILL.md` — never duplicate them into another agent configuration tree.
 
 - `prj-doc`: route to the right project skill (article, blog, content, diagrams, validate, sync).
 - `prj-article`: create, update, refactor, or review `content/articles/...`. Design-space topics use the solution-evolution spine; refactors to it are per-slug and on-request only. Research, drafting, and the mandatory fact-check gate are delegated to the `prj-article-*` agents in `.claude/agents/`.
