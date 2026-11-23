@@ -1,0 +1,106 @@
+{
+  "subject": "URL Redirection & Vanity URL Service",
+  "stages": [
+    {
+      "id": "l0-static-map", "level": 0, "title": "Static redirect map", "mode": "baseline",
+      "trigger": { "kind": "launch", "headline": "One marketing site, ~200 vanity URLs", "scenario": "A single brand site needs a couple of hundred campaign links. Engineers own every change, and a reviewed PR per link is still tolerable." },
+      "requirements": [{ "label": "rules", "value": "~200" }, { "label": "redirects/mo", "value": "1M" }, { "label": "origin Regions", "value": "1" }, { "label": "miss %", "value": "~0" }],
+      "keyPoints": [
+        "CloudFront has no declarative redirect rules. Store each link as a zero-byte S3 object with x-amz-website-redirect-location (S3 answers 301) and put CloudFront in front, because S3 website endpoints don't serve HTTPS.",
+        "S3 website routing rules stop at 50 per configuration; past that, AWS points you to per-object redirects. ~200 links = ~200 objects.",
+        "Object redirects are always 301, which browsers may cache. If campaigns get repointed, use Amplify Hosting rules (301/302) or Cloudflare Bulk Redirects instead.",
+        "A CloudFront Function with the map inlined is the code route, but function code is capped at 10 KB: roughly 150 short rules (estimate: ~60 B per rule plus ~1 KB of code).",
+        "The redirects file lives in the repo and IaC creates the objects. A PR is the admin UI: no database, no service, no analytics."
+      ],
+      "decision": { "add": ["client", "dns", "cdn", "cfg"], "change": [], "remove": [], "defer": [{ "item": "database", "until": "non-engineers need self-service" }, { "item": "admin UI", "until": "L1" }, { "item": "click analytics", "until": "growth asks for attribution (L4)" }] },
+      "buildVsBuy": { "verdict": "configure", "options": ["S3 redirect objects behind CloudFront", "Amplify Hosting redirects (301/302 rules)", "Cloudflare Bulk Redirects (10,000 URL redirects on Free)", "CloudFront Function with an inlined map (10 KB code cap)", "Bitly Free (5 links/mo)"], "rationale": "Nothing to run: object metadata or a hosting rules file is the whole system. SaaS shorteners price on links created per month and serve from their own domain; a 200-link brand site doesn't need either. Spend the review effort on slug naming." },
+      "costTierId": "l0",
+      "figures": [{ "visual": "stage-l0", "alt": "Client, DNS and CloudFront in front of zero-byte S3 redirect objects.", "interactive": "stage" }],
+      "exitCriteria": ["Non-engineers need to add links without a PR and a deploy.", "Links get repointed often enough that 301-only objects or per-link deploys become real friction."]
+    },
+    {
+      "id": "l1-db-service", "level": 1, "title": "DB of record + cached service", "mode": "extend",
+      "trigger": { "kind": "business", "headline": "Marketing wants links without a deploy", "scenario": "Marketing wants to create and edit links themselves, several times a day. A PR per link now blocks campaigns, so the rules need a home outside the repo." },
+      "requirements": [{ "label": "rules", "value": "~20K" }, { "label": "redirects/mo", "value": "10M" }, { "label": "origin Regions", "value": "1" }, { "label": "miss %", "value": "low" }],
+      "keyPoints": [
+        "A small ECS Fargate service holds the whole rule set in an in-process map and reloads it on every write. DynamoDB on-demand is the DB of record.",
+        "The admin UI validates before save: duplicate slugs, redirect loops, targets on blocked domains. 302 becomes the default; 301 only for permanent moves.",
+        "Backfill once: a script imports the ~200 S3 objects and replays every old path against the new service before the objects are deleted. AI assistance makes the script cheap; the replay makes it safe.",
+        "Fixed costs dominate this tier: ALB ≈ $22/mo and two small Fargate tasks ≈ $18/mo of a ≈ $51/mo list total."
+      ],
+      "decision": { "add": ["svc", "db", "hashmap", "admin"], "change": ["cdn"], "remove": ["cfg"], "defer": [{ "item": "edge lookups", "until": "far-market p95 hurts (L2)" }, { "item": "Bloom filter", "until": "misses threaten the store (L3)" }, { "item": "click tracking", "until": "L4" }] },
+      "buildVsBuy": { "verdict": "build", "options": ["Build: Fargate service + DynamoDB + admin UI", "Bitly Growth ($29/mo billed annually, 500 links/mo)", "Bitly Premium ($199/mo billed annually, 3,000 links/mo)", "Rebrandly Essentials (250 links/mo, 10,000 tracked clicks/mo)"], "rationale": "SaaS shorteners price on links created and serve from a short domain. Vanity paths on your own domain, your slug rules and your click data stay yours if you build, and at this size the service is small; slug governance is the real work. Buy if branded short links are all you need." },
+      "costTierId": "l1",
+      "figures": [{ "visual": "stage-l1", "alt": "CloudFront in front of a Fargate service with an in-memory map, DynamoDB as the DB of record and an admin UI; the S3 redirect objects are retired.", "interactive": "diff" }],
+      "exitCriteria": ["Launches in markets far from the origin Region push their redirect p95 past target.", "The rule set outgrows what every task should reload on each write."]
+    },
+    {
+      "id": "l2-edge-kv", "level": 2, "title": "Push the map to the edge", "mode": "extend",
+      "trigger": { "kind": "scale", "headline": "Launch in 3 markets; APAC p95 too slow", "scenario": "Traffic goes global while the origin stays in us-east-1. Every APAC redirect crosses an ocean to answer a lookup that rarely changes." },
+      "requirements": [{ "label": "rules", "value": "~50K" }, { "label": "redirects/mo", "value": "50M" }, { "label": "origin Regions", "value": "1" }, { "label": "miss %", "value": "low" }],
+      "keyPoints": [
+        "A CloudFront Function (JavaScript runtime 2.0) reads CloudFront KeyValueStore and answers at the edge. The origin only sees misses and admin traffic.",
+        "KVS limits: 512 B key, 1 KB value, 5 MB per store, one store per function, readable from CloudFront Functions only (not Lambda@Edge).",
+        "5 MB holds roughly 50,000 typical rules (ASSUMPTION: ~100 B per entry; AWS doesn't publish per-entry overhead).",
+        "Writes land in DynamoDB first; the service pushes them with UpdateKeys (up to 50 keys per call). AWS describes propagation as “a few seconds” (2023 launch blog, no SLA), so the admin UI says “live within seconds”, not “instant”.",
+        "Edge cost per redirect: $0.10 per 1M function invocations + $0.03 per 1M KVS reads, on top of the $0.0100 per 10k HTTPS request fee, which is ~55% of this tier's bill."
+      ],
+      "decision": { "add": ["edgekv"], "change": ["cdn", "svc"], "remove": [], "defer": [{ "item": "Bloom filter", "until": "misses threaten the store (L3)" }, { "item": "click tracking", "until": "L4" }, { "item": "multi-Region origin", "until": "a tenant SLA needs Region failover (L5)" }] },
+      "buildVsBuy": { "verdict": "configure", "options": ["CloudFront Functions + KeyValueStore", "Cloudflare Workers KV (changes may take 60 s or more to appear elsewhere)", "Lambda@Edge ($0.60 per 1M requests, cannot read KVS)"], "rationale": "The edge store is a managed primitive: configure it, don't build one. The engineering is the publish path from DynamoDB to KVS and a reconciler that proves both agree." },
+      "costTierId": "l2",
+      "figures": [{ "visual": "stage-l2", "alt": "CloudFront Function reading KeyValueStore at the edge; the Fargate service publishes rule changes to it with UpdateKeys.", "interactive": "diff" }],
+      "exitCriteria": ["The rule set approaches the 5 MB store (≈50k typical rules).", "Miss traffic, not hits, starts reaching the origin in volume."]
+    },
+    {
+      "id": "l3-bloom-guard", "level": 3, "title": "Bloom-filter miss guard", "mode": "replace",
+      "trigger": { "kind": "incident", "headline": "Bot path-scans cause a 404 storm", "scenario": "User-generated links push the table past 10M slugs, far beyond one 5 MB store. Then a bot scans random paths: every miss falls through the edge and the service to DynamoDB, and the read bill tracks attacker traffic." },
+      "requirements": [{ "label": "rules", "value": "10M+" }, { "label": "redirects/mo", "value": "300M" }, { "label": "origin Regions", "value": "1" }, { "label": "miss %", "value": "~30 (bots)" }],
+      "keyPoints": [
+        "The Bloom filter lives in each Fargate task, in front of DynamoDB. At a 1% false-positive rate it rejects ~99% of misses; 10M slugs need ≈12 MB (9.585 bits per key, k = 7).",
+        "It can't live at the edge: ≈12 MB is ~12,000× one KVS value (1 KB), 2.4× a whole store (5 MB), and far past the 10 KB code and 2 MB memory limits of CloudFront Functions.",
+        "The edge keeps the KVS hot set (≤ ~50k links) and caches 404s for a short TTL (negative caching). WAF rate rules are the next lever if scans persist.",
+        "Every write is added to each task's filter; a scheduled rebuild from the table clears deleted slugs. While a filter loads, the service fails open to DynamoDB.",
+        "DynamoDB on-demand serves the long tail (“single-digit millisecond performance”, AWS's wording): ≈ $1.93/mo of reads here vs ≈ $122.64/mo just to store a 2 GB hot set in Valkey Serverless. A cache tier is a latency option, not a cost saver."
+      ],
+      "decision": { "add": ["bloom"], "change": ["cdn", "edgekv", "db"], "remove": ["hashmap"], "defer": [{ "item": "WAF rate-based rules", "until": "negative caching + the filter still leave scan traffic on the bill" }, { "item": "ElastiCache / Valkey", "until": "DynamoDB latency, not cost, misses an SLO" }, { "item": "click tracking", "until": "L4" }] },
+      "buildVsBuy": { "verdict": "build", "options": ["Build: in-process Bloom filter + rebuild job", "Lambda@Edge holding the filter (50 MB package fits it, at 6× the per-request price and no KVS access)", "ElastiCache Serverless Valkey as a hot cache"], "rationale": "No managed negative cache fits this shape. A Bloom filter plus its rebuild job is a small, well-understood build. Buy the store (DynamoDB), build the guard." },
+      "costTierId": "l3",
+      "figures": [{ "visual": "stage-l3", "alt": "Topology diff: in-process Bloom filter added in front of DynamoDB, in-memory map removed, edge store reduced to the hot set.", "interactive": "diff" }],
+      "exitCriteria": ["Growth asks for click attribution and campaign reporting."]
+    },
+    {
+      "id": "l4-click-attribution", "level": 4, "title": "Async click attribution", "mode": "extend",
+      "trigger": { "kind": "feature-request", "headline": "Growth wants click attribution", "scenario": "Marketing needs per-link clicks and campaign attribution, with dashboards that keep up during launches, without adding latency to the redirect." },
+      "requirements": [{ "label": "rules", "value": "10M+" }, { "label": "redirects/mo", "value": "600M" }, { "label": "origin Regions", "value": "1" }, { "label": "miss %", "value": "~30 (guarded)" }],
+      "keyPoints": [
+        "CloudFront real-time logs ($0.01 per 1M lines) → Kinesis Data Streams → Firehose → S3 → Athena. The redirect never waits on tracking.",
+        "Firehose bills each record rounded up to 5 KB, so a ~250 B click line bills at 20× its size. Aggregate clicks into larger records before Firehose; the cost model shows the unaggregated worst case (≈ $87/mo at 600M clicks).",
+        "If minutes of delay are fine, skip the stream: standard logs to S3 carry no delivery charge (S3 storage still bills).",
+        "Partition by date and campaign. Athena bills $5 per TB scanned, rounded up per MB with a 10 MB minimum per query.",
+        "A tracking outage degrades dashboards, never redirects."
+      ],
+      "decision": { "add": ["firehose", "s3", "athena"], "change": ["cdn"], "remove": [], "defer": [{ "item": "pattern / regex rules", "until": "L5" }, { "item": "per-tenant isolation", "until": "L5" }] },
+      "buildVsBuy": { "verdict": "configure", "options": ["CloudFront real-time logs → Kinesis → Firehose → S3 → Athena", "CloudFront standard logs → S3 → Athena (minutes of delay)", "Self-run ClickHouse ingestion"], "rationale": "Wiring over managed streaming and query services. Running your own ingestion tier buys nothing until query latency or scan cost says otherwise." },
+      "costTierId": "l4",
+      "figures": [{ "visual": "stage-l4", "alt": "Async click pipeline (logs, stream, S3, Athena) added off the redirect hot path.", "interactive": "diff" }],
+      "exitCriteria": ["Brands need prefix or regex rules with precedence.", "Tenants need isolation and their own SLAs."]
+    },
+    {
+      "id": "l5-rule-engine", "level": 5, "title": "Multi-tenant rule engine", "mode": "replace",
+      "trigger": { "kind": "business", "headline": "40 tenant brands, pattern rules, per-tenant SLAs", "scenario": "The platform now hosts 40 brands. They need prefix and regex rules with precedence, isolation from each other's mistakes, and SLAs that survive a Region loss. A flat exact-match lookup is no longer the product." },
+      "requirements": [{ "label": "rules", "value": "~50M (40 tenants)" }, { "label": "redirects/mo", "value": "2B" }, { "label": "origin Regions", "value": "3" }, { "label": "miss %", "value": "~30 (guarded)" }],
+      "keyPoints": [
+        "Ordered matcher: exact hash (KVS at the edge, Bloom + DynamoDB in the Region) → prefix trie → compiled regex, with explicit precedence and conflict detection at publish time.",
+        "Tenant isolation: per-tenant rule sets, quotas and publish pipelines, so one brand's bad regex can't stall another's redirects.",
+        "Three Regions behind Route 53 latency routing and health checks. Global tables default to last-writer-wins, replicating “typically within a second or less”, so each tenant writes in one home Region; strong-consistency mode only for a tenant that needs zero data loss.",
+        "AI-era lens: deterministic rule compilers and shadow-replay verifiers are now cheap to build. The slow parts haven't moved: DNS cutover, SEO sign-off, cross-team ownership.",
+        "CloudFront request fees are still ~59% of this tier's ≈ $3,401/mo list total; the matcher is not where the money goes."
+      ],
+      "decision": { "add": ["rules", "tenantcfg", "region2"], "change": ["dns", "db", "edgekv"], "remove": ["svc"], "defer": [{ "item": "strong-consistency global tables", "until": "a tenant contract requires zero data loss" }, { "item": "dedicated KVS per tenant", "until": "one tenant's hot set crowds the shared 5 MB store" }] },
+      "buildVsBuy": { "verdict": "build", "options": ["Build the ordered rule engine + tenancy on managed stores", "Bitly Enterprise (custom pricing)", "Cloudflare Bulk Redirects Enterprise (1,000,000 URL redirects)"], "rationale": "Precedence, conflict detection and per-tenant SLAs are the product now; own them. Buy the stores, the edge and DNS underneath." },
+      "costTierId": "l5",
+      "figures": [{ "visual": "stage-l5", "alt": "Ordered rule engine replaces the redirect service; tenant isolation and peer Regions added.", "interactive": "diff" }],
+      "exitCriteria": []
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+---
+/**
+ * `/visuals-export/<slug>/` (Stage 4.1, local-only tier §3). Registered by `visuals-route.ts` only when
+ * `astro dev` runs with `SP_VISUALS_RENDER=1` (scripts/render-visuals.mjs); it lives outside `src/pages/`,
+ * so `astro build` never emits it (P2).
+ *
+ * One page per evolution article holding every shot the renderer screenshots, each in an element
+ * `[data-sp-shot="<artifact path without -light|-dark and extension>"]` at its CSS size (the renderer uses
+ * DPR 2, so the output is twice the CSS box). Colours come only from `--sp-*` tokens: the renderer flips
+ * `data-sp-scheme` on <html> for the dark variants.
+ *
+ * Stage figures use SystemTopology itself (same drawing code as the interactive view, `static` = no
+ * toolbar/inspector): `stage` for L0 or a figure whose `interactive` is `stage`, otherwise `diff` vs the
+ * previous level (added highlighted, removed struck through).
+ */
+import type { GetStaticPaths } from 'astro';
+import SystemTopology from '../components/interactive/SystemTopology';
+import { getAllArticles, getArticle, getEvolution } from '../lib/articles/registry';
+import { costBand } from '../lib/articles/evolution';
+import { MODE_LABEL, tierTotal } from '../components/evolution/labels';
+import '../styles/global.css';
+import '../components/evolution/evolution.css';
+
+export const getStaticPaths = (() =>
+  getAllArticles()
+    .filter((a) => getEvolution(a.slug))
+    .map((a) => ({ params: { slug: a.slug } }))) satisfies GetStaticPaths;
+
+const { slug } = Astro.params;
+const article = getArticle(slug);
+const bundle = getEvolution(slug);
+if (!article || !bundle) throw new Error(`[visuals-export] "${slug}" is not an evolution article`);
+const { evolution, topology, costModels } = bundle;
+const m = article.manifest;
+
+const [, , vw, vh] = topology.viewBox;
+const FIG_W = 800; // CSS px; DPR 2 → 1600 px wide
+const FIG_H = Math.round((FIG_W * vh) / vw);
+
+const figures = evolution.stages.flatMap((s) =>
+  s.figures.map((f) => ({
+    level: s.level,
+    visual: f.visual,
+    mode: (s.level === 0 || f.interactive === 'stage' ? 'stage' : 'diff') as 'stage' | 'diff',
+  })),
+);
+const rows = evolution.stages.map((s) => {
+  const total = tierTotal(costModels, s.costTierId);
+  return { level: s.level, mode: s.mode, title: s.title, band: total !== undefined ? costBand(total) : '' };
+});
+const ARCH: Record<string, string> = {
+  'design-x': 'Design X',
+  'building-block': 'Building block',
+  'business-story': 'Business story',
+  standard: 'Article',
+};
+const arch = ARCH[m.archetype] ?? m.archetype;
+---
+
+<html lang="en" data-sp-scheme="light" data-sp-scheme-pref="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>visuals-export · {slug}</title>
+  </head>
+  <body class="vx-body">
+    {
+      figures.map((f) => (
+        <div class="vx-shot sp-fig-frame" data-sp-shot={`diagrams/${f.visual}`} style={`width:${FIG_W}px;height:${FIG_H}px`}>
+          <SystemTopology slug={slug} mode={f.mode} level={f.level} evolution={evolution} topology={topology} static />
+        </div>
+      ))
+    }
+
+    <div class="vx-shot vx-card vx-thumb" data-sp-shot="social/thumbnail" style="width:400px;height:225px">
+      <div class="vx-top">
+        <span class="vx-brand">sujeet.pro</span>
+        <span class="vx-arch">{arch} · {rows.length} levels</span>
+      </div>
+      <p class="vx-title">{m.title}</p>
+      <ol class="vx-ladder">
+        {
+          rows.map((r) => (
+            <li class="vx-row">
+              <span class="vx-lvl">L{r.level}</span>
+              <span class="sp-mode-badge vx-badge" data-mode={r.mode}>{MODE_LABEL[r.mode]}</span>
+              <span class="vx-name">{r.title}</span>
+              <span class="vx-cost">{r.band}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <div class="vx-shot vx-card vx-li" data-sp-shot="social/linkedin-card" style="width:600px;height:314px">
+      <div class="vx-top">
+        <span class="vx-brand">sujeet.pro</span>
+        <span class="vx-arch">{arch} · evolution ladder</span>
+      </div>
+      <p class="vx-title">{m.title}</p>
+      <p class="vx-sub">{m.subtitle}</p>
+      <p class="vx-cap">Evolution ladder · level · mode · stage · cost band (AWS list price)</p>
+      <ol class="vx-ladder">
+        {
+          rows.map((r) => (
+            <li class="vx-row">
+              <span class="vx-lvl">L{r.level}</span>
+              <span class="sp-mode-badge vx-badge" data-mode={r.mode}>{MODE_LABEL[r.mode]}</span>
+              <span class="vx-name">{r.title}</span>
+              <span class="vx-cost">{r.band}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  html, body { margin: 0; background: var(--sp-bg); }
+  astro-dev-toolbar, vite-error-overlay { display: none !important; }
+  .vx-body { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; padding: 24px; }
+  .vx-shot { flex: none; box-sizing: border-box; }
+  .vx-shot.sp-fig-frame { border: 0; border-radius: 0; background: var(--sp-bg); }
+
+  .vx-card {
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--sp-surface);
+    background-image: linear-gradient(135deg, var(--sp-accent-soft), transparent 55%);
+    color: var(--sp-ink); font-family: var(--sp-font-sans);
+  }
+  .vx-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .vx-brand { font-family: var(--sp-font-mono); font-weight: 700; color: var(--sp-accent); }
+  .vx-arch { font-family: var(--sp-font-mono); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sp-ink-muted); }
+  .vx-title { margin: 0; font-weight: 750; line-height: 1.15; letter-spacing: -0.01em; color: var(--sp-ink); }
+  .vx-sub { margin: 0; color: var(--sp-ink-secondary); line-height: 1.3; }
+  .vx-ladder {
+    list-style: none; margin: 0; padding: 0;
+    border: 1px solid var(--sp-border); border-radius: 8px; background: var(--sp-surface); overflow: hidden;
+  }
+  .vx-cap { margin: auto 0 0; font-family: var(--sp-font-mono); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sp-ink-muted); }
+  .vx-thumb .vx-ladder { margin-top: auto; }
+  .vx-row {
+    display: grid; grid-template-columns: 1.6em var(--vx-badge-w) minmax(0, 1fr) auto; align-items: center;
+    border-bottom: 1px solid var(--sp-border);
+  }
+  .vx-row:last-child { border-bottom: 0; }
+  .vx-lvl { font-family: var(--sp-font-mono); font-weight: 700; color: var(--sp-accent); }
+  .vx-badge { justify-self: start; line-height: 1.2; }
+  .vx-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sp-ink); }
+  .vx-cost { font-family: var(--sp-font-mono); font-weight: 600; color: var(--sp-ink-secondary); text-align: right; }
+
+  /* 400×225 thumbnail (homepage card) */
+  .vx-thumb { padding: 12px 14px; gap: 6px; --vx-badge-w: 52px; }
+  .vx-thumb .vx-brand, .vx-thumb .vx-arch { font-size: 9px; }
+  .vx-thumb .vx-title { font-size: 16px; }
+  .vx-thumb .vx-row { gap: 6px; padding: 1.5px 8px; font-size: 9.5px; }
+  .vx-thumb .vx-badge { font-size: 7px; padding: 0 5px; }
+  .vx-thumb .vx-cost { font-size: 9px; }
+
+  /* 600×314 LinkedIn card */
+  .vx-li { padding: 18px 22px; gap: 6px; --vx-badge-w: 62px; }
+  .vx-li .vx-cap { font-size: 9px; }
+  .vx-li .vx-brand { font-size: 13px; }
+  .vx-li .vx-arch { font-size: 10px; }
+  .vx-li .vx-title { font-size: 22px; margin-top: 2px; }
+  .vx-li .vx-sub { font-size: 12px; }
+  .vx-li .vx-row { gap: 8px; padding: 2px 10px; font-size: 11.5px; }
+  .vx-li .vx-badge { font-size: 8px; padding: 0 6px; }
+  .vx-li .vx-cost { font-size: 11px; }
+</style>

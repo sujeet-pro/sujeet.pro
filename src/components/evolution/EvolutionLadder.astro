@@ -1,0 +1,63 @@
+---
+/**
+ * EvolutionLadder (Stage 3.9): zero-JS overview of every level. One row per stage: level, mode badge,
+ * trigger kind, title + headline decision, cost band; each row links to `#stage-l<n>`.
+ * Full container width (§6.1).
+ */
+import { getEvolution } from '../../lib/articles/registry';
+import { costBand } from '../../lib/articles/evolution';
+import { MODE_LABEL, TRIGGER_LABEL, headlineDecision, tierTotal } from './labels';
+import './evolution.css';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const bundle = getEvolution(slug);
+if (!bundle) throw new Error(`[EvolutionLadder] article "${slug}" has no data/evolution.json`);
+const { evolution, topology, costModels } = bundle;
+const count = evolution.stages.length;
+const rows = evolution.stages.map((s) => {
+  const total = tierTotal(costModels, s.costTierId);
+  return { s, band: total !== undefined ? costBand(total) : undefined, headline: headlineDecision(s, topology) };
+});
+---
+
+<section id="evolution-ladder" class="sp-ladder" aria-labelledby="evolution-ladder-title">
+  <h2 id="evolution-ladder-title" class="sp-ladder-head">
+    Evolution ladder <span class="sp-ladder-head-sub">· {count} levels · each row jumps to its stage</span>
+  </h2>
+  <ol class="sp-ladder-list">
+    {
+      rows.map(({ s, band, headline }) => (
+        <li>
+          <a class="sp-ladder-row" href={`#stage-l${s.level}`}>
+            <span class="sp-ladder-level">L{s.level}</span>
+            <span class="sp-mode-badge" data-mode={s.mode}>
+              {MODE_LABEL[s.mode]}
+            </span>
+            <span class="sp-trigger-chip">{s.trigger ? TRIGGER_LABEL[s.trigger.kind] : 'Start'}</span>
+            <span class="sp-ladder-headline">
+              <strong>{s.title}</strong>
+              {headline && <span class="sp-ladder-trigger">{headline}</span>}
+            </span>
+            <span class="sp-ladder-cost" title="Cost band: AWS list price at the modelled volume">
+              {band ? (
+                <>
+                  <span aria-hidden="true">{band}</span>
+                  <span class="sp-sr-only">Cost band {band.length} of 4</span>
+                </>
+              ) : null}
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+<p class="sp-assume-note">
+  <span class="sp-assume-badge">How to read the numbers</span> Limits and unit prices are from official AWS documentation and
+  pricing pages (see Sources). Requirement chips and traffic volumes are modelling assumptions; cost bands are AWS list
+  price at those volumes.
+</p>

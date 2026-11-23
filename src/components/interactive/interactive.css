@@ -1,0 +1,180 @@
+/* Interactive primitives (Stage 3.6): SystemTopology, ScaleVariantSwitcher, CostModelCalculator.
+   Colours come only from --sp-* tokens, so Light / Dark / High-contrast follow the root attributes. */
+
+/* Labs use the full container width (§6.1): [...slug].astro caps only text runs at --sp-measure. */
+.sp-lab {
+  min-width: 0;
+  margin-block: 20px 28px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  display: grid;
+  gap: 16px;
+}
+.sp-lab h3, .sp-lab h4, .sp-lab p, .sp-lab ul { margin: 0; }
+
+/* ---- Topology ---- */
+.sp-topo { display: grid; gap: 12px; min-width: 0; }
+.sp-topo-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 960px) {
+  .sp-topo-grid { grid-template-columns: minmax(0, 2.6fr) minmax(250px, 1fr); align-items: start; }
+}
+.sp-topo-frame {
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-lg);
+  background: var(--sp-bg);
+  min-width: 0;
+  overflow: hidden;
+}
+/* Below ~640px the diagram keeps a readable minimum width and scrolls inside its frame,
+   so the page itself never overflows horizontally. */
+.sp-topo-scroll { width: 100%; height: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.sp-topo-svg { display: block; width: 100%; min-width: 600px; height: auto; }
+@media (max-width: 640px) {
+  .sp-topo-frame { aspect-ratio: auto !important; height: calc(600px * 540 / 960 + 2px); }
+}
+.sp-topo-mono, .sp-topo-tag, .sp-topo-edge-label { font-family: var(--sp-font-mono); }
+.sp-topo-tag { font-weight: 700; }
+.sp-topo-edge-label { paint-order: stroke; stroke: var(--sp-bg); stroke-width: 4px; }
+.sp-topo-node { cursor: pointer; outline: none; }
+.sp-topo-node:hover .sp-topo-box { stroke: var(--sp-accent); }
+.sp-topo-node:focus-visible .sp-topo-box { stroke: var(--sp-focus-ring, var(--sp-accent)); stroke-width: 4px; }
+.sp-topo-error {
+  padding: 12px 14px; border-radius: var(--sp-radius-md);
+  border: 1px solid var(--sp-status-failed); background: var(--sp-status-failed-soft); color: var(--sp-ink);
+}
+.sp-topo-sr {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.sp-topo-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.sp-topo-summary { color: var(--sp-ink-secondary); min-width: 0; flex: 1 1 320px; }
+.sp-topo-summary strong { color: var(--sp-ink); }
+.sp-topo-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.sp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: var(--sp-radius-sm);
+  border: 1px solid var(--sp-border); background: var(--sp-surface); color: var(--sp-ink);
+  font: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer;
+}
+.sp-btn:hover:not(:disabled) { border-color: var(--sp-border-strong); }
+.sp-btn:disabled { color: var(--sp-ink-muted); cursor: default; opacity: 0.7; }
+.sp-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--sp-ink-secondary); cursor: pointer; }
+.sp-check input { accent-color: var(--sp-accent); width: 16px; height: 16px; }
+
+/* Segmented radio (Generic ↔ AWS) */
+.sp-seg {
+  display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--sp-radius-sm);
+  border: 1px solid var(--sp-border); background: var(--sp-surface-subtle);
+}
+.sp-seg-opt { position: relative; display: inline-flex; }
+.sp-seg-opt input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.sp-seg-opt span {
+  padding: 4px 12px; border-radius: calc(var(--sp-radius-sm) - 2px);
+  font-size: 0.8rem; font-weight: 600; color: var(--sp-ink-secondary);
+}
+.sp-seg-opt input:checked + span { background: var(--sp-surface); color: var(--sp-ink); box-shadow: var(--sp-shadow-sm); }
+.sp-seg-opt input:focus-visible + span { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+
+/* ---- Level picker ---- */
+.sp-lab-picker { display: grid; gap: 10px; justify-items: start; }
+.sp-level-grid {
+  width: 100%;
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+}
+.sp-level-card {
+  position: relative; display: grid; gap: 4px; align-content: start;
+  padding: 10px 12px; border-radius: var(--sp-radius-md);
+  border: 1px solid var(--sp-border); background: var(--sp-surface);
+  cursor: pointer; min-width: 0;
+}
+.sp-level-card:hover { border-color: var(--sp-border-strong); }
+.sp-level-card:has(input:checked) { border-color: var(--sp-accent); background: var(--sp-accent-soft); box-shadow: inset 0 0 0 1px var(--sp-accent); }
+.sp-level-card:has(input:focus-visible) { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+.sp-level-input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.sp-level-head { display: flex; align-items: center; gap: 6px; font-family: var(--sp-font-mono); font-size: 0.75rem; }
+.sp-level-num { font-weight: 700; color: var(--sp-ink); }
+.sp-level-mode {
+  padding: 1px 6px; border-radius: 999px; border: 1px solid var(--sp-border);
+  color: var(--sp-ink-secondary); background: var(--sp-surface-subtle);
+}
+.sp-level-mode[data-mode="replace"] { border-color: var(--sp-status-fallback); color: var(--sp-status-fallback); background: var(--sp-status-fallback-soft); }
+.sp-level-cost { margin-left: auto; color: var(--sp-ink-muted); letter-spacing: 0.04em; }
+.sp-level-title { font-size: 0.85rem; font-weight: 600; color: var(--sp-ink); line-height: 1.3; }
+
+/* ---- Inspector ---- */
+.sp-inspector {
+  display: grid; gap: 10px; align-content: start;
+  padding: 14px; border-radius: var(--sp-radius-lg);
+  border: 1px solid var(--sp-border); background: var(--sp-surface);
+  min-height: 300px; min-width: 0;
+}
+.sp-inspector-eyebrow { font-family: var(--sp-font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--sp-ink-muted); }
+.sp-inspector-title { font-size: 1.05rem; line-height: 1.25; color: var(--sp-ink); }
+.sp-inspector-sub { font-size: 0.82rem; color: var(--sp-ink-secondary); font-family: var(--sp-font-mono); }
+.sp-inspector-h { font-size: 0.8rem; font-weight: 600; color: var(--sp-ink-secondary); }
+.sp-inspector-list { list-style: disc; padding-left: 1.1em !important; display: grid; gap: 4px; font-size: 0.85rem; color: var(--sp-ink); }
+.sp-inspector-empty { color: var(--sp-ink-muted); }
+.sp-inspector-fallback {
+  display: flex; gap: 8px; align-items: baseline; font-size: 0.85rem;
+  padding: 8px 10px; border-radius: var(--sp-radius-sm);
+  background: var(--sp-surface-subtle); color: var(--sp-ink-secondary);
+}
+.sp-inspector-fallback[data-active="true"] { background: var(--sp-status-fallback-soft); color: var(--sp-ink); }
+.sp-inspector-fallback .sp-dot { background: var(--sp-status-fallback); }
+.sp-fault-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-fault-btn {
+  height: 30px; padding: 0 10px; border-radius: var(--sp-radius-sm);
+  border: 1px solid var(--sp-border); background: var(--sp-surface); color: var(--sp-ink);
+  font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.sp-fault-btn[aria-pressed="true"][data-fault="healthy"] { border-color: var(--sp-status-healthy); background: var(--sp-status-healthy-soft); }
+.sp-fault-btn[aria-pressed="true"][data-fault="degraded"] { border-color: var(--sp-status-degraded); background: var(--sp-status-degraded-soft); }
+.sp-fault-btn[aria-pressed="true"][data-fault="failed"] { border-color: var(--sp-status-failed); background: var(--sp-status-failed-soft); }
+.sp-legend { list-style: none; padding: 8px 0 0 !important; border-top: 1px solid var(--sp-border); display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.75rem; color: var(--sp-ink-secondary); }
+.sp-legend li { display: inline-flex; align-items: center; gap: 6px; margin: 0 !important; }
+.sp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
+
+/* ---- Cost calculator ---- */
+.sp-cost {
+  display: grid; gap: 12px; min-width: 0;
+  padding: 16px; border-radius: var(--sp-radius-lg);
+  border: 1px solid var(--sp-border); background: var(--sp-surface);
+}
+.sp-cost--loading { min-height: 420px; color: var(--sp-ink-muted); }
+.sp-cost-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 16px; }
+.sp-cost-title { font-size: 1.1rem; color: var(--sp-ink); }
+.sp-cost-sub { font-size: 0.85rem; color: var(--sp-ink-secondary); }
+.sp-cost-level { display: grid; gap: 4px; font-size: 0.75rem; color: var(--sp-ink-muted); min-width: 0; max-width: 100%; }
+.sp-cost-level select {
+  max-width: 100%; height: 32px; padding: 0 8px; border-radius: var(--sp-radius-sm);
+  border: 1px solid var(--sp-border); background: var(--sp-surface); color: var(--sp-ink); font: inherit; font-size: 0.85rem;
+}
+.sp-cost-warn { font-size: 0.82rem; color: var(--sp-ink-secondary); }
+.sp-badge-assume {
+  display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--sp-status-degraded); background: var(--sp-status-degraded-soft); color: var(--sp-ink);
+  font-family: var(--sp-font-mono); font-size: 0.68rem; font-weight: 600; white-space: nowrap; vertical-align: 1px;
+}
+.sp-table-scroll { overflow-x: auto; min-width: 0; border-radius: var(--sp-radius-md); border: 1px solid var(--sp-border); }
+.sp-table-scroll:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+.sp-cost-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 640px; }
+.sp-cost-table th, .sp-cost-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--sp-border); }
+.sp-cost-table thead th { background: var(--sp-surface-subtle); color: var(--sp-ink-secondary); font-size: 0.75rem; font-weight: 600; }
+.sp-cost-table tbody th { font-weight: 600; color: var(--sp-ink); }
+.sp-cost-table tfoot th, .sp-cost-table tfoot td { border-bottom: 0; background: var(--sp-surface-subtle); }
+.sp-cost-table .sp-num { text-align: right; white-space: nowrap; }
+.sp-cost-table .sp-mono { font-family: var(--sp-font-mono); font-size: 0.8rem; }
+.sp-cost-basis { color: var(--sp-ink-secondary); font-size: 0.78rem; }
+.sp-cost-summary { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.sp-cost-stat {
+  display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--sp-radius-md);
+  background: var(--sp-surface-subtle); border: 1px solid var(--sp-border);
+}
+.sp-cost-stat-label { font-size: 0.8rem; color: var(--sp-ink-secondary); }
+.sp-cost-stat-value { font-size: 1.05rem; font-weight: 700; color: var(--sp-ink); }
+.sp-range { width: 100%; accent-color: var(--sp-accent); }
+.sp-cost-sources { font-size: 0.78rem; color: var(--sp-ink-muted); }
+.sp-cost-sources a { color: var(--sp-accent); }

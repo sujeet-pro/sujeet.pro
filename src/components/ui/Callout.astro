@@ -1,0 +1,12 @@
+---
+interface Props {
+  kind?: 'note' | 'warn' | 'tip';
+  title?: string;
+}
+const { kind = 'note', title } = Astro.props;
+---
+
+<aside class:list={['sp-callout', `sp-callout-${kind}`]}>
+  {title && <strong class="sp-callout-title">{title}</strong>}
+  <div class="sp-callout-body"><slot /></div>
+</aside>

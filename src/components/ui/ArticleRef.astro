@@ -1,0 +1,37 @@
+---
+/**
+ * Inline cross-article reference for MDX: `<ArticleRef slug="…" page="…" section="…" />`.
+ * Attributes must be string literals (build-graph.ts scans the raw MDX for `from.page` attribution and validation).
+ * Published target → link card. Draft target → unlinked "Coming Soon" card with no href / slug attribute (§3).
+ */
+import ArticleRefCard from './ArticleRefCard.tsx';
+import { resolveRef } from '../../lib/graph/build-graph';
+import { archetypeLabel } from '../../lib/graph/labels';
+
+interface Props {
+  slug: string;
+  page?: string;
+  section?: string;
+  /** Optional one-line note under the title. */
+  note?: string;
+}
+
+const { slug, page, section, note } = Astro.props;
+const ref = resolveRef({
+  targetSlug: slug,
+  ...(page ? { targetPage: page } : {}),
+  ...(section ? { targetSection: section } : {}),
+});
+---
+
+<div class="sp-ref">
+  <ArticleRefCard
+    title={ref.title}
+    archetypeLabel={archetypeLabel(ref.archetype)}
+    upcoming={ref.upcoming}
+    url={ref.url}
+    pageTitle={ref.pageTitle}
+    sectionTitle={ref.sectionTitle}
+    note={note}
+  />
+</div>

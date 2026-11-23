@@ -1,0 +1,92 @@
+---
+/**
+ * ExplainerFigure (Stage 3.10): the figure(s) of one evolution stage in a fixed-aspect frame.
+ *
+ * Static image by default:
+ *   - `diagrams/<visual>-{light,dark}.webp` via ThemedVisual (P7) once Stage 4.1 has rendered them;
+ *   - until then, a server-rendered SVG of SystemTopology `stage` mode (no client directive → static HTML,
+ *     the same drawing code 4.1 screenshots).
+ * The island (FigureModeToggle) adds the Image ⇄ Interactive toggle, the gallery and Expand; it imports
+ * the topology code only on the first Interactive intent (P27).
+ *
+ * Print/PDF (Stage 4.4, `isPrint(Astro.locals)`): no island and no controls; every figure of the stage is
+ * rendered statically in flow, light variant only, each in its own fixed-aspect frame with a caption.
+ */
+import fs from 'node:fs';
+import nodePath from 'node:path';
+import SystemTopology from '../interactive/SystemTopology';
+import ThemedVisual from '../ui/ThemedVisual.astro';
+import FigureModeToggle from './FigureModeToggle';
+import { getEvolution } from '../../lib/articles/registry';
+import { spConfig } from '../../../sp.config';
+import { isPrint } from '../../lib/print';
+import './evolution.css';
+
+interface Props {
+  slug: string;
+  level: number;
+}
+
+const { slug, level } = Astro.props;
+const bundle = getEvolution(slug);
+if (!bundle) throw new Error(`[ExplainerFigure] article "${slug}" has no data/evolution.json`);
+const { evolution, topology } = bundle;
+const stage = evolution.stages.find((s) => s.level === level);
+if (!stage) throw new Error(`[ExplainerFigure] "${slug}" has no stage L${level}`);
+
+const [, , vw, vh] = topology.viewBox;
+const articleDir = nodePath.join(process.cwd(), 'src', 'articles', slug);
+const hasWebp = (visual: string) =>
+  ['light', 'dark'].every((v) => fs.existsSync(nodePath.join(articleDir, 'diagrams', `${visual}-${v}.webp`)));
+const figures = stage.figures.map((f, i) => ({ ...f, i, webp: hasWebp(f.visual) }));
+const idBase = `fig-l${level}`;
+const print = isPrint(Astro.locals);
+---
+
+{
+  print ? (
+    figures.map((f) => (
+      <figure class="sp-figure sp-figure-print" id={`${idBase}-${f.i + 1}`} data-level={level}>
+        <div class="sp-fig-frame" style={`aspect-ratio: ${vw} / ${vh}`}>
+          <div class="sp-fig-static">
+            <div class="sp-fig-slide" role={f.webp ? undefined : 'img'} aria-label={f.webp ? undefined : f.alt}>
+              {f.webp ? (
+                <ThemedVisual slug={slug} name={f.visual} alt={f.alt} width={vw} height={vh} />
+              ) : (
+                <SystemTopology slug={slug} mode="stage" level={level} evolution={evolution} topology={topology} />
+              )}
+            </div>
+          </div>
+        </div>
+        <figcaption class="sp-fig-caption">
+          <span class="sp-fig-num">Fig {level}.{f.i + 1}</span> · {f.alt}
+        </figcaption>
+      </figure>
+    ))
+  ) : (
+    <FigureModeToggle
+      client:visible
+      slug={slug}
+      level={level}
+      stageLabel={`L${stage.level} · ${stage.title}`}
+      figures={figures.map((f) => ({ alt: f.alt, interactive: f.interactive }))}
+      aspect={[vw, vh]}
+      expand={spConfig.layout.figureExpand}
+      idBase={idBase}
+    >
+      {
+        figures.map((f) =>
+          f.webp ? (
+            <div class="sp-fig-slide" data-sp-fig-slide={f.i} hidden={f.i > 0}>
+              <ThemedVisual slug={slug} name={f.visual} alt={f.alt} width={vw} height={vh} />
+            </div>
+          ) : (
+            <div class="sp-fig-slide" data-sp-fig-slide={f.i} hidden={f.i > 0} role="img" aria-label={f.alt}>
+              <SystemTopology slug={slug} mode="stage" level={level} evolution={evolution} topology={topology} />
+            </div>
+          ),
+        )
+      }
+    </FigureModeToggle>
+  )
+}

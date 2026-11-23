@@ -1,0 +1,200 @@
+/*
+ * Persistent audio bar (Stage 3.7). Loaded on every page from BaseLayout so the bar stays styled when it
+ * persists onto a non-article page (ClientRouter drops head styles the new page does not reference).
+ * Ported from prototypes/v2.html `.sp-audio-*`; the inner row uses the uniform container (§6.1).
+ *
+ * Zero CLS: every row has a fixed height, and the body reserves exactly the bar height only while a bar
+ * is in the DOM (`:has`, evaluated at first paint because the shell is server-rendered).
+ */
+:root {
+  --sp-audio-h: 91px; /* 1px border + 10px + 28px row + 8px gap + 34px controls + 10px */
+  --sp-audio-h-collapsed: 43px; /* 1px border + 7px + 28px row + 7px */
+}
+@media (max-width: 600px) {
+  :root { --sp-audio-h: 117px; } /* top row stacks: 20px title + 6px gap + 28px buttons */
+}
+
+body:has([data-sp-audio-player]) {
+  padding-bottom: calc(var(--sp-audio-h) + env(safe-area-inset-bottom, 0px));
+}
+body:has([data-sp-audio-player][data-collapsed="true"]) {
+  padding-bottom: calc(var(--sp-audio-h-collapsed) + env(safe-area-inset-bottom, 0px));
+}
+html:has([data-sp-audio-player]) { scroll-padding-bottom: var(--sp-audio-h); }
+
+.sp-audio-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 45; /* above the sticky top bar (40), below dialogs (80) */
+  background: color-mix(in srgb, var(--sp-surface) 95%, transparent);
+  -webkit-backdrop-filter: blur(12px); /* prefixed first: the CSS minifier keeps only the last of the pair */
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--sp-border);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  font-size: 0.82rem;
+}
+
+.sp-audio-inner {
+  height: calc(var(--sp-audio-h) - 1px);
+  padding-block: 10px;
+  display: grid;
+  grid-template-rows: 28px 34px;
+  row-gap: 8px;
+}
+.sp-audio-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.sp-audio-ch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--sp-ink);
+}
+.sp-audio-ch-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sp-audio-meta-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.sp-audio-mini-btn {
+  border: 1px solid var(--sp-border);
+  background: var(--sp-surface-subtle);
+  color: var(--sp-ink-secondary);
+  border-radius: var(--sp-radius-sm);
+  padding: 4px 9px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.sp-audio-mini-btn:hover:not(:disabled) { border-color: var(--sp-accent); color: var(--sp-ink); }
+.sp-audio-mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sp-audio-mini-btn[aria-pressed="true"] {
+  border-color: var(--sp-accent);
+  background: var(--sp-accent-soft);
+  color: var(--sp-accent);
+  font-weight: 600;
+}
+.sp-audio-jump { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
+
+.sp-audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sp-audio-play {
+  width: 34px; height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: var(--sp-accent);
+  color: #FFFFFF;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+[data-sp-scheme="dark"] .sp-audio-play { color: #0B0F17; }
+.sp-audio-time {
+  font-family: var(--sp-font-mono);
+  font-size: 0.74rem;
+  color: var(--sp-ink-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sp-audio-scrub { flex: 1 1 auto; min-width: 40px; width: 100%; accent-color: var(--sp-accent); margin: 0; }
+.sp-audio-speed { font-family: var(--sp-font-mono); min-width: 5ch; }
+
+/* ---- Drawer (chapters / transcript): grows upward inside the fixed bar; clamped to the viewport (P16) ---- */
+.sp-audio-drawer {
+  max-height: min(260px, calc(100dvh - var(--sp-audio-h) - var(--sp-topbar-h, 56px) - 16px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+}
+.sp-audio-drawer-inner { padding-block: 14px; }
+.sp-audio-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.sp-audio-drawer-head strong { font-size: 0.86rem; }
+.sp-chapter-list { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 4px; }
+.sp-chapter-row { display: flex; align-items: center; gap: 6px; }
+.sp-chapter-seek {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: none;
+  padding: 6px 8px;
+  border-radius: var(--sp-radius-sm);
+  font-size: 0.8rem;
+  color: var(--sp-ink-secondary);
+}
+.sp-chapter-seek:hover { background: var(--sp-surface-subtle); color: var(--sp-ink); }
+.sp-chapter-seek[aria-current="true"] {
+  background: var(--sp-accent-soft);
+  border-color: var(--sp-accent-border);
+  color: var(--sp-ink);
+  font-weight: 600;
+}
+.sp-chapter-seek > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-transcript-ch {
+  padding: 10px 12px;
+  border-radius: var(--sp-radius-sm);
+  border: 1px solid transparent;
+  margin-bottom: 8px;
+}
+.sp-transcript-ch[data-current="true"] { background: var(--sp-accent-soft); border-color: var(--sp-accent-border); }
+.sp-transcript-ch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.sp-transcript-ch p { margin: 0 0 4px; font-size: 0.86rem; line-height: 1.55; color: var(--sp-ink-secondary); max-width: var(--sp-measure); }
+
+/* ---- Collapsed: one fixed-height row (title + mini play + expand) ---- */
+.sp-audio-bar[data-collapsed="true"] .sp-audio-inner {
+  height: calc(var(--sp-audio-h-collapsed) - 1px);
+  padding-block: 7px;
+  grid-template-rows: 28px;
+}
+.sp-audio-bar[data-collapsed="true"] .sp-audio-controls,
+.sp-audio-bar[data-collapsed="true"] .sp-audio-meta-btns > :not(.sp-audio-keep) { display: none; }
+
+@media (max-width: 600px) {
+  .sp-audio-inner { grid-template-rows: 54px 34px; }
+  .sp-audio-top { display: grid; grid-template-rows: 20px 28px; row-gap: 6px; align-items: center; }
+  .sp-audio-meta-btns { overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .sp-audio-meta-btns > * { flex-shrink: 0; }
+  .sp-audio-total { display: none; }
+  .sp-audio-controls { gap: 8px; }
+  .sp-audio-bar[data-collapsed="true"] .sp-audio-top { display: flex; }
+}
+
+@media print {
+  .sp-audio-bar { display: none !important; }
+  body:has([data-sp-audio-player]) { padding-bottom: 0 !important; }
+}

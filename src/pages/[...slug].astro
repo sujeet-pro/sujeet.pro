@@ -1,0 +1,40 @@
+---
+import type { GetStaticPaths } from 'astro';
+import ArticleLayout from '../layouts/ArticleLayout.astro';
+import { getAllArticles, getArticle, getMemberships } from '../lib/articles/registry';
+import { getSeriesNav } from '../lib/graph/build-graph';
+
+export const getStaticPaths = (() =>
+  getAllArticles().flatMap((a) =>
+    a.pages.map((p) => ({
+      params: { slug: p.isIndex ? a.slug : `${a.slug}/${p.slug}` },
+      props: { articleSlug: a.slug, pageUrl: p.url, isDraft: a.status === 'draft' },
+    })),
+  )) satisfies GetStaticPaths;
+
+const { articleSlug, pageUrl, isDraft } = Astro.props;
+const article = getArticle(articleSlug)!;
+const page = article.pages.find((p) => p.url === pageUrl)!;
+const seriesSlugs = getMemberships(article.slug).map((s) => s.slug);
+// Series context only for published articles (drafts never enter a series; §3).
+const navSlugs = getSeriesNav(article.slug).map((n) => n.slug);
+const navSeries =
+  navSlugs.length > 0 && article.manifest.primarySeries
+    ? { primary: article.manifest.primarySeries, memberships: navSlugs }
+    : undefined;
+const Content = page.module.default as any;
+---
+
+<ArticleLayout article={article} page={page} isDraft={isDraft} navSeries={navSeries} seriesSlugs={seriesSlugs}>
+  <div class="sp-prose">
+    <Content />
+  </div>
+</ArticleLayout>
+
+<style is:global>
+  /* §6.1: text runs are left-aligned at --sp-measure; figures, the Evolution Ladder, stage blocks and labs
+     (anything else) use the full container width. */
+  .sp-prose > :is(p, ul, ol, dl, h2, h3, h4, h5, h6, blockquote, hr, table, .expressive-code, .sp-callout) {
+    max-width: var(--sp-measure);
+  }
+</style>

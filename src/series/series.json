@@ -1,0 +1,15 @@
+[
+  {
+    "slug": "system-design",
+    "title": "System Design",
+    "description": "Evolution-first system designs: start with the simplest thing that works and earn every component after that.",
+    "pillarSlug": "design-url-redirection-service",
+    "articles": ["design-url-redirection-service"]
+  },
+  {
+    "slug": "edge-and-traffic-architecture",
+    "title": "Edge & Traffic Architecture",
+    "description": "Routing, redirection, caching and traffic control at the edge.",
+    "articles": ["design-url-redirection-service"]
+  }
+]

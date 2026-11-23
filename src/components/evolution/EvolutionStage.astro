@@ -1,0 +1,183 @@
+---
+/**
+ * EvolutionStage (Stage 3.9): one `<section id="stage-l<n>">` per level, rendered from data/evolution.json.
+ * Layout = spConfig.layout.stageVariant `hybrid` (§4.1): one DOM; `base` arrangement by default and in
+ * print/PDF, `wide` arrangement inside a build-time media query (see ./layout.ts). Zero JS of its own;
+ * only the figure toggle hydrates. The default slot renders inside the stage's text column.
+ */
+import ExplainerFigure from './ExplainerFigure.astro';
+import { getEvolution } from '../../lib/articles/registry';
+import { costBand } from '../../lib/articles/evolution';
+import { stageLayout, stageLayoutCss } from './layout';
+import { MODE_LABEL, TRIGGER_LABEL, nodeLabel, tierTotal, usd } from './labels';
+import './evolution.css';
+
+interface Props {
+  slug: string;
+  level: number;
+}
+
+const { slug, level } = Astro.props;
+const bundle = getEvolution(slug);
+if (!bundle) throw new Error(`[EvolutionStage] article "${slug}" has no data/evolution.json`);
+const { evolution, topology, costModels } = bundle;
+const stage = evolution.stages.find((s) => s.level === level);
+if (!stage) throw new Error(`[EvolutionStage] "${slug}" has no stage L${level}`);
+const isLast = stage.level === evolution.stages.length - 1;
+const d = stage.decision;
+const byId = new Map(topology.nodes.map((n) => [n.id, n]));
+const total = tierTotal(costModels, stage.costTierId);
+const band = total !== undefined ? costBand(total) : undefined;
+const layout = stageLayout();
+const hasSlot = Astro.slots.has('default');
+
+// Emit the layout CSS once per page (first stage rendered).
+const locals = Astro.locals as Record<string, unknown>;
+const emitCss = !locals.spStageLayoutCss;
+locals.spStageLayoutCss = true;
+const headingId = `stage-l${stage.level}-title`;
+---
+
+{emitCss && <style is:inline data-sp-stage-layout set:html={stageLayoutCss()} />}
+{emitCss && (
+  <noscript>
+    <style is:inline set:html=".sp-fig-bar{display:none}" />
+  </noscript>
+)}
+
+<section
+  id={`stage-l${stage.level}`}
+  class="sp-stage"
+  data-level={stage.level}
+  data-mode={stage.mode}
+  data-layout={layout.variant}
+  aria-labelledby={headingId}
+>
+  <h2 id={headingId}>L{stage.level} · {stage.title}</h2>
+  <div class="sp-stage-body">
+    <div class="sp-stage-main">
+      <div class="sp-trigger-card" data-kind={stage.trigger?.kind ?? 'launch'}>
+        <p class="sp-trigger-card-head">
+          <span class="sp-mode-badge" data-mode={stage.mode}>{MODE_LABEL[stage.mode]}</span>
+          {
+            stage.trigger ? (
+              <span>
+                Trigger · {TRIGGER_LABEL[stage.trigger.kind]} — {stage.trigger.headline}
+              </span>
+            ) : (
+              <span>Starting point</span>
+            )
+          }
+        </p>
+        {stage.trigger && <p class="sp-trigger-scenario">{stage.trigger.scenario}</p>}
+      </div>
+
+      <ul class="sp-chips" aria-label="Requirements (modelled assumptions)">
+        {
+          stage.requirements.map((r) => (
+            <li class="sp-chip">
+              {r.label} <b>{r.value}</b>
+            </li>
+          ))
+        }
+      </ul>
+
+      <ul class="sp-keypoints">
+        {stage.keyPoints.map((k) => <li>{k}</li>)}
+      </ul>
+
+      {
+        hasSlot && (
+          <div class="sp-stage-notes">
+            <slot />
+          </div>
+        )
+      }
+    </div>
+
+    <div class="sp-stage-figwrap">
+      <ExplainerFigure slug={slug} level={stage.level} />
+    </div>
+
+    <div class="sp-stage-decision">
+      <div class="sp-decision" role="group" aria-label={`L${stage.level} decision`}>
+        {
+          (
+            [
+              ['add', 'Add', d.add],
+              ['change', 'Change', d.change],
+              ['remove', 'Remove', d.remove],
+            ] as const
+          ).map(([kind, title, ids]) => (
+            <div class="sp-decision-cell" data-kind={kind}>
+              <p class="sp-decision-h">{title}</p>
+              {ids.length > 0 ? (
+                <ul>
+                  {ids.map((id) => {
+                    const n = byId.get(id);
+                    return (
+                      <li>
+                        {nodeLabel(n, id)}
+                        {n?.awsLabel && <span class="sp-decision-aws"> · {n.awsLabel}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p class="sp-decision-empty">Nothing</p>
+              )}
+            </div>
+          ))
+        }
+        <div class="sp-decision-cell" data-kind="defer">
+          <p class="sp-decision-h">Defer until…</p>
+          {
+            d.defer.length > 0 ? (
+              <ul>
+                {d.defer.map((x) => (
+                  <li>
+                    {x.item} <span class="sp-decision-until">until {x.until}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="sp-decision-empty">Nothing deferred</p>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="sp-bvb">
+        <p class="sp-bvb-line">
+          <span class="sp-bvb-verdict">{stage.buildVsBuy.verdict}</span>
+          <span>{stage.buildVsBuy.rationale}</span>
+        </p>
+        <ul aria-label="Options considered">
+          {stage.buildVsBuy.options.map((o) => <li>{o}</li>)}
+        </ul>
+      </div>
+
+      {
+        band && total !== undefined && (
+          <p class="sp-costband">
+            <span>Cost band</span>
+            <span class="sp-costband-bar" role="img" aria-label={`Cost band ${band.length} of 4`}>
+              {[0, 1, 2, 3].map((i) => (
+                <span class={i < band.length ? 'on' : 'off'}>$</span>
+              ))}
+            </span>
+            <span>≈ {usd(total)}/mo AWS list · modelled volume</span>
+          </p>
+        )
+      }
+
+      {
+        !isLast && stage.exitCriteria.length > 0 && (
+          <p class="sp-moveup">
+            <strong>Move up when…</strong> {stage.exitCriteria.join(' · ')}
+          </p>
+        )
+      }
+    </div>
+  </div>
+</section>

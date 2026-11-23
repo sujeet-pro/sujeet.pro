@@ -1,0 +1,22 @@
+---
+/**
+ * `/print-export/<slug>/` (Stage 4.4, local-only tier §3). Registered by `article-assets.ts` with
+ * `injectRoute` only when `astro dev` runs with `SP_PDF_RENDER=1` (scripts/render-pdf.mjs); it lives
+ * outside `src/pages/`, so `astro build` never emits it (P2). Every article is renderable here regardless of
+ * `features.pdf`; the renderer decides which ones to print.
+ */
+import type { GetStaticPaths } from 'astro';
+import PrintLayout from '../layouts/PrintLayout.astro';
+import { getAllArticles, getArticle } from '../lib/articles/registry';
+import { markPrint } from '../lib/print';
+
+export const getStaticPaths = (() => getAllArticles().map((a) => ({ params: { slug: a.slug } }))) satisfies GetStaticPaths;
+
+const { slug } = Astro.params;
+const article = getArticle(slug);
+if (!article) throw new Error(`[print-export] unknown article "${slug}"`);
+// Must run before any component renders: ExplainerFigure / ThemedVisual read it.
+markPrint(Astro.locals);
+---
+
+<PrintLayout article={article} />

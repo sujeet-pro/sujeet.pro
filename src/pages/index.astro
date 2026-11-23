@@ -1,0 +1,108 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ArticleCard from '../components/ui/ArticleCard.astro';
+import DraftDiscovery from '../components/DraftDiscovery.tsx';
+import { getPublishedArticles } from '../lib/articles/registry';
+import { buildGraphIndex } from '../lib/graph/build-graph';
+
+const articles = getPublishedArticles();
+const series = buildGraphIndex().index.series; // published members only
+const FILTER_LABEL: Record<string, string> = {
+  'design-x': 'Design X',
+  'building-block': 'Building blocks',
+  'business-story': 'Business stories',
+  standard: 'Articles',
+};
+const archetypes = [...new Set(articles.map((a) => a.manifest.archetype))];
+---
+
+<BaseLayout
+  title="sujeet.pro"
+  description="Evolution-first system designs, building blocks and pragmatic engineering."
+  canonicalPath="/"
+>
+  <div class="sp-page-hero">
+    <div class="sp-page-eyebrow"><span>sujeet.pro</span><span class="sp-page-eyebrow-muted">· Deep dives</span></div>
+    <h1>Interactive system designs, building blocks and pragmatic engineering</h1>
+    <p>
+      Start with the simplest thing that works, then earn every component after that. Each article opens with a short
+      Summary and expands into a hands-on production reference.
+    </p>
+  </div>
+
+  {
+    articles.length === 0 ? (
+      <p class="sp-measure" style="color:var(--sp-ink-secondary);">No published articles yet.</p>
+    ) : (
+      <>
+        <div class="sp-filter-row">
+          {
+            archetypes.length > 0 && (
+              <div class="sp-filter-group sp-needs-js" role="group" aria-label="Filter by archetype" data-sp-home-filter>
+                <button type="button" class="sp-filter-pill" data-filter="all" aria-pressed="true">All</button>
+                {archetypes.map((a) => (
+                  <button type="button" class="sp-filter-pill" data-filter={a} aria-pressed="false">
+                    {FILTER_LABEL[a] ?? a}
+                  </button>
+                ))}
+              </div>
+            )
+          }
+          <span class="sp-filter-status sp-needs-js" role="status" aria-live="polite" data-sp-home-status>
+            {articles.length} {articles.length === 1 ? 'article' : 'articles'}
+          </span>
+        </div>
+        <ul class="sp-card-grid" id="sp-home-grid" aria-label="Articles">
+          {articles.map((a) => <ArticleCard entry={a} />)}
+        </ul>
+      </>
+    )
+  }
+
+  {
+    series.length > 0 && (
+      <section id="series" aria-labelledby="sp-series-title">
+        <h2 id="sp-series-title" class="sp-section-title">Series</h2>
+        <ul class="sp-card-grid">
+          {series.map((s) => (
+            <li class="sp-home-card sp-series-card">
+              <div class="sp-card-body">
+                <div class="sp-card-meta">
+                  <span>Series · {s.articles.length} {s.articles.length === 1 ? 'article' : 'articles'}</span>
+                </div>
+                <h3 class="sp-card-title"><a href={`/series/${s.slug}/`}>{s.title}</a></h3>
+                <p class="sp-card-desc">{s.description}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <DraftDiscovery client:idle />
+</BaseLayout>
+
+<script>
+  function initHomeFilter() {
+    const group = document.querySelector<HTMLElement>('[data-sp-home-filter]');
+    if (!group || group.dataset.bound) return;
+    group.dataset.bound = '1';
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('#sp-home-grid [data-sp-card]'));
+    const status = document.querySelector<HTMLElement>('[data-sp-home-status]');
+    group.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-filter]');
+      if (!btn) return;
+      const f = btn.dataset.filter!;
+      group.querySelectorAll('button[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+      let shown = 0;
+      for (const c of cards) {
+        const hide = f !== 'all' && c.dataset.archetype !== f;
+        c.hidden = hide;
+        if (!hide) shown++;
+      }
+      if (status) status.textContent = `${shown} ${shown === 1 ? 'article' : 'articles'}`;
+    });
+  }
+  document.addEventListener('astro:page-load', initHomeFilter);
+</script>

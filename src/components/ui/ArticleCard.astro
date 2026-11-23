@@ -1,0 +1,87 @@
+---
+/**
+ * Published-article card (homepage + series hub). Zero JS.
+ * Thumbnail: fixed 16:9 box (aspect-ratio) so the image arriving later (Stage 4.1 renders
+ * `social/thumbnail-{light,dark}.webp`, 800×450) causes no layout shift; a placeholder fills it until then.
+ * Audio badge only when `features.audio` and `audio/chapters.json` exists; PDF badge likewise needs the export.
+ * The quick read is labelled "Summary" (never name the audience in UI copy).
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import type { RegistryEntry } from '../../lib/articles/registry';
+import { getMemberships } from '../../lib/articles/registry';
+import { mediaUrl } from '../../lib/media.ts';
+
+interface Props {
+  entry: RegistryEntry;
+  /** Series slug to append as `?ctx=series:<slug>` on the article link. */
+  ctx?: string;
+  /** 1-based position in a series (series hub only). */
+  position?: number;
+}
+
+const { entry, ctx, position } = Astro.props;
+const m = entry.manifest;
+const dir = path.join(process.cwd(), 'src', 'articles', entry.slug);
+const has = (rel: string) => fs.existsSync(path.join(dir, rel));
+
+const PILL: Record<string, string> = {
+  'design-x': 'Design X',
+  'building-block': 'Building block',
+  'business-story': 'Business story',
+  standard: 'Article',
+};
+const seriesCount = getMemberships(entry.slug).length;
+const pill = `${PILL[m.archetype] ?? m.archetype}${seriesCount > 0 ? ` · ${seriesCount} series` : ''}`;
+const href = `/${entry.slug}/${ctx ? `?ctx=series:${ctx}` : ''}`;
+
+const hasThumb = has('social/thumbnail-light.webp') && has('social/thumbnail-dark.webp');
+let audioLabel: string | undefined;
+if (m.features.audio && has('audio/chapters.json')) {
+  try {
+    const sec = JSON.parse(fs.readFileSync(path.join(dir, 'audio/chapters.json'), 'utf8')).durationSec;
+    if (typeof sec === 'number') {
+      const mm = Math.floor(sec / 60);
+      audioLabel = `${mm}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+    }
+  } catch {
+    /* unreadable chapters.json: omit the badge */
+  }
+}
+const hasPdf = m.features.pdf && has(`exports/${entry.slug}.pdf`);
+---
+
+<li class="sp-home-card" data-sp-card data-archetype={m.archetype}>
+  <div class="sp-card-thumb">
+    {
+      hasThumb ? (
+        <>
+          <img class="sp-visual-light" src={mediaUrl(entry.slug, 'social/thumbnail-light.webp')} width="800" height="450" alt={m.thumbnailAlt ?? ''} loading="lazy" decoding="async" />
+          <img class="sp-visual-dark" src={mediaUrl(entry.slug, 'social/thumbnail-dark.webp')} width="800" height="450" alt="" loading="lazy" decoding="async" />
+        </>
+      ) : (
+        <div class="sp-card-thumb-ph" aria-hidden="true">{PILL[m.archetype] ?? m.archetype}</div>
+      )
+    }
+  </div>
+  <div class="sp-card-body">
+    <div class="sp-card-meta">
+      {position !== undefined && <span class="sp-card-pos">{position}</span>}
+      <span>{pill}</span>
+    </div>
+    <h3 class="sp-card-title"><a href={href}>{m.title}</a></h3>
+    <p class="sp-card-desc">{m.subtitle}</p>
+    <div class="sp-card-foot">
+      {m.quickRead && <span>Summary · {m.quickRead.readingMinutes} min</span>}
+      {
+        audioLabel && (
+          <span class="sp-card-audio">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></svg>
+            <span class="sp-sr-only">Audio </span>{audioLabel}
+          </span>
+        )
+      }
+      {hasPdf && <span class="sp-card-badge">PDF</span>}
+    </div>
+  </div>
+</li>

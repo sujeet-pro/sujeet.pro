@@ -1,0 +1,129 @@
+---
+/**
+ * Connections & Backlinks (zero JS). Data comes from the build-time graph (build-graph.ts).
+ * Series-scoped Prev/Next is pre-rendered once per membership and toggled by `html[data-sp-nav-series]` (P10).
+ * Upcoming (draft) targets render unlinked, without slug or href (§3).
+ */
+import { getBacklinks, getRelations, getSeriesNav, type ResolvedRelation } from '../../lib/graph/build-graph';
+import { archetypeLabel, relationLabel } from '../../lib/graph/labels';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const nav = getSeriesNav(slug);
+const relations = getRelations(slug);
+const backlinks = getBacklinks(slug);
+const byKind = (...kinds: string[]) => relations.filter((r) => kinds.includes(r.kind));
+
+const groups: Array<{ title: string; items: ResolvedRelation[] }> = [
+  { title: 'Prerequisites', items: byKind('prerequisite') },
+  { title: 'Uses Building Blocks', items: byKind('uses-building-block') },
+  { title: 'Builds On / Deep Dive Of', items: byKind('builds-on', 'deep-dive-of') },
+  { title: 'Related', items: byKind('related') },
+].filter((g) => g.items.length > 0);
+
+const where = (r: ResolvedRelation) =>
+  [r.pageTitle, r.sectionTitle ? `§ ${r.sectionTitle}` : undefined].filter(Boolean).join(' › ');
+const show = nav.length > 0 || groups.length > 0 || backlinks.length > 0;
+---
+
+{
+  show && (
+    <section class="sp-connections" aria-labelledby="sp-connections-title" data-pagefind-ignore>
+      <div class="sp-connections-head">
+        <h2 id="sp-connections-title" class="sp-connections-title">Connections &amp; Backlinks</h2>
+        <a class="sp-conn-explore" href="/explore/">Explore the graph →</a>
+      </div>
+
+      <div class="sp-conn-grid">
+        {nav.length > 0 && (
+          <div class="sp-conn-col">
+            <h3>Part of Series</h3>
+            <ul class="sp-conn-list">
+              {nav.map((n) => (
+                <li class="sp-conn-item">
+                  <a href={n.hubUrl}>{n.title}</a>
+                  <span class="sp-conn-meta sp-mono">
+                    {n.position} / {n.total}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {groups.map((g) => (
+          <div class="sp-conn-col">
+            <h3>{g.title}</h3>
+            <ul class="sp-conn-list">
+              {g.items.map((r) => (
+                <li class="sp-conn-item">
+                  <span class="sp-conn-main">
+                    {r.upcoming || !r.url ? <span>{r.title}</span> : <a href={r.url}>{r.title}</a>}
+                    {where(r) && <span class="sp-conn-sub">{where(r)}</span>}
+                  </span>
+                  {r.upcoming ? (
+                    <span class="sp-badge-upcoming">Coming Soon</span>
+                  ) : (
+                    <span class="sp-conn-meta sp-mono">
+                      {g.title === 'Builds On / Deep Dive Of' ? relationLabel(r.kind) : archetypeLabel(r.archetype)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        {backlinks.length > 0 && (
+          <div class="sp-conn-col">
+            <h3>Referenced By</h3>
+            <ul class="sp-conn-list">
+              {backlinks.map((b) => (
+                <li class="sp-conn-item">
+                  <span class="sp-conn-main">
+                    <a href={b.sourceUrl}>{b.sourceTitle}</a>
+                    <span class="sp-conn-sub">
+                      {b.sourcePageLabel}
+                      {b.sectionTitle && ` › § ${b.sectionTitle}`}
+                    </span>
+                  </span>
+                  <span class="sp-conn-meta sp-mono">{relationLabel(b.kind)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {nav.map((n) => (
+        <nav class="sp-prevnext-variant" data-sp-series-variant={n.slug} aria-label={`Series navigation: ${n.title}`}>
+          {n.prev ? (
+            <a class="sp-prevnext-card" href={n.prev.url} rel="prev">
+              <span class="sp-prevnext-dir">← Previous in {n.title}</span>
+              <span class="sp-prevnext-title">{n.prev.title}</span>
+            </a>
+          ) : (
+            <a class="sp-prevnext-card" href={n.hubUrl}>
+              <span class="sp-prevnext-dir">← Start of series</span>
+              <span class="sp-prevnext-title">{n.title} hub</span>
+            </a>
+          )}
+          {n.next ? (
+            <a class="sp-prevnext-card sp-align-right" href={n.next.url} rel="next">
+              <span class="sp-prevnext-dir">Next in {n.title} →</span>
+              <span class="sp-prevnext-title">{n.next.title}</span>
+            </a>
+          ) : (
+            <a class="sp-prevnext-card sp-align-right" href={n.hubUrl}>
+              <span class="sp-prevnext-dir">End of series →</span>
+              <span class="sp-prevnext-title">Back to {n.title}</span>
+            </a>
+          )}
+        </nav>
+      ))}
+    </section>
+  )
+}

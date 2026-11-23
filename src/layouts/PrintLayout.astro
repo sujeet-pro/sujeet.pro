@@ -1,0 +1,169 @@
+---
+/**
+ * PrintLayout (Stage 4.4): the single document `scripts/render-pdf.mjs` prints with `page.pdf()`.
+ *
+ * - `<html data-sp-export="pdf" data-sp-scheme="light">`: the browser print guard in global.css is scoped
+ *   `:root:not([data-sp-export="pdf"])`, so it never applies here (P2); light scheme is fixed (P7 → only
+ *   the light raster/figure shows).
+ * - No ClientRouter, palette, theme controls, audio bar, WIP banner, print notice or pre-paint script.
+ * - Content: cover header → Summary (Quick Read) → every page's MDX in manifest order, each under its page
+ *   title. Evolution stages render in the `base` (stacked) arrangement: the `wide` split rules are behind
+ *   `:root:not([data-sp-export="pdf"])` (components/evolution/layout.ts).
+ * - Islands: ExplainerFigure renders statically via `isPrint(Astro.locals)` (set by the route); any other
+ *   island is replaced by a "See the interactive lab" QR box (components/print/PrintIslands.astro).
+ * - Watermark: `spConfig.pdf.watermarkText`, fixed + rotated, so Chromium repeats it on every page.
+ * The page header/footer (brand · title, author · URL · n/N) come from `page.pdf()` templates, not this file.
+ */
+import QuickRead from '../components/ui/QuickRead.astro';
+import PrintIslands from '../components/print/PrintIslands.astro';
+import type { RegistryEntry } from '../lib/articles/registry';
+import { archetypeLabel } from '../lib/graph/labels';
+import { spConfig } from '../../sp.config';
+import '../styles/global.css';
+import '../components/evolution/evolution.css';
+
+interface Props {
+  article: RegistryEntry;
+}
+
+const { article } = Astro.props;
+const { manifest } = article;
+const canonical = new URL(`/${article.slug}/`, spConfig.siteUrl).href;
+const fmt = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+const sections = article.pages.map((p) => ({
+  page: p,
+  // The index page usually repeats the article title (already on the cover): use its tab label instead.
+  heading: p.isIndex && p.title === manifest.title ? p.navLabel : p.title,
+  id: `page-${p.slug ?? 'index'}`,
+  Content: p.module.default as any,
+}));
+const { watermarkText, watermarkOpacity } = spConfig.pdf;
+---
+
+<!doctype html>
+<html
+  lang="en"
+  data-sp-export="pdf"
+  data-sp-scheme="light"
+  data-sp-scheme-pref="light"
+  data-sp-contrast="default"
+  data-sp-text="default"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{manifest.title}</title>
+  </head>
+  <body class="sp-print">
+    <main class="sp-print-doc">
+      <header class="sp-print-cover">
+        <p class="sp-print-cover-meta">
+          {archetypeLabel(manifest.archetype)} · Updated {fmt(manifest.updatedAt)}
+        </p>
+        <h1 class="sp-print-cover-title">{manifest.title}</h1>
+        {manifest.subtitle && <p class="sp-print-cover-subtitle">{manifest.subtitle}</p>}
+        <p class="sp-print-cover-byline">
+          {spConfig.author.name} · <a href={canonical}>{canonical}</a>
+        </p>
+      </header>
+
+      {manifest.quickRead && <QuickRead {...manifest.quickRead} />}
+
+      {
+        sections.map(({ page, heading, id, Content }, i) => (
+          <section class="sp-print-section" id={id} data-first={i === 0 ? '' : undefined}>
+            <h1 class="sp-print-section-title">
+              <span class="sp-print-section-num">Part {i + 1}</span>
+              {heading}
+            </h1>
+            <div class="sp-prose">
+              <PrintIslands pageUrl={page.url}>
+                <Content />
+              </PrintIslands>
+            </div>
+          </section>
+        ))
+      }
+    </main>
+
+    <div class="sp-watermark" aria-hidden="true" style={`--sp-watermark-opacity: ${watermarkOpacity}`}>
+      <span>{watermarkText}</span>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  /* Page box: margins come from page.pdf({ margin }) so the header/footer templates have room. */
+  @page { size: A4; }
+  :root[data-sp-export='pdf'] {
+    background: #ffffff; /* the root background shows below <body> on the last page */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    scroll-behavior: auto;
+  }
+  :root[data-sp-export='pdf'] body { background: #ffffff; color: var(--sp-ink); margin: 0; }
+  /* Dev-only chrome injected by `astro dev` (the PDF is rendered from the dev server). */
+  astro-dev-toolbar, vite-error-overlay { display: none !important; }
+  .sp-print-doc { position: relative; z-index: 1; max-width: none; padding: 0; }
+
+  /* Painted above <main> (z-index 2) so its text trails each page's text layer instead of prefixing the
+     first heading; at 6% opacity the overlay does not affect legibility. */
+  .sp-watermark {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .sp-watermark span {
+    transform: rotate(-32deg);
+    font-family: var(--sp-font-sans); font-weight: 800; font-size: 120px; letter-spacing: -0.03em;
+    color: #111827; opacity: var(--sp-watermark-opacity, 0.06); white-space: nowrap;
+  }
+
+  .sp-print-cover { margin: 0 0 22px; padding: 0 0 16px; border-bottom: 2px solid var(--sp-accent); }
+  .sp-print-cover-meta {
+    margin: 0 0 8px; font-family: var(--sp-font-mono); font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--sp-accent);
+  }
+  .sp-print-cover-title { margin: 0 0 8px; font-size: 2rem; line-height: 1.15; letter-spacing: -0.03em; }
+  .sp-print-cover-subtitle { margin: 0 0 10px; font-size: 1.05rem; color: var(--sp-ink-secondary); }
+  .sp-print-cover-byline { margin: 0; font-size: 0.82rem; color: var(--sp-ink-muted); }
+  .sp-print-cover-byline a { color: inherit; }
+
+  .sp-print-section { margin-top: 28px; }
+  .sp-print-section:not([data-first]) { break-before: page; margin-top: 0; }
+  .sp-print-section-title {
+    display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--sp-border); font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.02em;
+  }
+  .sp-print-section-num {
+    font-family: var(--sp-font-mono); font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--sp-ink-muted);
+  }
+
+  /* Static flow: no sticky/fixed figure columns, keep blocks whole where they fit. */
+  :root[data-sp-export='pdf'] .sp-stage { break-before: auto; }
+  :root[data-sp-export='pdf'] .sp-stage > h2 { break-after: avoid; }
+  :root[data-sp-export='pdf'] .sp-stage-figwrap { position: static !important; }
+  :root[data-sp-export='pdf'] :is(.sp-figure, .sp-decision, .sp-trigger-card, .sp-ladder-row, .sp-quickread, .sp-print-lab, .expressive-code) {
+    break-inside: avoid;
+  }
+  :root[data-sp-export='pdf'] .expressive-code .copy { display: none !important; }
+  /* Paper has no horizontal scroll: wrap long code lines instead of clipping them. */
+  :root[data-sp-export='pdf'] .expressive-code pre { overflow: visible !important; }
+  :root[data-sp-export='pdf'] .expressive-code :is(pre, .ec-line, .ec-line .code) {
+    white-space: pre-wrap !important; overflow-wrap: anywhere;
+  }
+
+  .sp-print-lab {
+    display: flex; align-items: center; gap: 18px; margin: 16px 0 22px; padding: 16px 18px;
+    border: 1px solid var(--sp-border-strong); border-radius: 12px; background: var(--sp-surface-subtle);
+  }
+  .sp-print-lab-qr { flex: none; width: 96px; height: 96px; background: #ffffff; padding: 6px; border-radius: 6px; }
+  .sp-print-lab-qr svg { display: block; width: 100%; height: 100%; }
+  .sp-prose .sp-print-lab-text p { margin: 0 0 6px; max-width: none; }
+  .sp-print-lab-title { font-weight: 700; color: var(--sp-ink); }
+  .sp-print-lab-url { font-family: var(--sp-font-mono); font-size: 0.82rem; color: var(--sp-accent); overflow-wrap: normal; }
+  .sp-print-lab-compact { padding: 10px 14px; }
+  .sp-prose .sp-print-lab-compact p { margin: 0; }
+</style>

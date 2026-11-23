@@ -1,0 +1,30 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getPrototypes } from '../../../lib/articles/registry';
+
+export const getStaticPaths = (() =>
+  getPrototypes().flatMap((p) => {
+    const props = { html: p.html, version: p.version };
+    const out = [{ params: { slug: p.slug, variant: `v${p.version}` }, props }];
+    if (p.latest) out.push({ params: { slug: p.slug, variant: undefined as unknown as string }, props });
+    return out;
+  })) satisfies GetStaticPaths;
+
+const { html, version } = Astro.props;
+
+const ROBOTS = '<meta name="robots" content="noindex, nofollow" />';
+// Banner sits bottom-left; v2's pinned layout switcher is bottom-right (right:20px; bottom:104px) and the audio bar is full-width at the very bottom.
+const BANNER =
+  `<div class="sp-proto-unlisted" style="position:fixed;left:12px;bottom:104px;z-index:2147483000;pointer-events:none;` +
+  `padding:5px 12px;border-radius:999px;font:600 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;` +
+  `background:#111827;color:#fff;border:1px solid rgba(255,255,255,.3);box-shadow:0 2px 8px rgba(0,0,0,.35);opacity:.92">` +
+  `Prototype v${version} · unlisted</div>`;
+
+// Owner copy rule (2026-11-23): the audience is explicit, so the label is just "Summary".
+// Applied at serve time because prototypes/v*.html are frozen.
+let out = html.replace(/Principal Engineer Summary/g, 'Summary').replace(/\sdata-pagefind-body(?:=(?:"[^"]*"|'[^']*'|[^\s>]*))?/g, '');
+if (!/<meta[^>]+name=["']robots["']/i.test(out)) out = out.replace(/<\/head>/i, `${ROBOTS}\n</head>`);
+out = out.replace(/<\/body>/i, `${BANNER}\n</body>`);
+---
+
+<Fragment set:html={out} />

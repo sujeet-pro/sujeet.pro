@@ -1,0 +1,46 @@
+Draft outline. Phase: discussing. Nothing here is final; every number below is either sourced inline or marked TODO.
+
+## What a Bloom filter buys you
+
+- A set-membership test with **no false negatives**: "absent" is final, "maybe present" needs the real lookup.
+- The trade: a tunable false-positive rate for a fixed, small memory footprint, independent of key size.
+- Typical job: keep misses away from an expensive store. Worked example: the L3 miss guard in [Designing a URL Redirection & Vanity URL Service](/design-url-redirection-service/#stage-l3), where bot path-scans otherwise hit DynamoDB on every miss.
+- TODO: two or three other placements (cache-admission filter, LSM-tree read path, crawler URL dedup), each with a primary source before it goes in.
+
+## Sizing it
+
+For `n` keys and a target false-positive rate `p` (Broder & Mitzenmacher, ["Network Applications of Bloom Filters: A Survey"](https://www.eecs.harvard.edu/~michaelm/postscripts/im2005b.pdf), §2.1):
+
+- Bits: `m = −n ln p / (ln 2)²`
+- Hash functions: `k = (m / n) ln 2`, rounded to an integer
+
+Worked numbers (from the flagship, same formula):
+
+| n | p | bits per key | k | size |
+| :--- | :--- | :--- | :--- | :--- |
+| 10M | 1% | 9.585 | 7 | ≈ 12 MB |
+
+- TODO: a small table for p = 10%, 1%, 0.1% at the same n, computed from the formula, not quoted.
+- TODO: an interactive sizer (n, p → m, k, memory) once the article reaches `prototyping`.
+
+## Where it lives: memory vs edge limits
+
+- **In-process memory** in the service in front of the store: the flagship's choice, because the edge can't hold it.
+- **Edge KV:** CloudFront KeyValueStore allows a 1 KB value and 5 MB per store; a ≈ 12 MB filter is ~12,000× one value and 2.4× a whole store ([CloudFront quotas](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html)).
+- **Edge code:** CloudFront Functions allow 10 KB of code and 2 MB of memory (same page). Lambda@Edge fits a larger package but can't read KeyValueStore and costs more per request ([choosing between CloudFront Functions and Lambda@Edge](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html)).
+- TODO: shared store options (Redis/Valkey Bloom module or a bitmap in a cache) with their own limits and prices, sourced.
+- TODO: rebuild and distribution: who builds the filter, how often, and how a loading filter fails open.
+
+## Deletes and counting filters
+
+- A standard Bloom filter can't remove a key: clearing its bits can clear bits shared with other keys and create false negatives.
+- Option 1: **periodic rebuild** from the source of truth (the flagship's L3 approach: add on write, rebuild on a schedule to clear deleted slugs).
+- Option 2: **counting Bloom filters** replace each bit with a small counter so deletes decrement. TODO: cite the counter size and overflow analysis from the survey (verify the section) before stating numbers.
+- TODO: decide whether cuckoo or quotient filters belong here or in a follow-up; only with primary sources.
+
+## Outline still to write
+
+- TODO: false-positive cost model: what one false positive costs downstream, and how to pick `p` from it.
+- TODO: hashing: double hashing to derive `k` positions from two hashes (cite the source before claiming it).
+- TODO: operational failure modes: stale filter after a bulk import, memory growth when `n` outruns the sizing.
+- TODO: build vs buy per runtime (library, cache module, managed service), dated vendor sources.

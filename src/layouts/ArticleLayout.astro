@@ -1,0 +1,479 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import QuickRead from '../components/ui/QuickRead.astro';
+import ConnectionsPanel from '../components/ui/ConnectionsPanel.astro';
+import type { RegistryEntry, RegistryPage } from '../lib/articles/registry';
+import { getSeriesNav } from '../lib/graph/build-graph';
+import { archetypeLabel } from '../lib/graph/labels';
+import fs from 'node:fs';
+import path from 'node:path';
+import AudioPlayer, { formatTime, type AudioChapterProp } from '../components/AudioPlayer.tsx';
+import { AudioChaptersOutputSchema } from '../lib/articles/schema';
+import { mediaUrl } from '../lib/media.ts';
+import { spConfig } from '../../sp.config.ts';
+import CopyAiPrompt from '../components/CopyAiPrompt.tsx';
+
+interface Props {
+  article: RegistryEntry;
+  page: RegistryPage;
+  isDraft: boolean;
+  navSeries?: { primary: string; memberships: string[] };
+  seriesSlugs: string[];
+}
+
+const { article, page, isDraft, navSeries, seriesSlugs } = Astro.props;
+const { manifest } = article;
+const fmt = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const pdfUrl = manifest.features.pdf ? `/${article.slug}/${article.slug}.pdf` : undefined;
+const title = page.isIndex ? manifest.title : `${page.title} · ${manifest.title}`;
+const description = page.isIndex ? manifest.summary : page.summary;
+
+// Multi-series navigation (P10): every membership variant is pre-rendered; a per-article <style> keyed on
+// html[data-sp-nav-series] (set by BaseLayout's pre-paint script) shows exactly one → no swap, zero CLS.
+const nav = getSeriesNav(article.slug);
+const multi = nav.length > 1;
+const primarySlug = navSeries?.primary ?? nav.find((n) => n.isPrimary)?.slug ?? nav[0]?.slug;
+const variantCss = nav
+  .map((n) => {
+    const on = `html[data-sp-nav-series="${n.slug}"]`;
+    return [
+      `${on} [data-sp-series-variant="${n.slug}"]{display:var(--sp-variant-display,inline-flex)}`,
+      `${on} .sp-series-option[data-select-series="${n.slug}"]{background:var(--sp-accent-soft);color:var(--sp-accent);font-weight:600}`,
+      `${on} .sp-series-option[data-select-series="${n.slug}"] .sp-opt-active{display:inline}`,
+      `${on} .sp-series-option[data-select-series="${n.slug}"] .sp-opt-switch{display:none}`,
+    ].join('\n');
+  })
+  .join('\n');
+// Audio (S3.7): mounted only when `features.audio` and both generated files exist. chapters.json is validated at
+// build time; transcripts stay out of the island props (fetched from chaptersUrl when the drawer opens).
+const audioDir = path.join(process.cwd(), 'src', 'articles', article.slug, 'audio');
+let audio: { srcUrl: string; chaptersUrl: string; durationSec: number; chapters: AudioChapterProp[] } | undefined;
+if (manifest.features.audio && fs.existsSync(path.join(audioDir, 'chapters.json')) && fs.existsSync(path.join(audioDir, 'episode.mp3'))) {
+  const out = AudioChaptersOutputSchema.parse(JSON.parse(fs.readFileSync(path.join(audioDir, 'chapters.json'), 'utf8')));
+  const indexPage = article.pages.find((p) => p.isIndex) ?? article.pages[0];
+  const jumpLabel = (id: string, pg: typeof indexPage): string => {
+    const lvl = /^stage-l(\d+)$/.exec(id);
+    if (lvl) return `L${lvl[1]}`;
+    if (id === 'evolution-ladder') return 'Ladder';
+    return pg.module.getHeadings?.().find((h) => h.slug === id)?.text ?? pg.navLabel;
+  };
+  const chapters: AudioChapterProp[] = out.chapters.map((c) => {
+    const pg = c.targetPage ? article.pages.find((p) => p.slug === c.targetPage) : indexPage;
+    if (!pg) throw new Error(`[audio] ${article.slug}: chapter "${c.id}" targets unknown page "${c.targetPage}"`);
+    return {
+      id: c.id,
+      title: c.title,
+      startSec: c.startSec,
+      endSec: c.endSec,
+      ...(c.targetSectionId ? { targetUrl: pg.url, targetSectionId: c.targetSectionId, jumpLabel: jumpLabel(c.targetSectionId, pg) } : {}),
+    };
+  });
+  audio = {
+    srcUrl: mediaUrl(article.slug, 'audio/episode.mp3'),
+    chaptersUrl: mediaUrl(article.slug, 'audio/chapters.json'),
+    durationSec: out.durationSec,
+    chapters,
+  };
+}
+
+// SEO/AEO (4.6): published pages only (drafts are noindex and must not feed structured data).
+// Image = LinkedIn card when generated, else the thumbnail PNG, else none; URLs are absolute.
+const socialDir = path.join(process.cwd(), 'src', 'articles', article.slug, 'social');
+const ogRel = ['linkedin-card.png', 'thumbnail.png'].find((f) => fs.existsSync(path.join(socialDir, f)));
+const ogImage = !isDraft && ogRel ? new URL(mediaUrl(article.slug, `social/${ogRel}`), spConfig.siteUrl).href : undefined;
+const abs = (p: string) => new URL(p, spConfig.siteUrl).href;
+const primarySeries = nav.find((n) => n.isPrimary);
+const crumbs = [
+  { name: 'Home', url: abs('/') },
+  ...(primarySeries ? [{ name: primarySeries.title, url: abs(`/series/${primarySeries.slug}/`) }] : []),
+  { name: manifest.title, url: abs(`/${article.slug}/`) },
+  ...(page.isIndex ? [] : [{ name: page.title, url: abs(page.url) }]),
+];
+const jsonLd: Record<string, unknown>[] = isDraft
+  ? []
+  : [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'TechArticle',
+        mainEntityOfPage: abs(page.url),
+        headline: page.isIndex ? manifest.title : `${page.title} · ${manifest.title}`,
+        description,
+        datePublished: manifest.publishedAt,
+        dateModified: manifest.updatedAt,
+        author: { '@type': 'Person', name: spConfig.author.name, url: spConfig.siteUrl },
+        ...(ogImage ? { image: ogImage } : {}),
+        ...(manifest.tags.length ? { keywords: manifest.tags.join(', ') } : {}),
+        inLanguage: 'en',
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
+      },
+    ];
+
+const noscriptCss = primarySlug
+  ? `[data-sp-series-variant="${primarySlug}"]{display:var(--sp-variant-display,inline-flex)}.sp-series-switcher{display:none}`
+  : '';
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath={page.url}
+  noindex={isDraft}
+  pagefindBody={!isDraft}
+  hasPdf={manifest.features.pdf}
+  pdfUrl={pdfUrl}
+  navSeries={navSeries}
+  audioHost={false}
+  ogType={isDraft ? 'website' : 'article'}
+  ogImage={ogImage}
+  ogImageAlt={manifest.thumbnailAlt}
+  jsonLd={jsonLd}
+  articleDates={isDraft ? undefined : { published: manifest.publishedAt, modified: manifest.updatedAt }}
+>
+  {
+    nav.length > 0 && (
+      <Fragment slot="head">
+        <style is:inline data-sp-series-css set:html={variantCss} />
+        <noscript>
+          <style is:inline set:html={noscriptCss} />
+        </noscript>
+      </Fragment>
+    )
+  }
+
+  {/* Inside BaseLayout's <main class="sp-main sp-container">: do NOT nest another .sp-container.
+      Full-bleed sections (if ever needed) must break out of main explicitly. */}
+  {
+    !isDraft && (
+      <>
+        {seriesSlugs.map((s) => (
+          <span data-pagefind-filter={`series:${s}`} hidden />
+        ))}
+        <span data-pagefind-filter={`entityType:${page.isIndex ? 'article' : 'tab'}`} hidden />
+      </>
+    )
+  }
+
+  <div class="sp-ctx-bar" data-pagefind-ignore>
+    <nav class="sp-breadcrumb" aria-label="Breadcrumb">
+      <a class="sp-crumb-link" href="/">Home</a>
+      {
+        nav.length > 0 && (
+          <>
+            <span class="sp-crumb-sep" aria-hidden="true">›</span>
+            <a class="sp-crumb-link" href="/#series">Series</a>
+            <span class="sp-crumb-sep" aria-hidden="true">›</span>
+          </>
+        )
+      }
+      {
+        nav.length === 1 && (
+          <a class="sp-crumb-link sp-crumb-series" href={nav[0].hubUrl}>
+            {nav[0].title} ({nav[0].position}/{nav[0].total})
+          </a>
+        )
+      }
+      {
+        multi && (
+          <div class="sp-series-switcher">
+            <button
+              type="button"
+              id="sp-series-btn"
+              class="sp-series-btn"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="sp-series-menu"
+            >
+              {nav.map((n) => (
+                <span data-sp-series-variant={n.slug}>
+                  {n.title} ({n.position}/{n.total})
+                </span>
+              ))}
+              <span class="sp-series-caret" aria-hidden="true">▾</span>
+            </button>
+            <div id="sp-series-menu" class="sp-series-menu" data-open="false" role="menu" aria-label="Switch series context">
+              {nav.map((n) => (
+                <button
+                  type="button"
+                  class="sp-series-option"
+                  role="menuitemradio"
+                  tabindex="-1"
+                  data-select-series={n.slug}
+                  aria-checked={n.slug === primarySlug ? 'true' : 'false'}
+                >
+                  <span class="sp-series-option-text">
+                    <strong>{n.title}</strong>
+                    <span class="sp-series-option-sub">
+                      {n.isPrimary ? 'Primary series' : 'Also in series'} · Position {n.position} of {n.total}
+                    </span>
+                  </span>
+                  <span class="sp-series-option-state sp-mono">
+                    <span class="sp-opt-active">Active</span>
+                    <span class="sp-opt-switch">Switch</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      }
+      <span class="sp-crumb-sep" aria-hidden="true">›</span>
+      <span class="sp-crumb-current" aria-current="page">{manifest.title}</span>
+    </nav>
+
+    {
+      multi && (
+        <div class="sp-also-in">
+          {nav.map((n) => (
+            <span class="sp-also-in-variant" data-sp-series-variant={n.slug}>
+              <span>Also in:</span>
+              {nav
+                .filter((o) => o.slug !== n.slug)
+                .map((o) => (
+                  <button type="button" class="sp-series-chip" data-select-series={o.slug}>
+                    {o.title}
+                  </button>
+                ))}
+            </span>
+          ))}
+        </div>
+      )
+    }
+  </div>
+
+  <header class="sp-article-header">
+    <p class="sp-article-meta">
+      <span>{archetypeLabel(manifest.archetype)}</span>
+      <span aria-hidden="true"> · </span>
+      <span>Updated {fmt(manifest.updatedAt)}</span>
+      {isDraft && <span class="sp-draft-badge">Draft · unlisted</span>}
+    </p>
+    <h1 class="sp-article-title">{manifest.title}</h1>
+    {manifest.subtitle && <p class="sp-article-subtitle sp-measure">{manifest.subtitle}</p>}
+
+    <div class="sp-article-actions" role="group" aria-label="Article actions">
+      {
+        audio ? (
+          <button type="button" class="sp-action-btn" data-sp-audio-listen={article.slug} aria-controls="sp-audio-bar">
+            ▶ Listen · {formatTime(audio.durationSec)}
+          </button>
+        ) : (
+          <button type="button" class="sp-action-btn" aria-disabled="true" title="Coming in a later stage">Listen</button>
+        )
+      }
+      {
+        pdfUrl ? (
+          <a class="sp-action-btn" href={pdfUrl} download data-sp-pdf-link title="Download the PDF edition">↓ PDF</a>
+        ) : (
+          <button type="button" class="sp-action-btn" aria-disabled="true" title="Coming in a later stage">PDF</button>
+        )
+      }
+      {!isDraft && <CopyAiPrompt client:idle slug={article.slug} title={manifest.title} />}
+    </div>
+  </header>
+
+  {page.isIndex && manifest.quickRead && <QuickRead {...manifest.quickRead} />}
+
+  {
+    article.pages.length > 1 && (
+      <nav class="sp-tabs" aria-label="Article pages">
+        {article.pages.map((p) => (
+          <a class="sp-tab" href={p.url} aria-current={p.url === page.url ? 'page' : undefined}>
+            {p.navLabel}
+          </a>
+        ))}
+      </nav>
+    )
+  }
+
+  <div class="sp-article-body">
+    <slot />
+  </div>
+
+  <ConnectionsPanel slug={article.slug} />
+
+  <div class="sp-article-footer">
+    <slot name="footer" />
+  </div>
+
+  <Fragment slot="audio">
+    {
+      audio && (
+        <AudioPlayer
+          client:idle
+          transition:persist="sp-audio-player"
+          slug={article.slug}
+          srcUrl={audio.srcUrl}
+          chaptersUrl={audio.chaptersUrl}
+          title={manifest.title}
+          author={spConfig.author.name}
+          durationSec={audio.durationSec}
+          chapters={audio.chapters}
+        />
+      )
+    }
+  </Fragment>
+</BaseLayout>
+
+<script>
+  // Series switcher (P10/P16). Bundled module: evaluated once; delegated listeners make it idempotent
+  // across ClientRouter swaps, and `astro:page-load` re-syncs aria state for the new DOM.
+  import { spConfig } from '../../sp.config.ts';
+
+  const root = document.documentElement;
+  const btn = () => document.getElementById('sp-series-btn');
+  const menu = () => document.getElementById('sp-series-menu');
+  const items = () => Array.from(document.querySelectorAll<HTMLElement>('#sp-series-menu [role="menuitemradio"]'));
+  const isOpen = () => menu()?.getAttribute('data-open') === 'true';
+
+  function memberships(): string[] {
+    try {
+      const raw = document.querySelector<HTMLMetaElement>('meta[name="sp-boot"]')?.content ?? '{}';
+      return (JSON.parse(raw).navSeries?.memberships as string[] | undefined) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  function sync(): void {
+    const active = root.getAttribute('data-sp-nav-series');
+    for (const it of items()) it.setAttribute('aria-checked', String(it.dataset.selectSeries === active));
+  }
+
+  /** Keep the menu inside the viewport with 16px gutters (390px phones); re-run on resize while open. */
+  function clamp(): void {
+    const b = btn();
+    const m = menu();
+    if (!b || !m) return;
+    m.style.left = '0px';
+    const vw = root.clientWidth;
+    const btnLeft = b.getBoundingClientRect().left;
+    const menuW = m.getBoundingClientRect().width;
+    let desired = btnLeft;
+    if (desired + menuW > vw - 16) desired = vw - 16 - menuW;
+    if (desired < 16) desired = 16;
+    m.style.left = `${desired - btnLeft}px`;
+  }
+
+  function openMenu(focus: 'checked' | 'first' | 'last' = 'checked'): void {
+    const b = btn();
+    const m = menu();
+    if (!b || !m) return;
+    sync();
+    m.setAttribute('data-open', 'true');
+    b.setAttribute('aria-expanded', 'true');
+    clamp();
+    const list = items();
+    const target =
+      focus === 'first'
+        ? list[0]
+        : focus === 'last'
+          ? list[list.length - 1]
+          : (list.find((i) => i.getAttribute('aria-checked') === 'true') ?? list[0]);
+    target?.focus();
+  }
+
+  function closeMenu(returnFocus: boolean): void {
+    const b = btn();
+    const m = menu();
+    if (!m || !isOpen()) return;
+    m.setAttribute('data-open', 'false');
+    b?.setAttribute('aria-expanded', 'false');
+    if (returnFocus) b?.focus();
+  }
+
+  function select(slug: string): void {
+    if (!memberships().includes(slug)) return;
+    try {
+      sessionStorage.setItem(spConfig.navSessionKey, slug);
+    } catch {
+      /* private mode: the URL still carries the context */
+    }
+    root.setAttribute('data-sp-nav-series', slug);
+    const url = new URL(location.href);
+    url.searchParams.set('ctx', `series:${slug}`);
+    const search = url.searchParams.toString().replace(/%3A/gi, ':');
+    history.replaceState(history.state, '', `${url.pathname}?${search}${url.hash}`);
+    sync();
+  }
+
+  document.addEventListener('click', (ev) => {
+    const t = ev.target as Element | null;
+    if (!t) return;
+    if (t.closest('#sp-series-btn')) {
+      if (isOpen()) closeMenu(false);
+      else openMenu();
+      return;
+    }
+    const choice = t.closest<HTMLElement>('[data-select-series]');
+    if (choice) {
+      const inMenu = !!choice.closest('#sp-series-menu');
+      select(choice.dataset.selectSeries ?? '');
+      if (inMenu) closeMenu(true);
+      else btn()?.focus(); // the clicked chip belongs to the now-hidden variant
+      return;
+    }
+    if (isOpen() && !t.closest('.sp-series-switcher')) closeMenu(false);
+  });
+
+  // Capture phase: runs before the global dispatcher (bubble), which then skips our preventDefault'ed keys.
+  document.addEventListener('keydown', (ev) => {
+    const t = ev.target as Element | null;
+    if (!t) return;
+    if (t.closest('#sp-series-btn') && !isOpen() && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      openMenu(ev.key === 'ArrowDown' ? 'first' : 'last');
+      return;
+    }
+    if (!isOpen() || !t.closest('#sp-series-menu')) return;
+    const list = items();
+    const i = list.indexOf(t as HTMLElement);
+    const focusAt = (n: number) => list[(n + list.length) % list.length]?.focus();
+    switch (ev.key) {
+      case 'ArrowDown':
+        ev.preventDefault();
+        focusAt(i + 1);
+        break;
+      case 'ArrowUp':
+        ev.preventDefault();
+        focusAt(i - 1);
+        break;
+      case 'Home':
+        ev.preventDefault();
+        focusAt(0);
+        break;
+      case 'End':
+        ev.preventDefault();
+        focusAt(list.length - 1);
+        break;
+      case 'Escape':
+        ev.preventDefault(); // dispatcher skips defaultPrevented events
+        closeMenu(true);
+        break;
+      case 'Tab':
+        closeMenu(false);
+        break;
+      default:
+        // Enter / Space activate the focused <button> natively (click handler above).
+        break;
+    }
+  }, true);
+
+  // Listen clicked before the audio island hydrates (client:idle): buffer it; AudioPlayer plays on mount.
+  document.addEventListener('click', (ev) => {
+    const w = window as Window & { __spAudioReady?: boolean; __spAudioPending?: boolean };
+    if (!w.__spAudioReady && (ev.target as Element | null)?.closest('[data-sp-audio-listen]')) w.__spAudioPending = true;
+  });
+
+  document.addEventListener('sp:escape', () => closeMenu(!!document.activeElement?.closest('#sp-series-menu')));
+  window.addEventListener('resize', () => {
+    if (isOpen()) clamp();
+  });
+  document.addEventListener('astro:page-load', sync);
+  document.addEventListener('astro:before-swap', () => closeMenu(false));
+  sync();
+</script>

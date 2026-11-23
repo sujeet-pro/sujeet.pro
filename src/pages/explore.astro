@@ -1,0 +1,153 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ExploreGraph from '../components/ExploreGraph.tsx';
+import type { ExploreNode, ExploreEdge } from '../components/ExploreGraph.tsx';
+import { buildGraphIndex } from '../lib/graph/build-graph';
+import { archetypeLabel, relationLabel } from '../lib/graph/labels';
+
+// Published entities only (§3): everything below derives from the compiled graph index.
+const { series, articles, edges } = buildGraphIndex().index;
+const TAG: Record<string, string> = { 'design-x': 'DESIGN X', 'building-block': 'BUILDING BLOCK', 'business-story': 'BUSINESS STORY', standard: 'ARTICLE' };
+const FILTER_LABEL: Record<string, string> = { 'design-x': 'Design X', 'building-block': 'Building blocks', 'business-story': 'Business stories', standard: 'Articles' };
+
+const blocks = articles.filter((a) => a.archetype === 'building-block');
+const regular = articles.filter((a) => a.archetype !== 'building-block');
+const archetypeIds = [...new Set(articles.map((a) => a.archetype))];
+
+// Deterministic layered layout: series column, articles column, building-block column.
+const ROW = 72, TOP = 44, NODE_H = 54;
+const maxRows = Math.max(series.length, regular.length, blocks.length, 1);
+const height = Math.max(240, TOP + maxRows * ROW + 16);
+const place = (count: number, i: number) => {
+  const total = count * ROW - (ROW - NODE_H);
+  const start = TOP + (height - TOP - 16 - total) / 2;
+  return Math.round(start + i * ROW);
+};
+const nodes: ExploreNode[] = [
+  ...series.map((s, i): ExploreNode => ({
+    id: `s:${s.slug}`, kind: 'series', label: s.title, tag: 'SERIES', x: 20, y: place(series.length, i), w: 190, h: NODE_H,
+    series: [s.slug], desc: `Series · ${s.articles.length} ${s.articles.length === 1 ? 'article' : 'articles'}. ${s.description}`, href: `/series/${s.slug}/`,
+  })),
+  ...regular.map((a, i): ExploreNode => ({
+    id: `a:${a.slug}`, kind: 'article', label: a.title, archetype: a.archetype, tag: TAG[a.archetype] ?? 'ARTICLE',
+    x: 290, y: place(regular.length, i), w: 230, h: NODE_H, series: a.seriesSlugs,
+    desc: `${archetypeLabel(a.archetype)} · member of ${a.seriesSlugs.length} ${a.seriesSlugs.length === 1 ? 'series' : 'series'}. ${a.subtitle}`, href: `/${a.slug}/`,
+  })),
+  ...blocks.map((a, i): ExploreNode => ({
+    id: `a:${a.slug}`, kind: 'block', label: a.title, archetype: a.archetype, tag: 'BUILDING BLOCK',
+    x: 590, y: place(blocks.length, i), w: 190, h: NODE_H, series: a.seriesSlugs,
+    desc: `Building block. ${a.subtitle}`, href: `/${a.slug}/`,
+  })),
+];
+const graphEdges: ExploreEdge[] = [
+  ...series.flatMap((s) => s.articles.map((slug): ExploreEdge => ({ from: `s:${s.slug}`, to: `a:${slug}`, kind: 'member' }))),
+  // relations[] semantics: the source article points to what it depends on.
+  ...edges.map((e): ExploreEdge => ({ from: `a:${e.from.article}`, to: `a:${e.to.article}`, kind: e.kind })),
+];
+const titleOf = (slug: string) => articles.find((a) => a.slug === slug)?.title ?? slug;
+---
+
+<BaseLayout
+  title="Explore · sujeet.pro"
+  description="Explore the published series, articles and building blocks as a connected graph."
+  canonicalPath="/explore/"
+>
+  <div class="sp-page-hero">
+    <div class="sp-page-eyebrow"><span>Explore</span><span class="sp-page-eyebrow-muted">· Series, articles and building blocks</span></div>
+    <h1>Explore connected series and deep dives</h1>
+    <p>Every published entity and how it connects. The matrix below works without JavaScript; the graph adds filters and previews.</p>
+  </div>
+
+  <section class="sp-xp-matrix" aria-labelledby="sp-xp-matrix-title">
+    <h2 id="sp-xp-matrix-title" class="sp-section-title" style="margin-top:0;">Series by article</h2>
+    <div class="sp-xp-tablewrap">
+      <table class="sp-xp-table">
+        <caption>Which published articles belong to which series.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Article</th>
+            <th scope="col">Type</th>
+            {series.map((s) => <th scope="col"><a href={`/series/${s.slug}/`}>{s.title}</a></th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {
+            articles.map((a) => (
+              <tr>
+                <th scope="row"><a href={`/${a.slug}/`}>{a.title}</a></th>
+                <td>{archetypeLabel(a.archetype)}</td>
+                {series.map((s) =>
+                  a.seriesSlugs.includes(s.slug) ? (
+                    <td class="sp-xp-yes"><span aria-hidden="true">✓</span><span class="sp-sr-only">Member of {s.title}</span></td>
+                  ) : (
+                    <td><span class="sp-sr-only">Not a member of {s.title}</span></td>
+                  ),
+                )}
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sp-xp-lists">
+      <div>
+        <h3>By archetype</h3>
+        {
+          archetypeIds.length === 0 ? (
+            <p class="sp-xp-empty">Nothing published yet.</p>
+          ) : (
+            <ul>
+              {archetypeIds.map((id) => (
+                <li>
+                  <strong>{FILTER_LABEL[id] ?? id}</strong>:{' '}
+                  {articles.filter((a) => a.archetype === id).map((a, i) => (<>{i > 0 && ', '}<a href={`/${a.slug}/`}>{a.title}</a></>))}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+      <div>
+        <h3>Building blocks</h3>
+        {
+          blocks.length === 0 ? (
+            <p class="sp-xp-empty">No published building blocks yet.</p>
+          ) : (
+            <ul>{blocks.map((b) => <li><a href={`/${b.slug}/`}>{b.title}</a></li>)}</ul>
+          )
+        }
+      </div>
+      <div>
+        <h3>Relations</h3>
+        {
+          edges.length === 0 ? (
+            <p class="sp-xp-empty">No relations between published articles yet.</p>
+          ) : (
+            <ul>
+              {edges.map((e) => (
+                <li>
+                  <a href={`/${e.from.article}/`}>{titleOf(e.from.article)}</a> · {relationLabel(e.kind).toLowerCase()} ·{' '}
+                  <a href={`/${e.to.article}/`}>{titleOf(e.to.article)}</a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <h2 class="sp-section-title sp-needs-js">Graph</h2>
+  <div class="sp-needs-js">
+    <ExploreGraph
+      client:visible
+      nodes={nodes}
+      edges={graphEdges}
+      width={800}
+      height={height}
+      archetypes={archetypeIds.map((id) => ({ id, label: FILTER_LABEL[id] ?? id }))}
+      seriesOptions={series.map((s) => ({ id: s.slug, label: s.title }))}
+    />
+  </div>
+</BaseLayout>

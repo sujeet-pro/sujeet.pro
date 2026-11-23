@@ -1,0 +1,81 @@
+---
+/**
+ * PrintIslands (Stage 4.4): renders one article page's MDX for the PDF and makes it static.
+ *
+ * MDX `components` overrides cannot reach imported components (e.g. `RedirectorLab`), so the page's slot is
+ * rendered to HTML and post-processed instead:
+ *   - every top-level `<astro-island>` (any client directive) → a "See the interactive lab" box with a QR code
+ *     to the live page (`https://sujeet.pro/<slug>/<page>/`); later islands on the same page get a compact
+ *     pointer without a second QR code, and islands that touch (whitespace only between them) collapse;
+ *   - every `<script>` is dropped (nothing hydrates in the PDF);
+ *   - root-relative `<a href="/…">` become absolute `spConfig.siteUrl` links (the PDF must not link to the
+ *     local dev server). `src` attributes stay relative so assets load from the dev server.
+ * Islands that have a static form (ExplainerFigure) skip their island via `isPrint(Astro.locals)` and
+ * never reach this filter.
+ */
+import QRCode from 'qrcode';
+import { spConfig } from '../../../sp.config';
+
+interface Props {
+  /** Trailing-slash page URL, e.g. `/<slug>/interactive-lab/`. */
+  pageUrl: string;
+}
+
+const { pageUrl } = Astro.props;
+const liveUrl = new URL(pageUrl, spConfig.siteUrl).href;
+const qr = await QRCode.toString(liveUrl, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+/** Visible URL: may wrap only after a `/`. */
+const urlHtml = esc(liveUrl).replace(/\/(?=[^/])/g, '/<wbr>');
+const labBox =
+  `<aside class="sp-print-lab" aria-label="Interactive lab">` +
+  `<div class="sp-print-lab-qr" role="img" aria-label="QR code for ${esc(liveUrl)}">${qr}</div>` +
+  `<div class="sp-print-lab-text"><p class="sp-print-lab-title">See the interactive lab</p>` +
+  `<p>This part of the article is interactive on the web: pick a level, inject failures and adjust the cost model. ` +
+  `Scan the code or open:</p><p class="sp-print-lab-url">${urlHtml}</p></div></aside>`;
+const labNote =
+  `<aside class="sp-print-lab sp-print-lab-compact" aria-label="Interactive lab">` +
+  `<p class="sp-print-lab-text"><span class="sp-print-lab-title">Interactive on the web</span> · ` +
+  `<span class="sp-print-lab-url">${urlHtml}</span> (QR code above)</p></aside>`;
+
+/** Replace each top-level <astro-island>…</astro-island> (nesting-aware) with the lab box. */
+function replaceIslands(html: string): string {
+  const OPEN = '<astro-island';
+  const CLOSE = '</astro-island>';
+  let out = '';
+  let i = 0;
+  let boxes = 0;
+  while (true) {
+    const start = html.indexOf(OPEN, i);
+    if (start === -1) break;
+    const between = html.slice(i, start);
+    out += between;
+    let depth = 0;
+    let j = start;
+    while (true) {
+      const nextOpen = html.indexOf(OPEN, j);
+      const nextClose = html.indexOf(CLOSE, j);
+      if (nextClose === -1) throw new Error('[PrintIslands] unbalanced <astro-island> markup');
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        j = nextOpen + OPEN.length;
+      } else {
+        depth--;
+        j = nextClose + CLOSE.length;
+        if (depth === 0) break;
+      }
+    }
+    const adjacent = boxes > 0 && between.trim() === '';
+    if (!adjacent) out += boxes++ === 0 ? labBox : labNote;
+    i = j;
+  }
+  return out + html.slice(i);
+}
+
+const raw = await Astro.slots.render('default');
+const html = replaceIslands(raw)
+  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  .replace(/(<a\b[^>]*?\shref=")(\/(?!\/)[^"]*)"/gi, (_m, pre: string, href: string) => `${pre}${new URL(href, spConfig.siteUrl).href}"`);
+---
+
+<Fragment set:html={html} />

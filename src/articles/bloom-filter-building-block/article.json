@@ -1,0 +1,27 @@
+{
+  "slug": "bloom-filter-building-block",
+  "archetype": "building-block",
+  "title": "Bloom Filters as a Building Block",
+  "subtitle": "Cheap negative lookups, with an honest false-positive rate.",
+  "summary": "A Bloom filter as a system design building block: what a 'definitely absent' answer buys you, how to size one from the formula, where it fits in memory versus edge limits, and what deletes cost. Draft outline.",
+  "phase": "discussing",
+  "tags": [
+    "bloom-filter"
+  ],
+  "concepts": [
+    "bloom-filter"
+  ],
+  "version": 1,
+  "updatedAt": "2026-11-23",
+  "features": {
+    "audio": false,
+    "pdf": false
+  },
+  "pages": [
+    {
+      "title": "Bloom Filters as a Building Block",
+      "entry": "pages/index.mdx",
+      "summary": "Outline: sizing formula, placement in memory vs edge limits, deletes and counting filters, open questions."
+    }
+  ]
+}

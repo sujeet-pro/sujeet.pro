@@ -1,0 +1,31 @@
+---
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ui/ArticleCard.astro';
+import { getArticle } from '../../lib/articles/registry';
+import { buildGraphIndex } from '../../lib/graph/build-graph';
+
+// Published members only; a series with no published article gets no hub (§3).
+export const getStaticPaths = (() =>
+  buildGraphIndex().index.series.map((s) => ({ params: { series: s.slug }, props: { s } }))) satisfies GetStaticPaths;
+
+const { s } = Astro.props;
+const members = s.articles.map((slug) => getArticle(slug)!);
+---
+
+<BaseLayout title={`${s.title} · sujeet.pro`} description={s.description} canonicalPath={`/series/${s.slug}/`}>
+  <nav class="sp-page-crumbs" aria-label="Breadcrumb">
+    <a href="/">Home</a><span aria-hidden="true">›</span><a href="/#series">Series</a><span aria-hidden="true">›</span>
+    <span aria-current="page">{s.title}</span>
+  </nav>
+  <div class="sp-page-hero">
+    <div class="sp-page-eyebrow">
+      <span>Series</span><span class="sp-page-eyebrow-muted">· {members.length} {members.length === 1 ? 'article' : 'articles'}</span>
+    </div>
+    <h1>{s.title}</h1>
+    <p>{s.description}</p>
+  </div>
+  <ol class="sp-card-grid" aria-label={`Articles in ${s.title}`}>
+    {members.map((a, i) => <ArticleCard entry={a} ctx={s.slug} position={i + 1} />)}
+  </ol>
+</BaseLayout>

@@ -1,0 +1,16 @@
+import RedirectorLab from '../components/RedirectorLab.tsx';
+import evolution from '../data/evolution.json';
+import topology from '../data/topology.json';
+import costModels from '../data/cost-models.json';
+
+## Topology simulator
+
+Pick a level to see the components that stage earns, and switch between generic building blocks and their AWS services. Select any component, then inject a 10× slowdown or an outage to see its blast radius and the fallback path. "Show changes" overlays what the level added, changed or removed versus the one before.
+
+<RedirectorLab client:visible section="topology" evolution={evolution} topology={topology} costModels={costModels} />
+
+## Cost economics
+
+The table follows the level picked above. Unit prices are AWS `us-east-1` list prices as of 2026-11-23, linked under the table; usage volumes (traffic, task sizes, miss rates, log sizes) are modelled and marked ASSUMPTION. The enterprise range (25–40% off list) is also an ASSUMPTION: AWS publishes no discount schedule.
+
+<RedirectorLab client:visible section="cost" evolution={evolution} costModels={costModels} />

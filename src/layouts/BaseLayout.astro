@@ -1,0 +1,250 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import { spConfig } from '../../sp.config.ts';
+import ThemeControls from '../components/ThemeControls.tsx';
+import PrintNotice from '../components/ui/PrintNotice.astro';
+import CommandPalette from '../components/CommandPalette.tsx';
+import ShortcutsModal from '../components/ShortcutsModal.tsx';
+import { buildGraphIndex } from '../lib/graph/build-graph';
+import '../styles/global.css';
+import '../components/audio/audio.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  noindex?: boolean;
+  hasPdf?: boolean;
+  pdfUrl?: string;
+  navSeries?: { primary: string; memberships: string[] };
+  pagefindBody?: boolean;
+  ogImage?: string;
+  ogImageAlt?: string;
+  /** `article` for published article pages (adds article:* meta); default `website`. */
+  ogType?: 'website' | 'article';
+  /** Extra JSON-LD nodes (TechArticle, BreadcrumbList). The site-level Person is always emitted. */
+  jsonLd?: Record<string, unknown>[];
+  articleDates?: { published?: string; modified?: string };
+  graphUrl?: string;
+  /**
+   * Render the `[data-sp-audio-host]` placeholder so a playing audio bar persists onto this page (non-article
+   * pages). ArticleLayout passes `false`: an article without audio drops the previous article's player.
+   */
+  audioHost?: boolean;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  noindex = false,
+  hasPdf = false,
+  pdfUrl,
+  navSeries,
+  pagefindBody = false,
+  ogImage,
+  ogImageAlt,
+  ogType = 'website',
+  jsonLd = [],
+  articleDates,
+  graphUrl = buildGraphIndex().url,
+  audioHost = true,
+} = Astro.props;
+
+const canonical = new URL(canonicalPath, spConfig.siteUrl).href;
+const ogImageUrl = ogImage ? new URL(ogImage, spConfig.siteUrl).href : undefined;
+// Site-level Person on every page; page-specific nodes follow. `<` is escaped so the payload can never close the tag.
+const personNode = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': `${spConfig.siteUrl}/#person`,
+  name: spConfig.author.name,
+  url: spConfig.siteUrl,
+  sameAs: [spConfig.repoUrl],
+};
+const ldBlocks = [personNode, ...jsonLd].map((n) => JSON.stringify(n).replace(/</g, '\\u003c'));
+const boot = JSON.stringify({
+  storageKey: spConfig.storageKey,
+  navSessionKey: spConfig.navSessionKey,
+  defaults: {
+    scheme: spConfig.theme.defaultScheme,
+    contrast: spConfig.theme.defaultContrast,
+    textSize: spConfig.theme.defaultTextSize,
+  },
+  navSeries: navSeries ?? null,
+});
+const path = Astro.url.pathname;
+const current = (p: string) => (p === '/' ? path === '/' : path.startsWith(p)) ? 'page' : undefined;
+---
+
+<!doctype html>
+<html lang="en" data-sp-has-pdf={hasPdf ? '' : undefined}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="alternate" type="application/rss+xml" title={spConfig.author.handle} href="/rss.xml" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={spConfig.author.handle} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    {ogImageUrl && ogImageAlt && <meta property="og:image:alt" content={ogImageAlt} />}
+    {articleDates?.published && <meta property="article:published_time" content={articleDates.published} />}
+    {articleDates?.modified && <meta property="article:modified_time" content={articleDates.modified} />}
+    {ogType === 'article' && <meta property="article:author" content={spConfig.author.name} />}
+    <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+    {ldBlocks.map((b) => <script type="application/ld+json" set:html={b} />)}
+    <meta name="sp-graph-url" content={graphUrl} />
+    {hasPdf && pdfUrl && <meta name="sp-pdf-url" content={pdfUrl} />}
+    <meta name="sp-boot" content={boot} />
+    <script is:inline>
+      // Pre-paint prefs + nav-series bootstrap (zero FOUC). Config comes from <meta name="sp-boot">.
+      (function () {
+        if (!window.__spApplyPrefs) {
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+          window.__spApplyPrefs = function () {
+            var root = document.documentElement;
+            var cfg = {};
+            try {
+              var m = document.querySelector('meta[name="sp-boot"]');
+              cfg = m ? JSON.parse(m.getAttribute('content') || '{}') : {};
+            } catch (_) {}
+            var d = cfg.defaults || {};
+            var prefs = { scheme: d.scheme || 'auto', contrast: d.contrast || 'default', textSize: d.textSize || 'default' };
+            try {
+              var raw = localStorage.getItem(cfg.storageKey || 'sp-v8-prefs');
+              if (raw) {
+                var p = JSON.parse(raw);
+                if (p && typeof p === 'object') {
+                  if (p.scheme === 'auto' || p.scheme === 'light' || p.scheme === 'dark') prefs.scheme = p.scheme;
+                  if (p.contrast === 'default' || p.contrast === 'high') prefs.contrast = p.contrast;
+                  if (p.textSize === 'default' || p.textSize === 'large') prefs.textSize = p.textSize;
+                }
+              }
+            } catch (_) {}
+            var resolved = prefs.scheme === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : prefs.scheme;
+            root.setAttribute('data-sp-scheme', resolved);
+            root.setAttribute('data-sp-scheme-pref', prefs.scheme);
+            root.setAttribute('data-sp-contrast', prefs.contrast);
+            root.setAttribute('data-sp-text', prefs.textSize);
+
+            // Multi-series context: ?ctx=series:<slug> > sessionStorage > primary (validated against memberships)
+            var ns = cfg.navSeries;
+            if (!ns || !ns.memberships || !ns.memberships.length) {
+              root.removeAttribute('data-sp-nav-series');
+              return;
+            }
+            var key = cfg.navSessionKey || 'sp-v8-nav-series';
+            var active = ns.primary;
+            try {
+              var ctx = new URLSearchParams(window.location.search).get('ctx');
+              if (ctx !== null) {
+                var cand = ctx.indexOf('series:') === 0 ? ctx.slice(7) : '';
+                if (ns.memberships.indexOf(cand) !== -1) {
+                  active = cand;
+                  try { sessionStorage.setItem(key, active); } catch (_) {}
+                }
+              } else {
+                var stored = sessionStorage.getItem(key);
+                if (stored && ns.memberships.indexOf(stored) !== -1) active = stored;
+              }
+            } catch (_) {}
+            root.setAttribute('data-sp-nav-series', active);
+          };
+          document.addEventListener('astro:after-swap', window.__spApplyPrefs);
+          document.addEventListener('astro:page-load', window.__spApplyPrefs);
+          if (mq) {
+            var onChange = function () {
+              var pref = document.documentElement.getAttribute('data-sp-scheme-pref');
+              if (pref === 'auto') window.__spApplyPrefs();
+            };
+            mq.addEventListener('change', onChange);
+          }
+        }
+        window.__spApplyPrefs();
+      })();
+    </script>
+    <slot name="head" />
+    <ClientRouter />
+  </head>
+  <body>
+    <a href="#main" class="sp-skip">Skip to content</a>
+    <div class="sp-wip-banner sp-app-shell" role="note">
+      <div class="sp-container sp-wip-inner">
+        <strong>Work in progress</strong>
+        <span>This site is being rebuilt. Content is incomplete; check back later.</span>
+      </div>
+    </div>
+
+    <header class="sp-topbar sp-app-shell">
+      <div class="sp-topbar-inner sp-container">
+        <div class="sp-brand-group">
+          <a href="/" class="sp-brand" aria-label="sujeet.pro home">
+            <span class="sp-brand-dot" aria-hidden="true"></span>
+            <span>sujeet.pro</span>
+          </a>
+          <nav class="sp-nav" aria-label="Primary navigation">
+            <a class="sp-nav-link" href="/" aria-current={current('/')}>Articles</a>
+            <a class="sp-nav-link" href="/#series">Series</a>
+            <a class="sp-nav-link" href="/explore/" aria-current={current('/explore/')}>Explore</a>
+          </nav>
+        </div>
+        <div class="sp-top-actions">
+          <button type="button" class="sp-cmd-trigger" data-sp-open-palette aria-label="Open command palette (Cmd+K)">
+            <span class="sp-cmd-trigger-text">Search or jump to…</span>
+            <kbd class="sp-kbd">⌘K</kbd>
+          </button>
+          <ThemeControls client:idle transition:persist="sp-theme-controls" />
+          <button type="button" class="sp-icon-btn" data-sp-open-shortcuts title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+            <kbd class="sp-kbd">?</kbd>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="sp-main sp-container" data-pagefind-body={pagefindBody ? '' : undefined}>
+      <slot />
+    </main>
+
+    <footer class="sp-site-footer sp-app-shell">
+      <div class="sp-site-footer-inner sp-container">
+        <span>© {new Date().getFullYear()} {spConfig.author.name}</span>
+        <a href={spConfig.repoUrl} rel="noopener">Source</a>
+      </div>
+    </footer>
+
+    {hasPdf && <PrintNotice pdfUrl={pdfUrl} title={title} canonicalUrl={canonical} />}
+
+    <!-- Overlays live outside the header: its backdrop-filter would become the containing block for position:fixed. -->
+    <CommandPalette client:idle transition:persist="sp-palette" />
+    <ShortcutsModal client:idle transition:persist="sp-shortcuts" />
+
+    <!-- Persistent audio bar (S3.7): ArticleLayout fills this slot when the article has audio. -->
+    <slot name="audio">{audioHost && <div data-sp-audio-host hidden />}</slot>
+
+    <script>
+      // Bundled module script: runs once per full page load (ClientRouter does not re-run it).
+      import { navigate } from 'astro:transitions/client';
+      import { installDispatcher, openPalette, openShortcuts } from '../lib/keyboard/dispatcher.ts';
+      import { cycleScheme } from '../lib/prefs.ts';
+
+      installDispatcher((href) => navigate(href), () => cycleScheme());
+      document.addEventListener('click', (ev) => {
+        const t = ev.target as Element | null;
+        if (t?.closest('[data-sp-open-palette]')) openPalette('');
+        else if (t?.closest('[data-sp-open-shortcuts]')) openShortcuts();
+      });
+    </script>
+  </body>
+</html>

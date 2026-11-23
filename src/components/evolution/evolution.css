@@ -1,0 +1,322 @@
+/* Evolution components (Stage 3.9–3.10): Ladder, Stage blocks, ExplainerFigure, Expand dialog.
+   Ported from prototypes/v2.html ("Evolution Ladder, Stages, Figures & Layout Variants").
+   The stacked/split arrangement rules are generated from spConfig.layout at build time (./layout.ts). */
+
+/* ---- Evolution Ladder ---- */
+.sp-ladder {
+  margin: 8px 0 0;
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-lg);
+  background: var(--sp-surface);
+  box-shadow: var(--sp-shadow-sm);
+  overflow: hidden;
+  scroll-margin-top: 0; /* root scroll-padding-top already clears the sticky bar */
+}
+.sp-prose .sp-ladder-head {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sp-border);
+  background: var(--sp-surface-subtle);
+  font-family: var(--sp-font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sp-ink-muted);
+}
+.sp-ladder-head-sub { font-weight: 500; }
+.sp-prose .sp-ladder-list { list-style: none; margin: 0; padding: 0; }
+.sp-prose .sp-ladder-list > li { margin: 0; }
+.sp-ladder-row {
+  display: grid;
+  grid-template-columns: 34px 104px 150px minmax(0, 1fr) 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--sp-border);
+  color: var(--sp-ink);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.sp-ladder-list > li:last-child .sp-ladder-row { border-bottom: none; }
+.sp-ladder-row:hover { background: var(--sp-surface-subtle); text-decoration: none; }
+.sp-ladder-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--sp-accent); }
+.sp-ladder-level { font-family: var(--sp-font-mono); font-weight: 700; font-size: 0.82rem; color: var(--sp-accent); }
+.sp-ladder-headline { min-width: 0; }
+.sp-ladder-headline strong { display: block; font-weight: 600; line-height: 1.3; }
+.sp-ladder-trigger { display: block; font-size: 0.74rem; color: var(--sp-ink-muted); font-family: var(--sp-font-mono); }
+.sp-ladder-cost { font-family: var(--sp-font-mono); font-size: 0.82rem; color: var(--sp-ink-secondary); white-space: nowrap; text-align: right; }
+.sp-ladder-row > .sp-mode-badge, .sp-ladder-row > .sp-trigger-chip { justify-self: start; }
+@media (max-width: 700px) {
+  .sp-ladder-row {
+    grid-template-columns: 30px auto minmax(0, 1fr) auto;
+    grid-template-areas: "lvl mode trig cost" "lvl head head head";
+    row-gap: 6px;
+    padding: 10px 12px;
+  }
+  .sp-ladder-level { grid-area: lvl; align-self: start; }
+  .sp-ladder-row > .sp-mode-badge { grid-area: mode; }
+  .sp-ladder-row > .sp-trigger-chip { grid-area: trig; }
+  .sp-ladder-headline { grid-area: head; }
+  .sp-ladder-cost { grid-area: cost; }
+}
+.sp-prose .sp-assume-note {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 12px 0 8px; max-width: none;
+  font-size: 0.8rem; line-height: 1.5; color: var(--sp-ink-muted);
+}
+.sp-assume-badge {
+  padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--sp-status-degraded); background: var(--sp-status-degraded-soft); color: var(--sp-ink);
+  font-family: var(--sp-font-mono); font-size: 0.68rem; font-weight: 600; white-space: nowrap;
+}
+
+/* ---- Badges ---- */
+.sp-mode-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--sp-font-mono); font-size: 0.66rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px;
+  border: 1px solid var(--sp-border); background: var(--sp-surface-subtle); color: var(--sp-ink-secondary);
+  white-space: nowrap;
+}
+.sp-mode-badge[data-mode="baseline"] { color: var(--sp-ink-muted); }
+.sp-mode-badge[data-mode="extend"] { color: var(--sp-diff-add-ink); border-color: var(--sp-status-healthy); background: var(--sp-status-healthy-soft); }
+.sp-mode-badge[data-mode="replace"] { color: var(--sp-status-fallback); border-color: var(--sp-status-fallback); background: var(--sp-status-fallback-soft); }
+.sp-trigger-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--sp-font-mono); font-size: 0.68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--sp-accent-border); background: var(--sp-accent-soft); color: var(--sp-accent);
+}
+
+/* ---- Stage blocks (arrangement: ./layout.ts) ---- */
+.sp-stage {
+  margin-top: 40px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sp-border);
+  scroll-margin-top: 0; /* root scroll-padding-top already clears the sticky bar */
+}
+.sp-prose .sp-stage > h2 {
+  margin: 0 0 12px;
+  font-size: 1.5rem; line-height: 1.22; letter-spacing: -0.02em;
+  scroll-margin-top: 0; /* root scroll-padding-top already clears the sticky bar */
+}
+.sp-stage-body { display: grid; column-gap: 28px; row-gap: 4px; align-items: start; }
+.sp-stage-main { grid-area: main; min-width: 0; }
+.sp-stage-figwrap { grid-area: fig; min-width: 0; margin-bottom: 14px; }
+.sp-stage-decision { grid-area: dec; min-width: 0; }
+.sp-stage-main > *, .sp-stage-notes > * { max-width: var(--sp-measure); }
+
+.sp-trigger-card {
+  border: 1px solid var(--sp-border);
+  border-left: 3px solid var(--sp-accent);
+  border-radius: var(--sp-radius-md);
+  background: var(--sp-surface);
+  padding: 13px 15px;
+  margin-bottom: 14px;
+}
+.sp-prose .sp-trigger-card-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 5px; font-size: 0.82rem; font-weight: 600; line-height: 1.4; color: var(--sp-ink);
+}
+.sp-prose .sp-trigger-scenario { margin: 0; font-size: 0.88rem; color: var(--sp-ink-secondary); line-height: 1.55; }
+
+.sp-prose .sp-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; padding: 0; list-style: none; }
+.sp-prose .sp-chip {
+  display: inline-flex; align-items: baseline; gap: 5px; margin: 0;
+  font-size: 0.78rem; line-height: 1.4; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--sp-border); background: var(--sp-surface-subtle); color: var(--sp-ink-secondary);
+}
+.sp-chip b { font-family: var(--sp-font-mono); font-weight: 700; color: var(--sp-ink); }
+
+.sp-prose .sp-keypoints { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 6px; }
+.sp-prose .sp-keypoints li { margin: 0; color: var(--sp-ink-secondary); line-height: 1.55; }
+.sp-stage-notes { margin-bottom: 14px; }
+.sp-stage-notes > :last-child { margin-bottom: 0; }
+
+.sp-decision { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+@media (max-width: 560px) { .sp-decision { grid-template-columns: 1fr; } }
+.sp-decision-cell {
+  border: 1px solid var(--sp-border); border-radius: var(--sp-radius-sm);
+  background: var(--sp-surface); padding: 10px 12px; min-width: 0;
+}
+.sp-prose .sp-decision-h {
+  margin: 0 0 6px; font-family: var(--sp-font-mono); font-size: 0.68rem; font-weight: 700; line-height: 1.4;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--sp-ink-muted);
+}
+.sp-decision-cell[data-kind="add"] .sp-decision-h { color: var(--sp-diff-add-ink); }
+.sp-decision-cell[data-kind="remove"] .sp-decision-h { color: var(--sp-diff-rm-ink); }
+.sp-prose .sp-decision-cell ul { margin: 0; padding-left: 15px; display: grid; gap: 3px; font-size: 0.82rem; line-height: 1.45; color: var(--sp-ink-secondary); }
+.sp-prose .sp-decision-cell li { margin: 0; }
+.sp-decision-aws, .sp-decision-until { font-size: 0.92em; color: var(--sp-ink-muted); }
+.sp-decision-aws { font-family: var(--sp-font-mono); }
+.sp-prose .sp-decision-empty { margin: 0; color: var(--sp-ink-muted); font-size: 0.8rem; font-style: italic; }
+
+.sp-bvb {
+  border: 1px solid var(--sp-border); border-radius: var(--sp-radius-md);
+  background: var(--sp-surface-subtle); padding: 12px 14px; margin: 0 0 14px; font-size: 0.86rem; line-height: 1.5;
+}
+.sp-prose .sp-bvb-line { margin: 0; }
+.sp-bvb-verdict {
+  display: inline-flex; align-items: center;
+  font-family: var(--sp-font-mono); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 999px; margin-right: 8px;
+  border: 1px solid var(--sp-accent-border); background: var(--sp-accent-soft); color: var(--sp-accent);
+}
+.sp-prose .sp-bvb ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 3px; color: var(--sp-ink-secondary); font-size: 0.82rem; }
+.sp-prose .sp-bvb li { margin: 0; }
+
+.sp-prose .sp-costband {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
+  margin: 0 0 12px; font-size: 0.84rem; line-height: 1.5; color: var(--sp-ink-secondary);
+}
+.sp-costband-bar { font-family: var(--sp-font-mono); font-weight: 700; letter-spacing: 1px; }
+.sp-costband-bar .on { color: var(--sp-accent); }
+.sp-costband-bar .off { color: var(--sp-border-strong); }
+.sp-prose .sp-moveup {
+  margin: 2px 0 0; padding-top: 10px; border-top: 1px dashed var(--sp-border);
+  font-size: 0.84rem; line-height: 1.5; color: var(--sp-ink-secondary);
+}
+.sp-moveup strong { color: var(--sp-ink); }
+
+/* ---- ExplainerFigure ---- */
+.sp-figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.sp-fig-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 32px; }
+.sp-fig-toggle {
+  display: inline-flex; padding: 3px; gap: 3px;
+  background: var(--sp-surface-subtle); border: 1px solid var(--sp-border); border-radius: var(--sp-radius-sm);
+}
+/* Same font weight in both states: pressing a button never changes its width (CLS 0). */
+.sp-fig-toggle button {
+  border: none; background: transparent; padding: 5px 11px; border-radius: 4px;
+  font: inherit; font-size: 0.78rem; font-weight: 600; line-height: 1.2; color: var(--sp-ink-secondary); cursor: pointer;
+}
+.sp-fig-toggle button[aria-pressed="true"] { background: var(--sp-surface); color: var(--sp-ink); box-shadow: var(--sp-shadow-sm); }
+.sp-fig-toggle button:disabled { opacity: 0.45; cursor: default; }
+.sp-fig-toggle button:focus-visible, .sp-fig-gallery button:focus-visible, .sp-fig-expand:focus-visible {
+  outline: none; box-shadow: var(--sp-focus-ring);
+}
+.sp-fig-gallery { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--sp-ink-muted); font-family: var(--sp-font-mono); }
+.sp-fig-gallery button {
+  width: 28px; height: 28px; border-radius: var(--sp-radius-sm); cursor: pointer;
+  border: 1px solid var(--sp-border); background: var(--sp-surface); color: var(--sp-ink-secondary); font: inherit;
+}
+.sp-fig-gallery button:disabled { opacity: 0.4; cursor: default; }
+.sp-fig-expand {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 11px; border-radius: var(--sp-radius-sm); cursor: pointer;
+  border: 1px solid var(--sp-border); background: var(--sp-surface); color: var(--sp-ink-secondary);
+  font: inherit; font-size: 0.78rem; font-weight: 600;
+}
+.sp-fig-expand:hover { border-color: var(--sp-border-strong); color: var(--sp-ink); }
+
+/* Fixed-aspect frame (aspect-ratio from topology.viewBox, set inline): both modes live inside it. */
+.sp-fig-frame {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-md);
+  background: var(--sp-bg);
+  /* clip, not hidden: focusing a control inside must never scroll the frame's content. */
+  overflow: clip;
+}
+.sp-fig-static, .sp-fig-live { position: absolute; inset: 0; }
+.sp-fig-static[hidden] { display: none; }
+.sp-fig-slide { height: 100%; }
+.sp-fig-slide[hidden] { display: none; }
+.sp-prose .sp-fig-caption, .sp-fig-caption {
+  margin: 0; font-size: 0.8rem; line-height: 1.45; color: var(--sp-ink-secondary);
+}
+.sp-fig-num { font-family: var(--sp-font-mono); font-weight: 700; color: var(--sp-ink); }
+.sp-prose .sp-fig-loading, .sp-fig-loading {
+  display: grid; place-items: center; height: 100%; margin: 0;
+  font-size: 0.85rem; color: var(--sp-ink-muted);
+}
+
+/* The island sits inside .sp-prose: keep article typography (margins, list indents) out of the figure. */
+.sp-prose .sp-figure :is(h3, h4, p, ul, li) { margin: 0; }
+
+/* SystemTopology inside a figure frame or the dialog image: fill the box, never the ≤640px scroll layout. */
+.sp-fig-frame .sp-topo, .sp-fig-dialog-frame .sp-topo { height: 100%; gap: 0; }
+.sp-fig-frame .sp-topo-frame, .sp-fig-dialog-frame .sp-topo-frame {
+  height: 100% !important; aspect-ratio: auto !important; border: 0; border-radius: 0; background: transparent;
+}
+.sp-fig-frame :is(.sp-topo-frame, .sp-topo-scroll), .sp-fig-dialog-frame :is(.sp-topo-frame, .sp-topo-scroll) { overflow: clip; }
+.sp-fig-frame .sp-topo-svg, .sp-fig-dialog-frame .sp-topo-svg { min-width: 0; width: 100%; height: 100%; }
+
+/* Interactive (SystemTopology variant="figure"): toolbar and inspector float over the diagram. */
+.sp-topo--figure { position: absolute; inset: 0; display: block; }
+.sp-topo--figure .sp-topo-grid { display: block; height: 100%; }
+.sp-topo--figure .sp-topo-toolbar {
+  position: absolute; z-index: 2; top: 8px; right: 8px; left: auto;
+  padding: 4px; border-radius: var(--sp-radius-sm);
+  background: color-mix(in srgb, var(--sp-surface) 90%, transparent);
+  border: 1px solid var(--sp-border);
+}
+.sp-topo--figure .sp-topo-summary {
+  position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+/* Fixed width: "Reset" → "Reset (2)" must not move the toolbar. */
+.sp-topo--figure .sp-btn { height: 28px; min-width: 84px; justify-content: center; padding: 0 10px; font-size: 0.78rem; }
+.sp-topo--figure .sp-seg-opt span { padding: 3px 10px; }
+.sp-inspector--overlay {
+  position: absolute; z-index: 3; top: 52px; right: 8px; bottom: 8px;
+  width: min(260px, 52%); min-height: 0; overflow-y: auto;
+  padding: 12px 12px 10px; gap: 8px;
+  background: color-mix(in srgb, var(--sp-surface) 96%, transparent);
+  border-color: var(--sp-border-strong); box-shadow: var(--sp-shadow-md);
+  font-size: 0.82rem;
+}
+.sp-inspector-close {
+  position: absolute; top: 6px; right: 6px;
+  width: 26px; height: 26px; border-radius: var(--sp-radius-sm);
+  border: 1px solid transparent; background: transparent; color: var(--sp-ink-muted); cursor: pointer; font: inherit;
+}
+.sp-inspector-close:hover { border-color: var(--sp-border); color: var(--sp-ink); }
+.sp-inspector-close:focus-visible { outline: none; box-shadow: var(--sp-focus-ring); }
+@media (max-width: 640px) {
+  .sp-topo--figure .sp-topo-toolbar { top: 4px; right: 4px; padding: 2px; }
+  .sp-inspector--overlay { top: 4px; right: 4px; bottom: 4px; width: min(260px, 78%); }
+}
+
+/* ---- Expand dialog (full viewport) ---- */
+.sp-fig-dialog {
+  position: fixed; z-index: 81; inset: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 16px;
+  background: var(--sp-surface-elevated); color: var(--sp-ink);
+  border: 1px solid var(--sp-border-strong); border-radius: var(--sp-radius-lg); box-shadow: var(--sp-shadow-lg);
+  overflow: hidden;
+}
+.sp-fig-dialog:focus { outline: none; }
+.sp-fig-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sp-fig-dialog-title { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.3; }
+.sp-fig-dialog-close { flex: none; }
+.sp-fig-dialog-close:focus-visible { outline: none; box-shadow: var(--sp-focus-ring); }
+.sp-fig-kbd {
+  font-family: var(--sp-font-mono); font-size: 0.7rem; padding: 1px 5px; border-radius: 4px;
+  border: 1px solid var(--sp-border); color: var(--sp-ink-muted);
+}
+.sp-fig-dialog-body { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; }
+.sp-fig-dialog-body[data-view="interactive"] { display: block; }
+.sp-fig-dialog-frame {
+  position: relative;
+  width: min(100%, calc((100dvh - 110px) * 16 / 9));
+  border: 1px solid var(--sp-border); border-radius: var(--sp-radius-md); background: var(--sp-bg); overflow: hidden;
+}
+@media (max-width: 640px) { .sp-fig-dialog { inset: 8px; padding: 10px; } }
+
+/* ---- Print / PDF: static figures only, no controls ---- */
+@media print {
+  .sp-fig-bar { display: none !important; }
+  .sp-figure { break-inside: avoid; }
+  .sp-stage-figwrap { position: static !important; }
+}
+:root[data-sp-export="pdf"] .sp-fig-bar { display: none !important; }

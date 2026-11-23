@@ -1,0 +1,133 @@
+import ArticleRef from '../../../components/ui/ArticleRef.astro';
+import EvolutionLadder from '../../../components/evolution/EvolutionLadder.astro';
+import EvolutionStage from '../../../components/evolution/EvolutionStage.astro';
+
+export const SLUG = 'design-url-redirection-service';
+
+A redirect service looks like one hash lookup. The design work is deciding which component the next trigger has actually earned. Each level below names that trigger, what it adds, changes, removes or defers, what to build versus buy, and when to move up again.
+
+- **Prices:** AWS list prices for `us-east-1` as of 2026-11-23, gross of free tiers. Sources are at the end of the page.
+- **Scenario figures:** rule counts, traffic, miss rates and task sizes are modelled scenarios, not measurements. Anything not taken from a cited page is marked ASSUMPTION or as an estimate.
+
+<EvolutionLadder slug={SLUG} />
+
+<EvolutionStage slug={SLUG} level={0} />
+
+<EvolutionStage slug={SLUG} level={1} />
+
+<EvolutionStage slug={SLUG} level={2}>
+
+**Cutover and ownership**
+
+- **Shadow first.** The function computes its answer while the origin still serves, and logs every mismatch. Flip only when the mismatch count is zero.
+- **SEO sign-off.** Status codes and targets must not change at cutover. A 302 that turns into a 301 is a behaviour change for search engines and for browser caches.
+- **Ownership.** The platform team owns the function and the publish path; marketing owns the rules. Write that split down before the first incident, not during it.
+
+</EvolutionStage>
+
+<EvolutionStage slug={SLUG} level={3}>
+
+<ArticleRef slug="bloom-filter-building-block" />
+
+**Where can a ≈12 MB filter live?** (10M slugs, 1% false-positive rate)
+
+- KVS value, 1 KB: no.
+- Whole KeyValueStore, 5 MB: no (2.4× over).
+- CloudFront Function, 10 KB code / 2 MB memory: no.
+- Lambda@Edge, 50 MB package: yes, at $0.60 vs $0.10 per 1M requests, plus duration, and no KVS access.
+- Fargate task memory, in-process: yes. Chosen.
+
+```ts
+import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+
+// Rebuilt from the table on a schedule; writes are added live.
+interface BloomFilter {
+  ready: boolean;
+  mightContain(slug: string): boolean;
+}
+
+const ddb = new DynamoDBClient({});
+
+// Regional service: the Bloom filter guards DynamoDB, not the edge.
+// 10M slugs at a 1% false-positive rate ≈ 12 MB (9.585 bits/key, k = 7).
+export async function resolve(
+  bloom: BloomFilter,
+  slug: string,
+): Promise<string | null> {
+  // No false negatives: "absent" is final; the edge caches the 404.
+  // Fail open while the filter (re)loads.
+  if (bloom.ready && !bloom.mightContain(slug)) return null;
+
+  // "Maybe": ~1% of misses still land here (1% false-positive rate).
+  const { Item } = await ddb.send(
+    new GetItemCommand({
+      TableName: 'redirects',
+      Key: { slug: { S: slug } },
+      ConsistentRead: false,
+    }),
+  );
+  return Item?.target?.S ?? null;
+}
+```
+
+</EvolutionStage>
+
+<EvolutionStage slug={SLUG} level={4} />
+
+<EvolutionStage slug={SLUG} level={5}>
+
+**Cutover runbook**
+
+- **Shadow-replay.** Replay a day of logged paths per tenant through the old and new matchers; block cutover on any unexplained diff. A compiler that rejects overlapping rules at publish time catches conflicts before replay has to.
+- **DNS cutover.** Lower record TTLs ahead of the move, shift traffic in weighted steps, and keep the old path serving until the old TTL has fully drained.
+- **SEO sign-off.** Each tenant domain signs off on status codes and canonical targets before its switch.
+- **Ownership.** Each tenant names an owner for its rules. The platform team owns precedence semantics and the compiler. Cheaper tooling doesn't shorten these conversations.
+
+</EvolutionStage>
+
+## Sources
+
+Read 2026-11-23. Pricing is `us-east-1` list. The enterprise discount range in the lab (25–40% off list) is an ASSUMPTION with no public source.
+
+**L0 · Static redirect map**
+
+1. [Amazon S3: configuring a webpage redirect (object redirects, 50 routing rules per configuration)](https://docs.aws.amazon.com/AmazonS3/latest/userguide/how-to-page-redirect.html)
+2. [Amazon S3: website endpoints (no HTTPS)](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteEndpoints.html)
+3. [CloudFront quotas: function size 10 KB, memory 2 MB, KeyValueStore limits](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html)
+4. [AWS Amplify Hosting: redirects and rewrites](https://docs.aws.amazon.com/amplify/latest/userguide/redirects.html)
+5. [Cloudflare: URL forwarding availability (Bulk Redirects per plan)](https://developers.cloudflare.com/rules/url-forwarding/)
+6. [Bitly pricing](https://bitly.com/pages/pricing)
+
+**L1 · DB of record + cached service**
+
+7. [Rebrandly pricing (plan limits)](https://www.rebrandly.com/pricing)
+8. [AWS Price List: Fargate (us-east-1)](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/us-east-1/index.json)
+9. [AWS Price List: Elastic Load Balancing (us-east-1)](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSELB/current/us-east-1/index.json)
+
+**L2 · Push the map to the edge**
+
+10. [CloudFront: choosing between CloudFront Functions and Lambda@Edge](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html)
+11. [CloudFront: KeyValueStore with CloudFront Functions (JavaScript runtime 2.0)](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/kvs-with-functions.html)
+12. [AWS News Blog: introducing CloudFront KeyValueStore (propagation “in a few seconds”, 2023)](https://aws.amazon.com/blogs/aws/introducing-amazon-cloudfront-keyvaluestore-a-low-latency-datastore-for-cloudfront-functions/)
+13. [CloudFront pay-as-you-go pricing (requests, Functions, KVS, logs)](https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/)
+14. [Cloudflare Workers KV: how KV works (propagation)](https://developers.cloudflare.com/kv/concepts/how-kv-works/)
+
+**L3 · Bloom-filter miss guard**
+
+15. [Broder & Mitzenmacher, “Network Applications of Bloom Filters: A Survey”, §2.1](https://www.eecs.harvard.edu/~michaelm/postscripts/im2005b.pdf)
+16. [Amazon DynamoDB on-demand pricing](https://aws.amazon.com/dynamodb/pricing/on-demand/)
+17. [Amazon DynamoDB (“single-digit millisecond performance at any scale”)](https://aws.amazon.com/dynamodb/)
+18. [Amazon ElastiCache pricing (Serverless Valkey)](https://aws.amazon.com/elasticache/pricing/)
+
+**L4 · Async click attribution**
+
+19. [Amazon Data Firehose pricing (5 KB record rounding)](https://aws.amazon.com/firehose/pricing/)
+20. [Amazon Athena pricing ($5 per TB scanned, 10 MB minimum)](https://aws.amazon.com/athena/pricing/)
+21. [AWS Price List: Kinesis Data Streams (us-east-1)](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonKinesis/current/us-east-1/index.json)
+22. [AWS Price List: Amazon S3 (us-east-1)](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json)
+
+**L5 · Multi-tenant rule engine**
+
+23. [DynamoDB global tables: how they work (last writer wins, replication timing)](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html)
+24. [Amazon Route 53 pricing (latency routing, health checks)](https://aws.amazon.com/route53/pricing/)
+25. [AWS Price List: data transfer (us-east-1)](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json)

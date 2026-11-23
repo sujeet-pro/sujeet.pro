@@ -1,0 +1,482 @@
+{
+  "pricingAsOf": "2026-11-23",
+  "region": "us-east-1",
+  "sources": [
+    {
+      "label": "CloudFront pay-as-you-go pricing",
+      "url": "https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/"
+    },
+    {
+      "label": "CloudFront flat-rate plans",
+      "url": "https://aws.amazon.com/cloudfront/pricing/"
+    },
+    {
+      "label": "AWS Price List API: AmazonCloudFront (publicationDate 2026-10-19)",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudFront/current/index.json"
+    },
+    {
+      "label": "CloudFront quotas (Functions, KeyValueStore)",
+      "url": "https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html"
+    },
+    {
+      "label": "DynamoDB on-demand pricing",
+      "url": "https://aws.amazon.com/dynamodb/pricing/on-demand/"
+    },
+    {
+      "label": "AWS Price List API: AmazonDynamoDB us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonDynamoDB/current/us-east-1/index.json"
+    },
+    {
+      "label": "AWS Price List API: AmazonECS (Fargate) us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/us-east-1/index.json"
+    },
+    {
+      "label": "AWS Price List API: AWSELB us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSELB/current/us-east-1/index.json"
+    },
+    {
+      "label": "ElastiCache pricing",
+      "url": "https://aws.amazon.com/elasticache/pricing/"
+    },
+    {
+      "label": "Amazon Data Firehose pricing",
+      "url": "https://aws.amazon.com/firehose/pricing/"
+    },
+    {
+      "label": "AWS Price List API: AmazonKinesisFirehose us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonKinesisFirehose/current/us-east-1/index.json"
+    },
+    {
+      "label": "AWS Price List API: AmazonKinesis (Data Streams) us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonKinesis/current/us-east-1/index.json"
+    },
+    {
+      "label": "AWS Price List API: AmazonS3 us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json"
+    },
+    {
+      "label": "S3: object redirects (x-amz-website-redirect-location) and the 50-routing-rule limit",
+      "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/how-to-page-redirect.html"
+    },
+    {
+      "label": "Amazon Athena pricing",
+      "url": "https://aws.amazon.com/athena/pricing/"
+    },
+    {
+      "label": "Amazon Route 53 pricing",
+      "url": "https://aws.amazon.com/route53/pricing/"
+    },
+    {
+      "label": "AWS Price List API: AWSDataTransfer us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json"
+    }
+  ],
+  "enterpriseDiscountRangePct": [
+    25,
+    40
+  ],
+  "tiers": [
+    {
+      "id": "l0",
+      "label": "L0 · Redirect objects behind the CDN",
+      "monthlyRequestsM": 1.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 1.0,
+          "assumption": "1M x $0.0100/10k (US) = $1.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 0.04,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 0.5 GB x $0.085/GB (US, first-10TB tier) = $0.04. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "S3 website-endpoint GETs (CDN cache misses)",
+          "awsService": "Amazon S3",
+          "monthlyListUsd": 0.4,
+          "assumption": "ASSUMPTION: upper bound with zero CloudFront cache hits: 1M x $0.004/10k GET = $0.40; website-endpoint requests assumed to bill at the standard GET rate. Each 301 is a zero-byte object with x-amz-website-redirect-location."
+        },
+        {
+          "name": "S3 redirect objects (storage)",
+          "awsService": "Amazon S3",
+          "monthlyListUsd": 0.0,
+          "assumption": "ASSUMPTION: ~200 zero-byte objects; metadata-only storage rounds to $0. Created by IaC from a reviewed redirects file."
+        }
+      ]
+    },
+    {
+      "id": "l1",
+      "label": "L1 · DB of record + cached service",
+      "monthlyRequestsM": 10.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 10.0,
+          "assumption": "10M x $0.0100/10k (US) = $10.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 0.43,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 5.0 GB x $0.085/GB (US, first-10TB tier) = $0.43. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "Application Load Balancer",
+          "awsService": "Elastic Load Balancing",
+          "monthlyListUsd": 22.27,
+          "assumption": "1 x (730 h x $0.0225 + 730 h x 1 LCU x $0.008) = $22.27. ASSUMPTION: average 1 LCU (LCU dimensions not modelled)."
+        },
+        {
+          "name": "ECS Fargate redirect/admin service",
+          "awsService": "AWS Fargate",
+          "monthlyListUsd": 18.02,
+          "assumption": "1 region(s) x 2 tasks x 730 h x (0.25 vCPU x $0.04048 + 0.5 GB x $0.004445) = $18.02 (Linux/x86, on-demand). ASSUMPTION: task count/size."
+        },
+        {
+          "name": "DynamoDB rules table (on-demand)",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.02,
+          "assumption": "ASSUMPTION: 20k rule writes/mo x 1 WRU x $0.625/1M = $0.01 + ~0.01 GB x $0.25 = ~$0.00; reads only on cache refresh (negligible). Total $0.02"
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "label": "L2 · Edge KV (CloudFront Function + KeyValueStore)",
+      "monthlyRequestsM": 50.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 50.0,
+          "assumption": "50M x $0.0100/10k (US) = $50.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 2.13,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 25.0 GB x $0.085/GB (US, first-10TB tier) = $2.13. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "CloudFront Functions invocations",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 5.0,
+          "assumption": "50M x $0.10/1M = $5.0 (one viewer-request invocation per redirect)."
+        },
+        {
+          "name": "CloudFront KeyValueStore edge reads",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 1.5,
+          "assumption": "50M x $0.03/1M = $1.5 (ASSUMPTION: one kvs.get per request)."
+        },
+        {
+          "name": "KeyValueStore API (UpdateKeys/PutKey)",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 1.0,
+          "assumption": "ASSUMPTION: 1,000 API calls/mo (UpdateKeys batches up to 50 keys) x $1/1,000 = $1.0."
+        },
+        {
+          "name": "Application Load Balancer (admin plane only)",
+          "awsService": "Elastic Load Balancing",
+          "monthlyListUsd": 22.27,
+          "assumption": "1 x (730 h x $0.0225 + 730 h x 1 LCU x $0.008) = $22.27. ASSUMPTION: average 1 LCU (LCU dimensions not modelled)."
+        },
+        {
+          "name": "ECS Fargate redirect/admin service (admin + KVS sync)",
+          "awsService": "AWS Fargate",
+          "monthlyListUsd": 9.01,
+          "assumption": "1 region(s) x 1 tasks x 730 h x (0.25 vCPU x $0.04048 + 0.5 GB x $0.004445) = $9.01 (Linux/x86, on-demand). ASSUMPTION: task count/size."
+        },
+        {
+          "name": "DynamoDB rules table (system of record)",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.03,
+          "assumption": "ASSUMPTION: 50k writes/mo x $0.625/1M = $0.03; storage negligible."
+        }
+      ]
+    },
+    {
+      "id": "l3",
+      "label": "L3 · Bloom-filter miss guard + DynamoDB",
+      "monthlyRequestsM": 300.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 300.0,
+          "assumption": "300M x $0.0100/10k (US) = $300.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 12.75,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 150.0 GB x $0.085/GB (US, first-10TB tier) = $12.75. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "CloudFront Functions invocations",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 30.0,
+          "assumption": "300M x $0.10/1M = $30.0 (one viewer-request invocation per redirect)."
+        },
+        {
+          "name": "CloudFront KeyValueStore edge reads",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 9.0,
+          "assumption": "300M x $0.03/1M = $9.0 (ASSUMPTION: one kvs.get per request)."
+        },
+        {
+          "name": "KeyValueStore API (hot-set sync)",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 2.0,
+          "assumption": "ASSUMPTION: 2,000 API calls/mo x $1/1,000 = $2.0."
+        },
+        {
+          "name": "Application Load Balancer",
+          "awsService": "Elastic Load Balancing",
+          "monthlyListUsd": 28.11,
+          "assumption": "1 x (730 h x $0.0225 + 730 h x 2 LCU x $0.008) = $28.11. ASSUMPTION: average 2 LCU (LCU dimensions not modelled)."
+        },
+        {
+          "name": "ECS Fargate redirect/admin service with in-memory Bloom filter",
+          "awsService": "AWS Fargate",
+          "monthlyListUsd": 108.12,
+          "assumption": "1 region(s) x 3 tasks x 730 h x (1 vCPU x $0.04048 + 2 GB x $0.004445) = $108.12 (Linux/x86, on-demand). ASSUMPTION: task count/size."
+        },
+        {
+          "name": "DynamoDB lookups (eventually consistent, <=4 KB)",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 1.93,
+          "assumption": "ASSUMPTION: 60% served from KVS hot set, 30% of all requests are misses (bot scans). Origin sees 120M; Bloom (1% FP) passes 0.9M of 90M misses + 30M long-tail hits = 30.9M reads x 0.5 RRU = 15.45M RRU x $0.125/1M = $1.93."
+        },
+        {
+          "name": "DynamoDB rule writes",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.63,
+          "assumption": "ASSUMPTION: 1M writes/mo x 1 WRU (<=1 KB) x $0.625/1M = $0.63."
+        },
+        {
+          "name": "DynamoDB storage",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.5,
+          "assumption": "ASSUMPTION: 10M rules x ~200 B = 2 GB x 1 replica(s) x $0.25/GB-mo = $0.5. Gross; 25 GB free tier not netted."
+        }
+      ]
+    },
+    {
+      "id": "l4",
+      "label": "L4 · Async click attribution",
+      "monthlyRequestsM": 600.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 600.0,
+          "assumption": "600M x $0.0100/10k (US) = $600.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 25.5,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 300.0 GB x $0.085/GB (US, first-10TB tier) = $25.5. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "CloudFront Functions invocations",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 60.0,
+          "assumption": "600M x $0.10/1M = $60.0 (one viewer-request invocation per redirect)."
+        },
+        {
+          "name": "CloudFront KeyValueStore edge reads",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 18.0,
+          "assumption": "600M x $0.03/1M = $18.0 (ASSUMPTION: one kvs.get per request)."
+        },
+        {
+          "name": "KeyValueStore API (hot-set sync)",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 2.0,
+          "assumption": "ASSUMPTION: 2,000 API calls/mo x $1/1,000 = $2.0."
+        },
+        {
+          "name": "Application Load Balancer",
+          "awsService": "Elastic Load Balancing",
+          "monthlyListUsd": 39.79,
+          "assumption": "1 x (730 h x $0.0225 + 730 h x 4 LCU x $0.008) = $39.79. ASSUMPTION: average 4 LCU (LCU dimensions not modelled)."
+        },
+        {
+          "name": "ECS Fargate redirect/admin service with in-memory Bloom filter",
+          "awsService": "AWS Fargate",
+          "monthlyListUsd": 144.16,
+          "assumption": "1 region(s) x 4 tasks x 730 h x (1 vCPU x $0.04048 + 2 GB x $0.004445) = $144.16 (Linux/x86, on-demand). ASSUMPTION: task count/size."
+        },
+        {
+          "name": "DynamoDB lookups (eventually consistent, <=4 KB)",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 3.86,
+          "assumption": "ASSUMPTION: 60% served from KVS hot set, 30% of all requests are misses (bot scans). Origin sees 240M; Bloom (1% FP) passes 1.8M of 180M misses + 60M long-tail hits = 61.8M reads x 0.5 RRU = 30.90M RRU x $0.125/1M = $3.86."
+        },
+        {
+          "name": "DynamoDB rule writes",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.63,
+          "assumption": "ASSUMPTION: 1M writes/mo x 1 WRU (<=1 KB) x $0.625/1M = $0.63."
+        },
+        {
+          "name": "DynamoDB storage",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 0.5,
+          "assumption": "ASSUMPTION: 10M rules x ~200 B = 2 GB x 1 replica(s) x $0.25/GB-mo = $0.5. Gross; 25 GB free tier not netted."
+        },
+        {
+          "name": "CloudFront real-time logs",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 6.0,
+          "assumption": "600M log lines x $0.01/1M = $6.0."
+        },
+        {
+          "name": "Kinesis Data Streams (on-demand)",
+          "awsService": "Amazon Kinesis Data Streams",
+          "monthlyListUsd": 47.2,
+          "assumption": "ASSUMPTION: ~250 B/line -> 150 GB in x $0.08 + 150 GB read x $0.04 + 730 stream-h x $0.04 = $47.2."
+        },
+        {
+          "name": "Data Firehose (KDS source -> S3)",
+          "awsService": "Amazon Data Firehose",
+          "monthlyListUsd": 87.0,
+          "assumption": "Per-record 5 KB rounding: 600M records x 5 KB = 3,000 GB x $0.029/GB = $87.0. ASSUMPTION: rounding applies per log record; aggregate records upstream to cut this ~20x."
+        },
+        {
+          "name": "S3 click-event lake",
+          "awsService": "Amazon S3",
+          "monthlyListUsd": 3.61,
+          "assumption": "ASSUMPTION: compressed objects ~30% of raw (Firehose format conversion at $0.018/GB not included), 3-month retention -> 135 GB x $0.023 + 100k PUTs x $0.005/1k = $3.61."
+        },
+        {
+          "name": "Athena attribution queries",
+          "awsService": "Amazon Athena",
+          "monthlyListUsd": 15.0,
+          "assumption": "ASSUMPTION: 3 TB scanned/mo x $5/TB = $15.0 (10 MB minimum per query)."
+        }
+      ]
+    },
+    {
+      "id": "l5",
+      "label": "L5 · Multi-tenant rule engine, multi-Region",
+      "monthlyRequestsM": 2000.0,
+      "components": [
+        {
+          "name": "CloudFront HTTPS requests",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 2000.0,
+          "assumption": "2,000M x $0.0100/10k (US) = $2000.0. Gross list; always-free tier (10M req/mo) not netted."
+        },
+        {
+          "name": "CloudFront data transfer out",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 85.0,
+          "assumption": "ASSUMPTION: ~0.5 KB per 301/302 response -> 1,000.0 GB x $0.085/GB (US, first-10TB tier) = $85.0. Gross; 1 TB/mo always-free not netted."
+        },
+        {
+          "name": "CloudFront Functions invocations",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 200.0,
+          "assumption": "2,000M x $0.10/1M = $200.0 (one viewer-request invocation per redirect)."
+        },
+        {
+          "name": "CloudFront KeyValueStore edge reads",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 60.0,
+          "assumption": "2,000M x $0.03/1M = $60.0 (ASSUMPTION: one kvs.get per request)."
+        },
+        {
+          "name": "KeyValueStore API (hot-set sync, 40 tenants)",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 10.0,
+          "assumption": "ASSUMPTION: 10,000 API calls/mo x $1/1,000 = $10.0."
+        },
+        {
+          "name": "Application Load Balancer",
+          "awsService": "Elastic Load Balancing",
+          "monthlyListUsd": 119.36,
+          "assumption": "3 x (730 h x $0.0225 + 730 h x 4 LCU x $0.008) = $119.36. ASSUMPTION: average 4 LCU (LCU dimensions not modelled)."
+        },
+        {
+          "name": "ECS Fargate redirect/admin service with in-memory Bloom filter",
+          "awsService": "AWS Fargate",
+          "monthlyListUsd": 432.48,
+          "assumption": "3 region(s) x 4 tasks x 730 h x (1 vCPU x $0.04048 + 2 GB x $0.004445) = $432.48 (Linux/x86, on-demand). ASSUMPTION: task count/size."
+        },
+        {
+          "name": "DynamoDB lookups (eventually consistent, <=4 KB)",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 12.88,
+          "assumption": "ASSUMPTION: 60% served from KVS hot set, 30% of all requests are misses (bot scans). Origin sees 800M; Bloom (1% FP) passes 6.0M of 600M misses + 200M long-tail hits = 206.0M reads x 0.5 RRU = 103.00M RRU x $0.125/1M = $12.88."
+        },
+        {
+          "name": "DynamoDB rule writes",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 1.25,
+          "assumption": "ASSUMPTION: 2M writes/mo x 1 WRU (<=1 KB) x $0.625/1M = $1.25."
+        },
+        {
+          "name": "DynamoDB storage",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 7.5,
+          "assumption": "ASSUMPTION: 50M rules x ~200 B = 10 GB x 3 replica(s) x $0.25/GB-mo = $7.5. Gross; 25 GB free tier not netted."
+        },
+        {
+          "name": "DynamoDB global tables replicated writes",
+          "awsService": "Amazon DynamoDB",
+          "monthlyListUsd": 2.5,
+          "assumption": "ASSUMPTION: 2M writes replicated to 2 other Regions = 4M rWRU x $0.625/1M = $2.5."
+        },
+        {
+          "name": "Inter-Region replication transfer",
+          "awsService": "AWS Data Transfer",
+          "monthlyListUsd": 0.08,
+          "assumption": "ASSUMPTION: 4M x ~1 KB = 4 GB x $0.02/GB (us-east-1 out to other Regions) = $0.08."
+        },
+        {
+          "name": "Route 53 latency routing + health checks",
+          "awsService": "Amazon Route 53",
+          "monthlyListUsd": 9.5,
+          "assumption": "ASSUMPTION: 10M LBR queries x $0.60/1M = $6.00 + 3 AWS-endpoint health checks (basic free up to 50) x $1.00 HTTPS option = $3.00 + 1 hosted zone $0.50 = $9.5."
+        },
+        {
+          "name": "CloudFront real-time logs",
+          "awsService": "Amazon CloudFront",
+          "monthlyListUsd": 20.0,
+          "assumption": "2,000M log lines x $0.01/1M = $20.0."
+        },
+        {
+          "name": "Kinesis Data Streams (on-demand)",
+          "awsService": "Amazon Kinesis Data Streams",
+          "monthlyListUsd": 89.2,
+          "assumption": "ASSUMPTION: ~250 B/line -> 500 GB in x $0.08 + 500 GB read x $0.04 + 730 stream-h x $0.04 = $89.2."
+        },
+        {
+          "name": "Data Firehose (KDS source -> S3)",
+          "awsService": "Amazon Data Firehose",
+          "monthlyListUsd": 290.0,
+          "assumption": "Per-record 5 KB rounding: 2,000M records x 5 KB = 10,000 GB x $0.029/GB = $290.0. ASSUMPTION: rounding applies per log record; aggregate records upstream to cut this ~20x."
+        },
+        {
+          "name": "S3 click-event lake",
+          "awsService": "Amazon S3",
+          "monthlyListUsd": 10.85,
+          "assumption": "ASSUMPTION: compressed objects ~30% of raw (Firehose format conversion at $0.018/GB not included), 3-month retention -> 450 GB x $0.023 + 100k PUTs x $0.005/1k = $10.85."
+        },
+        {
+          "name": "Athena attribution queries",
+          "awsService": "Amazon Athena",
+          "monthlyListUsd": 50.0,
+          "assumption": "ASSUMPTION: 10 TB scanned/mo x $5/TB = $50.0 (10 MB minimum per query)."
+        }
+      ]
+    }
+  ]
+}

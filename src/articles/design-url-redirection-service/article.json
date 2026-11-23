@@ -1,0 +1,63 @@
+{
+  "slug": "design-url-redirection-service",
+  "archetype": "design-x",
+  "title": "Designing a URL Redirection & Vanity URL Service",
+  "subtitle": "Start with 200 redirect objects. Earn every component after that.",
+  "summary": "An evolution-first design of a URL redirection and vanity URL service on AWS: from zero-byte S3 redirect objects to an edge KeyValueStore, a regional Bloom-filter miss guard over DynamoDB, async click attribution and a multi-tenant, multi-Region rule engine. Each level has a trigger, deferred work, build-vs-buy and a sourced cost tier.",
+  "phase": "published",
+  "primarySeries": "system-design",
+  "tags": [
+    "system-design",
+    "redirects",
+    "edge",
+    "aws",
+    "cloudfront",
+    "dynamodb"
+  ],
+  "concepts": [
+    "bloom-filter",
+    "vanity-urls",
+    "edge-caching",
+    "negative-caching",
+    "click-attribution",
+    "multi-region"
+  ],
+  "version": 1,
+  "publishedAt": "2026-11-23",
+  "updatedAt": "2026-11-23",
+  "quickRead": {
+    "readingMinutes": 3,
+    "tldr": "Six levels, each earned by a concrete trigger: S3 redirect objects behind CloudFront, a Fargate service over DynamoDB, CloudFront Functions + KeyValueStore at the edge, a Bloom filter in the regional service once 10M+ slugs and bot scans arrive, async click attribution, then a multi-tenant rule engine across three Regions.",
+    "keyTakeaways": [
+      "CloudFront has no declarative redirect rules; start with zero-byte S3 redirect objects (always 301) or Amplify / Cloudflare rules, not a service.",
+      "CloudFront KeyValueStore caps at 5 MB per store and 1 KB per value: roughly 50k typical rules (estimate), plenty for a hot set, nowhere near 10M slugs.",
+      "A 10M-slug Bloom filter at a 1% false-positive rate is ≈12 MB, too big for KVS or CloudFront Functions, so it guards DynamoDB from inside the regional service while the edge caches 404s.",
+      "CloudFront request fees are 55–61% of the bill from L2 up; Firehose's 5 KB per-record rounding is the trap in click tracking.",
+      "Global tables are last-writer-wins by default: give each tenant one write Region. Rule compilers and replay verifiers are cheap now; DNS cutover, SEO sign-off and ownership are not."
+    ]
+  },
+  "thumbnailAlt": "Six-level diagram of a redirect service growing from S3 redirect objects behind a CDN to an edge key-value store, a Bloom filter over DynamoDB, a click pipeline and a multi-Region rule engine.",
+  "features": { "audio": true, "pdf": true },
+  "pages": [
+    {
+      "title": "Designing a URL Redirection & Vanity URL Service",
+      "navLabel": "Article",
+      "entry": "pages/index.mdx",
+      "summary": "Six evolution levels, L0 to L5: trigger, design, deferred work, build-vs-buy, cost tier and exit criteria, with sources."
+    },
+    {
+      "slug": "interactive-lab",
+      "title": "Interactive Lab",
+      "navLabel": "Interactive Lab",
+      "entry": "pages/interactive-lab.mdx",
+      "summary": "Pick a level, inject failures into its topology, and read that level's AWS list-price cost model."
+    }
+  ],
+  "relations": [
+    {
+      "targetSlug": "bloom-filter-building-block",
+      "kind": "uses-building-block",
+      "reason": "Bloom filter guard in front of the redirect store."
+    }
+  ]
+}

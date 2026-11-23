@@ -1,0 +1,30 @@
+---
+interface Props {
+  pdfUrl?: string;
+  title: string;
+  canonicalUrl: string;
+}
+const { pdfUrl, title, canonicalUrl } = Astro.props;
+---
+
+<section class="sp-print-notice" aria-label="Print notice">
+  <div class="sp-print-card">
+    <div class="sp-print-brand">sujeet.pro</div>
+    <h1 class="sp-print-title">{title}</h1>
+    <p style="margin:0 0 10px;line-height:1.6;">
+      This article contains interactive simulators and calculators that do not render accurately when printed
+      from the browser.
+    </p>
+    {pdfUrl && (
+      <>
+        <p style="margin:0;line-height:1.6;">
+          Please download the formatted <strong>PDF edition</strong>:
+        </p>
+        <div class="sp-print-url">{new URL(pdfUrl, canonicalUrl).href}</div>
+      </>
+    )}
+    <p style="margin:12px 0 0;line-height:1.6;">
+      Interactive version: <span class="sp-mono">{canonicalUrl}</span>
+    </p>
+  </div>
+</section>

@@ -1,0 +1,37 @@
+---
+/**
+ * Theme-aware raster pair (P7, Stage 4.1 prop spec): renders both `<name>-light.webp` and `<name>-dark.webp`
+ * with explicit width/height (zero CLS) and toggles them on the resolved `data-sp-scheme`, not the OS
+ * preference. The hidden variant is lazy-loaded. In the print/PDF render (Stage 4.4) only the light image
+ * is emitted, eagerly, so `page.pdf()` never waits on a lazy image.
+ */
+import { mediaUrl } from '../../lib/media';
+import { isPrint } from '../../lib/print';
+
+interface Props {
+  slug: string;
+  /** Basename under `diagrams/` without the `-light|-dark.webp` suffix. */
+  name: string;
+  alt: string;
+  width: number;
+  height: number;
+  /** Anchor for audio `targetVisualId`. */
+  id?: string;
+}
+
+const { slug, name, alt, width, height, id } = Astro.props;
+const src = (v: 'light' | 'dark') => mediaUrl(slug, `diagrams/${name}-${v}.webp`);
+const print = isPrint(Astro.locals);
+---
+
+<span class="sp-visual" id={id}>
+  <img class="sp-visual-light" src={src('light')} alt={alt} width={width} height={height} decoding="async" />
+  {!print && <img class="sp-visual-dark" src={src('dark')} alt={alt} width={width} height={height} decoding="async" loading="lazy" />}
+</span>
+
+<style is:global>
+  .sp-visual { display: block; }
+  .sp-visual img { display: block; width: 100%; height: auto; }
+  [data-sp-scheme='dark'] .sp-visual-light,
+  :root:not([data-sp-scheme='dark']) .sp-visual-dark { display: none; }
+</style>

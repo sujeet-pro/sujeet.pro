@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "audio/chapters.json": {
+      "pipeline": "audio",
+      "inputHash": "5391eb89cc1adb018f73c57421a784835a3a07f3bb8bb1a0312fa1b49cc4136f",
+      "outputHash": "996f1a3ce640fb003cdfe1dee3e7622d60cca4e824a23325a570749efd77d444",
+      "toolVersion": "mlx-audio@0.6.7+synth.309ec18a99cc0a84",
+      "generatedAt": "2026-11-22T22:59:03.354Z"
+    },
+    "audio/episode.mp3": {
+      "pipeline": "audio",
+      "inputHash": "5391eb89cc1adb018f73c57421a784835a3a07f3bb8bb1a0312fa1b49cc4136f",
+      "outputHash": "f004371d70845380008223b47f30f19379546eb50b5ec559a315ab4134204766",
+      "toolVersion": "mlx-audio@0.6.7+synth.309ec18a99cc0a84",
+      "generatedAt": "2026-11-22T22:59:03.354Z"
+    },
+    "diagrams/stage-l0-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "058120eae07ea6ef695734ff77fc3a16d9504f597a7bcfdd982474f0925a0914",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l0-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "086e284f18d761df8f809a2cfaf4c474a260921f0b5af4930ff63392f0ad0a10",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l1-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "8a82cad0c9e42ad9d534757f1f1b6f16f9785e47901e88ac2af935cadbf6a104",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l1-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "ec4fb3c107c58ee7a2be01bf2b7297191e82d2914da6854d70d1b5558a7daf05",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l2-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "c7c6c76be65b18e1e8bfaa49fb5dbd562768959ea4e893ada6804bc192b68afd",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l2-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "889a9d56031a00d4502eea81a13b08cf29ce71f9b8b803cde51e4ac1ca65fde5",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l3-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "dade214401d65294163f1383aeffdf56ae8d7db30f7ae4c9025cd16e7538e951",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l3-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "07b88d2093033b68ed2febd4eb2136c80671b0498f1d72ebee52892d0c5314bc",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l4-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "5fac36f4065915c011528e550fd572ea317cf51afa11896a3dc2d9a12d0ef650",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l4-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "87c5d95ce67115f989f1b414d0b902f0d981ce3a2c1bcd26bfb2e7322e653cb0",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l5-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "1613673d6fa88ff359f21ae89606bd071fc8108477f9badb0cb5412c93017dfb",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "diagrams/stage-l5-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "f2f1f1964859f584bdb54698a4f46cbac25b3c99216ad66b1f7b58f8e073c72b",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "exports/design-url-redirection-service.pdf": {
+      "pipeline": "pdf",
+      "inputHash": "0316d470aa0441064630a1ada493ebf4b13c4e40ba35eb13fb06f4732e8fa211",
+      "outputHash": "d8aafad2946e2d181cd71e94ad37c805b7ae816ea72645938a85c86d247c90d0",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+pdf-lib@1.17.1+astro@7.4.13",
+      "generatedAt": "2026-11-22T22:59:17Z"
+    },
+    "social/linkedin-card.png": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "18cd632765f4e39ea9cebbb278e1a2ae190eba6194decbb6eb19f21ad4cdc137",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "social/thumbnail-dark.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "94378662618cf2f92f6803e2492a7d7705e910f421c94f8cc22e9ec6a681aa46",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "social/thumbnail-light.webp": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "3341056012e0a07fbe37e18db7147a4fe8793fd0e43d650b5e10a2523fa77703",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    },
+    "social/thumbnail.png": {
+      "pipeline": "visuals",
+      "inputHash": "46505db06aa0a0f9b5f30e4b58bb518673f6566353c1a43e3f45c1abd6870a29",
+      "outputHash": "ceef62bc0b729fbf61d687cc992c40de09d9b0f4b5ce252bfc4d9645cd9cfa08",
+      "toolVersion": "playwright@1.65.1+chromium@159.0.8154.6+sharp@0.35.5+libvips@8.18.7+astro@7.4.13+react-dom@19.3.1",
+      "generatedAt": "2026-11-22T23:19:10.387Z"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+---
+interface Props {
+  readingMinutes: number;
+  tldr: string;
+  keyTakeaways: string[];
+}
+const { readingMinutes, tldr, keyTakeaways } = Astro.props;
+---
+
+<section class="sp-quickread" aria-label="Summary">
+  <div class="sp-quickread-head">
+    <span class="sp-quickread-label">Summary</span>
+    <span class="sp-quickread-time">{readingMinutes} min</span>
+  </div>
+  <p class="sp-quickread-tldr">{tldr}</p>
+  {
+    keyTakeaways.length > 0 && (
+      <ul class="sp-quickread-list">
+        {keyTakeaways.map((t) => (
+          <li>{t}</li>
+        ))}
+      </ul>
+    )
+  }
+</section>

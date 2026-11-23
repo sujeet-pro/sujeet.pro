@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "title": "Designing a URL Redirection & Vanity URL Service",
+  "voice": "am_michael",
+  "model": "mlx-community/Kokoro-82M-bf16",
+  "durationSec": 544.525,
+  "sampleRateHz": 24000,
+  "chapters": [
+    {
+      "id": "ladder",
+      "title": "The evolution ladder",
+      "startSec": 0,
+      "endSec": 40.8,
+      "targetSectionId": "evolution-ladder",
+      "transcript": [
+        "A redirect service looks like one hash lookup. The design work is deciding which component the next trigger has actually earned. This companion walks the six levels of the article, L0 to L5. Each one names a trigger, the minimum design, what it defers, a build-versus-buy call and a cost tier.",
+        "Two ground rules. Prices are AWS list prices for us-east-1, read on 23 November 2026. Rule counts, traffic and miss rates are modelled scenarios, not measurements, and the page labels them as assumptions."
+      ]
+    },
+    {
+      "id": "l0-l1",
+      "title": "L0 and L1: redirect objects, then a service",
+      "startSec": 40.8,
+      "endSec": 150.1,
+      "targetSectionId": "stage-l0",
+      "transcript": [
+        "L0 is one marketing site with about 200 vanity URLs. CloudFront has no declarative redirect rules, so each link becomes a zero-byte S3 object with a redirect header. S3 answers 301, and CloudFront sits in front because S3 website endpoints don't serve HTTPS.",
+        "Why objects? S3 website routing rules stop at 50 per configuration. The code route, a CloudFront Function with the map inlined, caps code at 10 KB: roughly 150 short rules by the article's estimate. So the redirects file lives in the repo, and a pull request is the admin UI.",
+        "One catch: object redirects are always 301, which browsers may cache. If campaigns get repointed, Amplify Hosting rules or Cloudflare Bulk Redirects fit better.",
+        "L1 starts when marketing wants links without a deploy. A small ECS Fargate service holds the whole rule set in memory and reloads it on every write; DynamoDB on-demand is the database of record. The admin UI rejects duplicate slugs, redirect loops and blocked domains, and 302 becomes the default.",
+        "Fixed costs dominate here: the load balancer is about $22 a month and two small Fargate tasks about $18, of roughly $51 at list. The verdict is build: SaaS shorteners price on links created and serve from their own short domain. A backfill script is cheap with AI help; replaying every old path before deleting the objects is what makes it safe."
+      ]
+    },
+    {
+      "id": "l2",
+      "title": "L2: push the map to the edge",
+      "startSec": 150.1,
+      "endSec": 254.925,
+      "targetSectionId": "stage-l2",
+      "transcript": [
+        "The trigger is a launch in three markets, with the origin still in us-east-1 and APAC p95 too slow. Every APAC redirect crosses an ocean for a lookup that rarely changes. So a CloudFront Function reads CloudFront KeyValueStore and answers at the edge; the origin sees only misses and admin traffic.",
+        "Know the limits: 512-byte keys, 1 KB values, 5 MB per store, one store per function, and readable only from CloudFront Functions, not Lambda@Edge. At an assumed 100 bytes per entry, 5 MB holds roughly 50,000 rules.",
+        "Writes land in DynamoDB first and are pushed to the edge store in batches. AWS's 2023 launch post describes propagation as a few seconds, with no SLA, so the admin UI promises \"live within seconds\", not \"instant\".",
+        "The money: $0.10 per million function invocations and $0.03 per million store reads, on top of the CloudFront fee of $0.01 per 10,000 HTTPS requests. That request fee is about 55% of this tier's bill.",
+        "Cut over in shadow: the function computes its answer while the origin still serves, and you flip only when mismatches reach zero. A 302 that turns into a 301 is a behaviour change for search engines, so SEO signs off first. Write down who owns the function and who owns the rules before the first incident."
+      ]
+    },
+    {
+      "id": "l3",
+      "title": "L3: the Bloom filter, and where it can't live",
+      "startSec": 254.925,
+      "endSec": 360.425,
+      "targetSectionId": "stage-l3",
+      "transcript": [
+        "User-generated links push the table past 10 million slugs. Then a bot scans random paths: every miss falls through the edge and the service to DynamoDB, and the read bill tracks attacker traffic. This level replaces the in-memory map with a Bloom-filter miss guard.",
+        "The sizing: 10 million slugs at a 1% false-positive rate need about 12 MB, which is 9.585 bits per key with seven hash functions. At that rate the filter rejects about 99% of misses, and it never answers \"absent\" for a slug that exists.",
+        "The surprise is where it can't go. Twelve megabytes is about 12,000 times one KVS value, 2.4 times a whole store, and far past the 10 KB code and 2 MB memory limits of CloudFront Functions. Lambda@Edge could hold it, at six times the per-request price and with no KVS access.",
+        "So the filter lives in each Fargate task, in front of DynamoDB. The edge keeps the hot set and caches 404s for a short TTL. Every write is added to each task's filter, a scheduled rebuild clears deleted slugs, and while a filter loads the service fails open to DynamoDB.",
+        "Skip the cache tier on cost grounds. DynamoDB reads here are about $1.93 a month, against about $122.64 just to store a 2 GB hot set in ElastiCache Serverless Valkey. A cache is a latency option, not a cost saver."
+      ]
+    },
+    {
+      "id": "l4",
+      "title": "L4: click attribution off the hot path",
+      "startSec": 360.425,
+      "endSec": 420.875,
+      "targetSectionId": "stage-l4",
+      "transcript": [
+        "Growth wants per-link clicks and campaign attribution without slowing the redirect. CloudFront real-time logs feed Kinesis Data Streams, then Firehose, then S3, queried with Athena. The redirect never waits on tracking, and a tracking outage degrades dashboards, never redirects.",
+        "The trap is Firehose billing: each record rounds up to 5 KB, so a 250-byte click line bills at 20 times its size. Aggregate clicks into larger records first. The cost model shows the unaggregated worst case, about $87 a month at 600 million clicks.",
+        "If minutes of delay are fine, skip the stream: standard logs to S3 carry no delivery charge. Partition by date and campaign, because Athena bills $5 per terabyte scanned, with a 10 MB minimum per query."
+      ]
+    },
+    {
+      "id": "l5",
+      "title": "L5: a multi-tenant rule engine",
+      "startSec": 420.875,
+      "endSec": 511.425,
+      "targetSectionId": "stage-l5",
+      "transcript": [
+        "Now the platform hosts 40 brands. They need prefix and regex rules with precedence, isolation from each other's mistakes, and SLAs that survive a Region loss. A flat exact-match lookup is no longer the product, so this level replaces the service with an ordered rule engine.",
+        "The matcher runs exact hash first, then a prefix trie, then compiled regex, with conflicts rejected at publish time. Each tenant gets its own rule set, quotas and publish pipeline, so one brand's bad regex can't stall another's redirects.",
+        "Three Regions sit behind Route 53 latency routing and health checks. DynamoDB global tables are last-writer-wins by default, replicating typically within a second or less, so each tenant writes in one home Region. Strong consistency stays deferred until a contract requires zero data loss.",
+        "Look at the bill: CloudFront request fees are still about 59% of this tier's roughly $3,401 a month at list. The matcher is not where the money goes.",
+        "Deterministic rule compilers and shadow-replay verifiers are cheap to build now. DNS cutover, SEO sign-off and cross-team ownership are not, and cheaper tooling doesn't shorten those conversations."
+      ]
+    },
+    {
+      "id": "lab",
+      "title": "Try it in the lab",
+      "startSec": 511.425,
+      "endSec": 544.525,
+      "targetPage": "interactive-lab",
+      "targetSectionId": "topology-simulator",
+      "transcript": [
+        "The Interactive Lab replays all six levels. Pick one, mark any component ten times slower or down to see its blast radius and fallback path, switch between generic and AWS names, and read that level's cost table. Its 25 to 40% enterprise discount range is an assumption; AWS publishes no discount schedule.",
+        "The thesis holds at every level: start with a config file, and make every component after it earn its place."
+      ]
+    }
+  ]
+}
